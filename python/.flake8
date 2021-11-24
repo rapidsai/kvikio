@@ -1,0 +1,13 @@
+[flake8]
+ignore = E901,E225,E226,E227,E999,E203,W503
+exclude =
+    .eggs,
+    *.egg,
+    build,
+    versioneer.py,
+
+max-line-length = 88
+
+# Ignore black/flake8-pyi conflicts
+per-file-ignores =
+    *.pyi:E301 E302 E704
