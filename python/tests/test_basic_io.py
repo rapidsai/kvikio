@@ -5,10 +5,11 @@ import pytest
 
 import cufile
 
+cupy = pytest.importorskip("cupy")
 
-def test_cupy_read_write(tmp_path):
-    """Test basic CuPy IO"""
-    cupy = pytest.importorskip("cupy")
+
+def test_read_write(tmp_path):
+    """Test basic read/write"""
     filename = tmp_path / "test-file"
     print(filename)
 
@@ -35,9 +36,8 @@ def test_cupy_read_write(tmp_path):
     assert all(a == b)
 
 
-def test_cupy_write_in_offsets(tmp_path):
+def test_write_in_offsets(tmp_path):
     """Write to files in chunks"""
-    cupy = pytest.importorskip("cupy")
     filename = tmp_path / "test-file"
 
     a = cupy.arange(200)
