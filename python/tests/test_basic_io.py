@@ -68,3 +68,17 @@ def test_write_in_offsets(tmp_path):
     f = cufile.CuFile(filename, "r")
     f.read(b)
     assert all(a == b)
+
+
+def test_context(tmp_path):
+    """Open file using context"""
+    filename = tmp_path / "test-file"
+    a = cupy.arange(200)
+    b = cupy.empty_like(a)
+    with cufile.CuFile(filename, "w+") as f:
+        assert not f.closed
+        assert f.open_flags() & (os.O_WRONLY | os.O_DIRECT | os.O_CLOEXEC)
+        assert f.write(a) == a.nbytes
+        f.read(b)
+        assert all(a == b)
+    assert f.closed

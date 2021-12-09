@@ -54,6 +54,12 @@ cdef class CuFile:
     def open_flags(self) -> int:
         return self._handle.fd_open_flags()
 
+    def __enter__(self) -> CuFile:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
     def read(self,
         buf, size: int = None, file_offset: int = 0
     ) -> int:
@@ -171,4 +177,3 @@ cdef class NVML:
     def get_bar1_memory(self) -> Tuple[int, int]:
         cdef pair[size_t, size_t] info = self._handle.get_bar1_memory()
         return info.first, info.second
-
