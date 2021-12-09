@@ -131,6 +131,7 @@ def main(args):
     gds_version = "N/A (Compatibility Mode)"
     if props.is_gds_availabe:
         gds_version = f"v{props.major_version}.{props.minor_version}"
+    gds_config_json_path = os.getenv("CUFILE_ENV_PATH_JSON", "/etc/cufile.json")
 
     print("Roundtrip benchmark")
     print("----------------------------------")
@@ -144,6 +145,7 @@ def main(args):
     print(f"GPU Memory Total  | {format_bytes(mem_total)}")
     print(f"BAR1 Memory Total | {format_bytes(bar1_total)}")
     print(f"GDS driver        | {gds_version}")
+    print(f"GDS config.json   | {gds_config_json_path}")
     print("----------------------------------")
     print(f"nbytes            | {args.nbytes} bytes ({format_bytes(args.nbytes)})")
     print(f"4K aligned        | {args.nbytes % 4096 == 0}")
