@@ -2,6 +2,7 @@
 # See file LICENSE for terms.
 
 # distutils: language = c++
+# cython: language_level=3
 
 import os
 import pathlib
@@ -29,6 +30,7 @@ def memory_deregister(buf) -> None:
 
 
 cdef class CuFile:
+    """ File handle for GPUDirect Storage (GDS) """
     cdef FileHandle _handle
 
     def __init__(self, file_path, flags="r"):
@@ -53,7 +55,7 @@ cdef class CuFile:
         return self._handle.fd_open_flags()
 
     def read(self,
-        buf, size:int=None, file_offset:int=0
+        buf, size: int = None, file_offset: int = 0
     ) -> int:
         if not isinstance(buf, Array):
             buf = Array(buf)
@@ -76,7 +78,7 @@ cdef class CuFile:
         )
 
     def write(self,
-        buf, size:int=None, file_offset:int=0
+        buf, size: int = None, file_offset: int = 0
     ) -> int:
         if not isinstance(buf, Array):
             buf = Array(buf)

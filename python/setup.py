@@ -17,13 +17,24 @@ try:
 except ImportError:
     from setuptools.command.build_ext import build_ext as _build_ext
 
+import distutils.util
 from distutils.sysconfig import get_python_lib
 
+import Cython.Compiler.Options
 import setuptools.command.build_ext
 from setuptools import setup
 from setuptools.extension import Extension
 
 import versioneer
+
+# Set `DEBUG_BUILD=true` to enable debug build
+DEBUG_BUILD = distutils.util.strtobool(os.environ.get("DEBUG_BUILD", "false"))
+
+# Turn all warnings into errors.
+Cython.Compiler.Options.warning_errors = True
+
+# Abort the compilation on the first error
+Cython.Compiler.Options.fast_fail = True
 
 install_requires = ["cython"]
 this_setup_scrip_dir = os.path.dirname(os.path.realpath(__file__))
@@ -72,9 +83,6 @@ extensions = [
     Extension(
         "arr",
         sources=["src/arr.pyx"],
-        # include_dirs=include_dirs,
-        # library_dirs=library_dirs,
-        # libraries=["cudart", "cufile"],
         language="c++",
         extra_compile_args=["-std=c++17"],
         depends=depends,
@@ -90,12 +98,16 @@ def remove_flags(compiler, *flags):
             pass
 
 
-class build_ext_no_debug(_build_ext):
+class build_ext(_build_ext):
     def build_extensions(self):
-        # Full optimization
-        self.compiler.compiler_so.append("-O3")
-        # No debug symbols, full optimization, no '-Wstrict-prototypes' warning
-        remove_flags(self.compiler, "-g", "-G", "-O1", "-O2", "-Wstrict-prototypes")
+        # No '-Wstrict-prototypes' warning
+        remove_flags(self.compiler, "-Wstrict-prototypes")
+        if not DEBUG_BUILD:
+            # Full optimization
+            self.compiler.compiler_so.append("-O3")
+        if not DEBUG_BUILD:
+            # No debug symbols
+            remove_flags(self.compiler, "-g", "-G", "-O1", "-O2")
         super().build_extensions()
 
     def finalize_options(self):
@@ -111,7 +123,10 @@ class build_ext_no_debug(_build_ext):
                 force=self.force,
                 gdb_debug=False,
                 compiler_directives=dict(
-                    profile=False, language_level=3, embedsignature=True, binding=True,
+                    profile=False,
+                    language_level=3,
+                    embedsignature=True,
+                    binding=(not DEBUG_BUILD),
                 ),
             )
         # Skip calling super() and jump straight to setuptools
@@ -120,8 +135,7 @@ class build_ext_no_debug(_build_ext):
 
 cmdclass = dict()
 cmdclass.update(versioneer.get_cmdclass())
-cmdclass["build_ext"] = build_ext_no_debug
-cmdclass["build_ext"] = _build_ext  # TODO: Remove
+cmdclass["build_ext"] = build_ext
 
 setup(
     name="cufile",
