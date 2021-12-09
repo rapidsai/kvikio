@@ -62,6 +62,17 @@ if not os.path.isdir(CUDA_HOME):
 include_dirs.append(os.path.join(CUDA_HOME, "include"))
 library_dirs.append(os.path.join(CUDA_HOME, "lib64"))
 
+# Use CuFile location outside of CUDA_HOME
+if "CUFILE_HOME" in os.environ:
+    CUFILE_HOME = os.environ["CUFILE_HOME"]
+    if not os.path.isdir(CUDA_HOME):
+        raise OSError(f"Invalid CUFILE_HOME: directory does not exist: {CUFILE_HOME}")
+    include_dirs.append(os.path.join(CUFILE_HOME, "include"))
+    if os.path.isdir(os.path.join(CUFILE_HOME, "lib64")):
+        library_dirs.append(os.path.join(CUFILE_HOME, "lib64"))
+    else:
+        library_dirs.append(os.path.join(CUFILE_HOME, "lib"))
+
 # Add cuFile++ headers from the source tree (if available)
 cufilexx_include_dir = os.path.abspath(f"{this_setup_scrip_dir}/../cpp/include")
 if os.path.isdir(cufilexx_include_dir):
