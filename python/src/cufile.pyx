@@ -28,6 +28,12 @@ def memory_deregister(buf) -> None:
     cdef Array arr = buf
     cufile_cxx_api.memory_deregister(<void*>arr.ptr)
 
+def set_num_threads(nthread: int) -> None:
+    cufile_cxx_api.reset(nthread)
+
+def get_num_threads() -> int:
+    return cufile_cxx_api.nthreads()
+
 
 cdef class CuFile:
     """ File handle for GPUDirect Storage (GDS) """
@@ -77,7 +83,7 @@ cdef class CuFile:
             raise ValueError("Size is greater than the size of the buffer")
         else:
             nbytes = size
-        return self._handle.read(
+        return self._handle.pread(
             <void*>arr.ptr,
             nbytes,
             file_offset
@@ -100,7 +106,7 @@ cdef class CuFile:
             raise ValueError("Size is greater than the size of the buffer")
         else:
             nbytes = size
-        return self._handle.write(
+        return self._handle.pwrite(
             <void*>arr.ptr,
             nbytes,
             file_offset

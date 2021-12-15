@@ -41,6 +41,13 @@ rapids_find_package(
   CUDAToolkit REQUIRED
   BUILD_EXPORT_SET cufilecxx-exports
   INSTALL_EXPORT_SET cufilecxx-exports)
+
+rapids_find_package(
+  Threads REQUIRED
+  BUILD_EXPORT_SET cufilecxx-exports
+  INSTALL_EXPORT_SET cufilecxx-exports
+)
+
 rapids_cpm_init()
 
 # find cuFile
@@ -57,6 +64,7 @@ add_library(cufilecxx::cufilecxx ALIAS cufilecxx)
 target_include_directories(cufilecxx INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                                                "$<INSTALL_INTERFACE:include>")
 
+target_link_libraries(cufilecxx INTERFACE Threads::Threads)
 target_link_libraries(cufilecxx INTERFACE CUDA::cudart)
 target_link_libraries(cufilecxx INTERFACE CUDA::nvml)
 target_link_libraries(cufilecxx INTERFACE cuda)

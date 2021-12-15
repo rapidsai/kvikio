@@ -28,10 +28,11 @@
 #include <cufile.h>
 #include <cufile/buffer.hpp>
 #include <cufile/error.hpp>
+#include <cufile/thread_pool.hpp>
 #include <cufile/utils.hpp>
 
 namespace cufile {
-namespace detail {
+namespace {
 
 inline int open_fd_parse_flags(const std::string& flags)
 {
@@ -66,7 +67,73 @@ inline int open_fd(const std::string& file_path, const std::string& flags, mode_
   return fd;
 }
 
-}  // namespace detail
+}  // namespace
+
+namespace default_thread_pool {
+namespace {
+inline unsigned int get_num_threads_from_env()
+{
+  const char* nthreads = std::getenv("CUFILE_NTHREADS");
+  if (nthreads == nullptr) { return 1; }
+  const int n = std::stoi(nthreads);
+  if (n <= 0) { throw std::invalid_argument("CUFILE_NTHREADS has to be a positive integer"); }
+  return std::stoi(nthreads);
+}
+/*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
+inline thread_pool _current_default_thread_pool{get_num_threads_from_env()};
+
+}  // namespace
+
+inline thread_pool& get() { return _current_default_thread_pool; }
+inline void reset(unsigned int nthreads = get_num_threads_from_env())
+{
+  _current_default_thread_pool.reset(nthreads);
+}
+inline unsigned int nthreads() { return _current_default_thread_pool.get_thread_count(); }
+
+}  // namespace default_thread_pool
+
+// Help function to read or write in parallel
+template <typename T>
+std::size_t cufile_io(T op, const void* devPtr, std::size_t size, std::size_t file_offset)
+{
+  auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr);
+
+  if (default_thread_pool::nthreads() == 1) {  // Sequential operation
+    return op(devPtr_base, size, file_offset, devPtr_offset);
+  }
+
+  int device{-1};
+  if (cudaGetDevice(&device) != cudaSuccess) { throw CUfileException("cudaGetDevice failed"); }
+
+  auto task = [device, op](void* devPtr_base,
+                           std::size_t size,
+                           std::size_t file_offset,
+                           std::size_t devPtr_offset) -> std::size_t {
+    if (device > -1) {
+      if (cudaSetDevice(device) != cudaSuccess) { throw CUfileException("cudaSetDevice failed"); }
+    }
+    return op(devPtr_base, size, file_offset, devPtr_offset);
+  };
+
+  std::vector<std::future<std::size_t>> tasks;
+  const std::size_t ntasks   = default_thread_pool::nthreads();
+  const std::size_t tasksize = size / ntasks;
+  std::size_t last_jobsize   = tasksize + size % ntasks;
+
+  tasks.reserve(ntasks);
+  for (std::size_t i = 0; i < ntasks; ++i) {
+    const std::size_t cur_size = (i == ntasks - 1) ? last_jobsize : tasksize;
+    const std::size_t offset   = i * tasksize;
+    tasks.push_back(default_thread_pool::get().submit(
+      task, devPtr_base, cur_size, file_offset + offset, devPtr_offset + offset));
+  }
+  std::size_t ret{0};
+  for (auto& task : tasks) {
+    ret += task.get();
+  }
+  return ret;
+}
 
 class FileHandle {
  private:
@@ -89,7 +156,7 @@ class FileHandle {
   }
 
   FileHandle(const std::string& file_path, const std::string& flags = "r", mode_t mode = m644)
-    : FileHandle(detail::open_fd(file_path, flags, mode), true)
+    : FileHandle(open_fd(file_path, flags, mode), true)
   {
   }
 
@@ -157,17 +224,6 @@ class FileHandle {
     return ret;
   }
 
-  std::size_t read(void* devPtr, std::size_t size, std::size_t file_offset = 0)
-  {
-    auto [base, nbytes, offset] = get_alloc_info(devPtr);
-
-    // std::cout << "read()  - devPtr: " << devPtr << ", size: " << size << ", base_ptr: " << base
-    //           << ", devPtr_offset: " << offset << ", nbytes: " << nbytes
-    //           << ", file_offset: " << file_offset << std::endl;
-
-    return read(base, size, file_offset, offset);
-  }
-
   std::size_t write(const void* devPtr_base,
                     std::size_t size,
                     std::size_t file_offset,
@@ -185,16 +241,29 @@ class FileHandle {
     return ret;
   }
 
-  std::size_t write(const void* devPtr, std::size_t size, std::size_t file_offset = 0)
+  std::size_t pread(void* devPtr, std::size_t size, std::size_t file_offset = 0)
   {
-    auto [base, nbytes, offset] = get_alloc_info(devPtr);
-
-    // std::cout << "write() - devPtr: " << devPtr << ", size: " << size << ", base_ptr: " << base
-    //           << ", devPtr_offset: " << offset << ", nbytes: " << nbytes
-    //           << ", file_offset: " << file_offset << std::endl;
-
-    return write(base, size, file_offset, offset);
+    // Lambda that calls this->read()
+    auto op = [this](void* devPtr_base,
+                     std::size_t size,
+                     std::size_t file_offset,
+                     std::size_t devPtr_offset) -> std::size_t {
+      return read(devPtr_base, size, file_offset, devPtr_offset);
+    };
+    return cufile_io(op, devPtr, size, file_offset);
   }
-};  // namespace cufile
+
+  std::size_t pwrite(const void* devPtr, std::size_t size, std::size_t file_offset = 0)
+  {
+    // Lambda that calls this->write()
+    auto op = [this](const void* devPtr_base,
+                     std::size_t size,
+                     std::size_t file_offset,
+                     std::size_t devPtr_offset) -> std::size_t {
+      return write(devPtr_base, size, file_offset, devPtr_offset);
+    };
+    return cufile_io(op, devPtr, size, file_offset);
+  }
+};
 
 }  // namespace cufile

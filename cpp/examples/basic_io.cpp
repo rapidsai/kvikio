@@ -58,36 +58,52 @@ int main()
   for (int i = 0; i < 1024; ++i) {
     a[i] = i;
   }
-  void *a_dev, *b_dev;
+  void* a_dev = nullptr;
+  void* b_dev = nullptr;
+  void* c_dev = nullptr;
   check(cudaMalloc(&a_dev, sizeof(a)) == cudaSuccess);
   check(cudaMalloc(&b_dev, sizeof(a)) == cudaSuccess);
-
-  cufile::FileHandle fw("test-file", "w");
-  check(cudaMemcpy(a_dev, &a, sizeof(a), cudaMemcpyHostToDevice) == cudaSuccess);
-  size_t written = fw.write(a_dev, sizeof(a));
-  check(written == sizeof(a));
-  cout << "Written: " << written << endl;
-
-  // Reset
-  check(cudaMemset(a_dev, 0, sizeof(a)) == cudaSuccess);
-  fw.close();
-
-  cufile::FileHandle fr("test-file", "r");
-  size_t read = fr.read(b_dev, sizeof(a));
-  check(read == sizeof(a));
-  cout << "Read: " << read << endl;
-  check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
-  for (int i = 0; i < 1024; ++i) {
-    check(a[i] == b[i]);
-  }
-  fr.close();
-
-  cout << "Write registered device buffer" << endl;
-  void* c_dev;
   check(cudaMalloc(&c_dev, sizeof(a)) == cudaSuccess);
-  cufile::FileHandle frw("test-file", "r+", cufile::FileHandle::m644);
-  cufile::buffer_register(c_dev, size(a));
-  frw.write(c_dev, size(a), 0);
-  cufile::buffer_deregister(c_dev);
-  frw.close();
+
+  {
+    cufile::FileHandle f("test-file", "w");
+    check(cudaMemcpy(a_dev, &a, sizeof(a), cudaMemcpyHostToDevice) == cudaSuccess);
+    size_t written = f.pwrite(a_dev, sizeof(a));
+    check(written == sizeof(a));
+    cout << "Write: " << written << endl;
+  }
+  {
+    cufile::FileHandle f("test-file", "r");
+    size_t read = f.pread(b_dev, sizeof(a));
+    check(read == sizeof(a));
+    cout << "Read:  " << read << endl;
+    check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
+    for (int i = 0; i < 1024; ++i) {
+      check(a[i] == b[i]);
+    }
+  }
+  cufile::default_thread_pool::reset(16);
+  {
+    cufile::FileHandle f("test-file", "w");
+    size_t written = f.pwrite(a_dev, sizeof(a));
+    check(written == sizeof(a));
+    cout << "Parallel write (" << cufile::default_thread_pool::nthreads()
+         << " threads): " << written << endl;
+  }
+  {
+    cufile::FileHandle f("test-file", "r");
+    size_t read = f.pread(b_dev, sizeof(a), 0);
+    cout << "Parallel write (" << cufile::default_thread_pool::nthreads() << " threads): " << read
+         << endl;
+    check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
+    for (int i = 0; i < 1024; ++i) {
+      check(a[i] == b[i]);
+    }
+  }
+  {
+    cufile::FileHandle f("test-file", "r+", cufile::FileHandle::m644);
+    cufile::buffer_register(c_dev, size(a));
+    f.pwrite(c_dev, size(a), 0);
+    cufile::buffer_deregister(c_dev);
+  }
 }

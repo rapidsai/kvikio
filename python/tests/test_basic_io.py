@@ -11,13 +11,18 @@ import cufile
 cupy = pytest.importorskip("cupy")
 
 
-def test_read_write(tmp_path):
+@pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
+@pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
+def test_read_write(tmp_path, size, nthreads):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
-    print(filename)
+
+    # Set number of threads cuFile should use
+    cufile.set_num_threads(nthreads)
+    assert cufile.get_num_threads() == nthreads
 
     # Write file
-    a = cupy.arange(100)
+    a = cupy.arange(size)
     f = cufile.CuFile(filename, "w")
     assert not f.closed
     assert f.open_flags() & (os.O_WRONLY | os.O_DIRECT | os.O_CLOEXEC)

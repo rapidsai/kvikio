@@ -33,6 +33,11 @@ cdef extern from "cufile/buffer.hpp" namespace "cufile" nogil:
     void memory_deregister(const void* devPtr) except +
 
 
+cdef extern from "cufile/file_handle.hpp" namespace "cufile::default_thread_pool" nogil:
+    void reset(unsigned int nthreads)
+    unsigned int nthreads()
+
+
 cdef extern from "cufile/file_handle.hpp" namespace "cufile" nogil:
     cdef cppclass FileHandle:
         FileHandle() except +
@@ -50,16 +55,17 @@ cdef extern from "cufile/file_handle.hpp" namespace "cufile" nogil:
         bool closed()
         int fd()
         int fd_open_flags() except +
-        size_t read(
+        size_t pread(
             void *devPtr,
             size_t size,
             size_t file_offset
         ) except +
-        size_t write(
+        size_t pwrite(
             void *devPtr,
             size_t size,
             size_t file_offset
         ) except +
+
 
 cdef extern from "cufile/nvml.hpp" namespace "cufile" nogil:
     cdef cppclass NVML:
