@@ -1,6 +1,7 @@
 # Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+# distutils: language = c++
 # cython: language_level=3
 
 from posix cimport fcntl
