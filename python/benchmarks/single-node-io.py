@@ -5,7 +5,6 @@ import argparse
 import os
 import pathlib
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
 from time import perf_counter as clock
 from typing import Optional
 
@@ -35,7 +34,8 @@ def run_posix(args):
     return read_time, write_time
 
 
-def run_cufile_single_thread(args):
+def run_cufile(args):
+    cufile.set_num_threads(args.nthreads)
     data = cupy.arange(args.nbytes // 8, dtype="int64")
     if args.pre_register_buffer:
         cufile.memory_register(data)
@@ -60,58 +60,8 @@ def run_cufile_single_thread(args):
     return read_time, write_time
 
 
-def run_cufile_parallel(args):
-    current_device = cupy.cuda.Device().id
-    executor = ThreadPoolExecutor(
-        max_workers=args.nthreads,
-        initializer=lambda: cupy.cuda.Device(current_device).use(),
-    )
-
-    data = cupy.arange(args.nbytes // 8, dtype="int64")
-    if args.pre_register_buffer:
-        cufile.memory_register(data)
-
-    chunks = []
-    file_offsets = []
-    for i in range(args.nthreads):
-        chunk_size = len(data) // args.nthreads
-        offset = i * chunk_size
-        chunks.append(data[offset : offset + chunk_size])
-        file_offsets.append(offset * 8)
-
-    def write_parallel(rank):
-        f.write(chunks[rank], file_offset=file_offsets[rank])
-
-    def read_parallel(rank):
-        f.read(chunks[rank], file_offset=file_offsets[rank])
-
-    # Write
-    f = cufile.CuFile(file_path=args.file_path, flags="w")
-    t0 = clock()
-    list(executor.map(write_parallel, range(args.nthreads)))
-    f.close()
-    write_time = clock() - t0
-
-    # Read
-    f = cufile.CuFile(file_path=args.file_path, flags="r")
-    t0 = clock()
-    list(executor.map(read_parallel, range(args.nthreads)))
-    f.close()
-    read_time = clock() - t0
-
-    if args.pre_register_buffer:
-        cufile.memory_deregister(data)
-
-    return read_time, write_time
-
-
 def main(args):
     res = {}
-    if args.nthreads == 1:
-        run_cufile = run_cufile_single_thread
-    else:
-        run_cufile = run_cufile_parallel
-
     try:
         if not args.no_posix_run:
             read, write = run_posix(args)
