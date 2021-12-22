@@ -10,7 +10,7 @@ from typing import Tuple
 
 cimport cufile_cxx_api
 from cufile_cxx_api cimport FileHandle, future
-from libc.stdint cimport uint32_t
+from libc.stdint cimport uint32_t, uintptr_t
 from libcpp.utility cimport move, pair
 from libcpp.vector cimport vector
 
@@ -34,6 +34,24 @@ def set_num_threads(nthread: int) -> None:
 
 def get_num_threads() -> int:
     return cufile_cxx_api.nthreads()
+
+cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
+    """Parse `buf` and `size` argument and return a pointer and nbytes"""
+    if not isinstance(buf, Array):
+        buf = Array(buf)
+    cdef Array arr = buf
+    if not arr._contiguous():
+        raise ValueError("Array must be C or F contiguous")
+    if not arr.cuda:
+        raise NotImplementedError("Non-CUDA buffers not implemented")
+    cdef size_t nbytes
+    if size is None:
+        nbytes = arr.nbytes
+    elif size > arr.nbytes:
+        raise ValueError("Size is greater than the size of the buffer")
+    else:
+        nbytes = size
+    return pair[uintptr_t, size_t](arr.ptr, nbytes)
 
 
 cdef class CuFile:
@@ -70,68 +88,40 @@ cdef class CuFile:
     def read(self,
         buf, size: int = None, file_offset: int = 0
     ) -> int:
-        if not isinstance(buf, Array):
-            buf = Array(buf)
-        cdef Array arr = buf
-        if not arr._contiguous():
-            raise ValueError("Array must be C or F contiguous")
-        if not arr.cuda:
-            raise NotImplementedError("Reading a non-CUDA buffer isn't implemented")
-        cdef size_t nbytes
-        if size is None:
-            nbytes = arr.nbytes
-        elif size > arr.nbytes:
-            raise ValueError("Size is greater than the size of the buffer")
-        else:
-            nbytes = size
-
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         if get_num_threads() > 1:
             return move(
                 self._handle.pread_nb(
-                    <void*>arr.ptr,
-                    nbytes,
+                    <void*>info.first,
+                    info.second,
                     file_offset,
                     get_num_threads()
                 )
             ).get()
         else:
             return self._handle.pread(
-                <void*>arr.ptr,
-                nbytes,
+                <void*>info.first,
+                info.second,
                 file_offset
             )
 
     def write(self,
         buf, size: int = None, file_offset: int = 0
     ) -> int:
-        if not isinstance(buf, Array):
-            buf = Array(buf)
-        cdef Array arr = buf
-        if not arr._contiguous():
-            raise ValueError("Array must be C or F contiguous")
-        if not arr.cuda:
-            raise NotImplementedError("Non CUDA buffers not implemented")
-        cdef size_t nbytes
-        if size is None:
-            nbytes = arr.nbytes
-        elif size > arr.nbytes:
-            raise ValueError("Size is greater than the size of the buffer")
-        else:
-            nbytes = size
-
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         if get_num_threads() > 1:
             return move(
                 self._handle.pwrite_nb(
-                    <void*>arr.ptr,
-                    nbytes,
+                    <void*>info.first,
+                    info.second,
                     file_offset,
                     get_num_threads()
                 )
             ).get()
         else:
             return self._handle.pwrite(
-                <void*>arr.ptr,
-                nbytes,
+                <void*>info.first,
+                info.second,
                 file_offset
             )
 
