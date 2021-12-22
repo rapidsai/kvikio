@@ -9,9 +9,10 @@ import pathlib
 from typing import Tuple
 
 cimport cufile_cxx_api
-from cufile_cxx_api cimport FileHandle
+from cufile_cxx_api cimport FileHandle, future
 from libc.stdint cimport uint32_t
 from libcpp.utility cimport move, pair
+from libcpp.vector cimport vector
 
 from arr cimport Array
 
@@ -83,11 +84,22 @@ cdef class CuFile:
             raise ValueError("Size is greater than the size of the buffer")
         else:
             nbytes = size
-        return self._handle.pread(
-            <void*>arr.ptr,
-            nbytes,
-            file_offset
-        )
+
+        if get_num_threads() > 1:
+            return move(
+                self._handle.pread_nb(
+                    <void*>arr.ptr,
+                    nbytes,
+                    file_offset,
+                    get_num_threads()
+                )
+            ).get()
+        else:
+            return self._handle.pread(
+                <void*>arr.ptr,
+                nbytes,
+                file_offset
+            )
 
     def write(self,
         buf, size: int = None, file_offset: int = 0
@@ -106,11 +118,23 @@ cdef class CuFile:
             raise ValueError("Size is greater than the size of the buffer")
         else:
             nbytes = size
-        return self._handle.pwrite(
-            <void*>arr.ptr,
-            nbytes,
-            file_offset
-        )
+
+        if get_num_threads() > 1:
+            return move(
+                self._handle.pwrite_nb(
+                    <void*>arr.ptr,
+                    nbytes,
+                    file_offset,
+                    get_num_threads()
+                )
+            ).get()
+        else:
+            return self._handle.pwrite(
+                <void*>arr.ptr,
+                nbytes,
+                file_offset
+            )
+
 
 cdef class DriverProperties:
     cdef cufile_cxx_api.DriverProperties _handle

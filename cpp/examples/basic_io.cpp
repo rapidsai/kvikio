@@ -85,14 +85,14 @@ int main()
   cufile::default_thread_pool::reset(16);
   {
     cufile::FileHandle f("test-file", "w");
-    size_t written = f.pwrite(a_dev, sizeof(a));
+    size_t written = f.pwrite_nb(a_dev, sizeof(a)).get();
     check(written == sizeof(a));
     cout << "Parallel write (" << cufile::default_thread_pool::nthreads()
          << " threads): " << written << endl;
   }
   {
     cufile::FileHandle f("test-file", "r");
-    size_t read = f.pread(b_dev, sizeof(a), 0);
+    size_t read = f.pread_nb(b_dev, sizeof(a), 0).get();
     cout << "Parallel write (" << cufile::default_thread_pool::nthreads() << " threads): " << read
          << endl;
     check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);

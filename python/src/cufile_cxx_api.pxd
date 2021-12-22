@@ -9,6 +9,13 @@ from posix cimport fcntl
 from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.utility cimport pair
+from libcpp.vector cimport vector
+
+
+cdef extern from "<future>" namespace "std" nogil:
+    cdef cppclass future[T]:
+        future() except +
+        T get() except +
 
 
 cdef extern from "cufile/driver.hpp" namespace "cufile" nogil:
@@ -65,6 +72,18 @@ cdef extern from "cufile/file_handle.hpp" namespace "cufile" nogil:
             void *devPtr,
             size_t size,
             size_t file_offset
+        ) except +
+        future[size_t] pread_nb(
+            void* devPtr,
+            size_t size,
+            size_t file_offset,
+            size_t ntasks
+        ) except +
+        future[size_t] pwrite_nb(
+            void* devPtr,
+            size_t size,
+            size_t file_offset,
+            size_t ntasks
         ) except +
 
 
