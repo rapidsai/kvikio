@@ -169,7 +169,7 @@ setup(
     setup_requires=["Cython>=0.29,<0.30"],
     extras_require={"test": ["pytest", "pytest-xdist"]},
     ext_modules=extensions,
-    packages=find_packages(include=["cufile"]),
+    packages=find_packages(exclude=["tests*"]),
     package_data={"": ["*.pyi"]},
     cmdclass=cmdclass,
     install_requires=install_requires,
