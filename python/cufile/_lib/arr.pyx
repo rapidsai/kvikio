@@ -61,7 +61,6 @@ cdef inline Py_ssize_t[::1] new_Py_ssize_t_array(Py_ssize_t n):
         (<PyObject*>array_Py_ssize_t).ob_type, n, array_Py_ssize_t.ob_descr
     )
 
-
 @auto_pickle(False)
 cdef class Array:
     """ An efficient wrapper for host and device array-like objects
@@ -100,7 +99,7 @@ cdef class Array:
                     else:
                         raise ValueError(
                             f"Unexpected data type, '{typestr}'."
-                            " Please install NumPy to handle this format."  
+                            " Please install NumPy to handle this format."
                         )
 
             shape = iface["shape"]

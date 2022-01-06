@@ -5,14 +5,20 @@ import cupy
 
 import cufile
 
-a = cupy.arange(100)
-f = cufile.CuFile("test-file", "w")
-# Write whole array to file
-f.write(a)
-f.close()
 
-b = cupy.empty_like(a)
-f = cufile.CuFile("test-file", "r")
-# Read whole array from file
-f.read(b)
-assert all(a == b)
+def main():
+    a = cupy.arange(100)
+    f = cufile.CuFile("test-file", "w")
+    # Write whole array to file
+    f.write(a)
+    f.close()
+
+    b = cupy.empty_like(a)
+    f = cufile.CuFile("test-file", "r")
+    # Read whole array from file
+    f.read(b)
+    assert all(a == b)
+
+
+if __name__ == "__main__":
+    main()

@@ -8,13 +8,13 @@ import os
 import pathlib
 from typing import Tuple
 
-cimport cufile_cxx_api
-from cufile_cxx_api cimport FileHandle, future
+from .cufile_cxx_api cimport FileHandle, future
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp.utility cimport move, pair
 from libcpp.vector cimport vector
 
-from arr cimport Array
+from . cimport cufile_cxx_api
+from .arr cimport Array
 
 
 def memory_register(buf) -> None:

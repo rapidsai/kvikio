@@ -22,7 +22,7 @@ from distutils.sysconfig import get_python_lib
 
 import Cython.Compiler.Options
 import setuptools.command.build_ext
-from setuptools import setup
+from setuptools import find_packages, setup
 from setuptools.extension import Extension
 
 import versioneer
@@ -82,8 +82,8 @@ if os.path.isdir(cufilexx_include_dir):
 
 extensions = [
     Extension(
-        "cufile",
-        sources=["src/cufile.pyx"],
+        "cufile._lib.cufile",
+        sources=["cufile/_lib/cufile.pyx"],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
         libraries=["cuda", "cudart", "cufile", "nvidia-ml"],
@@ -92,8 +92,8 @@ extensions = [
         depends=depends,
     ),
     Extension(
-        "arr",
-        sources=["src/arr.pyx"],
+        "cufile._lib.arr",
+        sources=["cufile/_lib/arr.pyx"],
         language="c++",
         extra_compile_args=["-std=c++17"],
         depends=depends,
@@ -169,6 +169,8 @@ setup(
     setup_requires=["Cython>=0.29,<0.30"],
     extras_require={"test": ["pytest", "pytest-xdist"]},
     ext_modules=extensions,
+    packages=find_packages(include=["cufile"]),
+    package_data={"": ["*.pyi"]},
     cmdclass=cmdclass,
     install_requires=install_requires,
     zip_safe=False,
