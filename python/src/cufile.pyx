@@ -86,44 +86,31 @@ cdef class CuFile:
         self.close()
 
     def read(self,
-        buf, size: int = None, file_offset: int = 0
+        buf, size: int = None, file_offset: int = 0, nthreads = None
     ) -> int:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
-        if get_num_threads() > 1:
-            return move(
-                self._handle.pread_nb(
-                    <void*>info.first,
-                    info.second,
-                    file_offset,
-                    get_num_threads()
-                )
-            ).get()
-        else:
-            return self._handle.pread(
+        return move(
+            self._handle.pread(
                 <void*>info.first,
                 info.second,
-                file_offset
+                file_offset,
+                nthreads if nthreads else get_num_threads()
             )
+        ).get()
+
 
     def write(self,
-        buf, size: int = None, file_offset: int = 0
+        buf, size: int = None, file_offset: int = 0, nthreads = None
     ) -> int:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
-        if get_num_threads() > 1:
-            return move(
-                self._handle.pwrite_nb(
-                    <void*>info.first,
-                    info.second,
-                    file_offset,
-                    get_num_threads()
-                )
-            ).get()
-        else:
-            return self._handle.pwrite(
+        return move(
+            self._handle.pwrite(
                 <void*>info.first,
                 info.second,
-                file_offset
+                file_offset,
+                nthreads if nthreads else get_num_threads()
             )
+        ).get()
 
 
 cdef class DriverProperties:

@@ -68,7 +68,8 @@ inline void buffer_deregister(const void* devPtr_base)
 }
 
 /**
- * @brief register device memory allocation which is part of devPtr.
+ * @brief register device memory allocation which is part of devPtr. Use this
+ * together with FileHandle::pread() and FileHandle::pwritepread().
  *
  * @param devPtr  device pointer
  * @param flags   should be zero or `CU_FILE_RDMA_REGISTER` (experimental)
@@ -89,9 +90,9 @@ inline void memory_register(const void* devPtr,
 }
 
 /**
- * @brief  deregister an already registered device memory from cuFile
+ * @brief  deregister an already registered device memory from cuFile.
  *
- * @param devPtr_base  device pointer to deregister
+ * @param devPtr device pointer to deregister
  */
 inline void memory_deregister(const void* devPtr)
 {

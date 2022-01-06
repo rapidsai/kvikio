@@ -28,8 +28,9 @@
 
 #include <cufile.h>
 #include <cufile/buffer.hpp>
-#include <cufile/default_thread_pool.hpp>
 #include <cufile/error.hpp>
+#include <cufile/parallel_operation.hpp>
+#include <cufile/thread_pool/default.hpp>
 #include <cufile/utils.hpp>
 
 namespace cufile {
@@ -69,45 +70,6 @@ inline int open_fd(const std::string& file_path, const std::string& flags, mode_
 }
 
 }  // namespace
-
-// Help function to read or write in parallel
-template <typename T>
-std::future<std::size_t> cufile_io(
-  T op, const void* devPtr, std::size_t size, std::size_t file_offset, std::size_t ntasks)
-{
-  auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr);
-
-  int device{-1};
-  if (cudaGetDevice(&device) != cudaSuccess) { throw CUfileException("cudaGetDevice failed"); }
-
-  auto task = [device, op](void* devPtr_base,
-                           std::size_t size,
-                           std::size_t file_offset,
-                           std::size_t devPtr_offset) -> std::size_t {
-    if (device > -1) {
-      if (cudaSetDevice(device) != cudaSuccess) { throw CUfileException("cudaSetDevice failed"); }
-    }
-    return op(devPtr_base, size, file_offset, devPtr_offset);
-  };
-
-  const std::size_t tasksize = size / ntasks;
-  std::size_t last_jobsize   = tasksize + size % ntasks;
-  std::vector<std::future<std::size_t>> tasks;
-  tasks.reserve(ntasks);
-  for (std::size_t i = 0; i < ntasks; ++i) {
-    const std::size_t cur_size = (i == ntasks - 1) ? last_jobsize : tasksize;
-    const std::size_t offset   = i * tasksize;
-    tasks.push_back(default_thread_pool::get().submit(
-      task, devPtr_base, cur_size, file_offset + offset, devPtr_offset + offset));
-  }
-
-  // Finally, we sum the result of all tasks.
-  auto gather_tasks = [](auto&& tasks) -> size_t {
-    return std::accumulate(
-      tasks.begin(), tasks.end(), 0, [](auto sum, auto& task) { return sum + task.get(); });
-  };
-  return std::async(std::launch::deferred, gather_tasks, std::move(tasks));
-}
 
 class FileHandle {
  private:
@@ -215,22 +177,10 @@ class FileHandle {
     return ret;
   }
 
-  std::size_t pread(void* devPtr, std::size_t size, std::size_t file_offset = 0)
-  {
-    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr);
-    return read(devPtr_base, size, file_offset, devPtr_offset);
-  }
-
-  std::size_t pwrite(const void* devPtr, std::size_t size, std::size_t file_offset = 0)
-  {
-    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr);
-    return write(devPtr_base, size, file_offset, devPtr_offset);
-  }
-
-  std::future<std::size_t> pread_nb(void* devPtr,
-                                    std::size_t size,
-                                    std::size_t file_offset = 0,
-                                    std::size_t ntasks      = default_thread_pool::nthreads())
+  std::future<std::size_t> pread(void* devPtr,
+                                 std::size_t size,
+                                 std::size_t file_offset = 0,
+                                 std::size_t ntasks      = default_thread_pool::nthreads())
   {
     // Lambda that calls this->read()
     auto op = [this](void* devPtr_base,
@@ -239,13 +189,13 @@ class FileHandle {
                      std::size_t devPtr_offset) -> std::size_t {
       return read(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return cufile_io(op, devPtr, size, file_offset, ntasks);
+    return parallel_io(op, devPtr, size, file_offset, ntasks);
   }
 
-  std::future<std::size_t> pwrite_nb(const void* devPtr,
-                                     std::size_t size,
-                                     std::size_t file_offset = 0,
-                                     std::size_t ntasks      = default_thread_pool::nthreads())
+  std::future<std::size_t> pwrite(const void* devPtr,
+                                  std::size_t size,
+                                  std::size_t file_offset = 0,
+                                  std::size_t ntasks      = default_thread_pool::nthreads())
   {
     // Lambda that calls this->write()
     auto op = [this](const void* devPtr_base,
@@ -254,7 +204,7 @@ class FileHandle {
                      std::size_t devPtr_offset) -> std::size_t {
       return write(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return cufile_io(op, devPtr, size, file_offset, ntasks);
+    return parallel_io(op, devPtr, size, file_offset, ntasks);
   }
 };
 

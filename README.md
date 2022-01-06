@@ -10,7 +10,6 @@ This provides C++ and Python bindings to cuFile, which enables GPUDirect Storage
 * Exception handling
 * Compatible with RMM to enable automatic cuFile buffer registration
 * Zarr reader
-* Defaults based on BAR1 memory informamtion
 
 ## Requirements
 
@@ -62,6 +61,12 @@ In order to test the installation, run the following:
 pytest tests/
 ```
 
+And to test performance, run the following:
+```
+python benchmarks/single-node-io.py
+```
+
+
 ## Examples
 
 ### C++
@@ -89,6 +94,15 @@ int main()
   cufile::FileHandle fr("test-file", "r");
   size_t read = fr.read(b, size);
   fr.close();
+
+  // Read file into `b` in parallel using 16 threads
+  cufile::default_thread_pool::reset(16);
+  {
+    cufile::FileHandle f("test-file", "r");
+    future<size_t> future = f.pread(b_dev, sizeof(a), 0);  // Non-blocking
+    size_t read = future.get(); // Blocking
+    // Notice, `f` closes automatically on destruction.
+  }
 }
 ```
 

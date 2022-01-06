@@ -63,23 +63,13 @@ cdef extern from "cufile/file_handle.hpp" namespace "cufile" nogil:
         bool closed()
         int fd()
         int fd_open_flags() except +
-        size_t pread(
-            void *devPtr,
-            size_t size,
-            size_t file_offset
-        ) except +
-        size_t pwrite(
-            void *devPtr,
-            size_t size,
-            size_t file_offset
-        ) except +
-        future[size_t] pread_nb(
+        future[size_t] pread(
             void* devPtr,
             size_t size,
             size_t file_offset,
             size_t ntasks
         ) except +
-        future[size_t] pwrite_nb(
+        future[size_t] pwrite(
             void* devPtr,
             size_t size,
             size_t file_offset,

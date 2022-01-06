@@ -43,6 +43,8 @@
 // ============================================================================================= //
 //                                    Begin class thread_pool                                    //
 
+namespace cufile::third_party {
+
 /**
  * @brief A C++17 thread pool class. The user submits tasks to be executed into a queue. Whenever a
  * thread becomes available, it pops a task from the queue and executes it. Each task is
@@ -453,6 +455,7 @@ class thread_pool {
    */
   std::atomic<ui32> tasks_total = 0;
 };
+}  // namespace cufile::third_party
 
 //                                     End class thread_pool                                     //
 // ============================================================================================= //
