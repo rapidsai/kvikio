@@ -82,8 +82,8 @@ if os.path.isdir(cufilexx_include_dir):
 
 extensions = [
     Extension(
-        "cufile._lib.cufile",
-        sources=["cufile/_lib/cufile.pyx"],
+        "cufile._lib.libcufile",
+        sources=["cufile/_lib/libcufile.pyx"],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
         libraries=["cuda", "cudart", "cufile", "nvidia-ml"],

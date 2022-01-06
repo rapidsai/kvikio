@@ -41,7 +41,7 @@ cdef extern from "cufile/buffer.hpp" namespace "cufile" nogil:
     void memory_deregister(const void* devPtr) except +
 
 
-cdef extern from "cufile/file_handle.hpp" namespace "cufile::default_thread_pool" nogil:
+cdef extern from "cufile/thread_pool/default.hpp" namespace "cufile::default_thread_pool" nogil:
     void reset(unsigned int nthreads)
     unsigned int nthreads()
 

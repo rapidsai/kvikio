@@ -8,13 +8,13 @@ import os
 import pathlib
 from typing import Tuple
 
-from .cufile_cxx_api cimport FileHandle, future
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp.utility cimport move, pair
 from libcpp.vector cimport vector
 
 from . cimport cufile_cxx_api
 from .arr cimport Array
+from .cufile_cxx_api cimport FileHandle, future
 
 
 def memory_register(buf) -> None:
@@ -69,7 +69,6 @@ cdef class CuFile:
     def close(self) -> None:
         self._handle.close()
 
-    @property
     def closed(self) -> bool:
         return self._handle.closed()
 
@@ -78,12 +77,6 @@ cdef class CuFile:
 
     def open_flags(self) -> int:
         return self._handle.fd_open_flags()
-
-    def __enter__(self) -> CuFile:
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.close()
 
     def read(self,
         buf, size: int = None, file_offset: int = 0, nthreads = None
