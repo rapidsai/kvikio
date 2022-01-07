@@ -287,3 +287,9 @@ cdef inline Py_ssize_t _nbytes(Py_ssize_t itemsize,
     for i in range(ndim):
         nbytes *= shape_mv[i]
     return nbytes
+
+cpdef asarray(obj):
+    if isinstance(obj, Array):
+        return obj
+    else:
+        return Array(obj)

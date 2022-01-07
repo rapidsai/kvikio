@@ -91,7 +91,6 @@ cdef class CuFile:
             )
         ).get()
 
-
     def write(self,
         buf, size: int = None, file_offset: int = 0, nthreads = None
     ) -> int:
@@ -163,6 +162,7 @@ cdef class DriverProperties:
     @max_pinned_memory_size.setter
     def max_pinned_memory_size(self, size_in_kb: int) -> None:
         self._handle.set_max_pinned_memory_size(size_in_kb)
+
 
 cdef class NVML:
     cdef cufile_cxx_api.NVML _handle
