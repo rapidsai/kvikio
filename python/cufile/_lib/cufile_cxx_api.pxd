@@ -18,7 +18,7 @@ cdef extern from "<future>" namespace "std" nogil:
         T get() except +
 
 
-cdef extern from "cufile/driver.hpp" namespace "cufile" nogil:
+cdef extern from "<cufile/driver.hpp>" namespace "cufile" nogil:
     cdef cppclass DriverProperties:
         DriverProperties() except +
         bool is_gds_availabe() except +
@@ -36,17 +36,17 @@ cdef extern from "cufile/driver.hpp" namespace "cufile" nogil:
         void set_max_pinned_memory_size(size_t size_in_kb) except +
 
 
-cdef extern from "cufile/buffer.hpp" namespace "cufile" nogil:
+cdef extern from "<cufile/buffer.hpp>" namespace "cufile" nogil:
     void memory_register(const void* devPtr) except +
     void memory_deregister(const void* devPtr) except +
 
 
-cdef extern from "cufile/thread_pool/default.hpp" namespace "cufile::default_thread_pool" nogil:
+cdef extern from "<cufile/thread_pool/default.hpp>" namespace "cufile::default_thread_pool" nogil:
     void reset(unsigned int nthreads)
     unsigned int nthreads()
 
 
-cdef extern from "cufile/file_handle.hpp" namespace "cufile" nogil:
+cdef extern from "<cufile/file_handle.hpp>" namespace "cufile" nogil:
     cdef cppclass FileHandle:
         FileHandle() except +
         FileHandle(int fd) except +
@@ -77,7 +77,7 @@ cdef extern from "cufile/file_handle.hpp" namespace "cufile" nogil:
         ) except +
 
 
-cdef extern from "cufile/nvml.hpp" namespace "cufile" nogil:
+cdef extern from "<cufile/nvml.hpp>" namespace "cufile" nogil:
     cdef cppclass NVML:
         NVML() except +
         string get_name() except +
