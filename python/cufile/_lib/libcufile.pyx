@@ -17,6 +17,23 @@ from .arr cimport Array
 from .cufile_cxx_api cimport FileHandle, future
 
 
+cdef class IOFuture:
+    """C++ future for CuFile reads and writes"""
+    cdef future[size_t] _handle
+
+    def get(self):
+        cdef size_t ret
+        with nogil:
+            ret = self._handle.get()
+        return ret
+
+
+cdef IOFuture _wrap_io_future(future[size_t] &future):
+    """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
+    ret = IOFuture()
+    ret._handle = move(future)
+    return ret
+
 def memory_register(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
@@ -78,31 +95,33 @@ cdef class CuFile:
     def open_flags(self) -> int:
         return self._handle.fd_open_flags()
 
-    def read(self,
-        buf, size: int = None, file_offset: int = 0, nthreads = None
-    ) -> int:
+    def pread(self, buf, size: int, file_offset: int, nthreads) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
-        return move(
+        return _wrap_io_future(
             self._handle.pread(
                 <void*>info.first,
                 info.second,
                 file_offset,
                 nthreads if nthreads else get_num_threads()
             )
-        ).get()
+        )
 
-    def write(self,
-        buf, size: int = None, file_offset: int = 0, nthreads = None
-    ) -> int:
+    def read(self, buf, size: int, file_offset: int, nthreads) -> int:
+        return self.pread(buf, size, file_offset, nthreads).get()
+
+    def pwrite(self, buf, size: int, file_offset: int, nthreads) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
-        return move(
+        return _wrap_io_future(
             self._handle.pwrite(
                 <void*>info.first,
                 info.second,
                 file_offset,
                 nthreads if nthreads else get_num_threads()
             )
-        ).get()
+        )
+
+    def write(self, buf, size: int, file_offset: int, nthreads) -> int:
+        return self.pwrite(buf, size, file_offset, nthreads).get()
 
 
 cdef class DriverProperties:
