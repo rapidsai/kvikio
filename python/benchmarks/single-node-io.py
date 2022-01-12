@@ -2,6 +2,7 @@
 # See file LICENSE for terms.
 
 import argparse
+import contextlib
 import os
 import pathlib
 import tempfile
@@ -14,20 +15,21 @@ import cufile
 
 
 def run_cufile(args):
+    file_path = args.dir / "single-node-io-data-file"
     cufile.set_num_threads(args.nthreads)
     data = cupy.arange(args.nbytes // 8, dtype="int64")
     if args.pre_register_buffer:
         cufile.memory_register(data)
 
     # Write
-    f = cufile.CuFile(file_path=args.file_path, flags="w")
+    f = cufile.CuFile(file_path=file_path, flags="w")
     t0 = clock()
     f.write(data)
     f.close()
     write_time = clock() - t0
 
     # Read
-    f = cufile.CuFile(file_path=args.file_path, flags="r")
+    f = cufile.CuFile(file_path=file_path, flags="r")
     t0 = clock()
     f.read(data)
     f.close()
@@ -40,17 +42,18 @@ def run_cufile(args):
 
 
 def run_posix(args):
+    file_path = args.dir / "single-node-io-data-file"
     data = cupy.arange(args.nbytes // 8, dtype="int64")
 
     # Write
-    f = open(args.file_path, "wb")
+    f = open(file_path, "wb")
     t0 = clock()
     f.write(data.tobytes())
     f.close()
     write_time = clock() - t0
 
     # Read
-    f = open(args.file_path, "rb")
+    f = open(file_path, "rb")
     t0 = clock()
     cupy.fromfile(f, dtype="int64", count=len(data))
     f.close()
@@ -96,7 +99,7 @@ def main(args):
     print(f"nbytes            | {args.nbytes} bytes ({format_bytes(args.nbytes)})")
     print(f"4K aligned        | {args.nbytes % 4096 == 0}")
     print(f"pre-reg-buf       | {args.pre_register_buffer}")
-    print(f"file-path         | {args.file_path}")
+    print(f"diretory          | {args.dir}")
     print(f"nthreads          | {args.nthreads}")
     print("==================================")
     for api, (r, w) in results.items():
@@ -105,6 +108,16 @@ def main(args):
 
 
 if __name__ == "__main__":
+
+    def parse_directory(x):
+        if x is None:
+            return x
+        else:
+            p = pathlib.Path(x)
+            if not p.is_dir():
+                raise argparse.ArgumentTypeError("Must be a directory")
+            return p
+
     parser = argparse.ArgumentParser(description="Roundtrip benchmark")
     parser.add_argument(
         "-n",
@@ -115,12 +128,12 @@ if __name__ == "__main__":
         help="Message size, which must be a multiple of 8 (default: %(default)s).",
     )
     parser.add_argument(
-        "-f",
-        "--file-path",
+        "-d",
+        "--dir",
         metavar="PATH",
         default=None,
-        type=lambda p: p if p is None else pathlib.Path(p),
-        help="Path to r/w file (default: tempfile.NamedTemporaryFile)",
+        type=parse_directory,
+        help="Path to the diretory to r/w from (default: tempfile.TemporaryDirectory)",
     )
     parser.add_argument(
         "--no-pre-register-buffer",
@@ -141,22 +154,18 @@ if __name__ == "__main__":
         default=("cufile", "posix"),
         nargs="+",
         choices=tuple(API.keys()),
-        help="list of operations",
+        help="List of APIs to use",
     )
 
     args = parser.parse_args()
     args.pre_register_buffer = args.no_pre_register_buffer is False
 
-    # Create a tmp file. Notice, we cannot do this as part of the `parse_args()`
-    # since it would create a tmp file even when the parsing fails.
-    if args.file_path is None:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            args.file_path = f.name
-    try:
+    # Create a temporary directory if user didn't specify a directory
+    if args.dir is None:
+        temp_dir = tempfile.TemporaryDirectory()
+        args.dir = pathlib.Path(temp_dir.name)
+    else:
+        temp_dir = contextlib.nullcontext()
+
+    with temp_dir:
         main(args)
-    finally:
-        try:
-            if args.file_path is not None:
-                os.remove(args.file_path)
-        except FileNotFoundError:
-            pass
