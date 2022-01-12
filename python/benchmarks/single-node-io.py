@@ -6,7 +6,6 @@ import os
 import pathlib
 import tempfile
 from time import perf_counter as clock
-from typing import Optional
 
 import cupy
 from dask.utils import format_bytes, parse_bytes
@@ -62,17 +61,11 @@ def run_cufile(args):
 
 def main(args):
     res = {}
-    try:
-        if not args.no_posix_run:
-            read, write = run_posix(args)
-            res["posix"] = (args.nbytes / read, args.nbytes / write)
-        read, write = run_cufile(args)
-        res["cufile"] = (args.nbytes / read, args.nbytes / write)
-    finally:
-        try:
-            os.remove(args.file_path)
-        except FileNotFoundError:
-            pass
+    if not args.no_posix_run:
+        read, write = run_posix(args)
+        res["posix"] = (args.nbytes / read, args.nbytes / write)
+    read, write = run_cufile(args)
+    res["cufile"] = (args.nbytes / read, args.nbytes / write)
 
     props = cufile.DriverProperties()
     nvml = cufile.NVML()
@@ -111,14 +104,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
-    def default_file_path(path: Optional[str] = None) -> pathlib.Path:
-        if path is None:
-            f = tempfile.NamedTemporaryFile(delete=False)
-            path = f.name
-            f.close()
-        return path
-
     parser = argparse.ArgumentParser(description="Roundtrip benchmark")
     parser.add_argument(
         "-n",
@@ -126,15 +111,15 @@ if __name__ == "__main__":
         metavar="BYTES",
         default="10 MiB",
         type=parse_bytes,
-        help="Message size, which must be a multiple of 8 (default 10 Mb).",
+        help="Message size, which must be a multiple of 8 (default: %(default)s).",
     )
     parser.add_argument(
         "-f",
         "--file-path",
         metavar="PATH",
-        default=default_file_path(),
-        type=pathlib.Path,
-        help="Path to r/w file (default tempfile.NamedTemporaryFile)",
+        default=None,
+        type=lambda p: p if p is None else pathlib.Path(p),
+        help="Path to r/w file (default: tempfile.NamedTemporaryFile)",
     )
     parser.add_argument(
         "--no-pre-register-buffer",
@@ -151,8 +136,22 @@ if __name__ == "__main__":
         metavar="THREADS",
         default=1,
         type=int,
-        help="Number of threads to use (default 1).",
+        help="Number of threads to use (default: %(default)s).",
     )
+
     args = parser.parse_args()
     args.pre_register_buffer = args.no_pre_register_buffer is False
-    main(args)
+
+    # Create a tmp file. Notice, we cannot do this as part of the `parse_args()`
+    # since it would create a tmp file even when the parsing fails.
+    if args.file_path is None:
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            args.file_path = f.name
+    try:
+        main(args)
+    finally:
+        try:
+            if args.file_path is not None:
+                os.remove(args.file_path)
+        except FileNotFoundError:
+            pass
