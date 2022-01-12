@@ -3,6 +3,7 @@
 
 import argparse
 import contextlib
+import functools
 import os
 import pathlib
 import tempfile
@@ -62,8 +63,41 @@ def run_posix(args):
     return read_time, write_time
 
 
+def run_zarr(store_type, args):
+    import zarr
+    import zarr.cupy
+
+    import cufile.zarr
+
+    cufile.set_num_threads(args.nthreads)
+    a = cupy.arange(args.nbytes // 8, dtype="int64")
+
+    # Retrieve the store and compressor to use based on `store_type`
+    store, compressor = {
+        "gds": (cufile.zarr.GDSStore(args.dir / store_type), None),
+        "posix": (
+            zarr.DirectoryStore(args.dir / store_type),
+            zarr.cupy.CuPyCPUCompressor(),
+        ),
+    }[store_type]
+
+    # Write
+    t0 = clock()
+    z = zarr.array(a, compressor=compressor, store=store, meta_array=cupy.empty(()))
+    write_time = clock() - t0
+
+    # Read
+    t0 = clock()
+    z[:]
+    read_time = clock() - t0
+
+    return read_time, write_time
+
+
 API = {
     "cufile": run_cufile,
+    "zarr-gds": functools.partial(run_zarr, "gds"),
+    "zarr-posix": functools.partial(run_zarr, "posix"),
     "posix": run_posix,
 }
 
