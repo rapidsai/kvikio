@@ -13,26 +13,6 @@ from dask.utils import format_bytes, parse_bytes
 import cufile
 
 
-def run_posix(args):
-    data = cupy.arange(args.nbytes // 8, dtype="int64")
-
-    # Write
-    f = open(args.file_path, "wb")
-    t0 = clock()
-    f.write(data.tobytes())
-    f.close()
-    write_time = clock() - t0
-
-    # Read
-    f = open(args.file_path, "rb")
-    t0 = clock()
-    cupy.fromfile(f, dtype="int64", count=len(data))
-    f.close()
-    read_time = clock() - t0
-
-    return read_time, write_time
-
-
 def run_cufile(args):
     cufile.set_num_threads(args.nthreads)
     data = cupy.arange(args.nbytes // 8, dtype="int64")
@@ -59,14 +39,37 @@ def run_cufile(args):
     return read_time, write_time
 
 
-def main(args):
-    res = {}
-    if not args.no_posix_run:
-        read, write = run_posix(args)
-        res["posix"] = (args.nbytes / read, args.nbytes / write)
-    read, write = run_cufile(args)
-    res["cufile"] = (args.nbytes / read, args.nbytes / write)
+def run_posix(args):
+    data = cupy.arange(args.nbytes // 8, dtype="int64")
 
+    # Write
+    f = open(args.file_path, "wb")
+    t0 = clock()
+    f.write(data.tobytes())
+    f.close()
+    write_time = clock() - t0
+
+    # Read
+    f = open(args.file_path, "rb")
+    t0 = clock()
+    cupy.fromfile(f, dtype="int64", count=len(data))
+    f.close()
+    read_time = clock() - t0
+
+    return read_time, write_time
+
+
+API = {
+    "cufile": run_cufile,
+    "posix": run_posix,
+}
+
+
+def main(args):
+    results = {}
+    for api in args.api:
+        read, write = API[api](args)
+        results[api] = (args.nbytes / read, args.nbytes / write)
     props = cufile.DriverProperties()
     nvml = cufile.NVML()
     mem_total, _ = nvml.get_memory()
@@ -96,11 +99,9 @@ def main(args):
     print(f"file-path         | {args.file_path}")
     print(f"nthreads          | {args.nthreads}")
     print("==================================")
-    print(f"CuFile Read       | {format_bytes(res['cufile'][0])}/s")
-    print(f"CuFile Write      | {format_bytes(res['cufile'][1])}/s")
-    if "posix" in res:
-        print(f"Posix Read        | {format_bytes(res['posix'][0])}/s")
-        print(f"Posix Write       | {format_bytes(res['posix'][1])}/s")
+    for api, (r, w) in results.items():
+        print(f"{api} read".ljust(18) + f"| {format_bytes(r)}/s")
+        print(f"{api} write".ljust(18) + f"| {format_bytes(w)}/s")
 
 
 if __name__ == "__main__":
@@ -128,15 +129,19 @@ if __name__ == "__main__":
         help="Disable pre-register of device buffer",
     )
     parser.add_argument(
-        "--no-posix-run", action="store_true", default=False, help="Disable POSIX run",
-    )
-    parser.add_argument(
         "-t",
         "--nthreads",
         metavar="THREADS",
         default=1,
         type=int,
         help="Number of threads to use (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--api",
+        default=("cufile", "posix"),
+        nargs="+",
+        choices=tuple(API.keys()),
+        help="list of operations",
     )
 
     args = parser.parse_args()
