@@ -85,7 +85,9 @@ def run_zarr(store_type, args):
 
     # Write
     t0 = clock()
-    z = zarr.array(a, compressor=compressor, store=store, meta_array=cupy.empty(()))
+    z = zarr.array(
+        a, chunks=False, compressor=compressor, store=store, meta_array=cupy.empty(())
+    )
     write_time = clock() - t0
 
     # Read
