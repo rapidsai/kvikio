@@ -20,7 +20,7 @@ cdef class IOFuture:
     """C++ future for CuFile reads and writes"""
     cdef future[size_t] _handle
 
-    def get(self):
+    def get(self) -> int:
         cdef size_t ret
         with nogil:
             ret = self._handle.get()
@@ -105,9 +105,6 @@ cdef class CuFile:
             )
         )
 
-    def read(self, buf, size: int, file_offset: int, nthreads) -> int:
-        return self.pread(buf, size, file_offset, nthreads).get()
-
     def pwrite(self, buf, size: int, file_offset: int, nthreads) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         return _wrap_io_future(
@@ -118,9 +115,6 @@ cdef class CuFile:
                 nthreads if nthreads else get_num_threads()
             )
         )
-
-    def write(self, buf, size: int, file_offset: int, nthreads) -> int:
-        return self.pwrite(buf, size, file_offset, nthreads).get()
 
 
 cdef class DriverProperties:

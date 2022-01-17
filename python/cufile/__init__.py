@@ -49,12 +49,6 @@ class CuFile:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
-    def read(self, buf, size: int = None, file_offset: int = 0, nthreads=None) -> int:
-        return self._handle.read(buf, size, file_offset, nthreads)
-
-    def write(self, buf, size: int = None, file_offset: int = 0, nthreads=None) -> int:
-        return self._handle.write(buf, size, file_offset, nthreads)
-
     def pread(
         self, buf, size: int = None, file_offset: int = 0, nthreads=None
     ) -> libcufile.IOFuture:
@@ -64,6 +58,12 @@ class CuFile:
         self, buf, size: int = None, file_offset: int = 0, nthreads=None
     ) -> libcufile.IOFuture:
         return self._handle.pwrite(buf, size, file_offset, nthreads)
+
+    def read(self, buf, size: int = None, file_offset: int = 0, nthreads=None) -> int:
+        return self.pread(buf, size, file_offset, nthreads).get()
+
+    def write(self, buf, size: int = None, file_offset: int = 0, nthreads=None) -> int:
+        return self.pwrite(buf, size, file_offset, nthreads).get()
 
 
 # TODO: Wrap nicely, maybe as a dataclass?
