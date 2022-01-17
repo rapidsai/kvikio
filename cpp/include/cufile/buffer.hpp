@@ -43,7 +43,7 @@ namespace cufile {
  */
 /*NOLINTNEXTLINE(readability-function-cognitive-complexity)*/
 inline void buffer_register(const void* devPtr_base,
-                            size_t size,
+                            std::size_t size,
                             int flags                                = 0,
                             const std::vector<int>& errors_to_ignore = std::vector<int>())
 {

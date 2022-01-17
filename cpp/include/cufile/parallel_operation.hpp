@@ -71,9 +71,12 @@ std::future<std::size_t> parallel_io(
   }
 
   // Finally, we sum the result of all tasks.
-  auto gather_tasks = [](auto&& tasks) -> size_t {
-    return std::accumulate(
-      tasks.begin(), tasks.end(), 0, [](auto sum, auto& task) { return sum + task.get(); });
+  auto gather_tasks = [](std::vector<std::future<std::size_t>>&& tasks) -> std::size_t {
+    std::size_t ret = 0;
+    for (auto& task : tasks) {
+      ret += task.get();
+    }
+    return ret;
   };
   return std::async(std::launch::deferred, gather_tasks, std::move(tasks));
 }
