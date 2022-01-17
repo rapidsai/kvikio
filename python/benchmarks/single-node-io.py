@@ -17,25 +17,27 @@ import cufile
 
 
 def run_cufile(args):
-    file_path = args.dir / "single-node-io-data-file"
+    file_path = args.dir / "cufile-single-file"
     cufile.set_num_threads(args.nthreads)
-    data = cupy.arange(args.nbytes // 8, dtype="int64")
+    data = cupy.arange(args.nbytes, dtype="uint8")
     if args.pre_register_buffer:
         cufile.memory_register(data)
 
     # Write
     f = cufile.CuFile(file_path=file_path, flags="w")
     t0 = clock()
-    f.write(data)
+    res = f.write(data)
     f.close()
     write_time = clock() - t0
+    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     # Read
     f = cufile.CuFile(file_path=file_path, flags="r")
     t0 = clock()
-    f.read(data)
+    res = f.read(data)
     f.close()
     read_time = clock() - t0
+    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     if args.pre_register_buffer:
         cufile.memory_deregister(data)
@@ -44,22 +46,25 @@ def run_cufile(args):
 
 
 def run_posix(args):
-    file_path = args.dir / "single-node-io-data-file"
-    data = cupy.arange(args.nbytes // 8, dtype="int64")
+    file_path = args.dir / "posix-single-file"
+    data = cupy.arange(args.nbytes, dtype="uint8")
 
     # Write
     f = open(file_path, "wb")
     t0 = clock()
-    f.write(data.tobytes())
+    res = f.write(data.tobytes())
     f.close()
     write_time = clock() - t0
+    assert res == args.nbytes
 
     # Read
     f = open(file_path, "rb")
     t0 = clock()
-    cupy.fromfile(f, dtype="int64", count=len(data))
+    a = cupy.fromfile(f, dtype="uint8", count=len(data))
     f.close()
     read_time = clock() - t0
+    assert a.nbytes == args.nbytes
+    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {a.nbytes}"
 
     return read_time, write_time
 

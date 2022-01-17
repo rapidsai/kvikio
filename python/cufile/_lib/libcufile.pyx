@@ -10,7 +10,6 @@ from typing import Tuple
 
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp.utility cimport move, pair
-from libcpp.vector cimport vector
 
 from . cimport cufile_cxx_api
 from .arr cimport Array

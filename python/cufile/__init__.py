@@ -55,6 +55,16 @@ class CuFile:
     def write(self, buf, size: int = None, file_offset: int = 0, nthreads=None) -> int:
         return self._handle.write(buf, size, file_offset, nthreads)
 
+    def pread(
+        self, buf, size: int = None, file_offset: int = 0, nthreads=None
+    ) -> libcufile.IOFuture:
+        return self._handle.pread(buf, size, file_offset, nthreads)
+
+    def pwrite(
+        self, buf, size: int = None, file_offset: int = 0, nthreads=None
+    ) -> libcufile.IOFuture:
+        return self._handle.pwrite(buf, size, file_offset, nthreads)
+
 
 # TODO: Wrap nicely, maybe as a dataclass?
 DriverProperties = libcufile.DriverProperties
