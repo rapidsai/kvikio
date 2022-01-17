@@ -6,6 +6,7 @@ import contextlib
 import functools
 import os
 import pathlib
+import shutil
 import tempfile
 from time import perf_counter as clock
 
@@ -73,6 +74,7 @@ def run_zarr(store_type, args):
     a = cupy.arange(args.nbytes // 8, dtype="int64")
 
     # Retrieve the store and compressor to use based on `store_type`
+    shutil.rmtree(str(args.dir / store_type), ignore_errors=True)
     store, compressor = {
         "gds": (cufile.zarr.GDSStore(args.dir / store_type), None),
         "posix": (
