@@ -3,7 +3,7 @@
 
 from typing import Tuple, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 class Array:
     def __init__(self, obj: T): ...
@@ -23,6 +23,5 @@ class Array:
     def cuda(self) -> bool: ...
     @property
     def obj(self) -> T: ...
-
 
 def asarray(obj) -> Array: ...
