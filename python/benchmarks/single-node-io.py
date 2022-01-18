@@ -18,6 +18,8 @@ import cufile.thread_pool
 
 
 def run_cufile(args):
+    """Single file and array"""
+
     file_path = args.dir / "cufile-single-file"
     data = cupy.arange(args.nbytes, dtype="uint8")
     if args.pre_register_buffer:
@@ -45,8 +47,8 @@ def run_cufile(args):
     return read_time, write_time
 
 
-def run_cufile_multiple_files(args):
-    """Read/write to a file per thread"""
+def run_cufile_multiple_files_multiple_arrays(args):
+    """One file and array per thread"""
 
     chunksize = args.nbytes // args.nthreads
     assert args.nbytes % args.nthreads == 0, "--nbytes must be divisible by --nthreads"
@@ -85,7 +87,49 @@ def run_cufile_multiple_files(args):
     return read_time, write_time
 
 
+def run_cufile_multiple_files(args):
+    """Single array but one file per thread"""
+
+    chunksize = args.nbytes // args.nthreads
+    assert args.nbytes % args.nthreads == 0, "--nbytes must be divisible by --nthreads"
+    file_path = str(args.dir / "cufile-p-%03d")
+    data = cupy.arange(args.nbytes, dtype="uint8")
+    if args.pre_register_buffer:
+        cufile.memory_register(data)
+
+    # Write
+    files = [
+        cufile.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
+    ]
+    t0 = clock()
+    futures = [
+        f.pwrite(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
+    ]
+    res = sum(f.get() for f in futures)
+    write_time = clock() - t0
+    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
+
+    # Read
+    files = [
+        cufile.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
+    ]
+    t0 = clock()
+    futures = [
+        f.pread(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
+    ]
+    res = sum(f.get() for f in futures)
+    read_time = clock() - t0
+    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
+
+    if args.pre_register_buffer:
+        cufile.memory_deregister(data)
+
+    return read_time, write_time
+
+
 def run_posix(args):
+    """Use the posix API, no calls to cufile"""
+
     file_path = args.dir / "posix-single-file"
     data = cupy.arange(args.nbytes, dtype="uint8")
 
@@ -110,6 +154,8 @@ def run_posix(args):
 
 
 def run_zarr(store_type, args):
+    """Use the Zarr API"""
+
     import zarr
     import zarr.cupy
 
@@ -147,7 +193,8 @@ API = {
     "zarr-gds": functools.partial(run_zarr, "gds"),
     "zarr-posix": functools.partial(run_zarr, "posix"),
     "posix": run_posix,
-    "cufile-p": run_cufile_multiple_files,
+    "cufile-mfma": run_cufile_multiple_files_multiple_arrays,
+    "cufile-mf": run_cufile_multiple_files,
 }
 
 
