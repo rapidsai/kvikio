@@ -45,6 +45,46 @@ def run_cufile(args):
     return read_time, write_time
 
 
+def run_cufile_multiple_files(args):
+    """Read/write to a file per thread"""
+
+    chunksize = args.nbytes // args.nthreads
+    assert args.nbytes % args.nthreads == 0, "--nbytes must be divisible by --nthreads"
+
+    # Create a file path and CuPy array per thread
+    file_path = str(args.dir / "cufile-p-%03d")
+    arrays = [cupy.arange(chunksize, dtype="uint8") for _ in range(args.nthreads)]
+    if args.pre_register_buffer:
+        for array in arrays:
+            cufile.memory_register(array)
+
+    # Write
+    files = [
+        cufile.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
+    ]
+    t0 = clock()
+    futures = [f.pwrite(a, nthreads=1) for f, a in zip(files, arrays)]
+    res = sum(f.get() for f in futures)
+    write_time = clock() - t0
+    assert res == args.nbytes
+
+    # Read
+    files = [
+        cufile.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
+    ]
+    t0 = clock()
+    futures = [f.pread(a, nthreads=1) for f, a in zip(files, arrays)]
+    res = sum(f.get() for f in futures)
+    read_time = clock() - t0
+    assert res == args.nbytes
+
+    if args.pre_register_buffer:
+        for array in arrays:
+            cufile.memory_deregister(array)
+
+    return read_time, write_time
+
+
 def run_posix(args):
     file_path = args.dir / "posix-single-file"
     data = cupy.arange(args.nbytes, dtype="uint8")
@@ -108,10 +148,13 @@ API = {
     "zarr-gds": functools.partial(run_zarr, "gds"),
     "zarr-posix": functools.partial(run_zarr, "posix"),
     "posix": run_posix,
+    "cufile-p": run_cufile_multiple_files,
 }
 
 
 def main(args):
+    cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
+    cufile.set_num_threads(args.nthreads)
     results = {}
     for api in args.api:
         read, write = API[api](args)
