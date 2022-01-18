@@ -51,7 +51,7 @@ inline cufile::third_party::thread_pool& get() { return _current_default_thread_
  * pool will be paused as well.
  *
  * @param nthreads The number of threads to use. The default value can be specified by setting
- * the `CUFILE_NTHREADS` enviornment variable. If not set, the default value is 1.
+ * the `CUFILE_NTHREADS` environment variable. If not set, the default value is 1.
  */
 inline void reset(unsigned int nthreads = get_num_threads_from_env())
 {

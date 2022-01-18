@@ -7,6 +7,7 @@ import random
 import pytest
 
 import cufile
+import cufile.thread_pool
 
 cupy = pytest.importorskip("cupy")
 
@@ -18,8 +19,8 @@ def test_read_write(tmp_path, size, nthreads):
     filename = tmp_path / "test-file"
 
     # Set number of threads cuFile should use
-    cufile.set_num_threads(nthreads)
-    assert cufile.get_num_threads() == nthreads
+    cufile.thread_pool.reset_num_threads(nthreads)
+    assert cufile.thread_pool.get_num_threads() == nthreads
 
     # Write file
     a = cupy.arange(size)

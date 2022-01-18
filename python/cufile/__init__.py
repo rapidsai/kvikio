@@ -8,14 +8,6 @@ from ._lib import libcufile  # type: ignore
 __version__ = _version.get_versions()["version"]
 
 
-def set_num_threads(nthread: int) -> None:
-    libcufile.set_num_threads(nthread)
-
-
-def get_num_threads() -> int:
-    return libcufile.get_num_threads()
-
-
 def memory_register(buf) -> None:
     return libcufile.memory_register(buf)
 
@@ -50,20 +42,20 @@ class CuFile:
         self.close()
 
     def pread(
-        self, buf, size: int = None, file_offset: int = 0, nthreads=None
+        self, buf, size: int = None, file_offset: int = 0, ntasks=None
     ) -> libcufile.IOFuture:
-        return self._handle.pread(buf, size, file_offset, nthreads)
+        return self._handle.pread(buf, size, file_offset, ntasks)
 
     def pwrite(
-        self, buf, size: int = None, file_offset: int = 0, nthreads=None
+        self, buf, size: int = None, file_offset: int = 0, ntasks=None
     ) -> libcufile.IOFuture:
-        return self._handle.pwrite(buf, size, file_offset, nthreads)
+        return self._handle.pwrite(buf, size, file_offset, ntasks)
 
-    def read(self, buf, size: int = None, file_offset: int = 0, nthreads=None) -> int:
-        return self.pread(buf, size, file_offset, nthreads).get()
+    def read(self, buf, size: int = None, file_offset: int = 0, ntasks=None) -> int:
+        return self.pread(buf, size, file_offset, ntasks).get()
 
-    def write(self, buf, size: int = None, file_offset: int = 0, nthreads=None) -> int:
-        return self.pwrite(buf, size, file_offset, nthreads).get()
+    def write(self, buf, size: int = None, file_offset: int = 0, ntasks=None) -> int:
+        return self.pwrite(buf, size, file_offset, ntasks).get()
 
 
 # TODO: Wrap nicely, maybe as a dataclass?

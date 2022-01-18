@@ -45,10 +45,10 @@ def memory_deregister(buf) -> None:
     cdef Array arr = buf
     cufile_cxx_api.memory_deregister(<void*>arr.ptr)
 
-def set_num_threads(nthread: int) -> None:
+def thread_pool_reset_num_threads(nthread: int) -> None:
     cufile_cxx_api.reset(nthread)
 
-def get_num_threads() -> int:
+def thread_pool_get_num_threads() -> int:
     return cufile_cxx_api.nthreads()
 
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
@@ -94,25 +94,25 @@ cdef class CuFile:
     def open_flags(self) -> int:
         return self._handle.fd_open_flags()
 
-    def pread(self, buf, size: int, file_offset: int, nthreads) -> IOFuture:
+    def pread(self, buf, size: int, file_offset: int, ntasks) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         return _wrap_io_future(
             self._handle.pread(
                 <void*>info.first,
                 info.second,
                 file_offset,
-                nthreads if nthreads else get_num_threads()
+                ntasks if ntasks else cufile_cxx_api.nthreads()
             )
         )
 
-    def pwrite(self, buf, size: int, file_offset: int, nthreads) -> IOFuture:
+    def pwrite(self, buf, size: int, file_offset: int, ntasks) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         return _wrap_io_future(
             self._handle.pwrite(
                 <void*>info.first,
                 info.second,
                 file_offset,
-                nthreads if nthreads else get_num_threads()
+                ntasks if ntasks else cufile_cxx_api.nthreads()
             )
         )
 

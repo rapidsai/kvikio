@@ -14,11 +14,11 @@ import cupy
 from dask.utils import format_bytes, parse_bytes
 
 import cufile
+import cufile.thread_pool
 
 
 def run_cufile(args):
     file_path = args.dir / "cufile-single-file"
-    cufile.set_num_threads(args.nthreads)
     data = cupy.arange(args.nbytes, dtype="uint8")
     if args.pre_register_buffer:
         cufile.memory_register(data)
@@ -63,7 +63,7 @@ def run_cufile_multiple_files(args):
         cufile.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
     ]
     t0 = clock()
-    futures = [f.pwrite(a, nthreads=1) for f, a in zip(files, arrays)]
+    futures = [f.pwrite(a, ntasks=1) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
     write_time = clock() - t0
     assert res == args.nbytes
@@ -73,7 +73,7 @@ def run_cufile_multiple_files(args):
         cufile.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
     ]
     t0 = clock()
-    futures = [f.pread(a, nthreads=1) for f, a in zip(files, arrays)]
+    futures = [f.pread(a, ntasks=1) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
     read_time = clock() - t0
     assert res == args.nbytes
@@ -115,7 +115,6 @@ def run_zarr(store_type, args):
 
     import cufile.zarr
 
-    cufile.set_num_threads(args.nthreads)
     a = cupy.arange(args.nbytes // 8, dtype="int64")
 
     # Retrieve the store and compressor to use based on `store_type`
@@ -154,7 +153,7 @@ API = {
 
 def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
-    cufile.set_num_threads(args.nthreads)
+    cufile.thread_pool.reset_num_threads(args.nthreads)
     results = {}
     for api in args.api:
         read, write = API[api](args)
