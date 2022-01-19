@@ -3,24 +3,24 @@
 
 
 from . import _version
-from ._lib import libcufile  # type: ignore
+from ._lib import libkvikio  # type: ignore
 
 __version__ = _version.get_versions()["version"]
 
 
 def memory_register(buf) -> None:
-    return libcufile.memory_register(buf)
+    return libkvikio.memory_register(buf)
 
 
 def memory_deregister(buf) -> None:
-    libcufile.memory_deregister(buf)
+    libkvikio.memory_deregister(buf)
 
 
 class CuFile:
     """ File handle for GPUDirect Storage (GDS) """
 
     def __init__(self, file_path, flags="r"):
-        self._handle = libcufile.CuFile(file_path, flags)
+        self._handle = libkvikio.CuFile(file_path, flags)
 
     def close(self) -> None:
         self._handle.close()
@@ -43,12 +43,12 @@ class CuFile:
 
     def pread(
         self, buf, size: int = None, file_offset: int = 0, ntasks=None
-    ) -> libcufile.IOFuture:
+    ) -> libkvikio.IOFuture:
         return self._handle.pread(buf, size, file_offset, ntasks)
 
     def pwrite(
         self, buf, size: int = None, file_offset: int = 0, ntasks=None
-    ) -> libcufile.IOFuture:
+    ) -> libkvikio.IOFuture:
         return self._handle.pwrite(buf, size, file_offset, ntasks)
 
     def read(self, buf, size: int = None, file_offset: int = 0, ntasks=None) -> int:
@@ -59,6 +59,6 @@ class CuFile:
 
 
 # TODO: Wrap nicely, maybe as a dataclass?
-DriverProperties = libcufile.DriverProperties
+DriverProperties = libkvikio.DriverProperties
 # TODO: Wrap nicely, maybe as a dataclass?
-NVML = libcufile.NVML
+NVML = libkvikio.NVML

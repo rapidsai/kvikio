@@ -11,9 +11,9 @@ from typing import Tuple
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp.utility cimport move, pair
 
-from . cimport cufile_cxx_api
+from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .cufile_cxx_api cimport FileHandle, future
+from .kvikio_cxx_api cimport FileHandle, future
 
 
 cdef class IOFuture:
@@ -37,19 +37,19 @@ def memory_register(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
-    cufile_cxx_api.memory_register(<void*>arr.ptr)
+    kvikio_cxx_api.memory_register(<void*>arr.ptr)
 
 def memory_deregister(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
-    cufile_cxx_api.memory_deregister(<void*>arr.ptr)
+    kvikio_cxx_api.memory_deregister(<void*>arr.ptr)
 
 def thread_pool_reset_num_threads(nthread: int) -> None:
-    cufile_cxx_api.reset(nthread)
+    kvikio_cxx_api.reset(nthread)
 
 def thread_pool_get_num_threads() -> int:
-    return cufile_cxx_api.nthreads()
+    return kvikio_cxx_api.nthreads()
 
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
     """Parse `buf` and `size` argument and return a pointer and nbytes"""
@@ -101,7 +101,7 @@ cdef class CuFile:
                 <void*>info.first,
                 info.second,
                 file_offset,
-                ntasks if ntasks else cufile_cxx_api.nthreads()
+                ntasks if ntasks else kvikio_cxx_api.nthreads()
             )
         )
 
@@ -112,13 +112,13 @@ cdef class CuFile:
                 <void*>info.first,
                 info.second,
                 file_offset,
-                ntasks if ntasks else cufile_cxx_api.nthreads()
+                ntasks if ntasks else kvikio_cxx_api.nthreads()
             )
         )
 
 
 cdef class DriverProperties:
-    cdef cufile_cxx_api.DriverProperties _handle
+    cdef kvikio_cxx_api.DriverProperties _handle
 
     @property
     def is_gds_availabe(self) -> bool:
@@ -177,7 +177,7 @@ cdef class DriverProperties:
 
 
 cdef class NVML:
-    cdef cufile_cxx_api.NVML _handle
+    cdef kvikio_cxx_api.NVML _handle
 
     def get_name(self) -> str:
         return self._handle.get_name().decode()

@@ -2,7 +2,7 @@
 # See file LICENSE for terms.
 
 
-from ._lib import libcufile  # type: ignore
+from ._lib import libkvikio  # type: ignore
 
 
 def reset_num_threads(nthread: int) -> None:
@@ -18,10 +18,10 @@ def reset_num_threads(nthread: int) -> None:
     ----------
     nthread : int
         The number of threads to use. The default value can be specified by setting
-        the `CUFILE_NTHREADS` environment variable. If not set, the default value
+        the `KVIKIO_NTHREADS` environment variable. If not set, the default value
         is 1.
     """
-    libcufile.thread_pool_reset_num_threads(nthread)
+    libkvikio.thread_pool_reset_num_threads(nthread)
 
 
 def get_num_threads() -> int:
@@ -32,4 +32,4 @@ def get_num_threads() -> int:
     nthreads: int
         The number of threads in the current thread pool.
     """
-    return libcufile.thread_pool_get_num_threads()
+    return libkvikio.thread_pool_get_num_threads()

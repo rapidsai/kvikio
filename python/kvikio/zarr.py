@@ -11,8 +11,8 @@ import cupy
 import zarr.storage
 from zarr.util import retry_call
 
-import cufile
-from cufile._lib.arr import asarray
+import kvikio
+from kvikio._lib.arr import asarray
 
 
 class GDSStore(zarr.storage.DirectoryStore):
@@ -40,7 +40,7 @@ class GDSStore(zarr.storage.DirectoryStore):
             return super()._fromfile(fn)
         else:
             nbytes = os.path.getsize(fn)
-            with cufile.CuFile(fn, "r") as f:
+            with kvikio.CuFile(fn, "r") as f:
                 ret = cupy.empty(nbytes, dtype="u1")
                 read = f.read(ret)
                 assert read == nbytes
@@ -50,7 +50,7 @@ class GDSStore(zarr.storage.DirectoryStore):
         a = asarray(a)
         assert a.contiguous
         if a.cuda:
-            with cufile.CuFile(fn, "w") as f:
+            with kvikio.CuFile(fn, "w") as f:
                 written = f.write(a)
                 assert written == a.nbytes
         else:

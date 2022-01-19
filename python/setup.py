@@ -73,17 +73,17 @@ if "CUFILE_HOME" in os.environ:
     else:
         library_dirs.append(os.path.join(CUFILE_HOME, "lib"))
 
-# Add cuFile++ headers from the source tree (if available)
-cufilexx_include_dir = os.path.abspath(f"{this_setup_scrip_dir}/../cpp/include")
-if os.path.isdir(cufilexx_include_dir):
-    include_dirs = [cufilexx_include_dir] + include_dirs
-    depends.extend(glob.glob(f"{cufilexx_include_dir}/cufile/*"))
+# Add kvikio headers from the source tree (if available)
+kvikio_include_dir = os.path.abspath(f"{this_setup_scrip_dir}/../cpp/include")
+if os.path.isdir(kvikio_include_dir):
+    include_dirs = [kvikio_include_dir] + include_dirs
+    depends.extend(glob.glob(f"{kvikio_include_dir}/kvikio/*"))
     depends.extend(f"{this_setup_scrip_dir}/../cpp/CMakeLists.txt")
 
 extensions = [
     Extension(
-        "cufile._lib.libcufile",
-        sources=["cufile/_lib/libcufile.pyx"],
+        "kvikio._lib.libkvikio",
+        sources=["kvikio/_lib/libkvikio.pyx"],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
         libraries=["cuda", "cudart", "cufile", "nvidia-ml"],
@@ -92,8 +92,8 @@ extensions = [
         depends=depends,
     ),
     Extension(
-        "cufile._lib.arr",
-        sources=["cufile/_lib/arr.pyx"],
+        "kvikio._lib.arr",
+        sources=["kvikio/_lib/arr.pyx"],
         language="c++",
         extra_compile_args=["-std=c++17"],
         depends=depends,
@@ -149,9 +149,9 @@ cmdclass.update(versioneer.get_cmdclass())
 cmdclass["build_ext"] = build_ext
 
 setup(
-    name="cufile",
+    name="kvikio",
     version=versioneer.get_version(),
-    description="cuFile - GPUDirect Storage",
+    description="KvikIO - GPUDirect Storage",
     url="https://github.com/rapidsai/cufile-bindings",
     author="NVIDIA Corporation",
     license="Apache 2.0",

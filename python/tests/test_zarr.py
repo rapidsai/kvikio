@@ -6,7 +6,7 @@ import pytest
 
 cupy = pytest.importorskip("cupy")
 zarr = pytest.importorskip("zarr")
-GDSStore = pytest.importorskip("cufile.zarr").GDSStore
+GDSStore = pytest.importorskip("kvikio.zarr").GDSStore
 
 
 @pytest.fixture

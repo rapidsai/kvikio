@@ -72,7 +72,7 @@ python benchmarks/single-node-io.py
 ```c++
 #include <cstddef>
 #include <cuda_runtime.h>
-#include <cufile/file_handle.hpp>
+#include <kvikio/file_handle.hpp>
 using namespace std;
 
 int main()
@@ -85,19 +85,19 @@ int main()
   cudaMalloc(&b, size);
 
   // Write `a` to file
-  cufile::FileHandle fw("test-file", "w");
+  kvikio::FileHandle fw("test-file", "w");
   size_t written = fw.write(a, size);
   fw.close();
 
   // Read file into `b`
-  cufile::FileHandle fr("test-file", "r");
+  kvikio::FileHandle fr("test-file", "r");
   size_t read = fr.read(b, size);
   fr.close();
 
   // Read file into `b` in parallel using 16 threads
-  cufile::default_thread_pool::reset(16);
+  kvikio::default_thread_pool::reset(16);
   {
-    cufile::FileHandle f("test-file", "r");
+    kvikio::FileHandle f("test-file", "r");
     future<size_t> future = f.pread(b_dev, sizeof(a), 0);  // Non-blocking
     size_t read = future.get(); // Blocking
     // Notice, `f` closes automatically on destruction.
@@ -108,16 +108,16 @@ int main()
 ### Python
 ```python
 import cupy
-import cufile
+import kvikio
 
 a = cupy.arange(100)
-f = cufile.CuFile("test-file", "w")
+f = kvikio.CuFile("test-file", "w")
 # Write whole array to file
 f.write(a)
 f.close()
 
 b = cupy.empty_like(a)
-f = cufile.CuFile("test-file", "r")
+f = kvikio.CuFile("test-file", "r")
 # Read whole array from file
 f.read(b)
 assert all(a == b)

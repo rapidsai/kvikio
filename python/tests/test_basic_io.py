@@ -6,8 +6,8 @@ import random
 
 import pytest
 
-import cufile
-import cufile.thread_pool
+import kvikio
+import kvikio.thread_pool
 
 cupy = pytest.importorskip("cupy")
 
@@ -18,13 +18,13 @@ def test_read_write(tmp_path, size, nthreads):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
-    # Set number of threads cuFile should use
-    cufile.thread_pool.reset_num_threads(nthreads)
-    assert cufile.thread_pool.get_num_threads() == nthreads
+    # Set number of threads KvikIO should use
+    kvikio.thread_pool.reset_num_threads(nthreads)
+    assert kvikio.thread_pool.get_num_threads() == nthreads
 
     # Write file
     a = cupy.arange(size)
-    f = cufile.CuFile(filename, "w")
+    f = kvikio.CuFile(filename, "w")
     assert not f.closed
     assert f.open_flags() & (os.O_WRONLY | os.O_DIRECT | os.O_CLOEXEC)
     assert f.write(a) == a.nbytes
@@ -39,7 +39,7 @@ def test_read_write(tmp_path, size, nthreads):
 
     # Read file into a new array and compare
     b = cupy.empty_like(a)
-    f = cufile.CuFile(filename, "r")
+    f = kvikio.CuFile(filename, "r")
     assert f.open_flags() & (os.O_RDONLY | os.O_DIRECT | os.O_CLOEXEC)
     f.read(b)
     assert all(a == b)
@@ -50,7 +50,7 @@ def test_write_in_offsets(tmp_path):
     filename = tmp_path / "test-file"
 
     a = cupy.arange(200)
-    f = cufile.CuFile(filename, "w")
+    f = kvikio.CuFile(filename, "w")
 
     nchunks = 20
     chunks = []
@@ -71,7 +71,7 @@ def test_write_in_offsets(tmp_path):
 
     # Read file into a new array and compare
     b = cupy.empty_like(a)
-    f = cufile.CuFile(filename, "r")
+    f = kvikio.CuFile(filename, "r")
     f.read(b)
     assert all(a == b)
 
@@ -81,7 +81,7 @@ def test_context(tmp_path):
     filename = tmp_path / "test-file"
     a = cupy.arange(200)
     b = cupy.empty_like(a)
-    with cufile.CuFile(filename, "w+") as f:
+    with kvikio.CuFile(filename, "w+") as f:
         assert not f.closed
         assert f.open_flags() & (os.O_WRONLY | os.O_DIRECT | os.O_CLOEXEC)
         assert f.write(a) == a.nbytes

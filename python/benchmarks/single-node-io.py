@@ -13,20 +13,20 @@ from time import perf_counter as clock
 import cupy
 from dask.utils import format_bytes, parse_bytes
 
-import cufile
-import cufile.thread_pool
+import kvikio
+import kvikio.thread_pool
 
 
 def run_cufile(args):
     """Single file and array"""
 
-    file_path = args.dir / "cufile-single-file"
+    file_path = args.dir / "kvikio-single-file"
     data = cupy.arange(args.nbytes, dtype="uint8")
     if args.pre_register_buffer:
-        cufile.memory_register(data)
+        kvikio.memory_register(data)
 
     # Write
-    f = cufile.CuFile(file_path=file_path, flags="w")
+    f = kvikio.CuFile(file_path=file_path, flags="w")
     t0 = clock()
     res = f.write(data)
     f.close()
@@ -34,7 +34,7 @@ def run_cufile(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     # Read
-    f = cufile.CuFile(file_path=file_path, flags="r")
+    f = kvikio.CuFile(file_path=file_path, flags="r")
     t0 = clock()
     res = f.read(data)
     f.close()
@@ -42,7 +42,7 @@ def run_cufile(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     if args.pre_register_buffer:
-        cufile.memory_deregister(data)
+        kvikio.memory_deregister(data)
 
     return read_time, write_time
 
@@ -58,11 +58,11 @@ def run_cufile_multiple_files_multiple_arrays(args):
     arrays = [cupy.arange(chunksize, dtype="uint8") for _ in range(args.nthreads)]
     if args.pre_register_buffer:
         for array in arrays:
-            cufile.memory_register(array)
+            kvikio.memory_register(array)
 
     # Write
     files = [
-        cufile.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
+        kvikio.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
     ]
     t0 = clock()
     futures = [f.pwrite(a, ntasks=1) for f, a in zip(files, arrays)]
@@ -72,7 +72,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
 
     # Read
     files = [
-        cufile.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
+        kvikio.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
     ]
     t0 = clock()
     futures = [f.pread(a, ntasks=1) for f, a in zip(files, arrays)]
@@ -82,7 +82,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
 
     if args.pre_register_buffer:
         for array in arrays:
-            cufile.memory_deregister(array)
+            kvikio.memory_deregister(array)
 
     return read_time, write_time
 
@@ -95,11 +95,11 @@ def run_cufile_multiple_files(args):
     file_path = str(args.dir / "cufile-p-%03d")
     data = cupy.arange(args.nbytes, dtype="uint8")
     if args.pre_register_buffer:
-        cufile.memory_register(data)
+        kvikio.memory_register(data)
 
     # Write
     files = [
-        cufile.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
+        kvikio.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
     ]
     t0 = clock()
     futures = [
@@ -111,7 +111,7 @@ def run_cufile_multiple_files(args):
 
     # Read
     files = [
-        cufile.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
+        kvikio.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
     ]
     t0 = clock()
     futures = [
@@ -122,13 +122,13 @@ def run_cufile_multiple_files(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     if args.pre_register_buffer:
-        cufile.memory_deregister(data)
+        kvikio.memory_deregister(data)
 
     return read_time, write_time
 
 
 def run_posix(args):
-    """Use the posix API, no calls to cufile"""
+    """Use the posix API, no calls to kvikio"""
 
     file_path = args.dir / "posix-single-file"
     data = cupy.arange(args.nbytes, dtype="uint8")
@@ -159,14 +159,14 @@ def run_zarr(store_type, args):
     import zarr
     import zarr.cupy
 
-    import cufile.zarr
+    import kvikio.zarr
 
     a = cupy.arange(args.nbytes, dtype="uint8")
 
     # Retrieve the store and compressor to use based on `store_type`
     shutil.rmtree(str(args.dir / store_type), ignore_errors=True)
     store, compressor = {
-        "gds": (cufile.zarr.GDSStore(args.dir / store_type), None),
+        "gds": (kvikio.zarr.GDSStore(args.dir / store_type), None),
         "posix": (
             zarr.DirectoryStore(args.dir / store_type),
             zarr.cupy.CuPyCPUCompressor(),
@@ -201,13 +201,13 @@ API = {
 
 def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
-    cufile.thread_pool.reset_num_threads(args.nthreads)
+    kvikio.thread_pool.reset_num_threads(args.nthreads)
     results = {}
     for api in args.api:
         read, write = API[api](args)
         results[api] = (args.nbytes / read, args.nbytes / write)
-    props = cufile.DriverProperties()
-    nvml = cufile.NVML()
+    props = kvikio.DriverProperties()
+    nvml = kvikio.NVML()
     mem_total, _ = nvml.get_memory()
     bar1_total, _ = nvml.get_bar1_memory()
     gds_version = "N/A (Compatibility Mode)"
