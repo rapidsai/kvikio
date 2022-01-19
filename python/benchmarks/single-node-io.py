@@ -161,7 +161,7 @@ def run_zarr(store_type, args):
 
     import cufile.zarr
 
-    a = cupy.arange(args.nbytes // 8, dtype="int64")
+    a = cupy.arange(args.nbytes, dtype="uint8")
 
     # Retrieve the store and compressor to use based on `store_type`
     shutil.rmtree(str(args.dir / store_type), ignore_errors=True)
@@ -182,8 +182,9 @@ def run_zarr(store_type, args):
 
     # Read
     t0 = clock()
-    z[:]
+    res = z[:]
     read_time = clock() - t0
+    assert res.nbytes == args.nbytes
 
     return read_time, write_time
 
