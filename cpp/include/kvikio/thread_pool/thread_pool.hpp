@@ -43,7 +43,7 @@
 // ============================================================================================= //
 //                                    Begin class thread_pool                                    //
 
-namespace cufile::third_party {
+namespace kvikio::third_party {
 
 /**
  * @brief A C++17 thread pool class. The user submits tasks to be executed into a queue. Whenever a
@@ -455,7 +455,7 @@ class thread_pool {
    */
   std::atomic<ui32> tasks_total = 0;
 };
-}  // namespace cufile::third_party
+}  // namespace kvikio::third_party
 
 //                                     End class thread_pool                                     //
 // ============================================================================================= //

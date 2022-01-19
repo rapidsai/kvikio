@@ -18,10 +18,10 @@
 #include <iostream>
 
 #include <cufile.h>
-#include <cufile/error.hpp>
+#include <kvikio/error.hpp>
 #include <vector>
 
-namespace cufile {
+namespace kvikio {
 
 namespace detail {
 
@@ -175,4 +175,4 @@ class DriverProperties {
   }
 };
 
-}  // namespace cufile
+}  // namespace kvikio

@@ -8,7 +8,6 @@ This provides C++ and Python bindings to cuFile, which enables GPUDirect Storage
 
 * Object Oriented API
 * Exception handling
-* Compatible with RMM to enable automatic cuFile buffer registration
 * Zarr reader
 
 ## Requirements

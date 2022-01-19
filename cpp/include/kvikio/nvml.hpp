@@ -20,11 +20,11 @@
 
 #include <nvml.h>
 
-#include <cufile/error.hpp>
+#include <kvikio/error.hpp>
 #include <stdexcept>
 #include <tuple>
 
-namespace cufile {
+namespace kvikio {
 
 class NVML {
  private:
@@ -110,4 +110,4 @@ class NVML {
   };
 };
 
-}  // namespace cufile
+}  // namespace kvikio

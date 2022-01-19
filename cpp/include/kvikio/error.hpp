@@ -22,7 +22,7 @@
 
 #include <cufile.h>
 
-namespace cufile {
+namespace kvikio {
 
 struct CUfileException : public std::runtime_error {
   using std::runtime_error::runtime_error;
@@ -100,4 +100,4 @@ struct CUfileException : public std::runtime_error {
   } while (0)
 #define NVML_TRY_1(_call) NVML_TRY_2(_call, CUfileException)
 
-}  // namespace cufile
+}  // namespace kvikio

@@ -27,13 +27,13 @@
 #include <utility>
 
 #include <cufile.h>
-#include <cufile/buffer.hpp>
-#include <cufile/error.hpp>
-#include <cufile/parallel_operation.hpp>
-#include <cufile/thread_pool/default.hpp>
-#include <cufile/utils.hpp>
+#include <kvikio/buffer.hpp>
+#include <kvikio/error.hpp>
+#include <kvikio/parallel_operation.hpp>
+#include <kvikio/thread_pool/default.hpp>
+#include <kvikio/utils.hpp>
 
-namespace cufile {
+namespace kvikio {
 namespace {
 
 inline int open_fd_parse_flags(const std::string& flags)
@@ -208,4 +208,4 @@ class FileHandle {
   }
 };
 
-}  // namespace cufile
+}  // namespace kvikio

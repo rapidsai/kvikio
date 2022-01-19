@@ -17,7 +17,7 @@ function(find_and_configure_gtest)
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
 
   # Find or install GoogleTest
-  rapids_cpm_gtest(BUILD_EXPORT_SET cudf-testing-exports INSTALL_EXPORT_SET cudf-testing-exports)
+  rapids_cpm_gtest(BUILD_EXPORT_SET kvikio-testing-exports INSTALL_EXPORT_SET kvikio-testing-exports)
 
   if(GTest_ADDED)
     rapids_export(
@@ -30,7 +30,7 @@ function(find_and_configure_gtest)
 
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
     rapids_export_find_package_root(
-      BUILD GTest [=[${CMAKE_CURRENT_LIST_DIR}]=] cudf-testing-exports
+      BUILD GTest [=[${CMAKE_CURRENT_LIST_DIR}]=] kvikio-testing-exports
     )
   endif()
 

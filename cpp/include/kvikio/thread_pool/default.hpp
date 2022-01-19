@@ -21,7 +21,7 @@
 
 #include "thread_pool.hpp"
 
-namespace cufile::default_thread_pool {  // TODO: should this be a singletone class instead?
+namespace kvikio::default_thread_pool {  // TODO: should this be a singletone class instead?
 namespace {
 inline unsigned int get_num_threads_from_env()
 {
@@ -32,7 +32,7 @@ inline unsigned int get_num_threads_from_env()
   return std::stoi(nthreads);
 }
 /*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
-inline cufile::third_party::thread_pool _current_default_thread_pool{get_num_threads_from_env()};
+inline kvikio::third_party::thread_pool _current_default_thread_pool{get_num_threads_from_env()};
 
 }  // namespace
 
@@ -41,7 +41,7 @@ inline cufile::third_party::thread_pool _current_default_thread_pool{get_num_thr
  *
  * @return The the default thread pool instance.
  */
-inline cufile::third_party::thread_pool& get() { return _current_default_thread_pool; }
+inline kvikio::third_party::thread_pool& get() { return _current_default_thread_pool; }
 
 /**
  * @brief Reset the number of threads in the default thread pool. Waits for all currently running
@@ -65,4 +65,4 @@ inline void reset(unsigned int nthreads = get_num_threads_from_env())
  */
 inline unsigned int nthreads() { return _current_default_thread_pool.get_thread_count(); }
 
-}  // namespace cufile::default_thread_pool
+}  // namespace kvikio::default_thread_pool

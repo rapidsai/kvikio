@@ -21,9 +21,9 @@
 #include <cuda_runtime.h>
 
 #include <cufile.h>
-#include <cufile/error.hpp>
+#include <kvikio/error.hpp>
 
-namespace cufile {
+namespace kvikio {
 
 inline off_t convert_size2off(std::size_t x)
 {
@@ -51,4 +51,4 @@ inline std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* de
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
 }
 
-}  // namespace cufile
+}  // namespace kvikio

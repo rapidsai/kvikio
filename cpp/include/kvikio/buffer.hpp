@@ -21,10 +21,10 @@
 #include <vector>
 
 #include <cufile.h>
-#include <cufile/error.hpp>
-#include <cufile/utils.hpp>
+#include <kvikio/error.hpp>
+#include <kvikio/utils.hpp>
 
-namespace cufile {
+namespace kvikio {
 
 /**
  * @brief register an existing cudaMalloced memory with cuFile to pin for
@@ -100,4 +100,4 @@ inline void memory_deregister(const void* devPtr)
   buffer_deregister(base);
 }
 
-}  // namespace cufile
+}  // namespace kvikio

@@ -21,14 +21,14 @@ include(rapids-export)
 include(rapids-find)
 
 project(
-  CUFILECXX
-  VERSION 21.12.00
+  KvikIO
+  VERSION 22.04.00
   LANGUAGES CXX)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 # Write the version header
-rapids_cmake_write_version_file(include/cufile/version_config.hpp)
+rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 
 # Set a default build type if none was specified
 rapids_cmake_build_type(Release)
@@ -39,13 +39,13 @@ option(BUILD_EXAMPLES "Configure CMake to build examples" ON)
 # find packages we depend on
 rapids_find_package(
   CUDAToolkit REQUIRED
-  BUILD_EXPORT_SET cufilecxx-exports
-  INSTALL_EXPORT_SET cufilecxx-exports)
+  BUILD_EXPORT_SET kvikio-exports
+  INSTALL_EXPORT_SET kvikio-exports)
 
 rapids_find_package(
   Threads REQUIRED
-  BUILD_EXPORT_SET cufilecxx-exports
-  INSTALL_EXPORT_SET cufilecxx-exports
+  BUILD_EXPORT_SET kvikio-exports
+  INSTALL_EXPORT_SET kvikio-exports
 )
 
 rapids_cpm_init()
@@ -53,35 +53,25 @@ rapids_cpm_init()
 # find cuFile
 rapids_find_package(
   cuFile REQUIRED
-  BUILD_EXPORT_SET cufilecxx-exports
-  INSTALL_EXPORT_SET cufilecxx-exports
+  BUILD_EXPORT_SET kvikio-exports
+  INSTALL_EXPORT_SET kvikio-exports
 )
 
 # library targets
-add_library(cufilecxx INTERFACE)
-add_library(cufilecxx::cufilecxx ALIAS cufilecxx)
+add_library(kvikio INTERFACE)
+add_library(kvikio::kvikio ALIAS kvikio)
 
-target_include_directories(cufilecxx INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-                                               "$<INSTALL_INTERFACE:include>")
+target_include_directories(
+  kvikio INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+                   "$<INSTALL_INTERFACE:include>"
+)
 
-target_link_libraries(cufilecxx INTERFACE Threads::Threads)
-target_link_libraries(cufilecxx INTERFACE CUDA::cudart)
-target_link_libraries(cufilecxx INTERFACE CUDA::nvml)
-target_link_libraries(cufilecxx INTERFACE cuda)
-target_link_libraries(cufilecxx INTERFACE cuFile::cuFile_interface)
-target_compile_features(cufilecxx INTERFACE cxx_std_17)
-
-
-# if((BUILD_EXAMPLES OR BUILD_TESTS OR BUILD_BENCHMARKS) AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-#   include(rapids-cuda)
-#   rapids_cuda_init_architectures(CUFILECXX)
-#   enable_language(CUDA)
-
-#   # Since CuFile only enables CUDA optionally we need to manually include the file that
-#   # rapids_cuda_init_architectures relies on `project` calling
-#   include("${CMAKE_PROJECT_CUFILECXX_INCLUDE}")
-#   message(STATUS "CuFile: Building with GPU Architectures: ${CMAKE_CUDA_ARCHITECTURES}")
-# endif()
+target_link_libraries(kvikio INTERFACE Threads::Threads)
+target_link_libraries(kvikio INTERFACE CUDA::cudart)
+target_link_libraries(kvikio INTERFACE CUDA::nvml)
+target_link_libraries(kvikio INTERFACE cuda)
+target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
+target_compile_features(kvikio INTERFACE cxx_std_17)
 
 
 # optionally build examples
@@ -101,44 +91,44 @@ endif()
 include(CPack)
 
 # install export targets
-install(TARGETS cufilecxx EXPORT cufilecxx-exports)
-install(DIRECTORY include/cufile/ DESTINATION include/cufile)
-install(FILES ${CUFILECXX_BINARY_DIR}/include/cufile/version_config.hpp DESTINATION include/cufile)
+install(TARGETS kvikio EXPORT kvikio-exports)
+install(DIRECTORY include/kvikio/ DESTINATION include/kvikio)
+install(FILES ${KvikIO_BINARY_DIR}/include/kvikio/version_config.hpp DESTINATION include/kvikio)
 
 set(doc_string
     [=[
-Provide targets for CuFile++: C++ bindings for cuFile.
+Provide targets for KvikIO: C++ bindings for cuFile.
 ]=])
 
 rapids_export(
-  INSTALL cufilecxx
-  EXPORT_SET cufilecxx-exports
-  GLOBAL_TARGETS cufilecxx
-  NAMESPACE cufile::
+  INSTALL kvikio
+  EXPORT_SET kvikio-exports
+  GLOBAL_TARGETS kvikio
+  namespace kvikio::
   DOCUMENTATION doc_string
 )
 
 # build export targets
 rapids_export(
-  BUILD cufilecxx
-  EXPORT_SET cufilecxx-exports
-  GLOBAL_TARGETS cufilecxx
-  NAMESPACE cufile::
+  BUILD kvikio
+  EXPORT_SET kvikio-exports
+  GLOBAL_TARGETS kvikio
+  namespace kvikio::
   DOCUMENTATION doc_string
 )
 
 # make documentation
 
 # add_custom_command(
-#   OUTPUT CUFILECXXCXX_DOXYGEN
+#   OUTPUT KvikIO_DOXYGEN
 #   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
 #   COMMAND doxygen Doxyfile
 #   VERBATIM
-#   COMMENT "Custom command for RMM doxygen docs")
+#   COMMENT "Custom command for KvikIO doxygen docs")
 
 # add_custom_target(
-#   cufilecxx_doc
-#   DEPENDS RMM_DOXYGEN
-#   COMMENT "Target for the custom command to build the RMM doxygen docs")
+#   kvikio_doc
+#   DEPENDS KvikIO_DOXYGEN
+#   COMMENT "Target for the custom command to build the KvikIO doxygen docs")
 
 

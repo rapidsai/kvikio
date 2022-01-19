@@ -19,10 +19,10 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 
-#include <cufile/buffer.hpp>
-#include <cufile/driver.hpp>
-#include <cufile/file_handle.hpp>
-#include <cufile/nvml.hpp>
+#include <kvikio/buffer.hpp>
+#include <kvikio/driver.hpp>
+#include <kvikio/file_handle.hpp>
+#include <kvikio/nvml.hpp>
 
 using namespace std;
 
@@ -37,8 +37,8 @@ void check(bool condition)
 int main()
 {
   check(cudaSetDevice(0) == cudaSuccess);
-  cufile::DriverInitializer manual_init_driver;
-  cufile::DriverProperties props;
+  kvikio::DriverInitializer manual_init_driver;
+  kvikio::DriverProperties props;
   cout << "DriverProperties: " << endl;
   cout << "  Version: " << props.get_nvfs_major_version() << "." << props.get_nvfs_minor_version()
        << endl;
@@ -47,7 +47,7 @@ int main()
   cout << "  Pool mode - enabled: " << std::boolalpha << props.get_nvfs_poll_mode()
        << ", threshold: " << props.get_nvfs_poll_thresh_size() << " kb" << endl;
   cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
-  cufile::NVML nvml;
+  kvikio::NVML nvml;
   auto [mem_total, mem_free]   = nvml.get_memory();
   auto [bar1_total, bar1_free] = nvml.get_bar1_memory();
   cout << "nvml: " << endl;
@@ -66,14 +66,14 @@ int main()
   check(cudaMalloc(&c_dev, sizeof(a)) == cudaSuccess);
 
   {
-    cufile::FileHandle f("test-file", "w");
+    kvikio::FileHandle f("test-file", "w");
     check(cudaMemcpy(a_dev, &a, sizeof(a), cudaMemcpyHostToDevice) == cudaSuccess);
     size_t written = f.pwrite(a_dev, sizeof(a), 0, 1).get();
     check(written == sizeof(a));
     cout << "Write: " << written << endl;
   }
   {
-    cufile::FileHandle f("test-file", "r");
+    kvikio::FileHandle f("test-file", "r");
     size_t read = f.pread(b_dev, sizeof(a), 0, 1).get();
     check(read == sizeof(a));
     cout << "Read:  " << read << endl;
@@ -82,18 +82,18 @@ int main()
       check(a[i] == b[i]);
     }
   }
-  cufile::default_thread_pool::reset(16);
+  kvikio::default_thread_pool::reset(16);
   {
-    cufile::FileHandle f("test-file", "w");
+    kvikio::FileHandle f("test-file", "w");
     size_t written = f.pwrite(a_dev, sizeof(a)).get();
     check(written == sizeof(a));
-    cout << "Parallel write (" << cufile::default_thread_pool::nthreads()
+    cout << "Parallel write (" << kvikio::default_thread_pool::nthreads()
          << " threads): " << written << endl;
   }
   {
-    cufile::FileHandle f("test-file", "r");
+    kvikio::FileHandle f("test-file", "r");
     size_t read = f.pread(b_dev, sizeof(a), 0).get();
-    cout << "Parallel write (" << cufile::default_thread_pool::nthreads() << " threads): " << read
+    cout << "Parallel write (" << kvikio::default_thread_pool::nthreads() << " threads): " << read
          << endl;
     check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
     for (int i = 0; i < 1024; ++i) {
@@ -101,9 +101,9 @@ int main()
     }
   }
   {
-    cufile::FileHandle f("test-file", "r+", cufile::FileHandle::m644);
-    cufile::buffer_register(c_dev, size(a));
+    kvikio::FileHandle f("test-file", "r+", kvikio::FileHandle::m644);
+    kvikio::buffer_register(c_dev, size(a));
     f.pwrite(c_dev, size(a), 0);
-    cufile::buffer_deregister(c_dev);
+    kvikio::buffer_deregister(c_dev);
   }
 }

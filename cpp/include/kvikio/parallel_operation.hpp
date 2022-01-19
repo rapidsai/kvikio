@@ -24,11 +24,11 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#include <cufile/error.hpp>
-#include <cufile/thread_pool/default.hpp>
-#include <cufile/utils.hpp>
+#include <kvikio/error.hpp>
+#include <kvikio/thread_pool/default.hpp>
+#include <kvikio/utils.hpp>
 
-namespace cufile {
+namespace kvikio {
 
 /**
  * @brief Apply read or write operation in parallel by submitting `ntasks` tasks.
@@ -81,4 +81,4 @@ std::future<std::size_t> parallel_io(
   return std::async(std::launch::deferred, gather_tasks, std::move(tasks));
 }
 
-}  // namespace cufile
+}  // namespace kvikio
