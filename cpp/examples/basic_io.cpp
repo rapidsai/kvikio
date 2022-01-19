@@ -66,14 +66,14 @@ int main()
   check(cudaMalloc(&c_dev, sizeof(a)) == cudaSuccess);
 
   {
-    kvikio::FileHandle f("test-file", "w");
+    kvikio::FileHandle f("/tmp/test-file", "w");
     check(cudaMemcpy(a_dev, &a, sizeof(a), cudaMemcpyHostToDevice) == cudaSuccess);
     size_t written = f.pwrite(a_dev, sizeof(a), 0, 1).get();
     check(written == sizeof(a));
     cout << "Write: " << written << endl;
   }
   {
-    kvikio::FileHandle f("test-file", "r");
+    kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, sizeof(a), 0, 1).get();
     check(read == sizeof(a));
     cout << "Read:  " << read << endl;
@@ -84,14 +84,14 @@ int main()
   }
   kvikio::default_thread_pool::reset(16);
   {
-    kvikio::FileHandle f("test-file", "w");
+    kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a_dev, sizeof(a)).get();
     check(written == sizeof(a));
     cout << "Parallel write (" << kvikio::default_thread_pool::nthreads()
          << " threads): " << written << endl;
   }
   {
-    kvikio::FileHandle f("test-file", "r");
+    kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, sizeof(a), 0).get();
     cout << "Parallel write (" << kvikio::default_thread_pool::nthreads() << " threads): " << read
          << endl;
@@ -101,7 +101,7 @@ int main()
     }
   }
   {
-    kvikio::FileHandle f("test-file", "r+", kvikio::FileHandle::m644);
+    kvikio::FileHandle f("/tmp/test-file", "r+", kvikio::FileHandle::m644);
     kvikio::buffer_register(c_dev, size(a));
     f.pwrite(c_dev, size(a), 0);
     kvikio::buffer_deregister(c_dev);
