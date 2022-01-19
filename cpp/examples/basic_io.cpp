@@ -103,7 +103,8 @@ int main()
   {
     kvikio::FileHandle f("/tmp/test-file", "r+", kvikio::FileHandle::m644);
     kvikio::buffer_register(c_dev, size(a));
-    f.pwrite(c_dev, size(a), 0);
+    size_t read = f.pread(b_dev, sizeof(a)).get();
+    check(read == sizeof(a));
     kvikio::buffer_deregister(c_dev);
   }
 }
