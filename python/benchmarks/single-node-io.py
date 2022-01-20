@@ -202,11 +202,9 @@ API = {
 
 def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
+    cupy.arange(10)  # Make sure CUDA is initialized
+
     kvikio.thread_pool.reset_num_threads(args.nthreads)
-    results = {}
-    for api in args.api:
-        read, write = API[api](args)
-        results[api] = (args.nbytes / read, args.nbytes / write)
     props = kvikio.DriverProperties()
     nvml = kvikio.NVML()
     mem_total, _ = nvml.get_memory()
@@ -223,7 +221,6 @@ def main(args):
         print("             WARNING              ")
         print("   Compat mode, GDS not enabled   ")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-
     print(f"GPU               | {nvml.get_name()}")
     print(f"GPU Memory Total  | {format_bytes(mem_total)}")
     print(f"BAR1 Memory Total | {format_bytes(bar1_total)}")
@@ -236,7 +233,11 @@ def main(args):
     print(f"diretory          | {args.dir}")
     print(f"nthreads          | {args.nthreads}")
     print("==================================")
-    for api, (r, w) in results.items():
+
+    # Run each benchmark using the requested APIs
+    for api in args.api:
+        read, write = API[api](args)
+        r, w = (args.nbytes / read, args.nbytes / write)
         print(f"{api} read".ljust(18) + f"| {format_bytes(r)}/s")
         print(f"{api} write".ljust(18) + f"| {format_bytes(w)}/s")
 
