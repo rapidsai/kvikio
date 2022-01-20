@@ -250,7 +250,12 @@ def main(args):
             ret = f"{api} {name}".ljust(18)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
             if len(samples) > 1:
-                ret += f" ± {format_bytes(statistics.stdev(samples)).rjust(10)}/s"
+                stdev = statistics.stdev(samples) / mean * 100
+                ret += " ± %5.2f %%" % stdev
+                ret += " ("
+                for sample in samples:
+                    ret += f"{format_bytes(sample)}/s, "
+                ret = ret[:-2] + ")"  # Replace trailing comma
             return ret
 
         print(pprint_api_res("read", rs))
