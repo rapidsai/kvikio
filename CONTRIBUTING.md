@@ -120,5 +120,5 @@ python3 scripts/run-clang-format.py -inplace
 Additionally, many editors have plugins or extensions that you can set up to automatically run `clang-format` either manually or on file save.
 
 ## Attribution
-Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
-Portions adopted from https://github.com/dask/dask/blob/master/docs/source/develop.rst
+ * Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
+ * Portions adopted from https://github.com/dask/dask/blob/master/docs/source/develop.rst
