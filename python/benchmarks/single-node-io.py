@@ -9,6 +9,7 @@ import pathlib
 import shutil
 import tempfile
 from time import perf_counter as clock
+from typing import Union
 
 import cupy
 from dask.utils import format_bytes, parse_bytes
@@ -294,6 +295,7 @@ if __name__ == "__main__":
     args.pre_register_buffer = args.no_pre_register_buffer is False
 
     # Create a temporary directory if user didn't specify a directory
+    temp_dir: Union[tempfile.TemporaryDirectory, contextlib.nullcontext]
     if args.dir is None:
         temp_dir = tempfile.TemporaryDirectory()
         args.dir = pathlib.Path(temp_dir.name)

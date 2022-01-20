@@ -134,7 +134,6 @@ def run_clang_format(src, dst, exe, verbose):
 
 
 def main():
-    os.chdir(os.path.dirname(os.path.realpath(__file__)) + "/../")
     args = parse_args()
     # Attempt to making sure that we run this script from root of repo always
     if not os.path.exists(".git"):
