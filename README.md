@@ -13,7 +13,7 @@ This provides C++ and Python bindings to cuFile, which enables GPUDirect Storage
 ## Requirements
 
 To install users should have a working Linux machine with CUDA Toolkit
-installed (v11.4+) and a working compiler toolchain.
+installed (v11.4+) and a working compiler toolchain (C++17 and cmake).
 
 ### C++
 
