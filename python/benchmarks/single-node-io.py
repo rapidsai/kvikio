@@ -7,6 +7,7 @@ import functools
 import os
 import pathlib
 import shutil
+import statistics
 import tempfile
 from time import perf_counter as clock
 from typing import Union
@@ -232,14 +233,28 @@ def main(args):
     print(f"pre-reg-buf       | {args.pre_register_buffer}")
     print(f"diretory          | {args.dir}")
     print(f"nthreads          | {args.nthreads}")
+    print(f"nruns             | {args.nruns}")
     print("==================================")
 
     # Run each benchmark using the requested APIs
     for api in args.api:
-        read, write = API[api](args)
-        r, w = (args.nbytes / read, args.nbytes / write)
-        print(f"{api} read".ljust(18) + f"| {format_bytes(r)}/s")
-        print(f"{api} write".ljust(18) + f"| {format_bytes(w)}/s")
+        rs = []
+        ws = []
+        for _ in range(args.nruns):
+            read, write = API[api](args)
+            rs.append(args.nbytes / read)
+            ws.append(args.nbytes / write)
+
+        def pprint_api_res(name, samples):
+            mean = statistics.mean(samples) if len(samples) > 1 else samples[0]
+            ret = f"{api} {name}".ljust(18)
+            ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
+            if len(samples) > 1:
+                ret += f" ± {format_bytes(statistics.stdev(samples)).rjust(10)}/s"
+            return ret
+
+        print(pprint_api_res("read", rs))
+        print(pprint_api_res("write", ws))
 
 
 if __name__ == "__main__":
@@ -269,6 +284,13 @@ if __name__ == "__main__":
         default=None,
         type=parse_directory,
         help="Path to the diretory to r/w from (default: tempfile.TemporaryDirectory)",
+    )
+    parser.add_argument(
+        "--nruns",
+        metavar="RUNS",
+        default=1,
+        type=int,
+        help="Number of runs per API (default: %(default)s).",
     )
     parser.add_argument(
         "--no-pre-register-buffer",
