@@ -5,6 +5,7 @@ import argparse
 import contextlib
 import functools
 import os
+import os.path
 import pathlib
 import shutil
 import statistics
@@ -213,7 +214,9 @@ def main(args):
     gds_version = "N/A (Compatibility Mode)"
     if props.is_gds_availabe:
         gds_version = f"v{props.major_version}.{props.minor_version}"
-    gds_config_json_path = os.getenv("CUFILE_ENV_PATH_JSON", "/etc/cufile.json")
+    gds_config_json_path = os.path.realpath(
+        os.getenv("CUFILE_ENV_PATH_JSON", "/etc/cufile.json")
+    )
 
     print("Roundtrip benchmark")
     print("----------------------------------")
