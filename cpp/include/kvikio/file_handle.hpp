@@ -36,6 +36,12 @@
 namespace kvikio {
 namespace {
 
+/**
+ * @brief Parse open file flags given as a string and return oflags
+ *
+ * @param flags The flags
+ * @return oflags
+ */
 inline int open_fd_parse_flags(const std::string& flags)
 {
   int file_flags = -1;
@@ -61,6 +67,13 @@ inline int open_fd_parse_flags(const std::string& flags)
   return file_flags;
 }
 
+/**
+ * @brief Open file using `open(2)`
+ *
+ * @param flags Open flags given as a string
+ * @param mode Access modes
+ * @return File descriptor
+ */
 inline int open_fd(const std::string& file_path, const std::string& flags, mode_t mode)
 {
   /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)*/
@@ -71,6 +84,11 @@ inline int open_fd(const std::string& file_path, const std::string& flags, mode_
 
 }  // namespace
 
+/**
+ * @brief Handle of an open file registred with cufile.
+ *
+ * In order to utilize cufile and GDS, a file must be registred with cufile.
+ */
 class FileHandle {
  private:
   int _fd{-1};
@@ -82,6 +100,13 @@ class FileHandle {
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
   FileHandle()                 = default;
 
+  /**
+   * @brief Construct a file handle from an existing file decriptor
+   *
+   * @param fd File decriptor
+   * @param steal_fd When true, the handle owns the file descriptor and will close it
+   * on destruction.
+   */
   FileHandle(int fd, bool steal_fd = false) : _fd{fd}, _own_fd{steal_fd}, _closed{false}
   {
     CUfileDescr_t desc{};  // It is important to set zero!
@@ -91,15 +116,23 @@ class FileHandle {
     CUFILE_TRY(cuFileHandleRegister(&_handle, &desc));
   }
 
+  /**
+   * @brief Construct a file handle from a file path
+   *
+   * @param file_path File path to the file
+   * @param steal_fd When true, the handle owns the file descriptor and will close it
+   * on destruction. When false, the file is deregistered but not closed.
+   */
   FileHandle(const std::string& file_path, const std::string& flags = "r", mode_t mode = m644)
     : FileHandle(open_fd(file_path, flags, mode), true)
   {
   }
 
-  // We implement move semantic only
+  /**
+   * @brief FileHandle support move semantic but isn't copyable
+   */
   FileHandle(const FileHandle&) = delete;
   FileHandle& operator=(FileHandle const&) = delete;
-
   FileHandle(FileHandle&& o) noexcept
     : _fd{std::exchange(o._fd, -1)},
       _own_fd{std::exchange(o._own_fd, false)},
@@ -107,7 +140,6 @@ class FileHandle {
       _handle{std::exchange(o._handle, CUfileHandle_t{})}
   {
   }
-
   FileHandle& operator=(FileHandle&& o) noexcept
   {
     _fd     = std::exchange(o._fd, -1);
@@ -117,6 +149,9 @@ class FileHandle {
     return *this;
   }
 
+  /**
+   * @brief FileHandle support move semantic but isn't copyable
+   */
   ~FileHandle() noexcept
   {
     if (!_closed) { this->close(); }
@@ -124,6 +159,9 @@ class FileHandle {
 
   [[nodiscard]] bool closed() const noexcept { return _closed; }
 
+  /**
+   * @brief Deregister the file and close the file if created with `steal_fd=true`
+   */
   void close() noexcept
   {
     _closed = true;
@@ -131,8 +169,16 @@ class FileHandle {
     if (_own_fd) { ::close(_fd); }
   }
 
+  /**
+   * @brief Get the file descripter of the open file
+   * @return File descripter
+   */
   [[nodiscard]] int fd() const noexcept { return _fd; }
 
+  /**
+   * @brief Get the flags of the file descripter (see open(2))
+   * @return File descripter
+   */
   [[nodiscard]] int fd_open_flags() const
   {
     /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)*/
@@ -143,6 +189,30 @@ class FileHandle {
     return ret;
   }
 
+  /**
+   * @brief Reads specified bytes from the file into the device memory.
+   *
+   * This API reads the data from a specified file at a specified offset and size
+   * bytes into the GPU memory by using GDS functionality. The API works correctly
+   * for unaligned offsets and any data size, although the performance might not
+   * match the performance of aligned reads.This is a synchronous call and blocks
+   * until the IO is complete.
+   *
+   * @note For the `devPtr_offset`, if data will be read starting exactly from the
+   * `devPtr_base` that is registered with `buffer_register`, `devPtr_offset` should
+   * be set to 0. To read starting from an offset in the registered buffer range,
+   * the relative offset should be specified in the `devPtr_offset`, and the
+   * `devPtr_base` must remain set to the base address that was used in the
+   * `buffer_register` call.
+   *
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
+   * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
+   * @param size Size in bytes to read.
+   * @param file_offset Offset in the file to read from.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
+   * This parameter should be used only with registered buffers.
+   * @return Size of bytes that were successfully read.
+   */
   std::size_t read(void* devPtr_base,
                    std::size_t size,
                    std::size_t file_offset,
@@ -160,6 +230,31 @@ class FileHandle {
     return ret;
   }
 
+  /**
+   * @brief Writes specified bytes from the device memory into the file
+   *
+   * This API writes the data from the GPU memory to a file specified by the file
+   * handle at a specified offset and size bytes by using GDS functionality. The API
+   * works correctly for unaligned offset and data sizes, although the performance is
+   * not on-par with aligned writes.This is a synchronous call and will block until
+   * the IO is complete.
+   *
+   * @note  GDS functionality modified the standard file system metadata in SysMem.
+   * However, GDS functionality does not take any special responsibility for writing
+   * that metadata back to permanent storage. The data is not guaranteed to be present
+   * after a system crash unless the application uses an explicit `fsync(2)` call. If the
+   * file is opened with an `O_SYNC` flag, the metadata will be written to the disk before
+   * the call is complete.
+   * Refer to the note in read for more information about `devPtr_offset`.
+   *
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
+   * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
+   * @param size Size in bytes to write.
+   * @param file_offset Offset in the file to write from.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
+   * This parameter should be used only with registered buffers.
+   * @return Size of bytes that were successfully written.
+   */
   std::size_t write(const void* devPtr_base,
                     std::size_t size,
                     std::size_t file_offset,

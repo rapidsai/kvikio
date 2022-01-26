@@ -68,12 +68,12 @@ inline void buffer_deregister(const void* devPtr_base)
 }
 
 /**
- * @brief register device memory allocation which is part of devPtr. Use this
+ * @brief Register device memory allocation which is part of devPtr. Use this
  * together with FileHandle::pread() and FileHandle::pwrite().
  *
- * @param devPtr  device pointer
- * @param flags   should be zero or `CU_FILE_RDMA_REGISTER` (experimental)
- * @param errors_to_ignore  CuFile errors to ignore such as `CU_FILE_MEMORY_ALREADY_REGISTERED`
+ * @param devPtr Device pointer
+ * @param flags Should be zero or `CU_FILE_RDMA_REGISTER` (experimental)
+ * @param errors_to_ignore CuFile errors to ignore such as `CU_FILE_MEMORY_ALREADY_REGISTERED`
  * or `CU_FILE_INVALID_MAPPING_SIZE`
  *
  * @note This memory will be use to perform GPU direct DMA from the supported
