@@ -192,11 +192,10 @@ class FileHandle {
   /**
    * @brief Reads specified bytes from the file into the device memory.
    *
-   * This API reads the data from a specified file at a specified offset and size
-   * bytes into the GPU memory by using GDS functionality. The API works correctly
-   * for unaligned offsets and any data size, although the performance might not
-   * match the performance of aligned reads.This is a synchronous call and blocks
-   * until the IO is complete.
+   * This API reads the data from the GPU memory to the file at a specified offset
+   * and size bytes by using GDS functionality. The API works correctly for unaligned
+   * offset and data sizes, although the performance is not on-par with aligned read.
+   * This is a synchronous call and will block until the IO is complete.
    *
    * @note For the `devPtr_offset`, if data will be read starting exactly from the
    * `devPtr_base` that is registered with `buffer_register`, `devPtr_offset` should
@@ -231,13 +230,12 @@ class FileHandle {
   }
 
   /**
-   * @brief Writes specified bytes from the device memory into the file
+   * @brief Writes specified bytes from the device memory into the file.
    *
-   * This API writes the data from the GPU memory to a file specified by the file
-   * handle at a specified offset and size bytes by using GDS functionality. The API
-   * works correctly for unaligned offset and data sizes, although the performance is
-   * not on-par with aligned writes.This is a synchronous call and will block until
-   * the IO is complete.
+   * This API writes the data from the GPU memory to the file at a specified offset
+   * and size bytes by using GDS functionality. The API works correctly for unaligned
+   * offset and data sizes, although the performance is not on-par with aligned writes.
+   * This is a synchronous call and will block until the IO is complete.
    *
    * @note  GDS functionality modified the standard file system metadata in SysMem.
    * However, GDS functionality does not take any special responsibility for writing
@@ -272,6 +270,22 @@ class FileHandle {
     return ret;
   }
 
+  /**
+   * @brief Reads specified bytes from the file into the device memory in parallel.
+   *
+   * This API is a parallel async version of `.read()` that create `ntasks` tasks
+   * for the thread pool to execute.
+   *
+   * @note `pread` use the base address of the allocation `devPtr` is part of. This means
+   * that when registering buffers, use the base address of the allocation. This is what
+   * `memory_register` and `memory_deregister` do automatically.
+   *
+   * @param devPtr Address to device memory.
+   * @param size Size in bytes to read.
+   * @param file_offset Offset in the file to read from.
+   * @param ntasks Number of tasks to use.
+   * @return Future that on completion returns the size of bytes that were successfully read.
+   */
   std::future<std::size_t> pread(void* devPtr,
                                  std::size_t size,
                                  std::size_t file_offset = 0,
@@ -287,6 +301,22 @@ class FileHandle {
     return parallel_io(op, devPtr, size, file_offset, ntasks);
   }
 
+  /**
+   * @brief Writes specified bytes from the device memory into the file in parallel.
+   *
+   * This API is a parallel async version of `.write()` that create `ntasks` tasks
+   * for the thread pool to execute.
+   *
+   * @note `pwrite` use the base address of the allocation `devPtr` is part of. This means
+   * that when registering buffers, use the base address of the allocation. This is what
+   * `memory_register` and `memory_deregister` do automatically.
+   *
+   * @param devPtr Address to device memory.
+   * @param size Size in bytes to write.
+   * @param file_offset Offset in the file to write from.
+   * @param ntasks Number of tasks to use.
+   * @return Future that on completion returns the size of bytes that were successfully written.
+   */
   std::future<std::size_t> pwrite(const void* devPtr,
                                   std::size_t size,
                                   std::size_t file_offset = 0,

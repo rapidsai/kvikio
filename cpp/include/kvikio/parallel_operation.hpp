@@ -34,6 +34,7 @@ namespace kvikio {
  * @brief Apply read or write operation in parallel by submitting `ntasks` tasks.
  *
  * @tparam T The type of the function applying the read or write operation.
+ * @param op The function applying the read or write operation.
  * @param devPtr Device pointer to read or write to.
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
