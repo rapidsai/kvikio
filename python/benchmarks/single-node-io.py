@@ -29,7 +29,7 @@ def run_cufile(args):
         kvikio.memory_register(data)
 
     # Write
-    f = kvikio.CuFile(file_path=file_path, flags="w")
+    f = kvikio.CuFile(file_path, flags="w")
     t0 = clock()
     res = f.write(data)
     f.close()
@@ -37,7 +37,7 @@ def run_cufile(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     # Read
-    f = kvikio.CuFile(file_path=file_path, flags="r")
+    f = kvikio.CuFile(file_path, flags="r")
     t0 = clock()
     res = f.read(data)
     f.close()
@@ -64,9 +64,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
             kvikio.memory_register(array)
 
     # Write
-    files = [
-        kvikio.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
-    ]
+    files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
     t0 = clock()
     futures = [f.pwrite(a, ntasks=1) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
@@ -74,9 +72,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     assert res == args.nbytes
 
     # Read
-    files = [
-        kvikio.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
-    ]
+    files = [kvikio.CuFile(file_path % i, flags="r") for i in range(args.nthreads)]
     t0 = clock()
     futures = [f.pread(a, ntasks=1) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
@@ -101,9 +97,7 @@ def run_cufile_multiple_files(args):
         kvikio.memory_register(data)
 
     # Write
-    files = [
-        kvikio.CuFile(file_path=file_path % i, flags="w") for i in range(args.nthreads)
-    ]
+    files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
     t0 = clock()
     futures = [
         f.pwrite(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
@@ -113,9 +107,7 @@ def run_cufile_multiple_files(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     # Read
-    files = [
-        kvikio.CuFile(file_path=file_path % i, flags="r") for i in range(args.nthreads)
-    ]
+    files = [kvikio.CuFile(file_path % i, flags="r") for i in range(args.nthreads)]
     t0 = clock()
     futures = [
         f.pread(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
@@ -144,7 +136,7 @@ def run_cufile_multiple_arrays(args):
             kvikio.memory_register(array)
 
     # Write
-    f = kvikio.CuFile(file_path=file_path, flags="w")
+    f = kvikio.CuFile(file_path, flags="w")
     t0 = clock()
     futures = [
         f.pwrite(a, ntasks=1, file_offset=i * chunksize) for i, a in enumerate(arrays)
@@ -154,7 +146,7 @@ def run_cufile_multiple_arrays(args):
     assert res == args.nbytes
 
     # Read
-    f = kvikio.CuFile(file_path=file_path, flags="r")
+    f = kvikio.CuFile(file_path, flags="r")
     t0 = clock()
     futures = [f.pread(a, ntasks=1) for a in arrays]
     res = sum(f.get() for f in futures)
