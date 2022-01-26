@@ -130,6 +130,44 @@ def run_cufile_multiple_files(args):
     return read_time, write_time
 
 
+def run_cufile_multiple_arrays(args):
+    """A single file but one array per thread"""
+
+    chunksize = args.nbytes // args.nthreads
+    assert args.nbytes % args.nthreads == 0, "--nbytes must be divisible by --nthreads"
+    file_path = args.dir / "kvikio-multiple-arrays"
+
+    # Create a CuPy array per thread
+    arrays = [cupy.arange(chunksize, dtype="uint8") for _ in range(args.nthreads)]
+    if args.pre_register_buffer:
+        for array in arrays:
+            kvikio.memory_register(array)
+
+    # Write
+    f = kvikio.CuFile(file_path=file_path, flags="w")
+    t0 = clock()
+    futures = [
+        f.pwrite(a, ntasks=1, file_offset=i * chunksize) for i, a in enumerate(arrays)
+    ]
+    res = sum(f.get() for f in futures)
+    write_time = clock() - t0
+    assert res == args.nbytes
+
+    # Read
+    f = kvikio.CuFile(file_path=file_path, flags="r")
+    t0 = clock()
+    futures = [f.pread(a, ntasks=1) for a in arrays]
+    res = sum(f.get() for f in futures)
+    read_time = clock() - t0
+    assert res == args.nbytes
+
+    if args.pre_register_buffer:
+        for array in arrays:
+            kvikio.memory_deregister(array)
+
+    return read_time, write_time
+
+
 def run_posix(args):
     """Use the posix API, no calls to kvikio"""
 
@@ -199,6 +237,7 @@ API = {
     "posix": run_posix,
     "cufile-mfma": run_cufile_multiple_files_multiple_arrays,
     "cufile-mf": run_cufile_multiple_files,
+    "cufile-ma": run_cufile_multiple_arrays,
 }
 
 
