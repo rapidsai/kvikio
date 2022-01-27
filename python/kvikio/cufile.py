@@ -8,14 +8,28 @@ from ._lib import libkvikio  # type: ignore
 
 
 class IOFuture:
-    """Future for CuFile IO"""
+    """Future for CuFile IO
+
+    This class shouldn't be used directly, instead non-blocking IO operations such
+    as `CuFile.pread` and `CuFile.pwrite` returns an instance of this class. Use
+    `.get()` to wait on the completion of the IO operation and retrieve the result.
+    """
 
     __slots__ = "_handle"
 
-    def __init__(self, handle) -> None:
+    def __init__(self, handle):
         self._handle = handle
 
     def get(self) -> int:
+        """Retrieve the result of the IO operation that created this future
+
+        This call blocks until the IO operation finishes.
+
+        Returns
+        ------
+        int
+            The size of bytes that were read or written successfully.
+        """
         return self._handle.get()
 
 
