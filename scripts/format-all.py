@@ -3,8 +3,10 @@
 # See file LICENSE for terms.
 
 
+import argparse
 import os.path
 import subprocess
+import sys
 from typing import Iterable
 
 
@@ -19,19 +21,23 @@ def run_cmd(cmd: Iterable, cwd=root(), verbose=True):
     if verbose:
         print(f"{cwd}$ " + " ".join(res.args))
         print(res.stdout.decode(), end="")
+    return res.returncode
 
 
-def main():
+def main(args):
     # C++
-    run_cmd(["python", "scripts/run-clang-format.py", "cpp", "-inplace"])
+    check = [] if args.check else ["-inplace"]
+    run_cmd(["python", "scripts/run-clang-format.py", "cpp"] + check)
 
     # Python
     python_root = f"{root()}/python"
-    run_cmd(["isort", "."], cwd=python_root)
-    run_cmd(["black", "."], cwd=python_root)
-    run_cmd(["flake8", "--config=.flake8"], cwd=python_root)
-    run_cmd(["flake8", "--config=.flake8.cython"], cwd=python_root)
-    run_cmd(
+    check = ["--check"] if args.check else []
+    ret = 0
+    ret += run_cmd(["isort", "."] + check, cwd=python_root)
+    ret += run_cmd(["black", "."] + check, cwd=python_root)
+    ret += run_cmd(["flake8", "--config=.flake8"], cwd=python_root)
+    ret += run_cmd(["flake8", "--config=.flake8.cython"], cwd=python_root)
+    ret += run_cmd(
         [
             "mypy",
             "--ignore-missing-imports",
@@ -42,7 +48,25 @@ def main():
         ],
         cwd=python_root,
     )
+    return 1 if ret else 0
 
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Inplace style formatting of the whole project "
+            "using isort, black, flake8, mypy, and clang-format"
+        )
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        default=False,
+        help=(
+            "Don't write the files back, just return the status. "
+            "Return code 0 on success and 1 on failure."
+        ),
+    )
+    retcode = main(parser.parse_args())
+    sys.exit(retcode)
