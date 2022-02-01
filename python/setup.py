@@ -3,6 +3,7 @@
 
 import glob
 import os
+import os.path
 import shutil
 import sysconfig
 
@@ -30,6 +31,9 @@ import versioneer
 # Set `DEBUG_BUILD=true` to enable debug build
 DEBUG_BUILD = distutils.util.strtobool(os.environ.get("DEBUG_BUILD", "false"))
 
+# Set `STATIC_CUFILE=true` to statically link cufile into the KvikIO extension
+STATIC_CUFILE = distutils.util.strtobool(os.environ.get("STATIC_CUFILE", "false"))
+
 # Turn all warnings into errors.
 Cython.Compiler.Options.warning_errors = True
 
@@ -43,6 +47,7 @@ this_setup_scrip_dir = os.path.dirname(os.path.realpath(__file__))
 # `library_dirs` and `depends`.
 include_dirs = [os.path.dirname(sysconfig.get_path("include"))]
 library_dirs = [get_python_lib()]
+extra_objects = []
 depends = []  # Files to trigger rebuild when modified
 
 # Find and add CUDA include and binary paths
@@ -73,6 +78,28 @@ if "CUFILE_HOME" in os.environ:
     else:
         library_dirs.append(os.path.join(CUFILE_HOME, "lib"))
 
+# Check if we should statically link cufile
+libcufile = []
+if STATIC_CUFILE:
+    libcufile_static = None
+    for lib_dir in reversed(library_dirs):
+        p = os.path.join(lib_dir, "libcufile_static.a")
+        if os.path.isfile(p):
+            libcufile_static = p
+            break
+    if libcufile_static:
+        extra_objects.append(libcufile_static)
+        # `libcufile_static.a` use `dlopen()` thus depend on dl, which
+        # isn't automatically resolved when static linking.
+        libcufile.append("dl")
+    else:
+        raise OSError(
+            "Could not locate the static version of cuFile."
+            f"Searched for `libcufile_static.a` in {library_dirs}."
+        )
+else:
+    libcufile.append("cufile")
+
 # Add kvikio headers from the source tree (if available)
 kvikio_include_dir = os.path.abspath(f"{this_setup_scrip_dir}/../cpp/include")
 if os.path.isdir(kvikio_include_dir):
@@ -86,10 +113,11 @@ extensions = [
         sources=["kvikio/_lib/libkvikio.pyx"],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
-        libraries=["cuda", "cudart", "cufile", "nvidia-ml"],
+        libraries=["cuda", "cudart", "nvidia-ml"] + libcufile,
         language="c++",
         extra_compile_args=["-std=c++17"],
         depends=depends,
+        extra_objects=extra_objects,
     ),
     Extension(
         "kvikio._lib.arr",
