@@ -348,14 +348,17 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--api",
+        metavar="API",
         default=("cufile", "posix"),
         nargs="+",
-        choices=tuple(API.keys()),
-        help="List of APIs to use",
+        choices=tuple(API.keys()) + ("all",),
+        help="List of APIs to use {%(choices)s}",
     )
 
     args = parser.parse_args()
     args.pre_register_buffer = args.no_pre_register_buffer is False
+    if "all" in args.api:
+        args.api = tuple(API.keys())
 
     # Create a temporary directory if user didn't specify a directory
     temp_dir: Union[tempfile.TemporaryDirectory, contextlib.nullcontext]

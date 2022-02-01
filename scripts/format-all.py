@@ -14,7 +14,7 @@ def root():
     return os.path.realpath(f"{os.path.dirname(os.path.realpath(__file__))}/..")
 
 
-def run_cmd(cmd: Iterable, cwd=root(), verbose=True):
+def run_cmd(cmd: Iterable[str], cwd=root(), verbose=True):
     res: subprocess.CompletedProcess = subprocess.run(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd
     )
