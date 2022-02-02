@@ -1,0 +1,39 @@
+# Copyright (c) 2022, NVIDIA CORPORATION.
+
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+
+package:
+  name: kvikio
+  version: {{ version }}
+
+source:
+  git_url: ../../..
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  noarch: python
+  string: py_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+
+requirements:
+  build:
+    - python >=3.7
+    - pip
+    - setuptools
+    - cython >=0.29,<0.30
+  run:
+    - cupy
+    - zarr
+
+test:
+  imports:
+    - kvikio
+    - kvikio.cufile
+    - kvikio.thread_pool
+    - kvikio.zarr
+
+about:
+  home: http://rapids.ai/
+  license: Apache-2.0
+  license_family: Apache
+  license_file: LICENSE
+  summary: KvikIO - GPUDirect Storage
