@@ -1,0 +1,46 @@
+# Copyright (c) 2022, NVIDIA CORPORATION.
+
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set cuda_version='.'.join(environ.get('CUDA', '11.5').split('.')[:2]) %}
+{% set cuda_major=cuda_version.split('.')[0] %}
+
+package:
+  name: libkvikio
+  version: {{ version }}
+
+source:
+  git_url: ../../..
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  run_exports:
+    - {{ pin_subpackage("libkvikio", max_pin="x.x") }}
+
+
+requirements:
+  build:
+    - cmake >=3.20.1
+  host:
+    - cudatoolkit {{ cuda_version }}.*
+  run:
+    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+
+test:
+  commands:
+    - test -f $PREFIX/include/kvikio/utils.hpp
+    - test -f $PREFIX/include/kvikio/parallel_operation.hpp
+    - test -f $PREFIX/include/kvikio/nvml.hpp
+    - test -f $PREFIX/include/kvikio/file_handle.hpp
+    - test -f $PREFIX/include/kvikio/error.hpp
+    - test -f $PREFIX/include/kvikio/driver.hpp
+    - test -f $PREFIX/include/kvikio/buffer.hpp
+    - test -f $PREFIX/include/kvikio/thread_pool/thread_pool.hpp
+    - test -f $PREFIX/include/kvikio/thread_pool/default.hpp
+
+about:
+  home: http://rapids.ai/
+  license: Apache-2.0
+  license_family: Apache
+  license_file: LICENSE
+  summary: libkvikio library

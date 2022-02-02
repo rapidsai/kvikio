@@ -64,6 +64,9 @@ conda config --set ssl_verify False
 # BUILD - Conda package builds
 ################################################################################
 
+gpuci_logger "Build conda pkg for libkvikio"
+gpuci_conda_retry build conda/recipes/libkvikio
+
 gpuci_logger "Build conda pkg for kvikio"
 gpuci_conda_retry build conda/recipes/kvikio
 

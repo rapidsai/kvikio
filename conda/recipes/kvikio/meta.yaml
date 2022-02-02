@@ -1,6 +1,9 @@
 # Copyright (c) 2022, NVIDIA CORPORATION.
 
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set py_version = environ.get('CONDA_PY', 36) %}
+{% set cuda_version = '.'.join(environ.get('CUDA', '11.5').split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
 
 package:
   name: kvikio
@@ -11,8 +14,7 @@ source:
 
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
-  noarch: python
-  string: py_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  string: cuda_{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
 
 requirements:
   build:
@@ -20,6 +22,7 @@ requirements:
     - pip
     - setuptools
     - cython >=0.29,<0.30
+    - libkvikio {{ version }}
   run:
     - cupy
     - zarr
