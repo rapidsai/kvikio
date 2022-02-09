@@ -16,10 +16,11 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
 
 #include <cufile.h>
+
 #include <kvikio/error.hpp>
-#include <vector>
 
 namespace kvikio {
 

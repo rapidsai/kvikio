@@ -18,7 +18,6 @@
 #include <tuple>
 
 #include <cuda.h>
-#include <cuda_runtime.h>
 
 #include <cufile.h>
 #include <kvikio/error.hpp>
