@@ -41,7 +41,8 @@ cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
     void memory_deregister(const void* devPtr) except +
 
 
-cdef extern from "<kvikio/thread_pool/default.hpp>" namespace "kvikio::default_thread_pool" nogil:
+cdef extern from "<kvikio/thread_pool/default.hpp>" \
+        namespace "kvikio::default_thread_pool" nogil:
     void reset(unsigned int nthreads)
     unsigned int nthreads()
 

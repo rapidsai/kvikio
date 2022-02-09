@@ -33,11 +33,13 @@ cdef IOFuture _wrap_io_future(future[size_t] &future):
     ret._handle = move(future)
     return ret
 
+
 def memory_register(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
     kvikio_cxx_api.memory_register(<void*>arr.ptr)
+
 
 def memory_deregister(buf) -> None:
     if not isinstance(buf, Array):
@@ -45,11 +47,14 @@ def memory_deregister(buf) -> None:
     cdef Array arr = buf
     kvikio_cxx_api.memory_deregister(<void*>arr.ptr)
 
+
 def thread_pool_reset_num_threads(nthread: int) -> None:
     kvikio_cxx_api.reset(nthread)
 
+
 def thread_pool_get_num_threads() -> int:
     return kvikio_cxx_api.nthreads()
+
 
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
     """Parse `buf` and `size` argument and return a pointer and nbytes"""
