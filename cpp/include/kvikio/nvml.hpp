@@ -17,12 +17,12 @@
 
 #include <cstddef>
 #include <iostream>
+#include <utility>
 
+#include <cuda.h>
 #include <nvml.h>
 
 #include <kvikio/error.hpp>
-#include <stdexcept>
-#include <tuple>
 
 namespace kvikio {
 
@@ -36,6 +36,7 @@ class NVML {
   {
     if (!_initialized) {
       _initialized = true;
+      CUDA_TRY(cuInit(0));
       NVML_TRY(nvmlInit());
     }
   }
