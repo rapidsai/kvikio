@@ -28,7 +28,7 @@ requirements:
     - pip
     - setuptools
     - cython >=0.29,<0.30
-    - libkvikio {{ version }}
+    # - libkvikio {{ version }}
   run:
     - cupy
     - zarr
