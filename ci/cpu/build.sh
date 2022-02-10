@@ -20,7 +20,7 @@ export GPUCI_CONDA_RETRY_MAX=1
 export GPUCI_CONDA_RETRY_SLEEP=30
 
 # Use Ninja to build, setup Conda Build Dir
-export CMAKE_GENERATOR="Ninja"
+# export CMAKE_GENERATOR="Ninja"
 export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 
 # Switch to project root; also root of repo checkout
