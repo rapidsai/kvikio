@@ -4,5 +4,4 @@
 mkdir cpp/build
 cd cpp/build
 cmake ..
-pwd
-ls -al
+make
