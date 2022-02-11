@@ -24,8 +24,7 @@ build:
 
 requirements:
   build:
-    - python >=3.7
-    - pip
+    - python
     - setuptools
     - cython >=0.29,<0.30
     # - libkvikio {{ version }}
