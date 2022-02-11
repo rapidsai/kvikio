@@ -23,14 +23,16 @@ build:
     - CUDAHOSTCXX
 
 requirements:
-  build:
+  host:
     - python
     - setuptools
     - cython >=0.29,<0.30
+    - cudatoolkit {{ cuda_version }}.*
     # - libkvikio {{ version }}
   run:
     - cupy
     - zarr
+    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 
 test:
   imports:
