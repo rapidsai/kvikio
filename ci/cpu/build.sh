@@ -60,15 +60,18 @@ conda list --show-channel-urls
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
 
+# FIXME: Remove
+gpuci_mamba_retry install -c conda-forge boa
+
 ################################################################################
 # BUILD - Conda package builds
 ################################################################################
 
 # gpuci_logger "Build conda pkg for libkvikio"
-# gpuci_conda_retry build conda/recipes/libkvikio
+# gpuci_conda_retry mambabuild conda/recipes/libkvikio
 
 gpuci_logger "Build conda pkg for kvikio"
-gpuci_conda_retry build conda/recipes/kvikio
+gpuci_conda_retry mambabuild conda/recipes/kvikio
 
 ################################################################################
 # UPLOAD - Conda packages
