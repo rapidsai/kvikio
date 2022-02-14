@@ -40,6 +40,9 @@ env
 gpuci_logger "Check GPU usage"
 nvidia-smi
 
+gpuci_logger "Check GDS status"
+/usr/local/cuda/gds/tools/gdscheck.py -p
+
 gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
