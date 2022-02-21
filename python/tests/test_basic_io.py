@@ -76,8 +76,8 @@ def test_write_in_offsets(tmp_path):
     assert all(a == b)
 
 
-def test_context(tmp_path):
-    """Open file using context"""
+def test_contextmanager(tmp_path):
+    """Open file using contextmanager"""
     filename = tmp_path / "test-file"
     a = cupy.arange(200)
     b = cupy.empty_like(a)
@@ -88,3 +88,22 @@ def test_context(tmp_path):
         f.read(b)
         assert all(a == b)
     assert f.closed
+
+
+@pytest.mark.skipif(
+    cupy.cuda.runtime.getDeviceCount() < 2, reason="requires multiple GPUs"
+)
+def test_multiple_gpus(tmp_path):
+    """Test IO from two different GPUs"""
+    kvikio.thread_pool.reset_num_threads(1)
+    with cupy.cuda.Device(0):
+        a0 = cupy.arange(200)
+    with cupy.cuda.Device(1):
+        a1 = cupy.zeros(200, dtype=a0.dtype)
+
+    filename = tmp_path / "test-file"
+    with kvikio.CuFile(filename, "w+") as f:
+        assert f.write(a0) == a0.nbytes
+    with kvikio.CuFile(filename, "r") as f:
+        assert f.read(a1) == a1.nbytes
+    assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
