@@ -68,7 +68,7 @@ class PushAndPopContext {
   {
     try {
       CUDA_TRY(cuCtxPopCurrent(&_ctx), CUfileException);
-    } catch (CUfileException e) {
+    } catch (const CUfileException &e) {
       std::cerr << e.what() << std::endl;
     }
   }
