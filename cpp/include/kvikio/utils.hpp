@@ -47,6 +47,9 @@ inline CUcontext get_context_from_device_pointer(const void* devPtr)
   return ctx;
 }
 
+/**
+ * @brief Push CUDA context on creation and pop it on destruction
+ */
 class PushAndPopContext {
  private:
   CUcontext _ctx;
