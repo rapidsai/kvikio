@@ -102,7 +102,7 @@ def test_multiple_gpus(tmp_path):
         a1 = cupy.zeros(200, dtype=a0.dtype)
 
     filename = tmp_path / "test-file"
-    with kvikio.CuFile(filename, "w+") as f:
+    with kvikio.CuFile(filename, "w") as f:
         assert f.write(a0) == a0.nbytes
     with kvikio.CuFile(filename, "r") as f:
         assert f.read(a1) == a1.nbytes
