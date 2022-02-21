@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <chrono>
+#include <future>
 #include <iostream>
 #include <tuple>
 
@@ -68,7 +70,7 @@ class PushAndPopContext {
   {
     try {
       CUDA_TRY(cuCtxPopCurrent(&_ctx), CUfileException);
-    } catch (const CUfileException &e) {
+    } catch (const CUfileException& e) {
       std::cerr << e.what() << std::endl;
     }
   }
@@ -92,6 +94,12 @@ inline std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* de
   std::size_t offset = dev - base_ptr;
   /*NOLINTNEXTLINE(performance-no-int-to-ptr, cppcoreguidelines-pro-type-reinterpret-cast)*/
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
+}
+
+template <typename T>
+inline bool is_future_done(const T& future)
+{
+  return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
 
 }  // namespace kvikio
