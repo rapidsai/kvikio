@@ -18,6 +18,10 @@ cdef extern from "<future>" namespace "std" nogil:
         T get() except +
 
 
+cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
+    bool is_future_done[T](const T& future) except +
+
+
 cdef extern from "<kvikio/driver.hpp>" namespace "kvikio" nogil:
     cdef cppclass DriverProperties:
         DriverProperties() except +

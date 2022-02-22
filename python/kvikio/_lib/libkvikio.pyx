@@ -13,7 +13,7 @@ from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport FileHandle, future
+from .kvikio_cxx_api cimport FileHandle, future, is_future_done
 
 
 cdef class IOFuture:
@@ -25,6 +25,9 @@ cdef class IOFuture:
         with nogil:
             ret = self._handle.get()
         return ret
+
+    def done(self) -> bool:
+        return is_future_done(self._handle)
 
 
 cdef IOFuture _wrap_io_future(future[size_t] &future):

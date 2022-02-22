@@ -32,6 +32,16 @@ class IOFuture:
         """
         return self._handle.get()
 
+    def done(self) -> bool:
+        """Return True if the future is done.
+
+        Returns
+        ------
+        bool
+            Whether the future is done or not
+        """
+        return self._handle.done()
+
 
 class CuFile:
     """ File handle for GPUDirect Storage (GDS) """

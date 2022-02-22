@@ -14,4 +14,4 @@
 
 add_executable(basic_io basic_io.cpp)
 target_include_directories(basic_io PRIVATE ../include ${cuFile_INCLUDE_DIRS})
-target_link_libraries(basic_io PRIVATE kvikio ${cuFile_LIBRARIES} ${cuFileRDMA_LIBRARIES})
+target_link_libraries(basic_io PRIVATE kvikio CUDA::cudart ${cuFile_LIBRARIES} ${cuFileRDMA_LIBRARIES})
