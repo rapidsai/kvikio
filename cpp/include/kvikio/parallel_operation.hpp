@@ -21,8 +21,6 @@
 #include <utility>
 #include <vector>
 
-#include <cuda_runtime_api.h>
-
 #include <kvikio/error.hpp>
 #include <kvikio/thread_pool/default.hpp>
 #include <kvikio/utils.hpp>
@@ -44,18 +42,14 @@ template <typename T>
 std::future<std::size_t> parallel_io(
   T op, const void* devPtr, std::size_t size, std::size_t file_offset, std::size_t ntasks)
 {
-  auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr);
+  CUcontext ctx                                = get_context_from_device_pointer(devPtr);
+  auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr, &ctx);
 
-  int device{-1};
-  if (cudaGetDevice(&device) != cudaSuccess) { throw CUfileException("cudaGetDevice failed"); }
-
-  auto task = [device, op](void* devPtr_base,
-                           std::size_t size,
-                           std::size_t file_offset,
-                           std::size_t devPtr_offset) -> std::size_t {
-    if (device > -1) {
-      if (cudaSetDevice(device) != cudaSuccess) { throw CUfileException("cudaSetDevice failed"); }
-    }
+  auto task = [op, ctx](void* devPtr_base,
+                        std::size_t size,
+                        std::size_t file_offset,
+                        std::size_t devPtr_offset) -> std::size_t {
+    PushAndPopContext c(ctx);
     return op(devPtr_base, size, file_offset, devPtr_offset);
   };
 
