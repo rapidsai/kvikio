@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <sys/types.h>
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>

@@ -25,9 +25,29 @@ def run_cmd(cmd: Iterable[str], cwd=benchmarks_path, verbose=True):
     return res.returncode
 
 
-@pytest.mark.parametrize("api", ["cufile", "all"])
+@pytest.mark.parametrize(
+    "api",
+    [
+        "cufile",
+        "posix",
+        "cufile-mfma",
+        "cufile-mf",
+        "cufile-ma",
+        "zarr-gds",
+        "zarr-posix",
+    ],
+)
 def test_single_node_io(tmp_path, api):
     """Test benchmarks/single-node-io.py"""
+
+    if "zarr" in api:
+        pytest.importorskip(
+            "zarr.cupy",
+            reason=(
+                "To use Zarr arrays with GDS directly, Zarr needs CuPy support: "
+                "<https://github.com/zarr-developers/zarr-python/pull/934>"
+            ),
+        )
 
     retcode = run_cmd(
         [
