@@ -14,6 +14,9 @@ export GPUCI_RETRY_SLEEP=30
 # Set default label options if they are not defined elsewhere
 export LABEL_OPTION=${LABEL_OPTION:-"--label main"}
 
+# Setup conda build dir
+export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
+
 # Skip uploads unless BUILD_MODE == "branch"
 if [ "${BUILD_MODE}" != "branch" ]; then
   echo "Skipping upload"
@@ -32,7 +35,7 @@ fi
 
 gpuci_logger "Get conda file output locations"
 # export LIBKVIKIO_FILE=`conda build --no-build-id --croot "$WORKSPACE/.conda-bld" conda/recipes/libkvikio --output`
-export KVIKIO_FILE=`conda build --no-build-id --croot "$WORKSPACE/.conda-bld" conda/recipes/kvikio --output`
+export KVIKIO_FILE=`conda build --no-build-id --croot $CONDA_BUILD_DIR conda/recipes/kvikio --output`
 
 ################################################################################
 # UPLOAD - Conda packages
