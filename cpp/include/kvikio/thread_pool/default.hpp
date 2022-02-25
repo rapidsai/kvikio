@@ -63,6 +63,6 @@ inline void reset(unsigned int nthreads = get_num_threads_from_env())
  *
  * @return The number of threads in the current default thread pool.
  */
-inline unsigned int nthreads() { return _current_default_thread_pool.get_thread_count(); }
+inline unsigned int nthreads() noexcept { return _current_default_thread_pool.get_thread_count(); }
 
 }  // namespace kvikio::default_thread_pool

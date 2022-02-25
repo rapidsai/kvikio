@@ -46,7 +46,7 @@ cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
 
 
 cdef extern from "<kvikio/thread_pool/default.hpp>" namespace "kvikio::default_thread_pool" nogil:
-    void reset(unsigned int nthreads)
+    void reset(unsigned int nthreads) except +
     unsigned int nthreads()
 
 
