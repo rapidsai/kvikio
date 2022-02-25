@@ -7,13 +7,22 @@ import random
 import pytest
 
 import kvikio
+import kvikio.config
 import kvikio.thread_pool
 
 cupy = pytest.importorskip("cupy")
 
 
-def check_bit_flags(x: int, y: int) -> bool:
-    "Check that the bits set in `y` is also set in `x`"
+def check_bit_flags(
+    x: int, y: int, add_o_direct=not kvikio.config.get_global_compat_mode()
+) -> bool:
+    """Check that the bits set in `y` is also set in `x`
+
+    Set `add_o_direct=True` to add the `os.O_DIRECT` bit to `y`. This is True
+    by default when KvikIO is NOT running in compatibility mode.
+    """
+    if add_o_direct:
+        y |= os.O_DIRECT
     return x & y == y
 
 
@@ -31,7 +40,7 @@ def test_read_write(tmp_path, size, nthreads):
     a = cupy.arange(size)
     f = kvikio.CuFile(filename, "w")
     assert not f.closed
-    assert check_bit_flags(f.open_flags(), (os.O_WRONLY | os.O_DIRECT))
+    assert check_bit_flags(f.open_flags(), os.O_WRONLY)
     assert f.write(a) == a.nbytes
 
     # Try to read file opened in write-only mode
@@ -45,7 +54,7 @@ def test_read_write(tmp_path, size, nthreads):
     # Read file into a new array and compare
     b = cupy.empty_like(a)
     f = kvikio.CuFile(filename, "r")
-    assert check_bit_flags(f.open_flags(), (os.O_RDONLY | os.O_DIRECT))
+    assert check_bit_flags(f.open_flags(), os.O_RDONLY)
     f.read(b)
     assert all(a == b)
 
@@ -88,7 +97,7 @@ def test_contextmanager(tmp_path):
     b = cupy.empty_like(a)
     with kvikio.CuFile(filename, "w+") as f:
         assert not f.closed
-        assert check_bit_flags(f.open_flags(), (os.O_WRONLY | os.O_DIRECT))
+        assert check_bit_flags(f.open_flags(), os.O_RDWR)
         assert f.write(a) == a.nbytes
         f.read(b)
         assert all(a == b)
