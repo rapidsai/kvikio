@@ -25,10 +25,10 @@ namespace kvikio::default_thread_pool {  // TODO: should this be a singletone cl
 namespace {
 inline unsigned int get_num_threads_from_env()
 {
-  const char* nthreads = std::getenv("CUFILE_NTHREADS");
+  const char* nthreads = std::getenv("KVIKIO_NTHREADS");
   if (nthreads == nullptr) { return 1; }
   const int n = std::stoi(nthreads);
-  if (n <= 0) { throw std::invalid_argument("CUFILE_NTHREADS has to be a positive integer"); }
+  if (n <= 0) { throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer"); }
   return std::stoi(nthreads);
 }
 /*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
@@ -51,7 +51,7 @@ inline kvikio::third_party::thread_pool& get() { return _current_default_thread_
  * pool will be paused as well.
  *
  * @param nthreads The number of threads to use. The default value can be specified by setting
- * the `CUFILE_NTHREADS` environment variable. If not set, the default value is 1.
+ * the `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
  */
 inline void reset(unsigned int nthreads = get_num_threads_from_env())
 {
@@ -63,6 +63,6 @@ inline void reset(unsigned int nthreads = get_num_threads_from_env())
  *
  * @return The number of threads in the current default thread pool.
  */
-inline unsigned int nthreads() { return _current_default_thread_pool.get_thread_count(); }
+inline unsigned int nthreads() noexcept { return _current_default_thread_pool.get_thread_count(); }
 
 }  // namespace kvikio::default_thread_pool
