@@ -12,6 +12,11 @@ import kvikio.thread_pool
 cupy = pytest.importorskip("cupy")
 
 
+def check_bit_flags(x: int, y: int) -> bool:
+    "Check that the bits set in `y` is also set in `x`"
+    return x & y == y
+
+
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
 def test_read_write(tmp_path, size, nthreads):
@@ -26,7 +31,7 @@ def test_read_write(tmp_path, size, nthreads):
     a = cupy.arange(size)
     f = kvikio.CuFile(filename, "w")
     assert not f.closed
-    assert f.open_flags() & (os.O_WRONLY | os.O_DIRECT | os.O_CLOEXEC)
+    assert check_bit_flags(f.open_flags(), (os.O_WRONLY | os.O_DIRECT))
     assert f.write(a) == a.nbytes
 
     # Try to read file opened in write-only mode
@@ -40,7 +45,7 @@ def test_read_write(tmp_path, size, nthreads):
     # Read file into a new array and compare
     b = cupy.empty_like(a)
     f = kvikio.CuFile(filename, "r")
-    assert f.open_flags() & (os.O_RDONLY | os.O_DIRECT | os.O_CLOEXEC)
+    assert check_bit_flags(f.open_flags(), (os.O_RDONLY | os.O_DIRECT))
     f.read(b)
     assert all(a == b)
 
@@ -83,7 +88,7 @@ def test_contextmanager(tmp_path):
     b = cupy.empty_like(a)
     with kvikio.CuFile(filename, "w+") as f:
         assert not f.closed
-        assert f.open_flags() & (os.O_WRONLY | os.O_DIRECT | os.O_CLOEXEC)
+        assert check_bit_flags(f.open_flags(), (os.O_WRONLY | os.O_DIRECT))
         assert f.write(a) == a.nbytes
         f.read(b)
         assert all(a == b)
