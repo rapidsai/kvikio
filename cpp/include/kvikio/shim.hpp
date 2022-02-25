@@ -95,4 +95,19 @@ class CAPI {
   }
 };
 
+/**
+ * @brief Check whether the cuFile library is available
+ *
+ * @return The boolean answer
+ */
+inline bool is_cufile_library_available()
+{
+  try {
+    CAPI::instance();
+  } catch (const CUfileException& e) {
+    return false;
+  }
+  return true;
+}
+
 }  // namespace kvikio
