@@ -32,6 +32,14 @@ namespace {
 inline constexpr std::size_t page_size  = 2 << 9;   // 4 KiB
 inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
 
+/**
+ * @brief Call ::pwrite() until all of `count` has been written
+ *
+ * @param fd File decriptor
+ * @param buf Buffer to write
+ * @param count Number of bytes to write
+ * @param offset File offset
+ */
 inline void pwrite_all(int fd, const void* buf, size_t count, off_t offset)
 {
   off_t cur_offset      = offset;
@@ -58,6 +66,17 @@ inline void pwrite_all(int fd, const void* buf, size_t count, off_t offset)
   }
 }
 
+/**
+ * @brief Read or write main memory to or from disk using POSIX
+ *
+ * @tparam IsReadOperation Whether the operation is a read or a write
+ * @param fd File decriptor
+ * @param devPtr_base Device pointer to read or write to.
+ * @param size Number of bytes to read or write.
+ * @param file_offset Byte offset to the start of the file.
+ * @param devPtr_offset Byte offset to the start of the device pointer.
+ * @return Number of bytes read or written.
+ */
 template <bool IsReadOperation>
 inline std::size_t posix_io(int fd,
                             const void* devPtr_base,
@@ -115,7 +134,42 @@ inline std::size_t posix_io(int fd,
 
 }  // namespace
 
-constexpr auto posix_read  = posix_io<true>;
-constexpr auto posix_write = posix_io<false>;
+/**
+ * @brief Read main memory from disk using POSIX
+ *
+ * @param fd File decriptor
+ * @param devPtr_base Base address of buffer in device memory.
+ * @param size Size in bytes to read.
+ * @param file_offset Offset in the file to read from.
+ * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
+ * @return Size of bytes that were successfully read.
+ */
+inline std::size_t posix_read(int fd,
+                              const void* devPtr_base,
+                              std::size_t size,
+                              std::size_t file_offset,
+                              std::size_t devPtr_offset)
+{
+  return posix_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
+}
+
+/**
+ * @brief Write main memory to disk using POSIX
+ *
+ * @param fd File decriptor
+ * @param devPtr_base Base address of buffer in device memory.
+ * @param size Size in bytes to write.
+ * @param file_offset Offset in the file to write from.
+ * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
+ * @return Size of bytes that were successfully written.
+ */
+inline std::size_t posix_write(int fd,
+                               const void* devPtr_base,
+                               std::size_t size,
+                               std::size_t file_offset,
+                               std::size_t devPtr_offset)
+{
+  return posix_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
+}
 
 }  // namespace kvikio
