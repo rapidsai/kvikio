@@ -31,7 +31,7 @@ fi
 ################################################################################
 
 gpuci_logger "Get conda file output locations"
-export LIBKVIKIO_FILE=`conda build --no-build-id --croot "$WORKSPACE/.conda-bld" conda/recipes/libkvikio --output`
+# export LIBKVIKIO_FILE=`conda build --no-build-id --croot "$WORKSPACE/.conda-bld" conda/recipes/libkvikio --output`
 export KVIKIO_FILE=`conda build --no-build-id --croot "$WORKSPACE/.conda-bld" conda/recipes/kvikio --output`
 
 ################################################################################
@@ -39,5 +39,5 @@ export KVIKIO_FILE=`conda build --no-build-id --croot "$WORKSPACE/.conda-bld" co
 ################################################################################
 
 gpuci_logger "Starting conda uploads"
-gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBKVIKIO_FILE} --no-progress
+# gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBKVIKIO_FILE} --no-progress
 gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${KVIKIO_FILE} --no-progress
