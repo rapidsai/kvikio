@@ -28,8 +28,10 @@
 
 #include <cufile.h>
 #include <kvikio/buffer.hpp>
+#include <kvikio/config.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
+#include <kvikio/posix_io.hpp>
 #include <kvikio/thread_pool/default.hpp>
 #include <kvikio/utils.hpp>
 
@@ -56,14 +58,11 @@ inline int open_fd_parse_flags(const std::string& flags)
       if (flags[1] == '+') { file_flags = O_RDWR; }
       file_flags |= O_CREAT | O_TRUNC;
       break;
-    case 'a':
-      throw std::invalid_argument("Open flag 'a' isn't supported");
-      file_flags = O_RDWR | O_CREAT;
-      break;
+    case 'a': throw std::invalid_argument("Open flag 'a' isn't supported");
     default: throw std::invalid_argument("Unknown file open flag");
   }
   file_flags |= O_CLOEXEC;
-  file_flags |= O_DIRECT;
+  if (!config::get_global_compat_mode()) { file_flags |= O_DIRECT; }
   return file_flags;
 }
 
@@ -109,6 +108,8 @@ class FileHandle {
    */
   FileHandle(int fd, bool steal_fd = false) : _fd{fd}, _own_fd{steal_fd}, _closed{false}
   {
+    if (config::get_global_compat_mode()) { return; }
+
     CUfileDescr_t desc{};  // It is important to set zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)*/
@@ -165,7 +166,7 @@ class FileHandle {
   void close() noexcept
   {
     _closed = true;
-    cuFileHandleDeregister(_handle);
+    if (!config::get_global_compat_mode()) { cuFileHandleDeregister(_handle); }
     if (_own_fd) { ::close(_fd); }
   }
 
@@ -217,6 +218,10 @@ class FileHandle {
                    std::size_t file_offset,
                    std::size_t devPtr_offset)
   {
+    if (config::get_global_compat_mode()) {
+      return posix_read(_fd, devPtr_base, size, file_offset, devPtr_offset);
+    }
+
     ssize_t ret = cuFileRead(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -258,6 +263,10 @@ class FileHandle {
                     std::size_t file_offset,
                     std::size_t devPtr_offset)
   {
+    if (config::get_global_compat_mode()) {
+      return posix_write(_fd, devPtr_base, size, file_offset, devPtr_offset);
+    }
+
     ssize_t ret = cuFileWrite(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {

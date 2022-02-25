@@ -51,6 +51,10 @@ def memory_deregister(buf) -> None:
     kvikio_cxx_api.memory_deregister(<void*>arr.ptr)
 
 
+def get_global_compat_mode() -> int:
+    return kvikio_cxx_api.get_global_compat_mode()
+
+
 def thread_pool_reset_num_threads(nthread: int) -> None:
     kvikio_cxx_api.reset(nthread)
 
