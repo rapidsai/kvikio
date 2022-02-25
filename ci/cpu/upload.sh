@@ -32,7 +32,7 @@ fi
 
 gpuci_logger "Get conda file output locations"
 # export LIBKVIKIO_FILE=`conda build --no-build-id --croot "$WORKSPACE/.conda-bld" conda/recipes/libkvikio --output`
-export KVIKIO_FILE=`conda build --no-build-id --croot $CONDA_BUILD_DIR conda/recipes/kvikio --output`
+export KVIKIO_FILE=$(conda build --no-build-id --croot "${CONDA_BUILD_DIR}" conda/recipes/kvikio --python=$PYTHON --output)
 
 ################################################################################
 # UPLOAD - Conda packages
