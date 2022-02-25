@@ -69,17 +69,15 @@ gpuci_mamba_retry install -c conda-forge boa
 
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
   CONDA_BUILD_ARGS=""
-  CONDA_CHANNEL=""
 else
   CONDA_BUILD_ARGS="--dirty --no-remove-work-dir"
-  CONDA_CHANNEL="-c $WORKSPACE/ci/artifacts/cudf/cpu/.conda-bld/"
 fi
 
 # gpuci_logger "Build conda pkg for libkvikio"
-# gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio --python=$PYTHON $CONDA_BUILD_ARGS $CONDA_CHANNEL
+# gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio --python=$PYTHON $CONDA_BUILD_ARGS
 
 gpuci_logger "Build conda pkg for kvikio"
-gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --python=$PYTHON $CONDA_BUILD_ARGS $CONDA_CHANNEL
+gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --python=$PYTHON $CONDA_BUILD_ARGS
 
 ################################################################################
 # UPLOAD - Conda packages
