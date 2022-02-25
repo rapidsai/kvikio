@@ -14,9 +14,6 @@ export GPUCI_RETRY_SLEEP=30
 # Set default label options if they are not defined elsewhere
 export LABEL_OPTION=${LABEL_OPTION:-"--label main"}
 
-# Setup conda build dir
-export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
-
 # Skip uploads unless BUILD_MODE == "branch"
 if [ "${BUILD_MODE}" != "branch" ]; then
   echo "Skipping upload"
