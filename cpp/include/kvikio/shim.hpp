@@ -21,6 +21,15 @@
 
 namespace kvikio {
 namespace {
+
+/**
+ * @brief Get symbol using `dlsym`
+ *
+ * @tparam T The type of the function pointer.
+ * @param handle The function pointer (output).
+ * @param lib The library handle returned by `dlopen`.
+ * @param name Name of the symbol/function to load.
+ */
 template <typename T>
 void get_symbol(T& handle, void* lib, const char* name)
 {
@@ -34,6 +43,13 @@ void get_symbol(T& handle, void* lib, const char* name)
 
 }  // namespace
 
+/**
+ * @brief Shim layer of the cuFile C-API
+ *
+ * This is a singleton class that use `dlopen` on construction to load the C-API of cuFile.
+ *
+ * For example, `CAPI::instance()-FileRead()` corresponds to calling `cuFileRead()`
+ */
 class CAPI {
  public:
   decltype(cuFileHandleRegister)* HandleRegister{nullptr};
