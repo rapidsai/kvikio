@@ -70,6 +70,7 @@ target_link_libraries(kvikio INTERFACE Threads::Threads)
 target_link_libraries(kvikio INTERFACE CUDA::nvml)
 target_link_libraries(kvikio INTERFACE cuda)
 target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
+target_link_libraries(kvikio INTERFACE dl)
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
 
