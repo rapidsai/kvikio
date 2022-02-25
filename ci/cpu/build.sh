@@ -78,7 +78,6 @@ fi
 # gpuci_logger "Build conda pkg for libkvikio"
 # gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio --python=$PYTHON $CONDA_BUILD_ARGS $CONDA_CHANNEL
 
-
 gpuci_logger "Build conda pkg for kvikio"
 gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --python=$PYTHON $CONDA_BUILD_ARGS $CONDA_CHANNEL
 
