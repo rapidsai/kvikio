@@ -23,6 +23,23 @@ namespace kvikio {
 namespace {
 
 /**
+ * @brief Load shared library
+ *
+ * @param name Name of the library to load.
+ * @return The library handle.
+ */
+void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE)
+{
+  ::dlerror();  // Clear old errors
+  void* ret = ::dlopen(name, mode);
+  if (ret == nullptr) {
+    throw CUfileException{std::string{__FILE__} + ":" + CUFILE_STRINGIFY(__LINE__) + ": " +
+                          ::dlerror()};
+  }
+  return ret;
+}
+
+/**
  * @brief Get symbol using `dlsym`
  *
  * @tparam T The type of the function pointer.
@@ -33,11 +50,12 @@ namespace {
 template <typename T>
 void get_symbol(T& handle, void* lib, const char* name)
 {
+  ::dlerror();  // Clear old errors
   /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)*/
-  handle = reinterpret_cast<T>(dlsym(lib, name));
-  if (handle == nullptr) {
-    throw CUfileException{std::string{"Cannot load symbol: "} + __FILE__ + ":" +
-                          CUFILE_STRINGIFY(__LINE__) + ": " + name};
+  handle          = reinterpret_cast<T>(::dlsym(lib, name));
+  const char* err = ::dlerror();
+  if (err != nullptr) {
+    throw CUfileException{std::string{__FILE__} + ":" + CUFILE_STRINGIFY(__LINE__) + ": " + err};
   }
 }
 
@@ -67,13 +85,7 @@ class CAPI {
 
   CAPI()
   {
-    dlerror();  // Clear old errors
-    void* lib       = dlopen("libcufile.so", RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
-    const char* err = dlerror();
-    if (err != nullptr) {
-      throw CUfileException{std::string{"Cannot load `libcufile.so`: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + err};
-    }
+    void* lib = load_library("libcufile.so");
     get_symbol(HandleRegister, lib, "cuFileHandleRegister");
     get_symbol(HandleDeregister, lib, "cuFileHandleDeregister");
     get_symbol(Read, lib, "cuFileRead");
