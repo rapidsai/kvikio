@@ -55,13 +55,6 @@ int main()
     cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
   }
 
-  kvikio::NVML nvml;
-  auto [mem_total, mem_free]   = nvml.get_memory();
-  auto [bar1_total, bar1_free] = nvml.get_bar1_memory();
-  cout << "nvml: " << endl;
-  cout << "  GPU Memory Total : " << mem_total << " bytes" << endl;
-  cout << "  BAR1 Memory Total: " << bar1_total << " bytes" << endl;
-
   int a[1024], b[1024];
   for (int i = 0; i < 1024; ++i) {
     a[i] = i;
