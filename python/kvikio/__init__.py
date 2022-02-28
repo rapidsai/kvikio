@@ -20,5 +20,3 @@ def memory_deregister(buf) -> None:
 
 # TODO: Wrap nicely, maybe as a dataclass?
 DriverProperties = libkvikio.DriverProperties
-# TODO: Wrap nicely, maybe as a dataclass?
-NVML = libkvikio.NVML

@@ -240,9 +240,28 @@ def main(args):
 
     kvikio.thread_pool.reset_num_threads(args.nthreads)
     props = kvikio.DriverProperties()
-    nvml = kvikio.NVML()
-    mem_total, _ = nvml.get_memory()
-    bar1_total, _ = nvml.get_bar1_memory()
+    try:
+        import pynvml.smi
+
+        nvsmi = pynvml.smi.nvidia_smi.getInstance()
+    except ImportError:
+        gpu_name = "Unknown (install pynvml)"
+        mem_total = gpu_name
+        bar1_total = gpu_name
+    else:
+        info = nvsmi.DeviceQuery()["gpu"][0]
+        gpu_name = f"{info['product_name']} (dev #0)"
+        mem_total = format_bytes(
+            parse_bytes(
+                str(info["fb_memory_usage"]["total"]) + info["fb_memory_usage"]["unit"]
+            )
+        )
+        bar1_total = format_bytes(
+            parse_bytes(
+                str(info["bar1_memory_usage"]["total"])
+                + info["bar1_memory_usage"]["unit"]
+            )
+        )
     gds_version = "N/A (Compatibility Mode)"
     if props.is_gds_availabe:
         gds_version = f"v{props.major_version}.{props.minor_version}"
@@ -262,9 +281,9 @@ def main(args):
         print("   WARNING - cuFile compat mode   ")
         print("         GDS not enabled          ")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    print(f"GPU               | {nvml.get_name()}")
-    print(f"GPU Memory Total  | {format_bytes(mem_total)}")
-    print(f"BAR1 Memory Total | {format_bytes(bar1_total)}")
+    print(f"GPU               | {gpu_name}")
+    print(f"GPU Memory Total  | {mem_total}")
+    print(f"BAR1 Memory Total | {bar1_total}")
     print(f"GDS driver        | {gds_version}")
     print(f"GDS config.json   | {gds_config_json_path}")
     print("----------------------------------")

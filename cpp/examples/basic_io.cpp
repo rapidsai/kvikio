@@ -22,7 +22,6 @@
 #include <kvikio/config.hpp>
 #include <kvikio/driver.hpp>
 #include <kvikio/file_handle.hpp>
-#include <kvikio/nvml.hpp>
 
 using namespace std;
 
@@ -54,13 +53,6 @@ int main()
          << ", threshold: " << props.get_nvfs_poll_thresh_size() << " kb" << endl;
     cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
   }
-
-  kvikio::NVML nvml;
-  auto [mem_total, mem_free]   = nvml.get_memory();
-  auto [bar1_total, bar1_free] = nvml.get_bar1_memory();
-  cout << "nvml: " << endl;
-  cout << "  GPU Memory Total : " << mem_total << " bytes" << endl;
-  cout << "  BAR1 Memory Total: " << bar1_total << " bytes" << endl;
 
   int a[1024], b[1024];
   for (int i = 0; i < 1024; ++i) {
