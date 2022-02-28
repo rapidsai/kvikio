@@ -19,7 +19,7 @@
 #include <vector>
 
 #include <kvikio/error.hpp>
-#include <kvikio/shim.hpp>
+#include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
 

@@ -22,7 +22,7 @@
 
 #include <kvikio/config.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/shim.hpp>
+#include <kvikio/shim/cufile.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {

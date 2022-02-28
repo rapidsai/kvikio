@@ -21,7 +21,7 @@
 #include <string>
 #include <utility>
 
-#include <kvikio/shim.hpp>
+#include <kvikio/shim/cufile.hpp>
 
 namespace kvikio::config {  // TODO: should this be a singletone class instead?
 namespace {

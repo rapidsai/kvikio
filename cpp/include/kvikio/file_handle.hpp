@@ -31,7 +31,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
-#include <kvikio/shim.hpp>
+#include <kvikio/shim/cufile.hpp>
 #include <kvikio/thread_pool/default.hpp>
 #include <kvikio/utils.hpp>
 
