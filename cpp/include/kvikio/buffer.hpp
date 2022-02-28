@@ -49,7 +49,7 @@ inline void buffer_register(const void* devPtr_base,
                             const std::vector<int>& errors_to_ignore = std::vector<int>())
 {
   if (config::get_global_compat_mode()) { return; }
-  CUfileError_t status = CAPI::instance()->BufRegister(devPtr_base, size, flags);
+  CUfileError_t status = cuFileAPI::instance()->BufRegister(devPtr_base, size, flags);
   if (status.err != CU_FILE_SUCCESS) {
     // Check if `status.err` is in `errors_to_ignore`
     if (std::find(errors_to_ignore.begin(), errors_to_ignore.end(), status.err) ==
@@ -67,7 +67,7 @@ inline void buffer_register(const void* devPtr_base,
 inline void buffer_deregister(const void* devPtr_base)
 {
   if (config::get_global_compat_mode()) { return; }
-  CUFILE_TRY(CAPI::instance()->BufDeregister(devPtr_base));
+  CUFILE_TRY(cuFileAPI::instance()->BufDeregister(devPtr_base));
 }
 
 /**

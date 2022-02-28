@@ -114,7 +114,7 @@ class FileHandle {
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)*/
     desc.handle.fd = fd;
-    CUFILE_TRY(CAPI::instance()->HandleRegister(&_handle, &desc));
+    CUFILE_TRY(cuFileAPI::instance()->HandleRegister(&_handle, &desc));
   }
 
   /**
@@ -166,7 +166,7 @@ class FileHandle {
   void close() noexcept
   {
     _closed = true;
-    if (!config::get_global_compat_mode()) { CAPI::instance()->HandleDeregister(_handle); }
+    if (!config::get_global_compat_mode()) { cuFileAPI::instance()->HandleDeregister(_handle); }
     if (_own_fd) { ::close(_fd); }
   }
 
@@ -222,7 +222,7 @@ class FileHandle {
       return posix_read(_fd, devPtr_base, size, file_offset, devPtr_offset);
     }
 
-    ssize_t ret = CAPI::instance()->Read(
+    ssize_t ret = cuFileAPI::instance()->Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
       throw std::system_error(errno, std::generic_category(), "Unable to read file");
@@ -267,7 +267,7 @@ class FileHandle {
       return posix_write(_fd, devPtr_base, size, file_offset, devPtr_offset);
     }
 
-    ssize_t ret = CAPI::instance()->Write(
+    ssize_t ret = cuFileAPI::instance()->Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
       throw std::system_error(errno, std::generic_category(), "Unable to write file");
