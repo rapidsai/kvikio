@@ -19,6 +19,7 @@
 #include <cuda_runtime_api.h>
 
 #include <kvikio/buffer.hpp>
+#include <kvikio/config.hpp>
 #include <kvikio/driver.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/nvml.hpp>
@@ -36,16 +37,24 @@ void check(bool condition)
 int main()
 {
   check(cudaSetDevice(0) == cudaSuccess);
-  kvikio::DriverInitializer manual_init_driver;
-  kvikio::DriverProperties props;
-  cout << "DriverProperties: " << endl;
-  cout << "  Version: " << props.get_nvfs_major_version() << "." << props.get_nvfs_minor_version()
-       << endl;
-  cout << "  Allow compatibility mode: " << std::boolalpha << props.get_nvfs_allow_compat_mode()
-       << endl;
-  cout << "  Pool mode - enabled: " << std::boolalpha << props.get_nvfs_poll_mode()
-       << ", threshold: " << props.get_nvfs_poll_thresh_size() << " kb" << endl;
-  cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
+
+  cout << "KvikIO config: " << endl;
+  if (kvikio::config::get_global_compat_mode()) {
+    cout << "  Compatibility mode: enabled" << endl;
+  } else {
+    kvikio::DriverInitializer manual_init_driver;
+    cout << "  Compatibility mode: disabled" << endl;
+    kvikio::DriverProperties props;
+    cout << "DriverProperties: " << endl;
+    cout << "  Version: " << props.get_nvfs_major_version() << "." << props.get_nvfs_minor_version()
+         << endl;
+    cout << "  Allow compatibility mode: " << std::boolalpha << props.get_nvfs_allow_compat_mode()
+         << endl;
+    cout << "  Pool mode - enabled: " << std::boolalpha << props.get_nvfs_poll_mode()
+         << ", threshold: " << props.get_nvfs_poll_thresh_size() << " kb" << endl;
+    cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
+  }
+
   kvikio::NVML nvml;
   auto [mem_total, mem_free]   = nvml.get_memory();
   auto [bar1_total, bar1_free] = nvml.get_bar1_memory();

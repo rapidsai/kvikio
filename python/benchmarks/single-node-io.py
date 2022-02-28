@@ -17,6 +17,7 @@ import cupy
 from dask.utils import format_bytes, parse_bytes
 
 import kvikio
+import kvikio.config
 import kvikio.thread_pool
 
 
@@ -251,10 +252,15 @@ def main(args):
 
     print("Roundtrip benchmark")
     print("----------------------------------")
-    if not props.is_gds_availabe:
+    if kvikio.config.get_global_compat_mode():
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("             WARNING              ")
-        print("   Compat mode, GDS not enabled   ")
+        print("   WARNING - KvikIO compat mode   ")
+        print("      libcufile.so not used       ")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    elif not props.is_gds_availabe:
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("   WARNING - cuFile compat mode   ")
+        print("         GDS not enabled          ")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     print(f"GPU               | {nvml.get_name()}")
     print(f"GPU Memory Total  | {format_bytes(mem_total)}")

@@ -20,8 +20,9 @@
 #include <map>
 #include <vector>
 
-#include <cufile.h>
+#include <kvikio/config.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/shim/cufile.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -47,7 +48,8 @@ inline void buffer_register(const void* devPtr_base,
                             int flags                                = 0,
                             const std::vector<int>& errors_to_ignore = std::vector<int>())
 {
-  CUfileError_t status = cuFileBufRegister(devPtr_base, size, flags);
+  if (config::get_global_compat_mode()) { return; }
+  CUfileError_t status = cuFileAPI::instance()->BufRegister(devPtr_base, size, flags);
   if (status.err != CU_FILE_SUCCESS) {
     // Check if `status.err` is in `errors_to_ignore`
     if (std::find(errors_to_ignore.begin(), errors_to_ignore.end(), status.err) ==
@@ -64,7 +66,8 @@ inline void buffer_register(const void* devPtr_base,
  */
 inline void buffer_deregister(const void* devPtr_base)
 {
-  CUFILE_TRY(cuFileBufDeregister(devPtr_base));
+  if (config::get_global_compat_mode()) { return; }
+  CUFILE_TRY(cuFileAPI::instance()->BufDeregister(devPtr_base));
 }
 
 /**

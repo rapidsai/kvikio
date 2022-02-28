@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <dlfcn.h>
 #include <chrono>
 #include <future>
 #include <iostream>
@@ -100,6 +101,43 @@ template <typename T>
 inline bool is_future_done(const T& future)
 {
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
+}
+
+/**
+ * @brief Load shared library
+ *
+ * @param name Name of the library to load.
+ * @return The library handle.
+ */
+void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE)
+{
+  ::dlerror();  // Clear old errors
+  void* ret = ::dlopen(name, mode);
+  if (ret == nullptr) {
+    throw CUfileException{std::string{__FILE__} + ":" + CUFILE_STRINGIFY(__LINE__) + ": " +
+                          ::dlerror()};
+  }
+  return ret;
+}
+
+/**
+ * @brief Get symbol using `dlsym`
+ *
+ * @tparam T The type of the function pointer.
+ * @param handle The function pointer (output).
+ * @param lib The library handle returned by `dlopen`.
+ * @param name Name of the symbol/function to load.
+ */
+template <typename T>
+void get_symbol(T& handle, void* lib, const char* name)
+{
+  ::dlerror();  // Clear old errors
+  /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)*/
+  handle          = reinterpret_cast<T>(::dlsym(lib, name));
+  const char* err = ::dlerror();
+  if (err != nullptr) {
+    throw CUfileException{std::string{__FILE__} + ":" + CUFILE_STRINGIFY(__LINE__) + ": " + err};
+  }
 }
 
 }  // namespace kvikio
