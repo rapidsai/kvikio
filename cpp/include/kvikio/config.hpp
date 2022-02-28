@@ -21,6 +21,8 @@
 #include <string>
 #include <utility>
 
+#include <kvikio/shim.hpp>
+
 namespace kvikio::config {  // TODO: should this be a singletone class instead?
 namespace {
 
@@ -51,6 +53,20 @@ inline std::pair<bool, bool> _current_global_compat_mode{std::make_pair(false, f
 
 }  // namespace
 
+/**
+ * @brief Return whether the KvikIO library is running in compatibility mode or not
+ *
+ * Notice, this is not the same as the compatibility mode in cuFile. That is,
+ * cuFile can run in compatibility mode while KvikIO is not.
+ *
+ * When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. Instead,
+ * reads and writes are done using POSIX.
+ *
+ * Set the enviornment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility mode.
+ * By default, compatibility mode is enabled when `libcufile` cannot be found.
+ *
+ * @return The boolean answer
+ */
 inline bool get_global_compat_mode()
 {
   auto [initalized, value] = _current_global_compat_mode;
@@ -62,8 +78,8 @@ inline bool get_global_compat_mode()
   }
   // TODO: check if running in an enviornment not compabtile with cuFile, such as WSL
   //       see <https://github.com/rapidsai/kvikio/issues/11>
-  // TODO: probe cuFile to determent if GDS is available.
-  return false;
+
+  return !is_cufile_library_available();
 }
 
 }  // namespace kvikio::config
