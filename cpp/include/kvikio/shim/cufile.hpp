@@ -26,7 +26,7 @@ namespace kvikio {
  *
  * This is a singleton class that use `dlopen` on construction to load the C-API of cuFile.
  *
- * For example, `cuFileAPI::instance()-FileRead()` corresponds to calling `cuFileRead()`
+ * For example, `cuFileAPI::instance()->FileRead()` corresponds to calling `cuFileRead()`
  */
 class cuFileAPI {
  public:
