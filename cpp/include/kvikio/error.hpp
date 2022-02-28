@@ -84,20 +84,4 @@ struct CUfileException : public std::runtime_error {
   } while (0)
 #define CUDA_TRY_1(_call) CUDA_TRY_2(_call, CUfileException)
 
-#define NVML_TRY(...)                                     \
-  GET_NVML_TRY_MACRO(__VA_ARGS__, NVML_TRY_2, NVML_TRY_1) \
-  (__VA_ARGS__)
-#define GET_NVML_TRY_MACRO(_1, _2, NAME, ...) NAME
-#define NVML_TRY_2(_call, _exception_type)                                    \
-  do {                                                                        \
-    nvmlReturn_t const error = (_call);                                       \
-    if (error != NVML_SUCCESS) {                                              \
-      /*NOLINTNEXTLINE(bugprone-macro-parentheses)*/                          \
-      throw _exception_type{std::string{"NVML error at: "} + __FILE__ + ":" + \
-                            CUFILE_STRINGIFY(__LINE__) + ": " +               \
-                            std::string(nvmlErrorString(error))};             \
-    }                                                                         \
-  } while (0)
-#define NVML_TRY_1(_call) NVML_TRY_2(_call, CUfileException)
-
 }  // namespace kvikio

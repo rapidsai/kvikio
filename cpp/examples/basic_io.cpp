@@ -22,7 +22,6 @@
 #include <kvikio/config.hpp>
 #include <kvikio/driver.hpp>
 #include <kvikio/file_handle.hpp>
-#include <kvikio/nvml.hpp>
 
 using namespace std;
 

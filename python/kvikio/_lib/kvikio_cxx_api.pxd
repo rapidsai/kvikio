@@ -84,11 +84,3 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t file_offset,
             size_t ntasks
         ) except +
-
-
-cdef extern from "<kvikio/nvml.hpp>" namespace "kvikio" nogil:
-    cdef cppclass NVML:
-        NVML() except +
-        string get_name() except +
-        pair[size_t, size_t] get_memory() except +
-        pair[size_t, size_t] get_bar1_memory() except +

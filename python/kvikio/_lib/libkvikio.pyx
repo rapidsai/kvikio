@@ -186,18 +186,3 @@ cdef class DriverProperties:
     @max_pinned_memory_size.setter
     def max_pinned_memory_size(self, size_in_kb: int) -> None:
         self._handle.set_max_pinned_memory_size(size_in_kb)
-
-
-cdef class NVML:
-    cdef kvikio_cxx_api.NVML _handle
-
-    def get_name(self) -> str:
-        return self._handle.get_name().decode()
-
-    def get_memory(self) -> Tuple[int, int]:
-        cdef pair[size_t, size_t] info = self._handle.get_memory()
-        return info.first, info.second
-
-    def get_bar1_memory(self) -> Tuple[int, int]:
-        cdef pair[size_t, size_t] info = self._handle.get_bar1_memory()
-        return info.first, info.second

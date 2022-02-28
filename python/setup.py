@@ -88,7 +88,7 @@ extensions = [
         sources=["kvikio/_lib/libkvikio.pyx"],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
-        libraries=["dl", "cuda", "nvidia-ml"],
+        libraries=["dl", "cuda"],
         language="c++",
         extra_compile_args=["-std=c++17"],
         depends=depends,
