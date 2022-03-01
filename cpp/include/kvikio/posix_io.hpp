@@ -18,6 +18,8 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>
+#include <mutex>
+#include <stack>
 
 #include <cuda.h>
 
@@ -30,6 +32,71 @@ namespace {
 
 inline constexpr std::size_t page_size  = 2 << 9;   // 4 KiB
 inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
+
+template <typename T>
+class ChunkAllocation {
+ private:
+  T* _manager;
+  void* _alloc;
+
+ public:
+  ChunkAllocation(T* manager, void* alloc) : _manager(manager), _alloc{alloc} {}
+
+  ChunkAllocation(const ChunkAllocation&) = delete;
+  ChunkAllocation& operator=(ChunkAllocation const&) = delete;
+  ChunkAllocation(ChunkAllocation&& o)               = delete;
+  ChunkAllocation& operator=(ChunkAllocation&& o) = delete;
+  ~ChunkAllocation() noexcept { _manager->put(_alloc); }
+  void* get() noexcept { return _alloc; }
+};
+
+class ChunkManager {
+ private:
+  std::stack<void*> _free_allocs;
+  std::mutex _mutex;
+
+ public:
+  ChunkManager() = default;
+  ChunkAllocation<ChunkManager> get()
+  {
+    const std::lock_guard lock(_mutex);
+    void* alloc{};
+    if (_free_allocs.empty()) {
+      int err = ::posix_memalign(&alloc, page_size, chunk_size);
+      if (err != 0) {
+        throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
+                              CUFILE_STRINGIFY(__LINE__) + ": " + strerror(err)};
+      }
+    } else {
+      alloc = _free_allocs.top();
+      _free_allocs.pop();
+    }
+    return ChunkAllocation(this, alloc);
+  }
+  void put(void* alloc)
+  {
+    const std::lock_guard lock(_mutex);
+    _free_allocs.push(alloc);
+  }
+
+  ChunkManager(const ChunkManager&) = delete;
+  ChunkManager& operator=(ChunkManager const&) = delete;
+  ChunkManager(ChunkManager&& o)               = delete;
+  ChunkManager& operator=(ChunkManager&& o) = delete;
+
+  ~ChunkManager() noexcept
+  {
+    const std::lock_guard lock(_mutex);
+    while (!_free_allocs.empty()) {
+      /*NOLINTNEXTLINE(cppcoreguidelines-no-malloc)*/
+      free(_free_allocs.top());
+      _free_allocs.pop();
+    }
+  }
+};
+
+/*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
+inline ChunkManager manager;
 
 /**
  * @brief Call ::pwrite() until all of `count` has been written
@@ -83,50 +150,37 @@ inline std::size_t posix_io(int fd,
                             std::size_t file_offset,
                             std::size_t devPtr_offset)
 {
-  void* buf = nullptr;
-  {
-    // TODO: reuse memory allocations
-    int err = ::posix_memalign(&buf, page_size, chunk_size);
-    if (err != 0) {
-      throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + strerror(err)};
-    }
-  }
-  try {
-    CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
-    off_t cur_file_offset   = convert_size2off(file_offset);
-    off_t byte_remaining    = convert_size2off(size);
-    const off_t chunk_size2 = convert_size2off(chunk_size);
+  auto alloc              = manager.get();
+  CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
+  off_t cur_file_offset   = convert_size2off(file_offset);
+  off_t byte_remaining    = convert_size2off(size);
+  const off_t chunk_size2 = convert_size2off(chunk_size);
 
-    while (byte_remaining > 0) {
-      const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
-      ssize_t nbytes_got           = nbytes_requested;
-      if constexpr (IsReadOperation) {
-        nbytes_got = ::pread(fd, buf, nbytes_requested, cur_file_offset);
-        if (nbytes_got == -1) {
-          if (errno == EBADF) {
-            throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                  CUFILE_STRINGIFY(__LINE__) + ": unsupported file open flags"};
-          }
+  while (byte_remaining > 0) {
+    const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
+    ssize_t nbytes_got           = nbytes_requested;
+    if constexpr (IsReadOperation) {
+      nbytes_got = ::pread(fd, alloc.get(), nbytes_requested, cur_file_offset);
+      if (nbytes_got == -1) {
+        if (errno == EBADF) {
           throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                CUFILE_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+                                CUFILE_STRINGIFY(__LINE__) + ": unsupported file open flags"};
         }
-        if (nbytes_got == 0) {
-          throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                CUFILE_STRINGIFY(__LINE__) + ": EOF"};
-        }
-        CUDA_TRY(cuMemcpyHtoD(devPtr, buf, nbytes_got));
-      } else {  // Is a write operation
-        CUDA_TRY(cuMemcpyDtoH(buf, devPtr, nbytes_requested));
-        pwrite_all(fd, buf, nbytes_requested, cur_file_offset);
+        throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                              CUFILE_STRINGIFY(__LINE__) + ": " + strerror(errno)};
       }
-      cur_file_offset += nbytes_got;
-      devPtr += nbytes_got;
-      byte_remaining -= nbytes_got;
+      if (nbytes_got == 0) {
+        throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                              CUFILE_STRINGIFY(__LINE__) + ": EOF"};
+      }
+      CUDA_TRY(cuMemcpyHtoD(devPtr, alloc.get(), nbytes_got));
+    } else {  // Is a write operation
+      CUDA_TRY(cuMemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
+      pwrite_all(fd, alloc.get(), nbytes_requested, cur_file_offset);
     }
-  } catch (...) {
-    free(buf);
-    throw;
+    cur_file_offset += nbytes_got;
+    devPtr += nbytes_got;
+    byte_remaining -= nbytes_got;
   }
   return size;
 }
