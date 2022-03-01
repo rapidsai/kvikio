@@ -61,16 +61,21 @@ class ChunkManager {
   {
     const std::lock_guard lock(_mutex);
     void* alloc{};
-    if (_free_allocs.empty()) {
-      int err = ::posix_memalign(&alloc, page_size, chunk_size);
-      if (err != 0) {
-        throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
-                              CUFILE_STRINGIFY(__LINE__) + ": " + strerror(err)};
-      }
-    } else {
+    if (!_free_allocs.empty()) {
       alloc = _free_allocs.top();
       _free_allocs.pop();
     }
+
+    // Allocate memory
+    int err = ::posix_memalign(&alloc, page_size, chunk_size);
+    if (err != 0) {
+      throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
+                            CUFILE_STRINGIFY(__LINE__) + ": " + strerror(err)};
+    }
+    // Register memory
+    CUDA_TRY(cuMemHostRegister(
+      alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE | CU_MEMHOSTREGISTER_DEVICEMAP));
+
     return ChunkAllocation(this, alloc);
   }
   void put(void* alloc)
@@ -88,6 +93,11 @@ class ChunkManager {
   {
     const std::lock_guard lock(_mutex);
     while (!_free_allocs.empty()) {
+      try {
+        CUDA_TRY(cuMemHostUnregister(_free_allocs.top()));
+      } catch (const CUfileException& e) {
+        std::cerr << e.what() << std::endl;
+      }
       /*NOLINTNEXTLINE(cppcoreguidelines-no-malloc)*/
       free(_free_allocs.top());
       _free_allocs.pop();
