@@ -60,12 +60,15 @@ class ChunkManager {
   ChunkAllocation<ChunkManager> get()
   {
     const std::lock_guard lock(_mutex);
-    void* alloc{};
+    // Check if we have an allocation available
     if (!_free_allocs.empty()) {
-      alloc = _free_allocs.top();
+      void* ret = _free_allocs.top();
       _free_allocs.pop();
+      return ChunkAllocation(this, ret);
     }
 
+    // If no available allocation, allocate and register a new one
+    void* alloc{};
     // Allocate memory
     int err = ::posix_memalign(&alloc, page_size, chunk_size);
     if (err != 0) {
@@ -99,6 +102,7 @@ class ChunkManager {
   ChunkManager& operator=(ChunkManager const&) = delete;
   ChunkManager(ChunkManager&& o)               = delete;
   ChunkManager& operator=(ChunkManager&& o) = delete;
+  ~ChunkManager() noexcept                  = default;
 };
 
 /*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
