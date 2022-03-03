@@ -84,25 +84,21 @@ class ChunkManager {
     _free_allocs.push(alloc);
   }
 
-  ChunkManager(const ChunkManager&) = delete;
-  ChunkManager& operator=(ChunkManager const&) = delete;
-  ChunkManager(ChunkManager&& o)               = delete;
-  ChunkManager& operator=(ChunkManager&& o) = delete;
-
-  ~ChunkManager() noexcept
+  void clear()
   {
     const std::lock_guard lock(_mutex);
     while (!_free_allocs.empty()) {
-      try {
-        CUDA_TRY(cuMemHostUnregister(_free_allocs.top()));
-      } catch (const CUfileException& e) {
-        std::cerr << e.what() << std::endl;
-      }
+      CUDA_TRY(cuMemHostUnregister(_free_allocs.top()));
       /*NOLINTNEXTLINE(cppcoreguidelines-no-malloc)*/
       free(_free_allocs.top());
       _free_allocs.pop();
     }
   }
+
+  ChunkManager(const ChunkManager&) = delete;
+  ChunkManager& operator=(ChunkManager const&) = delete;
+  ChunkManager(ChunkManager&& o)               = delete;
+  ChunkManager& operator=(ChunkManager&& o) = delete;
 };
 
 /*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
