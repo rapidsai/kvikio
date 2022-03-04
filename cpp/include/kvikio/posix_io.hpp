@@ -33,38 +33,42 @@ namespace {
 inline constexpr std::size_t page_size  = 2 << 9;   // 4 KiB
 inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
 
-template <typename T>
-class ChunkAllocation {
- private:
-  T* _manager;
-  void* _alloc;
-
- public:
-  ChunkAllocation(T* manager, void* alloc) : _manager(manager), _alloc{alloc} {}
-
-  ChunkAllocation(const ChunkAllocation&) = delete;
-  ChunkAllocation& operator=(ChunkAllocation const&) = delete;
-  ChunkAllocation(ChunkAllocation&& o)               = delete;
-  ChunkAllocation& operator=(ChunkAllocation&& o) = delete;
-  ~ChunkAllocation() noexcept { _manager->put(_alloc); }
-  void* get() noexcept { return _alloc; }
-};
-
-class ChunkManager {
+/**
+ * @brief Class to retain host memory allocations
+ *
+ * Call `AllocRetain::get` to get an allocation that will be retained when it
+ * goes out of scope (RAII). The size of all allocation are `chunk_size`.
+ */
+class AllocRetain {
  private:
   std::stack<void*> _free_allocs;
   std::mutex _mutex;
 
  public:
-  ChunkManager() = default;
-  ChunkAllocation<ChunkManager> get()
+  class Alloc {
+   private:
+    AllocRetain* _manager;
+    void* _alloc;
+
+   public:
+    Alloc(AllocRetain* manager, void* alloc) : _manager(manager), _alloc{alloc} {}
+    Alloc(const Alloc&) = delete;
+    Alloc& operator=(Alloc const&) = delete;
+    Alloc(Alloc&& o)               = delete;
+    Alloc& operator=(Alloc&& o) = delete;
+    ~Alloc() noexcept { _manager->put(_alloc); }
+    void* get() noexcept { return _alloc; }
+  };
+
+  AllocRetain() = default;
+  Alloc get()
   {
     const std::lock_guard lock(_mutex);
     // Check if we have an allocation available
     if (!_free_allocs.empty()) {
       void* ret = _free_allocs.top();
       _free_allocs.pop();
-      return ChunkAllocation(this, ret);
+      return Alloc(this, ret);
     }
 
     // If no available allocation, allocate and register a new one
@@ -79,8 +83,9 @@ class ChunkManager {
     CUDA_TRY(cuMemHostRegister(
       alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE | CU_MEMHOSTREGISTER_DEVICEMAP));
 
-    return ChunkAllocation(this, alloc);
+    return Alloc(this, alloc);
   }
+
   void put(void* alloc)
   {
     const std::lock_guard lock(_mutex);
@@ -98,15 +103,15 @@ class ChunkManager {
     }
   }
 
-  ChunkManager(const ChunkManager&) = delete;
-  ChunkManager& operator=(ChunkManager const&) = delete;
-  ChunkManager(ChunkManager&& o)               = delete;
-  ChunkManager& operator=(ChunkManager&& o) = delete;
-  ~ChunkManager() noexcept                  = default;
+  AllocRetain(const AllocRetain&) = delete;
+  AllocRetain& operator=(AllocRetain const&) = delete;
+  AllocRetain(AllocRetain&& o)               = delete;
+  AllocRetain& operator=(AllocRetain&& o) = delete;
+  ~AllocRetain() noexcept                 = default;
 };
 
 /*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
-inline ChunkManager manager;
+inline AllocRetain manager;
 
 /**
  * @brief Call ::pwrite() until all of `count` has been written
