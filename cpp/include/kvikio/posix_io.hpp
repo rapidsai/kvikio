@@ -136,10 +136,38 @@ inline void pwrite_all(int fd, const void* buf, size_t count, off_t offset)
                             CUFILE_STRINGIFY(__LINE__) + ": EOF"};
     }
 
+    /*NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)*/
     buffer += nbytes_written;
     cur_offset += nbytes_written;
     byte_remaining -= nbytes_written;
   }
+}
+
+/**
+ * @brief Call ::pread() and handle error codes
+ *
+ * @param fd File decriptor
+ * @param buf Buffer to read
+ * @param count Maximum number of bytes to read
+ * @param offset File offset
+ * @return The number of bytes read (always gather than zero)
+ */
+inline ssize_t pread_some(int fd, void* buf, size_t count, off_t offset)
+{
+  ssize_t ret = ::pread(fd, buf, count, offset);
+  if (ret == -1) {
+    if (errno == EBADF) {
+      throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                            CUFILE_STRINGIFY(__LINE__) + ": unsupported file open flags"};
+    }
+    throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                          CUFILE_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+  }
+  if (ret == 0) {
+    throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                          CUFILE_STRINGIFY(__LINE__) + ": EOF"};
+  }
+  return ret;
 }
 
 /**
@@ -170,19 +198,7 @@ inline std::size_t posix_io(int fd,
     const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (IsReadOperation) {
-      nbytes_got = ::pread(fd, alloc.get(), nbytes_requested, cur_file_offset);
-      if (nbytes_got == -1) {
-        if (errno == EBADF) {
-          throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                CUFILE_STRINGIFY(__LINE__) + ": unsupported file open flags"};
-        }
-        throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                              CUFILE_STRINGIFY(__LINE__) + ": " + strerror(errno)};
-      }
-      if (nbytes_got == 0) {
-        throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                              CUFILE_STRINGIFY(__LINE__) + ": EOF"};
-      }
+      nbytes_got = pread_some(fd, alloc.get(), nbytes_requested, cur_file_offset);
       CUDA_TRY(cuMemcpyHtoD(devPtr, alloc.get(), nbytes_got));
     } else {  // Is a write operation
       CUDA_TRY(cuMemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
