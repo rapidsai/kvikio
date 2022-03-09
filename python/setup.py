@@ -100,6 +100,13 @@ extensions = [
         extra_compile_args=["-std=c++17"],
         depends=depends,
     ),
+    Extension(
+        "kvikio._lib.nvcomp",
+        sources=["kvikio/_lib/nvcomp.pyx"],
+        language="c++",
+        extra_compile_args=["-std=c++17"],
+        depends=depends,
+    ),
 ]
 
 
