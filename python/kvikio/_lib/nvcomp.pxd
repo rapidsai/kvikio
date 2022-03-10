@@ -63,8 +63,8 @@ cdef enum pyNvcompType_t:
 
 # Cascaded Compressor
 cdef extern from "nvcomp/cascaded.hpp" namespace 'nvcomp':
-    cdef cppclass _CascadedCompressor "nvcomp::CascadedCompressor":
-        _CascadedCompressor(nvcompType_t, int, int, bool) except+
+    cdef cppclass __CascadedCompressor "nvcomp::CascadedCompressor":
+        __CascadedCompressor(nvcompType_t, int, int, bool) except+
 
         void configure(
             const size_t in_bytes,
@@ -80,8 +80,8 @@ cdef extern from "nvcomp/cascaded.hpp" namespace 'nvcomp':
             size_t* out_bytes,
             cudaStream_t stream) except+
 
-    cdef cppclass _CascadedDecompressor "nvcomp::CascadedDecompressor":
-        _CascadedDecompressor() except+
+    cdef cppclass __CascadedDecompressor "nvcomp::CascadedDecompressor":
+        __CascadedDecompressor() except+
 
         void configure(
             const void* in_ptr,
@@ -101,8 +101,8 @@ cdef extern from "nvcomp/cascaded.hpp" namespace 'nvcomp':
 
 # LZ4 Compressor
 cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
-    cdef cppclass _LZ4Compressor "nvcomp::LZ4Compressor":
-        _LZ4Compressor() except+
+    cdef cppclass __LZ4Compressor "nvcomp::LZ4Compressor":
+        __LZ4Compressor() except+
 
         void configure(
             const size_t in_bytes,
@@ -118,8 +118,8 @@ cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
             size_t* out_bytes,
             cudaStream_t stream) except+
 
-    cdef cppclass _LZ4Decompressor "nvcomp::LZ4Decompressor":
-        _LZ4Decompressor() except+
+    cdef cppclass __LZ4Decompressor "nvcomp::LZ4Decompressor":
+        __LZ4Decompressor() except+
 
         void configure(
             const void* in_ptr,

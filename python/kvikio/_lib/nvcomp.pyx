@@ -25,9 +25,9 @@ import cupy as cp
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
-from kvikio._lib.nvcomp cimport _CascadedCompressor, \
-    _CascadedDecompressor, cudaStream_t, \
-    _LZ4Compressor, _LZ4Decompressor, \
+from kvikio._lib.nvcomp cimport __CascadedCompressor, \
+    __CascadedDecompressor, cudaStream_t, \
+    __LZ4Compressor, __LZ4Decompressor, \
     nvcompStatus_t, \
     nvcompBatchedSnappyOpts_t, \
     nvcompBatchedSnappyDecompressGetTempSize, \
@@ -68,12 +68,12 @@ class pyNvcompType_t(Enum):
     pyNVCOMP_TYPE_BITS = nvcompType_t.NVCOMP_TYPE_BITS
 """
 
-# Cascaded Compressor / Decompressor
-cdef class CascadedCompressor:
-    cdef _CascadedCompressor* c
+# _Cascaded Compressor / Decompressor
+cdef class _CascadedCompressor:
+    cdef __CascadedCompressor* c
 
     def __cinit__(self, nvcompType_t t, int num_RLEs, int num_deltas, bool use_bp):
-        self.c = new _CascadedCompressor(t, num_RLEs, num_deltas, use_bp)
+        self.c = new __CascadedCompressor(t, num_RLEs, num_deltas, use_bp)
 
     def __dealloc__(self):
         del self.c
@@ -102,11 +102,11 @@ cdef class CascadedCompressor:
             <size_t*>out_bytes_ptr,
             <cudaStream_t>stream)
 
-cdef class CascadedDecompressor:
-    cdef _CascadedDecompressor* d
+cdef class _CascadedDecompressor:
+    cdef __CascadedDecompressor* d
 
     def __cinit__(self):
-        self.d = new _CascadedDecompressor()
+        self.d = new __CascadedDecompressor()
 
     def __dealloc__(self):
         del self.d
@@ -136,8 +136,8 @@ cdef class CascadedDecompressor:
             <cudaStream_t>stream)
 # LZ4 Compressor
 cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
-    cdef cppclass _LZ4Compressor "nvcomp::LZ4Compressor":
-        _LZ4Compressor() except+
+    cdef cppclass __LZ4Compressor "nvcomp::LZ4Compressor":
+        __LZ4Compressor() except+
 
         void configure(
             const size_t in_bytes,
@@ -153,8 +153,8 @@ cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
             size_t* out_bytes,
             cudaStream_t stream) except+
 
-    cdef cppclass _LZ4Decompressor "nvcomp::LZ4Decompressor":
-        _LZ4Decompressor() except+
+    cdef cppclass __LZ4Decompressor "nvcomp::LZ4Decompressor":
+        __LZ4Decompressor() except+
 
         void configure(
             const void* in_ptr,
@@ -174,10 +174,10 @@ cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
 
 # LZ4 Compressor / Decompressor
 cdef class LZ4Compressor:
-    cdef _LZ4Compressor* c
+    cdef __LZ4Compressor* c
 
     def __cinit__(self, size_t chunk_size=0):
-        self.c = new _LZ4Compressor()
+        self.c = new __LZ4Compressor()
     
     def __dealloc__(self):
         del self.c
@@ -205,10 +205,10 @@ cdef class LZ4Compressor:
             <cudaStream_t>stream)
 
 cdef class LZ4Decompressor:
-    cdef _LZ4Decompressor* d
+    cdef __LZ4Decompressor* d
 
     def __cinit__(self):
-        self.d = new _LZ4Decompressor()
+        self.d = new __LZ4Decompressor()
 
     def __dealloc__(self):
         del self.d
