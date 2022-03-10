@@ -78,18 +78,6 @@ cdef class CascadedCompressor:
     def __dealloc__(self):
         del self.c
 
-    def cconfigure(self):
-        cdef size_t in_bytes = 40000
-        cdef size_t out_bytes = 0
-        cdef size_t temp_bytes = 0
-        self.c.configure(
-            in_bytes,
-            &out_bytes,
-            &temp_bytes)
-        print(in_bytes)
-        print(out_bytes)
-        print(temp_bytes)
-
     def configure(self, in_bytes, temp_bytes, out_bytes):
         cdef uintptr_t temp_bytes_ptr = __get_ptr(temp_bytes)
         cdef size_t temp_bytes_val = (<size_t*>temp_bytes_ptr)[0]
@@ -99,7 +87,6 @@ cdef class CascadedCompressor:
             in_bytes,
             <size_t*>temp_bytes_ptr,
             <size_t*>out_bytes_ptr)
-        print("called it self.c.configure")
 
     def compress_async(self, in_arr, in_bytes, temp_arr, temp_bytes, out_arr, out_bytes, uintptr_t stream = 0):
         cdef uintptr_t in_ptr = __get_ptr(in_arr)

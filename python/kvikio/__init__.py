@@ -2,7 +2,7 @@
 # See file LICENSE for terms.
 
 
-from . import _version
+from . import _version, nvcomp
 from ._lib import libkvikio  # type: ignore
 
 from .cufile import CuFile  # noqa: F401
