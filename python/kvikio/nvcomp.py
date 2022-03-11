@@ -27,7 +27,7 @@ def cp_to_nvcomp_dtype(cp_type):
 
 
 class CascadedOptions:
-    def __init__(self, num_RLEs=1, num_deltas=1, use_bp=True):
+    def __init__(self, num_RLEs=2, num_deltas=1, use_bp=True):
         self.num_RLEs = num_RLEs
         self.num_deltas = num_deltas
         self.use_bp = use_bp
@@ -36,7 +36,6 @@ class CascadedOptions:
 class CascadedCompressor:
     def __init__(self, dtype, defaults=CascadedOptions()):
         self.dtype = dtype
-        breakpoint()
         self.compressor = _lib._CascadedCompressor(
             cp_to_nvcomp_dtype(self.dtype).value,
             defaults.num_RLEs,
@@ -50,21 +49,22 @@ class CascadedCompressor:
         # TODO: An option: check if incoming data size matches the size of the
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
-        self.compress_temp_size = cp.zeros(1, dtype=np.uint64)
-        self.compress_out_size = cp.zeros(1, dtype=np.uint64)
+        self.compress_temp_size = np.zeros((1, ), dtype=np.int64)
+        self.compress_out_size = np.zeros((1, ), dtype=np.int64)
         self.compressor.configure(
             data_size,
             self.compress_temp_size,
             self.compress_out_size
         )
 
-        self.compress_temp_buffer = cp.zeros(self.temp_size, dtype=np.uint8)
-        self.compress_out_buffer = cp.zeros(self.out_size, dtype=np.uint8)
+        self.compress_temp_buffer = cp.zeros(self.compress_temp_size, dtype=np.uint8)
+        self.compress_out_buffer = cp.zeros(self.compress_out_size, dtype=np.uint8)
+        breakpoint()
         self.compressor.compress_async(
             data,
             data_size,
             self.compress_temp_buffer,
-            self.compress_temp_bytes,
+            self.compress_temp_size,
             self.compress_out_buffer,
             self.compress_out_size,
             self.s.ptr
@@ -74,8 +74,8 @@ class CascadedCompressor:
     def decompress(self, data):
         # TODO: logic to reuse temp buffer if it is large enough
         data_size = data.size * data.itemsize
-        self.decompress_temp_size = cp.zeros(1, dtype=np.uint64)
-        self.decompress_out_size = cp.zeros(1, dtype=np.uint64)
+        self.decompress_temp_size = cp.zeros((1, ), dtype=np.int64)
+        self.decompress_out_size = cp.zeros((1, ), dtype=np.int64)
 
         self.decompressor.configure(
             data,
