@@ -55,7 +55,7 @@ cpdef __get_ptr(a):
     else:
         raise AttributeError('Argument does not implement __cuda_array_interface__ or __array_interface__')
 
-"""
+
 class pyNvcompType_t(Enum):
     pyNVCOMP_TYPE_CHAR = nvcompType_t.NVCOMP_TYPE_CHAR
     pyNVCOMP_TYPE_UCHAR = nvcompType_t.NVCOMP_TYPE_UCHAR
@@ -66,14 +66,19 @@ class pyNvcompType_t(Enum):
     pyNVCOMP_TYPE_LONGLONG = nvcompType_t.NVCOMP_TYPE_LONGLONG
     pyNVCOMP_TYPE_ULONGLONG = nvcompType_t.NVCOMP_TYPE_ULONGLONG
     pyNVCOMP_TYPE_BITS = nvcompType_t.NVCOMP_TYPE_BITS
-"""
+
 
 # _Cascaded Compressor / Decompressor
 cdef class _CascadedCompressor:
     cdef __CascadedCompressor* c
 
     def __cinit__(self, nvcompType_t t, int num_RLEs, int num_deltas, bool use_bp):
-        self.c = new __CascadedCompressor(t, num_RLEs, num_deltas, use_bp)
+        self.c = new __CascadedCompressor(
+            t,
+            num_RLEs,
+            num_deltas,
+            use_bp
+        )
 
     def __dealloc__(self):
         del self.c
@@ -134,6 +139,8 @@ cdef class _CascadedDecompressor:
             <void*>out_ptr,
             <size_t>out_bytes,
             <cudaStream_t>stream)
+
+
 # LZ4 Compressor
 cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
     cdef cppclass __LZ4Compressor "nvcomp::LZ4Compressor":

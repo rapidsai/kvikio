@@ -12,9 +12,37 @@ def get_ptr(x):
     return _lib.__get_ptr(x)
 
 
+def cp_to_nvcomp_dtype(cp_type):
+    return {
+        cp.int8: _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
+        cp.uint8: _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR,
+        cp.int16: _lib.pyNvcompType_t.pyNVCOMP_TYPE_SHORT,
+        cp.uint16: _lib.pyNvcompType_t.pyNVCOMP_TYPE_SHORT,
+        cp.int32: _lib.pyNvcompType_t.pyNVCOMP_TYPE_INT,
+        cp.int32: _lib.pyNvcompType_t.pyNVCOMP_TYPE_UINT,
+        cp.int64: _lib.pyNvcompType_t.pyNVCOMP_TYPE_LONGLONG,
+        cp.int64: _lib.pyNvcompType_t.pyNVCOMP_TYPE_ULONGLONG,
+        'nvcomp_bits': _lib.pyNvcompType_t.pyNVCOMP_TYPE_BITS
+    }[cp_type]
+
+
+class CascadedOptions:
+    def __init__(self, num_RLEs=1, num_deltas=1, use_bp=True):
+        self.num_RLEs = num_RLEs
+        self.num_deltas = num_deltas
+        self.use_bp = use_bp
+
+
 class CascadedCompressor:
-    def __init__(self):
-        self.compressor = _lib._CascadedCompressor()
+    def __init__(self, dtype, defaults=CascadedOptions()):
+        self.dtype = dtype
+        breakpoint()
+        self.compressor = _lib._CascadedCompressor(
+            cp_to_nvcomp_dtype(self.dtype).value,
+            defaults.num_RLEs,
+            defaults.num_deltas,
+            defaults.use_bp
+        )
         self.decompressor = _lib._CascadedDecompressor()
         self.s = cp.cuda.Stream()
 

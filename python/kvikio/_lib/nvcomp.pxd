@@ -50,17 +50,6 @@ cdef extern from "nvcomp.h":
         nvcompErrorCudaError_ = 1000,
         nvcompErrorInternal_ = 10000
 
-cdef enum pyNvcompType_t:
-    pyNVCOMP_TYPE_CHAR = NVCOMP_TYPE_CHAR
-    pyNVCOMP_TYPE_UCHAR = NVCOMP_TYPE_UCHAR
-    pyNVCOMP_TYPE_SHORT = NVCOMP_TYPE_SHORT
-    pyNVCOMP_TYPE_USHORT = NVCOMP_TYPE_USHORT
-    pyNVCOMP_TYPE_INT = NVCOMP_TYPE_INT
-    pyNVCOMP_TYPE_UINT = NVCOMP_TYPE_UINT
-    pyNVCOMP_TYPE_LONGLONG = NVCOMP_TYPE_LONGLONG
-    pyNVCOMP_TYPE_ULONGLONG = NVCOMP_TYPE_ULONGLONG
-    pyNVCOMP_TYPE_BITS = NVCOMP_TYPE_BITS
-
 # Cascaded Compressor
 cdef extern from "nvcomp/cascaded.hpp" namespace 'nvcomp':
     cdef cppclass __CascadedCompressor "nvcomp::CascadedCompressor":
