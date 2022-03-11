@@ -69,13 +69,13 @@ class CascadedCompressor:
             self.compress_out_size,
             self.s.ptr
         )
-        return self.compress_out_buffer, self.compress_out_size
+        return self.compress_out_buffer[:self.compress_out_size[0]]
 
     def decompress(self, data):
         # TODO: logic to reuse temp buffer if it is large enough
         data_size = data.size * data.itemsize
-        self.decompress_temp_size = cp.zeros((1, ), dtype=np.int64)
-        self.decompress_out_size = cp.zeros((1, ), dtype=np.int64)
+        self.decompress_temp_size = np.zeros((1, ), dtype=np.int64)
+        self.decompress_out_size = np.zeros((1, ), dtype=np.int64)
 
         self.decompressor.configure(
             data,
@@ -85,9 +85,12 @@ class CascadedCompressor:
             self.s.ptr
         )
 
-        self.decompress_temp_buffer = cp.zeros(self.temp_size, dtype=np.uint8)
-        self.decompress_out_buffer = cp.zeros(self.out_size, dtype=np.uint8)
-        self.decompress_async(
+        self.decompress_temp_buffer = cp.zeros(
+            self.decompress_temp_size,
+            dtype=np.uint8
+        )
+        self.decompress_out_buffer = cp.zeros(self.decompress_out_size, dtype=np.uint8)
+        self.decompressor.decompress_async(
             data,
             data_size,
             self.decompress_temp_buffer,
@@ -96,6 +99,7 @@ class CascadedCompressor:
             self.decompress_out_size,
             self.s.ptr
         )
+        return cp.array(self.decompress_out_buffer, dtype=self.dtype)
 
 
 class SnappyCompressor:
