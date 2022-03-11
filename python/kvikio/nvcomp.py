@@ -102,6 +102,70 @@ class CascadedCompressor:
         return cp.array(self.decompress_out_buffer, dtype=self.dtype)
 
 
+class LZ4Compressor:
+    def __init__(self, dtype):
+        self.dtype = dtype
+        self.compressor = _lib._LZ4Compressor()
+        self.decompressor = _lib._LZ4Decompressor()
+        self.s = cp.cuda.Stream()
+
+    def compress(self, data):
+        # TODO: An option: check if incoming data size matches the size of the
+        # last incoming data, and reuse temp and out buffer if so.
+        data_size = data.size * data.itemsize
+        self.compress_temp_size = np.zeros((1, ), dtype=np.int64)
+        self.compress_out_size = np.zeros((1, ), dtype=np.int64)
+        self.compressor.configure(
+            data_size,
+            self.compress_temp_size,
+            self.compress_out_size
+        )
+
+        self.compress_temp_buffer = cp.zeros(self.compress_temp_size, dtype=np.uint8)
+        self.compress_out_buffer = cp.zeros(self.compress_out_size, dtype=np.uint8)
+        breakpoint()
+        self.compressor.compress_async(
+            data,
+            data_size,
+            self.compress_temp_buffer,
+            self.compress_temp_size,
+            self.compress_out_buffer,
+            self.compress_out_size,
+            self.s.ptr
+        )
+        return self.compress_out_buffer[:self.compress_out_size[0]]
+
+    def decompress(self, data):
+        # TODO: logic to reuse temp buffer if it is large enough
+        data_size = data.size * data.itemsize
+        self.decompress_temp_size = np.zeros((1, ), dtype=np.int64)
+        self.decompress_out_size = np.zeros((1, ), dtype=np.int64)
+
+        self.decompressor.configure(
+            data,
+            data_size,
+            self.decompress_temp_size,
+            self.decompress_out_size,
+            self.s.ptr
+        )
+
+        self.decompress_temp_buffer = cp.zeros(
+            self.decompress_temp_size,
+            dtype=np.uint8
+        )
+        self.decompress_out_buffer = cp.zeros(self.decompress_out_size, dtype=np.uint8)
+        self.decompressor.decompress_async(
+            data,
+            data_size,
+            self.decompress_temp_buffer,
+            self.decompress_temp_size,
+            self.decompress_out_buffer,
+            self.decompress_out_size,
+            self.s.ptr
+        )
+        return cp.array(self.decompress_out_buffer, dtype=self.dtype)
+
+
 class SnappyCompressor:
     def __init__(self):
         self.compressor = _lib.LibSnappyCompressor()
