@@ -180,7 +180,7 @@ cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
             cudaStream_t stream) except+
 
 # LZ4 Compressor / Decompressor
-cdef class LZ4Compressor:
+cdef class _LZ4Compressor:
     cdef __LZ4Compressor* c
 
     def __cinit__(self, size_t chunk_size=0):
@@ -190,8 +190,8 @@ cdef class LZ4Compressor:
         del self.c
     
     def configure(self, in_bytes, temp_bytes, out_bytes):
-        cdef uintptr_t temp_bytes_ptr = __get_array_interface_ptr(temp_bytes)
-        cdef uintptr_t out_bytes_ptr = __get_array_interface_ptr(out_bytes)
+        cdef uintptr_t temp_bytes_ptr = __get_ptr(temp_bytes)
+        cdef uintptr_t out_bytes_ptr = __get_ptr(out_bytes)
         self.c.configure(
             <size_t>in_bytes,
             <size_t*>temp_bytes_ptr,
@@ -211,7 +211,7 @@ cdef class LZ4Compressor:
             <size_t*>out_bytes_ptr,
             <cudaStream_t>stream)
 
-cdef class LZ4Decompressor:
+cdef class _LZ4Decompressor:
     cdef __LZ4Decompressor* d
 
     def __cinit__(self):

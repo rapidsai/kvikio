@@ -59,7 +59,6 @@ class CascadedCompressor:
 
         self.compress_temp_buffer = cp.zeros(self.compress_temp_size, dtype=np.uint8)
         self.compress_out_buffer = cp.zeros(self.compress_out_size, dtype=np.uint8)
-        breakpoint()
         self.compressor.compress_async(
             data,
             data_size,
@@ -121,16 +120,25 @@ class LZ4Compressor:
             self.compress_out_size
         )
 
-        self.compress_temp_buffer = cp.zeros(self.compress_temp_size, dtype=np.uint8)
-        self.compress_out_buffer = cp.zeros(self.compress_out_size, dtype=np.uint8)
-        breakpoint()
+        self.compress_temp_buffer = cp.zeros(
+            (self.compress_temp_size[0], ),
+            dtype=cp.uint8
+        )
+        self.compress_out_buffer = cp.zeros(
+            (self.compress_out_size[0], ),
+            dtype=cp.uint8
+        )
+        # Weird issue with LZ4 Compressor - if you pass it a gpu-side out_size
+        # pointer it will error. If you pass it a host-side out_size pointer it will
+        # segfault.
+        self.gpu_out_size = cp.array(self.compress_out_size, dtype=np.int64)
         self.compressor.compress_async(
             data,
             data_size,
             self.compress_temp_buffer,
             self.compress_temp_size,
             self.compress_out_buffer,
-            self.compress_out_size,
+            self.gpu_out_size,
             self.s.ptr
         )
         return self.compress_out_buffer[:self.compress_out_size[0]]
@@ -194,8 +202,6 @@ class SnappyCompressor:
         # allocate output buffers
         output_buffers = cp.zeros(512, dtype=cp.int8)
         output_buffers_ptr = get_ptr(output_buffers)
-        # allocate output sizes
-        output_size = cp.zeros(1, dtype=cp.uint64)
         # call compress with sizes and buffers
 
         s = cp.cuda.Stream()
@@ -221,7 +227,5 @@ class SnappyCompressor:
             format_opts,
             s.ptr
         )
-
-        print(output_size[0].get())
 
         return result

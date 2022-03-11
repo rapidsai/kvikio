@@ -18,3 +18,12 @@ def test_cascaded_compress():
     compressed = compressor.compress(data)
     decompressed = compressor.decompress(compressed)
     cupy.testing.assert_array_equal(data, decompressed)
+
+
+def test_lz4_compress():
+    dtype = cupy.int8
+    data = cupy.array(range(0, 1024), dtype=dtype)
+    compressor = nvcomp.LZ4Compressor(dtype)
+    compressed = compressor.compress(data)
+    decompressed = compressor.decompress(compressed)
+    cupy.testing.assert_array_equal(data, decompressed)
