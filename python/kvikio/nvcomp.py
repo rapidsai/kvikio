@@ -12,22 +12,22 @@ def get_ptr(x):
     return _lib.__get_ptr(x)
 
 
-def cp_to_nvcomp_dtype(cp_type):
+def cp_to_nvcomp_dtype(in_type):
+    cp_type = cp.dtype(in_type)
     return {
-        cp.int8: _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
-        cp.uint8: _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR,
-        cp.int16: _lib.pyNvcompType_t.pyNVCOMP_TYPE_SHORT,
-        cp.uint16: _lib.pyNvcompType_t.pyNVCOMP_TYPE_SHORT,
-        cp.int32: _lib.pyNvcompType_t.pyNVCOMP_TYPE_INT,
-        cp.int32: _lib.pyNvcompType_t.pyNVCOMP_TYPE_UINT,
-        cp.int64: _lib.pyNvcompType_t.pyNVCOMP_TYPE_LONGLONG,
-        cp.int64: _lib.pyNvcompType_t.pyNVCOMP_TYPE_ULONGLONG,
-        'nvcomp_bits': _lib.pyNvcompType_t.pyNVCOMP_TYPE_BITS
+        cp.dtype('int8'): _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
+        cp.dtype('uint8'): _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR,
+        cp.dtype('int16'): _lib.pyNvcompType_t.pyNVCOMP_TYPE_SHORT,
+        cp.dtype('uint16'): _lib.pyNvcompType_t.pyNVCOMP_TYPE_USHORT,
+        cp.dtype('int32'): _lib.pyNvcompType_t.pyNVCOMP_TYPE_INT,
+        cp.dtype('uint32'): _lib.pyNvcompType_t.pyNVCOMP_TYPE_UINT,
+        cp.dtype('int64'): _lib.pyNvcompType_t.pyNVCOMP_TYPE_LONGLONG,
+        cp.dtype('uint64'): _lib.pyNvcompType_t.pyNVCOMP_TYPE_ULONGLONG,
     }[cp_type]
 
 
 class CascadedOptions:
-    def __init__(self, num_RLEs=2, num_deltas=1, use_bp=True):
+    def __init__(self, num_RLEs=8, num_deltas=100, use_bp=True):
         self.num_RLEs = num_RLEs
         self.num_deltas = num_deltas
         self.use_bp = use_bp
@@ -98,7 +98,7 @@ class CascadedCompressor:
             self.decompress_out_size,
             self.s.ptr
         )
-        return cp.array(self.decompress_out_buffer, dtype=self.dtype)
+        return self.decompress_out_buffer.view(self.dtype)
 
 
 class LZ4Compressor:
@@ -171,7 +171,7 @@ class LZ4Compressor:
             self.decompress_out_size,
             self.s.ptr
         )
-        return cp.array(self.decompress_out_buffer, dtype=self.dtype)
+        return self.decompress_out_buffer.view(self.dtype)
 
 
 class SnappyCompressor:

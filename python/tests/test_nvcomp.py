@@ -4,25 +4,28 @@
 
 import pytest
 
+cudf = pytest.importorskip("cudf")
 cupy = pytest.importorskip("cupy")
+np = pytest.importorskip("numpy")
 nvcomp = pytest.importorskip("kvikio.nvcomp")
 
 
-# @pytest.mark.parametrize("array_type", ["numpy", "cupy"])
-# @pytest.mark.parametrize(all dtypes)
-# @pytest.mark.parametrize(many sizes)
-def test_cascaded_compress():
-    dtype = cupy.int8
-    data = cupy.array(range(0, 10), dtype=dtype)
+@pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)
+@pytest.mark.parametrize("size", [1, 10, int(1e6), int(1e7), int(1e8)])
+def test_cascaded_compress(dtype, size):
+    dtype=cupy.dtype(dtype)
+    data = cupy.array(np.arange(0, size/dtype.itemsize)-1, dtype=dtype)
     compressor = nvcomp.CascadedCompressor(dtype)
     compressed = compressor.compress(data)
     decompressed = compressor.decompress(compressed)
     cupy.testing.assert_array_equal(data, decompressed)
 
 
-def test_lz4_compress():
-    dtype = cupy.int8
-    data = cupy.array(range(0, 1024), dtype=dtype)
+@pytest.mark.parametrize("size", [1, 10, int(1e6), int(1e9)])
+@pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)
+def test_lz4_compress(dtype, size):
+    dtype=cupy.dtype(dtype)
+    data = cupy.array(np.arange(0, size/dtype.itemsize), dtype=dtype)
     compressor = nvcomp.LZ4Compressor(dtype)
     compressed = compressor.compress(data)
     decompressed = compressor.decompress(compressed)
