@@ -16,7 +16,9 @@
 #pragma once
 
 #include <dlfcn.h>
+#include <sys/utsname.h>
 #include <chrono>
+#include <cstring>
 #include <future>
 #include <iostream>
 #include <tuple>
@@ -28,7 +30,7 @@
 
 namespace kvikio {
 
-inline off_t convert_size2off(std::size_t x)
+[[nodiscard]] inline off_t convert_size2off(std::size_t x)
 {
   if (x >= std::numeric_limits<off_t>::max()) {
     throw CUfileException("size_t argument too large to fit off_t");
@@ -36,13 +38,13 @@ inline off_t convert_size2off(std::size_t x)
   return static_cast<off_t>(x);
 }
 
-inline CUdeviceptr convert_void2deviceptr(const void* devPtr)
+[[nodiscard]] inline CUdeviceptr convert_void2deviceptr(const void* devPtr)
 {
   /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)*/
   return reinterpret_cast<CUdeviceptr>(devPtr);
 }
 
-inline CUcontext get_context_from_device_pointer(const void* devPtr)
+[[nodiscard]] inline CUcontext get_context_from_device_pointer(const void* devPtr)
 {
   CUcontext ctx{};
   auto dev = convert_void2deviceptr(devPtr);
@@ -138,6 +140,26 @@ void get_symbol(T& handle, void* lib, const char* name)
   if (err != nullptr) {
     throw CUfileException{std::string{__FILE__} + ":" + CUFILE_STRINGIFY(__LINE__) + ": " + err};
   }
+}
+
+/**
+ * @brief Try to detect if running in Windows Subsystem for Linux (WSL)
+ *
+ * When unable to determine environment, `false` is returned.
+ *
+ * @return The boolean answer
+ */
+[[nodiscard]] inline bool is_running_in_wsl()
+{
+  struct utsname buf {
+  };
+  int err = ::uname(&buf);
+  if (err == 0) {
+    const std::string name(static_cast<char*>(buf.release));
+    // 'Microsoft' for WSL1 and 'microsoft' for WSL2
+    return name.find("icrosoft") != std::string::npos;
+  }
+  return false;
 }
 
 }  // namespace kvikio

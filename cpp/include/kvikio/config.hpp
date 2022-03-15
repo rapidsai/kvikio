@@ -63,7 +63,8 @@ inline std::pair<bool, bool> _current_global_compat_mode{std::make_pair(false, f
  * reads and writes are done using POSIX.
  *
  * Set the enviornment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility mode.
- * By default, compatibility mode is enabled when `libcufile` cannot be found.
+ * By default, compatibility mode is enabled when `libcufile` cannot be found or when
+ * running in Windows Subsystem for Linux (WSL).
  *
  * @return The boolean answer
  */
@@ -76,10 +77,7 @@ inline bool get_global_compat_mode()
     // Setting `KVIKIO_COMPAT_MODE` take precedence
     return static_cast<bool>(env);
   }
-  // TODO: check if running in an enviornment not compabtile with cuFile, such as WSL
-  //       see <https://github.com/rapidsai/kvikio/issues/11>
-
-  return !is_cufile_library_available();
+  return !is_cufile_library_available() || is_running_in_wsl();
 }
 
 }  // namespace kvikio::config
