@@ -1,6 +1,6 @@
-# Copyright (c) 2022 Carson Swope 
-# Use, modification, and distribution is subject to the MIT License    
-# https://github.com/carsonswope/py-nvcomp/blob/main/LICENSE)  
+# Copyright (c) 2022 Carson Swope
+# Use, modification, and distribution is subject to the MIT License
+# https://github.com/carsonswope/py-nvcomp/blob/main/LICENSE)
 # SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES.
 # All rights reserved.
 # SPDX-License-Identifier: MIT
@@ -21,22 +21,28 @@
 # DEALINGS IN THE SOFTWARE.
 
 from enum import Enum
+
 import cupy as cp
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
-from kvikio._lib.nvcomp cimport __CascadedCompressor, \
-    __CascadedDecompressor, cudaStream_t, \
-    __LZ4Compressor, __LZ4Decompressor, \
-    nvcompStatus_t, \
-    nvcompBatchedSnappyOpts_t, \
-    nvcompBatchedSnappyDecompressGetTempSize, \
-    nvcompBatchedSnappyDecompressAsync, \
-    nvcompBatchedSnappyCompressGetTempSize, \
-    nvcompBatchedSnappyCompressGetMaxOutputChunkSize, \
-    nvcompBatchedSnappyCompressAsync
 
-from kvikio._lib.nvcomp cimport nvcompType_t
+from kvikio._lib.nvcomp cimport(
+    __CascadedCompressor,
+    __CascadedDecompressor,
+    __LZ4Compressor,
+    __LZ4Decompressor,
+    cudaStream_t,
+    nvcompBatchedSnappyCompressAsync,
+    nvcompBatchedSnappyCompressGetMaxOutputChunkSize,
+    nvcompBatchedSnappyCompressGetTempSize,
+    nvcompBatchedSnappyDecompressAsync,
+    nvcompBatchedSnappyDecompressGetTempSize,
+    nvcompBatchedSnappyOpts_t,
+    nvcompStatus_t,
+    nvcompType_t,
+)
+
 
 cpdef __get_array_interface_ptr(a):
     return a.__array_interface__['data'][0]
@@ -53,7 +59,7 @@ cpdef __get_ptr(a):
     elif '__array_interface__' in d:
         return __get_array_interface_ptr(a)
     else:
-        raise AttributeError('Argument does not implement __cuda_array_interface__ or __array_interface__')
+        raise AttributeError('Argument does not implement __cuda_array_interface__ or __array_interface__')  # NOQA: E501
 
 
 class pyNvcompType_t(Enum):
@@ -93,11 +99,20 @@ cdef class _CascadedCompressor:
             <size_t*>temp_bytes_ptr,
             <size_t*>out_bytes_ptr)
 
-    def compress_async(self, in_arr, in_bytes, temp_arr, temp_bytes, out_arr, out_bytes, uintptr_t stream = 0):
-        cdef uintptr_t in_ptr = __get_ptr(in_arr)
-        cdef uintptr_t temp_ptr = __get_ptr(temp_arr)
-        cdef uintptr_t out_ptr = __get_ptr(out_arr)
-        cdef uintptr_t out_bytes_ptr = __get_ptr(out_bytes)
+    def compress_async(
+        self,
+        in_arr,
+        in_bytes,
+        temp_arr,
+        temp_bytes,
+        out_arr,
+        out_bytes,
+        uintptr_t stream=0
+    ):
+        cdef uintptr_t in_ptr=__get_ptr(in_arr)
+        cdef uintptr_t temp_ptr=__get_ptr(temp_arr)
+        cdef uintptr_t out_ptr=__get_ptr(out_arr)
+        cdef uintptr_t out_bytes_ptr=__get_ptr(out_bytes)
         self.c.compress_async(
             <void*>in_ptr,
             <size_t>in_bytes,
@@ -116,7 +131,7 @@ cdef class _CascadedDecompressor:
     def __dealloc__(self):
         del self.d
 
-    cpdef configure(self, in_arr, in_bytes, temp_bytes, out_bytes, uintptr_t stream = 0):
+    cpdef configure(self, in_arr, in_bytes, temp_bytes, out_bytes, uintptr_t stream=0):
         cdef uintptr_t in_ptr = __get_ptr(in_arr)
         cdef uintptr_t temp_bytes_ptr = __get_ptr(temp_bytes)
         cdef uintptr_t out_bytes_ptr = __get_ptr(out_bytes)
@@ -127,7 +142,16 @@ cdef class _CascadedDecompressor:
             <size_t*>out_bytes_ptr,
             <cudaStream_t>stream)
 
-    def decompress_async(self, in_arr, in_bytes, temp_arr, temp_bytes, out_arr, out_bytes, uintptr_t stream = 0):
+    def decompress_async(
+        self,
+        in_arr,
+        in_bytes,
+        temp_arr,
+        temp_bytes,
+        out_arr,
+        out_bytes,
+        uintptr_t stream=0
+    ):
         cdef uintptr_t in_ptr = __get_ptr(in_arr)
         cdef uintptr_t temp_ptr = __get_ptr(temp_arr)
         cdef uintptr_t out_ptr = __get_ptr(out_arr)
@@ -150,7 +174,7 @@ cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
             const size_t in_bytes,
             size_t* temp_bytes,
             size_t* out_bytes) except+
-        
+
         void compress_async(
             const void* in_ptr,
             const size_t in_bytes,
@@ -169,7 +193,7 @@ cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
             size_t* temp_bytes,
             size_t* out_bytes,
             cudaStream_t stream) except+
-        
+
         void decompress_async(
             const void* in_ptr,
             const size_t in_bytes,
@@ -185,10 +209,10 @@ cdef class _LZ4Compressor:
 
     def __cinit__(self, size_t chunk_size=0):
         self.c = new __LZ4Compressor()
-    
+
     def __dealloc__(self):
         del self.c
-    
+
     def configure(self, in_bytes, temp_bytes, out_bytes):
         cdef uintptr_t temp_bytes_ptr = __get_ptr(temp_bytes)
         cdef uintptr_t out_bytes_ptr = __get_ptr(out_bytes)
@@ -197,7 +221,16 @@ cdef class _LZ4Compressor:
             <size_t*>temp_bytes_ptr,
             <size_t*>out_bytes_ptr)
 
-    def compress_async(self, in_arr, in_bytes, temp_arr, temp_bytes, out_arr, out_bytes, uintptr_t stream = 0):
+    def compress_async(
+        self,
+        in_arr,
+        in_bytes,
+        temp_arr,
+        temp_bytes,
+        out_arr,
+        out_bytes,
+        uintptr_t stream=0
+    ):
         cdef uintptr_t in_ptr = __get_ptr(in_arr)
         cdef uintptr_t temp_ptr = __get_ptr(temp_arr)
         cdef uintptr_t out_ptr = __get_ptr(out_arr)
@@ -220,7 +253,7 @@ cdef class _LZ4Decompressor:
     def __dealloc__(self):
         del self.d
 
-    cpdef configure(self, in_arr, in_bytes, temp_bytes, out_bytes, uintptr_t stream = 0):
+    cpdef configure(self, in_arr, in_bytes, temp_bytes, out_bytes, uintptr_t stream=0):
         cdef uintptr_t in_ptr = __get_ptr(in_arr)
         cdef uintptr_t temp_bytes_ptr = __get_ptr(temp_bytes)
         cdef uintptr_t out_bytes_ptr = __get_ptr(out_bytes)
@@ -231,7 +264,16 @@ cdef class _LZ4Decompressor:
             <size_t*>out_bytes_ptr,
             <cudaStream_t>stream)
 
-    def decompress_async(self, in_arr, in_bytes, temp_arr, temp_bytes, out_arr, out_bytes, uintptr_t stream = 0):
+    def decompress_async(
+        self,
+        in_arr,
+        in_bytes,
+        temp_arr,
+        temp_bytes,
+        out_arr,
+        out_bytes,
+        uintptr_t stream=0
+    ):
         cdef uintptr_t in_ptr = __get_ptr(in_arr)
         cdef uintptr_t temp_ptr = __get_ptr(temp_arr)
         cdef uintptr_t out_ptr = __get_ptr(out_arr)
@@ -243,93 +285,118 @@ cdef class _LZ4Decompressor:
             <void*>out_ptr,
             <size_t>out_bytes,
             <cudaStream_t>stream)
-    
+
+
 class _LibSnappyCompressor:
-    def _get_decompress_temp_size(self,
-            num_chunks,
-            max_uncompressed_chunk_size,
-            temp_bytes):
+    def _get_decompress_temp_size(
+        self,
+        num_chunks,
+        max_uncompressed_chunk_size,
+        temp_bytes
+    ):
         cdef uintptr_t temp_bytes_ptr = __get_ptr(temp_bytes)
         return nvcompBatchedSnappyDecompressGetTempSize(
-                <size_t>num_chunks,
-                <size_t>max_uncompressed_chunk_size,
-                <size_t*>temp_bytes_ptr
-                )
+            <size_t>num_chunks,
+            <size_t>max_uncompressed_chunk_size,
+            <size_t*>temp_bytes_ptr
+        )
 
-    def _decompress(self,
-            device_compressed_ptrs,
-            device_compressed_bytes,
-            device_uncompressed_bytes,
-            device_actual_uncompressed_bytes,
-            batch_size,
-            device_temp_ptr,
-            temp_bytes,
-            device_uncompressed_ptr,
-            device_statuses,
-            stream):
+    def _decompress(
+        self,
+        device_compressed_ptrs,
+        device_compressed_bytes,
+        device_uncompressed_bytes,
+        device_actual_uncompressed_bytes,
+        batch_size,
+        device_temp_ptr,
+        temp_bytes,
+        device_uncompressed_ptr,
+        device_statuses,
+        stream
+    ):
         cdef uintptr_t device_compressed_bytes_ptr = __get_ptr(device_compressed_bytes)
-        cdef uintptr_t device_uncompressed_bytes_ptr = __get_ptr(device_uncompressed_bytes)
-        cdef uintptr_t device_actual_uncompressed_bytes_ptr = __get_ptr(device_actual_uncompressed_bytes)
+        cdef uintptr_t device_uncompressed_bytes_ptr = __get_ptr(
+            device_uncompressed_bytes
+        )
+        cdef uintptr_t device_actual_uncompressed_bytes_ptr = __get_ptr(
+            device_actual_uncompressed_bytes
+        )
         cdef uintptr_t device_statuses_ptr = __get_ptr(device_statuses)
         return nvcompBatchedSnappyDecompressAsync(
-                <const void* const*><void*>device_compressed_ptrs,
-                <size_t*>device_compressed_bytes_ptr,
-                <size_t*>device_uncompressed_bytes_ptr,
-                <size_t*>device_actual_uncompressed_bytes_ptr,
-                <size_t>batch_size,
-                <void*>device_temp_ptr,
-                <size_t>temp_bytes,
-                <void* const*><void*>device_uncompressed_ptr,
-                <nvcompStatus_t*>device_statuses_ptr,
-                <cudaStream_t>stream
-                )
+            <const void* const*><void*>device_compressed_ptrs,
+            <size_t*>device_compressed_bytes_ptr,
+            <size_t*>device_uncompressed_bytes_ptr,
+            <size_t*>device_actual_uncompressed_bytes_ptr,
+            <size_t>batch_size,
+            <void*>device_temp_ptr,
+            <size_t>temp_bytes,
+            <void* const*><void*>device_uncompressed_ptr,
+            <nvcompStatus_t*>device_statuses_ptr,
+            <cudaStream_t>stream
+        )
 
-    def _get_compress_temp_size(self,
-            batch_size, max_chunk_size, temp_bytes, format_opts):
+    def _get_compress_temp_size(
+        self,
+        batch_size,
+        max_chunk_size,
+        temp_bytes,
+        format_opts
+    ):
         cdef uintptr_t temp_bytes_ptr = __get_ptr(temp_bytes)
         cdef nvcompBatchedSnappyOpts_t opts
         opts.reserved = format_opts
         return nvcompBatchedSnappyCompressGetTempSize(
-                <size_t>batch_size,
-                <size_t>max_chunk_size,
-                <nvcompBatchedSnappyOpts_t>opts,
-                <size_t*>temp_bytes_ptr
-                )
+            <size_t>batch_size,
+            <size_t>max_chunk_size,
+            <nvcompBatchedSnappyOpts_t>opts,
+            <size_t*>temp_bytes_ptr
+        )
 
-    def _get_compress_max_output_chunk_size(self,
-            max_chunk_size, max_compressed_size, format_opts):
+    def _get_compress_max_output_chunk_size(
+        self,
+        max_chunk_size,
+        max_compressed_size,
+        format_opts
+    ):
         cdef uintptr_t max_compressed_size_ptr = __get_ptr(max_compressed_size)
         cdef nvcompBatchedSnappyOpts_t opts
         opts.reserved = format_opts
         print('ptr: ', max_compressed_size_ptr)
         return nvcompBatchedSnappyCompressGetMaxOutputChunkSize(
-                <size_t>max_chunk_size,
-                <nvcompBatchedSnappyOpts_t>opts,
-                <size_t*>max_compressed_size_ptr
-                )
+            <size_t>max_chunk_size,
+            <nvcompBatchedSnappyOpts_t>opts,
+            <size_t*>max_compressed_size_ptr
+        )
 
-    def _compress(self,
-            device_uncompressed_buffers,
-            device_uncompressed_sizes,
-            max_uncompressed_chunk_size,
-            batch_size,
-            device_temp_buffer,
-            temp_size,
-            device_compressed_buffers,
-            device_compressed_sizes,
-            format_opts,
-            stream):
+    def _compress(
+        self,
+        device_uncompressed_buffers,
+        device_uncompressed_sizes,
+        max_uncompressed_chunk_size,
+        batch_size,
+        device_temp_buffer,
+        temp_size,
+        device_compressed_buffers,
+        device_compressed_sizes,
+        format_opts,
+        stream
+    ):
         cdef uintptr_t device_uncompressed_buffers_ptr = __get_ptr(
-                device_uncompressed_buffers)
+            device_uncompressed_buffers
+        )
         cdef uintptr_t device_uncompressed_sizes_ptr = __get_ptr(
-                device_uncompressed_sizes)
+            device_uncompressed_sizes
+        )
         cdef uintptr_t max_uncompressed_chunk_size_ptr = __get_ptr(
-                max_uncompressed_chunk_size)
-        cdef uintptr_t device_temp_buffer_ptr = 0;
+            max_uncompressed_chunk_size
+        )
+        cdef uintptr_t device_temp_buffer_ptr = 0
         cdef uintptr_t device_compressed_buffers_ptr = __get_ptr(
-                device_compressed_buffers)
+            device_compressed_buffers
+        )
         cdef uintptr_t device_compressed_sizes_ptr = __get_ptr(
-                device_compressed_sizes)
+            device_compressed_sizes
+        )
         cdef nvcompBatchedSnappyOpts_t opts
         opts.reserved = format_opts
 
@@ -359,6 +426,6 @@ class _LibSnappyCompressor:
                 <size_t*>device_compressed_sizes_ptr,
                 <nvcompBatchedSnappyOpts_t>opts,
                 <cudaStream_t>stream
-                )
-       
+            )
+
         return result
