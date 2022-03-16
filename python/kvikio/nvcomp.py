@@ -27,20 +27,21 @@ def cp_to_nvcomp_dtype(in_type):
 
 
 class CascadedOptions:
-    def __init__(self, num_RLEs=8, num_deltas=100, use_bp=True):
+    def __init__(self, num_RLEs=1, num_deltas=1, use_bp=True):
         self.num_RLEs = num_RLEs
         self.num_deltas = num_deltas
         self.use_bp = use_bp
 
 
 class CascadedCompressor:
-    def __init__(self, dtype, defaults=CascadedOptions()):
+    def __init__(self, dtype, config=CascadedOptions()):
         self.dtype = dtype
+        self.config = config
         self.compressor = _lib._CascadedCompressor(
             cp_to_nvcomp_dtype(self.dtype).value,
-            defaults.num_RLEs,
-            defaults.num_deltas,
-            defaults.use_bp,
+            config.num_RLEs,
+            config.num_deltas,
+            config.use_bp,
         )
         self.decompressor = _lib._CascadedDecompressor()
         self.s = cp.cuda.Stream()
@@ -54,7 +55,8 @@ class CascadedCompressor:
         self.compressor.configure(
             data_size, self.compress_temp_size, self.compress_out_size
         )
-
+        print('configure:', self.compress_out_size)
+        print('configure:', self.compress_temp_size)
         self.compress_temp_buffer = cp.zeros(self.compress_temp_size, dtype=np.uint8)
         self.compress_out_buffer = cp.zeros(self.compress_out_size, dtype=np.uint8)
         self.compressor.compress_async(
@@ -66,6 +68,8 @@ class CascadedCompressor:
             self.compress_out_size,
             self.s.ptr,
         )
+        print('compress_async:', self.compress_out_size)
+        print('compress_async:', self.compress_temp_size)
         return self.compress_out_buffer[: self.compress_out_size[0]]
 
     def decompress(self, data):

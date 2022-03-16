@@ -27,7 +27,7 @@ import cupy as cp
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
-from kvikio._lib.nvcomp cimport (
+from kvikio._lib.nvcomp cimport(
     __CascadedCompressor,
     __CascadedDecompressor,
     __LZ4Compressor,
@@ -91,9 +91,7 @@ cdef class _CascadedCompressor:
 
     def configure(self, in_bytes, temp_bytes, out_bytes):
         cdef uintptr_t temp_bytes_ptr = __get_ptr(temp_bytes)
-        cdef size_t temp_bytes_val = (<size_t*>temp_bytes_ptr)[0]
         cdef uintptr_t out_bytes_ptr = __get_ptr(out_bytes)
-        cdef size_t out_bytes_val = (<size_t*>out_bytes_ptr)[0]
         self.c.configure(
             in_bytes,
             <size_t*>temp_bytes_ptr,

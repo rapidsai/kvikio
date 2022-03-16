@@ -78,6 +78,10 @@ if(BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
+# nvcomp
+if(WITH_NVCOMP)
+  include(cmake/thirdparty/get_nvcomp.cmake)
+endif()
 
 # optionally build tests
 if(BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
