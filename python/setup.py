@@ -86,9 +86,7 @@ setup(
         # than something simpler like a dict.fromkeys) because otherwise every
         # package will refer to the same list and skbuild modifies it in place.
         key: ["*.pyi", "*.pxd"]
-        for key in find_packages(
-            include=["kvikio._lib"]
-        )
+        for key in find_packages(include=["kvikio._lib"])
     },
     cmdclass=versioneer.get_cmdclass(),
     install_requires=["Cython>=0.29,<0.30"],
