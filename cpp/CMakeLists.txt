@@ -23,9 +23,10 @@ include(rapids-find)
 project(
   KvikIO
   VERSION 22.04.00
-  LANGUAGES CXX)
+  LANGUAGES CXX
+)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
 # Write the version header
 rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
@@ -37,10 +38,13 @@ rapids_cmake_build_type(Release)
 option(BUILD_EXAMPLES "Configure CMake to build examples" ON)
 
 # find packages we depend on
+rapids_cpm_init()
+
 rapids_find_package(
   CUDAToolkit REQUIRED
   BUILD_EXPORT_SET kvikio-exports
-  INSTALL_EXPORT_SET kvikio-exports)
+  INSTALL_EXPORT_SET kvikio-exports
+)
 
 rapids_find_package(
   Threads REQUIRED
@@ -48,9 +52,6 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 
-rapids_cpm_init()
-
-# find cuFile
 rapids_find_package(
   cuFile REQUIRED
   BUILD_EXPORT_SET kvikio-exports
