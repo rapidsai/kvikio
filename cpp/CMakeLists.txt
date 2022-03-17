@@ -79,9 +79,7 @@ if(BUILD_EXAMPLES)
 endif()
 
 # nvcomp
-if(WITH_NVCOMP)
-  include(cmake/thirdparty/get_nvcomp.cmake)
-endif()
+include(cmake/thirdparty/get_nvcomp.cmake)
 
 # optionally build tests
 if(BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
