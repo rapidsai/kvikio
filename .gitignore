@@ -1,5 +1,6 @@
 *.*~
 build
+python/_skbuild
 *.so
 dask-worker-space
 __pycache__
