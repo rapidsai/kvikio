@@ -35,7 +35,7 @@ rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 rapids_cmake_build_type(Release)
 
 # build options
-option(BUILD_EXAMPLES "Configure CMake to build examples" ON)
+option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 
 # find packages we depend on
 rapids_cpm_init()
@@ -73,18 +73,15 @@ target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
 target_link_libraries(kvikio INTERFACE dl)
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
-
 # optionally build examples
-if(BUILD_EXAMPLES)
+if(KvikIO_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-
 # optionally build tests
-if(BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+if(KvikIO_BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   include(cmake/thirdparty/get_gtest.cmake)
   include(CTest) # calls enable_testing()
-
   add_subdirectory(tests)
 endif()
 
