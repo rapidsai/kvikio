@@ -77,10 +77,10 @@ class AllocRetain {
     int err = ::posix_memalign(&alloc, page_size, chunk_size);
     if (err != 0) {
       throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + strerror(err)};
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(err)};
     }
     // Register memory
-    CUDA_TRY(cuMemHostRegister(
+    CUDA_DRIVER_TRY(cuMemHostRegister(
       alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE | CU_MEMHOSTREGISTER_DEVICEMAP));
 
     return Alloc(this, alloc);
@@ -96,7 +96,7 @@ class AllocRetain {
   {
     const std::lock_guard lock(_mutex);
     while (!_free_allocs.empty()) {
-      CUDA_TRY(cuMemHostUnregister(_free_allocs.top()));
+      CUDA_DRIVER_TRY(cuMemHostUnregister(_free_allocs.top()));
       /*NOLINTNEXTLINE(cppcoreguidelines-no-malloc)*/
       free(_free_allocs.top());
       _free_allocs.pop();
@@ -131,14 +131,14 @@ inline void pwrite_all(int fd, const void* buf, size_t count, off_t offset)
     if (nbytes_written == -1) {
       if (errno == EBADF) {
         throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                              CUFILE_STRINGIFY(__LINE__) + ": unsupported file open flags"};
+                              KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
       }
       throw CUfileException{std::string{"POSIX error on pwrite at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
     }
     if (nbytes_written == 0) {
       throw CUfileException{std::string{"POSIX error on pwrite at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": EOF"};
+                            KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
     }
 
     /*NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)*/
@@ -163,14 +163,14 @@ inline ssize_t pread_some(int fd, void* buf, size_t count, off_t offset)
   if (ret == -1) {
     if (errno == EBADF) {
       throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": unsupported file open flags"};
+                            KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
     }
     throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                          CUFILE_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+                          KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
   }
   if (ret == 0) {
     throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                          CUFILE_STRINGIFY(__LINE__) + ": EOF"};
+                          KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
   }
   return ret;
 }
@@ -204,9 +204,9 @@ inline std::size_t posix_io(int fd,
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (IsReadOperation) {
       nbytes_got = pread_some(fd, alloc.get(), nbytes_requested, cur_file_offset);
-      CUDA_TRY(cuMemcpyHtoD(devPtr, alloc.get(), nbytes_got));
+      CUDA_DRIVER_TRY(cuMemcpyHtoD(devPtr, alloc.get(), nbytes_got));
     } else {  // Is a write operation
-      CUDA_TRY(cuMemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
+      CUDA_DRIVER_TRY(cuMemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
       pwrite_all(fd, alloc.get(), nbytes_requested, cur_file_offset);
     }
     cur_file_offset += nbytes_got;

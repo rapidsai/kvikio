@@ -3,26 +3,12 @@
 
 import os
 import os.path
-import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 
 benchmarks_path = Path(os.path.realpath(__file__)).parent / ".." / "benchmarks"
-
-
-def run_cmd(cmd: Iterable[str], cwd=benchmarks_path, verbose=True):
-    """Help function to run command"""
-
-    res: subprocess.CompletedProcess = subprocess.run(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd
-    )  # type: ignore
-    if verbose:
-        print(f"{cwd}$ " + " ".join(res.args))
-        print(res.stdout.decode(), end="")
-    return res.returncode
 
 
 @pytest.mark.parametrize(
@@ -37,7 +23,7 @@ def run_cmd(cmd: Iterable[str], cwd=benchmarks_path, verbose=True):
         "zarr-posix",
     ],
 )
-def test_single_node_io(tmp_path, api):
+def test_single_node_io(run_cmd, tmp_path, api):
     """Test benchmarks/single-node-io.py"""
 
     if "zarr" in api:
@@ -50,7 +36,7 @@ def test_single_node_io(tmp_path, api):
         )
 
     retcode = run_cmd(
-        [
+        cmd=[
             sys.executable or "python",
             "single-node-io.py",
             "-n",
@@ -59,6 +45,7 @@ def test_single_node_io(tmp_path, api):
             str(tmp_path),
             "--api",
             api,
-        ]
+        ],
+        cwd=benchmarks_path,
     )
     assert retcode == 0

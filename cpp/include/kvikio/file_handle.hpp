@@ -229,7 +229,7 @@ class FileHandle {
     }
     if (ret < -1) {
       throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
     }
     return ret;
   }
@@ -274,7 +274,7 @@ class FileHandle {
     }
     if (ret < -1) {
       throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
     }
     return ret;
   }
