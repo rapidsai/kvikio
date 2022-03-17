@@ -36,7 +36,11 @@ function(add_cython_modules cython_modules)
     python_extension_module(${cython_module})
 
     # To avoid libraries being prefixed with "lib".
-    set_target_properties(${cython_module} PROPERTIES PREFIX "")
+    set_target_properties(
+        ${cython_module}
+        PROPERTIES PREFIX ""
+                   CXX_STANDARD 17
+    )
     target_link_libraries(${cython_module} kvikio::kvikio)
 
     # Compute the install directory relative to the source and rely on installs being relative to
