@@ -48,7 +48,7 @@ namespace kvikio {
 {
   CUcontext ctx{};
   auto dev = convert_void2deviceptr(devPtr);
-  CUDA_TRY(cuPointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev));
+  CUDA_DRIVER_TRY(cuPointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev));
   return ctx;
 }
 
@@ -60,10 +60,10 @@ class PushAndPopContext {
   CUcontext _ctx;
 
  public:
-  PushAndPopContext(CUcontext ctx) : _ctx{ctx} { CUDA_TRY(cuCtxPushCurrent(_ctx)); }
+  PushAndPopContext(CUcontext ctx) : _ctx{ctx} { CUDA_DRIVER_TRY(cuCtxPushCurrent(_ctx)); }
   PushAndPopContext(const void* devPtr) : _ctx{get_context_from_device_pointer(devPtr)}
   {
-    CUDA_TRY(cuCtxPushCurrent(_ctx));
+    CUDA_DRIVER_TRY(cuCtxPushCurrent(_ctx));
   }
   PushAndPopContext(const PushAndPopContext&) = delete;
   PushAndPopContext& operator=(PushAndPopContext const&) = delete;
@@ -72,7 +72,7 @@ class PushAndPopContext {
   ~PushAndPopContext()
   {
     try {
-      CUDA_TRY(cuCtxPopCurrent(&_ctx), CUfileException);
+      CUDA_DRIVER_TRY(cuCtxPopCurrent(&_ctx), CUfileException);
     } catch (const CUfileException& e) {
       std::cerr << e.what() << std::endl;
     }
@@ -93,7 +93,7 @@ inline std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* de
     _ctx = get_context_from_device_pointer(devPtr);
   }
   PushAndPopContext context(_ctx);
-  CUDA_TRY(cuMemGetAddressRange(&base_ptr, &base_size, dev));
+  CUDA_DRIVER_TRY(cuMemGetAddressRange(&base_ptr, &base_size, dev));
   std::size_t offset = dev - base_ptr;
   /*NOLINTNEXTLINE(performance-no-int-to-ptr, cppcoreguidelines-pro-type-reinterpret-cast)*/
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
@@ -116,7 +116,7 @@ void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NO
   ::dlerror();  // Clear old errors
   void* ret = ::dlopen(name, mode);
   if (ret == nullptr) {
-    throw CUfileException{std::string{__FILE__} + ":" + CUFILE_STRINGIFY(__LINE__) + ": " +
+    throw CUfileException{std::string{__FILE__} + ":" + KVIKIO_STRINGIFY(__LINE__) + ": " +
                           ::dlerror()};
   }
   return ret;
@@ -138,7 +138,7 @@ void get_symbol(T& handle, void* lib, const char* name)
   handle          = reinterpret_cast<T>(::dlsym(lib, name));
   const char* err = ::dlerror();
   if (err != nullptr) {
-    throw CUfileException{std::string{__FILE__} + ":" + CUFILE_STRINGIFY(__LINE__) + ": " + err};
+    throw CUfileException{std::string{__FILE__} + ":" + KVIKIO_STRINGIFY(__LINE__) + ": " + err};
   }
 }
 

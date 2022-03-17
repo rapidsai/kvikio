@@ -49,14 +49,14 @@ inline void pwrite_all(int fd, const void* buf, size_t count, off_t offset)
     if (nbytes_written == -1) {
       if (errno == EBADF) {
         throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                              CUFILE_STRINGIFY(__LINE__) + ": unsupported file open flags"};
+                              KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
       }
       throw CUfileException{std::string{"POSIX error on pwrite at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
     }
     if (nbytes_written == 0) {
       throw CUfileException{std::string{"POSIX error on pwrite at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": EOF"};
+                            KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
     }
 
     buffer += nbytes_written;
@@ -89,7 +89,7 @@ inline std::size_t posix_io(int fd,
     int err = ::posix_memalign(&buf, page_size, chunk_size);
     if (err != 0) {
       throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + strerror(err)};
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(err)};
     }
   }
   try {
@@ -106,18 +106,18 @@ inline std::size_t posix_io(int fd,
         if (nbytes_got == -1) {
           if (errno == EBADF) {
             throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                  CUFILE_STRINGIFY(__LINE__) + ": unsupported file open flags"};
+                                  KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
           }
           throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                CUFILE_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+                                KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
         }
         if (nbytes_got == 0) {
           throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                CUFILE_STRINGIFY(__LINE__) + ": EOF"};
+                                KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
         }
-        CUDA_TRY(cuMemcpyHtoD(devPtr, buf, nbytes_got));
+        CUDA_DRIVER_TRY(cuMemcpyHtoD(devPtr, buf, nbytes_got));
       } else {  // Is a write operation
-        CUDA_TRY(cuMemcpyDtoH(buf, devPtr, nbytes_requested));
+        CUDA_DRIVER_TRY(cuMemcpyDtoH(buf, devPtr, nbytes_requested));
         pwrite_all(fd, buf, nbytes_requested, cur_file_offset);
       }
       cur_file_offset += nbytes_got;
