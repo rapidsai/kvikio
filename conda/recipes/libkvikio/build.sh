@@ -5,3 +5,4 @@ mkdir cpp/build
 cd cpp/build
 cmake ..
 make
+make install
