@@ -17,16 +17,14 @@ def test_lz4_lib_vs_module(dtype, size):
     dtype = cupy.dtype(dtype)
     data = cupy.array(np.arange(0, (size / dtype.itemsize) - 1), dtype=dtype)
     compressor = nvcomp.LZ4Compressor(dtype)
-    compressed = compressor.compress(data)
+    # compressed = compressor.compress(data)
     lib_compressor = kvikio._lib.nvcomp._LZ4Compressor(
         nvcomp.cp_to_nvcomp_dtype(dtype).value,
     )
-    compress_temp_size = np.zeros((1, ), dtype=np.int64)
-    compress_out_size = np.zeros((1, ), dtype=np.int64)
+    compress_temp_size = np.zeros((1,), dtype=np.int64)
+    compress_out_size = np.zeros((1,), dtype=np.int64)
     lib_compressor.configure(
-        data.size * data.itemsize,
-        compress_temp_size,
-        compress_out_size
+        data.size * data.itemsize, compress_temp_size, compress_out_size
     )
     assert compress_temp_size == compressor.compress_temp_size
     assert compress_out_size == compressor.compress_out_size
@@ -39,20 +37,15 @@ def test_cascade_lib_vs_module(dtype, size):
     data = cupy.array(np.arange(0, (size / dtype.itemsize) - 1), dtype=dtype)
     compressor = nvcomp.CascadedCompressor(dtype)
     compressed = compressor.compress(data)
-    print('module:', compressor.compress_out_size)
-    print('actual:', compressed.size)
+    print("module:", compressor.compress_out_size)
+    print("actual:", compressed.size)
     lib_compressor = kvikio._lib.nvcomp._CascadedCompressor(
-        nvcomp.cp_to_nvcomp_dtype(dtype).value,
-        1,
-        1,
-        True
+        nvcomp.cp_to_nvcomp_dtype(dtype).value, 1, 1, True
     )
-    compress_temp_size = np.zeros((1, ), dtype=np.int64)
-    compress_out_size = np.zeros((1, ), dtype=np.int64)
+    compress_temp_size = np.zeros((1,), dtype=np.int64)
+    compress_out_size = np.zeros((1,), dtype=np.int64)
     lib_compressor.configure(
-        data.size * data.itemsize,
-        compress_temp_size,
-        compress_out_size
+        data.size * data.itemsize, compress_temp_size, compress_out_size
     )
     assert compressed.size < data.size * data.itemsize
 

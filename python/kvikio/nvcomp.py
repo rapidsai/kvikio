@@ -55,8 +55,8 @@ class CascadedCompressor:
         self.compressor.configure(
             data_size, self.compress_temp_size, self.compress_out_size
         )
-        print('configure:', self.compress_out_size)
-        print('configure:', self.compress_temp_size)
+        print("configure:", self.compress_out_size)
+        print("configure:", self.compress_temp_size)
         self.compress_temp_buffer = cp.zeros(self.compress_temp_size, dtype=np.uint8)
         self.compress_out_buffer = cp.zeros(self.compress_out_size, dtype=np.uint8)
         self.compressor.compress_async(
@@ -68,8 +68,8 @@ class CascadedCompressor:
             self.compress_out_size,
             self.s.ptr,
         )
-        print('compress_async:', self.compress_out_size)
-        print('compress_async:', self.compress_temp_size)
+        print("compress_async:", self.compress_out_size)
+        print("compress_async:", self.compress_temp_size)
         return self.compress_out_buffer[: self.compress_out_size[0]]
 
     def decompress(self, data):
