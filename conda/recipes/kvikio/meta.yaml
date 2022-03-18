@@ -28,7 +28,7 @@ requirements:
     - setuptools
     - cython >=0.29,<0.30
     - cudatoolkit {{ cuda_version }}.*
-    # - libkvikio {{ version }}
+    - libkvikio {{ version }}
   run:
     - cupy
     - zarr

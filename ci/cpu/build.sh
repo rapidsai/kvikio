@@ -73,8 +73,8 @@ else
   CONDA_BUILD_ARGS="--dirty --no-remove-work-dir"
 fi
 
-# gpuci_logger "Build conda pkg for libkvikio"
-# gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio --python=$PYTHON $CONDA_BUILD_ARGS
+gpuci_logger "Build conda pkg for libkvikio"
+gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio --python=$PYTHON $CONDA_BUILD_ARGS
 
 gpuci_logger "Build conda pkg for kvikio"
 gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --python=$PYTHON $CONDA_BUILD_ARGS
