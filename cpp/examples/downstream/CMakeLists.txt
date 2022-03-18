@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-include(../../cmake/fetch_rapids.cmake)
+include(cmake/fetch_rapids.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-export)
@@ -29,16 +29,10 @@ project(
 rapids_cmake_build_type(Release)
 rapids_cpm_init()
 
-# TODO: use release tags when they become available
-option(KvikIO_BUILD_EXAMPLES "" OFF)  # No need to build the KvikIO example
-rapids_cpm_find(
-  KvikIO 22.04
-  GLOBAL_TARGETS kvikio::kvikio
-  CPM_ARGS GIT_REPOSITORY https://github.com/rapidsai/kvikio.git
-  SOURCE_SUBDIR cpp
-  GIT_TAG branch-22.04
-)
+# Find KvikIO
+include(cmake/get_kvikio.cmake)
 
+# Find `CUDA::cudart`
 rapids_find_package(
   CUDAToolkit REQUIRED
   BUILD_EXPORT_SET downstream-example-exports
@@ -51,6 +45,7 @@ rapids_find_package(
   INSTALL_EXPORT_SET downstream-example-exports
 )
 
+message(STATUS "KvikIO_INCLUDE_DIR: ${KvikIO_INCLUDE_DIR}")
 add_executable(downstream_example downstream_example.cpp)
-target_include_directories(downstream_example PRIVATE)
+target_include_directories(downstream_example PRIVATE ${KvikIO_INCLUDE_DIR})
 target_link_libraries(downstream_example PRIVATE kvikio CUDA::cudart)
