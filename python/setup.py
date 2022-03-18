@@ -6,7 +6,6 @@ from skbuild import setup
 
 import versioneer
 
-
 setup(
     name="kvikio",
     version=versioneer.get_version(),
