@@ -30,7 +30,7 @@ rapids_cmake_build_type(Release)
 rapids_cpm_init()
 
 # TODO: use release tags when they become available
-option(BUILD_EXAMPLES "" OFF)  # No need to build the KvikIO example
+option(KvikIO_BUILD_EXAMPLES "" OFF)  # No need to build the KvikIO example
 rapids_cpm_find(
   KvikIO 22.04
   GLOBAL_TARGETS kvikio::kvikio
