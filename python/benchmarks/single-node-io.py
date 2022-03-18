@@ -69,6 +69,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     t0 = clock()
     futures = [f.pwrite(a, ntasks=1) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
+    del files
     write_time = clock() - t0
     assert res == args.nbytes
 
@@ -77,6 +78,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     t0 = clock()
     futures = [f.pread(a, ntasks=1) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
+    del files
     read_time = clock() - t0
     assert res == args.nbytes
 
@@ -104,6 +106,7 @@ def run_cufile_multiple_files(args):
         f.pwrite(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
     ]
     res = sum(f.get() for f in futures)
+    del files
     write_time = clock() - t0
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
@@ -114,6 +117,7 @@ def run_cufile_multiple_files(args):
         f.pread(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
     ]
     res = sum(f.get() for f in futures)
+    del files
     read_time = clock() - t0
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
@@ -143,6 +147,7 @@ def run_cufile_multiple_arrays(args):
         f.pwrite(a, ntasks=1, file_offset=i * chunksize) for i, a in enumerate(arrays)
     ]
     res = sum(f.get() for f in futures)
+    f.close()
     write_time = clock() - t0
     assert res == args.nbytes
 
@@ -151,6 +156,7 @@ def run_cufile_multiple_arrays(args):
     t0 = clock()
     futures = [f.pread(a, ntasks=1) for a in arrays]
     res = sum(f.get() for f in futures)
+    f.close()
     read_time = clock() - t0
     assert res == args.nbytes
 
