@@ -59,10 +59,13 @@ conda list --show-channel-urls
 ################################################################################
 
 cd "$WORKSPACE/cpp/examples/downstream"
+
+gpuci_logger "Build downstream C++ example"
 mkdir build
 cd build
 cmake ..
 make
+./downstream_example
 
 ################################################################################
 # TEST - Run py.test for kvikio
