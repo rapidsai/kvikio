@@ -66,9 +66,6 @@ conda list --show-channel-urls
 
 cd "$WORKSPACE/python"
 
-# For now, we have to run KvikIO in compatibility mode
-export KVIKIO_COMPAT_MODE=true
-
 gpuci_logger "Build kvikio from source"
 python -m pip install .
 

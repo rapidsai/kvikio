@@ -19,6 +19,7 @@
 #include <sys/utsname.h>
 #include <chrono>
 #include <cstring>
+#include <filesystem>
 #include <future>
 #include <iostream>
 #include <tuple>
@@ -160,6 +161,24 @@ void get_symbol(T& handle, void* lib, const char* name)
     return name.find("icrosoft") != std::string::npos;
   }
   return false;
+}
+
+/**
+ * @brief Check if `/run/udev` is readable
+ *
+ * cuFile files with `internal error` when `/run/udev` isn't readable.
+ * This typically happens when running inside a docker image not launched
+ * with `--volume /run/udev:/run/udev:ro`.
+ *
+ * @return The boolean answer
+ */
+[[nodiscard]] inline bool run_udev_readable()
+{
+  try {
+    return std::filesystem::is_directory("/run/udev");
+  } catch (const std::filesystem::filesystem_error& e) {
+    return false;
+  }
 }
 
 }  // namespace kvikio

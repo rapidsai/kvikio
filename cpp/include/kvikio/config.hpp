@@ -63,8 +63,11 @@ inline std::pair<bool, bool> _current_global_compat_mode{std::make_pair(false, f
  * reads and writes are done using POSIX.
  *
  * Set the enviornment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility mode.
- * By default, compatibility mode is enabled when `libcufile` cannot be found or when
- * running in Windows Subsystem for Linux (WSL).
+ * By default, compatibility mode is enabled:
+ *  - when `libcufile` cannot be found
+ *  - when running in Windows Subsystem for Linux (WSL)
+ *  - when `/run/udev` isn't readable, which typically happens when running inside a docker
+ *    image not launched with `--volume /run/udev:/run/udev:ro`
  *
  * @return The boolean answer
  */
@@ -77,7 +80,7 @@ inline bool get_global_compat_mode()
     // Setting `KVIKIO_COMPAT_MODE` take precedence
     return static_cast<bool>(env);
   }
-  return !is_cufile_library_available() || is_running_in_wsl();
+  return !is_cufile_library_available() || is_running_in_wsl() || !run_udev_readable();
 }
 
 }  // namespace kvikio::config
