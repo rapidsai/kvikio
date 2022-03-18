@@ -21,6 +21,8 @@ project = 'kvikio'
 copyright = '2022, NVIDIA'
 author = 'NVIDIA'
 
+# The short X.Y version.
+version = '22.04'
 # The full version, including alpha/beta/rc tags
 release = '22.04.00'
 
