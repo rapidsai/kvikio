@@ -35,11 +35,8 @@ find_package(Cython REQUIRED)
 # Ignore unused variable warning.
 set(ignored_variable "${SKBUILD}")
 
-# If the user requested it we attempt to find RMM. TODO: Should we allow the user to specify a path
-# instead of just searching? This version assumes that the installation has been appropriately
-# configured for CMake discovery.
 if(FIND_KVIKIO_CPP)
-    find_package(KVIKIO ${kvikio_version})
+    find_package(KvikIO ${kvikio_version})
 else()
     set(KVIKIO_FOUND OFF)
 endif()

@@ -41,7 +41,7 @@ function(add_cython_modules cython_modules)
         PROPERTIES PREFIX ""
                    CXX_STANDARD 17
     )
-    target_link_libraries(${cython_module} kvikio::kvikio)
+    target_link_libraries(${cython_module} kvikio)
 
     # Compute the install directory relative to the source and rely on installs being relative to
     # the CMAKE_PREFIX_PATH for e.g. editable installs.
