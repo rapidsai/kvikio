@@ -28,8 +28,8 @@ requirements:
     - setuptools
     - cython >=0.29,<0.30
     - cudatoolkit {{ cuda_version }}.*
-    - cmake>=3.20.1
-    - scikit-build>=0.13.1
+    - cmake >=3.20.1
+    - scikit-build >=0.13.1
     - libkvikio {{ version }}
   run:
     - cupy

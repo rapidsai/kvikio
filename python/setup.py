@@ -35,6 +35,5 @@ setup(
         for key in find_packages(include=["kvikio._lib"])
     },
     cmdclass=versioneer.get_cmdclass(),
-    install_requires=["Cython>=0.29,<0.30"],
     zip_safe=False,
 )
