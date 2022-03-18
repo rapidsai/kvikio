@@ -30,7 +30,7 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - cmake>=3.20.1
     - scikit-build>=0.13.1
-    # - libkvikio {{ version }}
+    - libkvikio {{ version }}
   run:
     - cupy
     - zarr

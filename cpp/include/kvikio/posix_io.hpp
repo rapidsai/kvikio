@@ -18,6 +18,8 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>
+#include <mutex>
+#include <stack>
 
 #include <cuda.h>
 
@@ -30,6 +32,86 @@ namespace {
 
 inline constexpr std::size_t page_size  = 2 << 9;   // 4 KiB
 inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
+
+/**
+ * @brief Class to retain host memory allocations
+ *
+ * Call `AllocRetain::get` to get an allocation that will be retained when it
+ * goes out of scope (RAII). The size of all allocation are `chunk_size`.
+ */
+class AllocRetain {
+ private:
+  std::stack<void*> _free_allocs;
+  std::mutex _mutex;
+
+ public:
+  class Alloc {
+   private:
+    AllocRetain* _manager;
+    void* _alloc;
+
+   public:
+    Alloc(AllocRetain* manager, void* alloc) : _manager(manager), _alloc{alloc} {}
+    Alloc(const Alloc&) = delete;
+    Alloc& operator=(Alloc const&) = delete;
+    Alloc(Alloc&& o)               = delete;
+    Alloc& operator=(Alloc&& o) = delete;
+    ~Alloc() noexcept { _manager->put(_alloc); }
+    void* get() noexcept { return _alloc; }
+  };
+
+  AllocRetain() = default;
+  Alloc get()
+  {
+    const std::lock_guard lock(_mutex);
+    // Check if we have an allocation available
+    if (!_free_allocs.empty()) {
+      void* ret = _free_allocs.top();
+      _free_allocs.pop();
+      return Alloc(this, ret);
+    }
+
+    // If no available allocation, allocate and register a new one
+    void* alloc{};
+    // Allocate memory
+    int err = ::posix_memalign(&alloc, page_size, chunk_size);
+    if (err != 0) {
+      throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(err)};
+    }
+    // Register memory
+    CUDA_DRIVER_TRY(cuMemHostRegister(
+      alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE | CU_MEMHOSTREGISTER_DEVICEMAP));
+
+    return Alloc(this, alloc);
+  }
+
+  void put(void* alloc)
+  {
+    const std::lock_guard lock(_mutex);
+    _free_allocs.push(alloc);
+  }
+
+  void clear()
+  {
+    const std::lock_guard lock(_mutex);
+    while (!_free_allocs.empty()) {
+      CUDA_DRIVER_TRY(cuMemHostUnregister(_free_allocs.top()));
+      /*NOLINTNEXTLINE(cppcoreguidelines-no-malloc)*/
+      free(_free_allocs.top());
+      _free_allocs.pop();
+    }
+  }
+
+  AllocRetain(const AllocRetain&) = delete;
+  AllocRetain& operator=(AllocRetain const&) = delete;
+  AllocRetain(AllocRetain&& o)               = delete;
+  AllocRetain& operator=(AllocRetain&& o) = delete;
+  ~AllocRetain() noexcept                 = default;
+};
+
+/*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
+inline AllocRetain manager;
 
 /**
  * @brief Call ::pwrite() until all of `count` has been written
@@ -59,10 +141,38 @@ inline void pwrite_all(int fd, const void* buf, size_t count, off_t offset)
                             KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
     }
 
+    /*NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)*/
     buffer += nbytes_written;
     cur_offset += nbytes_written;
     byte_remaining -= nbytes_written;
   }
+}
+
+/**
+ * @brief Call ::pread() and handle error codes
+ *
+ * @param fd File decriptor
+ * @param buf Buffer to read
+ * @param count Maximum number of bytes to read
+ * @param offset File offset
+ * @return The number of bytes read (always gather than zero)
+ */
+inline ssize_t pread_some(int fd, void* buf, size_t count, off_t offset)
+{
+  ssize_t ret = ::pread(fd, buf, count, offset);
+  if (ret == -1) {
+    if (errno == EBADF) {
+      throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                            KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
+    }
+    throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                          KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+  }
+  if (ret == 0) {
+    throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                          KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
+  }
+  return ret;
 }
 
 /**
@@ -83,50 +193,25 @@ inline std::size_t posix_io(int fd,
                             std::size_t file_offset,
                             std::size_t devPtr_offset)
 {
-  void* buf = nullptr;
-  {
-    // TODO: reuse memory allocations
-    int err = ::posix_memalign(&buf, page_size, chunk_size);
-    if (err != 0) {
-      throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(err)};
-    }
-  }
-  try {
-    CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
-    off_t cur_file_offset   = convert_size2off(file_offset);
-    off_t byte_remaining    = convert_size2off(size);
-    const off_t chunk_size2 = convert_size2off(chunk_size);
+  auto alloc              = manager.get();
+  CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
+  off_t cur_file_offset   = convert_size2off(file_offset);
+  off_t byte_remaining    = convert_size2off(size);
+  const off_t chunk_size2 = convert_size2off(chunk_size);
 
-    while (byte_remaining > 0) {
-      const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
-      ssize_t nbytes_got           = nbytes_requested;
-      if constexpr (IsReadOperation) {
-        nbytes_got = ::pread(fd, buf, nbytes_requested, cur_file_offset);
-        if (nbytes_got == -1) {
-          if (errno == EBADF) {
-            throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                  KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
-          }
-          throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
-        }
-        if (nbytes_got == 0) {
-          throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                                KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
-        }
-        CUDA_DRIVER_TRY(cuMemcpyHtoD(devPtr, buf, nbytes_got));
-      } else {  // Is a write operation
-        CUDA_DRIVER_TRY(cuMemcpyDtoH(buf, devPtr, nbytes_requested));
-        pwrite_all(fd, buf, nbytes_requested, cur_file_offset);
-      }
-      cur_file_offset += nbytes_got;
-      devPtr += nbytes_got;
-      byte_remaining -= nbytes_got;
+  while (byte_remaining > 0) {
+    const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
+    ssize_t nbytes_got           = nbytes_requested;
+    if constexpr (IsReadOperation) {
+      nbytes_got = pread_some(fd, alloc.get(), nbytes_requested, cur_file_offset);
+      CUDA_DRIVER_TRY(cuMemcpyHtoD(devPtr, alloc.get(), nbytes_got));
+    } else {  // Is a write operation
+      CUDA_DRIVER_TRY(cuMemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
+      pwrite_all(fd, alloc.get(), nbytes_requested, cur_file_offset);
     }
-  } catch (...) {
-    free(buf);
-    throw;
+    cur_file_offset += nbytes_got;
+    devPtr += nbytes_got;
+    byte_remaining -= nbytes_got;
   }
   return size;
 }
