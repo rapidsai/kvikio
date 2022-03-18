@@ -1,8 +1,8 @@
 #!/bin/bash
 # Copyright (c) 2022, NVIDIA CORPORATION.
-#################################
-# RMM Docs build script for CI #
-#################################
+###################################
+# kvikIO Docs build script for CI #
+###################################
 
 if [ -z "$PROJECT_WORKSPACE" ]; then
     echo ">>>> ERROR: Could not detect PROJECT_WORKSPACE in environment"
