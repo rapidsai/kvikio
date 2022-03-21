@@ -59,5 +59,5 @@ done
 
 
 mv $PROJECT_WORKSPACE/cpp/doxygen/html/* $DOCS_WORKSPACE/api/libkvikio/$BRANCH_VERSION
-mv $PROJECT_WORKSPACE/docs/build/* $DOCS_WORKSPACE/api/kvikio/$BRANCH_VERSION
+mv $PROJECT_WORKSPACE/docs/build/html/* $DOCS_WORKSPACE/api/kvikio/$BRANCH_VERSION
 
