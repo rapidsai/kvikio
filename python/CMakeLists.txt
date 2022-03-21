@@ -49,6 +49,11 @@ if(NOT KVIKIO_FOUND)
   add_subdirectory(../cpp kvikio-cpp)
 endif()
 
+target_link_libraries(
+  kvikio
+  INTERFACE nvcomp::nvcomp
+)
+
 add_subdirectory(cmake)
 add_subdirectory(kvikio/_lib)
 
