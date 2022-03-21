@@ -16,14 +16,13 @@
 # This function finds KvikIO and sets `KvikIO_INCLUDE_DIR`
 function(find_and_configure_kvikio)
 
-  option(BUILD_EXAMPLES "" OFF)  # No need to build the KvikIO example
-
   rapids_cpm_find(
     KvikIO 22.04
     GLOBAL_TARGETS kvikio::kvikio
     CPM_ARGS GIT_REPOSITORY https://github.com/rapidsai/kvikio.git
     SOURCE_SUBDIR cpp
     GIT_TAG branch-22.04  # TODO: use version tags when they become available
+    OPTIONS "KvikIO_BUILD_EXAMPLES FALSE"  # No need to build the KvikIO example
   )
   set(KvikIO_INCLUDE_DIR ${KvikIO_SOURCE_DIR}/cpp/include PARENT_SCOPE)
 
