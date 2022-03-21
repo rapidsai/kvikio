@@ -195,3 +195,53 @@ class CuFile:
             The size of bytes that were successfully written.
         """
         return self.pwrite(buf, size, file_offset, ntasks).get()
+
+    def raw_read(
+        self, buf, size: int = None, file_offset: int = 0, dev_offset: int = 0
+    ) -> int:
+        """Reads specified bytes from the file into the device memory
+
+        This is a low-level version of `.read` that calls cuFile directly
+
+        Parameters
+        ----------
+        buf: buffer-like or array-like
+            Device buffer to read into.
+        size: int
+            Size in bytes to read.
+        file_offset: int, optional
+            Offset in the file to read from.
+        dev_offset: int, optional
+            Offset in the `buf` to read from.
+
+        Returns
+        ------
+        int
+            The size of bytes that were successfully read.
+        """
+        return self._handle.read(buf, size, file_offset, dev_offset)
+
+    def raw_write(
+        self, buf, size: int = None, file_offset: int = 0, dev_offset: int = 0
+    ) -> int:
+        """Writes specified bytes from the device memory into the file in parallel
+
+        This is a low-level version of `.write` that calls cuFile directly
+
+        Parameters
+        ----------
+        buf: buffer-like or array-like
+            Device buffer to write to.
+        size: int
+            Size in bytes to read.
+        file_offset: int, optional
+            Offset in the file to write from.
+        dev_offset: int, optional
+            Offset in the `buf` to write from.
+
+        Returns
+        ------
+        int
+            The size of bytes that were successfully written.
+        """
+        return self._handle.write(buf, size, file_offset, dev_offset)
