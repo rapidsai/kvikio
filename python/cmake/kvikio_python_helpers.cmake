@@ -43,6 +43,7 @@ function(add_cython_modules cython_modules)
     )
     # Link to the C++ library.
     target_link_libraries(${cython_module} kvikio)
+    target_link_libraries(${cython_module} nvcomp)
     # Treat warnings as errors when compiling.
 	target_compile_options(${cython_module} PRIVATE -Werror)
 

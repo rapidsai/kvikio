@@ -1,7 +1,7 @@
 import cupy as cp
 import numpy as np
 
-import kvikio._lib.nvcomp as _lib
+import kvikio._lib.pynvcomp as _lib
 
 
 def make_ptr_collection(data):

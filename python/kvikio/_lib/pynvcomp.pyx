@@ -27,7 +27,7 @@ import cupy as cp
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
-from kvikio._lib.nvcomp cimport (
+from kvikio._lib.pynvcomp cimport(
     __CascadedCompressor,
     __CascadedDecompressor,
     __LZ4Compressor,
