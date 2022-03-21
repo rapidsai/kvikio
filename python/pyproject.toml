@@ -2,7 +2,6 @@
 # See file LICENSE for terms.
 
 [build-system]
-
 requires = [
     "wheel",
     "setuptools",
@@ -11,6 +10,7 @@ requires = [
     "cmake>=3.20.1",
     "ninja",
 ]
+build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 88
