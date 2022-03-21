@@ -16,6 +16,7 @@
 #pragma once
 
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <cstddef>
@@ -81,6 +82,23 @@ inline int open_fd(const std::string& file_path, const std::string& flags, mode_
   return fd;
 }
 
+/**
+ * @brief Get file size from file descriptor `fstat(3)`
+ *
+ * @param file_descriptor Open file descriptor
+ * @return The number of bytes
+ */
+[[nodiscard]] inline std::size_t get_file_size(int file_descriptor)
+{
+  struct stat st {
+  };
+  int ret = fstat(file_descriptor, &st);
+  if (ret == -1) {
+    throw std::system_error(errno, std::generic_category(), "Unable to query file size");
+  }
+  return static_cast<std::size_t>(st.st_size);
+}
+
 }  // namespace
 
 /**
@@ -93,6 +111,7 @@ class FileHandle {
   int _fd{-1};
   bool _own_fd{false};
   bool _closed{true};
+  mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUfileHandle_t _handle{};
 
  public:
@@ -138,6 +157,7 @@ class FileHandle {
     : _fd{std::exchange(o._fd, -1)},
       _own_fd{std::exchange(o._own_fd, false)},
       _closed{std::exchange(o._closed, true)},
+      _nbytes{std::exchange(o._nbytes, 0)},
       _handle{std::exchange(o._handle, CUfileHandle_t{})}
   {
   }
@@ -146,6 +166,7 @@ class FileHandle {
     _fd     = std::exchange(o._fd, -1);
     _own_fd = std::exchange(o._own_fd, false);
     _closed = std::exchange(o._closed, true);
+    _nbytes = std::exchange(o._nbytes, 0);
     _handle = std::exchange(o._handle, CUfileHandle_t{});
     return *this;
   }
@@ -188,6 +209,17 @@ class FileHandle {
       throw std::system_error(errno, std::generic_category(), "Unable to retrieve open flags");
     }
     return ret;
+  }
+
+  /**
+   * @brief Get the file size
+   *
+   * @return The number of bytes
+   */
+  [[nodiscard]] inline std::size_t nbytes() const
+  {
+    if (_nbytes == 0 && _fd > 0) { _nbytes = get_file_size(_fd); }
+    return _nbytes;
   }
 
   /**
@@ -263,6 +295,8 @@ class FileHandle {
                     std::size_t file_offset,
                     std::size_t devPtr_offset)
   {
+    _nbytes = 0;  // Invalidate the computed file size
+
     if (config::get_global_compat_mode()) {
       return posix_write(_fd, devPtr_base, size, file_offset, devPtr_offset);
     }
