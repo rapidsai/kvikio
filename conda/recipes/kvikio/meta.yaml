@@ -23,7 +23,7 @@ build:
     - CUDAHOSTCXX
   script:
     - cd python
-    - python -m pip install .
+    - python -m pip install . -vv
 
 requirements:
   build:
