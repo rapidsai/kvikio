@@ -67,24 +67,13 @@ library_dirs.append(os.path.join(CUDA_HOME, "lib64"))
 # Use CuFile location outside of CUDA_HOME
 if "CUFILE_HOME" in os.environ:
     CUFILE_HOME = os.environ["CUFILE_HOME"]
-    if not os.path.isdir(CUFILE_HOME):
+    if not os.path.isdir(CUDA_HOME):
         raise OSError(f"Invalid CUFILE_HOME: directory does not exist: {CUFILE_HOME}")
     include_dirs.append(os.path.join(CUFILE_HOME, "include"))
     if os.path.isdir(os.path.join(CUFILE_HOME, "lib64")):
         library_dirs.append(os.path.join(CUFILE_HOME, "lib64"))
     else:
         library_dirs.append(os.path.join(CUFILE_HOME, "lib"))
-
-# Use Nvcomp location outside of CUDA_HOME
-if "NVCOMP_HOME" in os.environ:
-    NVCOMP_HOME = os.environ["NVCOMP_HOME"]
-    if not os.path.isdir(NVCOMP_HOME):
-        raise OSError(f"Invalid NVCOMP_HOME: directory does not exist: {NVCOMP_HOME}")
-    include_dirs.append(os.path.join(NVCOMP_HOME, "include"))
-    if os.path.isdir(os.path.join(NVCOMP_HOME, "lib64")):
-        library_dirs.append(os.path.join(NVCOMP_HOME, "lib64"))
-    else:
-        library_dirs.append(os.path.join(NVCOMP_HOME, "lib"))
 
 # Add kvikio headers from the source tree (if available)
 kvikio_include_dir = os.path.abspath(f"{this_setup_scrip_dir}/../cpp/include")
@@ -107,16 +96,6 @@ extensions = [
     Extension(
         "kvikio._lib.arr",
         sources=["kvikio/_lib/arr.pyx"],
-        language="c++",
-        extra_compile_args=["-std=c++17"],
-        depends=depends,
-    ),
-    Extension(
-        "kvikio._lib.nvcomp",
-        sources=["kvikio/_lib/nvcomp.pyx"],
-        include_dirs=include_dirs,
-        library_dirs=library_dirs,
-        libraries=["nvcomp", "cudart"],
         language="c++",
         extra_compile_args=["-std=c++17"],
         depends=depends,

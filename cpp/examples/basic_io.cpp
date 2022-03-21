@@ -70,12 +70,14 @@ int main()
     check(cudaMemcpy(a_dev, &a, sizeof(a), cudaMemcpyHostToDevice) == cudaSuccess);
     size_t written = f.pwrite(a_dev, sizeof(a), 0, 1).get();
     check(written == sizeof(a));
+    check(written == f.nbytes());
     cout << "Write: " << written << endl;
   }
   {
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, sizeof(a), 0, 1).get();
     check(read == sizeof(a));
+    check(read == f.nbytes());
     cout << "Read:  " << read << endl;
     check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
     for (int i = 0; i < 1024; ++i) {
@@ -87,6 +89,7 @@ int main()
     kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a_dev, sizeof(a)).get();
     check(written == sizeof(a));
+    check(written == f.nbytes());
     cout << "Parallel write (" << kvikio::default_thread_pool::nthreads()
          << " threads): " << written << endl;
   }
@@ -105,6 +108,7 @@ int main()
     kvikio::buffer_register(c_dev, size(a));
     size_t read = f.pread(b_dev, sizeof(a)).get();
     check(read == sizeof(a));
+    check(read == f.nbytes());
     kvikio::buffer_deregister(c_dev);
   }
 }
