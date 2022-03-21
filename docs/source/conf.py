@@ -50,7 +50,16 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = "pydata_sphinx_theme"
+html_logo = "_static/RAPIDS-logo-purple.png"
+
+html_theme_options = {
+    "external_links": [],
+    "github_url": "https://github.com/rapidsai/kvikio",
+    "twitter_url": "https://twitter.com/rapidsai",
+    "show_toc_level": 1,
+    "navbar_align": "right",
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
