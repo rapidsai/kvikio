@@ -21,6 +21,9 @@ build:
     - CC
     - CXX
     - CUDAHOSTCXX
+  script:
+    - cd python
+    - python -m pip install .
 
 requirements:
   build:
