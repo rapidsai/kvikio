@@ -28,7 +28,7 @@ gpuci_logger "Activate conda env"
 conda activate rapids
 
 gpuci_logger "Install kvikIO"
-gpuci_conda_rety install -y -c rapidsai-nightly kvikio
+gpuci_conda_retry install -y -c rapidsai-nightly kvikio
 
 gpuci_logger "Check versions"
 python --version
