@@ -2,7 +2,7 @@
 # See file LICENSE for terms.
 
 [build-system]
-
+build-backend = "setuptools.build_meta"
 requires = [
     "wheel",
     "setuptools",
