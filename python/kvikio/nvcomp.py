@@ -1,11 +1,13 @@
 import collections
+
 import cupy as cp
+import Enum
 import numpy as np
 
 import kvikio._lib.pynvcomp as _lib
 
 
-def make_ptr_collection(data: collections) -> list:
+def make_ptr_collection(data: collections.abc.Collection) -> list:
     """ Returns a list of ndarray pointers.
     """
     return [_lib.__get_ptr(x) for x in data]
@@ -17,7 +19,7 @@ def get_ptr(x: np.ndarray) -> int:
     return _lib.__get_ptr(x)
 
 
-def cp_to_nvcomp_dtype(in_type: cp.dtype) -> int:
+def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
     """ Returns `int` value of the NVCOMP_TYPE for supported dtypes.
     """
     cp_type = cp.dtype(in_type)
@@ -36,23 +38,15 @@ def cp_to_nvcomp_dtype(in_type: cp.dtype) -> int:
 class CascadedOptions:
     """ Options to pass to the Cascaded Compressor.
     """
-    def __init__(
-        self,
-        num_RLEs: int = 1,
-        num_deltas: int = 1,
-        use_bp: bool = True
-    ):
+
+    def __init__(self, num_RLEs: int = 1, num_deltas: int = 1, use_bp: bool = True):
         self.num_RLEs = num_RLEs
         self.num_deltas = num_deltas
         self.use_bp = use_bp
 
 
 class CascadedCompressor:
-    def __init__(
-        self,
-        dtype: cp.dtype,
-        config: CascadedOptions = CascadedOptions()
-    ):
+    def __init__(self, dtype: cp.dtype, config: CascadedOptions = CascadedOptions()):
         """ Initialize a CascadedCompressor and Decompressor for a
         specific dtype.
         """
@@ -208,7 +202,6 @@ class SnappyCompressor:
         result = self.compressor._get_compress_temp_size(
             num_chunks, max_compressed_chunk_size, temp_size, format_opts
         )
-        max_compressed_chunk_size = 512
 
         # allocate output buffers
         output_buffers = cp.zeros(512, dtype=cp.int8)
