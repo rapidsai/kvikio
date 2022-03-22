@@ -10,7 +10,7 @@ setup(
     name="kvikio",
     version=versioneer.get_version(),
     description="KvikIO - GPUDirect Storage",
-    url="https://github.com/rapidsai/cufile-bindings",
+    url="https://github.com/rapidsai/kvikio",
     author="NVIDIA Corporation",
     license="Apache 2.0",
     classifiers=[
