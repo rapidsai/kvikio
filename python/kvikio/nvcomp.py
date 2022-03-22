@@ -1,7 +1,7 @@
 import collections
+from enum import Enum
 
 import cupy as cp
-import Enum
 import numpy as np
 
 import kvikio._lib.pynvcomp as _lib
