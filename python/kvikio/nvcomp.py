@@ -1,18 +1,25 @@
+import collections
 import cupy as cp
 import numpy as np
 
 import kvikio._lib.pynvcomp as _lib
 
 
-def make_ptr_collection(data):
+def make_ptr_collection(data: collections) -> list:
+    """ Returns a list of ndarray pointers.
+    """
     return [_lib.__get_ptr(x) for x in data]
 
 
-def get_ptr(x):
+def get_ptr(x: np.ndarray) -> int:
+    """ Returns the ndarray pointer for an NDArrayLike.
+    """
     return _lib.__get_ptr(x)
 
 
-def cp_to_nvcomp_dtype(in_type):
+def cp_to_nvcomp_dtype(in_type: cp.dtype) -> int:
+    """ Returns `int` value of the NVCOMP_TYPE for supported dtypes.
+    """
     cp_type = cp.dtype(in_type)
     return {
         cp.dtype("int8"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
@@ -27,14 +34,28 @@ def cp_to_nvcomp_dtype(in_type):
 
 
 class CascadedOptions:
-    def __init__(self, num_RLEs=1, num_deltas=1, use_bp=True):
+    """ Options to pass to the Cascaded Compressor.
+    """
+    def __init__(
+        self,
+        num_RLEs: int = 1,
+        num_deltas: int = 1,
+        use_bp: bool = True
+    ):
         self.num_RLEs = num_RLEs
         self.num_deltas = num_deltas
         self.use_bp = use_bp
 
 
 class CascadedCompressor:
-    def __init__(self, dtype, config=CascadedOptions()):
+    def __init__(
+        self,
+        dtype: cp.dtype,
+        config: CascadedOptions = CascadedOptions()
+    ):
+        """ Initialize a CascadedCompressor and Decompressor for a
+        specific dtype.
+        """
         self.dtype = dtype
         self.config = config
         self.compressor = _lib._CascadedCompressor(
@@ -46,7 +67,7 @@ class CascadedCompressor:
         self.decompressor = _lib._CascadedDecompressor()
         self.s = cp.cuda.Stream()
 
-    def compress(self, data):
+    def compress(self, data: cp.ndarray) -> cp.ndarray:
         # TODO: An option: check if incoming data size matches the size of the
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
@@ -55,8 +76,6 @@ class CascadedCompressor:
         self.compressor.configure(
             data_size, self.compress_temp_size, self.compress_out_size
         )
-        print("configure:", self.compress_out_size)
-        print("configure:", self.compress_temp_size)
         self.compress_temp_buffer = cp.zeros(self.compress_temp_size, dtype=np.uint8)
         self.compress_out_buffer = cp.zeros(self.compress_out_size, dtype=np.uint8)
         self.compressor.compress_async(
@@ -68,11 +87,9 @@ class CascadedCompressor:
             self.compress_out_size,
             self.s.ptr,
         )
-        print("compress_async:", self.compress_out_size)
-        print("compress_async:", self.compress_temp_size)
         return self.compress_out_buffer[: self.compress_out_size[0]]
 
-    def decompress(self, data):
+    def decompress(self, data: cp.ndarray) -> cp.ndarray:
         # TODO: logic to reuse temp buffer if it is large enough
         data_size = data.size * data.itemsize
         self.decompress_temp_size = np.zeros((1,), dtype=np.int64)
@@ -103,13 +120,13 @@ class CascadedCompressor:
 
 
 class LZ4Compressor:
-    def __init__(self, dtype):
+    def __init__(self, dtype: cp.dtype):
         self.dtype = dtype
         self.compressor = _lib._LZ4Compressor()
         self.decompressor = _lib._LZ4Decompressor()
         self.s = cp.cuda.Stream()
 
-    def compress(self, data):
+    def compress(self, data: cp.ndarray) -> cp.ndarray:
         # TODO: An option: check if incoming data size matches the size of the
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
@@ -140,7 +157,7 @@ class LZ4Compressor:
         )
         return self.compress_out_buffer[: self.compress_out_size[0]]
 
-    def decompress(self, data):
+    def decompress(self, data: cp.ndarray) -> cp.ndarray:
         # TODO: logic to reuse temp buffer if it is large enough
         data_size = data.size * data.itemsize
         self.decompress_temp_size = np.zeros((1,), dtype=np.int64)
@@ -174,7 +191,7 @@ class SnappyCompressor:
     def __init__(self):
         self.compressor = _lib.LibSnappyCompressor()
 
-    def compress(self, data):
+    def compress(self, data: cp.ndarray) -> cp.ndarray:
         # convert data to pointers
         data_sizes = cp.array([256], dtype=cp.uint64)
 
