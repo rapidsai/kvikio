@@ -15,11 +15,12 @@
  */
 #pragma once
 #include <kvikio/error.hpp>
+#include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
-#include <cufile.h>
-
 namespace kvikio {
+
+#ifdef KVIKIO_CUFILE_EXIST
 
 /**
  * @brief Shim layer of the cuFile C-API
@@ -67,11 +68,14 @@ class cuFileAPI {
   }
 };
 
+#endif
+
 /**
  * @brief Check whether the cuFile library is available
  *
  * @return The boolean answer
  */
+#ifdef KVIKIO_CUFILE_EXIST
 inline bool is_cufile_library_available()
 {
   try {
@@ -81,5 +85,8 @@ inline bool is_cufile_library_available()
   }
   return true;
 }
+#else
+constexpr bool is_cufile_library_available() { return false; }
+#endif
 
 }  // namespace kvikio

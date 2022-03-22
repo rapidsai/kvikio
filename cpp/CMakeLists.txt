@@ -53,10 +53,13 @@ rapids_find_package(
 )
 
 rapids_find_package(
-  cuFile REQUIRED
+  cuFile
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
+if(NOT cuFile_FOUND)
+  message(WARNING "Building KvikIO without cuFile.h")
+endif()
 
 # library targets
 add_library(kvikio INTERFACE)
@@ -69,7 +72,9 @@ target_include_directories(
 
 target_link_libraries(kvikio INTERFACE Threads::Threads)
 target_link_libraries(kvikio INTERFACE cuda)
-target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
+if(cuFile_FOUND)
+  target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
+endif()
 target_link_libraries(kvikio INTERFACE dl)
 target_compile_features(kvikio INTERFACE cxx_std_17)
 

@@ -128,12 +128,13 @@ class FileHandle {
   FileHandle(int fd, bool steal_fd = false) : _fd{fd}, _own_fd{steal_fd}, _closed{false}
   {
     if (config::get_global_compat_mode()) { return; }
-
+#ifdef KVIKIO_CUFILE_EXIST
     CUfileDescr_t desc{};  // It is important to set zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)*/
     desc.handle.fd = fd;
     CUFILE_TRY(cuFileAPI::instance()->HandleRegister(&_handle, &desc));
+#endif
   }
 
   /**
@@ -187,7 +188,9 @@ class FileHandle {
   void close() noexcept
   {
     _closed = true;
+#ifdef KVIKIO_CUFILE_EXIST
     if (!config::get_global_compat_mode()) { cuFileAPI::instance()->HandleDeregister(_handle); }
+#endif
     if (_own_fd) { ::close(_fd); }
   }
 
@@ -253,7 +256,7 @@ class FileHandle {
     if (config::get_global_compat_mode()) {
       return posix_read(_fd, devPtr_base, size, file_offset, devPtr_offset);
     }
-
+#ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance()->Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -264,6 +267,9 @@ class FileHandle {
                             KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
     }
     return ret;
+#else
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+#endif
   }
 
   /**
@@ -300,7 +306,7 @@ class FileHandle {
     if (config::get_global_compat_mode()) {
       return posix_write(_fd, devPtr_base, size, file_offset, devPtr_offset);
     }
-
+#ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance()->Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -311,6 +317,9 @@ class FileHandle {
                             KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
     }
     return ret;
+#else
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+#endif
   }
 
   /**
