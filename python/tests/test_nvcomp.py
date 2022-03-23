@@ -36,8 +36,6 @@ def test_cascade_lib_vs_module(dtype, size):
     data = cupy.array(np.arange(0, (size / dtype.itemsize) - 1), dtype=dtype)
     compressor = nvcomp.CascadedCompressor(dtype)
     compressed = compressor.compress(data)
-    print("module:", compressor.compress_out_size)
-    print("actual:", compressed.size)
     lib_compressor = kvikio._lib.nvcomp._CascadedCompressor(
         nvcomp.cp_to_nvcomp_dtype(dtype).value, 1, 1, True
     )
