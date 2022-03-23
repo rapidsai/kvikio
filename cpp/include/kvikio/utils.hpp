@@ -112,7 +112,7 @@ inline bool is_future_done(const T& future)
  * @param name Name of the library to load.
  * @return The library handle.
  */
-void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE)
+inline void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE)
 {
   ::dlerror();  // Clear old errors
   void* ret = ::dlopen(name, mode);
