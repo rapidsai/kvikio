@@ -27,6 +27,7 @@ import cupy as cp
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
+from kvikio._lib.arr cimport Array
 from kvikio._lib.pynvcomp cimport (
     __CascadedCompressor,
     __CascadedDecompressor,
@@ -42,8 +43,6 @@ from kvikio._lib.pynvcomp cimport (
     nvcompStatus_t,
     nvcompType_t,
 )
-
-from kvikio._lib.arr import Array
 
 
 class pyNvcompType_t(Enum):
@@ -74,12 +73,10 @@ cdef class _CascadedCompressor:
         del self.c
 
     def configure(self, in_bytes, temp_bytes, out_bytes):
-        cdef uintptr_t temp_bytes_ptr = Array(temp_bytes).ptr
-        cdef uintptr_t out_bytes_ptr = Array(out_bytes).ptr
         self.c.configure(
             in_bytes,
-            <size_t*>temp_bytes_ptr,
-            <size_t*>out_bytes_ptr
+            <size_t*>Array(temp_bytes).ptr,
+            <size_t*>Array(out_bytes).ptr
         )
 
     def compress_async(
