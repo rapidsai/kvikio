@@ -1,7 +1,7 @@
 # Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-from . import _version, nvcomp  # noqa: F401
+from . import _version
 from ._lib import libkvikio  # type: ignore
 
 from .cufile import CuFile  # noqa: F401
