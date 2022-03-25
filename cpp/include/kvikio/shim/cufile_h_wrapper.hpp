@@ -15,6 +15,13 @@
  */
 #pragma once
 
+/**
+ * In order to support compilation when `cufile.h` isn't available, we
+ * wrap all use of cufile in a `#ifdef KVIKIO_CUFILE_EXIST` guard.
+ *
+ * The motivation here is to make KvikIO work in all circumstances so
+ * that libraries doesn't have to implement there own fallback solutions.
+ */
 #ifndef KVIKIO_DISABLE_CUFILE
 #if __has_include(<cufile.h>)
 #include <cufile.h>
@@ -23,12 +30,9 @@
 #endif
 
 #ifndef KVIKIO_CUFILE_EXIST
-
 using CUfileDriverControlFlags_t = enum CUfileDriverControlFlags {
   CU_FILE_USE_POLL_MODE     = 0, /*!< use POLL mode. properties.use_poll_mode*/
   CU_FILE_ALLOW_COMPAT_MODE = 1  /*!< allow COMPATIBILITY mode. properties.allow_compat_mode*/
 };
-
 using CUfileHandle_t = void*;
-
 #endif
