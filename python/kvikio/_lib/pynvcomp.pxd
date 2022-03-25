@@ -129,7 +129,6 @@ cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
 # Low-level LZ4 API
 cdef extern from "nvcomp/lz4.h":
 
-    # _nvcompError_t
     cdef nvcompError_t _nvcompBatchedLZ4CompressGetTempSize \
         "nvcompBatchedLZ4CompressGetTempSize" (
             size_t batch_size,

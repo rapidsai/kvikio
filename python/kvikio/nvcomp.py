@@ -8,9 +8,25 @@ import numpy as np
 
 import kvikio._lib.pynvcomp as _lib
 
+_dtype_map = {
+    cp.dtype("int8"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
+    cp.dtype("uint8"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR,
+    cp.dtype("int16"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_SHORT,
+    cp.dtype("uint16"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_USHORT,
+    cp.dtype("int32"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_INT,
+    cp.dtype("uint32"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_UINT,
+    cp.dtype("int64"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_LONGLONG,
+    cp.dtype("uint64"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_ULONGLONG,
+}
+
 
 def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
     """ Convert np/cp dtypes to nvcomp integral dtypes.
+
+    Parameters
+    ----------
+    in_tupe
+        A type argument that can be used to initialize a cupy/numpy dtype.
 
     Returns
     -------
@@ -18,16 +34,7 @@ def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
         The value of the NVCOMP_TYPE for supported dtype.
     """
     cp_type = cp.dtype(in_type)
-    return {
-        cp.dtype("int8"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
-        cp.dtype("uint8"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR,
-        cp.dtype("int16"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_SHORT,
-        cp.dtype("uint16"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_USHORT,
-        cp.dtype("int32"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_INT,
-        cp.dtype("uint32"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_UINT,
-        cp.dtype("int64"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_LONGLONG,
-        cp.dtype("uint64"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_ULONGLONG,
-    }[cp_type]
+    return _dtype_map[cp_type]
 
 
 class CascadedOptions:
@@ -38,9 +45,21 @@ class CascadedOptions:
     """
 
     def __init__(self, num_RLEs: int = 1, num_deltas: int = 1, use_bp: bool = True):
-        self.num_RLEs = num_RLEs
-        self.num_deltas = num_deltas
-        self.use_bp = use_bp
+        self._num_RLEs = num_RLEs
+        self._num_deltas = num_deltas
+        self._use_bp = use_bp
+
+    @property
+    def num_RLEs(self):
+        return self._num_RLEs
+
+    @property
+    def num_deltas(self):
+        return self._num_deltas
+
+    @property
+    def use_bp(self):
+        return self._use_bp
 
 
 class CascadedCompressor:
@@ -134,7 +153,7 @@ class CascadedCompressor:
 
 
 class LZ4Compressor:
-    def __init__(self, dtype: cp.dtype):
+    def __init__(self, dtype):
         """Create a GPU LZ4Compressor object.
 
         Used to compress and decompress GPU buffers of a specific dtype.
@@ -144,7 +163,7 @@ class LZ4Compressor:
         dtype: cp.dtype
             The input buffer dtype this LZ4Compressor will compress.
         """
-        self.dtype = dtype
+        self.dtype = cp.dtype(dtype)
         self.compressor = _lib._LZ4Compressor()
         self.decompressor = _lib._LZ4Decompressor()
         self.s = cp.cuda.Stream()
