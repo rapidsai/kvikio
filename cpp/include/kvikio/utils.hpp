@@ -16,6 +16,7 @@
 #pragma once
 
 #include <dlfcn.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
 #include <chrono>
 #include <cstring>
@@ -26,7 +27,6 @@
 
 #include <cuda.h>
 
-#include <cufile.h>
 #include <kvikio/error.hpp>
 
 namespace kvikio {
