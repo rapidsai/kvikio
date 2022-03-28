@@ -30,7 +30,6 @@
 namespace kvikio {
 namespace {
 
-inline constexpr std::size_t page_size  = 2 << 9;   // 4 KiB
 inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
 
 /**
