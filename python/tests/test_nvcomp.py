@@ -7,7 +7,7 @@ import pytest
 
 cudf = pytest.importorskip("cudf")
 kvikio = pytest.importorskip("kvikio")
-pynvcomp = pytest.importorskip("kvikio.nvcomp")
+libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
 
 @pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)
@@ -15,10 +15,10 @@ pynvcomp = pytest.importorskip("kvikio.nvcomp")
 def test_lz4_lib_vs_module(dtype, size):
     dtype = cupy.dtype(dtype)
     data = cupy.array(np.arange(0, (size / dtype.itemsize) - 1), dtype=dtype)
-    compressor = pynvcomp.LZ4Compressor(dtype)
+    compressor = libnvcomp.LZ4Compressor(dtype)
     compressor.compress(data)
-    lib_compressor = kvikio._lib.pynvcomp._LZ4Compressor(
-        pynvcomp.cp_to_nvcomp_dtype(dtype).value,
+    lib_compressor = kvikio._lib.libnvcomp._LZ4Compressor(
+        libnvcomp.cp_to_nvcomp_dtype(dtype).value,
     )
     compress_temp_size = np.zeros((1,), dtype=np.int64)
     compress_out_size = np.zeros((1,), dtype=np.int64)
@@ -34,10 +34,10 @@ def test_lz4_lib_vs_module(dtype, size):
 def test_cascade_lib_vs_module(dtype, size):
     dtype = cupy.dtype(dtype)
     data = cupy.array(np.arange(0, (size / dtype.itemsize) - 1), dtype=dtype)
-    compressor = pynvcomp.CascadedCompressor(dtype)
+    compressor = libnvcomp.CascadedCompressor(dtype)
     compressed = compressor.compress(data)
-    lib_compressor = kvikio._lib.pynvcomp._CascadedCompressor(
-        pynvcomp.cp_to_nvcomp_dtype(dtype).value, 1, 1, True
+    lib_compressor = kvikio._lib.libnvcomp._CascadedCompressor(
+        libnvcomp.cp_to_nvcomp_dtype(dtype).value, 1, 1, True
     )
     compress_temp_size = np.zeros((1,), dtype=np.int64)
     compress_out_size = np.zeros((1,), dtype=np.int64)
@@ -52,7 +52,7 @@ def test_cascade_lib_vs_module(dtype, size):
 def test_lz4_compress(dtype, size):
     dtype = cupy.dtype(dtype)
     data = cupy.array(np.arange(0, size / dtype.itemsize), dtype=dtype)
-    compressor = pynvcomp.LZ4Compressor(dtype)
+    compressor = libnvcomp.LZ4Compressor(dtype)
     compressed = compressor.compress(data)
     decompressed = compressor.decompress(compressed)
     cupy.testing.assert_array_equal(data, decompressed)
@@ -63,7 +63,7 @@ def test_lz4_compress(dtype, size):
 def test_cascaded_compress(dtype, size):
     dtype = cupy.dtype(dtype)
     data = cupy.array(np.arange(0, size / dtype.itemsize) - 1, dtype=dtype)
-    compressor = pynvcomp.CascadedCompressor(dtype)
+    compressor = libnvcomp.CascadedCompressor(dtype)
     compressed = compressor.compress(data)
     decompressed = compressor.decompress(compressed)
     cupy.testing.assert_array_equal(data, decompressed)

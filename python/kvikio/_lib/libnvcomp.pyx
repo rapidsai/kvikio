@@ -28,7 +28,7 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
 from kvikio._lib.arr cimport Array
-from kvikio._lib.pynvcomp cimport (
+from kvikio._lib.nvcomp_cxx_api cimport (
     __CascadedCompressor,
     __CascadedDecompressor,
     __LZ4Compressor,

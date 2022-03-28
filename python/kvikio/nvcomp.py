@@ -6,7 +6,7 @@ from enum import Enum
 import cupy as cp
 import numpy as np
 
-import kvikio._lib.pynvcomp as _lib
+import kvikio._lib.libnvcomp as _lib
 
 _dtype_map = {
     cp.dtype("int8"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
@@ -37,33 +37,14 @@ def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
     return _dtype_map[cp_type]
 
 
-class CascadedOptions:
-    """ Options to pass to the Cascaded Compressor.
-
-    This is needed if you want to specify a different number of RLEs or deltas for the
-    Cascaded Compressor.
-    """
-
-    def __init__(self, num_RLEs: int = 1, num_deltas: int = 1, use_bp: bool = True):
-        self._num_RLEs = num_RLEs
-        self._num_deltas = num_deltas
-        self._use_bp = use_bp
-
-    @property
-    def num_RLEs(self):
-        return self._num_RLEs
-
-    @property
-    def num_deltas(self):
-        return self._num_deltas
-
-    @property
-    def use_bp(self):
-        return self._use_bp
-
-
 class CascadedCompressor:
-    def __init__(self, dtype: cp.dtype, config: CascadedOptions = CascadedOptions()):
+    def __init__(
+        self,
+        dtype: cp.dtype,
+        num_RLEs: int = 1,
+        num_deltas: int = 1,
+        use_bp: bool = True,
+    ):
         """ Initialize a CascadedCompressor and Decompressor for a
         specific dtype.
 
@@ -71,17 +52,16 @@ class CascadedCompressor:
         ----------
         dtype: cp.dtype
             The dtype of the input buffer to be compressed.
-        config: CascadedOptions
-            A CascadedOptions object containing the RLE, deltas, and bp configuration
-            for a CascadedCompressor.
+        num_RLEs: int
+            Number of Run-Length Encoders to use, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#run-length-encoding-rle)  # noqa: E501
+        num_deltas: int
+            Number of Delta Encoders to use, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#delta-encoding)  # noqa: E501
+        use_bp: bool
+            Enable Bitpacking, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#bitpacking)  # noqa: E501
         """
         self.dtype = dtype
-        self.config = config
         self.compressor = _lib._CascadedCompressor(
-            cp_to_nvcomp_dtype(self.dtype).value,
-            config.num_RLEs,
-            config.num_deltas,
-            config.use_bp,
+            cp_to_nvcomp_dtype(self.dtype).value, num_RLEs, num_deltas, use_bp,
         )
         self.decompressor = _lib._CascadedDecompressor()
         self.s = cp.cuda.Stream()
