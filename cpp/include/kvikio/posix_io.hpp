@@ -37,7 +37,7 @@ inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
  * @brief Class to retain host memory allocations
  *
  * Call `AllocRetain::get` to get an allocation that will be retained when it
- * goes out of scope (RAII). The size of all allocation are `chunk_size`.
+ * goes out of scope (RAII). The size of all allocations are `chunk_size`.
  */
 class AllocRetain {
  private:
@@ -61,7 +61,7 @@ class AllocRetain {
   };
 
   AllocRetain() = default;
-  Alloc get()
+  [[nodiscard]] Alloc get()
   {
     const std::lock_guard lock(_mutex);
     // Check if we have an allocation available
