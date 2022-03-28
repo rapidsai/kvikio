@@ -73,16 +73,8 @@ class AllocRetain {
 
     // If no available allocation, allocate and register a new one
     void* alloc{};
-    // Allocate memory
-    int err = ::posix_memalign(&alloc, page_size, chunk_size);
-    if (err != 0) {
-      throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(err)};
-    }
-    // Register memory
-    CUDA_DRIVER_TRY(cuMemHostRegister(
-      alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE | CU_MEMHOSTREGISTER_DEVICEMAP));
-
+    // Allocate page-locked host memory
+    CUDA_DRIVER_TRY(cuMemHostAlloc(&alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE));
     return Alloc(this, alloc);
   }
 
@@ -96,9 +88,7 @@ class AllocRetain {
   {
     const std::lock_guard lock(_mutex);
     while (!_free_allocs.empty()) {
-      CUDA_DRIVER_TRY(cuMemHostUnregister(_free_allocs.top()));
-      /*NOLINTNEXTLINE(cppcoreguidelines-no-malloc)*/
-      free(_free_allocs.top());
+      CUDA_DRIVER_TRY(cuMemFreeHost(_free_allocs.top()));
       _free_allocs.pop();
     }
   }
