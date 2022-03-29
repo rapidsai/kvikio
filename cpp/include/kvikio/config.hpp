@@ -58,8 +58,8 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
   str.clear();
   trimmer >> str;
   // Match value
-  if (str == "true" || str == "on") { return true; }
-  if (str == "false" || str == "off") { return false; }
+  if (str == "true" || str == "on" || str == "yes") { return true; }
+  if (str == "false" || str == "off" || str == "no") { return false; }
   throw std::invalid_argument("Unknown config value: " + std::string{env_val});
 }
 
