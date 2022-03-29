@@ -45,7 +45,7 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
   const auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   try {
-    // Try parsing `str` as a integer
+    // Try parsing `env_var_name` as a integer
     return static_cast<bool>(std::stoi(env_val));
   } catch (std::invalid_argument) {
   }
