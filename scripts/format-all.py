@@ -73,9 +73,10 @@ def main(args):
 
     # Python
     python_root = f"{root()}/python"
-    ret += cmd(["isort", "python", "scripts"] + check)
-    ret += cmd(["black", "python"] + check)
+    ret += cmd(["isort", "scripts"] + check)
+    ret += cmd(["isort", "."] + check, cwd=python_root)
     ret += cmd(["black", "scripts"] + check)
+    ret += cmd(["black", "."] + check, cwd=python_root)
     ret += cmd(["flake8", "--config=.flake8"], cwd=python_root)
     ret += cmd(["flake8", "--config=.flake8.cython"], cwd=python_root)
     ret += cmd(

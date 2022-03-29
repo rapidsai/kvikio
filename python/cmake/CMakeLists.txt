@@ -12,4 +12,5 @@
 # the License.
 # =============================================================================
 
+include(thirdparty/get_nvcomp.cmake)
 include(kvikio_python_helpers.cmake)

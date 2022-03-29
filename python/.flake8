@@ -5,6 +5,7 @@ exclude =
     *.egg,
     build,
     versioneer.py,
+    _skbuild,
 
 max-line-length = 88
 
