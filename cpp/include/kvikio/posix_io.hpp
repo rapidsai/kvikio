@@ -30,14 +30,13 @@
 namespace kvikio {
 namespace {
 
-inline constexpr std::size_t page_size  = 2 << 9;   // 4 KiB
 inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
 
 /**
  * @brief Class to retain host memory allocations
  *
  * Call `AllocRetain::get` to get an allocation that will be retained when it
- * goes out of scope (RAII). The size of all allocation are `chunk_size`.
+ * goes out of scope (RAII). The size of all allocations are `chunk_size`.
  */
 class AllocRetain {
  private:
@@ -61,7 +60,7 @@ class AllocRetain {
   };
 
   AllocRetain() = default;
-  Alloc get()
+  [[nodiscard]] Alloc get()
   {
     const std::lock_guard lock(_mutex);
     // Check if we have an allocation available
@@ -73,16 +72,8 @@ class AllocRetain {
 
     // If no available allocation, allocate and register a new one
     void* alloc{};
-    // Allocate memory
-    int err = ::posix_memalign(&alloc, page_size, chunk_size);
-    if (err != 0) {
-      throw CUfileException{std::string{"POSIX error at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(err)};
-    }
-    // Register memory
-    CUDA_DRIVER_TRY(cuMemHostRegister(
-      alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE | CU_MEMHOSTREGISTER_DEVICEMAP));
-
+    // Allocate page-locked host memory
+    CUDA_DRIVER_TRY(cuMemHostAlloc(&alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE));
     return Alloc(this, alloc);
   }
 
@@ -96,9 +87,7 @@ class AllocRetain {
   {
     const std::lock_guard lock(_mutex);
     while (!_free_allocs.empty()) {
-      CUDA_DRIVER_TRY(cuMemHostUnregister(_free_allocs.top()));
-      /*NOLINTNEXTLINE(cppcoreguidelines-no-malloc)*/
-      free(_free_allocs.top());
+      CUDA_DRIVER_TRY(cuMemFreeHost(_free_allocs.top()));
       _free_allocs.pop();
     }
   }

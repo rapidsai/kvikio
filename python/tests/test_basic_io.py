@@ -55,7 +55,7 @@ def test_read_write(tmp_path, size, nthreads):
     b = cupy.empty_like(a)
     f = kvikio.CuFile(filename, "r")
     assert check_bit_flags(f.open_flags(), os.O_RDONLY)
-    f.read(b)
+    assert f.read(b) == b.nbytes
     assert all(a == b)
 
 
@@ -86,7 +86,7 @@ def test_write_in_offsets(tmp_path):
     # Read file into a new array and compare
     b = cupy.empty_like(a)
     f = kvikio.CuFile(filename, "r")
-    f.read(b)
+    assert f.read(b) == b.nbytes
     assert all(a == b)
 
 
@@ -99,7 +99,7 @@ def test_contextmanager(tmp_path):
         assert not f.closed
         assert check_bit_flags(f.open_flags(), os.O_RDWR)
         assert f.write(a) == a.nbytes
-        f.read(b)
+        assert f.read(b) == b.nbytes
         assert all(a == b)
     assert f.closed
 

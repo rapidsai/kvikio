@@ -24,7 +24,8 @@ project(
             # various linking options for the python library is hardcoded to build with C, so until
             # that is fixed we need to keep C.
             C
-            CXX)
+            CXX
+            CUDA)
 
 option(FIND_KVIKIO_CPP "Search for existing KVIKIO C++ installations before defaulting to local files"
        OFF)
@@ -44,6 +45,8 @@ if(FIND_KVIKIO_CPP)
 else()
     set(KVIKIO_FOUND OFF)
 endif()
+
+find_package(CUDAToolkit REQUIRED)
 
 if(NOT KVIKIO_FOUND)
   add_subdirectory(../cpp kvikio-cpp)
