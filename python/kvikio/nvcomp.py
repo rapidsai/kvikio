@@ -25,7 +25,7 @@ def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
 
     Parameters
     ----------
-    in_tupe
+    in_type
         A type argument that can be used to initialize a cupy/numpy dtype.
 
     Returns
@@ -45,8 +45,7 @@ class CascadedCompressor:
         num_deltas: int = 1,
         use_bp: bool = True,
     ):
-        """ Initialize a CascadedCompressor and Decompressor for a
-        specific dtype.
+        """Initialize a CascadedCompressor and Decompressor for a specific dtype.
 
         Parameters
         ----------
