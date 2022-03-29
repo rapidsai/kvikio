@@ -18,38 +18,60 @@
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
 #include <kvikio/shim/cufile.hpp>
 
-namespace kvikio::config {  // TODO: should this be a singletone class instead?
+namespace kvikio::config {
 namespace {
 
-inline bool str_to_boolean(std::string str)
+template <typename T>
+T getenv_or(std::string_view env_var_name, T default_val)
 {
+  const auto* env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return default_val; }
+
+  std::stringstream sstream(env_val);
+  T converted_val;
+  sstream >> converted_val;
+  return converted_val;
+}
+
+template <>
+bool getenv_or(std::string_view env_var_name, bool default_val)
+{
+  const auto* env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return default_val; }
   try {
     // Try parsing `str` as a integer
-    return static_cast<bool>(std::stoi(str));
-  } catch (...) {
+    return static_cast<bool>(std::stoi(env_val));
+  } catch (std::invalid_argument) {
   }
   // Convert to lowercase
+  std::string str{env_val};
   std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-  // Try parsing `str` using std::boolalpha, which support "true" and "false"
-  bool ret = false;
-  std::istringstream(str) >> std::boolalpha >> ret;
-  return ret;
+  // Trim whitespaces
+  std::stringstream trimmer;
+  trimmer << str;
+  str.clear();
+  trimmer >> str;
+  // Match value
+  if (str == "true" || str == "on") { return true; }
+  if (str == "false" || str == "off") { return false; }
+  throw std::invalid_argument("Unknown config value: " + std::string{env_val});
 }
 
-inline int _get_compat_mode_from_env()
+inline bool _get_global_compat_mode()
 {
-  const char* str = std::getenv("KVIKIO_COMPAT_MODE");
-  if (str == nullptr) { return -1; }
-  return static_cast<int>(str_to_boolean(str));
+  if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
+    // Setting `KVIKIO_COMPAT_MODE` take precedence
+    return getenv_or("KVIKIO_COMPAT_MODE", false);
+  }
+  // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
+  return !is_cufile_library_available() || is_running_in_wsl() || !run_udev_readable();
 }
-
-/*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
-inline std::pair<bool, bool> _current_global_compat_mode{std::make_pair(false, false)};
 
 }  // namespace
 
@@ -73,14 +95,8 @@ inline std::pair<bool, bool> _current_global_compat_mode{std::make_pair(false, f
  */
 inline bool get_global_compat_mode()
 {
-  auto [initalized, value] = _current_global_compat_mode;
-  if (initalized) { return value; }
-  int env = _get_compat_mode_from_env();
-  if (env != -1) {
-    // Setting `KVIKIO_COMPAT_MODE` take precedence
-    return static_cast<bool>(env);
-  }
-  return !is_cufile_library_available() || is_running_in_wsl() || !run_udev_readable();
+  static bool ret = _get_global_compat_mode();
+  return ret;
 }
 
 }  // namespace kvikio::config
