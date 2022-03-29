@@ -4,9 +4,14 @@
 
 
 import argparse
+import functools
+import glob
 import os.path
+import pathlib
 import subprocess
 import sys
+import tempfile
+import urllib.request
 from typing import Iterable
 
 
@@ -14,30 +19,66 @@ def root():
     return os.path.realpath(f"{os.path.dirname(os.path.realpath(__file__))}/..")
 
 
-def run_cmd(cmd: Iterable[str], cwd=root(), verbose=True):
+def run_cmd(cmd: Iterable[str], cwd=root(), check=False):
     res: subprocess.CompletedProcess = subprocess.run(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd
     )
-    if verbose:
-        print(f"{cwd}$ " + " ".join(res.args))
-        print(res.stdout.decode(), end="")
+    print(f"{cwd}$ " + " ".join(res.args), end=" ")
+    if check:
+        if res.returncode:
+            print("FAILED")
+            print(res.stdout.decode(), end="")
+        else:
+            print("PASSED")
+    else:
+        print("\n" + res.stdout.decode(), end="")
     return res.returncode
 
 
+def cmake_format_cmd(version="22.04"):
+    # Find files
+    files = []
+    for root in ["cpp", "python"]:
+        for p in [
+            "CMakeLists.txt",
+            "cmake/*.cmake",
+            "cmake/Modules/*.cmake",
+            "cmake/thirdparty/*.cmake",
+        ]:
+            files.extend(glob.glob(f"{root}/{p}"))
+
+    # Find config
+    config_file = pathlib.Path(tempfile.gettempdir()) / f"cmake-format-{version}.json"
+    if not config_file.is_file():
+        # Download from rapids-cmake
+        urllib.request.urlretrieve(
+            "https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-"
+            f"{version}/cmake-format-rapids-cmake.json",
+            str(config_file),
+        )
+    return ["cmake-format", "--config-files", str(config_file)] + files
+
+
 def main(args):
+    check = ["--check"] if args.check else []
+    ret = 0
+    # Set the `check` argument for all runs
+    cmd = functools.partial(run_cmd, check=check)
+
     # C++
-    check = [] if args.check else ["-inplace"]
-    run_cmd(["python", "scripts/run-clang-format.py", "cpp"] + check)
+    inplace = [] if args.check else ["-inplace"]
+    ret += cmd(["python", "scripts/run-clang-format.py", "cpp"] + inplace)
+    inplace = check if args.check else ["--in-place"]
+    ret += cmd(cmake_format_cmd() + inplace)
 
     # Python
     python_root = f"{root()}/python"
-    check = ["--check"] if args.check else []
-    ret = 0
-    ret += run_cmd(["isort", "."] + check, cwd=python_root)
-    ret += run_cmd(["black", "."] + check, cwd=python_root)
-    ret += run_cmd(["flake8", "--config=.flake8"], cwd=python_root)
-    ret += run_cmd(["flake8", "--config=.flake8.cython"], cwd=python_root)
-    ret += run_cmd(
+    ret += cmd(["isort", "python", "scripts"] + check)
+    ret += cmd(["black", "python"] + check)
+    ret += cmd(["black", "scripts"] + check)
+    ret += cmd(["flake8", "--config=.flake8"], cwd=python_root)
+    ret += cmd(["flake8", "--config=.flake8.cython"], cwd=python_root)
+    ret += cmd(
         [
             "mypy",
             "--ignore-missing-imports",
@@ -69,4 +110,5 @@ if __name__ == "__main__":
         ),
     )
     retcode = main(parser.parse_args())
+    print(f"format-all.py: " + ("FAILED" if retcode else "ALL-PASSED"))
     sys.exit(retcode)
