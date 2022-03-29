@@ -201,7 +201,7 @@ class CuFile:
     ) -> int:
         """Reads specified bytes from the file into the device memory
 
-        This is a low-level version of `.read` that calls cuFile directly
+        This is a low-level version of `.read` that doesn't use threads.
 
         Parameters
         ----------
@@ -224,9 +224,9 @@ class CuFile:
     def raw_write(
         self, buf, size: int = None, file_offset: int = 0, dev_offset: int = 0
     ) -> int:
-        """Writes specified bytes from the device memory into the file in parallel
+        """Writes specified bytes from the device memory into the file
 
-        This is a low-level version of `.write` that calls cuFile directly
+        This is a low-level version of `.write` that doesn't use threads.
 
         Parameters
         ----------
