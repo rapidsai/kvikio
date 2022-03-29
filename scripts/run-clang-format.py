@@ -78,7 +78,9 @@ def parse_args():
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)
     if version != EXPECTED_VERSION:
-        print("Warning - clang-format expect v%s found '%s'" % (EXPECTED_VERSION, version))
+        print(
+            "Warning - clang-format expect v%s found '%s'" % (EXPECTED_VERSION, version)
+        )
 
     if len(args.dirs) == 0:
         args.dirs = DEFAULT_DIRS
