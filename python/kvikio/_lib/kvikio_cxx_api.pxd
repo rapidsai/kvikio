@@ -84,3 +84,15 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t file_offset,
             size_t ntasks
         ) except +
+        size_t read(
+            void* devPtr_base,
+            size_t size,
+            size_t file_offset,
+            size_t devPtr_offset
+        ) except +
+        size_t write(
+            void* devPtr_base,
+            size_t size,
+            size_t file_offset,
+            size_t devPtr_offset
+        ) except +

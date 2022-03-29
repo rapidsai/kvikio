@@ -128,6 +128,24 @@ cdef class CuFile:
             )
         )
 
+    def read(self, buf, size: int, file_offset: int, dev_offset: int) -> int:
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
+        return self._handle.read(
+            <void*>info.first,
+            info.second,
+            file_offset,
+            dev_offset,
+        )
+
+    def write(self, buf, size: int, file_offset: int, dev_offset: int) -> int:
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
+        return self._handle.write(
+            <void*>info.first,
+            info.second,
+            file_offset,
+            dev_offset,
+        )
+
 
 cdef class DriverProperties:
     cdef kvikio_cxx_api.DriverProperties _handle

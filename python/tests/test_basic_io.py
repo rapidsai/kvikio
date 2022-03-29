@@ -121,3 +121,15 @@ def test_multiple_gpus(tmp_path):
     with kvikio.CuFile(filename, "r") as f:
         assert f.read(a1) == a1.nbytes
     assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
+
+
+@pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
+def test_raw_read_write(tmp_path, size):
+    """Test raw read/write"""
+    filename = tmp_path / "test-file"
+
+    a = cupy.arange(size)
+    with kvikio.CuFile(filename, "w") as f:
+        assert f.raw_write(a) == a.nbytes
+    with kvikio.CuFile(filename, "r") as f:
+        assert f.raw_read(a) == a.nbytes
