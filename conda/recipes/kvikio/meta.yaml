@@ -21,6 +21,9 @@ build:
     - CC
     - CXX
     - CUDAHOSTCXX
+  script:
+    - cd python
+    - python -m pip install . -vv
 
 requirements:
   build:
@@ -29,6 +32,7 @@ requirements:
   host:
     - python
     - setuptools
+    - pip
     - cython >=0.29,<0.30
     - cudatoolkit {{ cuda_version }}.*
     - scikit-build >=0.13.1

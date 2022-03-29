@@ -44,7 +44,7 @@ function(add_cython_modules cython_modules)
     # Link to the C++ library.
     target_link_libraries(${cython_module} kvikio)
     # Treat warnings as errors when compiling.
-	target_compile_options(${cython_module} PRIVATE -Werror)
+	  target_compile_options(${cython_module} PRIVATE -Werror)
 
     # Compute the install directory relative to the source and rely on installs being relative to
     # the CMAKE_PREFIX_PATH for e.g. editable installs.

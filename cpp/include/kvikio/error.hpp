@@ -20,7 +20,7 @@
 
 #include <cuda.h>
 
-#include <cufile.h>
+#include <kvikio/shim/cufile_h_wrapper.hpp>
 
 namespace kvikio {
 
@@ -31,6 +31,7 @@ struct CUfileException : public std::runtime_error {
 #define KVIKIO_STRINGIFY_DETAIL(x) #x
 #define KVIKIO_STRINGIFY(x)        KVIKIO_STRINGIFY_DETAIL(x)
 
+#ifdef KVIKIO_CUFILE_EXIST
 #ifndef CUFILE_TRY
 #define CUFILE_TRY(...)                                         \
   GET_CUFILE_TRY_MACRO(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
@@ -62,6 +63,7 @@ struct CUfileException : public std::runtime_error {
     }                                                                                             \
   } while (0)
 #define CUFILE_TRY_1(_call) CUFILE_TRY_2(_call, CUfileException)
+#endif
 #endif
 
 #ifndef CUDA_DRIVER_TRY

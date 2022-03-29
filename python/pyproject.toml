@@ -2,7 +2,6 @@
 # See file LICENSE for terms.
 
 [build-system]
-
 requires = [
     "wheel",
     "setuptools",
