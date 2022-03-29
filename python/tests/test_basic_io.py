@@ -133,7 +133,3 @@ def test_raw_read_write(tmp_path, size):
         assert f.raw_write(a) == a.nbytes
     with kvikio.CuFile(filename, "r") as f:
         assert f.raw_read(a) == a.nbytes
-
-    # Close file
-    f.close()
-    assert f.closed
