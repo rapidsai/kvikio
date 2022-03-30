@@ -31,31 +31,30 @@ def test_read_write(tmp_path, size, nthreads):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
-    # Set number of threads KvikIO should use
-    kvikio.defaults.reset_num_threads(nthreads)
-    assert kvikio.defaults.get_num_threads() == nthreads
+    with kvikio.defaults.set_num_threads(nthreads):
+        assert kvikio.defaults.get_num_threads() == nthreads
 
-    # Write file
-    a = cupy.arange(size)
-    f = kvikio.CuFile(filename, "w")
-    assert not f.closed
-    assert check_bit_flags(f.open_flags(), os.O_WRONLY)
-    assert f.write(a) == a.nbytes
+        # Write file
+        a = cupy.arange(size)
+        f = kvikio.CuFile(filename, "w")
+        assert not f.closed
+        assert check_bit_flags(f.open_flags(), os.O_WRONLY)
+        assert f.write(a) == a.nbytes
 
-    # Try to read file opened in write-only mode
-    with pytest.raises(RuntimeError, match="unsupported file open flags"):
-        f.read(a)
+        # Try to read file opened in write-only mode
+        with pytest.raises(RuntimeError, match="unsupported file open flags"):
+            f.read(a)
 
-    # Close file
-    f.close()
-    assert f.closed
+        # Close file
+        f.close()
+        assert f.closed
 
-    # Read file into a new array and compare
-    b = cupy.empty_like(a)
-    f = kvikio.CuFile(filename, "r")
-    assert check_bit_flags(f.open_flags(), os.O_RDONLY)
-    assert f.read(b) == b.nbytes
-    assert all(a == b)
+        # Read file into a new array and compare
+        b = cupy.empty_like(a)
+        f = kvikio.CuFile(filename, "r")
+        assert check_bit_flags(f.open_flags(), os.O_RDONLY)
+        assert f.read(b) == b.nbytes
+        assert all(a == b)
 
 
 def test_write_in_offsets(tmp_path):
@@ -108,18 +107,18 @@ def test_contextmanager(tmp_path):
 )
 def test_multiple_gpus(tmp_path):
     """Test IO from two different GPUs"""
-    kvikio.defaults.reset_num_threads(1)
-    with cupy.cuda.Device(0):
-        a0 = cupy.arange(200)
-    with cupy.cuda.Device(1):
-        a1 = cupy.zeros(200, dtype=a0.dtype)
+    with kvikio.defaults.set_num_threads(10):
+        with cupy.cuda.Device(0):
+            a0 = cupy.arange(200)
+        with cupy.cuda.Device(1):
+            a1 = cupy.zeros(200, dtype=a0.dtype)
 
-    filename = tmp_path / "test-file"
-    with kvikio.CuFile(filename, "w") as f:
-        assert f.write(a0) == a0.nbytes
-    with kvikio.CuFile(filename, "r") as f:
-        assert f.read(a1) == a1.nbytes
-    assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
+        filename = tmp_path / "test-file"
+        with kvikio.CuFile(filename, "w") as f:
+            assert f.write(a0) == a0.nbytes
+        with kvikio.CuFile(filename, "r") as f:
+            assert f.read(a1) == a1.nbytes
+        assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
 
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])

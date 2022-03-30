@@ -2,10 +2,12 @@
 # See file LICENSE for terms.
 
 
+import contextlib
+
 from ._lib import libkvikio  # type: ignore
 
 
-def compat_mode() -> int:
+def compat_mode() -> bool:
     """ Check if KvikIO is running in compatibility mode.
 
     Notice, this is not the same as the compatibility mode in cuFile. That is,
@@ -42,6 +44,24 @@ def compat_mode_reset(enable: bool) -> None:
     libkvikio.compat_mode_reset(enable)
 
 
+@contextlib.contextmanager
+def set_compat_mode(enable: bool):
+    """ Context for resetting the compatibility mode.
+
+    Parameters
+    ----------
+    enable : bool
+        Set to True to enable and False to disable compatibility mode
+    """
+    reset_num_threads(get_num_threads())  # Sync all running threads
+    old_value = compat_mode()
+    try:
+        compat_mode_reset(enable)
+        yield
+    finally:
+        compat_mode_reset(old_value)
+
+
 def get_num_threads() -> int:
     """ Get the number of threads of the thread pool.
 
@@ -56,7 +76,7 @@ def get_num_threads() -> int:
     return libkvikio.thread_pool_nthreads()
 
 
-def reset_num_threads(nthread: int) -> None:
+def reset_num_threads(nthreads: int) -> None:
     """ Reset the number of threads in the default thread pool.
 
     Waits for all currently running tasks to be completed, then destroys all threads
@@ -67,7 +87,24 @@ def reset_num_threads(nthread: int) -> None:
 
     Parameters
     ----------
-    nthread : int
+    nthreads : int
         The number of threads to use.
     """
-    libkvikio.thread_pool_nthreads_reset(nthread)
+    libkvikio.thread_pool_nthreads_reset(nthreads)
+
+
+@contextlib.contextmanager
+def set_num_threads(nthreads: int):
+    """ Context for resetting the number of threads in the default thread pool.
+
+    Parameters
+    ----------
+    nthreads : int
+        The number of threads to use.
+    """
+    old_value = get_num_threads()
+    try:
+        reset_num_threads(nthreads)
+        yield
+    finally:
+        reset_num_threads(old_value)

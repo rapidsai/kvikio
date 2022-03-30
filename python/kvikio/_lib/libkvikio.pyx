@@ -63,8 +63,8 @@ def thread_pool_nthreads() -> int:
     return kvikio_cxx_api.thread_pool_nthreads()
 
 
-def thread_pool_nthreads_reset(nthread: int) -> None:
-    kvikio_cxx_api.thread_pool_nthreads_reset(nthread)
+def thread_pool_nthreads_reset(nthreads: int) -> None:
+    kvikio_cxx_api.thread_pool_nthreads_reset(nthreads)
 
 
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
