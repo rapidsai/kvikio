@@ -16,6 +16,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <sstream>
 #include <stdexcept>
@@ -78,8 +79,9 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
  */
 class defaults {
  private:
-  kvikio::third_party::thread_pool _thread_pool;
+  kvikio::third_party::thread_pool _thread_pool{get_num_threads_from_env()};
   bool _combat_mode;
+  std::size_t _task_size;
 
   static unsigned int get_num_threads_from_env()
   {
@@ -88,9 +90,9 @@ class defaults {
     return ret;
   }
 
-  defaults() : _thread_pool{get_num_threads_from_env()}
+  defaults()
   {
-    // Determine default value of `compat_mode`
+    // Determine the default value of `compat_mode`
     {
       if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
         // Setting `KVIKIO_COMPAT_MODE` take precedence
@@ -99,6 +101,14 @@ class defaults {
         // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
         _combat_mode = !is_cufile_available();
       }
+    }
+    // Determine the default value of `task_size`
+    {
+      const ssize_t env = getenv_or("KVIKIO_TASK_SIZE", 16 * 1024 * 1024);
+      if (env <= 0) {
+        throw std::invalid_argument("KVIKIO_TASK_SIZE has to be a positive integer");
+      }
+      _task_size = env;
     }
   }
 
@@ -132,7 +142,7 @@ class defaults {
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`
    */
-  static void compat_mode_reset(bool enable) noexcept { instance()->_combat_mode = enable; }
+  static void compat_mode_reset(bool enable) { instance()->_combat_mode = enable; }
 
   /**
    * @brief Get the default thread pool.
@@ -156,7 +166,7 @@ class defaults {
    *
    * @return The number of threads.
    */
-  [[nodiscard]] static unsigned int thread_pool_nthreads() noexcept
+  [[nodiscard]] static unsigned int thread_pool_nthreads()
   {
     return thread_pool().get_thread_count();
   }
@@ -170,10 +180,24 @@ class defaults {
    *
    * @param nthreads The number of threads to use.
    */
-  static void thread_pool_nthreads_reset(unsigned int nthreads)
-  {
-    return thread_pool().reset(nthreads);
-  }
+  static void thread_pool_nthreads_reset(unsigned int nthreads) { thread_pool().reset(nthreads); }
+
+  /**
+   * @brief Get the default task size used for parallel IO operations.
+   *
+   * Set the default value using `kvikio::default::task_size_reset()` or by setting
+   * the `KVIKIO_TASK_SIZE` environment variable. If not set, the default value is 16 MiB.
+   *
+   * @return The default task size in bytes.
+   */
+  [[nodiscard]] static std::size_t task_size() { return instance()->_task_size; }
+
+  /**
+   * @brief Reset the default task size used for parallel IO operations.
+   *
+   * @param nbytes The default task size in bytes.
+   */
+  static void task_size_reset(std::size_t nbytes) { instance()->_task_size = nbytes; }
 };
 
 }  // namespace kvikio

@@ -28,19 +28,19 @@
 namespace kvikio {
 
 /**
- * @brief Apply read or write operation in parallel by submitting `ntasks` tasks.
+ * @brief Apply read or write operation in parallel.
  *
  * @tparam T The type of the function applying the read or write operation.
  * @param op The function applying the read or write operation.
  * @param devPtr Device pointer to read or write to.
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
- * @param ntasks Number of tasks to submit.
+ * @param task_size Size of each task in bytes.
  * @return A future to be used later to check if the operation has finished its execution.
  */
 template <typename T>
 std::future<std::size_t> parallel_io(
-  T op, const void* devPtr, std::size_t size, std::size_t file_offset, std::size_t ntasks)
+  T op, const void* devPtr, std::size_t size, std::size_t file_offset, std::size_t task_size)
 {
   CUcontext ctx                                = get_context_from_device_pointer(devPtr);
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr, &ctx);
@@ -53,15 +53,22 @@ std::future<std::size_t> parallel_io(
     return op(devPtr_base, size, file_offset, devPtr_offset);
   };
 
-  const std::size_t tasksize = size / ntasks;
-  std::size_t last_jobsize   = tasksize + size % ntasks;
   std::vector<std::future<std::size_t>> tasks;
-  tasks.reserve(ntasks);
-  for (std::size_t i = 0; i < ntasks; ++i) {
-    const std::size_t cur_size = (i == ntasks - 1) ? last_jobsize : tasksize;
-    const std::size_t offset   = i * tasksize;
-    tasks.push_back(defaults::thread_pool().submit(
-      task, devPtr_base, cur_size, file_offset + offset, devPtr_offset + offset));
+  if (task_size >= size) {  // Only a single task
+    tasks.push_back(
+      defaults::thread_pool().submit(task, devPtr_base, size, file_offset, devPtr_offset));
+  } else {
+    // TODO: handle unaligned offset and size more efficiently. For now, we
+    //       let the last task get the remainder
+    const std::size_t ntasks         = size / task_size;
+    const std::size_t last_task_size = task_size + size % task_size;
+    tasks.reserve(ntasks);
+    for (std::size_t i = 0; i < ntasks; ++i) {
+      const std::size_t cur_size = (i == ntasks - 1) ? last_task_size : task_size;
+      const std::size_t offset   = i * task_size;
+      tasks.push_back(defaults::thread_pool().submit(
+        task, devPtr_base, cur_size, file_offset + offset, devPtr_offset + offset));
+    }
   }
 
   // Finally, we sum the result of all tasks.

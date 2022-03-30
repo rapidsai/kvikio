@@ -66,7 +66,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     # Write
     files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
     t0 = clock()
-    futures = [f.pwrite(a, ntasks=1) for f, a in zip(files, arrays)]
+    futures = [f.pwrite(a, task_size=a.nbytes) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
     del files
     write_time = clock() - t0
@@ -75,7 +75,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     # Read
     files = [kvikio.CuFile(file_path % i, flags="r") for i in range(args.nthreads)]
     t0 = clock()
-    futures = [f.pread(a, ntasks=1) for f, a in zip(files, arrays)]
+    futures = [f.pread(a, task_size=a.nbytes) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
     del files
     read_time = clock() - t0
@@ -143,7 +143,8 @@ def run_cufile_multiple_arrays(args):
     f = kvikio.CuFile(file_path, flags="w")
     t0 = clock()
     futures = [
-        f.pwrite(a, ntasks=1, file_offset=i * chunksize) for i, a in enumerate(arrays)
+        f.pwrite(a, task_size=a.nbytes, file_offset=i * chunksize)
+        for i, a in enumerate(arrays)
     ]
     res = sum(f.get() for f in futures)
     f.close()
@@ -153,7 +154,7 @@ def run_cufile_multiple_arrays(args):
     # Read
     f = kvikio.CuFile(file_path, flags="r")
     t0 = clock()
-    futures = [f.pread(a, ntasks=1) for a in arrays]
+    futures = [f.pread(a, task_size=a.nbytes) for a in arrays]
     res = sum(f.get() for f in futures)
     f.close()
     read_time = clock() - t0

@@ -324,8 +324,8 @@ class FileHandle {
   /**
    * @brief Reads specified bytes from the file into the device memory in parallel.
    *
-   * This API is a parallel async version of `.read()` that create `ntasks` tasks
-   * for the thread pool to execute.
+   * This API is a parallel async version of `.read()` that partition the operation
+   * into tasks of size `task_size` for execution in the default thread pool.
    *
    * @note `pread` use the base address of the allocation `devPtr` is part of. This means
    * that when registering buffers, use the base address of the allocation. This is what
@@ -334,13 +334,13 @@ class FileHandle {
    * @param devPtr Address to device memory.
    * @param size Size in bytes to read.
    * @param file_offset Offset in the file to read from.
-   * @param ntasks Number of tasks to use.
+   * @param task_size Size of each task in bytes.
    * @return Future that on completion returns the size of bytes that were successfully read.
    */
   std::future<std::size_t> pread(void* devPtr,
                                  std::size_t size,
                                  std::size_t file_offset = 0,
-                                 std::size_t ntasks      = defaults::thread_pool_nthreads())
+                                 std::size_t task_size   = defaults::task_size())
   {
     // Lambda that calls this->read()
     auto op = [this](void* devPtr_base,
@@ -349,14 +349,14 @@ class FileHandle {
                      std::size_t devPtr_offset) -> std::size_t {
       return read(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return parallel_io(op, devPtr, size, file_offset, ntasks);
+    return parallel_io(op, devPtr, size, file_offset, task_size);
   }
 
   /**
    * @brief Writes specified bytes from the device memory into the file in parallel.
    *
-   * This API is a parallel async version of `.write()` that create `ntasks` tasks
-   * for the thread pool to execute.
+   * This API is a parallel async version of `.write()` that partition the operation
+   * into tasks of size `task_size` for execution in the default thread pool.
    *
    * @note `pwrite` use the base address of the allocation `devPtr` is part of. This means
    * that when registering buffers, use the base address of the allocation. This is what
@@ -365,13 +365,13 @@ class FileHandle {
    * @param devPtr Address to device memory.
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
-   * @param ntasks Number of tasks to use.
+   * @param task_size Size of each task in bytes.
    * @return Future that on completion returns the size of bytes that were successfully written.
    */
   std::future<std::size_t> pwrite(const void* devPtr,
                                   std::size_t size,
                                   std::size_t file_offset = 0,
-                                  std::size_t ntasks      = defaults::thread_pool_nthreads())
+                                  std::size_t task_size   = defaults::task_size())
   {
     // Lambda that calls this->write()
     auto op = [this](const void* devPtr_base,
@@ -380,7 +380,7 @@ class FileHandle {
                      std::size_t devPtr_offset) -> std::size_t {
       return write(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return parallel_io(op, devPtr, size, file_offset, ntasks);
+    return parallel_io(op, devPtr, size, file_offset, task_size);
   }
 };
 

@@ -47,10 +47,11 @@ cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
 
 cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio::defaults" nogil:
     bool compat_mode() except +
-    void compat_mode_reset(bool enable)
-    unsigned int thread_pool_nthreads()
+    void compat_mode_reset(bool enable) except +
+    unsigned int thread_pool_nthreads() except +
     void thread_pool_nthreads_reset(unsigned int nthreads) except +
-
+    size_t task_size() except +
+    void task_size_reset(size_t nbytes) except +
 
 cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
     cdef cppclass FileHandle:
@@ -73,13 +74,13 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             void* devPtr,
             size_t size,
             size_t file_offset,
-            size_t ntasks
+            size_t task_size
         ) except +
         future[size_t] pwrite(
             void* devPtr,
             size_t size,
             size_t file_offset,
-            size_t ntasks
+            size_t task_size
         ) except +
         size_t read(
             void* devPtr_base,

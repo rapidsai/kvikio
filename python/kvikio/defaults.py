@@ -108,3 +108,46 @@ def set_num_threads(nthreads: int):
         yield
     finally:
         reset_num_threads(old_value)
+
+
+def task_size() -> int:
+    """ Get the default task size used for parallel IO operations.
+
+    Set the default value using `task_size_reset()` or by setting
+    the `KVIKIO_TASK_SIZE` environment variable. If not set,
+    the default value is 16 MiB.
+
+    Return
+    ------
+    nthreads: int
+        The number of threads in the current thread pool.
+    """
+    return libkvikio.task_size()
+
+
+def reset_task_size(nbytes: int) -> None:
+    """ Reset the default task size used for parallel IO operations.
+
+    Parameters
+    ----------
+    nbytes : int
+        The number of threads to use.
+    """
+    libkvikio.task_size_reset(nbytes)
+
+
+@contextlib.contextmanager
+def set_task_size(nbytes: int):
+    """ Context for resetting the task size used for parallel IO operations.
+
+    Parameters
+    ----------
+    nbytes : int
+        The number of threads to use.
+    """
+    old_value = task_size()
+    try:
+        reset_task_size(nbytes)
+        yield
+    finally:
+        reset_task_size(old_value)
