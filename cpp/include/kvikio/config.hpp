@@ -70,7 +70,7 @@ inline bool _get_global_compat_mode()
     return getenv_or("KVIKIO_COMPAT_MODE", false);
   }
   // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
-  return !is_cufile_library_available() || is_running_in_wsl() || !run_udev_readable();
+  return !is_cufile_available();
 }
 
 }  // namespace
