@@ -107,7 +107,7 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
-        ntasks: int, default=kvikio.thread_pool.get_num_threads()
+        ntasks: int, default=kvikio.defaults.get_num_threads()
             Number of tasks to use.
 
         Returns
@@ -139,7 +139,7 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to write from.
-        ntasks: int, default=kvikio.thread_pool.get_num_threads()
+        ntasks: int, default=kvikio.defaults.get_num_threads()
             Number of tasks to use.
 
         Returns
@@ -163,7 +163,7 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
-        ntasks: int, default=kvikio.thread_pool.get_num_threads()
+        ntasks: int, default=kvikio.defaults.get_num_threads()
             Number of tasks to use.
 
         Returns
@@ -186,7 +186,7 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to write from.
-        ntasks: int, default=kvikio.thread_pool.get_num_threads()
+        ntasks: int, default=kvikio.defaults.get_num_threads()
             Number of tasks to use.
 
         Returns

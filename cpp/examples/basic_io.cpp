@@ -19,7 +19,7 @@
 #include <cuda_runtime_api.h>
 
 #include <kvikio/buffer.hpp>
-#include <kvikio/config.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/driver.hpp>
 #include <kvikio/file_handle.hpp>
 
@@ -37,8 +37,8 @@ int main()
 {
   check(cudaSetDevice(0) == cudaSuccess);
 
-  cout << "KvikIO config: " << endl;
-  if (kvikio::config::get_global_compat_mode()) {
+  cout << "KvikIO defaults: " << endl;
+  if (kvikio::defaults::compat_mode()) {
     cout << "  Compatibility mode: enabled" << endl;
   } else {
     kvikio::DriverInitializer manual_init_driver;
@@ -84,19 +84,19 @@ int main()
       check(a[i] == b[i]);
     }
   }
-  kvikio::default_thread_pool::reset(16);
+  kvikio::defaults::thread_pool_nthreads_reset(16);
   {
     kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a_dev, sizeof(a)).get();
     check(written == sizeof(a));
     check(written == f.nbytes());
-    cout << "Parallel write (" << kvikio::default_thread_pool::nthreads()
+    cout << "Parallel write (" << kvikio::defaults::thread_pool_nthreads()
          << " threads): " << written << endl;
   }
   {
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, sizeof(a), 0).get();
-    cout << "Parallel write (" << kvikio::default_thread_pool::nthreads() << " threads): " << read
+    cout << "Parallel write (" << kvikio::defaults::thread_pool_nthreads() << " threads): " << read
          << endl;
     check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
     for (int i = 0; i < 1024; ++i) {

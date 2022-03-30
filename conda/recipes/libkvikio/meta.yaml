@@ -51,8 +51,8 @@ test:
     - test -f $PREFIX/include/kvikio/error.hpp
     - test -f $PREFIX/include/kvikio/driver.hpp
     - test -f $PREFIX/include/kvikio/buffer.hpp
-    - test -f $PREFIX/include/kvikio/thread_pool/thread_pool.hpp
-    - test -f $PREFIX/include/kvikio/thread_pool/default.hpp
+    - test -f $PREFIX/include/kvikio/thread_pool.hpp
+    - test -f $PREFIX/include/kvikio/defaults.hpp
 
 about:
   home: http://rapids.ai/

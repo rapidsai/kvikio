@@ -71,7 +71,9 @@ class cuFileAPI {
 #endif
 
 /**
- * @brief Check whether the cuFile library is available
+ * @brief Check if the cuFile library is available
+ *
+ * Notice, this doesn't check if the runtime environment supported by cuFile.
  *
  * @return The boolean answer
  */
@@ -88,5 +90,18 @@ inline bool is_cufile_library_available()
 #else
 constexpr bool is_cufile_library_available() { return false; }
 #endif
+
+/**
+ * @brief Check if the cuFile is available and expected to work
+ *
+ * Besides checking if the cuFile library is available, this also checks the
+ * runtime environment.
+ *
+ * @return The boolean answer
+ */
+inline bool is_cufile_available()
+{
+  return is_cufile_library_available() && run_udev_readable() && !is_running_in_wsl();
+}
 
 }  // namespace kvikio

@@ -18,16 +18,15 @@ Zarr
 .. autoclass:: GDSStore
     :members:
 
-Thread pool
------------
-.. currentmodule:: kvikio.thread_pool
+
+Defaults
+--------
+.. currentmodule:: kvikio.defaults
+
+.. autofunction:: compat_mode
+
+.. autofunction:: compat_mode_reset
 
 .. autofunction:: get_num_threads
 
 .. autofunction:: reset_num_threads
-
-Configuration
--------------
-.. currentmodule:: kvikio.config
-
-.. autofunction:: get_global_compat_mode
