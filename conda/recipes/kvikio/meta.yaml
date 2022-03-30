@@ -46,7 +46,7 @@ test:
   imports:
     - kvikio
     - kvikio.cufile
-    - kvikio.thread_pool
+    - kvikio.defaults
     - kvikio.zarr
 
 about:

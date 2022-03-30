@@ -55,12 +55,16 @@ def compat_mode() -> int:
     return kvikio_cxx_api.compat_mode()
 
 
-def thread_pool_reset_num_threads(nthread: int) -> None:
-    kvikio_cxx_api.reset(nthread)
+def compat_mode_reset(enable: bool) -> None:
+    kvikio_cxx_api.compat_mode_reset(enable)
 
 
-def thread_pool_get_num_threads() -> int:
-    return kvikio_cxx_api.nthreads()
+def thread_pool_nthreads() -> int:
+    return kvikio_cxx_api.thread_pool_nthreads()
+
+
+def thread_pool_nthreads_reset(nthread: int) -> None:
+    kvikio_cxx_api.thread_pool_nthreads_reset(nthread)
 
 
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
@@ -113,7 +117,7 @@ cdef class CuFile:
                 <void*>info.first,
                 info.second,
                 file_offset,
-                ntasks if ntasks else kvikio_cxx_api.nthreads()
+                ntasks if ntasks else kvikio_cxx_api.thread_pool_nthreads()
             )
         )
 
@@ -124,7 +128,7 @@ cdef class CuFile:
                 <void*>info.first,
                 info.second,
                 file_offset,
-                ntasks if ntasks else kvikio_cxx_api.nthreads()
+                ntasks if ntasks else kvikio_cxx_api.thread_pool_nthreads()
             )
         )
 

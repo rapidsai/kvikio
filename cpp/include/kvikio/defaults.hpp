@@ -23,6 +23,7 @@
 #include <utility>
 
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/thread_pool.hpp>
 
 namespace kvikio {
 
@@ -37,6 +38,10 @@ T getenv_or(std::string_view env_var_name, T default_val)
   std::stringstream sstream(env_val);
   T converted_val;
   sstream >> converted_val;
+  if (sstream.fail()) {
+    throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
+                                std::string{env_val});
+  }
   return converted_val;
 }
 
@@ -68,19 +73,32 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
 }  // namespace
 
 /**
- * @brief Dingleton class of default values used thoughtout KvikIO.
+ * @brief Singleton class of default values used thoughtout KvikIO.
  *
  */
 class defaults {
+ private:
+  kvikio::third_party::thread_pool _thread_pool;
   bool _combat_mode;
-  defaults()
+
+  static unsigned int get_num_threads_from_env()
   {
-    if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
-      // Setting `KVIKIO_COMPAT_MODE` take precedence
-      _combat_mode = getenv_or("KVIKIO_COMPAT_MODE", false);
-    } else {
-      // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
-      _combat_mode = !is_cufile_available();
+    const int ret = getenv_or("KVIKIO_NTHREADS", 1);
+    if (ret <= 0) { throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer"); }
+    return ret;
+  }
+
+  defaults() : _thread_pool{get_num_threads_from_env()}
+  {
+    // Determine default value of `compat_mode`
+    {
+      if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
+        // Setting `KVIKIO_COMPAT_MODE` take precedence
+        _combat_mode = getenv_or("KVIKIO_COMPAT_MODE", false);
+      } else {
+        // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
+        _combat_mode = !is_cufile_available();
+      }
     }
   }
 
@@ -100,7 +118,7 @@ class defaults {
    * When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. Instead,
    * reads and writes are done using POSIX.
    *
-   * Set the enviornment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility mode.
+   * Set the environment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility mode.
    * By default, compatibility mode is enabled:
    *  - when `libcufile` cannot be found
    *  - when running in Windows Subsystem for Linux (WSL)
@@ -115,6 +133,47 @@ class defaults {
    * @brief Reset the value of `kvikio::defaults::compat_mode()`
    */
   static void compat_mode_reset(bool enable) noexcept { instance()->_combat_mode = enable; }
+
+  /**
+   * @brief Get the default thread pool.
+   *
+   * Notice, it is not possible to change the default thread pool. KvikIO will
+   * always use the same thread pool however it is possible to change number of
+   * threads in the pool (see `kvikio::default::thread_pool_nthreads_reset()`).
+   *
+   * @return The the default thread pool instance.
+   */
+  [[nodiscard]] static kvikio::third_party::thread_pool& thread_pool()
+  {
+    return instance()->_thread_pool;
+  }
+
+  /**
+   * @brief Get the number of threads in the default thread pool.
+   *
+   * Set the default value using `kvikio::default::thread_pool_nthreads_reset()` or by
+   * setting the `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
+   *
+   * @return The number of threads.
+   */
+  [[nodiscard]] static unsigned int thread_pool_nthreads() noexcept
+  {
+    return thread_pool().get_thread_count();
+  }
+
+  /**
+   * @brief Reset the number of threads in the default thread pool. Waits for all currently running
+   * tasks to be completed, then destroys all threads in the pool and creates a new thread pool with
+   * the new number of threads. Any tasks that were waiting in the queue before the pool was reset
+   * will then be executed by the new threads. If the pool was paused before resetting it, the new
+   * pool will be paused as well.
+   *
+   * @param nthreads The number of threads to use.
+   */
+  static void thread_pool_nthreads_reset(unsigned int nthreads)
+  {
+    return thread_pool().reset(nthreads);
+  }
 };
 
 }  // namespace kvikio

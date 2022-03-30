@@ -21,8 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/thread_pool/default.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -60,7 +60,7 @@ std::future<std::size_t> parallel_io(
   for (std::size_t i = 0; i < ntasks; ++i) {
     const std::size_t cur_size = (i == ntasks - 1) ? last_jobsize : tasksize;
     const std::size_t offset   = i * tasksize;
-    tasks.push_back(default_thread_pool::get().submit(
+    tasks.push_back(defaults::thread_pool().submit(
       task, devPtr_base, cur_size, file_offset + offset, devPtr_offset + offset));
   }
 

@@ -8,7 +8,6 @@ import pytest
 
 import kvikio
 import kvikio.defaults
-import kvikio.thread_pool
 
 cupy = pytest.importorskip("cupy")
 
@@ -33,8 +32,8 @@ def test_read_write(tmp_path, size, nthreads):
     filename = tmp_path / "test-file"
 
     # Set number of threads KvikIO should use
-    kvikio.thread_pool.reset_num_threads(nthreads)
-    assert kvikio.thread_pool.get_num_threads() == nthreads
+    kvikio.defaults.reset_num_threads(nthreads)
+    assert kvikio.defaults.get_num_threads() == nthreads
 
     # Write file
     a = cupy.arange(size)
@@ -109,7 +108,7 @@ def test_contextmanager(tmp_path):
 )
 def test_multiple_gpus(tmp_path):
     """Test IO from two different GPUs"""
-    kvikio.thread_pool.reset_num_threads(1)
+    kvikio.defaults.reset_num_threads(1)
     with cupy.cuda.Device(0):
         a0 = cupy.arange(200)
     with cupy.cuda.Device(1):

@@ -48,12 +48,8 @@ cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
 cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio::defaults" nogil:
     int compat_mode() except +
     void compat_mode_reset(bool enable)
-
-
-cdef extern from "<kvikio/thread_pool/default.hpp>" \
-        namespace "kvikio::default_thread_pool" nogil:
-    void reset(unsigned int nthreads) except +
-    unsigned int nthreads()
+    unsigned int thread_pool_nthreads()
+    void thread_pool_nthreads_reset(unsigned int nthreads) except +
 
 
 cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:

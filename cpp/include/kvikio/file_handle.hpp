@@ -33,7 +33,6 @@
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/shim/cufile.hpp>
-#include <kvikio/thread_pool/default.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -341,7 +340,7 @@ class FileHandle {
   std::future<std::size_t> pread(void* devPtr,
                                  std::size_t size,
                                  std::size_t file_offset = 0,
-                                 std::size_t ntasks      = default_thread_pool::nthreads())
+                                 std::size_t ntasks      = defaults::thread_pool_nthreads())
   {
     // Lambda that calls this->read()
     auto op = [this](void* devPtr_base,
@@ -372,7 +371,7 @@ class FileHandle {
   std::future<std::size_t> pwrite(const void* devPtr,
                                   std::size_t size,
                                   std::size_t file_offset = 0,
-                                  std::size_t ntasks      = default_thread_pool::nthreads())
+                                  std::size_t ntasks      = defaults::thread_pool_nthreads())
   {
     // Lambda that calls this->write()
     auto op = [this](const void* devPtr_base,
