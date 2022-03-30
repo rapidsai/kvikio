@@ -17,7 +17,7 @@ import cupy
 from dask.utils import format_bytes, parse_bytes
 
 import kvikio
-import kvikio.config
+import kvikio.defaults
 import kvikio.thread_pool
 
 
@@ -277,7 +277,7 @@ def main(args):
 
     print("Roundtrip benchmark")
     print("----------------------------------")
-    if kvikio.config.get_global_compat_mode():
+    if kvikio.defaults.compat_mode():
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print("   WARNING - KvikIO compat mode   ")
         print("      libcufile.so not used       ")

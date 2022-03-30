@@ -26,8 +26,8 @@ Thread pool
 
 .. autofunction:: reset_num_threads
 
-Configuration
--------------
-.. currentmodule:: kvikio.config
+Defaults
+--------
+.. currentmodule:: kvikio.defaults
 
-.. autofunction:: get_global_compat_mode
+.. autofunction:: compat_mode

@@ -19,7 +19,7 @@
 #include <cuda_runtime_api.h>
 
 #include <kvikio/buffer.hpp>
-#include <kvikio/config.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/driver.hpp>
 #include <kvikio/file_handle.hpp>
 
@@ -37,8 +37,8 @@ int main()
 {
   check(cudaSetDevice(0) == cudaSuccess);
 
-  cout << "KvikIO config: " << endl;
-  if (kvikio::config::get_global_compat_mode()) {
+  cout << "KvikIO defaults: " << endl;
+  if (kvikio::defaults::compat_mode()) {
     cout << "  Compatibility mode: enabled" << endl;
   } else {
     kvikio::DriverInitializer manual_init_driver;

@@ -99,8 +99,7 @@ class AllocRetain {
   ~AllocRetain() noexcept                 = default;
 };
 
-/*NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)*/
-inline AllocRetain manager;
+inline AllocRetain manager;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 /**
  * @brief Call ::pwrite() until all of `count` has been written
@@ -130,8 +129,7 @@ inline void pwrite_all(int fd, const void* buf, size_t count, off_t offset)
                             KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
     }
 
-    /*NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)*/
-    buffer += nbytes_written;
+    buffer += nbytes_written;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     cur_offset += nbytes_written;
     byte_remaining -= nbytes_written;
   }

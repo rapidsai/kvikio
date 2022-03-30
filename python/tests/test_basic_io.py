@@ -7,14 +7,14 @@ import random
 import pytest
 
 import kvikio
-import kvikio.config
+import kvikio.defaults
 import kvikio.thread_pool
 
 cupy = pytest.importorskip("cupy")
 
 
 def check_bit_flags(
-    x: int, y: int, add_o_direct=not kvikio.config.get_global_compat_mode()
+    x: int, y: int, add_o_direct=not kvikio.defaults.compat_mode()
 ) -> bool:
     """Check that the bits set in `y` is also set in `x`
 

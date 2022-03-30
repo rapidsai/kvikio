@@ -28,7 +28,7 @@
 #include <utility>
 
 #include <kvikio/buffer.hpp>
-#include <kvikio/config.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
@@ -63,7 +63,7 @@ inline int open_fd_parse_flags(const std::string& flags)
     default: throw std::invalid_argument("Unknown file open flag");
   }
   file_flags |= O_CLOEXEC;
-  if (!config::get_global_compat_mode()) { file_flags |= O_DIRECT; }
+  if (!defaults::compat_mode()) { file_flags |= O_DIRECT; }
   return file_flags;
 }
 
@@ -76,7 +76,7 @@ inline int open_fd_parse_flags(const std::string& flags)
  */
 inline int open_fd(const std::string& file_path, const std::string& flags, mode_t mode)
 {
-  /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)*/
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags), mode);
   if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
   return fd;
@@ -127,7 +127,7 @@ class FileHandle {
    */
   FileHandle(int fd, bool steal_fd = false) : _fd{fd}, _own_fd{steal_fd}, _closed{false}
   {
-    if (config::get_global_compat_mode()) { return; }
+    if (defaults::compat_mode()) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
     CUfileDescr_t desc{};  // It is important to set zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
@@ -189,7 +189,7 @@ class FileHandle {
   {
     _closed = true;
 #ifdef KVIKIO_CUFILE_EXIST
-    if (!config::get_global_compat_mode()) { cuFileAPI::instance()->HandleDeregister(_handle); }
+    if (!defaults::compat_mode()) { cuFileAPI::instance()->HandleDeregister(_handle); }
 #endif
     if (_own_fd) { ::close(_fd); }
   }
@@ -253,7 +253,7 @@ class FileHandle {
                    std::size_t file_offset,
                    std::size_t devPtr_offset)
   {
-    if (config::get_global_compat_mode()) {
+    if (defaults::compat_mode()) {
       return posix_read(_fd, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
@@ -303,7 +303,7 @@ class FileHandle {
   {
     _nbytes = 0;  // Invalidate the computed file size
 
-    if (config::get_global_compat_mode()) {
+    if (defaults::compat_mode()) {
       return posix_write(_fd, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST

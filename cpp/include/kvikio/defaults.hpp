@@ -24,7 +24,8 @@
 
 #include <kvikio/shim/cufile.hpp>
 
-namespace kvikio::config {
+namespace kvikio {
+
 namespace {
 
 template <typename T>
@@ -60,43 +61,60 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
   // Match value
   if (str == "true" || str == "on" || str == "yes") { return true; }
   if (str == "false" || str == "off" || str == "no") { return false; }
-  throw std::invalid_argument("Unknown config value: " + std::string{env_val});
-}
-
-inline bool _get_global_compat_mode()
-{
-  if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
-    // Setting `KVIKIO_COMPAT_MODE` take precedence
-    return getenv_or("KVIKIO_COMPAT_MODE", false);
-  }
-  // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
-  return !is_cufile_available();
+  throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
+                              std::string{env_val});
 }
 
 }  // namespace
 
 /**
- * @brief Return whether the KvikIO library is running in compatibility mode or not
+ * @brief Dingleton class of default values used thoughtout KvikIO.
  *
- * Notice, this is not the same as the compatibility mode in cuFile. That is,
- * cuFile can run in compatibility mode while KvikIO is not.
- *
- * When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. Instead,
- * reads and writes are done using POSIX.
- *
- * Set the enviornment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility mode.
- * By default, compatibility mode is enabled:
- *  - when `libcufile` cannot be found
- *  - when running in Windows Subsystem for Linux (WSL)
- *  - when `/run/udev` isn't readable, which typically happens when running inside a docker
- *    image not launched with `--volume /run/udev:/run/udev:ro`
- *
- * @return The boolean answer
  */
-inline bool get_global_compat_mode()
-{
-  static bool ret = _get_global_compat_mode();
-  return ret;
-}
+class defaults {
+  bool _combat_mode;
+  defaults()
+  {
+    if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
+      // Setting `KVIKIO_COMPAT_MODE` take precedence
+      _combat_mode = getenv_or("KVIKIO_COMPAT_MODE", false);
+    } else {
+      // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
+      _combat_mode = !is_cufile_available();
+    }
+  }
 
-}  // namespace kvikio::config
+  static defaults* instance()
+  {
+    static defaults _instance;
+    return &_instance;
+  }
+
+ public:
+  /**
+   * @brief Return whether the KvikIO library is running in compatibility mode or not
+   *
+   * Notice, this is not the same as the compatibility mode in cuFile. That is,
+   * cuFile can run in compatibility mode while KvikIO is not.
+   *
+   * When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. Instead,
+   * reads and writes are done using POSIX.
+   *
+   * Set the enviornment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility mode.
+   * By default, compatibility mode is enabled:
+   *  - when `libcufile` cannot be found
+   *  - when running in Windows Subsystem for Linux (WSL)
+   *  - when `/run/udev` isn't readable, which typically happens when running inside a docker
+   *    image not launched with `--volume /run/udev:/run/udev:ro`
+   *
+   * @return The boolean answer
+   */
+  [[nodiscard]] static bool compat_mode() { return instance()->_combat_mode; }
+
+  /**
+   * @brief Reset the value of `kvikio::defaults::compat_mode()`
+   */
+  static void compat_mode_reset(bool enable) noexcept { instance()->_combat_mode = enable; }
+};
+
+}  // namespace kvikio

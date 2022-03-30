@@ -45,8 +45,9 @@ cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
     void memory_deregister(const void* devPtr) except +
 
 
-cdef extern from "<kvikio/config.hpp>" namespace "kvikio::config" nogil:
-    int get_global_compat_mode() except +
+cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio::defaults" nogil:
+    int compat_mode() except +
+    void compat_mode_reset(bool enable)
 
 
 cdef extern from "<kvikio/thread_pool/default.hpp>" \

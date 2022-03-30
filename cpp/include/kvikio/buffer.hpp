@@ -20,7 +20,7 @@
 #include <map>
 #include <vector>
 
-#include <kvikio/config.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
@@ -49,7 +49,7 @@ inline void buffer_register(const void* devPtr_base,
                             int flags                                = 0,
                             const std::vector<int>& errors_to_ignore = std::vector<int>())
 {
-  if (config::get_global_compat_mode()) { return; }
+  if (defaults::compat_mode()) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
   CUfileError_t status = cuFileAPI::instance()->BufRegister(devPtr_base, size, flags);
   if (status.err != CU_FILE_SUCCESS) {
@@ -69,7 +69,7 @@ inline void buffer_register(const void* devPtr_base,
  */
 inline void buffer_deregister(const void* devPtr_base)
 {
-  if (config::get_global_compat_mode()) { return; }
+  if (defaults::compat_mode()) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
   CUFILE_TRY(cuFileAPI::instance()->BufDeregister(devPtr_base));
 #endif
