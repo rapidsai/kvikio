@@ -54,7 +54,7 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
   try {
     // Try parsing `env_var_name` as a integer
     return static_cast<bool>(std::stoi(env_val));
-  } catch (std::invalid_argument) {
+  } catch (const std::invalid_argument&) {
   }
   // Convert to lowercase
   std::string str{env_val};

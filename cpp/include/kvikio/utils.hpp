@@ -179,7 +179,7 @@ void get_symbol(T& handle, void* lib, const char* name)
 {
   try {
     return std::filesystem::is_directory("/run/udev");
-  } catch (const std::filesystem::filesystem_error& e) {
+  } catch (const std::filesystem::filesystem_error&) {
     return false;
   }
 }
