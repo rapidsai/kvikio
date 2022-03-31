@@ -27,37 +27,51 @@ def check_bit_flags(
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
-def test_read_write(tmp_path, size, nthreads):
+@pytest.mark.parametrize("tasksize", [199, 1024])
+def test_read_write(tmp_path, size, nthreads, tasksize):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
     with kvikio.defaults.set_num_threads(nthreads):
-        assert kvikio.defaults.get_num_threads() == nthreads
+        with kvikio.defaults.set_task_size(tasksize):
+            # Write file
+            a = cupy.arange(size)
+            f = kvikio.CuFile(filename, "w")
+            assert not f.closed
+            assert check_bit_flags(f.open_flags(), os.O_WRONLY)
+            assert f.write(a) == a.nbytes
 
-        # Write file
-        a = cupy.arange(size)
-        f = kvikio.CuFile(filename, "w")
+            # Try to read file opened in write-only mode
+            with pytest.raises(RuntimeError, match="unsupported file open flags"):
+                f.read(a)
+
+            # Close file
+            f.close()
+            assert f.closed
+
+            # Read file into a new array and compare
+            b = cupy.empty_like(a)
+            f = kvikio.CuFile(filename, "r")
+            assert check_bit_flags(f.open_flags(), os.O_RDONLY)
+            assert f.read(b) == b.nbytes
+            assert all(a == b)
+
+
+def test_file_handle_context(tmp_path):
+    """Open a CuFile in a context"""
+    filename = tmp_path / "test-file"
+    a = cupy.arange(200)
+    b = cupy.empty_like(a)
+    with kvikio.CuFile(filename, "w+") as f:
         assert not f.closed
-        assert check_bit_flags(f.open_flags(), os.O_WRONLY)
+        assert check_bit_flags(f.open_flags(), os.O_RDWR)
         assert f.write(a) == a.nbytes
-
-        # Try to read file opened in write-only mode
-        with pytest.raises(RuntimeError, match="unsupported file open flags"):
-            f.read(a)
-
-        # Close file
-        f.close()
-        assert f.closed
-
-        # Read file into a new array and compare
-        b = cupy.empty_like(a)
-        f = kvikio.CuFile(filename, "r")
-        assert check_bit_flags(f.open_flags(), os.O_RDONLY)
         assert f.read(b) == b.nbytes
         assert all(a == b)
+    assert f.closed
 
 
-def test_write_in_offsets(tmp_path):
+def test_write_to_files_in_chunks(tmp_path):
     """Write to files in chunks"""
     filename = tmp_path / "test-file"
 
@@ -88,18 +102,23 @@ def test_write_in_offsets(tmp_path):
     assert all(a == b)
 
 
-def test_file_handle_context(tmp_path):
-    """Open a CuFile in a context"""
-    filename = tmp_path / "test-file"
-    a = cupy.arange(200)
-    b = cupy.empty_like(a)
-    with kvikio.CuFile(filename, "w+") as f:
-        assert not f.closed
-        assert check_bit_flags(f.open_flags(), os.O_RDWR)
-        assert f.write(a) == a.nbytes
-        assert f.read(b) == b.nbytes
-        assert all(a == b)
-    assert f.closed
+@pytest.mark.parametrize("nthreads", [1, 3, 16])
+@pytest.mark.parametrize("tasksize", [7, 13, 199, 1024])
+@pytest.mark.parametrize("start,end", [(0, 2000), (1, 1950), (20, 30), (1024, 1500)])
+def test_read_write_slices(tmp_path, nthreads, tasksize, start, end):
+    """Read and write different slices"""
+
+    with kvikio.defaults.set_num_threads(nthreads):
+        with kvikio.defaults.set_task_size(tasksize):
+            filename = tmp_path / "test-file"
+            a = cupy.arange(2000)
+            b = cupy.arange(2000)
+            a[start:end] = 42
+            with kvikio.CuFile(filename, "w") as f:
+                assert f.write(a[start:end]) == a[start:end].nbytes
+            with kvikio.CuFile(filename, "r") as f:
+                assert f.read(b[start:end]) == b[start:end].nbytes
+            assert all(a == b)
 
 
 @pytest.mark.skipif(
