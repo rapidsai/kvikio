@@ -88,8 +88,8 @@ def test_write_in_offsets(tmp_path):
     assert all(a == b)
 
 
-def test_contextmanager(tmp_path):
-    """Open file using contextmanager"""
+def test_file_handle_context(tmp_path):
+    """Open a CuFile in a context"""
     filename = tmp_path / "test-file"
     a = cupy.arange(200)
     b = cupy.empty_like(a)
@@ -108,17 +108,18 @@ def test_contextmanager(tmp_path):
 def test_multiple_gpus(tmp_path):
     """Test IO from two different GPUs"""
     with kvikio.defaults.set_num_threads(10):
-        with cupy.cuda.Device(0):
-            a0 = cupy.arange(200)
-        with cupy.cuda.Device(1):
-            a1 = cupy.zeros(200, dtype=a0.dtype)
+        with kvikio.defaults.set_task_size(10):
+            with cupy.cuda.Device(0):
+                a0 = cupy.arange(200)
+            with cupy.cuda.Device(1):
+                a1 = cupy.zeros(200, dtype=a0.dtype)
 
-        filename = tmp_path / "test-file"
-        with kvikio.CuFile(filename, "w") as f:
-            assert f.write(a0) == a0.nbytes
-        with kvikio.CuFile(filename, "r") as f:
-            assert f.read(a1) == a1.nbytes
-        assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
+            filename = tmp_path / "test-file"
+            with kvikio.CuFile(filename, "w") as f:
+                assert f.write(a0) == a0.nbytes
+            with kvikio.CuFile(filename, "r") as f:
+                assert f.read(a1) == a1.nbytes
+            assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
 
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
