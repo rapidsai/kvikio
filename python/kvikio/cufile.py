@@ -87,7 +87,7 @@ class CuFile:
         self.close()
 
     def pread(
-        self, buf, size: int = None, file_offset: int = 0, ntasks=None
+        self, buf, size: int = None, file_offset: int = 0, task_size=None
     ) -> IOFuture:
         """Reads specified bytes from the file into the device memory in parallel
 
@@ -97,7 +97,8 @@ class CuFile:
         match the performance of aligned reads.
 
         `pread` is non-blocking and returns a `IOFuture` that can be waited upon. It
-        creates `ntasks` for the KvikIO thread pool to execute.
+        partitions the operation into tasks of size `task_size` for execution in the
+        default thread pool.
 
         Parameters
         ----------
@@ -107,8 +108,8 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
-        ntasks: int, default=kvikio.defaults.get_num_threads()
-            Number of tasks to use.
+        task_size: int, default=kvikio.defaults.task_size()
+            Size of each task in bytes.
 
         Returns
         ------
@@ -116,10 +117,10 @@ class CuFile:
             Future that on completion returns the size of bytes that were successfully
             read.
         """
-        return IOFuture(self._handle.pread(buf, size, file_offset, ntasks))
+        return IOFuture(self._handle.pread(buf, size, file_offset, task_size))
 
     def pwrite(
-        self, buf, size: int = None, file_offset: int = 0, ntasks=None
+        self, buf, size: int = None, file_offset: int = 0, task_size=None
     ) -> IOFuture:
         """Writes specified bytes from the device memory into the file in parallel
 
@@ -129,7 +130,9 @@ class CuFile:
         with aligned writes.
 
         `pwrite` is non-blocking and returns a `IOFuture` that can be waited upon. It
-        creates `ntasks` for the KvikIO thread pool to execute.
+        partitions the operation into tasks of size `task_size` for execution in the
+        default thread pool.
+
 
         Parameters
         ----------
@@ -139,8 +142,8 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to write from.
-        ntasks: int, default=kvikio.defaults.get_num_threads()
-            Number of tasks to use.
+        task_size: int, default=kvikio.defaults.task_size()
+            Size of each task in bytes.
 
         Returns
         ------
@@ -148,9 +151,9 @@ class CuFile:
             Future that on completion returns the size of bytes that were successfully
             written.
         """
-        return IOFuture(self._handle.pwrite(buf, size, file_offset, ntasks))
+        return IOFuture(self._handle.pwrite(buf, size, file_offset, task_size))
 
-    def read(self, buf, size: int = None, file_offset: int = 0, ntasks=None) -> int:
+    def read(self, buf, size: int = None, file_offset: int = 0, task_size=None) -> int:
         """Reads specified bytes from the file into the device memory in parallel
 
         This is a blocking version of `.pread`.
@@ -163,17 +166,17 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
-        ntasks: int, default=kvikio.defaults.get_num_threads()
-            Number of tasks to use.
+        task_size: int, default=kvikio.defaults.task_size()
+            Size of each task in bytes.
 
         Returns
         ------
         int
             The size of bytes that were successfully read.
         """
-        return self.pread(buf, size, file_offset, ntasks).get()
+        return self.pread(buf, size, file_offset, task_size).get()
 
-    def write(self, buf, size: int = None, file_offset: int = 0, ntasks=None) -> int:
+    def write(self, buf, size: int = None, file_offset: int = 0, task_size=None) -> int:
         """Writes specified bytes from the device memory into the file in parallel
 
         This is a blocking version of `.pwrite`.
@@ -186,15 +189,15 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to write from.
-        ntasks: int, default=kvikio.defaults.get_num_threads()
-            Number of tasks to use.
+        task_size: int, default=kvikio.defaults.task_size()
+            Size of each task in bytes.
 
         Returns
         ------
         int
             The size of bytes that were successfully written.
         """
-        return self.pwrite(buf, size, file_offset, ntasks).get()
+        return self.pwrite(buf, size, file_offset, task_size).get()
 
     def raw_read(
         self, buf, size: int = None, file_offset: int = 0, dev_offset: int = 0

@@ -31,6 +31,9 @@
 
 namespace kvikio {
 
+// cuFile defines a page size to 4 KiB
+inline constexpr std::size_t page_size = 4096;
+
 [[nodiscard]] inline off_t convert_size2off(std::size_t x)
 {
   if (x >= std::numeric_limits<off_t>::max()) {
@@ -41,7 +44,7 @@ namespace kvikio {
 
 [[nodiscard]] inline CUdeviceptr convert_void2deviceptr(const void* devPtr)
 {
-  /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)*/
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   return reinterpret_cast<CUdeviceptr>(devPtr);
 }
 
@@ -96,7 +99,7 @@ inline std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* de
   PushAndPopContext context(_ctx);
   CUDA_DRIVER_TRY(cuMemGetAddressRange(&base_ptr, &base_size, dev));
   std::size_t offset = dev - base_ptr;
-  /*NOLINTNEXTLINE(performance-no-int-to-ptr, cppcoreguidelines-pro-type-reinterpret-cast)*/
+  // NOLINTNEXTLINE(performance-no-int-to-ptr, cppcoreguidelines-pro-type-reinterpret-cast)
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
 }
 
@@ -135,7 +138,7 @@ template <typename T>
 void get_symbol(T& handle, void* lib, const char* name)
 {
   ::dlerror();  // Clear old errors
-  /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)*/
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   handle          = reinterpret_cast<T>(::dlsym(lib, name));
   const char* err = ::dlerror();
   if (err != nullptr) {
@@ -176,7 +179,7 @@ void get_symbol(T& handle, void* lib, const char* name)
 {
   try {
     return std::filesystem::is_directory("/run/udev");
-  } catch (const std::filesystem::filesystem_error& e) {
+  } catch (const std::filesystem::filesystem_error&) {
     return false;
   }
 }

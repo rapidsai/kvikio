@@ -67,6 +67,14 @@ def thread_pool_nthreads_reset(nthreads: int) -> None:
     kvikio_cxx_api.thread_pool_nthreads_reset(nthreads)
 
 
+def task_size() -> int:
+    return kvikio_cxx_api.task_size()
+
+
+def task_size_reset(nthreads: int) -> None:
+    kvikio_cxx_api.task_size_reset(nthreads)
+
+
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
     """Parse `buf` and `size` argument and return a pointer and nbytes"""
     if not isinstance(buf, Array):
@@ -110,25 +118,25 @@ cdef class CuFile:
     def open_flags(self) -> int:
         return self._handle.fd_open_flags()
 
-    def pread(self, buf, size: int, file_offset: int, ntasks) -> IOFuture:
+    def pread(self, buf, size: int, file_offset: int, task_size) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         return _wrap_io_future(
             self._handle.pread(
                 <void*>info.first,
                 info.second,
                 file_offset,
-                ntasks if ntasks else kvikio_cxx_api.thread_pool_nthreads()
+                task_size if task_size else kvikio_cxx_api.task_size()
             )
         )
 
-    def pwrite(self, buf, size: int, file_offset: int, ntasks) -> IOFuture:
+    def pwrite(self, buf, size: int, file_offset: int, task_size) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         return _wrap_io_future(
             self._handle.pwrite(
                 <void*>info.first,
                 info.second,
                 file_offset,
-                ntasks if ntasks else kvikio_cxx_api.thread_pool_nthreads()
+                task_size if task_size else kvikio_cxx_api.task_size()
             )
         )
 

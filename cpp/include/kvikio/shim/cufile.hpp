@@ -82,7 +82,7 @@ inline bool is_cufile_library_available()
 {
   try {
     cuFileAPI::instance();
-  } catch (const CUfileException& e) {
+  } catch (const CUfileException&) {
     return false;
   }
   return true;
