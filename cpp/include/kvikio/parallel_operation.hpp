@@ -73,6 +73,7 @@ std::future<std::size_t> parallel_io(
         devPtr_offset += unaligned_range;
         size -= unaligned_range;
       }
+      assert(file_offset % page_size == 0);  // `file_offset` is now aligned
     }
     // 2) Submit tasks for the aligned range from the first page boundary to the last page boundary
     {
@@ -82,6 +83,7 @@ std::future<std::size_t> parallel_io(
           defaults::thread_pool().submit(task, devPtr_base, task_size, file_offset, devPtr_offset));
         file_offset += task_size;
         devPtr_offset += task_size;
+        assert(size >= task_size);  // This is true because we do `size / task_size` iterations
         size -= task_size;
       }
     }
