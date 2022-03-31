@@ -103,16 +103,19 @@ def test_write_to_files_in_chunks(tmp_path):
 
 
 @pytest.mark.parametrize("nthreads", [1, 3, 16])
-@pytest.mark.parametrize("tasksize", [7, 13, 199, 1024])
-@pytest.mark.parametrize("start,end", [(0, 2000), (1, 1950), (20, 30), (1024, 1500)])
+@pytest.mark.parametrize("tasksize", [1000, int(1.5 * 4096), int(2.3 * 4096)])
+@pytest.mark.parametrize(
+    "start,end",
+    [(0, 10 * 4096), (1, int(1.3 * 4096)), (int(2.1 * 4096), int(5.6 * 4096))],
+)
 def test_read_write_slices(tmp_path, nthreads, tasksize, start, end):
     """Read and write different slices"""
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
             filename = tmp_path / "test-file"
-            a = cupy.arange(2000)
-            b = cupy.arange(2000)
+            a = cupy.arange(10 * 4096)  # 10 page-sizes
+            b = a.copy()
             a[start:end] = 42
             with kvikio.CuFile(filename, "w") as f:
                 assert f.write(a[start:end]) == a[start:end].nbytes

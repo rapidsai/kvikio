@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cassert>
 #include <future>
 #include <numeric>
 #include <system_error>
@@ -54,20 +55,40 @@ std::future<std::size_t> parallel_io(
   };
 
   std::vector<std::future<std::size_t>> tasks;
-  if (task_size >= size) {  // Only a single task
+  if (task_size >= size || page_size >= size) {  // Single-task guard
     tasks.push_back(
       defaults::thread_pool().submit(task, devPtr_base, size, file_offset, devPtr_offset));
   } else {
-    // TODO: handle unaligned offset and size more efficiently. For now, we
-    //       let the last task get the remainder
-    const std::size_t ntasks         = size / task_size;
-    const std::size_t last_task_size = task_size + size % task_size;
-    tasks.reserve(ntasks);
-    for (std::size_t i = 0; i < ntasks; ++i) {
-      const std::size_t cur_size = (i == ntasks - 1) ? last_task_size : task_size;
-      const std::size_t offset   = i * task_size;
-      tasks.push_back(defaults::thread_pool().submit(
-        task, devPtr_base, cur_size, file_offset + offset, devPtr_offset + offset));
+    // We have an upper bound of the total number of tasks
+    tasks.reserve(size / task_size + 2);
+
+    // 1) Submit a task for the unaligned range from the start to the first page boundary
+    {
+      const std::size_t unaligned_range = file_offset % page_size;
+      assert(unaligned_range < size);  // This is true because of the single-task guard above.
+      if (unaligned_range > 0) {
+        tasks.push_back(defaults::thread_pool().submit(
+          task, devPtr_base, unaligned_range, file_offset, devPtr_offset));
+        file_offset += unaligned_range;
+        devPtr_offset += unaligned_range;
+        size -= unaligned_range;
+      }
+    }
+    // 2) Submit tasks for the aligned range from the first page boundary to the last page boundary
+    {
+      const std::size_t ntasks = size / task_size;
+      for (std::size_t i = 0; i < ntasks; ++i) {
+        tasks.push_back(
+          defaults::thread_pool().submit(task, devPtr_base, task_size, file_offset, devPtr_offset));
+        file_offset += task_size;
+        devPtr_offset += task_size;
+        size -= task_size;
+      }
+    }
+    // 3) Submit a task for the remainder range from the last page boundary to the end
+    if (size > 0) {
+      tasks.push_back(
+        defaults::thread_pool().submit(task, devPtr_base, size, file_offset, devPtr_offset));
     }
   }
 
