@@ -43,6 +43,8 @@ template <typename T>
 std::future<std::size_t> parallel_io(
   T op, const void* devPtr, std::size_t size, std::size_t file_offset, std::size_t task_size)
 {
+  if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
+
   CUcontext ctx                                = get_context_from_device_pointer(devPtr);
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr, &ctx);
 
@@ -77,13 +79,11 @@ std::future<std::size_t> parallel_io(
     }
     // 2) Submit tasks for the aligned range from the first page boundary to the last page boundary
     {
-      const std::size_t ntasks = size / task_size;
-      for (std::size_t i = 0; i < ntasks; ++i) {
+      while (size >= task_size) {
         tasks.push_back(
           defaults::thread_pool().submit(task, devPtr_base, task_size, file_offset, devPtr_offset));
         file_offset += task_size;
         devPtr_offset += task_size;
-        assert(size >= task_size);  // This is true because we do `size / task_size` iterations
         size -= task_size;
       }
     }
