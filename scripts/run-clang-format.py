@@ -40,7 +40,10 @@ def parse_args():
         " a temporary dir will be created using `mkdtemp`",
     )
     argparser.add_argument(
-        "-exe", type=str, default="clang-format", help="Path to clang-format exe",
+        "-exe",
+        type=str,
+        default="clang-format",
+        help="Path to clang-format exe",
     )
     argparser.add_argument(
         "-inplace",
@@ -61,7 +64,10 @@ def parse_args():
         help="Regex used to ignore files from matched list",
     )
     argparser.add_argument(
-        "-v", dest="verbose", action="store_true", help="Print verbose messages",
+        "-v",
+        dest="verbose",
+        action="store_true",
+        help="Print verbose messages",
     )
     argparser.add_argument(
         "dirs", type=str, nargs="*", help="List of dirs where to find sources"
@@ -141,7 +147,11 @@ def main():
         print("Error!! This needs to always be run from the root of repo")
         sys.exit(-1)
     all_files = list_all_src_files(
-        args.regex_compiled, args.ignore_compiled, args.dirs, args.dstdir, args.inplace,
+        args.regex_compiled,
+        args.ignore_compiled,
+        args.dirs,
+        args.dstdir,
+        args.inplace,
     )
     # actual format checker
     status = True
