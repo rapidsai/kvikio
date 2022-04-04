@@ -30,13 +30,13 @@ function sed_runner() {
 }
 
 # cpp update
-sed_runner 's/'"VERSION ${CURRENT_SHORT_TAG}.*"'/'"VERSION ${NEXT_FULL_TAG}"'/g' cpp/CMakeLists.txt
+sed_runner "/project(/,/)/s/VERSION.*/VERSION ${NEXT_FULL_TAG}/" cpp/CMakeLists.txt
 
 # python update
 sed_runner 's/set(kvikio_version.*)/set(kvikio_version '${NEXT_FULL_TAG}')/g' python/CMakeLists.txt
 
 # script update
-sed_runner 's/version=.*/version="'${NEXT_SHORT_TAG}'"\):/g' scripts/format-all.py
+sed_runner 's/version=.*/version="'${NEXT_SHORT_TAG}'"):/g' scripts/format-all.py
 
 # doxyfile update
 sed_runner 's/PROJECT_NUMBER         = .*/PROJECT_NUMBER         = '${NEXT_FULL_TAG}'/g' cpp/doxygen/Doxyfile
