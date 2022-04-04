@@ -21,7 +21,7 @@ _dtype_map = {
 
 
 def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
-    """ Convert np/cp dtypes to nvcomp integral dtypes.
+    """Convert np/cp dtypes to nvcomp integral dtypes.
 
     Parameters
     ----------
@@ -60,7 +60,10 @@ class CascadedCompressor:
         """
         self.dtype = dtype
         self.compressor = _lib._CascadedCompressor(
-            cp_to_nvcomp_dtype(self.dtype).value, num_RLEs, num_deltas, use_bp,
+            cp_to_nvcomp_dtype(self.dtype).value,
+            num_RLEs,
+            num_deltas,
+            use_bp,
         )
         self.decompressor = _lib._CascadedDecompressor()
         self.s = cp.cuda.Stream()

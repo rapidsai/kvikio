@@ -44,7 +44,7 @@ class IOFuture:
 
 
 class CuFile:
-    """ File handle for GPUDirect Storage (GDS) """
+    """File handle for GPUDirect Storage (GDS)"""
 
     def __init__(self, file: Union[pathlib.Path, str], flags: str = "r"):
         """Open and register file for GDS IO operations
