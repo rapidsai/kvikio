@@ -33,7 +33,7 @@ function sed_runner() {
 sed_runner 's/'"VERSION ${CURRENT_SHORT_TAG}.*"'/'"VERSION ${NEXT_FULL_TAG}"'/g' cpp/CMakeLists.txt
 
 # python update
-sed_runner 's/kvikio_version '${CURRENT_SHORT_TAG}'.*/kvikio_version '${NEXT_FULL_TAG}'\)/g' python/CMakeLists.txt
+sed_runner 's/set(kvikio_version.*)/set(kvikio_version '${NEXT_FULL_TAG}')/g' python/CMakeLists.txt
 
 # script update
 sed_runner 's/version=.*/version="'${NEXT_SHORT_TAG}'"\):/g' scripts/format-all.py
