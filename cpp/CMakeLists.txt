@@ -106,7 +106,7 @@ rapids_export(
   INSTALL kvikio
   EXPORT_SET kvikio-exports
   GLOBAL_TARGETS kvikio
-  namespace kvikio::
+  NAMESPACE kvikio::
   DOCUMENTATION doc_string
 )
 
@@ -115,7 +115,7 @@ rapids_export(
   BUILD kvikio
   EXPORT_SET kvikio-exports
   GLOBAL_TARGETS kvikio
-  namespace kvikio::
+  NAMESPACE kvikio::
   DOCUMENTATION doc_string
 )
 
