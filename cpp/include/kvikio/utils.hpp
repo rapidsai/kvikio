@@ -34,6 +34,8 @@ namespace kvikio {
 // cuFile defines a page size to 4 KiB
 inline constexpr std::size_t page_size = 4096;
 
+[[nodiscard]] inline bool page_aligned(std::size_t size) { return ((size & (page_size - 1)) == 0); }
+
 [[nodiscard]] inline off_t convert_size2off(std::size_t x)
 {
   if (x >= std::numeric_limits<off_t>::max()) {

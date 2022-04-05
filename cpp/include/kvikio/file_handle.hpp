@@ -273,7 +273,11 @@ class FileHandle {
                    std::size_t devPtr_offset)
   {
     if (_combat_mode) {
-      return posix_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      int fd = _fd_direct_off;
+      // If both the size and file offset is aligned, we can use the `O_DIRECT`
+      // opened file for better performance.
+      if (page_aligned(size) && page_aligned(file_offset)) { fd = _fd_direct_on; }
+      return posix_read(fd, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance()->Read(
@@ -323,7 +327,11 @@ class FileHandle {
     _nbytes = 0;  // Invalidate the computed file size
 
     if (_combat_mode) {
-      return posix_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      int fd = _fd_direct_off;
+      // If both the size and file offset is aligned, we can use the `O_DIRECT`
+      // opened file for better performance.
+      if (page_aligned(size) && page_aligned(file_offset)) { fd = _fd_direct_on; }
+      return posix_write(fd, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance()->Write(
