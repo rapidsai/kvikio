@@ -141,6 +141,11 @@ class defaults {
 
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`
+   *
+   * Changing compatibility mode, effects all new FileHandles that doesn't sets the
+   * `compat_mode` argument explicitly but it never effect existing FileHandles.
+   *
+   * @param enable Whether to enable compatibility mode or not.
    */
   static void compat_mode_reset(bool enable) { instance()->_combat_mode = enable; }
 

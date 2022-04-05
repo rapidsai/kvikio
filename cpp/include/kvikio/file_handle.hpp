@@ -42,9 +42,10 @@ namespace {
  * @brief Parse open file flags given as a string and return oflags
  *
  * @param flags The flags
+ * @param o_direct Append O_DIRECT to the open flags
  * @return oflags
  */
-inline int open_fd_parse_flags(const std::string& flags)
+inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
 {
   int file_flags = -1;
   if (flags.empty()) { throw std::invalid_argument("Unknown file open flag"); }
@@ -62,7 +63,7 @@ inline int open_fd_parse_flags(const std::string& flags)
     default: throw std::invalid_argument("Unknown file open flag");
   }
   file_flags |= O_CLOEXEC;
-  if (!defaults::compat_mode()) { file_flags |= O_DIRECT; }
+  if (o_direct) { file_flags |= O_DIRECT; }
   return file_flags;
 }
 
@@ -70,15 +71,33 @@ inline int open_fd_parse_flags(const std::string& flags)
  * @brief Open file using `open(2)`
  *
  * @param flags Open flags given as a string
+ * @param o_direct Append O_DIRECT to `flags`
  * @param mode Access modes
  * @return File descriptor
  */
-inline int open_fd(const std::string& file_path, const std::string& flags, mode_t mode)
+inline int open_fd(const std::string& file_path,
+                   const std::string& flags,
+                   bool o_direct,
+                   mode_t mode)
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-  int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags), mode);
+  int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
   if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
   return fd;
+}
+
+/**
+ * @brief Get the flags of the file descripter (see `open(2)`)
+ *
+ * @return Open flags
+ */
+[[nodiscard]] int open_flags(int fd)
+{
+  int ret = fcntl(fd, F_GETFL);  // NOLINT(cppcoreguidelines-pro-type-vararg)
+  if (ret == -1) {
+    throw std::system_error(errno, std::generic_category(), "Unable to retrieve open flags");
+  }
+  return ret;
 }
 
 /**
@@ -107,45 +126,51 @@ inline int open_fd(const std::string& file_path, const std::string& flags, mode_
  */
 class FileHandle {
  private:
-  int _fd{-1};
-  bool _own_fd{false};
-  bool _closed{true};
+  // We use two file descriptors, one opened with the O_DIRECT flag and one without.
+  int _fd_direct_on{-1};
+  int _fd_direct_off{-1};
+  bool _initialized{false};
+  bool _combat_mode{false};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUfileHandle_t _handle{};
 
  public:
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
-  FileHandle()                 = default;
-
-  /**
-   * @brief Construct a file handle from an existing file decriptor
-   *
-   * @param fd File decriptor
-   * @param steal_fd When true, the handle owns the file descriptor and will close it
-   * on destruction.
-   */
-  FileHandle(int fd, bool steal_fd = false) : _fd{fd}, _own_fd{steal_fd}, _closed{false}
-  {
-    if (defaults::compat_mode()) { return; }
-#ifdef KVIKIO_CUFILE_EXIST
-    CUfileDescr_t desc{};  // It is important to set zero!
-    desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
-    /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)*/
-    desc.handle.fd = fd;
-    CUFILE_TRY(cuFileAPI::instance()->HandleRegister(&_handle, &desc));
-#endif
-  }
+  FileHandle() noexcept        = default;
 
   /**
    * @brief Construct a file handle from a file path
    *
+   * FileHandle opens the file twice and maintains two file descriptors. One file are
+   * opened with the specified `flags` and the other file are opened with the `flags`
+   * plus the `O_DIRECT` flag.
+   *
    * @param file_path File path to the file
-   * @param steal_fd When true, the handle owns the file descriptor and will close it
-   * on destruction. When false, the file is deregistered but not closed.
+   * @param flags Open flags (see also `fopen(3)`):
+   *   "r" -> "open for reading (default)"
+   *   "w" -> "open for writing, truncating the file first"
+   *   "a" -> "open for writing, appending to the end of file if it exists"
+   *   "+" -> "open for updating (reading and writing)"
+   * @param mode Access modes (see `open(2)`).
+   * @param compat_mode Enable KvikIO's compatibility mode for this file.
    */
-  FileHandle(const std::string& file_path, const std::string& flags = "r", mode_t mode = m644)
-    : FileHandle(open_fd(file_path, flags, mode), true)
+  FileHandle(const std::string& file_path,
+             const std::string& flags = "r",
+             mode_t mode              = m644,
+             bool compat_mode         = defaults::compat_mode())
+    : _fd_direct_on{open_fd(file_path, flags, true, mode)},
+      _fd_direct_off{open_fd(file_path, flags, false, mode)},
+      _initialized{true},
+      _combat_mode{compat_mode}
   {
+    if (_combat_mode) { return; }
+#ifdef KVIKIO_CUFILE_EXIST
+    CUfileDescr_t desc{};  // It is important to set to zero!
+    desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+    desc.handle.fd = _fd_direct_on;
+    CUFILE_TRY(cuFileAPI::instance()->HandleRegister(&_handle, &desc));
+#endif
   }
 
   /**
@@ -154,73 +179,68 @@ class FileHandle {
   FileHandle(const FileHandle&) = delete;
   FileHandle& operator=(FileHandle const&) = delete;
   FileHandle(FileHandle&& o) noexcept
-    : _fd{std::exchange(o._fd, -1)},
-      _own_fd{std::exchange(o._own_fd, false)},
-      _closed{std::exchange(o._closed, true)},
+    : _fd_direct_on{std::exchange(o._fd_direct_on, -1)},
+      _fd_direct_off{std::exchange(o._fd_direct_off, -1)},
+      _initialized{std::exchange(o._initialized, false)},
+      _combat_mode{std::exchange(o._combat_mode, false)},
       _nbytes{std::exchange(o._nbytes, 0)},
       _handle{std::exchange(o._handle, CUfileHandle_t{})}
   {
   }
   FileHandle& operator=(FileHandle&& o) noexcept
   {
-    _fd     = std::exchange(o._fd, -1);
-    _own_fd = std::exchange(o._own_fd, false);
-    _closed = std::exchange(o._closed, true);
-    _nbytes = std::exchange(o._nbytes, 0);
-    _handle = std::exchange(o._handle, CUfileHandle_t{});
+    _fd_direct_on  = std::exchange(o._fd_direct_on, -1);
+    _fd_direct_off = std::exchange(o._fd_direct_off, -1);
+    _initialized   = std::exchange(o._initialized, false);
+    _combat_mode   = std::exchange(o._combat_mode, false);
+    _nbytes        = std::exchange(o._nbytes, 0);
+    _handle        = std::exchange(o._handle, CUfileHandle_t{});
     return *this;
   }
+  ~FileHandle() noexcept { close(); }
+
+  [[nodiscard]] bool closed() const noexcept { return !_initialized; }
 
   /**
-   * @brief FileHandle support move semantic but isn't copyable
-   */
-  ~FileHandle() noexcept
-  {
-    if (!_closed) { this->close(); }
-  }
-
-  [[nodiscard]] bool closed() const noexcept { return _closed; }
-
-  /**
-   * @brief Deregister the file and close the file if created with `steal_fd=true`
+   * @brief Deregister the file and close the two files
    */
   void close() noexcept
   {
-    _closed = true;
+    if (closed()) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
-    if (!defaults::compat_mode()) { cuFileAPI::instance()->HandleDeregister(_handle); }
+    if (!_combat_mode) { cuFileAPI::instance()->HandleDeregister(_handle); }
 #endif
-    if (_own_fd) { ::close(_fd); }
+    ::close(_fd_direct_on);
+    ::close(_fd_direct_off);
+    _fd_direct_on  = -1;
+    _fd_direct_off = -1;
+    _initialized   = false;
   }
 
   /**
-   * @brief Get the file descripter of the open file
+   * @brief Get the file descripter of one of the open files
+   *
    * @return File descripter
    */
-  [[nodiscard]] int fd() const noexcept { return _fd; }
+  [[nodiscard]] int fd() const noexcept { return _fd_direct_off; }
 
   /**
-   * @brief Get the flags of the file descripter (see open(2))
+   * @brief Get the flags of one of the file descripters (see open(2))
+   *
    * @return File descripter
    */
-  [[nodiscard]] int fd_open_flags() const
-  {
-    /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)*/
-    int ret = fcntl(_fd, F_GETFL);
-    if (ret == -1) {
-      throw std::system_error(errno, std::generic_category(), "Unable to retrieve open flags");
-    }
-    return ret;
-  }
+  [[nodiscard]] int fd_open_flags() const { return open_flags(_fd_direct_on); }
 
   /**
    * @brief Get the file size
+   *
+   * The value are cached.
    *
    * @return The number of bytes
    */
   [[nodiscard]] inline std::size_t nbytes() const
   {
-    if (_nbytes == 0 && _fd > 0) { _nbytes = get_file_size(_fd); }
+    if (_nbytes == 0) { _nbytes = get_file_size(_fd_direct_on); }
     return _nbytes;
   }
 
@@ -252,8 +272,8 @@ class FileHandle {
                    std::size_t file_offset,
                    std::size_t devPtr_offset)
   {
-    if (defaults::compat_mode()) {
-      return posix_read(_fd, devPtr_base, size, file_offset, devPtr_offset);
+    if (_combat_mode) {
+      return posix_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance()->Read(
@@ -302,8 +322,8 @@ class FileHandle {
   {
     _nbytes = 0;  // Invalidate the computed file size
 
-    if (defaults::compat_mode()) {
-      return posix_write(_fd, devPtr_base, size, file_offset, devPtr_offset);
+    if (_combat_mode) {
+      return posix_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance()->Write(
