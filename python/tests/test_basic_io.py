@@ -71,6 +71,22 @@ def test_file_handle_context(tmp_path):
     assert f.closed
 
 
+@pytest.mark.skipif(
+    kvikio.defaults.compat_mode(),
+    reason="cannot test `set_compat_mode` when already running in compatibility mode",
+)
+def test_set_compat_mode_between_io(tmp_path):
+    """Test changing `compat_mode`"""
+
+    with kvikio.defaults.set_compat_mode(False):
+        f = kvikio.CuFile(tmp_path / "test-file", "w")
+        assert not f.closed
+        assert f.open_flags() & os.O_WRONLY != 0
+        with kvikio.defaults.set_compat_mode(True):
+            a = cupy.arange(10)
+            assert f.write(a) == a.nbytes
+
+
 def test_write_to_files_in_chunks(tmp_path):
     """Write to files in chunks"""
     filename = tmp_path / "test-file"
