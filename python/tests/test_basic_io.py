@@ -119,7 +119,7 @@ def test_write_to_files_in_chunks(tmp_path):
 
 
 @pytest.mark.parametrize("nthreads", [1, 3, 16])
-@pytest.mark.parametrize("tasksize", [1000, int(1.5 * 4096), int(2.3 * 4096)])
+@pytest.mark.parametrize("tasksize", [1000, 4096, int(1.5 * 4096), int(2.3 * 4096)])
 @pytest.mark.parametrize(
     "start,end",
     [(0, 10 * 4096), (1, int(1.3 * 4096)), (int(2.1 * 4096), int(5.6 * 4096))],
