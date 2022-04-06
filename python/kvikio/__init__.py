@@ -1,7 +1,6 @@
 # Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-
 from . import _version
 from ._lib import libkvikio  # type: ignore
 
@@ -20,5 +19,3 @@ def memory_deregister(buf) -> None:
 
 # TODO: Wrap nicely, maybe as a dataclass?
 DriverProperties = libkvikio.DriverProperties
-# TODO: Wrap nicely, maybe as a dataclass?
-NVML = libkvikio.NVML

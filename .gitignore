@@ -1,0 +1,13 @@
+*.*~
+build
+python/_skbuild
+*.so
+dask-worker-space
+__pycache__
+.cache
+*.egg-info
+.vscode
+python/kvikio/_lib/*.cpp
+cufile.log
+docs/build/
+cpp/doxygen/html/

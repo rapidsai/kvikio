@@ -13,7 +13,7 @@ from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport FileHandle, future
+from .kvikio_cxx_api cimport FileHandle, future, is_future_done
 
 
 cdef class IOFuture:
@@ -26,6 +26,9 @@ cdef class IOFuture:
             ret = self._handle.get()
         return ret
 
+    def done(self) -> bool:
+        return is_future_done(self._handle)
+
 
 cdef IOFuture _wrap_io_future(future[size_t] &future):
     """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
@@ -33,11 +36,13 @@ cdef IOFuture _wrap_io_future(future[size_t] &future):
     ret._handle = move(future)
     return ret
 
+
 def memory_register(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
     kvikio_cxx_api.memory_register(<void*>arr.ptr)
+
 
 def memory_deregister(buf) -> None:
     if not isinstance(buf, Array):
@@ -45,11 +50,30 @@ def memory_deregister(buf) -> None:
     cdef Array arr = buf
     kvikio_cxx_api.memory_deregister(<void*>arr.ptr)
 
-def thread_pool_reset_num_threads(nthread: int) -> None:
-    kvikio_cxx_api.reset(nthread)
 
-def thread_pool_get_num_threads() -> int:
-    return kvikio_cxx_api.nthreads()
+def compat_mode() -> int:
+    return kvikio_cxx_api.compat_mode()
+
+
+def compat_mode_reset(enable: bool) -> None:
+    kvikio_cxx_api.compat_mode_reset(enable)
+
+
+def thread_pool_nthreads() -> int:
+    return kvikio_cxx_api.thread_pool_nthreads()
+
+
+def thread_pool_nthreads_reset(nthreads: int) -> None:
+    kvikio_cxx_api.thread_pool_nthreads_reset(nthreads)
+
+
+def task_size() -> int:
+    return kvikio_cxx_api.task_size()
+
+
+def task_size_reset(nthreads: int) -> None:
+    kvikio_cxx_api.task_size_reset(nthreads)
+
 
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
     """Parse `buf` and `size` argument and return a pointer and nbytes"""
@@ -94,26 +118,44 @@ cdef class CuFile:
     def open_flags(self) -> int:
         return self._handle.fd_open_flags()
 
-    def pread(self, buf, size: int, file_offset: int, ntasks) -> IOFuture:
+    def pread(self, buf, size: int, file_offset: int, task_size) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         return _wrap_io_future(
             self._handle.pread(
                 <void*>info.first,
                 info.second,
                 file_offset,
-                ntasks if ntasks else kvikio_cxx_api.nthreads()
+                task_size if task_size else kvikio_cxx_api.task_size()
             )
         )
 
-    def pwrite(self, buf, size: int, file_offset: int, ntasks) -> IOFuture:
+    def pwrite(self, buf, size: int, file_offset: int, task_size) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
         return _wrap_io_future(
             self._handle.pwrite(
                 <void*>info.first,
                 info.second,
                 file_offset,
-                ntasks if ntasks else kvikio_cxx_api.nthreads()
+                task_size if task_size else kvikio_cxx_api.task_size()
             )
+        )
+
+    def read(self, buf, size: int, file_offset: int, dev_offset: int) -> int:
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
+        return self._handle.read(
+            <void*>info.first,
+            info.second,
+            file_offset,
+            dev_offset,
+        )
+
+    def write(self, buf, size: int, file_offset: int, dev_offset: int) -> int:
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
+        return self._handle.write(
+            <void*>info.first,
+            info.second,
+            file_offset,
+            dev_offset,
         )
 
 
@@ -174,18 +216,3 @@ cdef class DriverProperties:
     @max_pinned_memory_size.setter
     def max_pinned_memory_size(self, size_in_kb: int) -> None:
         self._handle.set_max_pinned_memory_size(size_in_kb)
-
-
-cdef class NVML:
-    cdef kvikio_cxx_api.NVML _handle
-
-    def get_name(self) -> str:
-        return self._handle.get_name().decode()
-
-    def get_memory(self) -> Tuple[int, int]:
-        cdef pair[size_t, size_t] info = self._handle.get_memory()
-        return info.first, info.second
-
-    def get_bar1_memory(self) -> Tuple[int, int]:
-        cdef pair[size_t, size_t] info = self._handle.get_bar1_memory()
-        return info.first, info.second

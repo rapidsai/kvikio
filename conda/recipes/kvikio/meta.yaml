@@ -1,0 +1,57 @@
+# Copyright (c) 2022, NVIDIA CORPORATION.
+
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set py_version = environ.get('CONDA_PY', 36) %}
+{% set cuda_version = '.'.join(environ.get('CUDA', '11.5').split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
+
+package:
+  name: kvikio
+  version: {{ version }}
+
+source:
+  git_url: ../../..
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: cuda_{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  script_env:
+    - VERSION_SUFFIX
+    - PARALLEL_LEVEL
+    - CC
+    - CXX
+    - CUDAHOSTCXX
+  script:
+    - cd python
+    - python -m pip install . -vv
+
+requirements:
+  build:
+    - cmake >=3.20.1
+    - ninja
+  host:
+    - python
+    - setuptools
+    - pip
+    - cython >=0.29,<0.30
+    - cudatoolkit {{ cuda_version }}.*
+    - scikit-build >=0.13.1
+    - libkvikio {{ version }}
+  run:
+    - cupy
+    - zarr
+    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+
+test:
+  imports:
+    - kvikio
+    - kvikio.cufile
+    - kvikio.defaults
+    - kvikio.zarr
+
+about:
+  home: http://rapids.ai/
+  license: Apache-2.0
+  license_family: Apache
+  license_file: LICENSE
+  summary: KvikIO - GPUDirect Storage

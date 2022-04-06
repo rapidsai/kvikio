@@ -23,9 +23,10 @@ include(rapids-find)
 project(
   KvikIO
   VERSION 22.04.00
-  LANGUAGES CXX)
+  LANGUAGES CXX
+)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
 # Write the version header
 rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
@@ -34,13 +35,16 @@ rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 rapids_cmake_build_type(Release)
 
 # build options
-option(BUILD_EXAMPLES "Configure CMake to build examples" ON)
+option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 
 # find packages we depend on
+rapids_cpm_init()
+
 rapids_find_package(
   CUDAToolkit REQUIRED
   BUILD_EXPORT_SET kvikio-exports
-  INSTALL_EXPORT_SET kvikio-exports)
+  INSTALL_EXPORT_SET kvikio-exports
+)
 
 rapids_find_package(
   Threads REQUIRED
@@ -48,14 +52,14 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 
-rapids_cpm_init()
-
-# find cuFile
 rapids_find_package(
-  cuFile REQUIRED
+  cuFile
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
+if(NOT cuFile_FOUND)
+  message(WARNING "Building KvikIO without cuFile.h")
+endif()
 
 # library targets
 add_library(kvikio INTERFACE)
@@ -67,24 +71,22 @@ target_include_directories(
 )
 
 target_link_libraries(kvikio INTERFACE Threads::Threads)
-target_link_libraries(kvikio INTERFACE CUDA::cudart)
-target_link_libraries(kvikio INTERFACE CUDA::nvml)
 target_link_libraries(kvikio INTERFACE cuda)
-target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
+if(cuFile_FOUND)
+  target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
+endif()
+target_link_libraries(kvikio INTERFACE dl)
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
-
 # optionally build examples
-if(BUILD_EXAMPLES)
+if(KvikIO_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-
 # optionally build tests
-if(BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+if(KvikIO_BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   include(cmake/thirdparty/get_gtest.cmake)
   include(CTest) # calls enable_testing()
-
   add_subdirectory(tests)
 endif()
 
@@ -104,7 +106,7 @@ rapids_export(
   INSTALL kvikio
   EXPORT_SET kvikio-exports
   GLOBAL_TARGETS kvikio
-  namespace kvikio::
+  NAMESPACE kvikio::
   DOCUMENTATION doc_string
 )
 
@@ -113,7 +115,7 @@ rapids_export(
   BUILD kvikio
   EXPORT_SET kvikio-exports
   GLOBAL_TARGETS kvikio
-  namespace kvikio::
+  NAMESPACE kvikio::
   DOCUMENTATION doc_string
 )
 

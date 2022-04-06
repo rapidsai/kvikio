@@ -5,7 +5,7 @@
 from ._lib import libkvikio  # type: ignore
 
 
-def reset_num_threads(nthread: int) -> None:
+def reset_num_threads(nthreads: int) -> None:
     """ Reset the number of threads in the default thread pool.
 
     Waits for all currently running tasks to be completed, then destroys all threads
@@ -16,12 +16,12 @@ def reset_num_threads(nthread: int) -> None:
 
     Parameters
     ----------
-    nthread : int
+    nthreads : int
         The number of threads to use. The default value can be specified by setting
         the `KVIKIO_NTHREADS` environment variable. If not set, the default value
         is 1.
     """
-    libkvikio.thread_pool_reset_num_threads(nthread)
+    libkvikio.thread_pool_reset_num_threads(nthreads)
 
 
 def get_num_threads() -> int:

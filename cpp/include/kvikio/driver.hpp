@@ -18,12 +18,11 @@
 #include <iostream>
 #include <vector>
 
-#include <cufile.h>
-
 #include <kvikio/error.hpp>
+#include <kvikio/shim/cufile.hpp>
+#include <kvikio/shim/cufile_h_wrapper.hpp>
 
 namespace kvikio {
-
 namespace detail {
 
 [[nodiscard]] bool get_driver_flag(unsigned int prop, unsigned int flag) noexcept
@@ -39,12 +38,14 @@ void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noexcept
     prop &= ~(1U << flag);
   }
 }
-
 }  // namespace detail
+
+#ifdef KVIKIO_CUFILE_EXIST
+
 class DriverInitializer {
   // Optional, if not used cuFiles opens the driver automatically
  public:
-  DriverInitializer() { CUFILE_TRY(cuFileDriverOpen()); }
+  DriverInitializer() { CUFILE_TRY(cuFileAPI::instance()->DriverOpen()); }
 
   DriverInitializer(DriverInitializer const&) = delete;
   DriverInitializer& operator=(DriverInitializer const&) = delete;
@@ -54,7 +55,7 @@ class DriverInitializer {
   ~DriverInitializer()
   {
     try {
-      CUFILE_TRY(cuFileDriverClose());
+      CUFILE_TRY(cuFileAPI::instance()->DriverClose());
     } catch (const CUfileException& e) {
       std::cerr << "Unable to close GDS file driver: ";
       std::cerr << e.what();
@@ -74,7 +75,7 @@ class DriverProperties {
   {
     if (_initialized) { return; }
     _initialized = true;
-    CUFILE_TRY(cuFileDriverGetProperties(&_props));
+    CUFILE_TRY(cuFileAPI::instance()->DriverGetProperties(&_props));
   }
 
  public:
@@ -119,14 +120,14 @@ class DriverProperties {
   void set_nvfs_poll_mode(bool enable)
   {
     lazy_init();
-    CUFILE_TRY(cuFileDriverSetPollMode(enable, get_nvfs_poll_thresh_size()));
+    CUFILE_TRY(cuFileAPI::instance()->DriverSetPollMode(enable, get_nvfs_poll_thresh_size()));
     detail::set_driver_flag(_props.nvfs.dcontrolflags, CU_FILE_USE_POLL_MODE, enable);
   }
 
   void set_nvfs_poll_thresh_size(std::size_t size_in_kb)
   {
     lazy_init();
-    CUFILE_TRY(cuFileDriverSetPollMode(get_nvfs_poll_mode(), size_in_kb));
+    CUFILE_TRY(cuFileAPI::instance()->DriverSetPollMode(get_nvfs_poll_mode(), size_in_kb));
     _props.nvfs.poll_thresh_size = size_in_kb;
   }
 
@@ -152,7 +153,7 @@ class DriverProperties {
   void set_max_device_cache_size(std::size_t size_in_kb)
   {
     lazy_init();
-    CUFILE_TRY(cuFileDriverSetMaxCacheSize(size_in_kb));
+    CUFILE_TRY(cuFileAPI::instance()->DriverSetMaxCacheSize(size_in_kb));
     _props.max_device_cache_size = size_in_kb;
   }
 
@@ -171,9 +172,85 @@ class DriverProperties {
   void set_max_pinned_memory_size(std::size_t size_in_kb)
   {
     lazy_init();
-    CUFILE_TRY(cuFileDriverSetMaxPinnedMemSize(size_in_kb));
+    CUFILE_TRY(cuFileAPI::instance()->DriverSetMaxPinnedMemSize(size_in_kb));
     _props.max_device_pinned_mem_size = size_in_kb;
   }
 };
+
+#else
+struct DriverInitializer {
+};
+
+struct DriverProperties {
+  DriverProperties() = default;
+
+  static bool is_gds_availabe() { return false; }
+
+  [[nodiscard]] static unsigned int get_nvfs_major_version()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] static unsigned int get_nvfs_minor_version()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] static bool get_nvfs_allow_compat_mode()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] static bool get_nvfs_poll_mode()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] static std::size_t get_nvfs_poll_thresh_size()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  static void set_nvfs_poll_mode(bool enable)
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  static void set_nvfs_poll_thresh_size(std::size_t size_in_kb)
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] static std::vector<CUfileDriverControlFlags> get_nvfs_statusflags()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] static std::size_t get_max_device_cache_size()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  static void set_max_device_cache_size(std::size_t size_in_kb)
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] static std::size_t get_per_buffer_cache_size()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] static std::size_t get_max_pinned_memory_size()
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  static void set_max_pinned_memory_size(std::size_t size_in_kb)
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+};
+#endif
 
 }  // namespace kvikio

@@ -19,9 +19,9 @@
 #include <cuda_runtime_api.h>
 
 #include <kvikio/buffer.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/driver.hpp>
 #include <kvikio/file_handle.hpp>
-#include <kvikio/nvml.hpp>
 
 using namespace std;
 
@@ -36,22 +36,23 @@ void check(bool condition)
 int main()
 {
   check(cudaSetDevice(0) == cudaSuccess);
-  kvikio::DriverInitializer manual_init_driver;
-  kvikio::DriverProperties props;
-  cout << "DriverProperties: " << endl;
-  cout << "  Version: " << props.get_nvfs_major_version() << "." << props.get_nvfs_minor_version()
-       << endl;
-  cout << "  Allow compatibility mode: " << std::boolalpha << props.get_nvfs_allow_compat_mode()
-       << endl;
-  cout << "  Pool mode - enabled: " << std::boolalpha << props.get_nvfs_poll_mode()
-       << ", threshold: " << props.get_nvfs_poll_thresh_size() << " kb" << endl;
-  cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
-  kvikio::NVML nvml;
-  auto [mem_total, mem_free]   = nvml.get_memory();
-  auto [bar1_total, bar1_free] = nvml.get_bar1_memory();
-  cout << "nvml: " << endl;
-  cout << "  GPU Memory Total : " << mem_total << " bytes" << endl;
-  cout << "  BAR1 Memory Total: " << bar1_total << " bytes" << endl;
+
+  cout << "KvikIO defaults: " << endl;
+  if (kvikio::defaults::compat_mode()) {
+    cout << "  Compatibility mode: enabled" << endl;
+  } else {
+    kvikio::DriverInitializer manual_init_driver;
+    cout << "  Compatibility mode: disabled" << endl;
+    kvikio::DriverProperties props;
+    cout << "DriverProperties: " << endl;
+    cout << "  Version: " << props.get_nvfs_major_version() << "." << props.get_nvfs_minor_version()
+         << endl;
+    cout << "  Allow compatibility mode: " << std::boolalpha << props.get_nvfs_allow_compat_mode()
+         << endl;
+    cout << "  Pool mode - enabled: " << std::boolalpha << props.get_nvfs_poll_mode()
+         << ", threshold: " << props.get_nvfs_poll_thresh_size() << " kb" << endl;
+    cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
+  }
 
   int a[1024], b[1024];
   for (int i = 0; i < 1024; ++i) {
@@ -69,30 +70,33 @@ int main()
     check(cudaMemcpy(a_dev, &a, sizeof(a), cudaMemcpyHostToDevice) == cudaSuccess);
     size_t written = f.pwrite(a_dev, sizeof(a), 0, 1).get();
     check(written == sizeof(a));
+    check(written == f.nbytes());
     cout << "Write: " << written << endl;
   }
   {
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, sizeof(a), 0, 1).get();
     check(read == sizeof(a));
+    check(read == f.nbytes());
     cout << "Read:  " << read << endl;
     check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
     for (int i = 0; i < 1024; ++i) {
       check(a[i] == b[i]);
     }
   }
-  kvikio::default_thread_pool::reset(16);
+  kvikio::defaults::thread_pool_nthreads_reset(16);
   {
     kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a_dev, sizeof(a)).get();
     check(written == sizeof(a));
-    cout << "Parallel write (" << kvikio::default_thread_pool::nthreads()
+    check(written == f.nbytes());
+    cout << "Parallel write (" << kvikio::defaults::thread_pool_nthreads()
          << " threads): " << written << endl;
   }
   {
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, sizeof(a), 0).get();
-    cout << "Parallel write (" << kvikio::default_thread_pool::nthreads() << " threads): " << read
+    cout << "Parallel write (" << kvikio::defaults::thread_pool_nthreads() << " threads): " << read
          << endl;
     check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
     for (int i = 0; i < 1024; ++i) {
@@ -104,6 +108,7 @@ int main()
     kvikio::buffer_register(c_dev, size(a));
     size_t read = f.pread(b_dev, sizeof(a)).get();
     check(read == sizeof(a));
+    check(read == f.nbytes());
     kvikio::buffer_deregister(c_dev);
   }
 }

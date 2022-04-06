@@ -22,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 
-EXPECTED_VERSION = "10.0.0"
+EXPECTED_VERSION = "11.1.0"
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 # NOTE: populate this list with more top-level dirs as we add more of them
 # to the cufile repo
@@ -78,9 +78,10 @@ def parse_args():
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)
     if version != EXPECTED_VERSION:
-        raise Exception(
-            "clang-format exe must be v%s found '%s'" % (EXPECTED_VERSION, version)
+        print(
+            "Warning - clang-format expect v%s found '%s'" % (EXPECTED_VERSION, version)
         )
+
     if len(args.dirs) == 0:
         args.dirs = DEFAULT_DIRS
     return args

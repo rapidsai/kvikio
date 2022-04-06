@@ -32,6 +32,16 @@ class IOFuture:
         """
         return self._handle.get()
 
+    def done(self) -> bool:
+        """Return True if the future is done.
+
+        Returns
+        ------
+        bool
+            Whether the future is done or not
+        """
+        return self._handle.done()
+
 
 class CuFile:
     """ File handle for GPUDirect Storage (GDS) """
@@ -77,7 +87,7 @@ class CuFile:
         self.close()
 
     def pread(
-        self, buf, size: int = None, file_offset: int = 0, ntasks=None
+        self, buf, size: int = None, file_offset: int = 0, task_size=None
     ) -> IOFuture:
         """Reads specified bytes from the file into the device memory in parallel
 
@@ -87,7 +97,8 @@ class CuFile:
         match the performance of aligned reads.
 
         `pread` is non-blocking and returns a `IOFuture` that can be waited upon. It
-        creates `ntasks` for the KvikIO thread pool to execute.
+        partitions the operation into tasks of size `task_size` for execution in the
+        default thread pool.
 
         Parameters
         ----------
@@ -97,8 +108,8 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
-        ntasks: int, default=kvikio.thread_pool.get_num_threads()
-            Number of tasks to use.
+        task_size: int, default=kvikio.defaults.task_size()
+            Size of each task in bytes.
 
         Returns
         ------
@@ -106,10 +117,10 @@ class CuFile:
             Future that on completion returns the size of bytes that were successfully
             read.
         """
-        return IOFuture(self._handle.pread(buf, size, file_offset, ntasks))
+        return IOFuture(self._handle.pread(buf, size, file_offset, task_size))
 
     def pwrite(
-        self, buf, size: int = None, file_offset: int = 0, ntasks=None
+        self, buf, size: int = None, file_offset: int = 0, task_size=None
     ) -> IOFuture:
         """Writes specified bytes from the device memory into the file in parallel
 
@@ -119,7 +130,9 @@ class CuFile:
         with aligned writes.
 
         `pwrite` is non-blocking and returns a `IOFuture` that can be waited upon. It
-        creates `ntasks` for the KvikIO thread pool to execute.
+        partitions the operation into tasks of size `task_size` for execution in the
+        default thread pool.
+
 
         Parameters
         ----------
@@ -129,8 +142,8 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to write from.
-        ntasks: int, default=kvikio.thread_pool.get_num_threads()
-            Number of tasks to use.
+        task_size: int, default=kvikio.defaults.task_size()
+            Size of each task in bytes.
 
         Returns
         ------
@@ -138,9 +151,9 @@ class CuFile:
             Future that on completion returns the size of bytes that were successfully
             written.
         """
-        return IOFuture(self._handle.pwrite(buf, size, file_offset, ntasks))
+        return IOFuture(self._handle.pwrite(buf, size, file_offset, task_size))
 
-    def read(self, buf, size: int = None, file_offset: int = 0, ntasks=None) -> int:
+    def read(self, buf, size: int = None, file_offset: int = 0, task_size=None) -> int:
         """Reads specified bytes from the file into the device memory in parallel
 
         This is a blocking version of `.pread`.
@@ -153,17 +166,17 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
-        ntasks: int, default=kvikio.thread_pool.get_num_threads()
-            Number of tasks to use.
+        task_size: int, default=kvikio.defaults.task_size()
+            Size of each task in bytes.
 
         Returns
         ------
         int
             The size of bytes that were successfully read.
         """
-        return self.pread(buf, size, file_offset, ntasks).get()
+        return self.pread(buf, size, file_offset, task_size).get()
 
-    def write(self, buf, size: int = None, file_offset: int = 0, ntasks=None) -> int:
+    def write(self, buf, size: int = None, file_offset: int = 0, task_size=None) -> int:
         """Writes specified bytes from the device memory into the file in parallel
 
         This is a blocking version of `.pwrite`.
@@ -176,12 +189,62 @@ class CuFile:
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to write from.
-        ntasks: int, default=kvikio.thread_pool.get_num_threads()
-            Number of tasks to use.
+        task_size: int, default=kvikio.defaults.task_size()
+            Size of each task in bytes.
 
         Returns
         ------
         int
             The size of bytes that were successfully written.
         """
-        return self.pwrite(buf, size, file_offset, ntasks).get()
+        return self.pwrite(buf, size, file_offset, task_size).get()
+
+    def raw_read(
+        self, buf, size: int = None, file_offset: int = 0, dev_offset: int = 0
+    ) -> int:
+        """Reads specified bytes from the file into the device memory
+
+        This is a low-level version of `.read` that doesn't use threads.
+
+        Parameters
+        ----------
+        buf: buffer-like or array-like
+            Device buffer to read into.
+        size: int
+            Size in bytes to read.
+        file_offset: int, optional
+            Offset in the file to read from.
+        dev_offset: int, optional
+            Offset in the `buf` to read from.
+
+        Returns
+        ------
+        int
+            The size of bytes that were successfully read.
+        """
+        return self._handle.read(buf, size, file_offset, dev_offset)
+
+    def raw_write(
+        self, buf, size: int = None, file_offset: int = 0, dev_offset: int = 0
+    ) -> int:
+        """Writes specified bytes from the device memory into the file
+
+        This is a low-level version of `.write` that doesn't use threads.
+
+        Parameters
+        ----------
+        buf: buffer-like or array-like
+            Device buffer to write to.
+        size: int
+            Size in bytes to read.
+        file_offset: int, optional
+            Offset in the file to write from.
+        dev_offset: int, optional
+            Offset in the `buf` to write from.
+
+        Returns
+        ------
+        int
+            The size of bytes that were successfully written.
+        """
+        return self._handle.write(buf, size, file_offset, dev_offset)

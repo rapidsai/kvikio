@@ -18,6 +18,10 @@ cdef extern from "<future>" namespace "std" nogil:
         T get() except +
 
 
+cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
+    bool is_future_done[T](const T& future) except +
+
+
 cdef extern from "<kvikio/driver.hpp>" namespace "kvikio" nogil:
     cdef cppclass DriverProperties:
         DriverProperties() except +
@@ -41,10 +45,13 @@ cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
     void memory_deregister(const void* devPtr) except +
 
 
-cdef extern from "<kvikio/thread_pool/default.hpp>" namespace "kvikio::default_thread_pool" nogil:
-    void reset(unsigned int nthreads)
-    unsigned int nthreads()
-
+cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio::defaults" nogil:
+    bool compat_mode() except +
+    void compat_mode_reset(bool enable) except +
+    unsigned int thread_pool_nthreads() except +
+    void thread_pool_nthreads_reset(unsigned int nthreads) except +
+    size_t task_size() except +
+    void task_size_reset(size_t nbytes) except +
 
 cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
     cdef cppclass FileHandle:
@@ -67,19 +74,23 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             void* devPtr,
             size_t size,
             size_t file_offset,
-            size_t ntasks
+            size_t task_size
         ) except +
         future[size_t] pwrite(
             void* devPtr,
             size_t size,
             size_t file_offset,
-            size_t ntasks
+            size_t task_size
         ) except +
-
-
-cdef extern from "<kvikio/nvml.hpp>" namespace "kvikio" nogil:
-    cdef cppclass NVML:
-        NVML() except +
-        string get_name() except +
-        pair[size_t, size_t] get_memory() except +
-        pair[size_t, size_t] get_bar1_memory() except +
+        size_t read(
+            void* devPtr_base,
+            size_t size,
+            size_t file_offset,
+            size_t devPtr_offset
+        ) except +
+        size_t write(
+            void* devPtr_base,
+            size_t size,
+            size_t file_offset,
+            size_t devPtr_offset
+        ) except +

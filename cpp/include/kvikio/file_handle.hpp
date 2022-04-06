@@ -16,6 +16,7 @@
 #pragma once
 
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <cstddef>
@@ -26,11 +27,12 @@
 #include <system_error>
 #include <utility>
 
-#include <cufile.h>
 #include <kvikio/buffer.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
-#include <kvikio/thread_pool/default.hpp>
+#include <kvikio/posix_io.hpp>
+#include <kvikio/shim/cufile.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -56,14 +58,11 @@ inline int open_fd_parse_flags(const std::string& flags)
       if (flags[1] == '+') { file_flags = O_RDWR; }
       file_flags |= O_CREAT | O_TRUNC;
       break;
-    case 'a':
-      throw std::invalid_argument("Open flag 'a' isn't supported");
-      file_flags = O_RDWR | O_CREAT;
-      break;
+    case 'a': throw std::invalid_argument("Open flag 'a' isn't supported");
     default: throw std::invalid_argument("Unknown file open flag");
   }
   file_flags |= O_CLOEXEC;
-  file_flags |= O_DIRECT;
+  if (!defaults::compat_mode()) { file_flags |= O_DIRECT; }
   return file_flags;
 }
 
@@ -76,10 +75,27 @@ inline int open_fd_parse_flags(const std::string& flags)
  */
 inline int open_fd(const std::string& file_path, const std::string& flags, mode_t mode)
 {
-  /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)*/
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags), mode);
   if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
   return fd;
+}
+
+/**
+ * @brief Get file size from file descriptor `fstat(3)`
+ *
+ * @param file_descriptor Open file descriptor
+ * @return The number of bytes
+ */
+[[nodiscard]] inline std::size_t get_file_size(int file_descriptor)
+{
+  struct stat st {
+  };
+  int ret = fstat(file_descriptor, &st);
+  if (ret == -1) {
+    throw std::system_error(errno, std::generic_category(), "Unable to query file size");
+  }
+  return static_cast<std::size_t>(st.st_size);
 }
 
 }  // namespace
@@ -94,6 +110,7 @@ class FileHandle {
   int _fd{-1};
   bool _own_fd{false};
   bool _closed{true};
+  mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUfileHandle_t _handle{};
 
  public:
@@ -109,11 +126,14 @@ class FileHandle {
    */
   FileHandle(int fd, bool steal_fd = false) : _fd{fd}, _own_fd{steal_fd}, _closed{false}
   {
+    if (defaults::compat_mode()) { return; }
+#ifdef KVIKIO_CUFILE_EXIST
     CUfileDescr_t desc{};  // It is important to set zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     /*NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)*/
     desc.handle.fd = fd;
-    CUFILE_TRY(cuFileHandleRegister(&_handle, &desc));
+    CUFILE_TRY(cuFileAPI::instance()->HandleRegister(&_handle, &desc));
+#endif
   }
 
   /**
@@ -137,6 +157,7 @@ class FileHandle {
     : _fd{std::exchange(o._fd, -1)},
       _own_fd{std::exchange(o._own_fd, false)},
       _closed{std::exchange(o._closed, true)},
+      _nbytes{std::exchange(o._nbytes, 0)},
       _handle{std::exchange(o._handle, CUfileHandle_t{})}
   {
   }
@@ -145,6 +166,7 @@ class FileHandle {
     _fd     = std::exchange(o._fd, -1);
     _own_fd = std::exchange(o._own_fd, false);
     _closed = std::exchange(o._closed, true);
+    _nbytes = std::exchange(o._nbytes, 0);
     _handle = std::exchange(o._handle, CUfileHandle_t{});
     return *this;
   }
@@ -165,7 +187,9 @@ class FileHandle {
   void close() noexcept
   {
     _closed = true;
-    cuFileHandleDeregister(_handle);
+#ifdef KVIKIO_CUFILE_EXIST
+    if (!defaults::compat_mode()) { cuFileAPI::instance()->HandleDeregister(_handle); }
+#endif
     if (_own_fd) { ::close(_fd); }
   }
 
@@ -187,6 +211,17 @@ class FileHandle {
       throw std::system_error(errno, std::generic_category(), "Unable to retrieve open flags");
     }
     return ret;
+  }
+
+  /**
+   * @brief Get the file size
+   *
+   * @return The number of bytes
+   */
+  [[nodiscard]] inline std::size_t nbytes() const
+  {
+    if (_nbytes == 0 && _fd > 0) { _nbytes = get_file_size(_fd); }
+    return _nbytes;
   }
 
   /**
@@ -217,16 +252,23 @@ class FileHandle {
                    std::size_t file_offset,
                    std::size_t devPtr_offset)
   {
-    ssize_t ret = cuFileRead(
+    if (defaults::compat_mode()) {
+      return posix_read(_fd, devPtr_base, size, file_offset, devPtr_offset);
+    }
+#ifdef KVIKIO_CUFILE_EXIST
+    ssize_t ret = cuFileAPI::instance()->Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
       throw std::system_error(errno, std::generic_category(), "Unable to read file");
     }
     if (ret < -1) {
       throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
     }
     return ret;
+#else
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+#endif
   }
 
   /**
@@ -258,23 +300,32 @@ class FileHandle {
                     std::size_t file_offset,
                     std::size_t devPtr_offset)
   {
-    ssize_t ret = cuFileWrite(
+    _nbytes = 0;  // Invalidate the computed file size
+
+    if (defaults::compat_mode()) {
+      return posix_write(_fd, devPtr_base, size, file_offset, devPtr_offset);
+    }
+#ifdef KVIKIO_CUFILE_EXIST
+    ssize_t ret = cuFileAPI::instance()->Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
       throw std::system_error(errno, std::generic_category(), "Unable to write file");
     }
     if (ret < -1) {
       throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                            CUFILE_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
     }
     return ret;
+#else
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+#endif
   }
 
   /**
    * @brief Reads specified bytes from the file into the device memory in parallel.
    *
-   * This API is a parallel async version of `.read()` that create `ntasks` tasks
-   * for the thread pool to execute.
+   * This API is a parallel async version of `.read()` that partition the operation
+   * into tasks of size `task_size` for execution in the default thread pool.
    *
    * @note `pread` use the base address of the allocation `devPtr` is part of. This means
    * that when registering buffers, use the base address of the allocation. This is what
@@ -283,13 +334,13 @@ class FileHandle {
    * @param devPtr Address to device memory.
    * @param size Size in bytes to read.
    * @param file_offset Offset in the file to read from.
-   * @param ntasks Number of tasks to use.
+   * @param task_size Size of each task in bytes.
    * @return Future that on completion returns the size of bytes that were successfully read.
    */
   std::future<std::size_t> pread(void* devPtr,
                                  std::size_t size,
                                  std::size_t file_offset = 0,
-                                 std::size_t ntasks      = default_thread_pool::nthreads())
+                                 std::size_t task_size   = defaults::task_size())
   {
     // Lambda that calls this->read()
     auto op = [this](void* devPtr_base,
@@ -298,14 +349,14 @@ class FileHandle {
                      std::size_t devPtr_offset) -> std::size_t {
       return read(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return parallel_io(op, devPtr, size, file_offset, ntasks);
+    return parallel_io(op, devPtr, size, file_offset, task_size);
   }
 
   /**
    * @brief Writes specified bytes from the device memory into the file in parallel.
    *
-   * This API is a parallel async version of `.write()` that create `ntasks` tasks
-   * for the thread pool to execute.
+   * This API is a parallel async version of `.write()` that partition the operation
+   * into tasks of size `task_size` for execution in the default thread pool.
    *
    * @note `pwrite` use the base address of the allocation `devPtr` is part of. This means
    * that when registering buffers, use the base address of the allocation. This is what
@@ -314,13 +365,13 @@ class FileHandle {
    * @param devPtr Address to device memory.
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
-   * @param ntasks Number of tasks to use.
+   * @param task_size Size of each task in bytes.
    * @return Future that on completion returns the size of bytes that were successfully written.
    */
   std::future<std::size_t> pwrite(const void* devPtr,
                                   std::size_t size,
                                   std::size_t file_offset = 0,
-                                  std::size_t ntasks      = default_thread_pool::nthreads())
+                                  std::size_t task_size   = defaults::task_size())
   {
     // Lambda that calls this->write()
     auto op = [this](const void* devPtr_base,
@@ -329,7 +380,7 @@ class FileHandle {
                      std::size_t devPtr_offset) -> std::size_t {
       return write(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return parallel_io(op, devPtr, size, file_offset, ntasks);
+    return parallel_io(op, devPtr, size, file_offset, task_size);
   }
 };
 

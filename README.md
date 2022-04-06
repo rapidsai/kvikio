@@ -34,7 +34,13 @@ For testing:
 
 ## Install
 
-### C++
+### Conda 
+Install the `kvikio` conda package from the `rapidsai-nightly` channel like:
+```
+conda create -n kvikio_env -c rapidsai-nightly -c conda-forge python=3.8 cudatoolkit=11.5 kvikio
+```
+
+### C++ (build from source)
 To build the C++ example, go to the `cpp` subdiretory and run:
 ```
 mkdir build
@@ -47,7 +53,7 @@ Then run the example:
 ./examples/basic_io
 ```
 
-### Python
+### Python (build from source)
 
 To build and install the extension, go to the `python` subdiretory and run:
 ```
@@ -121,4 +127,19 @@ f = kvikio.CuFile("test-file", "r")
 # Read whole array from file
 f.read(b)
 assert all(a == b)
+
+# Use contexmanager
+c = cupy.empty_like(a)
+with kvikio.CuFile(path, "r") as f:
+    f.read(c)
+assert all(a == c)
+
+# Non-blocking read
+d = cupy.empty_like(a)
+with kvikio.CuFile(path, "r") as f:
+    future1 = f.pread(d[:50])
+    future2 = f.pread(d[50:], file_offset=d[:50].nbytes)
+    future1.get()  # Wait for first read
+    future2.get()  # Wait for second read
+assert all(a == d)
 ```

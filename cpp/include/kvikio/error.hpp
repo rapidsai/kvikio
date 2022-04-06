@@ -20,7 +20,7 @@
 
 #include <cuda.h>
 
-#include <cufile.h>
+#include <kvikio/shim/cufile_h_wrapper.hpp>
 
 namespace kvikio {
 
@@ -28,9 +28,11 @@ struct CUfileException : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
 
-#define STRINGIFY_DETAIL(x) #x
-#define CUFILE_STRINGIFY(x) STRINGIFY_DETAIL(x)
+#define KVIKIO_STRINGIFY_DETAIL(x) #x
+#define KVIKIO_STRINGIFY(x)        KVIKIO_STRINGIFY_DETAIL(x)
 
+#ifdef KVIKIO_CUFILE_EXIST
+#ifndef CUFILE_TRY
 #define CUFILE_TRY(...)                                         \
   GET_CUFILE_TRY_MACRO(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
   (__VA_ARGS__)
@@ -49,24 +51,27 @@ struct CUfileException : public std::runtime_error {
           if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }                \
           /*NOLINTNEXTLINE(bugprone-macro-parentheses)*/                                          \
           throw _exception_type{std::string{"CUDA error at: "} + __FILE__ + ":" +                 \
-                                CUFILE_STRINGIFY(__LINE__) + ": " + std::string(err_name) + "(" + \
+                                KVIKIO_STRINGIFY(__LINE__) + ": " + std::string(err_name) + "(" + \
                                 std::string(err_str) + ")"};                                      \
         }                                                                                         \
       } else {                                                                                    \
         /*NOLINTNEXTLINE(bugprone-macro-parentheses)*/                                            \
         throw _exception_type{std::string{"cuFile error at: "} + __FILE__ + ":" +                 \
-                              CUFILE_STRINGIFY(__LINE__) + ": " +                                 \
+                              KVIKIO_STRINGIFY(__LINE__) + ": " +                                 \
                               cufileop_status_error(error.err)};                                  \
       }                                                                                           \
     }                                                                                             \
   } while (0)
 #define CUFILE_TRY_1(_call) CUFILE_TRY_2(_call, CUfileException)
+#endif
+#endif
 
-#define CUDA_TRY(...)                                     \
-  GET_CUDA_TRY_MACRO(__VA_ARGS__, CUDA_TRY_2, CUDA_TRY_1) \
+#ifndef CUDA_DRIVER_TRY
+#define CUDA_DRIVER_TRY(...)                                                   \
+  GET_CUDA_DRIVER_TRY_MACRO(__VA_ARGS__, CUDA_DRIVER_TRY_2, CUDA_DRIVER_TRY_1) \
   (__VA_ARGS__)
-#define GET_CUDA_TRY_MACRO(_1, _2, NAME, ...) NAME
-#define CUDA_TRY_2(_call, _exception_type)                                                    \
+#define GET_CUDA_DRIVER_TRY_MACRO(_1, _2, NAME, ...) NAME
+#define CUDA_DRIVER_TRY_2(_call, _exception_type)                                             \
   do {                                                                                        \
     CUresult const error = (_call);                                                           \
     if (error != CUDA_SUCCESS) {                                                              \
@@ -78,26 +83,11 @@ struct CUfileException : public std::runtime_error {
       if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }                \
       /*NOLINTNEXTLINE(bugprone-macro-parentheses)*/                                          \
       throw _exception_type{std::string{"CUDA error at: "} + __FILE__ + ":" +                 \
-                            CUFILE_STRINGIFY(__LINE__) + ": " + std::string(err_name) + "(" + \
+                            KVIKIO_STRINGIFY(__LINE__) + ": " + std::string(err_name) + "(" + \
                             std::string(err_str) + ")"};                                      \
     }                                                                                         \
   } while (0)
-#define CUDA_TRY_1(_call) CUDA_TRY_2(_call, CUfileException)
-
-#define NVML_TRY(...)                                     \
-  GET_NVML_TRY_MACRO(__VA_ARGS__, NVML_TRY_2, NVML_TRY_1) \
-  (__VA_ARGS__)
-#define GET_NVML_TRY_MACRO(_1, _2, NAME, ...) NAME
-#define NVML_TRY_2(_call, _exception_type)                                    \
-  do {                                                                        \
-    nvmlReturn_t const error = (_call);                                       \
-    if (error != NVML_SUCCESS) {                                              \
-      /*NOLINTNEXTLINE(bugprone-macro-parentheses)*/                          \
-      throw _exception_type{std::string{"NVML error at: "} + __FILE__ + ":" + \
-                            CUFILE_STRINGIFY(__LINE__) + ": " +               \
-                            std::string(nvmlErrorString(error))};             \
-    }                                                                         \
-  } while (0)
-#define NVML_TRY_1(_call) NVML_TRY_2(_call, CUfileException)
+#define CUDA_DRIVER_TRY_1(_call) CUDA_DRIVER_TRY_2(_call, CUfileException)
+#endif
 
 }  // namespace kvikio

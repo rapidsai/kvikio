@@ -11,13 +11,13 @@ import shutil
 import statistics
 import tempfile
 from time import perf_counter as clock
-from typing import Union
+from typing import ContextManager, Union
 
 import cupy
 from dask.utils import format_bytes, parse_bytes
 
 import kvikio
-import kvikio.thread_pool
+import kvikio.defaults
 
 
 def run_cufile(args):
@@ -66,16 +66,18 @@ def run_cufile_multiple_files_multiple_arrays(args):
     # Write
     files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
     t0 = clock()
-    futures = [f.pwrite(a, ntasks=1) for f, a in zip(files, arrays)]
+    futures = [f.pwrite(a, task_size=a.nbytes) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
+    del files
     write_time = clock() - t0
     assert res == args.nbytes
 
     # Read
     files = [kvikio.CuFile(file_path % i, flags="r") for i in range(args.nthreads)]
     t0 = clock()
-    futures = [f.pread(a, ntasks=1) for f, a in zip(files, arrays)]
+    futures = [f.pread(a, task_size=a.nbytes) for f, a in zip(files, arrays)]
     res = sum(f.get() for f in futures)
+    del files
     read_time = clock() - t0
     assert res == args.nbytes
 
@@ -103,6 +105,7 @@ def run_cufile_multiple_files(args):
         f.pwrite(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
     ]
     res = sum(f.get() for f in futures)
+    del files
     write_time = clock() - t0
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
@@ -113,6 +116,7 @@ def run_cufile_multiple_files(args):
         f.pread(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
     ]
     res = sum(f.get() for f in futures)
+    del files
     read_time = clock() - t0
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
@@ -139,17 +143,20 @@ def run_cufile_multiple_arrays(args):
     f = kvikio.CuFile(file_path, flags="w")
     t0 = clock()
     futures = [
-        f.pwrite(a, ntasks=1, file_offset=i * chunksize) for i, a in enumerate(arrays)
+        f.pwrite(a, task_size=a.nbytes, file_offset=i * chunksize)
+        for i, a in enumerate(arrays)
     ]
     res = sum(f.get() for f in futures)
+    f.close()
     write_time = clock() - t0
     assert res == args.nbytes
 
     # Read
     f = kvikio.CuFile(file_path, flags="r")
     t0 = clock()
-    futures = [f.pread(a, ntasks=1) for a in arrays]
+    futures = [f.pread(a, task_size=a.nbytes) for a in arrays]
     res = sum(f.get() for f in futures)
+    f.close()
     read_time = clock() - t0
     assert res == args.nbytes
 
@@ -237,11 +244,30 @@ def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
     cupy.arange(10)  # Make sure CUDA is initialized
 
-    kvikio.thread_pool.reset_num_threads(args.nthreads)
+    kvikio.defaults.reset_num_threads(args.nthreads)
     props = kvikio.DriverProperties()
-    nvml = kvikio.NVML()
-    mem_total, _ = nvml.get_memory()
-    bar1_total, _ = nvml.get_bar1_memory()
+    try:
+        import pynvml.smi
+
+        nvsmi = pynvml.smi.nvidia_smi.getInstance()
+    except ImportError:
+        gpu_name = "Unknown (install pynvml)"
+        mem_total = gpu_name
+        bar1_total = gpu_name
+    else:
+        info = nvsmi.DeviceQuery()["gpu"][0]
+        gpu_name = f"{info['product_name']} (dev #0)"
+        mem_total = format_bytes(
+            parse_bytes(
+                str(info["fb_memory_usage"]["total"]) + info["fb_memory_usage"]["unit"]
+            )
+        )
+        bar1_total = format_bytes(
+            parse_bytes(
+                str(info["bar1_memory_usage"]["total"])
+                + info["bar1_memory_usage"]["unit"]
+            )
+        )
     gds_version = "N/A (Compatibility Mode)"
     if props.is_gds_availabe:
         gds_version = f"v{props.major_version}.{props.minor_version}"
@@ -251,14 +277,19 @@ def main(args):
 
     print("Roundtrip benchmark")
     print("----------------------------------")
-    if not props.is_gds_availabe:
+    if kvikio.defaults.compat_mode():
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("             WARNING              ")
-        print("   Compat mode, GDS not enabled   ")
+        print("   WARNING - KvikIO compat mode   ")
+        print("      libcufile.so not used       ")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    print(f"GPU               | {nvml.get_name()}")
-    print(f"GPU Memory Total  | {format_bytes(mem_total)}")
-    print(f"BAR1 Memory Total | {format_bytes(bar1_total)}")
+    elif not props.is_gds_availabe:
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("   WARNING - cuFile compat mode   ")
+        print("         GDS not enabled          ")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print(f"GPU               | {gpu_name}")
+    print(f"GPU Memory Total  | {mem_total}")
+    print(f"BAR1 Memory Total | {bar1_total}")
     print(f"GDS driver        | {gds_version}")
     print(f"GDS config.json   | {gds_config_json_path}")
     print("----------------------------------")
@@ -361,7 +392,7 @@ if __name__ == "__main__":
         args.api = tuple(API.keys())
 
     # Create a temporary directory if user didn't specify a directory
-    temp_dir: Union[tempfile.TemporaryDirectory, contextlib.nullcontext]
+    temp_dir: Union[tempfile.TemporaryDirectory, ContextManager]
     if args.dir is None:
         temp_dir = tempfile.TemporaryDirectory()
         args.dir = pathlib.Path(temp_dir.name)
