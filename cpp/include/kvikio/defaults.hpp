@@ -104,7 +104,7 @@ class defaults {
     }
     // Determine the default value of `task_size`
     {
-      const ssize_t env = getenv_or("KVIKIO_TASK_SIZE", 16 * 1024 * 1024);
+      const ssize_t env = getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
       if (env <= 0) {
         throw std::invalid_argument("KVIKIO_TASK_SIZE has to be a positive integer");
       }
