@@ -58,7 +58,7 @@ std::future<std::size_t> parallel_io(
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
-    return std::async(std::launch::deferred, task, devPtr_base, size, file_offset, devPtr_offset);
+    return defaults::thread_pool().submit(task, devPtr_base, size, file_offset, devPtr_offset);
   }
 
   // We know an upper bound of the total number of tasks
