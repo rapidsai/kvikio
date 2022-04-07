@@ -130,7 +130,7 @@ class FileHandle {
   int _fd_direct_on{-1};
   int _fd_direct_off{-1};
   bool _initialized{false};
-  bool _combat_mode{false};
+  bool _compat_mode{false};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUfileHandle_t _handle{};
 
@@ -161,9 +161,9 @@ class FileHandle {
     : _fd_direct_on{open_fd(file_path, flags, true, mode)},
       _fd_direct_off{open_fd(file_path, flags, false, mode)},
       _initialized{true},
-      _combat_mode{compat_mode}
+      _compat_mode{compat_mode}
   {
-    if (_combat_mode) { return; }
+    if (_compat_mode) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
     CUfileDescr_t desc{};  // It is important to set to zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
@@ -182,7 +182,7 @@ class FileHandle {
     : _fd_direct_on{std::exchange(o._fd_direct_on, -1)},
       _fd_direct_off{std::exchange(o._fd_direct_off, -1)},
       _initialized{std::exchange(o._initialized, false)},
-      _combat_mode{std::exchange(o._combat_mode, false)},
+      _compat_mode{std::exchange(o._compat_mode, false)},
       _nbytes{std::exchange(o._nbytes, 0)},
       _handle{std::exchange(o._handle, CUfileHandle_t{})}
   {
@@ -192,7 +192,7 @@ class FileHandle {
     _fd_direct_on  = std::exchange(o._fd_direct_on, -1);
     _fd_direct_off = std::exchange(o._fd_direct_off, -1);
     _initialized   = std::exchange(o._initialized, false);
-    _combat_mode   = std::exchange(o._combat_mode, false);
+    _compat_mode   = std::exchange(o._compat_mode, false);
     _nbytes        = std::exchange(o._nbytes, 0);
     _handle        = std::exchange(o._handle, CUfileHandle_t{});
     return *this;
@@ -208,7 +208,7 @@ class FileHandle {
   {
     if (closed()) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
-    if (!_combat_mode) { cuFileAPI::instance()->HandleDeregister(_handle); }
+    if (!_compat_mode) { cuFileAPI::instance()->HandleDeregister(_handle); }
 #endif
     ::close(_fd_direct_on);
     ::close(_fd_direct_off);
@@ -272,7 +272,7 @@ class FileHandle {
                    std::size_t file_offset,
                    std::size_t devPtr_offset)
   {
-    if (_combat_mode) {
+    if (_compat_mode) {
       return posix_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
@@ -322,7 +322,7 @@ class FileHandle {
   {
     _nbytes = 0;  // Invalidate the computed file size
 
-    if (_combat_mode) {
+    if (_compat_mode) {
       return posix_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
