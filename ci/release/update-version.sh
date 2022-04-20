@@ -35,6 +35,9 @@ sed_runner "/project(/,/)/s/VERSION.*/VERSION ${NEXT_FULL_TAG}/" cpp/CMakeLists.
 # python update
 sed_runner 's/set(kvikio_version.*)/set(kvikio_version '${NEXT_FULL_TAG}')/g' python/CMakeLists.txt
 
+# rapids-cmake version
+sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_SHORT_TAG}\/RAPIDS.cmake"'/g' cpp/cmake/fetch_rapids.cmake
+
 # script update
 sed_runner 's/version=.*/version="'${NEXT_SHORT_TAG}'"):/g' scripts/format-all.py
 
