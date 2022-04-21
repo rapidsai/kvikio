@@ -65,7 +65,7 @@ std::future<std::size_t> parallel_io(
   std::vector<std::future<std::size_t>> tasks;
   tasks.reserve(size / task_size + 2);
 
-  // 1) Submit tasks for the aligned range from the first page boundary to the last page boundary
+  // 1) Submit `task_size` sized tasks
   {
     while (size >= task_size) {
       tasks.push_back(
@@ -75,7 +75,7 @@ std::future<std::size_t> parallel_io(
       size -= task_size;
     }
   }
-  // 2) Submit a task for the remainder range from the last page boundary to the end
+  // 2) Submit a task for the remainder
   if (size > 0) {
     tasks.push_back(
       defaults::thread_pool().submit(task, devPtr_base, size, file_offset, devPtr_offset));
