@@ -66,14 +66,12 @@ std::future<std::size_t> parallel_io(
   tasks.reserve(size / task_size + 2);
 
   // 1) Submit `task_size` sized tasks
-  {
-    while (size >= task_size) {
-      tasks.push_back(
-        defaults::thread_pool().submit(task, devPtr_base, task_size, file_offset, devPtr_offset));
-      file_offset += task_size;
-      devPtr_offset += task_size;
-      size -= task_size;
-    }
+  while (size >= task_size) {
+    tasks.push_back(
+      defaults::thread_pool().submit(task, devPtr_base, task_size, file_offset, devPtr_offset));
+    file_offset += task_size;
+    devPtr_offset += task_size;
+    size -= task_size;
   }
   // 2) Submit a task for the remainder
   if (size > 0) {
