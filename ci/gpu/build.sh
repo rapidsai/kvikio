@@ -24,11 +24,11 @@ cd "$WORKSPACE"
 
 # Determine CUDA release version
 export CUDA_REL=${CUDA_VERSION%.*}
-export CONDA_ARTIFACT_PATH="$WORKSPACE/ci/artifacts/kvikio/cpu/.conda-bld/"
 
 # Parse git describe
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
+unset GIT_DESCRIBE_TAG
 
 ################################################################################
 # SETUP - Check environment
@@ -44,12 +44,6 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
-gpuci_logger "Install dependencies"
-gpuci_mamba_retry install -y \
-                  "cudatoolkit=$CUDA_REL" \
-                  "cupy" \
-                  "zarr"
-
 gpuci_logger "Check compiler versions"
 python --version
 $CC --version
@@ -64,11 +58,14 @@ conda list --show-channel-urls
 # TEST - Run py.test for kvikio
 ################################################################################
 
+gpuci_logger "Build and install kvikio"
+cd "${WORKSPACE}"
+export CONDA_BLD_DIR="${WORKSPACE}/.conda-bld"
+gpuci_mamba_retry install -c conda-forge boa
+gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --python=$PYTHON
+gpuci_mamba_retry install kvikio
+
 cd "$WORKSPACE/python"
-
-gpuci_logger "Build kvikio from source"
-python -m pip install .
-
 gpuci_logger "Python py.test for kvikio"
 py.test -n 6 --cache-clear --basetemp="$WORKSPACE/cudf-cuda-tmp" --junitxml="$WORKSPACE/junit-kvikio.xml" -v
 
