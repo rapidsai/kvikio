@@ -218,7 +218,7 @@ class FileHandle {
   }
 
   /**
-   * @brief Get the file descripter of one of the open files
+   * @brief Get one of the file descripters
    *
    * @return File descripter
    */
