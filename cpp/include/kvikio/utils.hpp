@@ -36,7 +36,7 @@ inline constexpr std::size_t page_size = 4096;
 
 [[nodiscard]] inline off_t convert_size2off(std::size_t x)
 {
-  if (x >= std::numeric_limits<off_t>::max()) {
+  if (x >= static_cast<std::size_t>(std::numeric_limits<off_t>::max())) {
     throw CUfileException("size_t argument too large to fit off_t");
   }
   return static_cast<off_t>(x);
