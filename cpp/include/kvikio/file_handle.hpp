@@ -240,6 +240,7 @@ class FileHandle {
    */
   [[nodiscard]] inline std::size_t nbytes() const
   {
+    if (closed()) { return 0; }
     if (_nbytes == 0) { _nbytes = get_file_size(_fd_direct_on); }
     return _nbytes;
   }
