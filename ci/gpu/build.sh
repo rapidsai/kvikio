@@ -58,12 +58,13 @@ conda list --show-channel-urls
 # TEST - Run py.test for kvikio
 ################################################################################
 
-gpuci_logger "Build and install kvikio"
+gpuci_logger "Build and install libkvikio and kvikio"
 cd "${WORKSPACE}"
 export CONDA_BLD_DIR="${WORKSPACE}/.conda-bld"
 gpuci_mamba_retry install -c conda-forge boa
-gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --python=$PYTHON
-gpuci_mamba_retry install kvikio
+gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio
+gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --python=$PYTHON -c "${CONDA_BLD_DIR}"
+gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio kvikio
 
 cd "$WORKSPACE/python"
 gpuci_logger "Python py.test for kvikio"
