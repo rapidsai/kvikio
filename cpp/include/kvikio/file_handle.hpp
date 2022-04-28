@@ -141,9 +141,12 @@ class FileHandle {
   /**
    * @brief Construct a file handle from a file path
    *
-   * FileHandle opens the file twice and maintains two file descriptors. One file are
-   * opened with the specified `flags` and the other file are opened with the `flags`
-   * plus the `O_DIRECT` flag.
+   * In compatibility mode, FileHandle opens the file twice and maintains
+   * two file descriptors. One file are opened with the specified `flags`
+   * and the other file are opened with the `flags` plus the `O_DIRECT` flag.
+   *
+   * In regular mode, FileHandle opens only one file using the `flags` plus
+   * the `O_DIRECT` flag.
    *
    * @param file_path File path to the file
    * @param flags Open flags (see also `fopen(3)`):
@@ -159,7 +162,8 @@ class FileHandle {
              mode_t mode              = m644,
              bool compat_mode         = defaults::compat_mode())
     : _fd_direct_on{open_fd(file_path, flags, true, mode)},
-      _fd_direct_off{open_fd(file_path, flags, false, mode)},
+      // Only init `_fd_direct_off` when in compat mode
+      _fd_direct_off{compat_mode ? open_fd(file_path, flags, false, mode) : -1},
       _initialized{true},
       _compat_mode{compat_mode}
   {
@@ -207,11 +211,15 @@ class FileHandle {
   void close() noexcept
   {
     if (closed()) { return; }
+
+    if (_compat_mode) {
+      ::close(_fd_direct_off);
+    } else {
 #ifdef KVIKIO_CUFILE_EXIST
-    if (!_compat_mode) { cuFileAPI::instance()->HandleDeregister(_handle); }
+      cuFileAPI::instance()->HandleDeregister(_handle);
 #endif
+    }
     ::close(_fd_direct_on);
-    ::close(_fd_direct_off);
     _fd_direct_on  = -1;
     _fd_direct_off = -1;
     _initialized   = false;
@@ -220,18 +228,18 @@ class FileHandle {
   /**
    * @brief Get one of the file descriptors
    *
-   * Notice, `FileHandle` maintains two file descriptors - one opened with the
+   * Notice, FileHandle maintains two file descriptors - one opened with the
    * `O_DIRECT` flag and one without. This function returns one of them but
    * it is unspecified with one.
    *
    * @return File descripter
    */
-  [[nodiscard]] int fd() const noexcept { return _fd_direct_off; }
+  [[nodiscard]] int fd() const noexcept { return _fd_direct_on; }
 
   /**
    * @brief Get the flags of one of the file descriptors (see open(2))
    *
-   * Notice, `FileHandle` maintains two file descriptors - one opened with the
+   * Notice, FileHandle maintains two file descriptors - one opened with the
    * `O_DIRECT` flag and one without. This function returns the flags of one of
    * them but it is unspecified with one.
    *
