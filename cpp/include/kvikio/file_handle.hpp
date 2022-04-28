@@ -218,14 +218,22 @@ class FileHandle {
   }
 
   /**
-   * @brief Get one of the file descripters
+   * @brief Get one of the file descriptors
+   *
+   * Notice, `FileHandle` maintains two file descriptors - one opened with the
+   * `O_DIRECT` flag and one without. This function returns one of them but
+   * it is unspecified with one.
    *
    * @return File descripter
    */
   [[nodiscard]] int fd() const noexcept { return _fd_direct_off; }
 
   /**
-   * @brief Get the flags of one of the file descripters (see open(2))
+   * @brief Get the flags of one of the file descriptors (see open(2))
+   *
+   * Notice, `FileHandle` maintains two file descriptors - one opened with the
+   * `O_DIRECT` flag and one without. This function returns the flags of one of
+   * them but it is unspecified with one.
    *
    * @return File descripter
    */
