@@ -208,6 +208,9 @@ inline std::size_t posix_io(int fd,
 /**
  * @brief Read main memory from disk using POSIX
  *
+ * If `size` or `file_offset` isn't aligned with `page_size` then
+ * `fd` cannot have been opened with the `O_DIRECT` flag.
+ *
  * @param fd File decriptor
  * @param devPtr_base Base address of buffer in device memory.
  * @param size Size in bytes to read.
@@ -226,6 +229,9 @@ inline std::size_t posix_read(int fd,
 
 /**
  * @brief Write main memory to disk using POSIX
+ *
+ * If `size` or `file_offset` isn't aligned with `page_size` then
+ * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
  * @param fd File decriptor
  * @param devPtr_base Base address of buffer in device memory.

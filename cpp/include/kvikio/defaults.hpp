@@ -80,7 +80,7 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
 class defaults {
  private:
   kvikio::third_party::thread_pool _thread_pool{get_num_threads_from_env()};
-  bool _combat_mode;
+  bool _compat_mode;
   std::size_t _task_size;
 
   static unsigned int get_num_threads_from_env()
@@ -96,15 +96,15 @@ class defaults {
     {
       if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
         // Setting `KVIKIO_COMPAT_MODE` take precedence
-        _combat_mode = getenv_or("KVIKIO_COMPAT_MODE", false);
+        _compat_mode = getenv_or("KVIKIO_COMPAT_MODE", false);
       } else {
         // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
-        _combat_mode = !is_cufile_available();
+        _compat_mode = !is_cufile_available();
       }
     }
     // Determine the default value of `task_size`
     {
-      const ssize_t env = getenv_or("KVIKIO_TASK_SIZE", 16 * 1024 * 1024);
+      const ssize_t env = getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
       if (env <= 0) {
         throw std::invalid_argument("KVIKIO_TASK_SIZE has to be a positive integer");
       }
@@ -137,12 +137,17 @@ class defaults {
    *
    * @return The boolean answer
    */
-  [[nodiscard]] static bool compat_mode() { return instance()->_combat_mode; }
+  [[nodiscard]] static bool compat_mode() { return instance()->_compat_mode; }
 
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`
+   *
+   * Changing compatibility mode, effects all new FileHandles that doesn't sets the
+   * `compat_mode` argument explicitly but it never effect existing FileHandles.
+   *
+   * @param enable Whether to enable compatibility mode or not.
    */
-  static void compat_mode_reset(bool enable) { instance()->_combat_mode = enable; }
+  static void compat_mode_reset(bool enable) { instance()->_compat_mode = enable; }
 
   /**
    * @brief Get the default thread pool.
