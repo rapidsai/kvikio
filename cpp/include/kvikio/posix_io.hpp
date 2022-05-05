@@ -28,7 +28,7 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-namespace {
+namespace detail {
 
 inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
 
@@ -203,7 +203,7 @@ inline std::size_t posix_io(int fd,
   return size;
 }
 
-}  // namespace
+}  // namespace detail
 
 /**
  * @brief Read main memory from disk using POSIX
@@ -224,7 +224,7 @@ inline std::size_t posix_read(int fd,
                               std::size_t file_offset,
                               std::size_t devPtr_offset)
 {
-  return posix_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
+  return detail::posix_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
 /**
@@ -246,7 +246,7 @@ inline std::size_t posix_write(int fd,
                                std::size_t file_offset,
                                std::size_t devPtr_offset)
 {
-  return posix_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
+  return detail::posix_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
 }  // namespace kvikio
