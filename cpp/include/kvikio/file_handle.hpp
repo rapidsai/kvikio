@@ -36,7 +36,7 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-namespace {
+namespace detail {
 
 /**
  * @brief Parse open file flags given as a string and return oflags
@@ -117,7 +117,7 @@ inline int open_fd(const std::string& file_path,
   return static_cast<std::size_t>(st.st_size);
 }
 
-}  // namespace
+}  // namespace detail
 
 /**
  * @brief Handle of an open file registred with cufile.
@@ -161,9 +161,9 @@ class FileHandle {
              const std::string& flags = "r",
              mode_t mode              = m644,
              bool compat_mode         = defaults::compat_mode())
-    : _fd_direct_on{open_fd(file_path, flags, true, mode)},
+    : _fd_direct_on{detail::open_fd(file_path, flags, true, mode)},
       // Only init `_fd_direct_off` when in compat mode
-      _fd_direct_off{compat_mode ? open_fd(file_path, flags, false, mode) : -1},
+      _fd_direct_off{compat_mode ? detail::open_fd(file_path, flags, false, mode) : -1},
       _initialized{true},
       _compat_mode{compat_mode}
   {
@@ -245,7 +245,7 @@ class FileHandle {
    *
    * @return File descripter
    */
-  [[nodiscard]] int fd_open_flags() const { return open_flags(_fd_direct_on); }
+  [[nodiscard]] int fd_open_flags() const { return detail::open_flags(_fd_direct_on); }
 
   /**
    * @brief Get the file size
@@ -257,7 +257,7 @@ class FileHandle {
   [[nodiscard]] inline std::size_t nbytes() const
   {
     if (closed()) { return 0; }
-    if (_nbytes == 0) { _nbytes = get_file_size(_fd_direct_on); }
+    if (_nbytes == 0) { _nbytes = detail::get_file_size(_fd_direct_on); }
     return _nbytes;
   }
 

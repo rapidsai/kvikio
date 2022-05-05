@@ -27,8 +27,7 @@
 #include <kvikio/thread_pool.hpp>
 
 namespace kvikio {
-
-namespace {
+namespace detail {
 
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
@@ -71,7 +70,7 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
                               std::string{env_val});
 }
 
-}  // namespace
+}  // namespace detail
 
 /**
  * @brief Singleton class of default values used thoughtout KvikIO.
@@ -85,7 +84,7 @@ class defaults {
 
   static unsigned int get_num_threads_from_env()
   {
-    const int ret = getenv_or("KVIKIO_NTHREADS", 1);
+    const int ret = detail::getenv_or("KVIKIO_NTHREADS", 1);
     if (ret <= 0) { throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer"); }
     return ret;
   }
@@ -96,7 +95,7 @@ class defaults {
     {
       if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
         // Setting `KVIKIO_COMPAT_MODE` take precedence
-        _compat_mode = getenv_or("KVIKIO_COMPAT_MODE", false);
+        _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", false);
       } else {
         // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
         _compat_mode = !is_cufile_available();
@@ -104,7 +103,7 @@ class defaults {
     }
     // Determine the default value of `task_size`
     {
-      const ssize_t env = getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
+      const ssize_t env = detail::getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
       if (env <= 0) {
         throw std::invalid_argument("KVIKIO_TASK_SIZE has to be a positive integer");
       }
