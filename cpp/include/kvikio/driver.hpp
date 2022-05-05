@@ -25,12 +25,12 @@
 namespace kvikio {
 namespace detail {
 
-[[nodiscard]] bool get_driver_flag(unsigned int prop, unsigned int flag) noexcept
+[[nodiscard]] inline bool get_driver_flag(unsigned int prop, unsigned int flag) noexcept
 {
   return (prop & (1U << flag)) != 0;
 }
 
-void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noexcept
+inline void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noexcept
 {
   if (val) {
     prop |= (1U << flag);
