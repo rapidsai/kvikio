@@ -91,7 +91,7 @@ inline int open_fd(const std::string& file_path,
  *
  * @return Open flags
  */
-[[nodiscard]] int open_flags(int fd)
+[[nodiscard]] inline int open_flags(int fd)
 {
   int ret = fcntl(fd, F_GETFL);  // NOLINT(cppcoreguidelines-pro-type-vararg)
   if (ret == -1) {

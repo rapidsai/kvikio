@@ -46,7 +46,7 @@ T getenv_or(std::string_view env_var_name, T default_val)
 }
 
 template <>
-bool getenv_or(std::string_view env_var_name, bool default_val)
+inline bool getenv_or(std::string_view env_var_name, bool default_val)
 {
   const auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
