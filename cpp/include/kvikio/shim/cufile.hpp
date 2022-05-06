@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 #pragma once
-#include <kvikio/error.hpp>
+
+#include <stdexcept>
+
 #include <kvikio/shim/cufile_h_wrapper.hpp>
-#include <kvikio/utils.hpp>
+#include <kvikio/shim/utils.hpp>
 
 namespace kvikio {
 
@@ -82,7 +84,7 @@ inline bool is_cufile_library_available()
 {
   try {
     cuFileAPI::instance();
-  } catch (const CUfileException&) {
+  } catch (const std::runtime_error&) {
     return false;
   }
   return true;

@@ -15,17 +15,11 @@
  */
 #pragma once
 
-#include <dlfcn.h>
-#include <sys/types.h>
-#include <sys/utsname.h>
 #include <chrono>
 #include <cstring>
-#include <filesystem>
 #include <future>
 #include <iostream>
 #include <tuple>
-
-#include <cuda.h>
 
 #include <kvikio/error.hpp>
 
@@ -107,81 +101,6 @@ template <typename T>
 inline bool is_future_done(const T& future)
 {
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
-}
-
-/**
- * @brief Load shared library
- *
- * @param name Name of the library to load.
- * @return The library handle.
- */
-inline void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE)
-{
-  ::dlerror();  // Clear old errors
-  void* ret = ::dlopen(name, mode);
-  if (ret == nullptr) {
-    throw CUfileException{std::string{__FILE__} + ":" + KVIKIO_STRINGIFY(__LINE__) + ": " +
-                          ::dlerror()};
-  }
-  return ret;
-}
-
-/**
- * @brief Get symbol using `dlsym`
- *
- * @tparam T The type of the function pointer.
- * @param handle The function pointer (output).
- * @param lib The library handle returned by `dlopen`.
- * @param name Name of the symbol/function to load.
- */
-template <typename T>
-void get_symbol(T& handle, void* lib, const char* name)
-{
-  ::dlerror();  // Clear old errors
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  handle          = reinterpret_cast<T>(::dlsym(lib, name));
-  const char* err = ::dlerror();
-  if (err != nullptr) {
-    throw CUfileException{std::string{__FILE__} + ":" + KVIKIO_STRINGIFY(__LINE__) + ": " + err};
-  }
-}
-
-/**
- * @brief Try to detect if running in Windows Subsystem for Linux (WSL)
- *
- * When unable to determine environment, `false` is returned.
- *
- * @return The boolean answer
- */
-[[nodiscard]] inline bool is_running_in_wsl()
-{
-  struct utsname buf {
-  };
-  int err = ::uname(&buf);
-  if (err == 0) {
-    const std::string name(static_cast<char*>(buf.release));
-    // 'Microsoft' for WSL1 and 'microsoft' for WSL2
-    return name.find("icrosoft") != std::string::npos;
-  }
-  return false;
-}
-
-/**
- * @brief Check if `/run/udev` is readable
- *
- * cuFile files with `internal error` when `/run/udev` isn't readable.
- * This typically happens when running inside a docker image not launched
- * with `--volume /run/udev:/run/udev:ro`.
- *
- * @return The boolean answer
- */
-[[nodiscard]] inline bool run_udev_readable()
-{
-  try {
-    return std::filesystem::is_directory("/run/udev");
-  } catch (const std::filesystem::filesystem_error&) {
-    return false;
-  }
 }
 
 }  // namespace kvikio
