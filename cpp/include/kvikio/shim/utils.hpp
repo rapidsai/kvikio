@@ -21,6 +21,9 @@
 
 namespace kvikio {
 
+#define KVIKIO_STRINGIFY_DETAIL(x) #x
+#define KVIKIO_STRINGIFY(x)        KVIKIO_STRINGIFY_DETAIL(x)
+
 /**
  * @brief Load shared library
  *

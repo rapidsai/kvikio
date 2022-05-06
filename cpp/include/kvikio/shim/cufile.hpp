@@ -49,18 +49,18 @@ class cuFileAPI {
   cuFileAPI()
   {
     void* lib = load_library("libcufile.so");
-    get_symbol(HandleRegister, lib, "cuFileHandleRegister");
-    get_symbol(HandleDeregister, lib, "cuFileHandleDeregister");
-    get_symbol(Read, lib, "cuFileRead");
-    get_symbol(Write, lib, "cuFileWrite");
-    get_symbol(BufRegister, lib, "cuFileBufRegister");
-    get_symbol(BufDeregister, lib, "cuFileBufDeregister");
-    get_symbol(DriverOpen, lib, "cuFileDriverOpen");
-    get_symbol(DriverClose, lib, "cuFileDriverClose");
-    get_symbol(DriverGetProperties, lib, "cuFileDriverGetProperties");
-    get_symbol(DriverSetPollMode, lib, "cuFileDriverSetPollMode");
-    get_symbol(DriverSetMaxCacheSize, lib, "cuFileDriverSetMaxCacheSize");
-    get_symbol(DriverSetMaxPinnedMemSize, lib, "cuFileDriverSetMaxPinnedMemSize");
+    get_symbol(HandleRegister, lib, KVIKIO_STRINGIFY(cuFileHandleRegister));
+    get_symbol(HandleDeregister, lib, KVIKIO_STRINGIFY(cuFileHandleDeregister));
+    get_symbol(Read, lib, KVIKIO_STRINGIFY(cuFileRead));
+    get_symbol(Write, lib, KVIKIO_STRINGIFY(cuFileWrite));
+    get_symbol(BufRegister, lib, KVIKIO_STRINGIFY(cuFileBufRegister));
+    get_symbol(BufDeregister, lib, KVIKIO_STRINGIFY(cuFileBufDeregister));
+    get_symbol(DriverOpen, lib, KVIKIO_STRINGIFY(cuFileDriverOpen));
+    get_symbol(DriverClose, lib, KVIKIO_STRINGIFY(cuFileDriverClose));
+    get_symbol(DriverGetProperties, lib, KVIKIO_STRINGIFY(cuFileDriverGetProperties));
+    get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
+    get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
+    get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
   }
 
   static cuFileAPI* instance()
