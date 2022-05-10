@@ -45,7 +45,7 @@ inline void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noe
 class DriverInitializer {
   // Optional, if not used cuFiles opens the driver automatically
  public:
-  DriverInitializer() { CUFILE_TRY(cuFileAPI::instance()->DriverOpen()); }
+  DriverInitializer() { CUFILE_TRY(cuFileAPI::instance().DriverOpen()); }
 
   DriverInitializer(DriverInitializer const&) = delete;
   DriverInitializer& operator=(DriverInitializer const&) = delete;
@@ -55,7 +55,7 @@ class DriverInitializer {
   ~DriverInitializer()
   {
     try {
-      CUFILE_TRY(cuFileAPI::instance()->DriverClose());
+      CUFILE_TRY(cuFileAPI::instance().DriverClose());
     } catch (const CUfileException& e) {
       std::cerr << "Unable to close GDS file driver: ";
       std::cerr << e.what();
@@ -75,7 +75,7 @@ class DriverProperties {
   {
     if (_initialized) { return; }
     _initialized = true;
-    CUFILE_TRY(cuFileAPI::instance()->DriverGetProperties(&_props));
+    CUFILE_TRY(cuFileAPI::instance().DriverGetProperties(&_props));
   }
 
  public:
@@ -120,14 +120,14 @@ class DriverProperties {
   void set_nvfs_poll_mode(bool enable)
   {
     lazy_init();
-    CUFILE_TRY(cuFileAPI::instance()->DriverSetPollMode(enable, get_nvfs_poll_thresh_size()));
+    CUFILE_TRY(cuFileAPI::instance().DriverSetPollMode(enable, get_nvfs_poll_thresh_size()));
     detail::set_driver_flag(_props.nvfs.dcontrolflags, CU_FILE_USE_POLL_MODE, enable);
   }
 
   void set_nvfs_poll_thresh_size(std::size_t size_in_kb)
   {
     lazy_init();
-    CUFILE_TRY(cuFileAPI::instance()->DriverSetPollMode(get_nvfs_poll_mode(), size_in_kb));
+    CUFILE_TRY(cuFileAPI::instance().DriverSetPollMode(get_nvfs_poll_mode(), size_in_kb));
     _props.nvfs.poll_thresh_size = size_in_kb;
   }
 
@@ -153,7 +153,7 @@ class DriverProperties {
   void set_max_device_cache_size(std::size_t size_in_kb)
   {
     lazy_init();
-    CUFILE_TRY(cuFileAPI::instance()->DriverSetMaxCacheSize(size_in_kb));
+    CUFILE_TRY(cuFileAPI::instance().DriverSetMaxCacheSize(size_in_kb));
     _props.max_device_cache_size = size_in_kb;
   }
 
@@ -172,7 +172,7 @@ class DriverProperties {
   void set_max_pinned_memory_size(std::size_t size_in_kb)
   {
     lazy_init();
-    CUFILE_TRY(cuFileAPI::instance()->DriverSetMaxPinnedMemSize(size_in_kb));
+    CUFILE_TRY(cuFileAPI::instance().DriverSetMaxPinnedMemSize(size_in_kb));
     _props.max_device_pinned_mem_size = size_in_kb;
   }
 };

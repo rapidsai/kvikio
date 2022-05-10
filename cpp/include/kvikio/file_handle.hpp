@@ -173,7 +173,7 @@ class FileHandle {
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     desc.handle.fd = _fd_direct_on;
-    CUFILE_TRY(cuFileAPI::instance()->HandleRegister(&_handle, &desc));
+    CUFILE_TRY(cuFileAPI::instance().HandleRegister(&_handle, &desc));
 #endif
   }
 
@@ -216,7 +216,7 @@ class FileHandle {
       ::close(_fd_direct_off);
     } else {
 #ifdef KVIKIO_CUFILE_EXIST
-      cuFileAPI::instance()->HandleDeregister(_handle);
+      cuFileAPI::instance().HandleDeregister(_handle);
 #endif
     }
     ::close(_fd_direct_on);
@@ -293,7 +293,7 @@ class FileHandle {
       return posix_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
-    ssize_t ret = cuFileAPI::instance()->Read(
+    ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
       throw std::system_error(errno, std::generic_category(), "Unable to read file");
@@ -343,7 +343,7 @@ class FileHandle {
       return posix_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
-    ssize_t ret = cuFileAPI::instance()->Write(
+    ssize_t ret = cuFileAPI::instance().Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
       throw std::system_error(errno, std::generic_category(), "Unable to write file");

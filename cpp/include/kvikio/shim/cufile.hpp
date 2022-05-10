@@ -29,7 +29,7 @@ namespace kvikio {
  *
  * This is a singleton class that use `dlopen` on construction to load the C-API of cuFile.
  *
- * For example, `cuFileAPI::instance()->FileRead()` corresponds to calling `cuFileRead()`
+ * For example, `cuFileAPI::instance().FileRead()` corresponds to calling `cuFileRead()`
  */
 class cuFileAPI {
  public:
@@ -46,6 +46,7 @@ class cuFileAPI {
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
 
+ private:
   cuFileAPI()
   {
     void* lib = load_library("libcufile.so");
@@ -63,10 +64,14 @@ class cuFileAPI {
     get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
   }
 
-  static cuFileAPI* instance()
+ public:
+  cuFileAPI(cuFileAPI const&) = delete;
+  void operator=(cuFileAPI const&) = delete;
+
+  static cuFileAPI& instance()
   {
     static cuFileAPI _instance;
-    return &_instance;
+    return _instance;
   }
 };
 
