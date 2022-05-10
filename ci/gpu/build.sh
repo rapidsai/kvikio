@@ -71,12 +71,6 @@ mkdir "${WORKSPACE}/libkvikio-debug-build"
 cd "${WORKSPACE}/libkvikio-debug-build"
 cmake ${WORKSPACE}/cpp -DCMAKE_BUILD_TYPE=Debug
 make
-# Check that `libcuda.so` is NOT being linked
-LDD_BASIC_IO=`ldd ${WORKSPACE}/libkvikio-debug-build/examples/basic_io`
-if [[ "$LDD_BASIC_IO" == *"libcuda.so"* ]]; then
-  echo "[ERROR] examples/basic_io shouln't link to libcuda.so: ${LDD_BASIC_IO}"
-  return 1
-fi
 # Run basic_io
 ${WORKSPACE}/libkvikio-debug-build/examples/basic_io
 
