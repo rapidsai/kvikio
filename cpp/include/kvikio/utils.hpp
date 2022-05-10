@@ -47,8 +47,7 @@ inline constexpr std::size_t page_size = 4096;
 {
   CUcontext ctx{};
   auto dev = convert_void2deviceptr(devPtr);
-  CUDA_DRIVER_TRY(
-    cudaAPI::instance()->PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev));
+  CUDA_DRIVER_TRY(cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev));
   return ctx;
 }
 
@@ -62,11 +61,11 @@ class PushAndPopContext {
  public:
   PushAndPopContext(CUcontext ctx) : _ctx{ctx}
   {
-    CUDA_DRIVER_TRY(cudaAPI::instance()->CtxPushCurrent(_ctx));
+    CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(_ctx));
   }
   PushAndPopContext(const void* devPtr) : _ctx{get_context_from_device_pointer(devPtr)}
   {
-    CUDA_DRIVER_TRY(cudaAPI::instance()->CtxPushCurrent(_ctx));
+    CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(_ctx));
   }
   PushAndPopContext(const PushAndPopContext&) = delete;
   PushAndPopContext& operator=(PushAndPopContext const&) = delete;
@@ -75,7 +74,7 @@ class PushAndPopContext {
   ~PushAndPopContext()
   {
     try {
-      CUDA_DRIVER_TRY(cudaAPI::instance()->CtxPopCurrent(&_ctx), CUfileException);
+      CUDA_DRIVER_TRY(cudaAPI::instance().CtxPopCurrent(&_ctx), CUfileException);
     } catch (const CUfileException& e) {
       std::cerr << e.what() << std::endl;
     }
@@ -96,7 +95,7 @@ inline std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* de
     _ctx = get_context_from_device_pointer(devPtr);
   }
   PushAndPopContext context(_ctx);
-  CUDA_DRIVER_TRY(cudaAPI::instance()->MemGetAddressRange(&base_ptr, &base_size, dev));
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemGetAddressRange(&base_ptr, &base_size, dev));
   std::size_t offset = dev - base_ptr;
   // NOLINTNEXTLINE(performance-no-int-to-ptr, cppcoreguidelines-pro-type-reinterpret-cast)
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);

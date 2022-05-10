@@ -26,7 +26,7 @@ namespace kvikio {
  *
  * This is a singleton class that use `dlopen` on construction to load the C-API of cuda.
  *
- * For example, `cudaAPI::instance()->MemHostAlloc()` corresponds to calling `cuMemHostAlloc()`
+ * For example, `cudaAPI::instance().MemHostAlloc()` corresponds to calling `cuMemHostAlloc()`
  */
 class cudaAPI {
  public:
@@ -42,6 +42,7 @@ class cudaAPI {
   decltype(cuGetErrorName)* GetErrorName{nullptr};
   decltype(cuGetErrorString)* GetErrorString{nullptr};
 
+ private:
   cudaAPI()
   {
     void* lib = load_library("libcuda.so");
@@ -61,10 +62,14 @@ class cudaAPI {
     get_symbol(GetErrorString, lib, KVIKIO_STRINGIFY(cuGetErrorString));
   }
 
-  static cudaAPI* instance()
+ public:
+  cudaAPI(cudaAPI const&) = delete;
+  void operator=(cudaAPI const&) = delete;
+
+  static cudaAPI& instance()
   {
     static cudaAPI _instance;
-    return &_instance;
+    return _instance;
   }
 };
 

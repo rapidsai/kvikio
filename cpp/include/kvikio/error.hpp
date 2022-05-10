@@ -41,8 +41,8 @@ struct CUfileException : public std::runtime_error {
         if (error.cu_err != CUDA_SUCCESS) {                                                       \
           const char* err_name;                                                                   \
           const char* err_str;                                                                    \
-          CUresult err_name_status = cudaAPI::instance()->GetErrorName(error.cu_err, &err_name);  \
-          CUresult err_str_status  = cudaAPI::instance()->GetErrorString(error.cu_err, &err_str); \
+          CUresult err_name_status = cudaAPI::instance().GetErrorName(error.cu_err, &err_name);   \
+          CUresult err_str_status  = cudaAPI::instance().GetErrorString(error.cu_err, &err_str);  \
           if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }              \
           if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }                \
           /*NOLINTNEXTLINE(bugprone-macro-parentheses)*/                                          \
@@ -73,8 +73,8 @@ struct CUfileException : public std::runtime_error {
     if (error != CUDA_SUCCESS) {                                                              \
       const char* err_name;                                                                   \
       const char* err_str;                                                                    \
-      CUresult err_name_status = cudaAPI::instance()->GetErrorName(error, &err_name);         \
-      CUresult err_str_status  = cudaAPI::instance()->GetErrorString(error, &err_str);        \
+      CUresult err_name_status = cudaAPI::instance().GetErrorName(error, &err_name);          \
+      CUresult err_str_status  = cudaAPI::instance().GetErrorString(error, &err_str);         \
       if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }              \
       if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }                \
       /*NOLINTNEXTLINE(bugprone-macro-parentheses)*/                                          \

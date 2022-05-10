@@ -73,7 +73,7 @@ class AllocRetain {
     void* alloc{};
     // Allocate page-locked host memory
     CUDA_DRIVER_TRY(
-      cudaAPI::instance()->MemHostAlloc(&alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE));
+      cudaAPI::instance().MemHostAlloc(&alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE));
     return Alloc(this, alloc);
   }
 
@@ -87,7 +87,7 @@ class AllocRetain {
   {
     const std::lock_guard lock(_mutex);
     while (!_free_allocs.empty()) {
-      CUDA_DRIVER_TRY(cudaAPI::instance()->MemFreeHost(_free_allocs.top()));
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
       _free_allocs.pop();
     }
   }
@@ -191,9 +191,9 @@ inline std::size_t posix_io(int fd,
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (IsReadOperation) {
       nbytes_got = pread_some(fd, alloc.get(), nbytes_requested, cur_file_offset);
-      CUDA_DRIVER_TRY(cudaAPI::instance()->MemcpyHtoD(devPtr, alloc.get(), nbytes_got));
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoD(devPtr, alloc.get(), nbytes_got));
     } else {  // Is a write operation
-      CUDA_DRIVER_TRY(cudaAPI::instance()->MemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
       pwrite_all(fd, alloc.get(), nbytes_requested, cur_file_offset);
     }
     cur_file_offset += nbytes_got;
