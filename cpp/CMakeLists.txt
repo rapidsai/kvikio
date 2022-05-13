@@ -71,7 +71,7 @@ target_include_directories(
 )
 
 target_link_libraries(kvikio INTERFACE Threads::Threads)
-target_link_libraries(kvikio INTERFACE CUDA::cuda_driver)
+target_link_libraries(kvikio INTERFACE CUDA::toolkit)
 if(cuFile_FOUND)
   target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
 endif()

@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 #pragma once
-#include <kvikio/error.hpp>
+
+#include <stdexcept>
+
 #include <kvikio/shim/cufile_h_wrapper.hpp>
-#include <kvikio/utils.hpp>
+#include <kvikio/shim/utils.hpp>
 
 namespace kvikio {
 
@@ -27,7 +29,7 @@ namespace kvikio {
  *
  * This is a singleton class that use `dlopen` on construction to load the C-API of cuFile.
  *
- * For example, `cuFileAPI::instance()->FileRead()` corresponds to calling `cuFileRead()`
+ * For example, `cuFileAPI::instance().FileRead()` corresponds to calling `cuFileRead()`
  */
 class cuFileAPI {
  public:
@@ -44,27 +46,32 @@ class cuFileAPI {
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
 
+ private:
   cuFileAPI()
   {
     void* lib = load_library("libcufile.so");
-    get_symbol(HandleRegister, lib, "cuFileHandleRegister");
-    get_symbol(HandleDeregister, lib, "cuFileHandleDeregister");
-    get_symbol(Read, lib, "cuFileRead");
-    get_symbol(Write, lib, "cuFileWrite");
-    get_symbol(BufRegister, lib, "cuFileBufRegister");
-    get_symbol(BufDeregister, lib, "cuFileBufDeregister");
-    get_symbol(DriverOpen, lib, "cuFileDriverOpen");
-    get_symbol(DriverClose, lib, "cuFileDriverClose");
-    get_symbol(DriverGetProperties, lib, "cuFileDriverGetProperties");
-    get_symbol(DriverSetPollMode, lib, "cuFileDriverSetPollMode");
-    get_symbol(DriverSetMaxCacheSize, lib, "cuFileDriverSetMaxCacheSize");
-    get_symbol(DriverSetMaxPinnedMemSize, lib, "cuFileDriverSetMaxPinnedMemSize");
+    get_symbol(HandleRegister, lib, KVIKIO_STRINGIFY(cuFileHandleRegister));
+    get_symbol(HandleDeregister, lib, KVIKIO_STRINGIFY(cuFileHandleDeregister));
+    get_symbol(Read, lib, KVIKIO_STRINGIFY(cuFileRead));
+    get_symbol(Write, lib, KVIKIO_STRINGIFY(cuFileWrite));
+    get_symbol(BufRegister, lib, KVIKIO_STRINGIFY(cuFileBufRegister));
+    get_symbol(BufDeregister, lib, KVIKIO_STRINGIFY(cuFileBufDeregister));
+    get_symbol(DriverOpen, lib, KVIKIO_STRINGIFY(cuFileDriverOpen));
+    get_symbol(DriverClose, lib, KVIKIO_STRINGIFY(cuFileDriverClose));
+    get_symbol(DriverGetProperties, lib, KVIKIO_STRINGIFY(cuFileDriverGetProperties));
+    get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
+    get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
+    get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
   }
 
-  static cuFileAPI* instance()
+ public:
+  cuFileAPI(cuFileAPI const&) = delete;
+  void operator=(cuFileAPI const&) = delete;
+
+  static cuFileAPI& instance()
   {
     static cuFileAPI _instance;
-    return &_instance;
+    return _instance;
   }
 };
 
@@ -82,7 +89,7 @@ inline bool is_cufile_library_available()
 {
   try {
     cuFileAPI::instance();
-  } catch (const CUfileException&) {
+  } catch (const std::runtime_error&) {
     return false;
   }
   return true;

@@ -51,7 +51,7 @@ inline void buffer_register(const void* devPtr_base,
 {
   if (defaults::compat_mode()) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
-  CUfileError_t status = cuFileAPI::instance()->BufRegister(devPtr_base, size, flags);
+  CUfileError_t status = cuFileAPI::instance().BufRegister(devPtr_base, size, flags);
   if (status.err != CU_FILE_SUCCESS) {
     // Check if `status.err` is in `errors_to_ignore`
     if (std::find(errors_to_ignore.begin(), errors_to_ignore.end(), status.err) ==
@@ -71,7 +71,7 @@ inline void buffer_deregister(const void* devPtr_base)
 {
   if (defaults::compat_mode()) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
-  CUFILE_TRY(cuFileAPI::instance()->BufDeregister(devPtr_base));
+  CUFILE_TRY(cuFileAPI::instance().BufDeregister(devPtr_base));
 #endif
 }
 
