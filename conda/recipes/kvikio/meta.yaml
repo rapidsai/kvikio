@@ -18,9 +18,6 @@ build:
   script_env:
     - VERSION_SUFFIX
     - PARALLEL_LEVEL
-    - CC
-    - CXX
-    - CUDAHOSTCXX
   script:
     - cd python
     - python -m pip install . -vv
@@ -29,6 +26,11 @@ requirements:
   build:
     - cmake >=3.20.1
     - ninja
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
+    - sysroot_linux-64 {{ sysroot_version }}  # [linux64]
+    - sysroot_linux-aarch64 {{ sysroot_version }}  # [aarch64]
   host:
     - python
     - setuptools
