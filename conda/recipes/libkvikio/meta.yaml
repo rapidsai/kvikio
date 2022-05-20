@@ -15,9 +15,6 @@ build:
   number: {{ GIT_DESCRIBE_NUMBER }}
   string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
-    - CC
-    - CXX
-    - CUDAHOSTCXX
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - PROJECT_FLASH
@@ -38,6 +35,11 @@ requirements:
   build:
     - cmake >=3.20.1
     - make
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
+    - sysroot_linux-64 {{ sysroot_version }}  # [linux64]
+    - sysroot_linux-aarch64 {{ sysroot_version }}  # [aarch64]
   host:
     - cudatoolkit {{ cuda_version }}.*
   run:
