@@ -21,6 +21,8 @@ build:
   script:
     - cd python
     - python -m pip install . -vv
+  ignore_run_exports_from:
+    - {{ compiler('cuda') }}
 
 requirements:
   build:
@@ -29,8 +31,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ compiler('cuda') }} {{ cuda_version }}
-    - sysroot_linux-64 {{ sysroot_version }}  # [linux64]
-    - sysroot_linux-aarch64 {{ sysroot_version }}  # [aarch64]
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - python
     - setuptools

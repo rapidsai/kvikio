@@ -29,6 +29,8 @@ build:
     - SCCACHE_IDLE_TIMEOUT=32768
   run_exports:
     - {{ pin_subpackage("libkvikio", max_pin="x.x") }}
+  ignore_run_exports_from:
+    - {{ compiler('cuda') }}
 
 
 requirements:
@@ -38,8 +40,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ compiler('cuda') }} {{ cuda_version }}
-    - sysroot_linux-64 {{ sysroot_version }}  # [linux64]
-    - sysroot_linux-aarch64 {{ sysroot_version }}  # [aarch64]
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - cudatoolkit {{ cuda_version }}.*
   run:
