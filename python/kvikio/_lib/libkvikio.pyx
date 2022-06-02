@@ -163,9 +163,9 @@ cdef class DriverProperties:
     cdef kvikio_cxx_api.DriverProperties _handle
 
     @property
-    def is_gds_availabe(self) -> bool:
+    def is_gds_available(self) -> bool:
         try:
-            return self._handle.is_gds_availabe()
+            return self._handle.is_gds_available()
         except RuntimeError:
             return False
 

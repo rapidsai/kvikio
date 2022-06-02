@@ -25,7 +25,7 @@ cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
 cdef extern from "<kvikio/driver.hpp>" namespace "kvikio" nogil:
     cdef cppclass DriverProperties:
         DriverProperties() except +
-        bool is_gds_availabe() except +
+        bool is_gds_available() except +
         unsigned int get_nvfs_major_version() except +
         unsigned int get_nvfs_minor_version() except +
         bool get_nvfs_allow_compat_mode() except +
