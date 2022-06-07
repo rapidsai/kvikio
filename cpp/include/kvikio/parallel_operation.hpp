@@ -39,26 +39,19 @@ namespace kvikio {
  * @param task_size Size of each task in bytes.
  * @return A future to be used later to check if the operation has finished its execution.
  */
-template <typename T>
-std::future<std::size_t> parallel_io(
-  T op, const void* devPtr, std::size_t size, std::size_t file_offset, std::size_t task_size)
+template <typename F, typename T>
+std::future<std::size_t> parallel_io(F op,
+                                     T devPtr_base,
+                                     std::size_t size,
+                                     std::size_t file_offset,
+                                     std::size_t task_size,
+                                     std::size_t devPtr_offset)
 {
   if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
 
-  CUcontext ctx                                = get_context_from_device_pointer(devPtr);
-  auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr, &ctx);
-
-  auto task = [op, ctx](void* devPtr_base,
-                        std::size_t size,
-                        std::size_t file_offset,
-                        std::size_t devPtr_offset) -> std::size_t {
-    PushAndPopContext c(ctx);
-    return op(devPtr_base, size, file_offset, devPtr_offset);
-  };
-
   // Single-task guard
   if (task_size >= size || page_size >= size) {
-    return defaults::thread_pool().submit(task, devPtr_base, size, file_offset, devPtr_offset);
+    return defaults::thread_pool().submit(op, devPtr_base, size, file_offset, devPtr_offset);
   }
 
   // We know an upper bound of the total number of tasks
@@ -68,7 +61,7 @@ std::future<std::size_t> parallel_io(
   // 1) Submit `task_size` sized tasks
   while (size >= task_size) {
     tasks.push_back(
-      defaults::thread_pool().submit(task, devPtr_base, task_size, file_offset, devPtr_offset));
+      defaults::thread_pool().submit(op, devPtr_base, task_size, file_offset, devPtr_offset));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
@@ -76,7 +69,7 @@ std::future<std::size_t> parallel_io(
   // 2) Submit a task for the remainder
   if (size > 0) {
     tasks.push_back(
-      defaults::thread_pool().submit(task, devPtr_base, size, file_offset, devPtr_offset));
+      defaults::thread_pool().submit(op, devPtr_base, size, file_offset, devPtr_offset));
   }
 
   // Finally, we sum the result of all tasks.

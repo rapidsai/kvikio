@@ -379,14 +379,19 @@ class FileHandle {
                                  std::size_t file_offset = 0,
                                  std::size_t task_size   = defaults::task_size())
   {
-    // Lambda that calls this->read()
-    auto op = [this](void* devPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t devPtr_offset) -> std::size_t {
+    if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
+
+    CUcontext ctx = get_context_from_device_pointer(devPtr);
+    auto task     = [this, ctx](void* devPtr_base,
+                            std::size_t size,
+                            std::size_t file_offset,
+                            std::size_t devPtr_offset) -> std::size_t {
+      PushAndPopContext c(ctx);
       return read(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return parallel_io(op, devPtr, size, file_offset, task_size);
+
+    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr, &ctx);
+    return parallel_io(task, devPtr_base, size, file_offset, task_size, devPtr_offset);
   }
 
   /**
@@ -410,14 +415,18 @@ class FileHandle {
                                   std::size_t file_offset = 0,
                                   std::size_t task_size   = defaults::task_size())
   {
-    // Lambda that calls this->write()
-    auto op = [this](const void* devPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t devPtr_offset) -> std::size_t {
+    if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
+
+    CUcontext ctx = get_context_from_device_pointer(devPtr);
+    auto op       = [this, ctx](const void* devPtr_base,
+                          std::size_t size,
+                          std::size_t file_offset,
+                          std::size_t devPtr_offset) -> std::size_t {
+      PushAndPopContext c(ctx);
       return write(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return parallel_io(op, devPtr, size, file_offset, task_size);
+    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(devPtr, &ctx);
+    return parallel_io(op, devPtr_base, size, file_offset, task_size, devPtr_offset);
   }
 };
 
