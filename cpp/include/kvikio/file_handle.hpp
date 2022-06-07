@@ -379,8 +379,6 @@ class FileHandle {
                                  std::size_t file_offset = 0,
                                  std::size_t task_size   = defaults::task_size())
   {
-    if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
-
     CUcontext ctx = get_context_from_device_pointer(devPtr);
     auto task     = [this, ctx](void* devPtr_base,
                             std::size_t size,
@@ -415,8 +413,6 @@ class FileHandle {
                                   std::size_t file_offset = 0,
                                   std::size_t task_size   = defaults::task_size())
   {
-    if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
-
     CUcontext ctx = get_context_from_device_pointer(devPtr);
     auto op       = [this, ctx](const void* devPtr_base,
                           std::size_t size,

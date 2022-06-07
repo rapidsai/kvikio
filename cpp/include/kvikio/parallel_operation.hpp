@@ -31,9 +31,10 @@ namespace kvikio {
 /**
  * @brief Apply read or write operation in parallel.
  *
- * @tparam T The type of the function applying the read or write operation.
+ * @tparam F The type of the function applying the read or write operation.
+ * @tparam T The type of the memory pointer.
  * @param op The function applying the read or write operation.
- * @param devPtr Device pointer to read or write to.
+ * @param buf Buffer pointer to read or write to.
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
  * @param task_size Size of each task in bytes.
@@ -41,7 +42,7 @@ namespace kvikio {
  */
 template <typename F, typename T>
 std::future<std::size_t> parallel_io(F op,
-                                     T devPtr_base,
+                                     T buf,
                                      std::size_t size,
                                      std::size_t file_offset,
                                      std::size_t task_size,
@@ -51,7 +52,7 @@ std::future<std::size_t> parallel_io(F op,
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
-    return defaults::thread_pool().submit(op, devPtr_base, size, file_offset, devPtr_offset);
+    return defaults::thread_pool().submit(op, buf, size, file_offset, devPtr_offset);
   }
 
   // We know an upper bound of the total number of tasks
@@ -60,16 +61,15 @@ std::future<std::size_t> parallel_io(F op,
 
   // 1) Submit `task_size` sized tasks
   while (size >= task_size) {
-    tasks.push_back(
-      defaults::thread_pool().submit(op, devPtr_base, task_size, file_offset, devPtr_offset));
+    tasks.push_back(defaults::thread_pool().submit(op, buf, task_size, file_offset, devPtr_offset));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
   }
+
   // 2) Submit a task for the remainder
   if (size > 0) {
-    tasks.push_back(
-      defaults::thread_pool().submit(op, devPtr_base, size, file_offset, devPtr_offset));
+    tasks.push_back(defaults::thread_pool().submit(op, buf, size, file_offset, devPtr_offset));
   }
 
   // Finally, we sum the result of all tasks.

@@ -59,7 +59,7 @@ inline constexpr std::size_t page_size = 4096;
  * @param ptr Memory pointer to query
  * @return The boolean answer
  */
-inline bool is_host_memory(void* ptr)
+inline bool is_host_memory(const void* ptr)
 {
   CUpointer_attribute attrs[1] = {
     CU_POINTER_ATTRIBUTE_MEMORY_TYPE,
