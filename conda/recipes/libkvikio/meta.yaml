@@ -15,9 +15,6 @@ build:
   number: {{ GIT_DESCRIBE_NUMBER }}
   string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
-    - CC
-    - CXX
-    - CUDAHOSTCXX
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - PROJECT_FLASH
@@ -32,12 +29,18 @@ build:
     - SCCACHE_IDLE_TIMEOUT=32768
   run_exports:
     - {{ pin_subpackage("libkvikio", max_pin="x.x") }}
+  ignore_run_exports_from:
+    - {{ compiler('cuda') }}
 
 
 requirements:
   build:
     - cmake >=3.20.1
     - make
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - cudatoolkit {{ cuda_version }}.*
   run:

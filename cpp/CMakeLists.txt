@@ -22,7 +22,7 @@ include(rapids-find)
 
 project(
   KvikIO
-  VERSION 22.04.00
+  VERSION 22.06.00
   LANGUAGES CXX
 )
 
@@ -71,11 +71,11 @@ target_include_directories(
 )
 
 target_link_libraries(kvikio INTERFACE Threads::Threads)
-target_link_libraries(kvikio INTERFACE cuda)
+target_link_libraries(kvikio INTERFACE CUDA::toolkit)
 if(cuFile_FOUND)
   target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
 endif()
-target_link_libraries(kvikio INTERFACE dl)
+target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
 # optionally build examples

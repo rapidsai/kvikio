@@ -34,7 +34,10 @@ def run_cmd():
 
     # Start the command server before the very first test
     client_conn, server_conn = mp.Pipe()
-    p = mp.Process(target=command_server, args=(server_conn,),)
+    p = mp.Process(
+        target=command_server,
+        args=(server_conn,),
+    )
     p.start()
 
     def run_cmd(cmd: Iterable[str], cwd, verbose=True):

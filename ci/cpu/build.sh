@@ -67,12 +67,6 @@ gpuci_mamba_retry install -c conda-forge boa
 # BUILD - Conda package builds
 ################################################################################
 
-if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-  CONDA_BUILD_ARGS=""
-else
-  CONDA_BUILD_ARGS="--dirty --no-remove-work-dir"
-fi
-
 gpuci_logger "Build conda pkg for libkvikio"
 gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio --python=$PYTHON $CONDA_BUILD_ARGS
 

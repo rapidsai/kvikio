@@ -21,14 +21,13 @@
 #include <mutex>
 #include <stack>
 
-#include <cuda.h>
-
 #include <cstring>
 #include <kvikio/error.hpp>
+#include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-namespace {
+namespace detail {
 
 inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
 
@@ -73,7 +72,8 @@ class AllocRetain {
     // If no available allocation, allocate and register a new one
     void* alloc{};
     // Allocate page-locked host memory
-    CUDA_DRIVER_TRY(cuMemHostAlloc(&alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE));
+    CUDA_DRIVER_TRY(
+      cudaAPI::instance().MemHostAlloc(&alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE));
     return Alloc(this, alloc);
   }
 
@@ -87,7 +87,7 @@ class AllocRetain {
   {
     const std::lock_guard lock(_mutex);
     while (!_free_allocs.empty()) {
-      CUDA_DRIVER_TRY(cuMemFreeHost(_free_allocs.top()));
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
       _free_allocs.pop();
     }
   }
@@ -191,9 +191,9 @@ inline std::size_t posix_io(int fd,
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (IsReadOperation) {
       nbytes_got = pread_some(fd, alloc.get(), nbytes_requested, cur_file_offset);
-      CUDA_DRIVER_TRY(cuMemcpyHtoD(devPtr, alloc.get(), nbytes_got));
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoD(devPtr, alloc.get(), nbytes_got));
     } else {  // Is a write operation
-      CUDA_DRIVER_TRY(cuMemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
       pwrite_all(fd, alloc.get(), nbytes_requested, cur_file_offset);
     }
     cur_file_offset += nbytes_got;
@@ -203,10 +203,13 @@ inline std::size_t posix_io(int fd,
   return size;
 }
 
-}  // namespace
+}  // namespace detail
 
 /**
  * @brief Read main memory from disk using POSIX
+ *
+ * If `size` or `file_offset` isn't aligned with `page_size` then
+ * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
  * @param fd File decriptor
  * @param devPtr_base Base address of buffer in device memory.
@@ -221,11 +224,14 @@ inline std::size_t posix_read(int fd,
                               std::size_t file_offset,
                               std::size_t devPtr_offset)
 {
-  return posix_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
+  return detail::posix_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
 /**
  * @brief Write main memory to disk using POSIX
+ *
+ * If `size` or `file_offset` isn't aligned with `page_size` then
+ * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
  * @param fd File decriptor
  * @param devPtr_base Base address of buffer in device memory.
@@ -240,7 +246,7 @@ inline std::size_t posix_write(int fd,
                                std::size_t file_offset,
                                std::size_t devPtr_offset)
 {
-  return posix_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
+  return detail::posix_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
 }  // namespace kvikio

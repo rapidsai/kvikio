@@ -15,3 +15,10 @@
 add_executable(basic_io basic_io.cpp)
 target_include_directories(basic_io PRIVATE ../include ${cuFile_INCLUDE_DIRS})
 target_link_libraries(basic_io PRIVATE kvikio CUDA::cudart)
+
+if(CMAKE_COMPILER_IS_GNUCXX)
+  set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
+  target_compile_options(
+    basic_io PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
+ )
+endif()

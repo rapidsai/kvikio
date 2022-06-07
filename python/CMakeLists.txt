@@ -14,7 +14,11 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-set(kvikio_version 22.04.00)
+set(kvikio_version 22.06.00)
+
+set(CYTHON_FLAGS
+    "--directive binding=True,embedsignature=True,always_allow_keywords=True"
+    CACHE STRING "The directives for Cython compilation.")
 
 project(
   kvikio-python

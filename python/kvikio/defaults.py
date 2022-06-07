@@ -8,7 +8,7 @@ from ._lib import libkvikio  # type: ignore
 
 
 def compat_mode() -> bool:
-    """ Check if KvikIO is running in compatibility mode.
+    """Check if KvikIO is running in compatibility mode.
 
     Notice, this is not the same as the compatibility mode in cuFile. That is,
     cuFile can run in compatibility mode while KvikIO is not.
@@ -32,7 +32,7 @@ def compat_mode() -> bool:
 
 
 def compat_mode_reset(enable: bool) -> None:
-    """ Reset the compatibility mode.
+    """Reset the compatibility mode.
 
     Use this function to enable/disable compatibility mode explicitly.
 
@@ -46,7 +46,7 @@ def compat_mode_reset(enable: bool) -> None:
 
 @contextlib.contextmanager
 def set_compat_mode(enable: bool):
-    """ Context for resetting the compatibility mode.
+    """Context for resetting the compatibility mode.
 
     Parameters
     ----------
@@ -63,7 +63,7 @@ def set_compat_mode(enable: bool):
 
 
 def get_num_threads() -> int:
-    """ Get the number of threads of the thread pool.
+    """Get the number of threads of the thread pool.
 
     Set the default value using `reset_num_threads()` or by setting the
     `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
@@ -77,7 +77,7 @@ def get_num_threads() -> int:
 
 
 def reset_num_threads(nthreads: int) -> None:
-    """ Reset the number of threads in the default thread pool.
+    """Reset the number of threads in the default thread pool.
 
     Waits for all currently running tasks to be completed, then destroys all threads
     in the pool and creates a new thread pool with the new number of threads. Any
@@ -95,7 +95,7 @@ def reset_num_threads(nthreads: int) -> None:
 
 @contextlib.contextmanager
 def set_num_threads(nthreads: int):
-    """ Context for resetting the number of threads in the default thread pool.
+    """Context for resetting the number of threads in the default thread pool.
 
     Parameters
     ----------
@@ -111,7 +111,7 @@ def set_num_threads(nthreads: int):
 
 
 def task_size() -> int:
-    """ Get the default task size used for parallel IO operations.
+    """Get the default task size used for parallel IO operations.
 
     Set the default value using `task_size_reset()` or by setting
     the `KVIKIO_TASK_SIZE` environment variable. If not set,
@@ -126,7 +126,7 @@ def task_size() -> int:
 
 
 def reset_task_size(nbytes: int) -> None:
-    """ Reset the default task size used for parallel IO operations.
+    """Reset the default task size used for parallel IO operations.
 
     Parameters
     ----------
@@ -138,7 +138,7 @@ def reset_task_size(nbytes: int) -> None:
 
 @contextlib.contextmanager
 def set_task_size(nbytes: int):
-    """ Context for resetting the task size used for parallel IO operations.
+    """Context for resetting the task size used for parallel IO operations.
 
     Parameters
     ----------
