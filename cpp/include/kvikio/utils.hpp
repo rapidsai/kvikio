@@ -52,6 +52,29 @@ inline constexpr std::size_t page_size = 4096;
 }
 
 /**
+ * @brief Check if `ptr` points to host memory (as opposed to device memory)
+ *
+ * In this context, managed memory counts as device memory
+ *
+ * @param ptr Memory pointer to query
+ * @return The boolean answer
+ */
+inline bool is_host_memory(void* ptr)
+{
+  CUpointer_attribute attrs[1] = {
+    CU_POINTER_ATTRIBUTE_MEMORY_TYPE,
+  };
+  CUmemorytype memtype{};
+  void* data[1] = {&memtype};
+  CUDA_DRIVER_TRY(
+    cudaAPI::instance().PointerGetAttributes(1, attrs, data, convert_void2deviceptr(ptr)));
+  // Notice, queying `CU_POINTER_ATTRIBUTE_MEMORY_TYPE` returns zero when the memory
+  // is unregistered host memory. This is undocumented but how the Runtime CUDA API
+  // does it to support `cudaMemoryTypeUnregistered`.
+  return memtype == 0 || memtype == CU_MEMORYTYPE_HOST;
+}
+
+/**
  * @brief Push CUDA context on creation and pop it on destruction
  */
 class PushAndPopContext {

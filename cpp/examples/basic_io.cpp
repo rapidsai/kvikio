@@ -70,6 +70,12 @@ int main()
   check(cudaMalloc(&b_dev, SIZE) == cudaSuccess);
   check(cudaMalloc(&c_dev, SIZE) == cudaSuccess);
 
+  check(kvikio::is_host_memory(a) == true);
+  check(kvikio::is_host_memory(b) == true);
+  check(kvikio::is_host_memory(a_dev) == false);
+  check(kvikio::is_host_memory(b_dev) == false);
+  check(kvikio::is_host_memory(c_dev) == false);
+
   {
     kvikio::FileHandle f("/tmp/test-file", "w");
     check(cudaMemcpy(a_dev, a, SIZE, cudaMemcpyHostToDevice) == cudaSuccess);

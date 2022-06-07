@@ -230,7 +230,7 @@ class FileHandle {
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the
    * `O_DIRECT` flag and one without. This function returns one of them but
-   * it is unspecified with one.
+   * it is unspecified which one.
    *
    * @return File descripter
    */
@@ -241,7 +241,7 @@ class FileHandle {
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the
    * `O_DIRECT` flag and one without. This function returns the flags of one of
-   * them but it is unspecified with one.
+   * them but it is unspecified which one.
    *
    * @return File descripter
    */
