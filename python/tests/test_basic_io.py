@@ -10,6 +10,7 @@ import kvikio
 import kvikio.defaults
 
 cupy = pytest.importorskip("cupy")
+numpy = pytest.importorskip("numpy")
 
 
 def check_bit_flags(
@@ -28,14 +29,15 @@ def check_bit_flags(
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
 @pytest.mark.parametrize("tasksize", [199, 1024])
-def test_read_write(tmp_path, size, nthreads, tasksize):
+@pytest.mark.parametrize("memtype", [cupy, numpy])
+def test_read_write(tmp_path, size, nthreads, tasksize, memtype):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
             # Write file
-            a = cupy.arange(size)
+            a = memtype.arange(size)
             f = kvikio.CuFile(filename, "w")
             assert not f.closed
             assert check_bit_flags(f.open_flags(), os.O_WRONLY)
@@ -50,7 +52,7 @@ def test_read_write(tmp_path, size, nthreads, tasksize):
             assert f.closed
 
             # Read file into a new array and compare
-            b = cupy.empty_like(a)
+            b = memtype.empty_like(a)
             f = kvikio.CuFile(filename, "r")
             assert check_bit_flags(f.open_flags(), os.O_RDONLY)
             assert f.read(b) == b.nbytes
@@ -87,11 +89,12 @@ def test_set_compat_mode_between_io(tmp_path):
             assert f.write(a) == a.nbytes
 
 
-def test_write_to_files_in_chunks(tmp_path):
+@pytest.mark.parametrize("memtype", [cupy, numpy])
+def test_write_to_files_in_chunks(tmp_path, memtype):
     """Write to files in chunks"""
     filename = tmp_path / "test-file"
 
-    a = cupy.arange(200)
+    a = memtype.arange(200)
     f = kvikio.CuFile(filename, "w")
 
     nchunks = 20
@@ -112,7 +115,7 @@ def test_write_to_files_in_chunks(tmp_path):
     assert f.closed
 
     # Read file into a new array and compare
-    b = cupy.empty_like(a)
+    b = memtype.empty_like(a)
     f = kvikio.CuFile(filename, "r")
     assert f.read(b) == b.nbytes
     assert all(a == b)
@@ -124,13 +127,14 @@ def test_write_to_files_in_chunks(tmp_path):
     "start,end",
     [(0, 10 * 4096), (1, int(1.3 * 4096)), (int(2.1 * 4096), int(5.6 * 4096))],
 )
-def test_read_write_slices(tmp_path, nthreads, tasksize, start, end):
+@pytest.mark.parametrize("memtype", [cupy, numpy])
+def test_read_write_slices(tmp_path, nthreads, tasksize, start, end, memtype):
     """Read and write different slices"""
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
             filename = tmp_path / "test-file"
-            a = cupy.arange(10 * 4096)  # 10 page-sizes
+            a = memtype.arange(10 * 4096)  # 10 page-sizes
             b = a.copy()
             a[start:end] = 42
             with kvikio.CuFile(filename, "w") as f:
@@ -170,3 +174,16 @@ def test_raw_read_write(tmp_path, size):
         assert f.raw_write(a) == a.nbytes
     with kvikio.CuFile(filename, "r") as f:
         assert f.raw_read(a) == a.nbytes
+
+
+def test_raw_read_write_of_host_memory(tmp_path):
+    """Test raw read/write of host memory, which isn't supported"""
+    filename = tmp_path / "test-file"
+
+    a = numpy.arange(1024)
+    with kvikio.CuFile(filename, "w") as f:
+        with pytest.raises(ValueError, match="Non-CUDA buffers not supported"):
+            f.raw_write(a)
+    with kvikio.CuFile(filename, "r") as f:
+        with pytest.raises(ValueError, match="Non-CUDA buffers not supported"):
+            assert f.raw_read(a) == a.nbytes
