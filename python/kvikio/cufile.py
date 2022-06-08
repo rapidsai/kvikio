@@ -49,7 +49,9 @@ class CuFile:
     def __init__(self, file: Union[pathlib.Path, str], flags: str = "r"):
         """Open and register file for GDS IO operations
 
-        The file is opened twice, one in binary mode and one in direct mode.
+        CuFile opens the file twice and maintains two file descriptors.
+        One file is opened with the specified `flags` and the other file is
+        opened with the `flags` plus the `O_DIRECT` flag.
 
         Parameters
         ----------

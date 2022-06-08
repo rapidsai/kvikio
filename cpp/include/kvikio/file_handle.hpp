@@ -142,7 +142,7 @@ class FileHandle {
    * @brief Construct a file handle from a file path
    *
    * FileHandle opens the file twice and maintains two file descriptors.
-   * One file are opened with the specified `flags` and the other file are
+   * One file is opened with the specified `flags` and the other file is
    * opened with the `flags` plus the `O_DIRECT` flag.
    *
    * @param file_path File path to the file
