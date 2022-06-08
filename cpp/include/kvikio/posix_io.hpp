@@ -27,15 +27,16 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-namespace detail {
 
-inline constexpr std::size_t chunk_size = 2 << 23;  // 16 MiB
+inline constexpr std::size_t posix_bounce_buffer_size = 2 << 23;  // 16 MiB
+
+namespace detail {
 
 /**
  * @brief Class to retain host memory allocations
  *
  * Call `AllocRetain::get` to get an allocation that will be retained when it
- * goes out of scope (RAII). The size of all allocations are `chunk_size`.
+ * goes out of scope (RAII). The size of all allocations are `posix_bounce_buffer_size`.
  */
 class AllocRetain {
  private:
@@ -72,8 +73,8 @@ class AllocRetain {
     // If no available allocation, allocate and register a new one
     void* alloc{};
     // Allocate page-locked host memory
-    CUDA_DRIVER_TRY(
-      cudaAPI::instance().MemHostAlloc(&alloc, chunk_size, CU_MEMHOSTREGISTER_PORTABLE));
+    CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(
+      &alloc, posix_bounce_buffer_size, CU_MEMHOSTREGISTER_PORTABLE));
     return Alloc(this, alloc);
   }
 
@@ -167,7 +168,7 @@ std::size_t posix_device_io(int fd,
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t byte_remaining    = convert_size2off(size);
-  const off_t chunk_size2 = convert_size2off(chunk_size);
+  const off_t chunk_size2 = convert_size2off(posix_bounce_buffer_size);
 
   while (byte_remaining > 0) {
     const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
