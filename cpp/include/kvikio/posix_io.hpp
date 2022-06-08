@@ -222,7 +222,7 @@ inline std::size_t posix_host_read(
  * @return Size of bytes that were successfully read.
  */
 inline std::size_t posix_host_write(
-  int fd, void* buf, std::size_t size, std::size_t file_offset, bool partial)
+  int fd, const void* buf, std::size_t size, std::size_t file_offset, bool partial)
 {
   return detail::posix_host_io<false>(fd, buf, size, convert_size2off(file_offset), partial);
 }

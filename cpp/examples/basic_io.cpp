@@ -122,4 +122,24 @@ int main()
     check(read == f.nbytes());
     kvikio::buffer_deregister(c_dev);
   }
+
+  {
+    kvikio::FileHandle f("/tmp/test-file", "w");
+    size_t written = f.pwrite(a, SIZE).get();
+    check(written == SIZE);
+    check(written == f.nbytes());
+    cout << "Parallel POSIX write (" << kvikio::defaults::thread_pool_nthreads()
+         << " threads): " << written << endl;
+  }
+  {
+    kvikio::FileHandle f("/tmp/test-file", "r");
+    size_t read = f.pread(b, SIZE).get();
+    check(read == SIZE);
+    check(read == f.nbytes());
+    for (int i = 0; i < NELEM; ++i) {
+      check(a[i] == b[i]);
+    }
+    cout << "Parallel POSIX read (" << kvikio::defaults::thread_pool_nthreads()
+         << " threads): " << read << endl;
+  }
 }
