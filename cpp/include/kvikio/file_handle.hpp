@@ -290,7 +290,7 @@ class FileHandle {
                    std::size_t devPtr_offset)
   {
     if (_compat_mode) {
-      return posix_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance().Read(
@@ -340,7 +340,7 @@ class FileHandle {
     _nbytes = 0;  // Invalidate the computed file size
 
     if (_compat_mode) {
-      return posix_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      return posix_device_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance().Write(
