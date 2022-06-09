@@ -81,7 +81,7 @@ class DriverProperties {
  public:
   DriverProperties() = default;
 
-  bool is_gds_availabe()
+  bool is_gds_available()
   {
     // If both the major and minor version is zero, the GDS driver isn't loaded.
     return !(get_nvfs_major_version() == 0 && get_nvfs_minor_version() == 0);
@@ -184,7 +184,7 @@ struct DriverInitializer {
 struct DriverProperties {
   DriverProperties() = default;
 
-  static bool is_gds_availabe() { return false; }
+  static bool is_gds_available() { return false; }
 
   [[nodiscard]] static unsigned int get_nvfs_major_version()
   {
