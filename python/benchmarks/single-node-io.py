@@ -269,7 +269,7 @@ def main(args):
             )
         )
     gds_version = "N/A (Compatibility Mode)"
-    if props.is_gds_availabe:
+    if props.is_gds_available:
         gds_version = f"v{props.major_version}.{props.minor_version}"
     gds_config_json_path = os.path.realpath(
         os.getenv("CUFILE_ENV_PATH_JSON", "/etc/cufile.json")
@@ -282,7 +282,7 @@ def main(args):
         print("   WARNING - KvikIO compat mode   ")
         print("      libcufile.so not used       ")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    elif not props.is_gds_availabe:
+    elif not props.is_gds_available:
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print("   WARNING - cuFile compat mode   ")
         print("         GDS not enabled          ")
