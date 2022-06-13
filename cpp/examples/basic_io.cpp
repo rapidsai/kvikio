@@ -54,7 +54,8 @@ int main()
     cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
   }
 
-  int a[1024], b[1024];
+  int a[1024];
+  int b[1024];
   for (int i = 0; i < 1024; ++i) {
     a[i] = i;
   }
@@ -64,11 +65,14 @@ int main()
   check(cudaMalloc(&a_dev, sizeof(a)) == cudaSuccess);
   check(cudaMalloc(&b_dev, sizeof(a)) == cudaSuccess);
   check(cudaMalloc(&c_dev, sizeof(a)) == cudaSuccess);
+  cout << "HEJ1" << endl;
 
   {
     kvikio::FileHandle f("/tmp/test-file", "w");
     check(cudaMemcpy(a_dev, &a, sizeof(a), cudaMemcpyHostToDevice) == cudaSuccess);
+    cout << "HEJ2" << endl;
     size_t written = f.pwrite(a_dev, sizeof(a), 0, 1).get();
+    cout << "HEJ3" << endl;
     check(written == sizeof(a));
     check(written == f.nbytes());
     cout << "Write: " << written << endl;
