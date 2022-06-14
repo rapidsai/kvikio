@@ -45,7 +45,15 @@ class cudaAPI {
  private:
   cudaAPI()
   {
-    void* lib = load_library("libcuda.so");
+    // First we check if the symbols are already loaded.
+    void* lib = load_library(nullptr);
+    try {
+      get_symbol(Init, lib, KVIKIO_STRINGIFY(cuInit));
+    } catch (const std::runtime_error& e) {
+      // If not, we load them.
+      lib = load_library("libcuda.so");
+    }
+
     // Notice, the API version loaded must match the version used downstream. That is,
     // if a project uses the `_v2` CUDA Driver API or the newest Runtime API, the symbols
     // loaded should also be the `_v2` symbols. Thus, we use KVIKIO_STRINGIFY() to get
