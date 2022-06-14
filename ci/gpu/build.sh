@@ -78,7 +78,7 @@ if [[ "$LDD_BASIC_IO" == *"libcuda.so"* ]]; then
   return 1
 fi
 # Run basic_io
-${WORKSPACE}/libkvikio-debug-build/examples/basic_io
+LD_DEBUG=libs ${WORKSPACE}/libkvikio-debug-build/examples/basic_io
 
 cd "${WORKSPACE}/python"
 gpuci_logger "Python py.test for kvikio"
