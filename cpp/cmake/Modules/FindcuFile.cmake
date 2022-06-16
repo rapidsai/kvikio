@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -54,22 +54,24 @@ pkg_check_modules(PKG_cuFile QUIET cuFile)
 set(cuFile_COMPILE_OPTIONS ${PKG_cuFile_CFLAGS_OTHER})
 set(cuFile_VERSION ${PKG_cuFile_VERSION})
 
+# Find the location of the CUDA Toolkit
+find_package(CUDAToolkit QUIET)
 find_path(
   cuFile_INCLUDE_DIR
   NAMES cufile.h
-  HINTS ${PKG_cuFile_INCLUDE_DIRS} /usr/local/cuda/include /usr/local/cuda/lib64
+  HINTS ${PKG_cuFile_INCLUDE_DIRS} ${CUDAToolkit_INCLUDE_DIRS}
 )
 
 find_library(
   cuFile_LIBRARY
   NAMES cufile
-  HINTS ${PKG_cuFile_LIBRARY_DIRS} /usr/local/cuda/lib64
+  HINTS ${PKG_cuFile_LIBRARY_DIRS} ${CUDAToolkit_LIBRARY_DIR}
 )
 
 find_library(
   cuFileRDMA_LIBRARY
   NAMES cufile_rdma
-  HINTS ${PKG_cuFile_LIBRARY_DIRS} /usr/local/cuda/lib64
+  HINTS ${PKG_cuFile_LIBRARY_DIRS} ${CUDAToolkit_LIBRARY_DIR}
 )
 
 include(FindPackageHandleStandardArgs)
@@ -81,7 +83,7 @@ find_package_handle_standard_args(
 )
 
 if(cuFile_INCLUDE_DIR AND NOT TARGET cufile::cuFile_interface)
-  add_library(cufile::cuFile_interface IMPORTED INTERFACE)
+  add_library(cufile::cuFile_interface INTERFACE IMPORTED GLOBAL)
   target_include_directories(
     cufile::cuFile_interface INTERFACE "$<BUILD_INTERFACE:${cuFile_INCLUDE_DIR}>"
   )
@@ -90,7 +92,7 @@ if(cuFile_INCLUDE_DIR AND NOT TARGET cufile::cuFile_interface)
 endif()
 
 if(cuFile_FOUND AND NOT TARGET cufile::cuFile)
-  add_library(cufile::cuFile UNKNOWN IMPORTED)
+  add_library(cufile::cuFile UNKNOWN IMPORTED GLOBAL)
   set_target_properties(
     cufile::cuFile
     PROPERTIES IMPORTED_LOCATION "${cuFile_LIBRARY}"
@@ -100,7 +102,7 @@ if(cuFile_FOUND AND NOT TARGET cufile::cuFile)
 endif()
 
 if(cuFile_FOUND AND NOT TARGET cufile::cuFileRDMA)
-  add_library(cufile::cuFileRDMA UNKNOWN IMPORTED)
+  add_library(cufile::cuFileRDMA UNKNOWN IMPORTED GLOBAL)
   set_target_properties(
     cufile::cuFileRDMA
     PROPERTIES IMPORTED_LOCATION "${cuFileRDMA_LIBRARY}"
