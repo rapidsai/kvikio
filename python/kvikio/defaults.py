@@ -115,7 +115,7 @@ def task_size() -> int:
 
     Set the default value using `task_size_reset()` or by setting
     the `KVIKIO_TASK_SIZE` environment variable. If not set,
-    the default value is 16 MiB.
+    the default value is 4 MiB.
 
     Return
     ------
