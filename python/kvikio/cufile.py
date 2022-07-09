@@ -104,7 +104,7 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
-        size: int
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -138,8 +138,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
-        size: int
-            Size in bytes to read.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         task_size: int, default=kvikio.defaults.task_size()
@@ -162,7 +162,7 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
-        size: int
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -185,8 +185,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
-        size: int
-            Size in bytes to read.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         task_size: int, default=kvikio.defaults.task_size()
@@ -210,7 +210,7 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
-        size: int
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -235,8 +235,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
-        size: int
-            Size in bytes to read.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         dev_offset: int, optional
