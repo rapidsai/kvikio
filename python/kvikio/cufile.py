@@ -94,7 +94,8 @@ class CuFile:
         `pread` reads the data from a specified file at a specified offset and size
         bytes into the GPU memory by using GDS functionality. The API works correctly
         for unaligned offsets and any data size, although the performance might not
-        match the performance of aligned reads.
+        match the performance of aligned reads. See additional details in the
+        notes below.
 
         `pread` is non-blocking and returns a `IOFuture` that can be waited upon. It
         partitions the operation into tasks of size `task_size` for execution in the
@@ -116,6 +117,16 @@ class CuFile:
         IOFuture
             Future that on completion returns the size of bytes that were successfully
             read.
+
+        Notes
+        -----
+        cuFile can only make use of GPUDirect Storage for reads that are
+        aligned to a page boundary. The GPU page size used by cuFile is 4kB, so
+        all reads must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable
+        to round down to the nearest multiple of 4096 and discard any undesired
+        bytes from the resulting data. Similarly, it is optimal for `size` to
+        be a multiple of 4096 bytes.
         """
         return IOFuture(self._handle.pread(buf, size, file_offset, task_size))
 
@@ -127,7 +138,7 @@ class CuFile:
         `pwrite` writes the data from the GPU memory to the file at a specified
         offset and size bytes by using GDS functionality. The API works correctly
         for unaligned offset and data sizes, although the performance is not on-par
-        with aligned writes.
+        with aligned writes. See additional details in the notes below.
 
         `pwrite` is non-blocking and returns a `IOFuture` that can be waited upon. It
         partitions the operation into tasks of size `task_size` for execution in the
@@ -150,6 +161,16 @@ class CuFile:
         IOFuture
             Future that on completion returns the size of bytes that were successfully
             written.
+
+        Notes
+        -----
+        cuFile can only make use of GPUDirect Storage for writes that are
+        aligned to a page boundary. The GPU page size used by cuFile is 4kB, so
+        all reads must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable
+        to round down to the nearest multiple of 4096 and discard any undesired
+        bytes from the resulting data. Similarly, it is optimal for `size` to
+        be a multiple of 4096 bytes.
         """
         return IOFuture(self._handle.pwrite(buf, size, file_offset, task_size))
 
@@ -173,6 +194,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully read.
+
+        Notes
+        -----
+        cuFile can only make use of GPUDirect Storage for reads that are
+        aligned to a page boundary. The GPU page size used by cuFile is 4kB, so
+        all reads must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable
+        to round down to the nearest multiple of 4096 and discard any undesired
+        bytes from the resulting data. Similarly, it is optimal for `size` to
+        be a multiple of 4096 bytes.
         """
         return self.pread(buf, size, file_offset, task_size).get()
 
@@ -196,6 +227,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully written.
+
+        Notes
+        -----
+        cuFile can only make use of GPUDirect Storage for writes that are
+        aligned to a page boundary. The GPU page size used by cuFile is 4kB, so
+        all reads must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable
+        to round down to the nearest multiple of 4096 and discard any undesired
+        bytes from the resulting data. Similarly, it is optimal for `size` to
+        be a multiple of 4096 bytes.
         """
         return self.pwrite(buf, size, file_offset, task_size).get()
 
@@ -221,6 +262,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully read.
+
+        Notes
+        -----
+        cuFile can only make use of GPUDirect Storage for reads that are
+        aligned to a page boundary. The GPU page size used by cuFile is 4kB, so
+        all reads must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable
+        to round down to the nearest multiple of 4096 and discard any undesired
+        bytes from the resulting data. Similarly, it is optimal for `size` to
+        be a multiple of 4096 bytes.
         """
         return self._handle.read(buf, size, file_offset, dev_offset)
 
@@ -246,5 +297,15 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully written.
+
+        Notes
+        -----
+        cuFile can only make use of GPUDirect Storage for reads that are
+        aligned to a page boundary. The GPU page size used by cuFile is 4kB, so
+        all reads must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable
+        to round down to the nearest multiple of 4096 and discard any undesired
+        bytes from the resulting data. Similarly, it is optimal for `size` to
+        be a multiple of 4096 bytes.
         """
         return self._handle.write(buf, size, file_offset, dev_offset)
