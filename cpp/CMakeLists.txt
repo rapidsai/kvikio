@@ -22,7 +22,7 @@ include(rapids-find)
 
 project(
   KvikIO
-  VERSION 22.08.00
+  VERSION 22.10.00
   LANGUAGES CXX
 )
 
