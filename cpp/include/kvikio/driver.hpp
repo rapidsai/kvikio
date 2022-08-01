@@ -179,10 +179,13 @@ class DriverProperties {
 
 #else
 struct DriverInitializer {
+  // Implement a non-default constructor to avoid `unused variable` warnings downstream
+  DriverInitializer() {}
 };
 
 struct DriverProperties {
-  DriverProperties() = default;
+  // Implement a non-default constructor to avoid `unused variable` warnings downstream
+  DriverProperties() {}
 
   static bool is_gds_available() { return false; }
 
