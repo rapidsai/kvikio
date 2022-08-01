@@ -89,7 +89,7 @@ cd "${WORKSPACE}/libkvikio-no-cufile-build"
 cmake ${WORKSPACE}/cpp -DCMAKE_DISABLE_FIND_PACKAGE_cuFile=TRUE
 make
 # Run basic_io
-${WORKSPACE}/libkvikio-no-cufile/examples/basic_io
+${WORKSPACE}/libkvikio-no-cufile-build/examples/basic_io
 
 cd "${WORKSPACE}/python"
 gpuci_logger "Python py.test for kvikio"
