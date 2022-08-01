@@ -96,6 +96,7 @@ class CuFile:
         `pread` reads the data from a specified file at a specified offset and size
         bytes into `buf`. The API works correctly for unaligned offsets and any data
         size, although the performance might not match the performance of aligned reads.
+        See additional details in the notes below.
 
         `pread` is non-blocking and returns a `IOFuture` that can be waited upon. It
         partitions the operation into tasks of size `task_size` for execution in the
@@ -105,7 +106,7 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device or host buffer to read into.
-        size: int
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -117,6 +118,15 @@ class CuFile:
         IOFuture
             Future that on completion returns the size of bytes that were successfully
             read.
+
+        Notes
+        -----
+        When reading into device memory, KvikIO can only make use of GDS for reads that
+        are aligned to a page boundary. The GPU page size is 4kB, so all reads must be
+        at an offset that is a multiple of 4096 bytes. If the desired `file_offset` is
+        not a multiple of 4096 it is likely desirable to round down to the nearest
+        multiple of 4096 and discard any undesired bytes from the resulting data.
+        Similarly, it is optimal for `size` to be a multiple of 4096 bytes.
         """
         return IOFuture(self._handle.pread(buf, size, file_offset, task_size))
 
@@ -125,9 +135,10 @@ class CuFile:
     ) -> IOFuture:
         """Writes specified bytes from device or host memory into the file in parallel
 
-        `pwrite` writes the data from `buf` to the file at a specified offset and size
-        bytes. The API works correctly for unaligned offset and data sizes, although
-        the performance might not match the performance of aligned writes.
+        `pwrite` writes the data from `buf` to the file at a specified offset and size.
+        The API works correctly for unaligned offset and data sizes, although the
+        performance is not on-par with aligned writes. See additional details in the
+        notes below.
 
         `pwrite` is non-blocking and returns a `IOFuture` that can be waited upon. It
         partitions the operation into tasks of size `task_size` for execution in the
@@ -137,8 +148,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device or host buffer to write to.
-        size: int
-            Size in bytes to read.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         task_size: int, default=kvikio.defaults.task_size()
@@ -149,6 +160,16 @@ class CuFile:
         IOFuture
             Future that on completion returns the size of bytes that were successfully
             written.
+
+        Notes
+        -----
+        When writing from device memory, cuFile can only make use of GDS for writes
+        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
+        so all writes must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable to
+        round down to the nearest multiple of 4096 and discard any undesired bytes
+        from the resulting data. Similarly, it is optimal for `size` to be a multiple
+        of 4096 bytes.
         """
         return IOFuture(self._handle.pwrite(buf, size, file_offset, task_size))
 
@@ -161,7 +182,7 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
-        size: int
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -172,6 +193,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully read.
+
+        Notes
+        -----
+        When reading into device memory, cuFile can only make use of GDS for reads
+        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
+        so all reads must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable to
+        round down to the nearest multiple of 4096 and discard any undesired bytes
+        from the resulting data. Similarly, it is optimal for `size` to be a multiple
+        of 4096 bytes.
         """
         return self.pread(buf, size, file_offset, task_size).get()
 
@@ -184,8 +215,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
-        size: int
-            Size in bytes to read.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         task_size: int, default=kvikio.defaults.task_size()
@@ -195,6 +226,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully written.
+
+        Notes
+        -----
+        When writing from device memory, cuFile can only make use of GDS for writes
+        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
+        so all writes must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable to
+        round down to the nearest multiple of 4096 and discard any undesired bytes
+        from the resulting data. Similarly, it is optimal for `size` to be a multiple
+        of 4096 bytes.
         """
         return self.pwrite(buf, size, file_offset, task_size).get()
 
@@ -210,7 +251,7 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
-        size: int
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -221,6 +262,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully read.
+
+        Notes
+        -----
+        When reading into device memory, cuFile can only make use of GDS for reads
+        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
+        so all reads must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable to
+        round down to the nearest multiple of 4096 and discard any undesired bytes
+        from the resulting data. Similarly, it is optimal for `size` to be a multiple
+        of 4096 bytes.
         """
         return self._handle.read(buf, size, file_offset, dev_offset)
 
@@ -236,8 +287,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
-        size: int
-            Size in bytes to read.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         dev_offset: int, optional
@@ -247,5 +298,15 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully written.
+
+        Notes
+        -----
+        When writing from device memory, cuFile can only make use of GDS for writes
+        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
+        so all writes must be at an offset that is a multiple of 4096 bytes. If the
+        desired `file_offset` is not a multiple of 4096 it is likely desirable to
+        round down to the nearest multiple of 4096 and discard any undesired bytes
+        from the resulting data. Similarly, it is optimal for `size` to be a multiple
+        of 4096 bytes.
         """
         return self._handle.write(buf, size, file_offset, dev_offset)
