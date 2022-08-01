@@ -83,6 +83,14 @@ fi
 # Run basic_io
 ${WORKSPACE}/libkvikio-debug-build/examples/basic_io
 
+gpuci_logger "Build and run libkvikio-no-cufile"
+mkdir "${WORKSPACE}/libkvikio-no-cufile-build"
+cd "${WORKSPACE}/libkvikio-no-cufile"
+cmake ${WORKSPACE}/cpp -DCMAKE_DISABLE_FIND_PACKAGE_cuFile=TRUE
+make
+# Run basic_io
+${WORKSPACE}/libkvikio-no-cufile/examples/basic_io
+
 cd "${WORKSPACE}/python"
 gpuci_logger "Python py.test for kvikio"
 py.test --cache-clear --basetemp="${WORKSPACE}/cudf-cuda-tmp" --junitxml="${WORKSPACE}/junit-kvikio.xml" -v
