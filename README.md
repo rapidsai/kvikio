@@ -35,6 +35,12 @@ For testing:
 ## Install
 
 ### Conda 
+
+Install the stable releease from the `rapidsai` channel like:
+```
+conda create -n kvikio_env -c rapidsai -c conda-forge kvikio
+```
+
 Install the `kvikio` conda package from the `rapidsai-nightly` channel like:
 ```
 conda create -n kvikio_env -c rapidsai-nightly -c conda-forge python=3.8 cudatoolkit=11.5 kvikio
