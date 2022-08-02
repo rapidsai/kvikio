@@ -121,12 +121,13 @@ class CuFile:
 
         Notes
         -----
-        When reading into device memory, KvikIO can only make use of GDS for reads that
-        are aligned to a page boundary. The GPU page size is 4kB, so all reads must be
-        at an offset that is a multiple of 4096 bytes. If the desired `file_offset` is
-        not a multiple of 4096 it is likely desirable to round down to the nearest
-        multiple of 4096 and discard any undesired bytes from the resulting data.
-        Similarly, it is optimal for `size` to be a multiple of 4096 bytes.
+        KvikIO can only make use of GDS for reads that are aligned to a page boundary.
+        For unaligned reads, KvikIO has to split the reads into aligned and unaligned
+        parts. The GPU page size is 4kB, so all reads should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return IOFuture(self._handle.pread(buf, size, file_offset, task_size))
 
@@ -163,13 +164,13 @@ class CuFile:
 
         Notes
         -----
-        When writing from device memory, cuFile can only make use of GDS for writes
-        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
-        so all writes must be at an offset that is a multiple of 4096 bytes. If the
-        desired `file_offset` is not a multiple of 4096 it is likely desirable to
-        round down to the nearest multiple of 4096 and discard any undesired bytes
-        from the resulting data. Similarly, it is optimal for `size` to be a multiple
-        of 4096 bytes.
+        KvikIO can only make use of GDS for writes that are aligned to a page boundary.
+        For unaligned writes, KvikIO has to split the writes into aligned and unaligned
+        parts. The GPU page size is 4kB, so all writes should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return IOFuture(self._handle.pwrite(buf, size, file_offset, task_size))
 
@@ -196,13 +197,13 @@ class CuFile:
 
         Notes
         -----
-        When reading into device memory, cuFile can only make use of GDS for reads
-        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
-        so all reads must be at an offset that is a multiple of 4096 bytes. If the
-        desired `file_offset` is not a multiple of 4096 it is likely desirable to
-        round down to the nearest multiple of 4096 and discard any undesired bytes
-        from the resulting data. Similarly, it is optimal for `size` to be a multiple
-        of 4096 bytes.
+        KvikIO can only make use of GDS for reads that are aligned to a page boundary.
+        For unaligned reads, KvikIO has to split the reads into aligned and unaligned
+        parts. The GPU page size is 4kB, so all reads should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self.pread(buf, size, file_offset, task_size).get()
 
@@ -229,13 +230,13 @@ class CuFile:
 
         Notes
         -----
-        When writing from device memory, cuFile can only make use of GDS for writes
-        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
-        so all writes must be at an offset that is a multiple of 4096 bytes. If the
-        desired `file_offset` is not a multiple of 4096 it is likely desirable to
-        round down to the nearest multiple of 4096 and discard any undesired bytes
-        from the resulting data. Similarly, it is optimal for `size` to be a multiple
-        of 4096 bytes.
+        KvikIO can only make use of GDS for writes that are aligned to a page boundary.
+        For unaligned writes, KvikIO has to split the writes into aligned and unaligned
+        parts. The GPU page size is 4kB, so all writes should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self.pwrite(buf, size, file_offset, task_size).get()
 
@@ -265,13 +266,13 @@ class CuFile:
 
         Notes
         -----
-        When reading into device memory, cuFile can only make use of GDS for reads
-        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
-        so all reads must be at an offset that is a multiple of 4096 bytes. If the
-        desired `file_offset` is not a multiple of 4096 it is likely desirable to
-        round down to the nearest multiple of 4096 and discard any undesired bytes
-        from the resulting data. Similarly, it is optimal for `size` to be a multiple
-        of 4096 bytes.
+        KvikIO can only make use of GDS for reads that are aligned to a page boundary.
+        For unaligned reads, KvikIO has to split the reads into aligned and unaligned
+        parts. The GPU page size is 4kB, so all reads should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self._handle.read(buf, size, file_offset, dev_offset)
 
@@ -301,12 +302,12 @@ class CuFile:
 
         Notes
         -----
-        When writing from device memory, cuFile can only make use of GDS for writes
-        that are aligned to a page boundary. The GPU page size used by cuFile is 4kB,
-        so all writes must be at an offset that is a multiple of 4096 bytes. If the
-        desired `file_offset` is not a multiple of 4096 it is likely desirable to
-        round down to the nearest multiple of 4096 and discard any undesired bytes
-        from the resulting data. Similarly, it is optimal for `size` to be a multiple
-        of 4096 bytes.
+        KvikIO can only make use of GDS for writes that are aligned to a page boundary.
+        For unaligned writes, KvikIO has to split the writes into aligned and unaligned
+        parts. The GPU page size is 4kB, so all writes should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self._handle.write(buf, size, file_offset, dev_offset)
