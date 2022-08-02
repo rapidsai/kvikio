@@ -18,6 +18,9 @@ target_link_libraries(basic_io PRIVATE kvikio CUDA::cudart)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
+  if(NOT cuFile_FOUND)
+    set(KVIKIO_CXX_FLAGS "${KVIKIO_CXX_FLAGS};-DKVIKIO_DISABLE_CUFILE")
+  endif()
   target_compile_options(
     basic_io PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
  )
