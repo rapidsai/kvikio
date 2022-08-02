@@ -29,15 +29,15 @@ def check_bit_flags(
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
 @pytest.mark.parametrize("tasksize", [199, 1024])
-@pytest.mark.parametrize("memtype", [cupy, numpy])
-def test_read_write(tmp_path, size, nthreads, tasksize, memtype):
+@pytest.mark.parametrize("xp", [cupy, numpy])
+def test_read_write(tmp_path, size, nthreads, tasksize, xp):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
             # Write file
-            a = memtype.arange(size)
+            a = xp.arange(size)
             f = kvikio.CuFile(filename, "w")
             assert not f.closed
             assert check_bit_flags(f.open_flags(), os.O_WRONLY)
@@ -52,7 +52,7 @@ def test_read_write(tmp_path, size, nthreads, tasksize, memtype):
             assert f.closed
 
             # Read file into a new array and compare
-            b = memtype.empty_like(a)
+            b = xp.empty_like(a)
             f = kvikio.CuFile(filename, "r")
             assert check_bit_flags(f.open_flags(), os.O_RDONLY)
             assert f.read(b) == b.nbytes
@@ -89,12 +89,12 @@ def test_set_compat_mode_between_io(tmp_path):
             assert f.write(a) == a.nbytes
 
 
-@pytest.mark.parametrize("memtype", [cupy, numpy])
-def test_write_to_files_in_chunks(tmp_path, memtype):
+@pytest.mark.parametrize("xp", [cupy, numpy])
+def test_write_to_files_in_chunks(tmp_path, xp):
     """Write to files in chunks"""
     filename = tmp_path / "test-file"
 
-    a = memtype.arange(200)
+    a = xp.arange(200)
     f = kvikio.CuFile(filename, "w")
 
     nchunks = 20
@@ -115,7 +115,7 @@ def test_write_to_files_in_chunks(tmp_path, memtype):
     assert f.closed
 
     # Read file into a new array and compare
-    b = memtype.empty_like(a)
+    b = xp.empty_like(a)
     f = kvikio.CuFile(filename, "r")
     assert f.read(b) == b.nbytes
     assert all(a == b)
@@ -127,14 +127,14 @@ def test_write_to_files_in_chunks(tmp_path, memtype):
     "start,end",
     [(0, 10 * 4096), (1, int(1.3 * 4096)), (int(2.1 * 4096), int(5.6 * 4096))],
 )
-@pytest.mark.parametrize("memtype", [cupy, numpy])
-def test_read_write_slices(tmp_path, nthreads, tasksize, start, end, memtype):
+@pytest.mark.parametrize("xp", [cupy, numpy])
+def test_read_write_slices(tmp_path, nthreads, tasksize, start, end, xp):
     """Read and write different slices"""
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
             filename = tmp_path / "test-file"
-            a = memtype.arange(10 * 4096)  # 10 page-sizes
+            a = xp.arange(10 * 4096)  # 10 page-sizes
             b = a.copy()
             a[start:end] = 42
             with kvikio.CuFile(filename, "w") as f:
