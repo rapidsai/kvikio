@@ -36,6 +36,7 @@ class cudaAPI {
   decltype(cuMemcpyHtoD)* MemcpyHtoD{nullptr};
   decltype(cuMemcpyDtoH)* MemcpyDtoH{nullptr};
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};
+  decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};
   decltype(cuCtxPushCurrent)* CtxPushCurrent{nullptr};
   decltype(cuCtxPopCurrent)* CtxPopCurrent{nullptr};
   decltype(cuMemGetAddressRange)* MemGetAddressRange{nullptr};
@@ -55,6 +56,7 @@ class cudaAPI {
     get_symbol(MemcpyHtoD, lib, KVIKIO_STRINGIFY(cuMemcpyHtoD));
     get_symbol(MemcpyDtoH, lib, KVIKIO_STRINGIFY(cuMemcpyDtoH));
     get_symbol(PointerGetAttribute, lib, KVIKIO_STRINGIFY(cuPointerGetAttribute));
+    get_symbol(PointerGetAttributes, lib, KVIKIO_STRINGIFY(cuPointerGetAttributes));
     get_symbol(CtxPushCurrent, lib, KVIKIO_STRINGIFY(cuCtxPushCurrent));
     get_symbol(CtxPopCurrent, lib, KVIKIO_STRINGIFY(cuCtxPopCurrent));
     get_symbol(MemGetAddressRange, lib, KVIKIO_STRINGIFY(cuMemGetAddressRange));
