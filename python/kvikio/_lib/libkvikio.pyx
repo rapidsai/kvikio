@@ -75,7 +75,7 @@ def task_size_reset(nthreads: int) -> None:
     kvikio_cxx_api.task_size_reset(nthreads)
 
 
-cdef pair[uintptr_t, size_t] _parse_buffer(buf, size, accept_host_buffer) except *:
+cdef pair[uintptr_t, size_t] _parse_buffer(buf, size_t size, bint accept_host_buffer) except *:
     """Parse `buf` and `size` argument and return a pointer and nbytes"""
     if not isinstance(buf, Array):
         buf = Array(buf)
