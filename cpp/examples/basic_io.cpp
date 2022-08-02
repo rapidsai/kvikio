@@ -33,8 +33,8 @@ void check(bool condition)
   }
 }
 
-constexpr int NELEM = 1024;
-constexpr int SIZE  = NELEM * sizeof(int);
+constexpr int NELEM = 1000;                 // Number of elements used throughout the test
+constexpr int SIZE  = NELEM * sizeof(int);  // Size of the memory allocations (in bytes)
 
 int main()
 {
