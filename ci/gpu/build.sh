@@ -67,7 +67,7 @@ gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --pyt
 gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio kvikio
 
 gpuci_logger "Install test dependencies"
-gpuci_mamba_retry install -y -c conda-forge -c rapidsai-nightly cudf
+gpuci_mamba_retry install -c conda-forge -c rapidsai-nightly cudf
 
 gpuci_logger "Build and run libkvikio-debug"
 mkdir "${WORKSPACE}/libkvikio-debug-build"
@@ -85,7 +85,7 @@ ${WORKSPACE}/libkvikio-debug-build/examples/basic_io
 
 cd "${WORKSPACE}/python"
 gpuci_logger "Python py.test for kvikio"
-py.test -n 6 --cache-clear --basetemp="${WORKSPACE}/cudf-cuda-tmp" --junitxml="${WORKSPACE}/junit-kvikio.xml" -v
+py.test --cache-clear --basetemp="${WORKSPACE}/cudf-cuda-tmp" --junitxml="${WORKSPACE}/junit-kvikio.xml" -v
 
 if [ -n "${CODECOV_TOKEN}" ]; then
     codecov -t $CODECOV_TOKEN
