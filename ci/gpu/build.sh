@@ -66,6 +66,9 @@ gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio
 gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/kvikio --python=$PYTHON -c "${CONDA_BLD_DIR}"
 gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio kvikio
 
+gpuci_logger "Install test dependencies"
+gpuci_mamba_retry install -y -c conda-forge -c rapidsai-nightly cudf
+
 gpuci_logger "Build and run libkvikio-debug"
 mkdir "${WORKSPACE}/libkvikio-debug-build"
 cd "${WORKSPACE}/libkvikio-debug-build"
