@@ -5,7 +5,7 @@ mkdir cpp/build
 pushd cpp/build
 cmake .. \
       -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
-
+      ${CMAKE_EXTRA_ARGS}
 make
 make install
 popd

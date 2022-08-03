@@ -27,6 +27,7 @@ build:
     - SCCACHE_BUCKET=rapids-sccache
     - SCCACHE_REGION=us-west-2
     - SCCACHE_IDLE_TIMEOUT=32768
+    - CMAKE_EXTRA_ARGS
   run_exports:
     - {{ pin_subpackage("libkvikio", max_pin="x.x") }}
   ignore_run_exports_from:

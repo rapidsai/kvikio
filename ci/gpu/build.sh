@@ -69,31 +69,40 @@ gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio kvikio
 gpuci_logger "Install test dependencies"
 gpuci_mamba_retry install -c conda-forge -c rapidsai-nightly cudf
 
+gpuci_logger "Python py.test for kvikio"
+cd "${WORKSPACE}/python"
+py.test --cache-clear --basetemp="${WORKSPACE}/cudf-cuda-tmp" --junitxml="${WORKSPACE}/junit-kvikio.xml" -v
+
+gpuci_logger "Clean previous conda builds"
+gpuci_mamba_retry uninstall libkvikio kvikio
+rm -rf "${CONDA_BLD_DIR}"
+
 gpuci_logger "Build and run libkvikio-debug"
-mkdir "${WORKSPACE}/libkvikio-debug-build"
-cd "${WORKSPACE}/libkvikio-debug-build"
-cmake ${WORKSPACE}/cpp -DCMAKE_BUILD_TYPE=Debug
-make
+export CMAKE_EXTRA_ARGS="-DCMAKE_BUILD_TYPE=Debug"
+gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio
+gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio
+
 # Check that `libcuda.so` is NOT being linked
-LDD_BASIC_IO=`ldd ${WORKSPACE}/libkvikio-debug-build/examples/basic_io`
+LDD_BASIC_IO=$(ldd "${CONDA_BLD_DIR}/libkvikio/work/cpp/build/examples/basic_io")
 if [[ "$LDD_BASIC_IO" == *"libcuda.so"* ]]; then
   echo "[ERROR] examples/basic_io shouln't link to libcuda.so: ${LDD_BASIC_IO}"
   return 1
 fi
+
 # Run basic_io
-${WORKSPACE}/libkvikio-debug-build/examples/basic_io
+"${CONDA_BLD_DIR}/libkvikio/work/cpp/build/examples/basic_io"
+
+gpuci_logger "Clean previous conda builds"
+gpuci_mamba_retry uninstall libkvikio
+rm -rf "${CONDA_BLD_DIR}"
 
 gpuci_logger "Build and run libkvikio-no-cufile"
-mkdir "${WORKSPACE}/libkvikio-no-cufile-build"
-cd "${WORKSPACE}/libkvikio-no-cufile-build"
-cmake ${WORKSPACE}/cpp -DCMAKE_DISABLE_FIND_PACKAGE_cuFile=TRUE
-make
-# Run basic_io
-${WORKSPACE}/libkvikio-no-cufile-build/examples/basic_io
+export CMAKE_EXTRA_ARGS="-DCMAKE_DISABLE_FIND_PACKAGE_cuFile=TRUE"
+gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/libkvikio
+gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio
 
-cd "${WORKSPACE}/python"
-gpuci_logger "Python py.test for kvikio"
-py.test --cache-clear --basetemp="${WORKSPACE}/cudf-cuda-tmp" --junitxml="${WORKSPACE}/junit-kvikio.xml" -v
+# Run basic_io
+"${CONDA_BLD_DIR}/libkvikio/work/cpp/build/examples/basic_io"
 
 if [ -n "${CODECOV_TOKEN}" ]; then
     codecov -t $CODECOV_TOKEN
