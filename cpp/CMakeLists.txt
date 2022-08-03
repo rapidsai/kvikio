@@ -58,7 +58,7 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 if(NOT cuFile_FOUND)
-  message(WARNING "Building KvikIO without cuFile.h")
+  message(WARNING "Building KvikIO without cuFile")
 endif()
 
 # library targets
