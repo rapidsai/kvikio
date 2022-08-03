@@ -73,6 +73,7 @@ gpuci_logger "Python py.test for kvikio"
 cd "${WORKSPACE}/python"
 py.test --cache-clear --basetemp="${WORKSPACE}/cudf-cuda-tmp" --junitxml="${WORKSPACE}/junit-kvikio.xml" -v
 
+cd "${WORKSPACE}"
 gpuci_logger "Clean previous conda builds"
 gpuci_mamba_retry uninstall libkvikio kvikio
 rm -rf "${CONDA_BLD_DIR}"
