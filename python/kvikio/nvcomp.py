@@ -84,8 +84,12 @@ class CascadedCompressor:
         self.compressor.configure(
             data_size, self.compress_temp_size, self.compress_out_size
         )
-        self.compress_temp_buffer = cp.zeros(self.compress_temp_size, dtype=np.uint8)
-        self.compress_out_buffer = cp.zeros(self.compress_out_size, dtype=np.uint8)
+        self.compress_temp_buffer = cp.zeros(
+            self.compress_temp_size, dtype=np.uint8
+        )
+        self.compress_out_buffer = cp.zeros(
+            self.compress_out_size, dtype=np.uint8
+        )
         self.compressor.compress_async(
             data,
             data_size,
@@ -121,7 +125,9 @@ class CascadedCompressor:
         self.decompress_temp_buffer = cp.zeros(
             self.decompress_temp_size, dtype=np.uint8
         )
-        self.decompress_out_buffer = cp.zeros(self.decompress_out_size, dtype=np.uint8)
+        self.decompress_out_buffer = cp.zeros(
+            self.decompress_out_size, dtype=np.uint8
+        )
         self.decompressor.decompress_async(
             data,
             data_size,
@@ -135,20 +141,35 @@ class CascadedCompressor:
 
 
 class LZ4Compressor:
-    def __init__(self, dtype):
+    def __init__(
+        self,
+        chunk_size=1 << 16,
+        data_type=_lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
+        stream=0,
+        device_id=0,
+    ):
         """Create a GPU LZ4Compressor object.
 
         Used to compress and decompress GPU buffers of a specific dtype.
 
         Parameters
         ----------
-        dtype: cp.dtype
-            The input buffer dtype this LZ4Compressor will compress.
+        chunk_size: int
+        data_type: pyNVCOMP_TYPE
+        stream: cudaStream_t (optional)
+            Which CUDA stream to perform the operation on
+        device_id: int (optional)
+            Specify which device_id on the node to use
         """
-        self.dtype = cp.dtype(dtype)
-        self.compressor = _lib._LZ4Compressor()
-        self.decompressor = _lib._LZ4Decompressor()
         self.s = cp.cuda.Stream()
+        print("-- Create _lib._LZ4Compressor python object --")
+        print(chunk_size)
+        print(data_type)
+        print(stream)
+        print(device_id)
+        self.compressor = _lib._LZ4Compressor(
+            chunk_size, data_type.value, stream, device_id
+        )
 
     def compress(self, data: cp.ndarray) -> cp.ndarray:
         """Compress a buffer.
@@ -212,7 +233,9 @@ class LZ4Compressor:
         self.decompress_temp_buffer = cp.zeros(
             self.decompress_temp_size, dtype=np.uint8
         )
-        self.decompress_out_buffer = cp.zeros(self.decompress_out_size, dtype=np.uint8)
+        self.decompress_out_buffer = cp.zeros(
+            self.decompress_out_size, dtype=np.uint8
+        )
         self.decompressor.decompress_async(
             data,
             data_size,

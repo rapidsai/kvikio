@@ -1,13 +1,23 @@
 # Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import cupy
+import cupy as cp
 import numpy as np
 import pytest
 
 cudf = pytest.importorskip("cudf")
 kvikio = pytest.importorskip("kvikio")
 libnvcomp = pytest.importorskip("kvikio.nvcomp")
+
+
+def test_lz4_newlib():
+    size = 1024
+    dtype = np.int8
+    dtype_itemsize = 1
+    data = cp.array(np.arange(0, (size / (dtype_itemsize) - 1)), dtype=dtype)
+    stream = cp.cuda.Stream()
+    print("make compressor")
+    compressor = libnvcomp.LZ4Compressor()
 
 
 @pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)

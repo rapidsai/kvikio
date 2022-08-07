@@ -28,7 +28,7 @@ import cython
 from cython.operator cimport dereference
 from libc.stdint cimport uintptr_t, uint8_t
 from libcpp.memory cimport shared_ptr
-from libcpp cimport bool
+from libcpp cimport bool, nullptr
 
 from kvikio._lib.arr cimport Array
 from kvikio._lib.nvcomp_cxx_api cimport (
@@ -46,10 +46,6 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     CompressionConfig,
     DecompressionConfig,
 )
-from kvikio._lib.nvcomp_cxx_api cimport (
-    create_lz4_manager,
-)
-
 
 
 class pyNvcompType_t(Enum):
@@ -66,16 +62,36 @@ class pyNvcompType_t(Enum):
 cdef class _LZ4Compressor:
     cdef LZ4Manager* _impl
 
-    def __cinit__(self, data, stream, device_id, checksum_policy):
-        cdef shared_ptr[nvcompManagerBase] prep
+    def __cinit__(self,
+        size_t uncomp_chunk_size,
+        nvcompType_t data_type,
+        user_stream,
+        const int device_id,
+    ):
+        print('LZ4Mananger __cinit__')
+        # print a pointer
+        # print("{0:x}".format(<unsigned long>))
+        print(uncomp_chunk_size)
+        print(data_type)
+        print("{0:x}".format(<unsigned long>user_stream))
+        print(device_id)
+        print('crash')
+        self._impl = new LZ4Manager(
+            uncomp_chunk_size,
+            <nvcompType_t>data_type,
+            <cudaStream_t>user_stream,
+            device_id
+        )
+        """
         prep = (<shared_ptr[nvcompManagerBase]>create_lz4_manager(
-            data,
-            <cudaStream_t>stream,
+            buffer,
+            <cudaStream_t>stream_ptr,
             device_id
         ))
         partial = <LZ4Manager*>(prep.get())
         _impl = <LZ4Manager*>partial
-
+        """
+    
     cdef configure_compression(self, const size_t decomp_buffer_size):
         self._impl.configure_compression(
             decomp_buffer_size

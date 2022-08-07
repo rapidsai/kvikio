@@ -52,10 +52,9 @@ cdef extern from "nvcomp/shared_types.h":
         nvcompErrorCudaError = 1000,
         nvcompErrorInternal = 10000,
 
-
 # Manager Factory
 cdef extern from "nvcomp/nvcompManagerFactory.hpp" namespace 'nvcomp':
-    cdef shared_ptr[nvcompManagerBase] create_lz4_manager "nvcomp::create_manager"(
+    cdef shared_ptr[nvcompManagerBase] create_manager "nvcomp::create_manager"(
         const uint8_t* comp_buffer,
         cudaStream_t stream,
         const int device_id) except +
