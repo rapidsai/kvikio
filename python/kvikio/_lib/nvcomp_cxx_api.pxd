@@ -20,127 +20,160 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+from libcpp.vector cimport vector
+from libcpp.memory cimport shared_ptr
+
+from libc.stdint cimport uint8_t, uint32_t
+
 cdef extern from "cuda_runtime.h":
     ctypedef void* cudaStream_t
 
 cdef extern from "nvcomp.h":
+    ctypedef enum nvcompType_t:
+        NVCOMP_TYPE_CHAR = 0,      # 1B
+        NVCOMP_TYPE_UCHAR = 1,     # 1B
+        NVCOMP_TYPE_SHORT = 2,     # 2B
+        NVCOMP_TYPE_USHORT = 3,    # 2B
+        NVCOMP_TYPE_INT = 4,       # 4B
+        NVCOMP_TYPE_UINT = 5,      # 4B
+        NVCOMP_TYPE_LONGLONG = 6,  # 8B
+        NVCOMP_TYPE_ULONGLONG = 7, # 8B
+        NVCOMP_TYPE_BITS = 0xff    # 1b
+
+
+cdef extern from "nvcomp/shared_types.h":
     ctypedef enum nvcompStatus_t:
         nvcompSuccess = 0,
-        nvcompErrorInvalidValue = 10
+        nvcompErrorInvalidValue = 10,
         nvcompErrorNotSupported = 11,
         nvcompErrorCannotDecompress = 12,
+        nvcompErrorBadChecksum = 13,
+        nvcompErrorCannotVerifyChecksums = 14,
         nvcompErrorCudaError = 1000,
-        nvcompErrorInternal = 10000
+        nvcompErrorInternal = 10000,
 
-    ctypedef enum nvcompType_t 'nvcompType_t':
-        NVCOMP_TYPE_CHAR,
-        NVCOMP_TYPE_UCHAR,
-        NVCOMP_TYPE_SHORT,
-        NVCOMP_TYPE_USHORT,
-        NVCOMP_TYPE_INT,
-        NVCOMP_TYPE_UINT,
-        NVCOMP_TYPE_LONGLONG,
-        NVCOMP_TYPE_ULONGLONG,
-        NVCOMP_TYPE_BITS
 
-    ctypedef enum nvcompError_t:
-        nvcompSuccess_ = 0,
-        nvcompErrorInvalidValue_ = 10,
-        nvcompErrorNotSupported_ = 11,
-        nvcompErrorCudaError_ = 1000,
-        nvcompErrorInternal_ = 10000
+# Manager Factory
+cdef extern from "nvcomp/nvcompManagerFactory.hpp" namespace 'nvcomp':
+    cdef shared_ptr[nvcompManagerBase] create_lz4_manager "nvcomp::create_manager"(
+        const uint8_t* comp_buffer,
+        cudaStream_t stream,
+        const int device_id) except +
 
-# Cascaded Compressor
-cdef extern from "nvcomp/cascaded.hpp" namespace 'nvcomp':
-    cdef cppclass __CascadedCompressor "nvcomp::CascadedCompressor":
-        __CascadedCompressor(nvcompType_t, int, int, bool) except+
 
-        void configure(
-            const size_t in_bytes,
-            size_t* temp_bytes,
-            size_t* out_bytes) except+
+# Compresion Manager
+cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
+    cdef cppclass PinnedPtrPool[T]:
+        pass
 
-        void compress_async(
-            const void* in_ptr,
-            const size_t in_bytes,
-            void* temp_ptr,
-            const size_t temp_bytes,
-            void* out_ptr,
-            size_t* out_bytes,
-            cudaStream_t stream) except+
+    cdef cppclass CompressionConfig "nvcomp::CompressionConfig":
+        const size_t uncompressed_buffer_size 
+        const size_t max_uncompressed_buffer_size 
+        const size_t num_chunks 
+        CompressionConfig(
+            PinnedPtrPool[nvcompStatus_t]* pool,
+            size_t uncompressed_buffer_size) except +
+        nvcompStatus_t* get_status() const
+        CompressionConfig (CompressionConfig&& other) except +
+        CompressionConfig (const CompressionConfig& other) except +
+        CompressionConfig& operator= (CompressionConfig&& other) except +
+        CompressionConfig& operator= (const CompressionConfig& other) except +
 
-    cdef cppclass __CascadedDecompressor "nvcomp::CascadedDecompressor":
-        __CascadedDecompressor() except+
+    cdef cppclass DecompressionConfig "nvcomp::DecompressionConfig":
+        size_t decomp_data_size
+        uint32_t num_chunks
+        DecompressionConfig(PinnedPtrPool[nvcompStatus_t]& pool)
+        nvcompStatus_t* get_status() const
+        DecompressionConfig(DecompressionConfig&& other)
+        DecompressionConfig(const DecompressionConfig& other)
+        DecompressionConfig& operator=(DecompressionConfig&& other)
+        DecompressionConfig& operator=(const DecompressionConfig& other)
 
-        void configure(
-            const void* in_ptr,
-            const size_t in_bytes,
-            size_t* temp_bytes,
-            size_t* out_bytes,
-            cudaStream_t stream) except+
+    cdef cppclass nvcompManagerBase "nvcomp::nvcompManagerBase":
+        CompressionConfig configure_compression (
+            const size_t decomp_buffer_size)
+        void compress(
+            const uint8_t* decomp_buffer, 
+            uint8_t* comp_buffer,
+            const CompressionConfig& comp_config)
+        DecompressionConfig configure_decompression (
+            const uint8_t* comp_buffer)
+        DecompressionConfig configure_decompression (
+            const CompressionConfig& comp_config)
+        void decompress(
+            uint8_t* decomp_buffer, 
+            const uint8_t* comp_buffer,
+            const DecompressionConfig& decomp_config)
+        void set_scratch_buffer(uint8_t* new_scratch_buffer)
+        size_t get_required_scratch_buffer_size() except +
+        size_t get_compressed_output_size(uint8_t* comp_buffer)
 
-        void decompress_async(
-            const void* in_ptr,
-            const size_t in_bytes,
-            void* temp_ptr,
-            const size_t temp_bytes,
-            void* out_ptr,
-            const size_t out_bytes,
-            cudaStream_t stream) except+
+    cdef cppclass PimplManager "nvcomp::PimplManager":
+        CompressionConfig configure_compression (
+            const size_t decomp_buffer_size) except +
+        void compress(
+            const uint8_t* decomp_buffer, 
+            uint8_t* comp_buffer,
+            const CompressionConfig& comp_config) except +
+        DecompressionConfig configure_decompression (
+            const uint8_t* comp_buffer) except +
+        DecompressionConfig configure_decompression (
+            const CompressionConfig& comp_config) except +
+        void decompress(
+            uint8_t* decomp_buffer, 
+            const uint8_t* comp_buffer,
+            const DecompressionConfig& decomp_config) except +
+        void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
+        size_t get_required_scratch_buffer_size() except +
+        size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
-# LZ4 Compressor
-cdef extern from "nvcomp/lz4.hpp" namespace 'nvcomp':
-    cdef cppclass __LZ4Compressor "nvcomp::LZ4Compressor":
-        __LZ4Compressor() except+
-
-        void configure(
-            const size_t in_bytes,
-            size_t* temp_bytes,
-            size_t* out_bytes) except+
-
-        void compress_async(
-            const void* in_ptr,
-            const size_t in_bytes,
-            void* temp_ptr,
-            const size_t temp_bytes,
-            void* out_ptr,
-            size_t* out_bytes,
-            cudaStream_t stream) except+
-
-    cdef cppclass __LZ4Decompressor "nvcomp::LZ4Decompressor":
-        __LZ4Decompressor() except+
-
-        void configure(
-            const void* in_ptr,
-            const size_t in_bytes,
-            size_t* temp_bytes,
-            size_t* out_bytes,
-            cudaStream_t stream) except+
-
-        void decompress_async(
-            const void* in_ptr,
-            const size_t in_bytes,
-            void* temp_ptr,
-            const size_t temp_bytes,
-            void* out_ptr,
-            const size_t out_bytes,
-            cudaStream_t stream) except+
+# C++ Abstract LZ4 Manager
+cdef extern from "nvcomp/lz4.hpp":
+    cdef cppclass LZ4Manager "nvcomp::LZ4Manager":
+        LZ4Manager (
+            size_t uncomp_chunk_size,
+            nvcompType_t data_type,
+            cudaStream_t user_stream,
+            const int device_id
+        ) except +
+        CompressionConfig configure_compression (
+            const size_t decomp_buffer_size
+        ) except +
+        void compress(
+            const uint8_t* decomp_buffer, 
+            uint8_t* comp_buffer,
+            const CompressionConfig& comp_config
+        ) except +
+        DecompressionConfig configure_decompression (
+            const uint8_t* comp_buffer
+        ) except +
+        DecompressionConfig configure_decompression (
+            const CompressionConfig& comp_config
+        ) except +
+        void decompress(
+            uint8_t* decomp_buffer, 
+            const uint8_t* comp_buffer,
+            const DecompressionConfig& decomp_config
+        ) except +
+        void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
+        size_t get_required_scratch_buffer_size() except +
+        size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
 # Low-level LZ4 API
 cdef extern from "nvcomp/lz4.h":
 
-    cdef nvcompError_t _nvcompBatchedLZ4CompressGetTempSize \
+    cdef nvcompStatus_t _nvcompBatchedLZ4CompressGetTempSize \
         "nvcompBatchedLZ4CompressGetTempSize" (
             size_t batch_size,
             size_t max_uncompressed_chunk_bytes,
             size_t* temp_bytes)except+
 
-    cdef nvcompError_t _nvcompBatchedLZ4CompressGetMaxOutputChunkSize \
+    cdef nvcompStatus_t _nvcompBatchedLZ4CompressGetMaxOutputChunkSize \
         "nvcompBatchedLZ4CompressGetMaxOutputChunkSize" (
             size_t max_uncompressed_chunk_bytes,
             size_t* max_compressed_bytes)except+
 
-    cdef nvcompError_t _nvcompBatchedLZ4CompressAsync "nvcompBatchedLZ4CompressAsync" (
+    cdef nvcompStatus_t _nvcompBatchedLZ4CompressAsync "nvcompBatchedLZ4CompressAsync" (
         const void* const* device_in_ptr,
         const size_t* device_in_bytes,
         size_t max_uncompressed_chunk_bytes,
@@ -151,7 +184,7 @@ cdef extern from "nvcomp/lz4.h":
         size_t* device_out_bytes,
         cudaStream_t stream)except+
 
-    cdef nvcompError_t _nvcompBatchedLZ4DecompressAsync \
+    cdef nvcompStatus_t _nvcompBatchedLZ4DecompressAsync \
         "nvcompBatchedLZ4DecompressAsync" (
             const void* const* device_in_ptrs,
             const size_t* device_in_bytes,

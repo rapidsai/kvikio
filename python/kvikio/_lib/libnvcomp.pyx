@@ -24,25 +24,32 @@ from enum import Enum
 
 import cupy as cp
 
-from libc.stdint cimport uintptr_t
+import cython
+from cython.operator cimport dereference
+from libc.stdint cimport uintptr_t, uint8_t
+from libcpp.memory cimport shared_ptr
 from libcpp cimport bool
 
 from kvikio._lib.arr cimport Array
 from kvikio._lib.nvcomp_cxx_api cimport (
-    __CascadedCompressor,
-    __CascadedDecompressor,
-    __LZ4Compressor,
-    __LZ4Decompressor,
     cudaStream_t,
+    nvcompType_t,
+    nvcompStatus_t,
     nvcompBatchedSnappyCompressAsync,
     nvcompBatchedSnappyCompressGetMaxOutputChunkSize,
     nvcompBatchedSnappyCompressGetTempSize,
     nvcompBatchedSnappyDecompressAsync,
     nvcompBatchedSnappyDecompressGetTempSize,
     nvcompBatchedSnappyOpts_t,
-    nvcompStatus_t,
-    nvcompType_t,
+    nvcompManagerBase,
+    LZ4Manager,
+    CompressionConfig,
+    DecompressionConfig,
 )
+from kvikio._lib.nvcomp_cxx_api cimport (
+    create_lz4_manager,
+)
+
 
 
 class pyNvcompType_t(Enum):
@@ -56,177 +63,98 @@ class pyNvcompType_t(Enum):
     pyNVCOMP_TYPE_ULONGLONG = nvcompType_t.NVCOMP_TYPE_ULONGLONG
     pyNVCOMP_TYPE_BITS = nvcompType_t.NVCOMP_TYPE_BITS
 
-
-# _Cascaded Compressor / Decompressor
-cdef class _CascadedCompressor:
-    cdef __CascadedCompressor* c
-
-    def __cinit__(self, nvcompType_t t, int num_RLEs, int num_deltas, bool use_bp):
-        self.c = new __CascadedCompressor(
-            t,
-            num_RLEs,
-            num_deltas,
-            use_bp
-        )
-
-    def __dealloc__(self):
-        del self.c
-
-    def configure(self, in_bytes, temp_bytes, out_bytes):
-        self.c.configure(
-            in_bytes,
-            <size_t*>Array(temp_bytes).ptr,
-            <size_t*>Array(out_bytes).ptr
-        )
-
-    def compress_async(
-        self,
-        in_arr,
-        in_bytes,
-        temp_arr,
-        temp_bytes,
-        out_arr,
-        out_bytes,
-        uintptr_t stream=0
-    ):
-        cdef uintptr_t in_ptr=Array(in_arr).ptr
-        cdef uintptr_t temp_ptr=Array(temp_arr).ptr
-        cdef uintptr_t out_ptr=Array(out_arr).ptr
-        cdef uintptr_t out_bytes_ptr=Array(out_bytes).ptr
-        self.c.compress_async(
-            <void*>in_ptr,
-            <size_t>in_bytes,
-            <void*>temp_ptr,
-            <size_t>temp_bytes,
-            <void*>out_ptr,
-            <size_t*>out_bytes_ptr,
-            <cudaStream_t>stream)
-
-cdef class _CascadedDecompressor:
-    cdef __CascadedDecompressor* d
-
-    def __cinit__(self):
-        self.d = new __CascadedDecompressor()
-
-    def __dealloc__(self):
-        del self.d
-
-    cpdef configure(self, in_arr, in_bytes, temp_bytes, out_bytes, uintptr_t stream=0):
-        cdef uintptr_t in_ptr = Array(in_arr).ptr
-        cdef uintptr_t temp_bytes_ptr = Array(temp_bytes).ptr
-        cdef uintptr_t out_bytes_ptr = Array(out_bytes).ptr
-        self.d.configure(
-            <void*>in_ptr,
-            <size_t>in_bytes,
-            <size_t*>temp_bytes_ptr,
-            <size_t*>out_bytes_ptr,
-            <cudaStream_t>stream)
-
-    def decompress_async(
-        self,
-        in_arr,
-        in_bytes,
-        temp_arr,
-        temp_bytes,
-        out_arr,
-        out_bytes,
-        uintptr_t stream=0
-    ):
-        cdef uintptr_t in_ptr = Array(in_arr).ptr
-        cdef uintptr_t temp_ptr = Array(temp_arr).ptr
-        cdef uintptr_t out_ptr = Array(out_arr).ptr
-        self.d.decompress_async(
-            <void*>in_ptr,
-            <size_t>in_bytes,
-            <void*>temp_ptr,
-            <size_t>temp_bytes,
-            <void*>out_ptr,
-            <size_t>out_bytes,
-            <cudaStream_t>stream)
-
-
-# LZ4 Compressor / Decompressor
 cdef class _LZ4Compressor:
-    cdef __LZ4Compressor* c
+    cdef LZ4Manager* _impl
 
-    def __cinit__(self, size_t chunk_size=0):
-        self.c = new __LZ4Compressor()
+    def __cinit__(self, data, stream, device_id, checksum_policy):
+        cdef shared_ptr[nvcompManagerBase] prep
+        prep = (<shared_ptr[nvcompManagerBase]>create_lz4_manager(
+            data,
+            <cudaStream_t>stream,
+            device_id
+        ))
+        partial = <LZ4Manager*>(prep.get())
+        _impl = <LZ4Manager*>partial
 
-    def __dealloc__(self):
-        del self.c
+    cdef configure_compression(self, const size_t decomp_buffer_size):
+        self._impl.configure_compression(
+            decomp_buffer_size
+        )
+        """
+        cdef const CompressionConfig* partial = <const CompressionConfig*>(<const CompressionConfig&>
+            &self._impl.configure_compression(
+                <const size_t>decomp_buffer_size
+            ))
+        cdef uncompressed_buffer_size = result.uncompressed_buffer_size
+        cdef max_uncompressed_buffer_size = result.max_uncompressed_buffer_size
+        cdef num_chunks = result.num_chunks
+        return {
+            "uncompressed_buffer_size": result.uncompressed_buffer_size,
+            "max_uncompressed_buffer_size": result.max_uncompressed_buffer_size,
+            "num_chunks": num_chunks
+        }
+        """
 
-    def configure(self, in_bytes, temp_bytes, out_bytes):
-        cdef uintptr_t temp_bytes_ptr = Array(temp_bytes).ptr
-        cdef uintptr_t out_bytes_ptr = Array(out_bytes).ptr
-        self.c.configure(
-            <size_t>in_bytes,
-            <size_t*>temp_bytes_ptr,
-            <size_t*>out_bytes_ptr)
-
-    def compress_async(
+    cdef compress(
         self,
-        in_arr,
-        in_bytes,
-        temp_arr,
-        temp_bytes,
-        out_arr,
-        out_bytes,
-        uintptr_t stream=0
+        const uint8_t* decomp_buffer, 
+        uint8_t* comp_buffer,
+        const CompressionConfig& comp_config
     ):
-        cdef uintptr_t in_ptr = Array(in_arr).ptr
-        cdef uintptr_t temp_ptr = Array(temp_arr).ptr
-        cdef uintptr_t out_ptr = Array(out_arr).ptr
-        cdef uintptr_t out_bytes_ptr = Array(out_bytes).ptr
-        self.c.compress_async(
-            <void*>in_ptr,
-            <size_t>in_bytes,
-            <void*>temp_ptr,
-            <size_t>temp_bytes,
-            <void*>out_ptr,
-            <size_t*>out_bytes_ptr,
-            <cudaStream_t>stream)
+        return self._impl.compress(
+            decomp_buffer,
+            comp_buffer,
+            comp_config
+        )
 
-cdef class _LZ4Decompressor:
-    cdef __LZ4Decompressor* d
-
-    def __cinit__(self):
-        self.d = new __LZ4Decompressor()
-
-    def __dealloc__(self):
-        del self.d
-
-    cpdef configure(self, in_arr, in_bytes, temp_bytes, out_bytes, uintptr_t stream=0):
-        cdef uintptr_t in_ptr = Array(in_arr).ptr
-        cdef uintptr_t temp_bytes_ptr = Array(temp_bytes).ptr
-        cdef uintptr_t out_bytes_ptr = Array(out_bytes).ptr
-        self.d.configure(
-            <void*>in_ptr,
-            <size_t>in_bytes,
-            <size_t*>temp_bytes_ptr,
-            <size_t*>out_bytes_ptr,
-            <cudaStream_t>stream)
-
-    def decompress_async(
+    cdef configure_decompression_with_compressed_buffer(
         self,
-        in_arr,
-        in_bytes,
-        temp_arr,
-        temp_bytes,
-        out_arr,
-        out_bytes,
-        uintptr_t stream=0
+        const uint8_t* comp_buffer
+    ) :
+        self._impl.configure_decompression(<const uint8_t*>comp_buffer)
+        """
+        cdef decomp_data_size = result.decomp_data_size
+        cdef num_chunks = result.num_chunks
+        return {
+            "decomp_data_size": decomp_data_size,
+            "num_chunks": num_chunks
+        }
+        """
+
+    cdef configure_decompression_with_config(
+        self,
+        const CompressionConfig& comp_config
     ):
-        cdef uintptr_t in_ptr = Array(in_arr).ptr
-        cdef uintptr_t temp_ptr = Array(temp_arr).ptr
-        cdef uintptr_t out_ptr = Array(out_arr).ptr
-        self.d.decompress_async(
-            <void*>in_ptr,
-            <size_t>in_bytes,
-            <void*>temp_ptr,
-            <size_t>temp_bytes,
-            <void*>out_ptr,
-            <size_t>out_bytes,
-            <cudaStream_t>stream)
+        self._impl.configure_decompression(<CompressionConfig&>comp_config)
+        """
+        cdef decomp_data_size = result.decomp_data_size
+        cdef num_chunks = result.num_chunks
+        return {
+            "decomp_data_size": decomp_data_size,
+            "num_chunks": num_chunks
+        }
+        """
+
+    cdef decompress(
+        self,
+        uint8_t* decomp_buffer, 
+        const uint8_t* comp_buffer,
+        const DecompressionConfig& decomp_config
+    ):
+        return self._impl.decompress(
+            decomp_buffer,
+            comp_buffer,
+            decomp_config
+        )
+ 
+    cdef set_scratch_buffer(self, uint8_t* new_scratch_buffer):
+        return self._impl.set_scratch_buffer(new_scratch_buffer)
+
+    cdef get_required_scratch_buffer_size(self):
+        return self._impl.get_required_scratch_buffer_size()
+
+    cdef get_compressed_output_size(self, uint8_t* comp_buffer):
+        return self._impl.get_compressed_output_size(comp_buffer)
 
 
 class _LibSnappyCompressor:
