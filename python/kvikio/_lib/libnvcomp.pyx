@@ -93,11 +93,13 @@ cdef class _LZ4Compressor:
             self._impl.configure_compression(decomp_buffer_size)
         )
         self._config = make_shared[CompressionConfig]((move(partial.get()[0])))
-        return {
-            "uncompressed_buffer_size": self._config.get()[0].uncompressed_buffer_size,
-            "max_uncompressed_buffer_size": self._config.get()[0].max_compressed_buffer_size,
-            "num_chunks": self._config.get()[0].num_chunks
-        }
+        print('self.config')
+        print(self.config.get())
+        uncompressed_buffer_size = self._config.get()[0].uncompressed_buffer_size
+        max_uncompressed_buffer_size = self._config.get()[0].max_compressed_buffer_size
+        num_chunks = self._config.get()[0].num_chunks
+        print(uncompressed_buffer_size)
+        return num_chunks
 
     cdef compress(
         self,

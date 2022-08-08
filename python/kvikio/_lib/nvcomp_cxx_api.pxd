@@ -71,11 +71,11 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         const size_t num_chunks 
         CompressionConfig(
             PinnedPtrPool[nvcompStatus_t]* pool,
-            size_t uncompressed_buffer_size)
+            size_t uncompressed_buffer_size) except +
         nvcompStatus_t* get_status() const
-        CompressionConfig (CompressionConfig& other)
-        CompressionConfig& operator= (CompressionConfig&& other)
-        CompressionConfig& operator= (const CompressionConfig& other)
+        CompressionConfig (CompressionConfig& other) except +
+        CompressionConfig& operator= (CompressionConfig&& other) except +
+        CompressionConfig& operator= (const CompressionConfig& other) except +
 
     cdef cppclass DecompressionConfig "nvcomp::DecompressionConfig":
         size_t decomp_data_size

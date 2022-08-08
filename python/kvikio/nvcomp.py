@@ -178,21 +178,9 @@ class LZ4Compressor:
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
         self.config = self.compressor.configure_compression(data_size)
-
-        # Weird issue with LZ4 Compressor - if you pass it a gpu-side out_size
-        # pointer it will error. If you pass it a host-side out_size pointer it will
-        # segfault.
-        self.gpu_out_size = cp.array(self.compress_out_size, dtype=np.int64)
-        self.compressor.compress_async(
-            data,
-            data_size,
-            self.compress_temp_buffer,
-            self.compress_temp_size,
-            self.compress_out_buffer,
-            self.gpu_out_size,
-            self.s.ptr,
-        )
-        return self.compress_out_buffer[: self.compress_out_size[0]]
+        self.compressor.compress()
+        print(self.config)
+        print("passed")
 
     def decompress(self, data: cp.ndarray) -> cp.ndarray:
         """Decompress a GPU buffer.
