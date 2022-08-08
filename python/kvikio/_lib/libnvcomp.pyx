@@ -87,26 +87,31 @@ cdef class _LZ4Compressor:
         partial = <LZ4Manager*>(prep.get())
         _impl = <LZ4Manager*>partial
         """
-
-    cdef configure_compression(self, const size_t decomp_buffer_size):
+    def configure_compression(self, decomp_buffer_size):
+        self._configure_compression(decomp_buffer_size)
+        return {
+            "uncompressed_buffer_size": self._config.get()[0].uncompressed_buffer_size,
+            "max_compressed_buffer_size": self._config.get()[0].max_compressed_buffer_size,
+            "num_chunk": self._config.get()[0].num_chunks
+        }
+    
+    cdef _configure_compression(self, const size_t decomp_buffer_size):
         cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
             self._impl.configure_compression(decomp_buffer_size)
         )
         self._config = make_shared[CompressionConfig]((move(partial.get()[0])))
-        print('self.config')
-        print(self.config.get())
-        uncompressed_buffer_size = self._config.get()[0].uncompressed_buffer_size
-        max_uncompressed_buffer_size = self._config.get()[0].max_compressed_buffer_size
-        num_chunks = self._config.get()[0].num_chunks
-        print(uncompressed_buffer_size)
-        return num_chunks
 
-    cdef compress(
+    def compress(self, decomp_buffer, comp_buffer):
+        return self._compress(decomp_buffer.tobytes(), comp_buffer.tobytes(), self._config.get()[0])
+
+    cdef _compress(
         self,
         const uint8_t* decomp_buffer, 
         uint8_t* comp_buffer,
         const CompressionConfig& comp_config
     ):
+        print(decomp_buffer)
+        print(comp_buffer)
         return self._impl.compress(
             decomp_buffer,
             comp_buffer,

@@ -178,7 +178,12 @@ class LZ4Compressor:
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
         self.config = self.compressor.configure_compression(data_size)
-        self.compressor.compress()
+        print("self.config")
+        print(self.config)
+        self.compress_out_buffer = cp.zeros(
+            self.config["max_compressed_buffer_size"], dtype=np.uint8
+        )
+        self.compressor.compress(data, self.compress_out_buffer)
         print(self.config)
         print("passed")
 
