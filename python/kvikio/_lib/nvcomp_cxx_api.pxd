@@ -67,16 +67,15 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
 
     cdef cppclass CompressionConfig "nvcomp::CompressionConfig":
         const size_t uncompressed_buffer_size 
-        const size_t max_uncompressed_buffer_size 
+        const size_t max_compressed_buffer_size 
         const size_t num_chunks 
         CompressionConfig(
             PinnedPtrPool[nvcompStatus_t]* pool,
-            size_t uncompressed_buffer_size) except +
+            size_t uncompressed_buffer_size)
         nvcompStatus_t* get_status() const
-        CompressionConfig (CompressionConfig&& other) except +
-        CompressionConfig (const CompressionConfig& other) except +
-        CompressionConfig& operator= (CompressionConfig&& other) except +
-        CompressionConfig& operator= (const CompressionConfig& other) except +
+        CompressionConfig (CompressionConfig& other)
+        CompressionConfig& operator= (CompressionConfig&& other)
+        CompressionConfig& operator= (const CompressionConfig& other)
 
     cdef cppclass DecompressionConfig "nvcomp::DecompressionConfig":
         size_t decomp_data_size
@@ -115,7 +114,7 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
             uint8_t* comp_buffer,
             const CompressionConfig& comp_config) except +
         DecompressionConfig configure_decompression (
-            const uint8_t* comp_buffer) except +
+            const uint8_t* comp_buffer)
         DecompressionConfig configure_decompression (
             const CompressionConfig& comp_config) except +
         void decompress(
@@ -126,7 +125,7 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         size_t get_required_scratch_buffer_size() except +
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
-# C++ Abstract LZ4 Manager
+# C++ Concrete LZ4 Manager
 cdef extern from "nvcomp/lz4.hpp":
     cdef cppclass LZ4Manager "nvcomp::LZ4Manager":
         LZ4Manager (
@@ -137,7 +136,7 @@ cdef extern from "nvcomp/lz4.hpp":
         ) except +
         CompressionConfig configure_compression (
             const size_t decomp_buffer_size
-        ) except +
+        )
         void compress(
             const uint8_t* decomp_buffer, 
             uint8_t* comp_buffer,

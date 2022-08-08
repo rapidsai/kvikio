@@ -18,6 +18,7 @@ def test_lz4_newlib():
     stream = cp.cuda.Stream()
     print("make compressor")
     compressor = libnvcomp.LZ4Compressor()
+    compressor.compress(data)
 
 
 @pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)

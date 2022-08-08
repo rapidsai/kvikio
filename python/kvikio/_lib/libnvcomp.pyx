@@ -27,7 +27,8 @@ import cupy as cp
 import cython
 from cython.operator cimport dereference
 from libc.stdint cimport uintptr_t, uint8_t
-from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport shared_ptr, make_shared
+from libcpp.utility cimport move
 from libcpp cimport bool, nullptr
 
 from kvikio._lib.arr cimport Array
@@ -61,6 +62,7 @@ class pyNvcompType_t(Enum):
 
 cdef class _LZ4Compressor:
     cdef LZ4Manager* _impl
+    cdef shared_ptr[CompressionConfig] _config
 
     def __cinit__(self,
         size_t uncomp_chunk_size,
@@ -68,14 +70,8 @@ cdef class _LZ4Compressor:
         user_stream,
         const int device_id,
     ):
-        print('LZ4Mananger __cinit__')
         # print a pointer
         # print("{0:x}".format(<unsigned long>))
-        print(uncomp_chunk_size)
-        print(data_type)
-        print("{0:x}".format(<unsigned long>user_stream))
-        print(device_id)
-        print('crash')
         self._impl = new LZ4Manager(
             uncomp_chunk_size,
             <nvcompType_t>data_type,
@@ -91,25 +87,17 @@ cdef class _LZ4Compressor:
         partial = <LZ4Manager*>(prep.get())
         _impl = <LZ4Manager*>partial
         """
-    
+
     cdef configure_compression(self, const size_t decomp_buffer_size):
-        self._impl.configure_compression(
-            decomp_buffer_size
+        cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
+            self._impl.configure_compression(decomp_buffer_size)
         )
-        """
-        cdef const CompressionConfig* partial = <const CompressionConfig*>(<const CompressionConfig&>
-            &self._impl.configure_compression(
-                <const size_t>decomp_buffer_size
-            ))
-        cdef uncompressed_buffer_size = result.uncompressed_buffer_size
-        cdef max_uncompressed_buffer_size = result.max_uncompressed_buffer_size
-        cdef num_chunks = result.num_chunks
+        self._config = make_shared[CompressionConfig]((move(partial.get()[0])))
         return {
-            "uncompressed_buffer_size": result.uncompressed_buffer_size,
-            "max_uncompressed_buffer_size": result.max_uncompressed_buffer_size,
-            "num_chunks": num_chunks
+            "uncompressed_buffer_size": self._config.get()[0].uncompressed_buffer_size,
+            "max_uncompressed_buffer_size": self._config.get()[0].max_compressed_buffer_size,
+            "num_chunks": self._config.get()[0].num_chunks
         }
-        """
 
     cdef compress(
         self,

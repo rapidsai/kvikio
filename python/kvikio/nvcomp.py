@@ -161,12 +161,7 @@ class LZ4Compressor:
         device_id: int (optional)
             Specify which device_id on the node to use
         """
-        self.s = cp.cuda.Stream()
         print("-- Create _lib._LZ4Compressor python object --")
-        print(chunk_size)
-        print(data_type)
-        print(stream)
-        print(device_id)
         self.compressor = _lib._LZ4Compressor(
             chunk_size, data_type.value, stream, device_id
         )
@@ -182,18 +177,8 @@ class LZ4Compressor:
         # TODO: An option: check if incoming data size matches the size of the
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
-        self.compress_temp_size = np.zeros((1,), dtype=np.int64)
-        self.compress_out_size = np.zeros((1,), dtype=np.int64)
-        self.compressor.configure(
-            data_size, self.compress_temp_size, self.compress_out_size
-        )
+        self.config = self.compressor.configure_compression(data_size)
 
-        self.compress_temp_buffer = cp.zeros(
-            (self.compress_temp_size[0],), dtype=cp.uint8
-        )
-        self.compress_out_buffer = cp.zeros(
-            (self.compress_out_size[0],), dtype=cp.uint8
-        )
         # Weird issue with LZ4 Compressor - if you pass it a gpu-side out_size
         # pointer it will error. If you pass it a host-side out_size pointer it will
         # segfault.
