@@ -11,13 +11,14 @@ libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
 
 def test_lz4_newlib():
-    size = 1024
-    dtype = np.int8
+    size = 10000000
+    dtype = np.uint8
     dtype_itemsize = 1
-    data = cp.array(np.arange(0, (size / (dtype_itemsize) - 1)), dtype=dtype)
-    stream = cp.cuda.Stream()
-    print("make compressor")
-    compressor = libnvcomp.LZ4Compressor()
+    data = cp.array(np.arange(0, size / dtype_itemsize, dtype=dtype))
+    s = cp.cuda.Stream()
+    print("compressor = libnvcomp.LZ4Compressor(stream=s)")
+    compressor = libnvcomp.LZ4Compressor(stream=s)
+    print("compressor.compress(data)")
     compressor.compress(data)
 
 

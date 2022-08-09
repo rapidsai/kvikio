@@ -125,6 +125,38 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         size_t get_required_scratch_buffer_size() except +
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
+# C++ Concrete Bitcomp Manager
+cdef extern from "nvcomp/bitcomp.hpp":
+    cdef cppclass BitcompManager "nvcomp::BitcompManager":
+        BitcompManager (
+            size_t uncomp_chunk_size,
+            nvcompType_t data_type,
+            cudaStream_t user_stream,
+            const int device_id
+        ) except +
+        CompressionConfig configure_compression (
+            const size_t decomp_buffer_size
+        )
+        void compress(
+            const uint8_t* decomp_buffer, 
+            uint8_t* comp_buffer,
+            const CompressionConfig& comp_config
+        ) except +
+        DecompressionConfig configure_decompression (
+            const uint8_t* comp_buffer
+        ) except +
+        DecompressionConfig configure_decompression (
+            const CompressionConfig& comp_config
+        ) except +
+        void decompress(
+            uint8_t* decomp_buffer, 
+            const uint8_t* comp_buffer,
+            const DecompressionConfig& decomp_config
+        ) except +
+        void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
+        size_t get_required_scratch_buffer_size() except +
+        size_t get_compressed_output_size(uint8_t* comp_buffer) except +
+
 # C++ Concrete LZ4 Manager
 cdef extern from "nvcomp/lz4.hpp":
     cdef cppclass LZ4Manager "nvcomp::LZ4Manager":
@@ -238,3 +270,6 @@ cdef extern from "nvcomp/snappy.h" nogil:
         size_t* device_compressed_bytes,
         nvcompBatchedSnappyOpts_t format_opts,
         cudaStream_t stream) except+
+
+
+

@@ -161,7 +161,8 @@ class LZ4Compressor:
         device_id: int (optional)
             Specify which device_id on the node to use
         """
-        print("-- Create _lib._LZ4Compressor python object --")
+        print("def __init__")
+        print(chunk_size, data_type, stream, device_id)
         self.compressor = _lib._LZ4Compressor(
             chunk_size, data_type.value, stream, device_id
         )
@@ -176,15 +177,17 @@ class LZ4Compressor:
         """
         # TODO: An option: check if incoming data size matches the size of the
         # last incoming data, and reuse temp and out buffer if so.
+        print("def compress(...)")
         data_size = data.size * data.itemsize
         self.config = self.compressor.configure_compression(data_size)
-        print("self.config")
-        print(self.config)
         self.compress_out_buffer = cp.zeros(
             self.config["max_compressed_buffer_size"], dtype=np.uint8
         )
+        out_buffer_final = cp.array(
+            self.compress_out_buffer.__cuda_array_interface__["data"][0],
+            dtype=np.uint64,
+        )
         self.compressor.compress(data, self.compress_out_buffer)
-        print(self.config)
         print("passed")
 
     def decompress(self, data: cp.ndarray) -> cp.ndarray:
