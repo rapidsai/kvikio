@@ -60,6 +60,39 @@ class pyNvcompType_t(Enum):
     pyNVCOMP_TYPE_ULONGLONG = nvcompType_t.NVCOMP_TYPE_ULONGLONG
     pyNVCOMP_TYPE_BITS = nvcompType_t.NVCOMP_TYPE_BITS
 
+cdef class _LZ4CompressorLowLevel:
+
+    cdef nvcompStatus_t _nvcompBatchedLZ4CompressGetTempSize:
+        size_t batch_size,
+        size_t max_uncompressed_chunk_bytes,
+        size_t* temp_bytes)except+
+
+    cdef nvcompStatus_t _nvcompBatchedLZ4CompressGetMaxOutputChunkSize:
+        size_t max_uncompressed_chunk_bytes,
+        size_t* max_compressed_bytes)except+
+
+    cdef nvcompStatus_t _nvcompBatchedLZ4CompressAsync:
+        const void* const* device_in_ptr,
+        const size_t* device_in_bytes,
+        size_t max_uncompressed_chunk_bytes,
+        size_t batch_size,
+        void* device_temp_ptr,
+        size_t temp_bytes,
+        void* const* device_out_ptr,
+        size_t* device_out_bytes,
+        cudaStream_t stream)except+
+
+    cdef nvcompStatus_t _nvcompBatchedLZ4DecompressAsync:
+        const void* const* device_in_ptrs,
+        const size_t* device_in_bytes,
+        const size_t* device_out_bytes,  # unused
+        size_t max_uncompressed_chunk_bytes,  # unused
+        size_t batch_size,
+        void* const device_temp_ptr,  # unused
+        const size_t temp_bytes,  # unused
+        void* const* device_out_ptr,
+        cudaStream_t stream) except+
+
 cdef class _LZ4Compressor:
     cdef LZ4Manager* _impl
     cdef shared_ptr[CompressionConfig] _config
