@@ -189,43 +189,6 @@ cdef extern from "nvcomp/lz4.hpp":
         size_t get_required_scratch_buffer_size() except +
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
-# Low-level LZ4 API
-cdef extern from "nvcomp/lz4.h":
-
-    cdef nvcompStatus_t _nvcompBatchedLZ4CompressGetTempSize \
-        "nvcompBatchedLZ4CompressGetTempSize" (
-            size_t batch_size,
-            size_t max_uncompressed_chunk_bytes,
-            size_t* temp_bytes)except+
-
-    cdef nvcompStatus_t _nvcompBatchedLZ4CompressGetMaxOutputChunkSize \
-        "nvcompBatchedLZ4CompressGetMaxOutputChunkSize" (
-            size_t max_uncompressed_chunk_bytes,
-            size_t* max_compressed_bytes)except+
-
-    cdef nvcompStatus_t _nvcompBatchedLZ4CompressAsync "nvcompBatchedLZ4CompressAsync" (
-        const void* const* device_in_ptr,
-        const size_t* device_in_bytes,
-        size_t max_uncompressed_chunk_bytes,
-        size_t batch_size,
-        void* device_temp_ptr,
-        size_t temp_bytes,
-        void* const* device_out_ptr,
-        size_t* device_out_bytes,
-        cudaStream_t stream)except+
-
-    cdef nvcompStatus_t _nvcompBatchedLZ4DecompressAsync \
-        "nvcompBatchedLZ4DecompressAsync" (
-            const void* const* device_in_ptrs,
-            const size_t* device_in_bytes,
-            const size_t* device_out_bytes,  # unused
-            size_t max_uncompressed_chunk_bytes,  # unused
-            size_t batch_size,
-            void* const device_temp_ptr,  # unused
-            const size_t temp_bytes,  # unused
-            void* const* device_out_ptr,
-            cudaStream_t stream) except+
-
 # Snappy Compressor
 cdef extern from "nvcomp/snappy.h" nogil:
     ctypedef struct nvcompBatchedSnappyOpts_t:
@@ -271,5 +234,58 @@ cdef extern from "nvcomp/snappy.h" nogil:
         nvcompBatchedSnappyOpts_t format_opts,
         cudaStream_t stream) except+
 
+cdef extern from "nvcomp/lz4.h" nogil:
+    ctypedef struct nvcompLZ4FormatOpts:
+        size_t chunk_size
+    ctypedef struct nvcompBatchedLZ4Opts_t:
+        nvcompType_t data_type
 
+    cdef nvcompBatchedLZ4Opts_t nvcompBatchedLZ4DefaultOpts
 
+    cdef nvcompStatus_t nvcompBatchedLZ4CompressGetTempSize(
+        size_t batch_size,
+        size_t max_uncompressed_chunk_bytes,
+        nvcompBatchedLZ4Opts_t format_opts,
+        size_t* temp_bytes)
+
+    cdef nvcompStatus_t nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
+        size_t max_uncompressed_chunk_bytes,
+        nvcompBatchedLZ4Opts_t format_opts,
+        size_t* max_compressed_bytes)
+
+    cdef nvcompStatus_t nvcompBatchedLZ4CompressAsync(
+        const void* const* device_uncompressed_ptrs,
+        const size_t* device_uncompressed_bytes,
+        size_t max_uncompressed_chunk_bytes,
+        size_t batch_size,
+        void* device_temp_ptr,
+        size_t temp_bytes,
+        void* const* device_compressed_ptrs,
+        size_t* device_compressed_bytes,
+        nvcompBatchedLZ4Opts_t format_opts,
+        cudaStream_t stream)
+
+    cdef nvcompStatus_t nvcompBatchedLZ4DecompressGetTempSize(
+        size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes)
+
+    cdef nvcompStatus_t nvcompBatchedLZ4DecompressGetTempSizeEx(
+        size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes, size_t max_uncompressed_total_size )
+
+    cdef nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
+        const void* const* device_compressed_ptrs,
+        const size_t* device_compressed_bytes,
+        const size_t* device_uncompressed_bytes,
+        size_t* device_actual_uncompressed_bytes,
+        size_t batch_size,
+        void* const device_temp_ptr,
+        size_t temp_bytes,
+        void* const* device_uncompressed_ptrs,
+        nvcompStatus_t* device_statuses,
+        cudaStream_t stream)
+
+    cdef nvcompStatus_t nvcompBatchedLZ4GetDecompressSizeAsync(
+        const void* const* device_compressed_ptrs,
+        const size_t* device_compressed_bytes,
+        size_t* device_uncompressed_bytes,
+        size_t batch_size,
+        cudaStream_t stream)

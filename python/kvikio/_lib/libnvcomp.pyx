@@ -46,6 +46,16 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     LZ4Manager,
     CompressionConfig,
     DecompressionConfig,
+    nvcompLZ4FormatOpts,
+    nvcompBatchedLZ4Opts_t,
+    nvcompBatchedLZ4DefaultOpts,
+    nvcompBatchedLZ4CompressGetTempSize,
+    nvcompBatchedLZ4CompressGetMaxOutputChunkSize,
+    nvcompBatchedLZ4CompressAsync,
+    nvcompBatchedLZ4DecompressGetTempSize,
+    nvcompBatchedLZ4DecompressGetTempSizeEx,
+    nvcompBatchedLZ4DecompressAsync,
+    nvcompBatchedLZ4GetDecompressSizeAsync
 )
 
 
@@ -62,26 +72,40 @@ class pyNvcompType_t(Enum):
 
 cdef class _LZ4CompressorLowLevel:
 
-    cdef nvcompStatus_t _nvcompBatchedLZ4CompressGetTempSize:
-        size_t batch_size,
-        size_t max_uncompressed_chunk_bytes,
-        size_t* temp_bytes)except+
+    def nvcompBatchedLZ4CompressGetTempSize(
+        self,
+        batch_size,
+        max_uncompressed_chunk_bytes,
+        temp_bytes
+    ):
+        return nvcompBatchedLZ4CompressGetTempSize(
+            batch_size,
+            <size_t>max_uncompressed_chunk_bytes,
+            nvcompBatchedLZ4DefaultOpts,
+            <size_t*><void*>Array(temp_bytes).ptr
+        )
 
-    cdef nvcompStatus_t _nvcompBatchedLZ4CompressGetMaxOutputChunkSize:
-        size_t max_uncompressed_chunk_bytes,
-        size_t* max_compressed_bytes)except+
+    def nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
+        self,
+        max_uncompressed_chunk_bytes,
+        max_compressed_bytes
+    ):
+        pass
 
-    cdef nvcompStatus_t _nvcompBatchedLZ4CompressAsync:
-        const void* const* device_in_ptr,
-        const size_t* device_in_bytes,
-        size_t max_uncompressed_chunk_bytes,
-        size_t batch_size,
-        void* device_temp_ptr,
-        size_t temp_bytes,
-        void* const* device_out_ptr,
-        size_t* device_out_bytes,
-        cudaStream_t stream)except+
-
+    def nvcompBatchedLZ4CompressAsync(
+        self,
+        device_in_ptr,
+        device_in_bytes,
+        max_uncompressed_chunk_bytes,
+        batch_size,
+        device_temp_ptr,
+        temp_bytes,
+        device_out_ptr,
+        device_out_bytes,
+        stream
+    ):
+        pass
+"""
     cdef nvcompStatus_t _nvcompBatchedLZ4DecompressAsync:
         const void* const* device_in_ptrs,
         const size_t* device_in_bytes,
@@ -92,6 +116,7 @@ cdef class _LZ4CompressorLowLevel:
         const size_t temp_bytes,  # unused
         void* const* device_out_ptr,
         cudaStream_t stream) except+
+"""
 
 cdef class _LZ4Compressor:
     cdef LZ4Manager* _impl
@@ -105,13 +130,12 @@ cdef class _LZ4Compressor:
     ):
         print("def __cinit__")
         print(uncomp_chunk_size, data_type, user_stream.ptr, device_id)
-        print(dir(user_stream))
         # print a pointer
         # print("{0:x}".format(<unsigned long>), var)
         self._impl = new LZ4Manager(
             uncomp_chunk_size,
             <nvcompType_t>data_type,
-            <cudaStream_t>user_stream.ptr,
+            <cudaStream_t>0,
             device_id
         )
     
@@ -129,22 +153,35 @@ cdef class _LZ4Compressor:
         }
 
     def compress(self, decomp_buffer, comp_buffer):
-        print("def compress(decomp_buffer, comp_buffer)")
-        print(decomp_buffer, comp_buffer)
-        print(len(decomp_buffer), len(comp_buffer))
         cdef decomp_buffer_ptr = Array(decomp_buffer).ptr
         cdef comp_buffer_ptr = Array(comp_buffer).ptr
-        print(decomp_buffer_ptr, comp_buffer_ptr)
         print(
             self._config.get()[0].uncompressed_buffer_size,
             self._config.get()[0].max_compressed_buffer_size,
             self._config.get()[0].num_chunks
         )
-        return self._impl.compress(
-            <const uint8_t*><void*>decomp_buffer_ptr,
-            <uint8_t*><void*>comp_buffer_ptr,
-            self._config.get()[0]
+
+
+        decomp_buffer = cp.arange(10, dtype="uint8")
+        comp_buffer = cp.zeros(65888, dtype="uint8")
+        test = new LZ4Manager(
+            1 << 16,
+            <nvcompType_t>0,
+            <cudaStream_t>0,
+            0
         )
+        cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
+            test.configure_compression(10)
+        )
+        self._config = make_shared[CompressionConfig]((move(partial.get()[0])))
+        print('still cannot compress')
+        test.compress(
+            <const uint8_t*><size_t>decomp_buffer.data.ptr,
+            <uint8_t*><size_t>comp_buffer.data.ptr,
+            <CompressionConfig&>self._config.get()[0]
+        )
+        print('compressed')
+        return None
 
     cdef configure_decompression_with_compressed_buffer(
         self,

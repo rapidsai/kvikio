@@ -11,15 +11,16 @@ libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
 
 def test_lz4_newlib():
-    size = 10000000
+    size = 10
     dtype = np.uint8
     dtype_itemsize = 1
     data = cp.array(np.arange(0, size / dtype_itemsize, dtype=dtype))
     s = cp.cuda.Stream()
     print("compressor = libnvcomp.LZ4Compressor(stream=s)")
-    compressor = libnvcomp.LZ4Compressor(stream=s)
+    compressor = libnvcomp.cppLZ4Compressor(stream=s)
     print("compressor.compress(data)")
     compressor.compress(data)
+    # max_uncompressed_chunk_bytes, temp_size = compressor.get_temp_size(data)
 
 
 @pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)

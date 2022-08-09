@@ -140,7 +140,46 @@ class CascadedCompressor:
         return self.decompress_out_buffer.view(self.dtype)
 
 
-class LZ4Compressor:
+class LZ4CompressorLowLevel:
+    lz4_low_level = None
+
+    def __init__(self):
+        self.lz4_low_level = _lib._LZ4CompressorLowLevel()
+
+    def get_temp_size(self, data):
+        MAX_CHUNK = 1 << 16
+        batch_size = len(data)
+        temp_bytes = np.array((1,), dtype=np.int64)
+        self.lz4_low_level.nvcompBatchedLZ4CompressGetTempSize(
+            batch_size, MAX_CHUNK, temp_bytes
+        )
+        return (MAX_CHUNK, temp_bytes)
+
+    def get_max_uncompressed_chunk_size(self, max_uncompressed_chunk_bytes):
+        max_compressed_bytes = cp.array((1,), dtype=np.int64)
+        self.lz4_low_level.nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
+            max_uncompressed_chunk_bytes, max_compressed_bytes
+        )
+        return max_compressed_bytes
+
+    def _batched_lz4_compress_async(self, data):
+        max_uncompressed_chunk_bytes, temp_bytes = self.get_temp_size(data)
+        max_compressed_bytes = self._get_max_uncompressed_chunk_size
+
+        result = self.lz4_low_level.nvcompBatchedLZ4CompressAsync(
+            device_in_ptr,
+            device_in_bytes,
+            max_uncompressed_chunk_bytes,
+            batch_size,
+            device_temp_ptr,
+            temp_bytes,
+            device_out_ptr,
+            device_out_bytes,
+            stream,
+        )
+
+
+class cppLZ4Compressor:
     def __init__(
         self,
         chunk_size=1 << 16,
@@ -181,11 +220,7 @@ class LZ4Compressor:
         data_size = data.size * data.itemsize
         self.config = self.compressor.configure_compression(data_size)
         self.compress_out_buffer = cp.zeros(
-            self.config["max_compressed_buffer_size"], dtype=np.uint8
-        )
-        out_buffer_final = cp.array(
-            self.compress_out_buffer.__cuda_array_interface__["data"][0],
-            dtype=np.uint64,
+            self.config["max_compressed_buffer_size"], dtype="uint8"
         )
         self.compressor.compress(data, self.compress_out_buffer)
         print("passed")
