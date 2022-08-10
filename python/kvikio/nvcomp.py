@@ -143,15 +143,21 @@ class CascadedCompressor:
 class nvCompManager:
     def __init__(self, kwargs):
         if kwargs.get("data_type"):
-            if isinstance(kwargs["data_type"], str):
+            if not isinstance(kwargs["data_type"], _lib.pyNvcompType_t):
                 kwargs["data_type"] = cp_to_nvcomp_dtype(
                     cp.dtype(kwargs["data_type"]).type
                 )
+                kwargs["input_dtype"] = kwargs["data_type"]
         for k, v in kwargs.items():
             setattr(self, k, v)
 
 
 class LZ4Compressor(nvCompManager):
+    _manager: _lib._LZ4Manager = None
+    _config: dict = {}
+
+    input_type = cp.int8
+
     chunk_size: int = 1 << 16
     data_type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR
     stream: cp.cuda.Stream = cp.cuda.Stream()
@@ -172,7 +178,7 @@ class LZ4Compressor(nvCompManager):
             Specify which device_id on the node to use
         """
         super().__init__(kwargs)
-        self.compressor = _lib._LZ4Compressor(
+        self._manager = _lib._LZ4Manager(
             self.chunk_size, self.data_type.value, self.stream, self.device_id
         )
 
@@ -187,14 +193,14 @@ class LZ4Compressor(nvCompManager):
         # TODO: An option: check if incoming data size matches the size of the
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
-        self.config = self.compressor.configure_compression(data_size)
+        self._config = self._manager.configure_compression(data_size)
         self.compress_out_buffer = cp.zeros(
-            self.config["max_compressed_buffer_size"], dtype="uint8"
+            self._config["max_compressed_buffer_size"], dtype="uint8"
         )
-        size = self.compressor.compress(data, self.compress_out_buffer)
+        size = self._manager.compress(data, self.compress_out_buffer)
         return self.compress_out_buffer[0:size]
 
-    def decompress(self, data: cp.ndarray, config: dict = None) -> cp.ndarray:
+    def decompress(self, data: cp.ndarray) -> cp.ndarray:
         """Decompress a GPU buffer.
 
         Returns
@@ -203,8 +209,11 @@ class LZ4Compressor(nvCompManager):
             An array of `self.dtype` produced after decompressing the input argument.
         """
         # TODO: logic to reuse temp buffer if it is large enough
-        self.configure_decompression_with_config(
-            config if config else self.config
+        self._decompression_config = (
+            self._manager.configure_decompression_with_compressed_buffer(data)
         )
-
-        return self.decompress_out_buffer.view(self.dtype)
+        decomp_buffer = cp.zeros(
+            self._decompression_config["decomp_data_size"], dtype="uint8"
+        )
+        self._manager.decompress(decomp_buffer, data)
+        return decomp_buffer.view(self.input_type)

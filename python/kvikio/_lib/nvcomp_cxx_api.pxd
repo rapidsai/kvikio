@@ -80,12 +80,11 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
     cdef cppclass DecompressionConfig "nvcomp::DecompressionConfig":
         size_t decomp_data_size
         uint32_t num_chunks
-        DecompressionConfig(PinnedPtrPool[nvcompStatus_t]& pool)
+        DecompressionConfig(PinnedPtrPool[nvcompStatus_t]& pool) except + 
         nvcompStatus_t* get_status() const
-        DecompressionConfig(DecompressionConfig&& other)
-        DecompressionConfig(const DecompressionConfig& other)
-        DecompressionConfig& operator=(DecompressionConfig&& other)
-        DecompressionConfig& operator=(const DecompressionConfig& other)
+        DecompressionConfig(DecompressionConfig& other) except + 
+        DecompressionConfig& operator=(DecompressionConfig&& other) except + 
+        DecompressionConfig& operator=(const DecompressionConfig& other) except + 
 
     cdef cppclass nvcompManagerBase "nvcomp::nvcompManagerBase":
         CompressionConfig configure_compression (
@@ -176,10 +175,10 @@ cdef extern from "nvcomp/lz4.hpp":
         ) except +
         DecompressionConfig configure_decompression (
             const uint8_t* comp_buffer
-        ) except +
+        )
         DecompressionConfig configure_decompression (
             const CompressionConfig& comp_config
-        ) except +
+        )
         void decompress(
             uint8_t* decomp_buffer, 
             const uint8_t* comp_buffer,

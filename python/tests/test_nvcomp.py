@@ -47,10 +47,10 @@ def test_lz4_decompress_base():
     size = 10000
     dtype = cupy.int8
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
-    compressor = libnvcomp.LZ4Compressor(**inputs)
-    final = compressor.compress(data)
-    decompressed = compressor.decompress(final)
-    assert data == decompressed
+    compressor = libnvcomp.LZ4Compressor()
+    compressed = compressor.compress(data)
+    decompressed = compressor.decompress(compressed)
+    assert (data == decompressed).all()
 
 
 @pytest.mark.parametrize("compressor", [libnvcomp.LZ4Compressor])

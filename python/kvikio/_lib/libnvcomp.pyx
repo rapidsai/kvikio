@@ -118,9 +118,10 @@ cdef class _LZ4CompressorLowLevel:
         cudaStream_t stream) except+
 """
 
-cdef class _LZ4Compressor:
+cdef class _LZ4Manager:
     cdef LZ4Manager* _impl
-    cdef shared_ptr[CompressionConfig] _config
+    cdef shared_ptr[CompressionConfig] _compression_config
+    cdef shared_ptr[DecompressionConfig] _decompression_config
 
     def __cinit__(self,
         size_t uncomp_chunk_size,
@@ -141,70 +142,51 @@ cdef class _LZ4Compressor:
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
-    
+
     def configure_compression(self, decomp_buffer_size):
         cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
             self._impl.configure_compression(decomp_buffer_size)
         )
-        self._config = make_shared[CompressionConfig]((move(partial.get()[0])))
+        self._compression_config = make_shared[CompressionConfig]((move(partial.get()[0])))
         return {
-            "uncompressed_buffer_size": self._config.get()[0].uncompressed_buffer_size,
-            "max_compressed_buffer_size": self._config.get()[0].max_compressed_buffer_size,
-            "num_chunks": self._config.get()[0].num_chunks
+            "uncompressed_buffer_size": self._compression_config.get()[0].uncompressed_buffer_size,
+            "max_compressed_buffer_size": self._compression_config.get()[0].max_compressed_buffer_size,
+            "num_chunks": self._compression_config.get()[0].num_chunks
         }
 
     def compress(self, decomp_buffer, comp_buffer):
-        cdef decomp_buffer_ptr = Array(decomp_buffer).ptr
-        cdef comp_buffer_ptr = Array(comp_buffer).ptr
-
         self._impl.compress(
             <const uint8_t*><size_t>decomp_buffer.data.ptr,
             <uint8_t*><size_t>comp_buffer.data.ptr,
-            <CompressionConfig&>self._config.get()[0]
+            <CompressionConfig&>self._compression_config.get()[0]
         )
         size = self._impl.get_compressed_output_size(<uint8_t*><size_t>comp_buffer.data.ptr)
         return size
 
-    cdef configure_decompression_with_compressed_buffer(
+    def configure_decompression_with_compressed_buffer(
         self,
-        const uint8_t* comp_buffer
+        comp_buffer
     ) :
-        self._impl.configure_decompression(<const uint8_t*>comp_buffer)
-        """
-        cdef decomp_data_size = result.decomp_data_size
-        cdef num_chunks = result.num_chunks
-        return {
-            "decomp_data_size": decomp_data_size,
-            "num_chunks": num_chunks
-        }
-        """
-
-    cdef configure_decompression_with_config(
-        self,
-        const CompressionConfig& comp_config
-    ):
-        self._impl.configure_decompression(<CompressionConfig&>comp_config)
-        """
-        cdef decomp_data_size = result.decomp_data_size
-        cdef num_chunks = result.num_chunks
-        return {
-            "decomp_data_size": decomp_data_size,
-            "num_chunks": num_chunks
-        }
-        """
-
-    cdef decompress(
-        self,
-        uint8_t* decomp_buffer, 
-        const uint8_t* comp_buffer,
-        const DecompressionConfig& decomp_config
-    ):
-        return self._impl.decompress(
-            decomp_buffer,
-            comp_buffer,
-            decomp_config
+        cdef shared_ptr[DecompressionConfig] partial = make_shared[DecompressionConfig](
+            self._impl.configure_decompression(<uint8_t*><size_t>comp_buffer.data.ptr)
         )
- 
+        self._decompression_config = make_shared[DecompressionConfig]((move(partial.get()[0])))
+        return {
+            "decomp_data_size": self._decompression_config.get()[0].decomp_data_size,
+            "num_chunks": self._decompression_config.get()[0].num_chunks
+        }
+
+    def decompress(
+        self,
+        decomp_buffer, 
+        comp_buffer,
+    ):
+        self._impl.decompress(
+            <uint8_t*><size_t>decomp_buffer.data.ptr,
+            <const uint8_t*><size_t>comp_buffer.data.ptr,
+            <DecompressionConfig&>self._decompression_config.get()[0]
+        )
+
     cdef set_scratch_buffer(self, uint8_t* new_scratch_buffer):
         return self._impl.set_scratch_buffer(new_scratch_buffer)
 
