@@ -37,150 +37,47 @@ def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
     return _dtype_map[cp_type]
 
 
-class CascadedCompressor:
-    def __init__(
-        self,
-        dtype: cp.dtype,
-        num_RLEs: int = 1,
-        num_deltas: int = 1,
-        use_bp: bool = True,
-    ):
-        """Initialize a CascadedCompressor and Decompressor for a specific dtype.
-
-        Parameters
-        ----------
-        dtype: cp.dtype
-            The dtype of the input buffer to be compressed.
-        num_RLEs: int
-            Number of Run-Length Encoders to use, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#run-length-encoding-rle)  # noqa: E501
-        num_deltas: int
-            Number of Delta Encoders to use, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#delta-encoding)  # noqa: E501
-        use_bp: bool
-            Enable Bitpacking, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#bitpacking)  # noqa: E501
-        """
-        self.dtype = dtype
-        self.compressor = _lib._CascadedCompressor(
-            cp_to_nvcomp_dtype(self.dtype).value,
-            num_RLEs,
-            num_deltas,
-            use_bp,
-        )
-        self.decompressor = _lib._CascadedDecompressor()
-        self.s = cp.cuda.Stream()
-
-    def compress(self, data: cp.ndarray) -> cp.ndarray:
-        """Compress a buffer.
-
-        Returns
-        -------
-        cp.ndarray
-            A GPU buffer of compressed bytes.
-        """
-        # TODO: An option: check if incoming data size matches the size of the
-        # last incoming data, and reuse temp and out buffer if so.
-        data_size = data.size * data.itemsize
-        self.compress_temp_size = np.zeros((1,), dtype=np.int64)
-        self.compress_out_size = np.zeros((1,), dtype=np.int64)
-        self.compressor.configure(
-            data_size, self.compress_temp_size, self.compress_out_size
-        )
-        self.compress_temp_buffer = cp.zeros(
-            self.compress_temp_size, dtype=np.uint8
-        )
-        self.compress_out_buffer = cp.zeros(
-            self.compress_out_size, dtype=np.uint8
-        )
-        self.compressor.compress_async(
-            data,
-            data_size,
-            self.compress_temp_buffer,
-            self.compress_temp_size,
-            self.compress_out_buffer,
-            self.compress_out_size,
-            self.s.ptr,
-        )
-        return self.compress_out_buffer[: self.compress_out_size[0]]
-
-    def decompress(self, data: cp.ndarray) -> cp.ndarray:
-        """Decompress a GPU buffer.
-
-        Returns
-        -------
-        cp.ndarray
-            An array of `self.dtype` produced after decompressing the input argument.
-        """
-        # TODO: logic to reuse temp buffer if it is large enough
-        data_size = data.size * data.itemsize
-        self.decompress_temp_size = np.zeros((1,), dtype=np.int64)
-        self.decompress_out_size = np.zeros((1,), dtype=np.int64)
-
-        self.decompressor.configure(
-            data,
-            data_size,
-            self.decompress_temp_size,
-            self.decompress_out_size,
-            self.s.ptr,
-        )
-
-        self.decompress_temp_buffer = cp.zeros(
-            self.decompress_temp_size, dtype=np.uint8
-        )
-        self.decompress_out_buffer = cp.zeros(
-            self.decompress_out_size, dtype=np.uint8
-        )
-        self.decompressor.decompress_async(
-            data,
-            data_size,
-            self.decompress_temp_buffer,
-            self.decompress_temp_size,
-            self.decompress_out_buffer,
-            self.decompress_out_size,
-            self.s.ptr,
-        )
-        return self.decompress_out_buffer.view(self.dtype)
-
-
 class nvCompManager:
+    _manager: _lib._nvcompManager = None
+    _config: dict = {}
+
+    # This is a python option: What type was the data when it was passed in?
+    # This is used only for returning a decompressed view of the original
+    # datatype. Untested so far.
+    input_type = cp.int8
+
+    # Default options exist for every option type for every class that inherits
+    # from nvCompManager, which takes advantage of the below property-setting
+    # code.
+    stream: cp.cuda.Stream = cp.cuda.Stream()
+    chunk_size: int = 1 << 16
+    data_type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR
+    # Some classes have this defined as type, some as data_type.
+    type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR
+    device_id: int = 0
+
     def __init__(self, kwargs):
+        #
+        # This code does type correction, fixing inputs to have an expected
+        # shape before calling one of the nvCompManager methods on a child
+        # class.
+        #
+        # Special case: Convert data_type to a _lib.pyNvcompType_t
         if kwargs.get("data_type"):
             if not isinstance(kwargs["data_type"], _lib.pyNvcompType_t):
+                kwargs["input_type"] = kwargs.get("data_type")
                 kwargs["data_type"] = cp_to_nvcomp_dtype(
                     cp.dtype(kwargs["data_type"]).type
                 )
-                kwargs["input_dtype"] = kwargs["data_type"]
+        # Special case: Convert type to a _lib.pyNvcompType_t
+        if kwargs.get("type"):
+            if not isinstance(kwargs["type"], _lib.pyNvcompType_t):
+                kwargs["input_type"] = kwargs.get("type")
+                kwargs["type"] = cp_to_nvcomp_dtype(
+                    cp.dtype(kwargs["type"]).type
+                )
         for k, v in kwargs.items():
             setattr(self, k, v)
-
-
-class LZ4Compressor(nvCompManager):
-    _manager: _lib._LZ4Manager = None
-    _config: dict = {}
-
-    input_type = cp.int8
-
-    chunk_size: int = 1 << 16
-    data_type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR
-    stream: cp.cuda.Stream = cp.cuda.Stream()
-    device_id: int = 0
-
-    def __init__(self, **kwargs):
-        """Create a GPU LZ4Compressor object.
-
-        Used to compress and decompress GPU buffers of a specific dtype.
-
-        Parameters
-        ----------
-        chunk_size: int
-        data_type: pyNVCOMP_TYPE
-        stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on
-        device_id: int (optional)
-            Specify which device_id on the node to use
-        """
-        super().__init__(kwargs)
-        self._manager = _lib._LZ4Manager(
-            self.chunk_size, self.data_type.value, self.stream, self.device_id
-        )
 
     def compress(self, data: cp.ndarray) -> cp.ndarray:
         """Compress a buffer.
@@ -217,3 +114,66 @@ class LZ4Compressor(nvCompManager):
         )
         self._manager.decompress(decomp_buffer, data)
         return decomp_buffer.view(self.input_type)
+
+
+class LZ4Manager(nvCompManager):
+    def __init__(self, **kwargs):
+        """Create a GPU LZ4Compressor object.
+
+        Used to compress and decompress GPU buffers of a specific dtype.
+
+        Parameters
+        ----------
+        chunk_size: int
+        data_type: pyNVCOMP_TYPE
+        stream: cudaStream_t (optional)
+            Which CUDA stream to perform the operation on
+        device_id: int (optional)
+            Specify which device_id on the node to use
+        """
+        super().__init__(kwargs)
+        self._manager = _lib._LZ4Manager(
+            self.chunk_size, self.data_type.value, self.stream, self.device_id
+        )
+
+
+class CascadedManager(nvCompManager):
+    def __init__(self, **kwargs):
+        """Initialize a CascadedManager for a specific dtype.
+
+        Parameters
+        ----------
+        dtype: cp.dtype
+            The dtype of the input buffer to be compressed.
+        num_RLEs: int
+            Number of Run-Length Encoders to use, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#run-length-encoding-rle)  # noqa: E501
+        num_deltas: int
+            Number of Delta Encoders to use, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#delta-encoding)  # noqa: E501
+        use_bp: bool
+            Enable Bitpacking, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#bitpacking)  # noqa: E501
+        """
+        super().__init__(kwargs)
+        default_options = {
+            "chunk_size": 1 << 12,
+            "type": np.int32,
+            "num_RLEs": 2,
+            "num_deltas": 1,
+            "use_bp": True,
+        }
+        # Replace any options that may have been excluded, they are not optional.
+        for k, v in default_options.items():
+            try:
+                getattr(self, k)
+            except:
+                setattr(self, k, v)
+
+        self.options = {
+            "chunk_size": self.chunk_size,
+            "type": self.type,
+            "num_RLEs": self.num_RLEs,
+            "num_deltas": self.num_deltas,
+            "use_bp": self.use_bp,
+        }
+        self._manager = _lib._CascadedManager(
+            default_options, self.stream, self.device_id
+        )

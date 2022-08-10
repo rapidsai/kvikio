@@ -26,7 +26,7 @@ import cupy as cp
 
 import cython
 from cython.operator cimport dereference
-from libc.stdint cimport uintptr_t, uint8_t
+from libc.stdint cimport uintptr_t, uint8_t, int32_t
 from libcpp.memory cimport shared_ptr, make_shared
 from libcpp.utility cimport move
 from libcpp cimport bool, nullptr
@@ -44,9 +44,12 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     nvcompBatchedSnappyOpts_t,
     nvcompManagerBase,
     LZ4Manager,
+    CascadedManager,
     CompressionConfig,
     DecompressionConfig,
     nvcompLZ4FormatOpts,
+    nvcompBatchedCascadedOpts_t,
+    nvcompBatchedCascadedDefaultOpts,
     nvcompBatchedLZ4Opts_t,
     nvcompBatchedLZ4DefaultOpts,
     nvcompBatchedLZ4CompressGetTempSize,
@@ -70,78 +73,10 @@ class pyNvcompType_t(Enum):
     pyNVCOMP_TYPE_ULONGLONG = nvcompType_t.NVCOMP_TYPE_ULONGLONG
     pyNVCOMP_TYPE_BITS = nvcompType_t.NVCOMP_TYPE_BITS
 
-cdef class _LZ4CompressorLowLevel:
-
-    def nvcompBatchedLZ4CompressGetTempSize(
-        self,
-        batch_size,
-        max_uncompressed_chunk_bytes,
-        temp_bytes
-    ):
-        return nvcompBatchedLZ4CompressGetTempSize(
-            batch_size,
-            <size_t>max_uncompressed_chunk_bytes,
-            nvcompBatchedLZ4DefaultOpts,
-            <size_t*><void*>Array(temp_bytes).ptr
-        )
-
-    def nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
-        self,
-        max_uncompressed_chunk_bytes,
-        max_compressed_bytes
-    ):
-        pass
-
-    def nvcompBatchedLZ4CompressAsync(
-        self,
-        device_in_ptr,
-        device_in_bytes,
-        max_uncompressed_chunk_bytes,
-        batch_size,
-        device_temp_ptr,
-        temp_bytes,
-        device_out_ptr,
-        device_out_bytes,
-        stream
-    ):
-        pass
-"""
-    cdef nvcompStatus_t _nvcompBatchedLZ4DecompressAsync:
-        const void* const* device_in_ptrs,
-        const size_t* device_in_bytes,
-        const size_t* device_out_bytes,  # unused
-        size_t max_uncompressed_chunk_bytes,  # unused
-        size_t batch_size,
-        void* const device_temp_ptr,  # unused
-        const size_t temp_bytes,  # unused
-        void* const* device_out_ptr,
-        cudaStream_t stream) except+
-"""
-
-cdef class _LZ4Manager:
-    cdef LZ4Manager* _impl
+cdef class _nvcompManager:
+    cdef nvcompManagerBase* _impl
     cdef shared_ptr[CompressionConfig] _compression_config
     cdef shared_ptr[DecompressionConfig] _decompression_config
-
-    def __cinit__(self,
-        size_t uncomp_chunk_size,
-        nvcompType_t data_type,
-        user_stream,
-        const int device_id,
-    ):
-        # print a pointer
-        # print("{0:x}".format(<unsigned long>), var)
-
-        # TODO: Doesn't work with user specified streams passed down
-        # from anywhere up. I'm not going to rabbit hole on it until
-        # everything else works.
-        cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
-        self._impl = new LZ4Manager(
-            uncomp_chunk_size,
-            <nvcompType_t>data_type,
-            <cudaStream_t><void*>0,  # TODO
-            device_id
-        )
 
     def configure_compression(self, decomp_buffer_size):
         cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
@@ -196,6 +131,40 @@ cdef class _LZ4Manager:
     cdef get_compressed_output_size(self, uint8_t* comp_buffer):
         return self._impl.get_compressed_output_size(comp_buffer)
 
+
+cdef class _LZ4Manager(_nvcompManager):
+    def __cinit__(self,
+        size_t uncomp_chunk_size,
+        nvcompType_t data_type,
+        user_stream,
+        const int device_id,
+    ):
+        # print a pointer
+        # print("{0:x}".format(<unsigned long>), var)
+
+        # TODO: Doesn't work with user specified streams passed down
+        # from anywhere up. I'm not going to rabbit hole on it until
+        # everything else works.
+        cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
+        self._impl = <nvcompManagerBase*>new LZ4Manager(
+            uncomp_chunk_size,
+            <nvcompType_t>data_type,
+            <cudaStream_t><void*>0,  # TODO
+            device_id
+        )
+
+cdef class _CascadedManager(_nvcompManager):
+    def __cinit__(
+        self,
+        _options,
+        user_stream,
+        const int device_id,
+    ):
+        self._impl = <nvcompManagerBase*>new CascadedManager(
+            <nvcompBatchedCascadedOpts_t>nvcompBatchedCascadedDefaultOpts,  # TODO
+            <cudaStream_t><void*>0,  # TODO
+            device_id,
+        )
 
 class _LibSnappyCompressor:
     def _get_decompress_temp_size(
