@@ -14,5 +14,6 @@
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/KVIKIO_RAPIDS.cmake)
   file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.10/RAPIDS.cmake
        ${CMAKE_CURRENT_BINARY_DIR}/KVIKIO_RAPIDS.cmake
-)
+  )
+endif()
 include(${CMAKE_CURRENT_BINARY_DIR}/KVIKIO_RAPIDS.cmake)
