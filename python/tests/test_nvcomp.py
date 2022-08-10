@@ -38,11 +38,19 @@ def test_lz4_compress_base(inputs):
     size = 10000
     dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
-    if inputs.get("data_type"):
-        inputs["data_type"] = libnvcomp.cp_to_nvcomp_dtype(inputs["data_type"])
     compressor = libnvcomp.LZ4Compressor(**inputs)
     final = compressor.compress(data)
     assert len(final) == 401
+
+
+def test_lz4_decompress_base():
+    size = 10000
+    dtype = cupy.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.LZ4Compressor(**inputs)
+    final = compressor.compress(data)
+    decompressed = compressor.decompress(final)
+    assert data == decompressed
 
 
 @pytest.mark.parametrize("compressor", [libnvcomp.LZ4Compressor])
@@ -80,25 +88,6 @@ def test_compress_dtypes(compressor, dtype_size):
     compressor_instance = compressor(data_type=dtype_size[0])
     final = compressor_instance.compress(data)
     assert len(final) == expected
-
-
-@pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)
-@pytest.mark.parametrize("size", [int(1e6), int(1e7)])
-def test_lz4_lib_vs_module(dtype, size):
-    dtype = cupy.dtype(dtype)
-    data = cupy.array(np.arange(0, (size / dtype.itemsize) - 1), dtype=dtype)
-    compressor = libnvcomp.LZ4Compressor(dtype)
-    compressor.compress(data)
-    lib_compressor = kvikio._lib.libnvcomp._LZ4Compressor(
-        libnvcomp.cp_to_nvcomp_dtype(dtype).value,
-    )
-    compress_temp_size = np.zeros((1,), dtype=np.int64)
-    compress_out_size = np.zeros((1,), dtype=np.int64)
-    lib_compressor.configure(
-        data.size * data.itemsize, compress_temp_size, compress_out_size
-    )
-    assert compress_temp_size == compressor.compress_temp_size
-    assert compress_out_size == compressor.compress_out_size
 
 
 @pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)

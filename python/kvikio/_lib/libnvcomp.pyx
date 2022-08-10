@@ -143,8 +143,6 @@ cdef class _LZ4Compressor:
         )
     
     def configure_compression(self, decomp_buffer_size):
-        print("def configure_compression(...)")
-        print(decomp_buffer_size)
         cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
             self._impl.configure_compression(decomp_buffer_size)
         )
@@ -291,7 +289,6 @@ class _LibSnappyCompressor:
         cdef uintptr_t max_compressed_size_ptr = Array(max_compressed_size).ptr
         cdef nvcompBatchedSnappyOpts_t opts
         opts.reserved = format_opts
-        print('ptr: ', max_compressed_size_ptr)
         return nvcompBatchedSnappyCompressGetMaxOutputChunkSize(
             <size_t>max_chunk_size,
             <nvcompBatchedSnappyOpts_t>opts,
