@@ -140,52 +140,24 @@ class CascadedCompressor:
         return self.decompress_out_buffer.view(self.dtype)
 
 
-class LZ4CompressorLowLevel:
-    lz4_low_level = None
-
-    def __init__(self):
-        self.lz4_low_level = _lib._LZ4CompressorLowLevel()
-
-    def get_temp_size(self, data):
-        MAX_CHUNK = 1 << 16
-        batch_size = len(data)
-        temp_bytes = np.array((1,), dtype=np.int64)
-        self.lz4_low_level.nvcompBatchedLZ4CompressGetTempSize(
-            batch_size, MAX_CHUNK, temp_bytes
-        )
-        return (MAX_CHUNK, temp_bytes)
-
-    def get_max_uncompressed_chunk_size(self, max_uncompressed_chunk_bytes):
-        max_compressed_bytes = cp.array((1,), dtype=np.int64)
-        self.lz4_low_level.nvcompBatchedLZ4CompressGetMaxOutputChunkSize(
-            max_uncompressed_chunk_bytes, max_compressed_bytes
-        )
-        return max_compressed_bytes
-
-    def _batched_lz4_compress_async(self, data):
-        max_uncompressed_chunk_bytes, temp_bytes = self.get_temp_size(data)
-        max_compressed_bytes = self._get_max_uncompressed_chunk_size
-
-        result = self.lz4_low_level.nvcompBatchedLZ4CompressAsync(
-            device_in_ptr,
-            device_in_bytes,
-            max_uncompressed_chunk_bytes,
-            batch_size,
-            device_temp_ptr,
-            temp_bytes,
-            device_out_ptr,
-            device_out_bytes,
-            stream,
-        )
+class nvCompManager:
+    def __init__(self, kwargs):
+        if kwargs.get("data_type"):
+            if isinstance(kwargs["data_type"], str):
+                kwargs["data_type"] = cp_to_nvcomp_dtype(
+                    cp.dtype(kwargs["data_type"]).type
+                )
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
 
-class cppLZ4Compressor:
+class LZ4Compressor(nvCompManager):
     def __init__(
         self,
-        chunk_size=1 << 16,
-        data_type=_lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
-        stream=0,
-        device_id=0,
+        chunk_size: int = 1 << 16,
+        data_type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
+        stream: cp.cuda.Stream = cp.cuda.Stream(),
+        device_id: int = 0,
     ):
         """Create a GPU LZ4Compressor object.
 
@@ -200,10 +172,16 @@ class cppLZ4Compressor:
         device_id: int (optional)
             Specify which device_id on the node to use
         """
-        print("def __init__")
-        print(chunk_size, data_type, stream, device_id)
+        super().__init__(
+            {
+                "chunk_size": chunk_size,
+                "data_type": data_type,
+                "stream": stream,
+                "device_id": device_id,
+            }
+        )
         self.compressor = _lib._LZ4Compressor(
-            chunk_size, data_type.value, stream, device_id
+            self.chunk_size, self.data_type.value, self.stream, self.device_id
         )
 
     def compress(self, data: cp.ndarray) -> cp.ndarray:
@@ -222,8 +200,8 @@ class cppLZ4Compressor:
         self.compress_out_buffer = cp.zeros(
             self.config["max_compressed_buffer_size"], dtype="uint8"
         )
-        self.compressor.compress(data, self.compress_out_buffer)
-        print("passed")
+        size = self.compressor.compress(data, self.compress_out_buffer)
+        return self.compress_out_buffer[0:size]
 
     def decompress(self, data: cp.ndarray) -> cp.ndarray:
         """Decompress a GPU buffer.

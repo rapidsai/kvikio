@@ -1,7 +1,7 @@
 # Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import cupy as cp
+import cupy
 import numpy as np
 import pytest
 
@@ -10,17 +10,76 @@ kvikio = pytest.importorskip("kvikio")
 libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
 
-def test_lz4_newlib():
-    size = 10
-    dtype = np.uint8
-    dtype_itemsize = 1
-    data = cp.array(np.arange(0, size / dtype_itemsize, dtype=dtype))
-    s = cp.cuda.Stream()
-    print("compressor = libnvcomp.LZ4Compressor(stream=s)")
-    compressor = libnvcomp.cppLZ4Compressor(stream=s)
-    print("compressor.compress(data)")
-    compressor.compress(data)
-    # max_uncompressed_chunk_bytes, temp_size = compressor.get_temp_size(data)
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {},
+        {
+            "chunk_size": 1 << 16,
+            "data_type": np.uint8,
+            "stream": cupy.cuda.Stream(),
+            "device_id": 0,
+        },
+        {
+            "chunk_size": 1 << 16,
+        },
+        {
+            "data_type": np.uint8,
+        },
+        {
+            "stream": cupy.cuda.Stream(),
+        },
+        {
+            "device_id": 0,
+        },
+    ],
+)
+def test_lz4_compress_base(inputs):
+    size = 10000
+    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    if inputs.get("data_type"):
+        inputs["data_type"] = libnvcomp.cp_to_nvcomp_dtype(inputs["data_type"])
+    compressor = libnvcomp.LZ4Compressor(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == 401
+
+
+@pytest.mark.parametrize("compressor", [libnvcomp.LZ4Compressor])
+@pytest.mark.parametrize(
+    "dtype_size",
+    zip(
+        [
+            "uint8",
+            "uint16",
+            "uint32",
+            "int8",
+            "int16",
+            "int32",
+        ],
+        [
+            401,
+            10137,
+            10137,
+            401,
+            10137,
+            10137,
+        ],
+    ),
+)
+def test_compress_dtypes(compressor, dtype_size):
+    length = 10000
+    expected = dtype_size[1]
+    data = cupy.array(
+        np.arange(
+            0,
+            length // cupy.dtype(dtype_size[0]).type(0).itemsize,
+            dtype=dtype_size[0],
+        )
+    )
+    compressor_instance = compressor(data_type=dtype_size[0])
+    final = compressor_instance.compress(data)
+    assert len(final) == expected
 
 
 @pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)
@@ -58,17 +117,6 @@ def test_cascade_lib_vs_module(dtype, size):
         data.size * data.itemsize, compress_temp_size, compress_out_size
     )
     assert compressed.size < data.size * data.itemsize
-
-
-@pytest.mark.parametrize("size", [int(1e5), int(1e6)])
-@pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)
-def test_lz4_compress(dtype, size):
-    dtype = cupy.dtype(dtype)
-    data = cupy.array(np.arange(0, size / dtype.itemsize), dtype=dtype)
-    compressor = libnvcomp.LZ4Compressor(dtype)
-    compressed = compressor.compress(data)
-    decompressed = compressor.decompress(compressed)
-    cupy.testing.assert_array_equal(data, decompressed)
 
 
 @pytest.mark.parametrize("dtype", cudf.utils.dtypes.INTEGER_TYPES)

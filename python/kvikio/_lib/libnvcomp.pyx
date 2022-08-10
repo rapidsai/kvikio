@@ -128,14 +128,17 @@ cdef class _LZ4Compressor:
         user_stream,
         const int device_id,
     ):
-        print("def __cinit__")
-        print(uncomp_chunk_size, data_type, user_stream.ptr, device_id)
         # print a pointer
         # print("{0:x}".format(<unsigned long>), var)
+
+        # TODO: Doesn't work with user specified streams passed down
+        # from anywhere up. I'm not going to rabbit hole on it until
+        # everything else works.
+        cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
         self._impl = new LZ4Manager(
             uncomp_chunk_size,
             <nvcompType_t>data_type,
-            <cudaStream_t>0,
+            <cudaStream_t><void*>0,  # TODO
             device_id
         )
     
@@ -155,33 +158,14 @@ cdef class _LZ4Compressor:
     def compress(self, decomp_buffer, comp_buffer):
         cdef decomp_buffer_ptr = Array(decomp_buffer).ptr
         cdef comp_buffer_ptr = Array(comp_buffer).ptr
-        print(
-            self._config.get()[0].uncompressed_buffer_size,
-            self._config.get()[0].max_compressed_buffer_size,
-            self._config.get()[0].num_chunks
-        )
 
-
-        decomp_buffer = cp.arange(10, dtype="uint8")
-        comp_buffer = cp.zeros(65888, dtype="uint8")
-        test = new LZ4Manager(
-            1 << 16,
-            <nvcompType_t>0,
-            <cudaStream_t>0,
-            0
-        )
-        cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
-            test.configure_compression(10)
-        )
-        self._config = make_shared[CompressionConfig]((move(partial.get()[0])))
-        print('still cannot compress')
-        test.compress(
+        self._impl.compress(
             <const uint8_t*><size_t>decomp_buffer.data.ptr,
             <uint8_t*><size_t>comp_buffer.data.ptr,
             <CompressionConfig&>self._config.get()[0]
         )
-        print('compressed')
-        return None
+        size = self._impl.get_compressed_output_size(<uint8_t*><size_t>comp_buffer.data.ptr)
+        return size
 
     cdef configure_decompression_with_compressed_buffer(
         self,
