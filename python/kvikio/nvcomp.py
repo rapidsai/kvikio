@@ -38,6 +38,17 @@ def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
 
 
 class nvCompManager:
+    """Base class for nvComp Compression Managers.
+
+    Compression managers compress uncompressed data and decompress the result.
+
+    Child types of nvCompManager implement only their constructor, as they each
+    take different options to build. The rest of their implementation is
+    in nvCompManager.
+
+    nvCompManager also keeps all of the options for its child types.
+    """
+
     _manager: _lib._nvcompManager = None
     config: dict = {}
     decompression_config: dict = {}
@@ -58,12 +69,14 @@ class nvCompManager:
     device_id: int = 0
 
     def __init__(self, kwargs):
-        #
-        # This code does type correction, fixing inputs to have an expected
-        # shape before calling one of the nvCompManager methods on a child
-        # class.
-        #
-        # Special case: Convert data_type to a _lib.pyNvcompType_t
+        """Stores the results of all input arguments as class members.
+
+        This code does type correction, fixing inputs to have an expected
+        shape before calling one of the nvCompManager methods on a child
+        class.
+
+        Special case: Convert data_type to a _lib.pyNvcompType_t
+        """
         if kwargs.get("data_type"):
             if not isinstance(kwargs["data_type"], _lib.pyNvcompType_t):
                 kwargs["input_type"] = kwargs.get("data_type")
@@ -83,6 +96,11 @@ class nvCompManager:
     def compress(self, data: cp.ndarray) -> cp.ndarray:
         """Compress a buffer.
 
+        Parameters
+        ----------
+        data: cp.ndarray
+            A GPU buffer of data to compress.
+
         Returns
         -------
         cp.ndarray
@@ -100,6 +118,11 @@ class nvCompManager:
 
     def decompress(self, data: cp.ndarray) -> cp.ndarray:
         """Decompress a GPU buffer.
+
+        Parameters
+        ----------
+        data: cp.ndarray
+            A GPU buffer of data to decompress.
 
         Returns
         -------
@@ -119,11 +142,17 @@ class nvCompManager:
     def configure_compression(self, data_size: int) -> dict:
         """Return the compression configuration object.
 
+        Parameters
+        ----------
+        data_size: int
+            The size of the buffer that is staged to be compressed.
+
         Returns
         -------
         dict {
             "uncompressed_buffer_size": The size of the input data
-            "max_compressed_buffer_size": The maximum size of the compressed data
+            "max_compressed_buffer_size": The maximum size of the compressed data. The
+                size of the buffer that must be allocated before calling compress.
             "num_chunks": The number of configured chunks to compress the data over
         }
         """
@@ -133,6 +162,11 @@ class nvCompManager:
         self, data: cp.ndarray
     ) -> cp.ndarray:
         """Return the decompression configuration object.
+
+        Parameters
+        ----------
+        data: cp.ndarray
+            A GPU buffer of previously compressed data.
 
         Returns
         -------
@@ -144,6 +178,15 @@ class nvCompManager:
         return self._manager.configure_decompression_with_compressed_buffer(
             data
         )
+
+    def get_required_scratch_buffer_size(self) -> int:
+        """Return the size of the optional scratch buffer.
+
+        Returns
+        -------
+        int
+        """
+        return self._manager.get_required_scratch_buffer_size()
 
     def set_scratch_buffer(self, new_scratch_buffer: cp.ndarray) -> None:
         """Use a pre-allocated buffer for compression.
@@ -167,11 +210,21 @@ class nvCompManager:
         print(self, new_scratch_buffer)
         return self._manager.set_scratch_buffer(new_scratch_buffer)
 
-    def get_required_scratch_buffer_size(self) -> int:
-        """Return the size of the necessary scratch buffer."""
-        return self._manager.get_required_scratch_buffer_size()
-
     def get_compressed_output_size(self, comp_buffer: cp.ndarray) -> int:
+        """Return the actual size of compression result.
+
+        Returns the number of bytes that should be copied out of
+        `comp_buffer`.
+
+        Parameters
+        ----------
+        comp_buffer: cp.ndarray
+            A GPU buffer that has been previously compressed.
+
+        Returns
+        -------
+        int
+        """
         return self._manager.get_compressed_output_size(comp_buffer)
 
 
@@ -225,11 +278,14 @@ class CascadedManager(nvCompManager):
         dtype: cp.dtype
             The dtype of the input buffer to be compressed.
         num_RLEs: int
-            Number of Run-Length Encoders to use, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#run-length-encoding-rle)  # noqa: E501
+            Number of Run-Length Encoders to use, see [algorithms overview.md](
+                https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#run-length-encoding-rle)  # noqa: E501
         num_deltas: int
-            Number of Delta Encoders to use, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#delta-encoding)  # noqa: E501
+            Number of Delta Encoders to use, see [algorithms overview.md](
+                https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#delta-encoding)  # noqa: E501
         use_bp: bool
-            Enable Bitpacking, see [algorithms overview.md](https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#bitpacking)  # noqa: E501
+            Enable Bitpacking, see [algorithms overview.md](
+                https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#bitpacking)  # noqa: E501
         """
         super().__init__(kwargs)
         default_options = {
