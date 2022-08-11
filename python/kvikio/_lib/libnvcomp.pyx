@@ -32,7 +32,7 @@ from libcpp.utility cimport move
 from libcpp cimport bool, nullptr
 
 from kvikio._lib.arr cimport Array
-from kvikio._lib.nvcomp_cxx_api cimport (
+from kvikio._lib.nvcomp_cxx_api cimport(
     cudaStream_t,
     nvcompType_t,
     nvcompStatus_t,
@@ -74,6 +74,7 @@ class pyNvcompType_t(Enum):
     pyNVCOMP_TYPE_ULONGLONG = nvcompType_t.NVCOMP_TYPE_ULONGLONG
     pyNVCOMP_TYPE_BITS = nvcompType_t.NVCOMP_TYPE_BITS
 
+
 cdef class _nvcompManager:
     cdef nvcompManagerBase* _impl
     cdef shared_ptr[CompressionConfig] _compression_config
@@ -83,10 +84,16 @@ cdef class _nvcompManager:
         cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
             self._impl.configure_compression(decomp_buffer_size)
         )
-        self._compression_config = make_shared[CompressionConfig]((move(partial.get()[0])))
+        self._compression_config = make_shared[CompressionConfig](
+            (move(partial.get()[0]))
+        )
         return {
-            "uncompressed_buffer_size": self._compression_config.get()[0].uncompressed_buffer_size,
-            "max_compressed_buffer_size": self._compression_config.get()[0].max_compressed_buffer_size,
+            "uncompressed_buffer_size": self._compression_config.get()[
+                0
+            ].uncompressed_buffer_size,
+            "max_compressed_buffer_size": self._compression_config.get()[
+                0
+            ].max_compressed_buffer_size,
             "num_chunks": self._compression_config.get()[0].num_chunks
         }
 
@@ -96,7 +103,9 @@ cdef class _nvcompManager:
             <uint8_t*><size_t>comp_buffer.data.ptr,
             <CompressionConfig&>self._compression_config.get()[0]
         )
-        size = self._impl.get_compressed_output_size(<uint8_t*><size_t>comp_buffer.data.ptr)
+        size = self._impl.get_compressed_output_size(
+            <uint8_t*><size_t>comp_buffer.data.ptr
+        )
         return size
 
     def configure_decompression_with_compressed_buffer(
@@ -106,15 +115,17 @@ cdef class _nvcompManager:
         cdef shared_ptr[DecompressionConfig] partial = make_shared[DecompressionConfig](
             self._impl.configure_decompression(<uint8_t*><size_t>comp_buffer.data.ptr)
         )
-        self._decompression_config = make_shared[DecompressionConfig]((move(partial.get()[0])))
+        self._decompression_config = make_shared[DecompressionConfig](
+            (move(partial.get()[0]))
+        )
         return {
             "decomp_data_size": self._decompression_config.get()[0].decomp_data_size,
             "num_chunks": self._decompression_config.get()[0].num_chunks
         }
-    
+
     def decompress(
         self,
-        decomp_buffer, 
+        decomp_buffer,
         comp_buffer,
     ):
         self._impl.decompress(
@@ -124,17 +135,22 @@ cdef class _nvcompManager:
         )
 
     def set_scratch_buffer(self, new_scratch_buffer):
-        return self._impl.set_scratch_buffer(<uint8_t*><size_t>new_scratch_buffer.data.ptr)
+        return self._impl.set_scratch_buffer(
+            <uint8_t*><size_t>new_scratch_buffer.data.ptr
+        )
 
     def get_required_scratch_buffer_size(self):
         return self._impl.get_required_scratch_buffer_size()
 
     def get_compressed_output_size(self, comp_buffer):
-        return self._impl.get_compressed_output_size(<uint8_t*><size_t>comp_buffer.data.ptr)
+        return self._impl.get_compressed_output_size(
+            <uint8_t*><size_t>comp_buffer.data.ptr
+        )
 
 
 cdef class _LZ4Manager(_nvcompManager):
-    def __cinit__(self,
+    def __cinit__(
+        self,
         size_t uncomp_chunk_size,
         nvcompType_t data_type,
         user_stream,
@@ -155,7 +171,8 @@ cdef class _LZ4Manager(_nvcompManager):
 
 
 cdef class _SnappyManager(_nvcompManager):
-    def __cinit__(self,
+    def __cinit__(
+        self,
         size_t uncomp_chunk_size,
         user_stream,
         const int device_id,
@@ -183,6 +200,7 @@ cdef class _CascadedManager(_nvcompManager):
             <cudaStream_t><void*>0,  # TODO
             device_id,
         )
+
 
 class _LibSnappyCompressor:
     def _get_decompress_temp_size(

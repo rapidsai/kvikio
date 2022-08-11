@@ -30,15 +30,15 @@ cdef extern from "cuda_runtime.h":
 
 cdef extern from "nvcomp.h":
     ctypedef enum nvcompType_t:
-        NVCOMP_TYPE_CHAR = 0,      # 1B
-        NVCOMP_TYPE_UCHAR = 1,     # 1B
-        NVCOMP_TYPE_SHORT = 2,     # 2B
-        NVCOMP_TYPE_USHORT = 3,    # 2B
-        NVCOMP_TYPE_INT = 4,       # 4B
-        NVCOMP_TYPE_UINT = 5,      # 4B
-        NVCOMP_TYPE_LONGLONG = 6,  # 8B
-        NVCOMP_TYPE_ULONGLONG = 7, # 8B
-        NVCOMP_TYPE_BITS = 0xff    # 1b
+        NVCOMP_TYPE_CHAR = 0,       # 1B
+        NVCOMP_TYPE_UCHAR = 1,      # 1B
+        NVCOMP_TYPE_SHORT = 2,      # 2B
+        NVCOMP_TYPE_USHORT = 3,     # 2B
+        NVCOMP_TYPE_INT = 4,        # 4B
+        NVCOMP_TYPE_UINT = 5,       # 4B
+        NVCOMP_TYPE_LONGLONG = 6,   # 8B
+        NVCOMP_TYPE_ULONGLONG = 7,  # 8B
+        NVCOMP_TYPE_BITS = 0xff     # 1b
 
 
 cdef extern from "nvcomp/shared_types.h":
@@ -66,39 +66,39 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         pass
 
     cdef cppclass CompressionConfig "nvcomp::CompressionConfig":
-        const size_t uncompressed_buffer_size 
-        const size_t max_compressed_buffer_size 
-        const size_t num_chunks 
+        const size_t uncompressed_buffer_size
+        const size_t max_compressed_buffer_size
+        const size_t num_chunks
         CompressionConfig(
             PinnedPtrPool[nvcompStatus_t]* pool,
             size_t uncompressed_buffer_size) except +
         nvcompStatus_t* get_status() const
-        CompressionConfig (CompressionConfig& other)
-        CompressionConfig& operator= (CompressionConfig&& other) except +
-        CompressionConfig& operator= (const CompressionConfig& other) except +
+        CompressionConfig(CompressionConfig& other)
+        CompressionConfig& operator=(CompressionConfig&& other) except +
+        CompressionConfig& operator=(const CompressionConfig& other) except +
 
     cdef cppclass DecompressionConfig "nvcomp::DecompressionConfig":
         size_t decomp_data_size
         uint32_t num_chunks
-        DecompressionConfig(PinnedPtrPool[nvcompStatus_t]& pool) except + 
+        DecompressionConfig(PinnedPtrPool[nvcompStatus_t]& pool) except +
         nvcompStatus_t* get_status() const
         DecompressionConfig(DecompressionConfig& other)
-        DecompressionConfig& operator=(DecompressionConfig&& other) except + 
-        DecompressionConfig& operator=(const DecompressionConfig& other) except + 
+        DecompressionConfig& operator=(DecompressionConfig&& other) except +
+        DecompressionConfig& operator=(const DecompressionConfig& other) except +
 
     cdef cppclass nvcompManagerBase "nvcomp::nvcompManagerBase":
-        CompressionConfig configure_compression (
+        CompressionConfig configure_compression(
             const size_t decomp_buffer_size)
         void compress(
-            const uint8_t* decomp_buffer, 
+            const uint8_t* decomp_buffer,
             uint8_t* comp_buffer,
             const CompressionConfig& comp_config) except +
-        DecompressionConfig configure_decompression (
+        DecompressionConfig configure_decompression(
             const uint8_t* comp_buffer)
-        DecompressionConfig configure_decompression (
+        DecompressionConfig configure_decompression(
             const CompressionConfig& comp_config)
         void decompress(
-            uint8_t* decomp_buffer, 
+            uint8_t* decomp_buffer,
             const uint8_t* comp_buffer,
             const DecompressionConfig& decomp_config)
         void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
@@ -106,18 +106,18 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
     cdef cppclass PimplManager "nvcomp::PimplManager":
-        CompressionConfig configure_compression (
+        CompressionConfig configure_compression(
             const size_t decomp_buffer_size) except +
         void compress(
-            const uint8_t* decomp_buffer, 
+            const uint8_t* decomp_buffer,
             uint8_t* comp_buffer,
             const CompressionConfig& comp_config) except +
-        DecompressionConfig configure_decompression (
+        DecompressionConfig configure_decompression(
             const uint8_t* comp_buffer) except +
-        DecompressionConfig configure_decompression (
+        DecompressionConfig configure_decompression(
             const CompressionConfig& comp_config) except +
         void decompress(
-            uint8_t* decomp_buffer, 
+            uint8_t* decomp_buffer,
             const uint8_t* comp_buffer,
             const DecompressionConfig& decomp_config) except +
         void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
@@ -127,7 +127,7 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
 # C++ Concrete Bitcomp Manager
 cdef extern from "nvcomp/bitcomp.hpp":
     cdef cppclass BitcompManager "nvcomp::BitcompManager":
-        BitcompManager (
+        BitcompManager(
             size_t uncomp_chunk_size,
             nvcompType_t data_type,
             cudaStream_t user_stream,
@@ -137,7 +137,7 @@ cdef extern from "nvcomp/bitcomp.hpp":
 # C++ Concrete LZ4 Manager
 cdef extern from "nvcomp/lz4.hpp":
     cdef cppclass LZ4Manager "nvcomp::LZ4Manager":
-        LZ4Manager (
+        LZ4Manager(
             size_t uncomp_chunk_size,
             nvcompType_t data_type,
             cudaStream_t user_stream,
@@ -147,7 +147,7 @@ cdef extern from "nvcomp/lz4.hpp":
 # C++ Concrete Snappy Manager
 cdef extern from "nvcomp/lz4.hpp":
     cdef cppclass SnappyManager "nvcomp::SnappyManager":
-        SnappyManager (
+        SnappyManager(
             size_t uncomp_chunk_size,
             cudaStream_t user_stream,
             const int device_id
@@ -161,9 +161,9 @@ cdef extern from "nvcomp/cascaded.h" nogil:
         int use_bp
     cdef nvcompBatchedCascadedOpts_t nvcompBatchedCascadedDefaultOpts
 
-cdef extern from "nvcomp/cascaded.hpp" nogil:    
+cdef extern from "nvcomp/cascaded.hpp" nogil:
     cdef cppclass CascadedManager "nvcomp::CascadedManager":
-        CascadedManager (
+        CascadedManager(
             const nvcompBatchedCascadedOpts_t& options,
             cudaStream_t user_stream,
             int device_id
@@ -249,7 +249,11 @@ cdef extern from "nvcomp/lz4.h" nogil:
         size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes)
 
     cdef nvcompStatus_t nvcompBatchedLZ4DecompressGetTempSizeEx(
-        size_t num_chunks, size_t max_uncompressed_chunk_bytes, size_t* temp_bytes, size_t max_uncompressed_total_size )
+        size_t num_chunks,
+        size_t max_uncompressed_chunk_bytes,
+        size_t* temp_bytes,
+        size_t max_uncompressed_total_size
+    )
 
     cdef nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
         const void* const* device_compressed_ptrs,
