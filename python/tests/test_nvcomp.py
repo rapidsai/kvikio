@@ -165,6 +165,7 @@ def test_cascaded_compress_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.CascadedManager(**inputs)
     final = compressor.compress(data)
+    assert len(final) == 624
 
 
 @pytest.mark.parametrize(
@@ -235,7 +236,7 @@ def test_get_compression_config_with_default_options(compressor_size):
         ],
     ),
 )
-def test_get_compression_config_with_default_options(compressor_size):
+def test_get_decompression_config_with_default_options(compressor_size):
     compressor = compressor_size[0]
     expected = compressor_size[1]
     length = 10000
@@ -272,12 +273,11 @@ def test_set_scratch_buffer(compressor):
         )
     )
     compressor_instance = compressor()
-    config = compressor_instance.configure_compression(len(data))
+    compressor_instance.configure_compression(len(data))
     buffer_size = compressor_instance.get_required_scratch_buffer_size()
     buffer = cupy.zeros(buffer_size, dtype="int8")
     compressor_instance.set_scratch_buffer(buffer)
-    compressed = compressor_instance.compress(data)
-    decompressed = compressor_instance.decompress(compressed)
+    compressor_instance.compress(data)
     assert buffer[0] != 0
 
 
@@ -305,7 +305,7 @@ def test_get_required_scratch_buffer_size(compressor_size):
         )
     )
     compressor_instance = compressor()
-    config = compressor_instance.configure_compression(len(data))
+    compressor_instance.configure_compression(len(data))
     buffer_size = compressor_instance.get_required_scratch_buffer_size()
     assert buffer_size == expected
 
@@ -336,5 +336,4 @@ def test_get_compressed_output_size(compressor_size):
     compressor_instance = compressor()
     compressed = compressor_instance.compress(data)
     buffer_size = compressor_instance.get_compressed_output_size(compressed)
-    decompressed = compressor_instance.decompress(compressed)
     assert buffer_size == expected

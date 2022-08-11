@@ -111,7 +111,7 @@ cdef class _nvcompManager:
             "decomp_data_size": self._decompression_config.get()[0].decomp_data_size,
             "num_chunks": self._decompression_config.get()[0].num_chunks
         }
-
+    
     def decompress(
         self,
         decomp_buffer, 
