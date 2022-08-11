@@ -36,7 +36,7 @@ For testing:
 
 ### Conda 
 
-Install the stable releease from the `rapidsai` channel like:
+Install the stable release from the `rapidsai` channel like:
 ```
 conda create -n kvikio_env -c rapidsai -c conda-forge kvikio
 ```
@@ -45,6 +45,8 @@ Install the `kvikio` conda package from the `rapidsai-nightly` channel like:
 ```
 conda create -n kvikio_env -c rapidsai-nightly -c conda-forge python=3.8 cudatoolkit=11.5 kvikio
 ```
+
+If the nightly install doesn't work, set `channel_priority: flexible` in your `.condarc`.
 
 ### C++ (build from source)
 To build the C++ example, go to the `cpp` subdiretory and run:
