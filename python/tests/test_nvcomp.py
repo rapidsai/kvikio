@@ -11,50 +11,8 @@ libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
 
 @pytest.mark.parametrize(
-    "inputs",
-    [
-        {},
-        {
-            "chunk_size": 1 << 16,
-            "data_type": np.uint8,
-            "stream": cupy.cuda.Stream(),
-            "device_id": 0,
-        },
-        {
-            "chunk_size": 1 << 16,
-        },
-        {
-            "data_type": np.uint8,
-        },
-        {
-            "stream": cupy.cuda.Stream(),
-        },
-        {
-            "device_id": 0,
-        },
-    ],
-)
-def test_lz4_compress_base(inputs):
-    size = 10000
-    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
-    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
-    compressor = libnvcomp.LZ4Manager(**inputs)
-    final = compressor.compress(data)
-    assert len(final) == 401
-
-
-def test_lz4_decompress_base():
-    size = 10000
-    dtype = cupy.int8
-    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
-    compressor = libnvcomp.LZ4Manager()
-    compressed = compressor.compress(data)
-    decompressed = compressor.decompress(compressed)
-    assert (data == decompressed).all()
-
-
-@pytest.mark.parametrize(
-    "compressor", [libnvcomp.LZ4Manager, libnvcomp.CascadedManager]
+    "compressor",
+    [libnvcomp.LZ4Manager, libnvcomp.CascadedManager, libnvcomp.SnappyManager],
 )
 @pytest.mark.parametrize(
     "dtype",
@@ -85,6 +43,69 @@ def test_round_trip_dtypes(compressor, dtype):
 @pytest.mark.parametrize(
     "inputs",
     [
+        {},
+        {
+            "chunk_size": 1 << 16,
+            "data_type": np.uint8,
+            "stream": cupy.cuda.Stream(),
+            "device_id": 0,
+        },
+        {
+            "chunk_size": 1 << 16,
+        },
+        {
+            "data_type": np.uint8,
+        },
+        {
+            "stream": cupy.cuda.Stream(),
+        },
+        {
+            "device_id": 0,
+        },
+    ],
+)
+def test_lz4_compress_inputs(inputs):
+    size = 10000
+    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.LZ4Manager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == 401
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {},
+        {
+            "chunk_size": 1 << 16,
+            "stream": cupy.cuda.Stream(),
+            "device_id": 0,
+        },
+        {
+            "chunk_size": 1 << 16,
+        },
+        {
+            "stream": cupy.cuda.Stream(),
+        },
+        {
+            "device_id": 0,
+        },
+    ],
+)
+def test_snappy_compress_inputs(inputs):
+    size = 10000
+    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.SnappyManager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == 3556
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {},
         {
             "options": {
                 "chunk_size": 1 << 12,
@@ -138,7 +159,7 @@ def test_round_trip_dtypes(compressor, dtype):
         },
     ],
 )
-def test_cascaded_compress_base(inputs):
+def test_cascaded_compress_inputs(inputs):
     size = 10000
     dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))

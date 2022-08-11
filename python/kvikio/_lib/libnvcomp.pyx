@@ -44,6 +44,7 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     nvcompBatchedSnappyOpts_t,
     nvcompManagerBase,
     LZ4Manager,
+    SnappyManager,
     CascadedManager,
     CompressionConfig,
     DecompressionConfig,
@@ -141,7 +142,6 @@ cdef class _LZ4Manager(_nvcompManager):
     ):
         # print a pointer
         # print("{0:x}".format(<unsigned long>), var)
-
         # TODO: Doesn't work with user specified streams passed down
         # from anywhere up. I'm not going to rabbit hole on it until
         # everything else works.
@@ -149,6 +149,24 @@ cdef class _LZ4Manager(_nvcompManager):
         self._impl = <nvcompManagerBase*>new LZ4Manager(
             uncomp_chunk_size,
             <nvcompType_t>data_type,
+            <cudaStream_t><void*>0,  # TODO
+            device_id
+        )
+
+
+cdef class _SnappyManager(_nvcompManager):
+    def __cinit__(self,
+        size_t uncomp_chunk_size,
+        user_stream,
+        const int device_id,
+    ):
+        # print a pointer
+        # print("{0:x}".format(<unsigned long>), var)
+        # TODO: Doesn't work with user specified streams passed down
+        # from anywhere up. I'm not going to rabbit hole on it until
+        # everything else works.
+        self._impl = <nvcompManagerBase*>new SnappyManager(
+            uncomp_chunk_size,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )

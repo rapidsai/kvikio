@@ -137,6 +137,26 @@ class LZ4Manager(nvCompManager):
         )
 
 
+class SnappyManager(nvCompManager):
+    def __init__(self, **kwargs):
+        """Create a GPU SnappyCompressor object.
+
+        Used to compress and decompress GPU buffers.
+
+        Parameters
+        ----------
+        chunk_size: int (optional)
+        stream: cudaStream_t (optional)
+            Which CUDA stream to perform the operation on
+        device_id: int (optional)
+            Specify which device_id on the node to use
+        """
+        super().__init__(kwargs)
+        self._manager = _lib._SnappyManager(
+            self.chunk_size, self.stream, self.device_id
+        )
+
+
 class CascadedManager(nvCompManager):
     def __init__(self, **kwargs):
         """Initialize a CascadedManager for a specific dtype.

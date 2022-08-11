@@ -144,7 +144,16 @@ cdef extern from "nvcomp/lz4.hpp":
             const int device_id
         ) except +
 
-# Cascaded Compressor
+# C++ Concrete Snappy Manager
+cdef extern from "nvcomp/lz4.hpp":
+    cdef cppclass SnappyManager "nvcomp::SnappyManager":
+        SnappyManager (
+            size_t uncomp_chunk_size,
+            cudaStream_t user_stream,
+            const int device_id
+        ) except +
+
+# C++ Concrete Cascaded Manager
 cdef extern from "nvcomp/cascaded.h" nogil:
     ctypedef struct nvcompBatchedCascadedOpts_t:
         int num_RLEs
