@@ -39,7 +39,8 @@ def cp_to_nvcomp_dtype(in_type: cp.dtype) -> Enum:
 
 class nvCompManager:
     _manager: _lib._nvcompManager = None
-    _config: dict = {}
+    config: dict = {}
+    decompression_config: dict = {}
 
     # This is a python option: What type was the data when it was passed in?
     # This is used only for returning a decompressed view of the original
@@ -90,9 +91,9 @@ class nvCompManager:
         # TODO: An option: check if incoming data size matches the size of the
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
-        self._config = self._manager.configure_compression(data_size)
+        self.config = self._manager.configure_compression(data_size)
         self.compress_out_buffer = cp.zeros(
-            self._config["max_compressed_buffer_size"], dtype="uint8"
+            self.config["max_compressed_buffer_size"], dtype="uint8"
         )
         size = self._manager.compress(data, self.compress_out_buffer)
         return self.compress_out_buffer[0:size]
@@ -106,14 +107,72 @@ class nvCompManager:
             An array of `self.dtype` produced after decompressing the input argument.
         """
         # TODO: logic to reuse temp buffer if it is large enough
-        self._decompression_config = (
+        self.decompression_config = (
             self._manager.configure_decompression_with_compressed_buffer(data)
         )
         decomp_buffer = cp.zeros(
-            self._decompression_config["decomp_data_size"], dtype="uint8"
+            self.decompression_config["decomp_data_size"], dtype="uint8"
         )
         self._manager.decompress(decomp_buffer, data)
         return decomp_buffer.view(self.input_type)
+
+    def configure_compression(self, data_size: int) -> dict:
+        """Return the compression configuration object.
+
+        Returns
+        -------
+        dict {
+            "uncompressed_buffer_size": The size of the input data
+            "max_compressed_buffer_size": The maximum size of the compressed data
+            "num_chunks": The number of configured chunks to compress the data over
+        }
+        """
+        return self._manager.configure_compression(data_size)
+
+    def configure_decompression_with_compressed_buffer(
+        self, data: cp.ndarray
+    ) -> cp.ndarray:
+        """Return the decompression configuration object.
+
+        Returns
+        -------
+        dict {
+            "decomp_data_size": The size of each decompression chunk.
+            "num_chunks": The number of chunks that the decompressed data is returned in.
+        }
+        """
+        return self._manager.configure_decompression_with_compressed_buffer(
+            data
+        )
+
+    def set_scratch_buffer(self, new_scratch_buffer: cp.ndarray) -> None:
+        """Use a pre-allocated buffer for compression.
+
+        Use a GPU-allocated buffer that will be used for compression
+        temporary storage instead of allowing the library to create the
+        scratch buffer.
+        Can reduce memory usage.
+
+        Parameters
+        ----------
+        new_scratch_buffer
+        The buffer that you allocated on the GPU for compressor temporary
+        storage.
+
+        Returns
+        -------
+        cp.ndarray
+        """
+        print("set_scratch_buffer")
+        print(self, new_scratch_buffer)
+        return self._manager.set_scratch_buffer(new_scratch_buffer)
+
+    def get_required_scratch_buffer_size(self) -> int:
+        """Return the size of the necessary scratch buffer."""
+        return self._manager.get_required_scratch_buffer_size()
+
+    def get_compressed_output_size(self, comp_buffer: cp.ndarray) -> int:
+        return self._manager.get_compressed_output_size(comp_buffer)
 
 
 class LZ4Manager(nvCompManager):

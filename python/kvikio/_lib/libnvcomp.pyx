@@ -123,14 +123,14 @@ cdef class _nvcompManager:
             <DecompressionConfig&>self._decompression_config.get()[0]
         )
 
-    cdef set_scratch_buffer(self, uint8_t* new_scratch_buffer):
-        return self._impl.set_scratch_buffer(new_scratch_buffer)
+    def set_scratch_buffer(self, new_scratch_buffer):
+        return self._impl.set_scratch_buffer(<uint8_t*><size_t>new_scratch_buffer.data.ptr)
 
-    cdef get_required_scratch_buffer_size(self):
+    def get_required_scratch_buffer_size(self):
         return self._impl.get_required_scratch_buffer_size()
 
-    cdef get_compressed_output_size(self, uint8_t* comp_buffer):
-        return self._impl.get_compressed_output_size(comp_buffer)
+    def get_compressed_output_size(self, comp_buffer):
+        return self._impl.get_compressed_output_size(<uint8_t*><size_t>comp_buffer.data.ptr)
 
 
 cdef class _LZ4Manager(_nvcompManager):
