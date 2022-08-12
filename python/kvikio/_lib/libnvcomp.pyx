@@ -100,16 +100,12 @@ cdef class _nvcompManager:
         self,
         comp_buffer
     ) -> dict:
-        print(".pyx configure_decompression_with_compressed_buffer")
-        print(comp_buffer)
         cdef shared_ptr[DecompressionConfig] partial = make_shared[DecompressionConfig](
             self._impl.configure_decompression(<uint8_t*><size_t>comp_buffer.data.ptr)
         )
-        print("This unformed nvcompManager has an issue.")
         self._decompression_config = make_shared[DecompressionConfig](
             (move(partial.get()[0]))
         )
-        print("Only returning breaks it because it is the wrong type?")
         return {
             "decomp_data_size": self._decompression_config.get()[0].decomp_data_size,
             "num_chunks": self._decompression_config.get()[0].num_chunks
@@ -193,14 +189,8 @@ cdef class _CascadedManager(_nvcompManager):
 
 cdef class _ManagedManager(_nvcompManager):
     def __init__(self, compressed_buffer):
-        print("_ManageManag __init__")
-        print(compressed_buffer)
         cdef shared_ptr[nvcompManagerBase] _mgr = create_manager(
             <uint8_t*><size_t>compressed_buffer.data.ptr
         )
         self._mgr = _mgr
         self._impl = move(_mgr).get()
-        print('going to try to configure decompression')
-        self.configure_decompression_with_compressed_buffer(
-            compressed_buffer
-        )

@@ -175,7 +175,9 @@ class nvCompManager:
             in.
         }
         """
-        self._manager.configure_decompression_with_compressed_buffer(data)
+        return self._manager.configure_decompression_with_compressed_buffer(
+            data
+        )
 
     def get_required_scratch_buffer_size(self) -> int:
         """Return the size of the optional scratch buffer.
