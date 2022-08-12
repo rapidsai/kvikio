@@ -167,3 +167,12 @@ cdef extern from "nvcomp/cascaded.hpp" nogil:
             cudaStream_t user_stream,
             int device_id
         )
+
+# C++ Concrete Snappy Manager
+cdef extern from "nvcomp/ans.hpp":
+    cdef cppclass ANSManager "nvcomp::ANSManager":
+        ANSManager(
+            size_t uncomp_chunk_size,
+            cudaStream_t user_stream,
+            const int device_id
+        ) except +

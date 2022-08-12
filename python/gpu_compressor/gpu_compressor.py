@@ -74,27 +74,57 @@ if __name__ == "__main__":
         print(f"Decompressing {file_size} bytes") if args.verbose else None
         t = time.time()
         converted = compressor.decompress(data)
+        decompress_time = time.time() - t
+        print(
+            f"Decompression time: {decompress_time:.3} seconds"
+        ) if args.verbose else None
+
         if not args.out_file:
             raise ValueError(
                 "Must specify filename with -o for decompression."
             )
+
+        t = time.time()
         o = kvikio.CuFile(args.out_file, "w")
         o.write(converted)
         o.close()
+        io_time = time.time() - t
+        print(
+            f"File writing time: {io_time:.3} seconds"
+        ) if args.verbose else None
 
         print(
             f"Decompressed file size {os.path.getsize(args.out_file)}"
         ) if args.verbose else None
     else:
         file_size = os.path.getsize(args.filename)
+
         print(f"Compressing {file_size} bytes") if args.verbose else None
+        t = time.time()
         converted = compressor.compress(data)
+        compress_time = time.time() - t
+        print(
+            f"Compression time: {compress_time:.3} seconds"
+        ) if args.verbose else None
+
+        t = time.time()
         if args.out_file:
             o = kvikio.CuFile(args.out_file, "w")
         else:
             o = kvikio.CuFile(args.filename + ".gpc", "w")
         o.write(converted)
         o.close()
+        io_time = time.time() - t
+        print(
+            f"File writing time: {io_time:.3} seconds"
+        ) if args.verbose else None
+
         print(
             f"Compressed file size {compressor.get_compressed_output_size(converted)}"
         ) if args.verbose else None
+
+    if args.out_file:
+        end_name = args.out_file
+    else:
+        end_name = args.filename + ".gpc"
+    print(f"Created file {end_name}") if args.verbose else None

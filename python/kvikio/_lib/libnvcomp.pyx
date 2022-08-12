@@ -38,11 +38,12 @@ from kvikio._lib.nvcomp_cxx_api cimport(
     nvcompStatus_t,
     nvcompManagerBase,
     create_manager,
-    LZ4Manager,
-    SnappyManager,
     CompressionConfig,
     DecompressionConfig,
+    ANSManager,
     CascadedManager,
+    LZ4Manager,
+    SnappyManager,
     nvcompBatchedCascadedOpts_t,
     nvcompBatchedCascadedDefaultOpts,
 
@@ -186,6 +187,20 @@ cdef class _CascadedManager(_nvcompManager):
             <cudaStream_t><void*>0,  # TODO
             device_id,
         )
+
+cdef class _ANSManager(_nvcompManager):
+    def __cinit__(
+        self,
+        size_t uncomp_chunk_size,
+        user_stream,
+        const int device_id,
+    ):
+        self._impl = <nvcompManagerBase*>new ANSManager(
+            uncomp_chunk_size,
+            <cudaStream_t><void*>0,  # TODO
+            device_id
+        )
+
 
 cdef class _ManagedManager(_nvcompManager):
     def __init__(self, compressed_buffer):

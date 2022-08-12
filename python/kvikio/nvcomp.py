@@ -2,6 +2,7 @@
 # See file LICENSE for terms.
 
 from enum import Enum
+from http.client import UnimplementedFileMode
 
 import cupy as cp
 import numpy as np
@@ -226,44 +227,15 @@ class nvCompManager:
         return self._manager.get_compressed_output_size(comp_buffer)
 
 
-class LZ4Manager(nvCompManager):
+class ANSManager(nvCompManager):
     def __init__(self, **kwargs):
-        """Create a GPU LZ4Compressor object.
-
-        Used to compress and decompress GPU buffers of a specific dtype.
-
-        Parameters
-        ----------
-        chunk_size: int
-        data_type: pyNVCOMP_TYPE
-        stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on
-        device_id: int (optional)
-            Specify which device_id on the node to use
-        """
-        super().__init__(kwargs)
-        self._manager = _lib._LZ4Manager(
-            self.chunk_size, self.data_type.value, self.stream, self.device_id
-        )
+        raise NotImplementedError("ANSManager is not supported yet in python.")
 
 
-class SnappyManager(nvCompManager):
+class BitcompManager(nvCompManager):
     def __init__(self, **kwargs):
-        """Create a GPU SnappyCompressor object.
-
-        Used to compress and decompress GPU buffers.
-
-        Parameters
-        ----------
-        chunk_size: int (optional)
-        stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on
-        device_id: int (optional)
-            Specify which device_id on the node to use
-        """
-        super().__init__(kwargs)
-        self._manager = _lib._SnappyManager(
-            self.chunk_size, self.stream, self.device_id
+        raise NotImplementedError(
+            "BitcompManager is not supported yet in python."
         )
 
 
@@ -309,6 +281,54 @@ class CascadedManager(nvCompManager):
         }
         self._manager = _lib._CascadedManager(
             default_options, self.stream, self.device_id
+        )
+
+
+class GDeflateManager(nvCompManager):
+    def __init__(self, **kwargs):
+        raise NotImplementedError(
+            "GDeflateManager is not supported yet in python."
+        )
+
+
+class LZ4Manager(nvCompManager):
+    def __init__(self, **kwargs):
+        """Create a GPU LZ4Compressor object.
+
+        Used to compress and decompress GPU buffers of a specific dtype.
+
+        Parameters
+        ----------
+        chunk_size: int
+        data_type: pyNVCOMP_TYPE
+        stream: cudaStream_t (optional)
+            Which CUDA stream to perform the operation on
+        device_id: int (optional)
+            Specify which device_id on the node to use
+        """
+        super().__init__(kwargs)
+        self._manager = _lib._LZ4Manager(
+            self.chunk_size, self.data_type.value, self.stream, self.device_id
+        )
+
+
+class SnappyManager(nvCompManager):
+    def __init__(self, **kwargs):
+        """Create a GPU SnappyCompressor object.
+
+        Used to compress and decompress GPU buffers.
+
+        Parameters
+        ----------
+        chunk_size: int (optional)
+        stream: cudaStream_t (optional)
+            Which CUDA stream to perform the operation on
+        device_id: int (optional)
+            Specify which device_id on the node to use
+        """
+        super().__init__(kwargs)
+        self._manager = _lib._SnappyManager(
+            self.chunk_size, self.stream, self.device_id
         )
 
 

@@ -12,7 +12,11 @@ libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
 @pytest.mark.parametrize(
     "compressor",
-    [libnvcomp.LZ4Manager, libnvcomp.CascadedManager, libnvcomp.SnappyManager],
+    [
+        libnvcomp.LZ4Manager,
+        libnvcomp.CascadedManager,
+        libnvcomp.SnappyManager,
+    ],
 )
 @pytest.mark.parametrize(
     "dtype",
