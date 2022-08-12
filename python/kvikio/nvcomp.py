@@ -129,7 +129,6 @@ class nvCompManager:
         cp.ndarray
             An array of `self.dtype` produced after decompressing the input argument.
         """
-        breakpoint()
         self.decompression_config = (
             self._manager.configure_decompression_with_compressed_buffer(data)
         )

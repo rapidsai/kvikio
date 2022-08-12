@@ -358,13 +358,8 @@ def test_managed_manager(compressor):
             dtype=dtype,
         )
     )
-    print("compressing manager")
     compressor_instance = compressor()
     compressed = compressor_instance.compress(data)
-    print("making manager")
-    print(len(compressed))
     manager = libnvcomp.ManagedDecompressionManager(compressed)
-    print("made manager")
-    manager.decompress(compressed)
-    print("decompressed with manager")
-    assert decompressed_size == 10000
+    decompressed = manager.decompress(compressed)
+    assert len(decompressed) == 10000

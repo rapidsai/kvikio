@@ -27,7 +27,7 @@ import cupy as cp
 import cython
 from cython.operator cimport dereference
 from libc.stdint cimport uintptr_t, uint8_t, int32_t
-from libcpp.memory cimport shared_ptr, make_shared, make_unique
+from libcpp.memory cimport shared_ptr, make_shared
 from libcpp.utility cimport move
 from libcpp cimport bool, nullptr
 
@@ -62,13 +62,11 @@ class pyNvcompType_t(Enum):
 
 
 cdef class _nvcompManager:
+    # Temporary storage for factory allocated manager to prevent cleanup
+    cdef shared_ptr[nvcompManagerBase] _mgr
     cdef nvcompManagerBase* _impl
     cdef shared_ptr[CompressionConfig] _compression_config
     cdef shared_ptr[DecompressionConfig] _decompression_config
-    cdef shared_ptr[nvcompManagerBase] _mgr
-
-    def __dealloc__(self):
-        del self._impl
 
     def configure_compression(self, decomp_buffer_size):
         cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
@@ -197,12 +195,11 @@ cdef class _ManagedManager(_nvcompManager):
     def __init__(self, compressed_buffer):
         print("_ManageManag __init__")
         print(compressed_buffer)
-        self._mgr = create_manager(
+        cdef shared_ptr[nvcompManagerBase] _mgr = create_manager(
             <uint8_t*><size_t>compressed_buffer.data.ptr
         )
-        self._impl = <nvcompManagerBase*>make_shared[nvcompManagerBase](
-            move(self._mgr)
-        ).get()[0]
+        self._mgr = _mgr
+        self._impl = move(_mgr).get()
         print('going to try to configure decompression')
         self.configure_decompression_with_compressed_buffer(
             compressed_buffer
