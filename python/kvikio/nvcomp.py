@@ -314,17 +314,22 @@ class CascadedManager(nvCompManager):
 
 class ManagedDecompressionManager(nvCompManager):
     def __init__(self, compressed_buffer):
-        """Create a GPU SnappyCompressor object.
+        """Create a Managed compressor using the
+        create_manager factory method.
 
-        Used to compress and decompress GPU buffers.
+        This function is used in order to automatically
+        identify which compression algorithm was used on
+        an input buffer.
+
+        It returns a ManagedDecompressionManager that can
+        then be used normally to decompress the unknown
+        compressed binary data, or compress other data
+        into the same format.
 
         Parameters
         ----------
-        chunk_size: int (optional)
-        stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on
-        device_id: int (optional)
-            Specify which device_id on the node to use
+        compressed_buffer: cp.ndarray
+            A buffer of compressed bytes of unknown origin.
         """
         super().__init__({})
         self._manager = _lib._ManagedManager(compressed_buffer)
