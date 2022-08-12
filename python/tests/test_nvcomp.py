@@ -340,14 +340,14 @@ def test_get_compressed_output_size(compressor_size):
 
 
 @pytest.mark.parametrize(
-    "compresor",
+    "compressor",
     [
         libnvcomp.LZ4Manager,
         libnvcomp.CascadedManager,
         libnvcomp.SnappyManager,
     ],
 )
-def test_managed_manager(manager):
+def test_managed_manager(compressor):
     compressor = compressor
     length = 10000
     dtype = cupy.uint8
@@ -358,8 +358,13 @@ def test_managed_manager(manager):
             dtype=dtype,
         )
     )
+    print("compressing manager")
     compressor_instance = compressor()
     compressed = compressor_instance.compress(data)
-    manager = libnvcomp.ManagedManager(compressed)
-    decompressed_size = manager.decompress(compressed)
+    print("making manager")
+    print(len(compressed))
+    manager = libnvcomp.ManagedDecompressionManager(compressed)
+    print("made manager")
+    manager.decompress(compressed)
+    print("decompressed with manager")
     assert decompressed_size == 10000

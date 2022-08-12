@@ -27,7 +27,7 @@ import cupy as cp
 import cython
 from cython.operator cimport dereference
 from libc.stdint cimport uintptr_t, uint8_t, int32_t
-from libcpp.memory cimport shared_ptr, make_shared
+from libcpp.memory cimport shared_ptr, make_shared, make_unique
 from libcpp.utility cimport move
 from libcpp cimport bool, nullptr
 
@@ -40,10 +40,9 @@ from kvikio._lib.nvcomp_cxx_api cimport(
     create_manager,
     LZ4Manager,
     SnappyManager,
-    CascadedManager,
     CompressionConfig,
     DecompressionConfig,
-    nvcompLZ4FormatOpts,
+    CascadedManager,
     nvcompBatchedCascadedOpts_t,
     nvcompBatchedCascadedDefaultOpts,
 
@@ -66,6 +65,7 @@ cdef class _nvcompManager:
     cdef nvcompManagerBase* _impl
     cdef shared_ptr[CompressionConfig] _compression_config
     cdef shared_ptr[DecompressionConfig] _decompression_config
+    cdef shared_ptr[nvcompManagerBase] _mgr
 
     def __dealloc__(self):
         del self._impl
@@ -101,13 +101,17 @@ cdef class _nvcompManager:
     def configure_decompression_with_compressed_buffer(
         self,
         comp_buffer
-    ):
+    ) -> dict:
+        print(".pyx configure_decompression_with_compressed_buffer")
+        print(comp_buffer)
         cdef shared_ptr[DecompressionConfig] partial = make_shared[DecompressionConfig](
             self._impl.configure_decompression(<uint8_t*><size_t>comp_buffer.data.ptr)
         )
+        print("This unformed nvcompManager has an issue.")
         self._decompression_config = make_shared[DecompressionConfig](
             (move(partial.get()[0]))
         )
+        print("Only returning breaks it because it is the wrong type?")
         return {
             "decomp_data_size": self._decompression_config.get()[0].decomp_data_size,
             "num_chunks": self._decompression_config.get()[0].num_chunks
@@ -146,8 +150,6 @@ cdef class _LZ4Manager(_nvcompManager):
         user_stream,
         const int device_id,
     ):
-        # print a pointer
-        # print("{0:x}".format(<unsigned long>), var)
         # TODO: Doesn't work with user specified streams passed down
         # from anywhere up. I'm not going to rabbit hole on it until
         # everything else works.
@@ -191,17 +193,17 @@ cdef class _CascadedManager(_nvcompManager):
             device_id,
         )
 
-cdef class ManagedManager(_nvcompManager):
-    cdef nvcompManagerBase* manager
-    def __init__(self, mgr):
-        manager = mgr
-    
-    def __dealloc__(self):
-        del self.manager
-
-    def create_manager(self, data, stream, device_id):
-        self.manager = <nvcompManagerBase*>create_manager(
-            data,
-            <cudaStream_t>0,
-            device_id
-        ).get()
+cdef class _ManagedManager(_nvcompManager):
+    def __init__(self, compressed_buffer):
+        print("_ManageManag __init__")
+        print(compressed_buffer)
+        self._mgr = create_manager(
+            <uint8_t*><size_t>compressed_buffer.data.ptr
+        )
+        self._impl = <nvcompManagerBase*>make_shared[nvcompManagerBase](
+            move(self._mgr)
+        ).get()[0]
+        print('going to try to configure decompression')
+        self.configure_decompression_with_compressed_buffer(
+            compressed_buffer
+        )

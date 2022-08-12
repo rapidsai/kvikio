@@ -129,7 +129,7 @@ class nvCompManager:
         cp.ndarray
             An array of `self.dtype` produced after decompressing the input argument.
         """
-        # TODO: logic to reuse temp buffer if it is large enough
+        breakpoint()
         self.decompression_config = (
             self._manager.configure_decompression_with_compressed_buffer(data)
         )
@@ -176,9 +176,7 @@ class nvCompManager:
             in.
         }
         """
-        return self._manager.configure_decompression_with_compressed_buffer(
-            data
-        )
+        self._manager.configure_decompression_with_compressed_buffer(data)
 
     def get_required_scratch_buffer_size(self) -> int:
         """Return the size of the optional scratch buffer.
@@ -207,8 +205,6 @@ class nvCompManager:
         -------
         cp.ndarray
         """
-        print("set_scratch_buffer")
-        print(self, new_scratch_buffer)
         return self._manager.set_scratch_buffer(new_scratch_buffer)
 
     def get_compressed_output_size(self, comp_buffer: cp.ndarray) -> int:
@@ -300,7 +296,7 @@ class CascadedManager(nvCompManager):
         for k, v in default_options.items():
             try:
                 getattr(self, k)
-            except Exception(e):
+            except Exception:
                 setattr(self, k, v)
 
         self.options = {
@@ -315,5 +311,19 @@ class CascadedManager(nvCompManager):
         )
 
 
-def create_manager(data) -> nvCompManager:
-    return _lib.create_manager(data)
+class ManagedDecompressionManager(nvCompManager):
+    def __init__(self, compressed_buffer):
+        """Create a GPU SnappyCompressor object.
+
+        Used to compress and decompress GPU buffers.
+
+        Parameters
+        ----------
+        chunk_size: int (optional)
+        stream: cudaStream_t (optional)
+            Which CUDA stream to perform the operation on
+        device_id: int (optional)
+            Specify which device_id on the node to use
+        """
+        super().__init__({})
+        self._manager = _lib._ManagedManager(compressed_buffer)
