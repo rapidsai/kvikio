@@ -172,7 +172,8 @@ class nvCompManager:
         -------
         dict {
             "decomp_data_size": The size of each decompression chunk.
-            "num_chunks": The number of chunks that the decompressed data is returned in.
+            "num_chunks": The number of chunks that the decompressed data is returned
+            in.
         }
         """
         return self._manager.configure_decompression_with_compressed_buffer(
@@ -299,7 +300,7 @@ class CascadedManager(nvCompManager):
         for k, v in default_options.items():
             try:
                 getattr(self, k)
-            except:
+            except Exception(e):
                 setattr(self, k, v)
 
         self.options = {
@@ -312,3 +313,7 @@ class CascadedManager(nvCompManager):
         self._manager = _lib._CascadedManager(
             default_options, self.stream, self.device_id
         )
+
+
+def create_manager(data) -> nvCompManager:
+    return _lib.create_manager(data)

@@ -36,13 +36,8 @@ from kvikio._lib.nvcomp_cxx_api cimport(
     cudaStream_t,
     nvcompType_t,
     nvcompStatus_t,
-    nvcompBatchedSnappyCompressAsync,
-    nvcompBatchedSnappyCompressGetMaxOutputChunkSize,
-    nvcompBatchedSnappyCompressGetTempSize,
-    nvcompBatchedSnappyDecompressAsync,
-    nvcompBatchedSnappyDecompressGetTempSize,
-    nvcompBatchedSnappyOpts_t,
     nvcompManagerBase,
+    create_manager,
     LZ4Manager,
     SnappyManager,
     CascadedManager,
@@ -51,15 +46,7 @@ from kvikio._lib.nvcomp_cxx_api cimport(
     nvcompLZ4FormatOpts,
     nvcompBatchedCascadedOpts_t,
     nvcompBatchedCascadedDefaultOpts,
-    nvcompBatchedLZ4Opts_t,
-    nvcompBatchedLZ4DefaultOpts,
-    nvcompBatchedLZ4CompressGetTempSize,
-    nvcompBatchedLZ4CompressGetMaxOutputChunkSize,
-    nvcompBatchedLZ4CompressAsync,
-    nvcompBatchedLZ4DecompressGetTempSize,
-    nvcompBatchedLZ4DecompressGetTempSizeEx,
-    nvcompBatchedLZ4DecompressAsync,
-    nvcompBatchedLZ4GetDecompressSizeAsync
+
 )
 
 
@@ -79,6 +66,9 @@ cdef class _nvcompManager:
     cdef nvcompManagerBase* _impl
     cdef shared_ptr[CompressionConfig] _compression_config
     cdef shared_ptr[DecompressionConfig] _decompression_config
+
+    def __dealloc__(self):
+        del self._impl
 
     def configure_compression(self, decomp_buffer_size):
         cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
@@ -111,7 +101,7 @@ cdef class _nvcompManager:
     def configure_decompression_with_compressed_buffer(
         self,
         comp_buffer
-    ) :
+    ):
         cdef shared_ptr[DecompressionConfig] partial = make_shared[DecompressionConfig](
             self._impl.configure_decompression(<uint8_t*><size_t>comp_buffer.data.ptr)
         )
@@ -201,133 +191,17 @@ cdef class _CascadedManager(_nvcompManager):
             device_id,
         )
 
+cdef class ManagedManager(_nvcompManager):
+    cdef nvcompManagerBase* manager
+    def __init__(self, mgr):
+        manager = mgr
+    
+    def __dealloc__(self):
+        del self.manager
 
-class _LibSnappyCompressor:
-    def _get_decompress_temp_size(
-        self,
-        num_chunks,
-        max_uncompressed_chunk_size,
-        temp_bytes
-    ):
-        cdef uintptr_t temp_bytes_ptr = Array(temp_bytes).ptr
-        return nvcompBatchedSnappyDecompressGetTempSize(
-            <size_t>num_chunks,
-            <size_t>max_uncompressed_chunk_size,
-            <size_t*>temp_bytes_ptr
-        )
-
-    def _decompress(
-        self,
-        device_compressed_ptrs,
-        device_compressed_bytes,
-        device_uncompressed_bytes,
-        device_actual_uncompressed_bytes,
-        batch_size,
-        device_temp_ptr,
-        temp_bytes,
-        device_uncompressed_ptr,
-        device_statuses,
-        stream
-    ):
-        cdef uintptr_t device_compressed_bytes_ptr = Array(device_compressed_bytes).ptr
-        cdef uintptr_t device_uncompressed_bytes_ptr = Array(
-            device_uncompressed_bytes
-        ).ptr
-        cdef uintptr_t device_actual_uncompressed_bytes_ptr = Array(
-            device_actual_uncompressed_bytes
-        ).ptr
-        cdef uintptr_t device_statuses_ptr = Array(device_statuses).ptr
-        return nvcompBatchedSnappyDecompressAsync(
-            <const void* const*><void*>device_compressed_ptrs,
-            <size_t*>device_compressed_bytes_ptr,
-            <size_t*>device_uncompressed_bytes_ptr,
-            <size_t*>device_actual_uncompressed_bytes_ptr,
-            <size_t>batch_size,
-            <void*>device_temp_ptr,
-            <size_t>temp_bytes,
-            <void* const*><void*>device_uncompressed_ptr,
-            <nvcompStatus_t*>device_statuses_ptr,
-            <cudaStream_t>stream
-        )
-
-    def _get_compress_temp_size(
-        self,
-        batch_size,
-        max_chunk_size,
-        temp_bytes,
-        format_opts
-    ):
-        cdef uintptr_t temp_bytes_ptr = Array(temp_bytes).ptr
-        cdef nvcompBatchedSnappyOpts_t opts
-        opts.reserved = format_opts
-        return nvcompBatchedSnappyCompressGetTempSize(
-            <size_t>batch_size,
-            <size_t>max_chunk_size,
-            <nvcompBatchedSnappyOpts_t>opts,
-            <size_t*>temp_bytes_ptr
-        )
-
-    def _get_compress_max_output_chunk_size(
-        self,
-        max_chunk_size,
-        max_compressed_size,
-        format_opts
-    ):
-        cdef uintptr_t max_compressed_size_ptr = Array(max_compressed_size).ptr
-        cdef nvcompBatchedSnappyOpts_t opts
-        opts.reserved = format_opts
-        return nvcompBatchedSnappyCompressGetMaxOutputChunkSize(
-            <size_t>max_chunk_size,
-            <nvcompBatchedSnappyOpts_t>opts,
-            <size_t*>max_compressed_size_ptr
-        )
-
-    def _compress(
-        self,
-        device_uncompressed_buffers,
-        device_uncompressed_sizes,
-        max_uncompressed_chunk_size,
-        batch_size,
-        device_temp_buffer,
-        temp_size,
-        device_compressed_buffers,
-        device_compressed_sizes,
-        format_opts,
-        stream
-    ):
-        cdef uintptr_t device_uncompressed_buffers_ptr = Array(
-            device_uncompressed_buffers
-        ).ptr
-        cdef uintptr_t device_uncompressed_sizes_ptr = Array(
-            device_uncompressed_sizes
-        ).ptr
-        cdef uintptr_t max_uncompressed_chunk_size_ptr = Array(
-            max_uncompressed_chunk_size
-        ).ptr
-        cdef uintptr_t device_temp_buffer_ptr = 0
-        cdef uintptr_t device_compressed_buffers_ptr = Array(
-            device_compressed_buffers
-        ).ptr
-        cdef uintptr_t device_compressed_sizes_ptr = Array(
-            device_compressed_sizes
-        ).ptr
-        cdef nvcompBatchedSnappyOpts_t opts
-        opts.reserved = format_opts
-
-        cdef uintptr_t batch_size_ptr = Array(batch_size).ptr
-
-        with nogil:
-            result = nvcompBatchedSnappyCompressAsync(
-                <const void* const*><void*>device_uncompressed_buffers_ptr,
-                <const size_t*>device_uncompressed_sizes_ptr,
-                <size_t>max_uncompressed_chunk_size_ptr,
-                <size_t>batch_size_ptr,
-                <void*>device_temp_buffer_ptr,
-                <size_t>0,
-                <void* const*><void*>device_compressed_buffers_ptr,
-                <size_t*>device_compressed_sizes_ptr,
-                <nvcompBatchedSnappyOpts_t>opts,
-                <cudaStream_t>stream
-            )
-
-        return result
+    def create_manager(self, data, stream, device_id):
+        self.manager = <nvcompManagerBase*>create_manager(
+            data,
+            <cudaStream_t>0,
+            device_id
+        ).get()
