@@ -70,7 +70,7 @@ if __name__ == "__main__":
     else:
         compressor = nvcomp.LZ4Manager(chunk_size=1 << 16)
 
-    if args.d == True:
+    if args.d is True:
         print(f"Decompressing {file_size} bytes") if args.verbose else None
         t = time.time()
         converted = compressor.decompress(data)

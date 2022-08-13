@@ -2,7 +2,6 @@
 # See file LICENSE for terms.
 
 from enum import Enum
-from http.client import UnimplementedFileMode
 
 import cupy as cp
 import numpy as np

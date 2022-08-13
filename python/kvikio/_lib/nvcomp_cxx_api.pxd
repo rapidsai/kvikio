@@ -176,3 +176,4 @@ cdef extern from "nvcomp/ans.hpp":
             cudaStream_t user_stream,
             const int device_id
         ) except +
+
