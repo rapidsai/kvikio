@@ -254,10 +254,8 @@ def test_get_decompression_config_with_default_options(compressor_size):
     )
     compressor_instance = compressor()
     compressed = compressor_instance.compress(data)
-    result = (
-        compressor_instance.configure_decompression_with_compressed_buffer(
-            compressed
-        )
+    result = compressor_instance.configure_decompression_with_compressed_buffer(
+        compressed
     )
     assert result == expected
 

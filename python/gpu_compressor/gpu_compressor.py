@@ -5,10 +5,10 @@ import os
 import sys
 import time
 
+import cupy
+
 import kvikio
 import kvikio.nvcomp as nvcomp
-
-import cupy
 
 if __name__ == "__main__":
 
@@ -23,9 +23,7 @@ if __name__ == "__main__":
             sys.exit(2)
 
     parser = NvcompParser()
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Verbose Output"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose Output")
     parser.add_argument(
         "-o",
         "--out_file",
@@ -45,9 +43,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Decompress the incoming file",
     )
-    parser.add_argument(
-        action="store", dest="filename", help="Relative Filename"
-    )
+    parser.add_argument(action="store", dest="filename", help="Relative Filename")
     args = parser.parse_args()
 
     print("GPU Compression Initialized") if args.verbose else None
@@ -80,18 +76,14 @@ if __name__ == "__main__":
         ) if args.verbose else None
 
         if not args.out_file:
-            raise ValueError(
-                "Must specify filename with -o for decompression."
-            )
+            raise ValueError("Must specify filename with -o for decompression.")
 
         t = time.time()
         o = kvikio.CuFile(args.out_file, "w")
         o.write(converted)
         o.close()
         io_time = time.time() - t
-        print(
-            f"File writing time: {io_time:.3} seconds"
-        ) if args.verbose else None
+        print(f"File writing time: {io_time:.3} seconds") if args.verbose else None
 
         print(
             f"Decompressed file size {os.path.getsize(args.out_file)}"
@@ -103,9 +95,7 @@ if __name__ == "__main__":
         t = time.time()
         converted = compressor.compress(data)
         compress_time = time.time() - t
-        print(
-            f"Compression time: {compress_time:.3} seconds"
-        ) if args.verbose else None
+        print(f"Compression time: {compress_time:.3} seconds") if args.verbose else None
 
         t = time.time()
         if args.out_file:
@@ -115,9 +105,7 @@ if __name__ == "__main__":
         o.write(converted)
         o.close()
         io_time = time.time() - t
-        print(
-            f"File writing time: {io_time:.3} seconds"
-        ) if args.verbose else None
+        print(f"File writing time: {io_time:.3} seconds") if args.verbose else None
 
         print(
             f"Compressed file size {compressor.get_compressed_output_size(converted)}"

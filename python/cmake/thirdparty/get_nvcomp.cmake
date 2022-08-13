@@ -12,6 +12,8 @@
 # the License.
 # =============================================================================
 
+set(KVIKIO_USE_PROPRIETARY_BINARY true)
+
 # This function finds nvcomp and sets any additional necessary environment variables.
 function(find_and_configure_nvcomp)
 
@@ -19,7 +21,7 @@ function(find_and_configure_nvcomp)
   rapids_cpm_nvcomp(
     BUILD_EXPORT_SET cuspatial-exports
     INSTALL_EXPORT_SET cuspatial-exports
-    USE_PROPRIETARY_BINARY ${CUDF_USE_PROPRIETARY_NVCOMP}
+    USE_PROPRIETARY_BINARY ${KVIKIO_USE_PROPRIETARY_NVCOMP}
   )
 
   # Per-thread default stream

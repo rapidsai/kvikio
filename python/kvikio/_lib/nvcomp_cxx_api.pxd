@@ -20,10 +20,10 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-from libcpp.vector cimport vector
-from libcpp.memory cimport shared_ptr
-
 from libc.stdint cimport uint8_t, uint32_t
+from libcpp.memory cimport shared_ptr
+from libcpp.vector cimport vector
+
 
 cdef extern from "cuda_runtime.h":
     ctypedef void* cudaStream_t
@@ -176,4 +176,3 @@ cdef extern from "nvcomp/ans.hpp":
             cudaStream_t user_stream,
             const int device_id
         ) except +
-

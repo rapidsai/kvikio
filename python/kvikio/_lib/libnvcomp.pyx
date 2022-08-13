@@ -23,30 +23,29 @@
 from enum import Enum
 
 import cupy as cp
-
 import cython
+
 from cython.operator cimport dereference
-from libc.stdint cimport uintptr_t, uint8_t, int32_t
-from libcpp.memory cimport shared_ptr, make_shared
-from libcpp.utility cimport move
+from libc.stdint cimport int32_t, uint8_t, uintptr_t
 from libcpp cimport bool, nullptr
+from libcpp.memory cimport make_shared, shared_ptr
+from libcpp.utility cimport move
 
 from kvikio._lib.arr cimport Array
-from kvikio._lib.nvcomp_cxx_api cimport(
-    cudaStream_t,
-    nvcompType_t,
-    nvcompStatus_t,
-    nvcompManagerBase,
-    create_manager,
-    CompressionConfig,
-    DecompressionConfig,
+from kvikio._lib.nvcomp_cxx_api cimport (
     ANSManager,
     CascadedManager,
+    CompressionConfig,
+    DecompressionConfig,
     LZ4Manager,
     SnappyManager,
-    nvcompBatchedCascadedOpts_t,
+    create_manager,
+    cudaStream_t,
     nvcompBatchedCascadedDefaultOpts,
-
+    nvcompBatchedCascadedOpts_t,
+    nvcompManagerBase,
+    nvcompStatus_t,
+    nvcompType_t,
 )
 
 
