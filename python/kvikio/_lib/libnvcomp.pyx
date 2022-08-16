@@ -87,12 +87,12 @@ cdef class _nvcompManager:
 
     def compress(self, decomp_buffer, comp_buffer):
         self._impl.compress(
-            <const uint8_t*><size_t>decomp_buffer.data.ptr,
-            <uint8_t*><size_t>comp_buffer.data.ptr,
+            <const uint8_t*><uintptr_t>decomp_buffer.data.ptr,
+            <uint8_t*><uintptr_t>comp_buffer.data.ptr,
             <CompressionConfig&>self._compression_config.get()[0]
         )
         size = self._impl.get_compressed_output_size(
-            <uint8_t*><size_t>comp_buffer.data.ptr
+            <uint8_t*><uintptr_t>comp_buffer.data.ptr
         )
         return size
 
