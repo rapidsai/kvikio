@@ -313,7 +313,7 @@ def test_get_required_scratch_buffer_size(compressor_size):
 
 
 @pytest.mark.parametrize(
-    "compressor_size",
+    "compressor,expected",
     zip(
         [
             libnvcomp.LZ4Manager,
@@ -323,9 +323,7 @@ def test_get_required_scratch_buffer_size(compressor_size):
         [401, 624, 3556],
     ),
 )
-def test_get_compressed_output_size(compressor_size):
-    compressor = compressor_size[0]
-    expected = compressor_size[1]
+def test_get_compressed_output_size(compressor, expected):
     length = 10000
     dtype = cupy.uint8
     data = cupy.array(
