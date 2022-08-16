@@ -163,8 +163,6 @@ cdef class _SnappyManager(_nvcompManager):
         user_stream,
         const int device_id,
     ):
-        # print a pointer
-        # print("{0:x}".format(<unsigned long>), var)
         # TODO: Doesn't work with user specified streams passed down
         # from anywhere up. I'm not going to rabbit hole on it until
         # everything else works.
