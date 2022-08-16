@@ -51,20 +51,12 @@ def test_round_trip_dtypes(compressor, dtype):
         {
             "chunk_size": 1 << 16,
             "data_type": np.uint8,
-            "stream": cupy.cuda.Stream(),
-            "device_id": 0,
         },
         {
             "chunk_size": 1 << 16,
         },
         {
             "data_type": np.uint8,
-        },
-        {
-            "stream": cupy.cuda.Stream(),
-        },
-        {
-            "device_id": 0,
         },
     ],
 )
@@ -83,17 +75,6 @@ def test_lz4_compress_inputs(inputs):
         {},
         {
             "chunk_size": 1 << 16,
-            "stream": cupy.cuda.Stream(),
-            "device_id": 0,
-        },
-        {
-            "chunk_size": 1 << 16,
-        },
-        {
-            "stream": cupy.cuda.Stream(),
-        },
-        {
-            "device_id": 0,
         },
     ],
 )
@@ -118,8 +99,6 @@ def test_snappy_compress_inputs(inputs):
                 "num_deltas": 1,
                 "use_bp": True,
             },
-            "stream": cupy.cuda.Stream(),
-            "device_id": 0,
         },
         {
             "options": {
@@ -149,7 +128,6 @@ def test_snappy_compress_inputs(inputs):
                 "num_deltas": 1,
                 "use_bp": True,
             },
-            "stream": cupy.cuda.Stream(),
         },
         {
             "options": {
@@ -159,7 +137,6 @@ def test_snappy_compress_inputs(inputs):
                 "num_deltas": 1,
                 "use_bp": True,
             },
-            "device_id": 0,
         },
     ],
 )
@@ -240,9 +217,7 @@ def test_get_compression_config_with_default_options(compressor_size):
         ],
     ),
 )
-def test_get_decompression_config_with_default_options(
-    compressor, expected
-):
+def test_get_decompression_config_with_default_options(compressor, expected):
     length = 10000
     dtype = cupy.uint8
     data = cupy.array(
@@ -254,8 +229,10 @@ def test_get_decompression_config_with_default_options(
     )
     compressor_instance = compressor()
     compressed = compressor_instance.compress(data)
-    result = compressor_instance.configure_decompression_with_compressed_buffer(
-        compressed
+    result = (
+        compressor_instance.configure_decompression_with_compressed_buffer(
+            compressed
+        )
     )
     assert result == expected
 
@@ -361,3 +338,37 @@ def test_managed_manager(compressor):
     manager = libnvcomp.ManagedDecompressionManager(compressed)
     decompressed = manager.decompress(compressed)
     assert len(decompressed) == 10000
+
+
+@pytest.mark.xfail(raises=NotImplementedError)
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        libnvcomp.LZ4Manager,
+        libnvcomp.CascadedManager,
+        libnvcomp.SnappyManager,
+    ],
+)
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {"device_id": 0},
+        {
+            "stream": cupy.cuda.Stream(),
+        },
+        {
+            "device_id": 0,
+            "stream": cupy.cuda.Stream(),
+        },
+    ],
+)
+def test_xfail_device_id_and_stream(compressor, inputs):
+    length = 10000
+    data = cupy.array(
+        np.arange(
+            0,
+            length // cupy.dtype(cupy.uint8).type(0).itemsize,
+            dtype=cupy.uint8,
+        )
+    )
+    compressor_instance = compressor(**inputs)

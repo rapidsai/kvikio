@@ -77,6 +77,18 @@ class nvCompManager:
 
         Special case: Convert data_type to a _lib.pyNvcompType_t
         """
+        # Special case: Throw error if stream or device_id are specified
+        if kwargs.get("stream") is not None:
+            raise NotImplementedError(
+                "stream argument not yet supported: "
+                "Use the default argument"
+            )
+        if kwargs.get("device_id") is not None:
+            raise NotImplementedError(
+                "user_stream argument not yet supported: "
+                "Use the default argument"
+            )
+
         if kwargs.get("data_type"):
             if not isinstance(kwargs["data_type"], _lib.pyNvcompType_t):
                 kwargs["input_type"] = kwargs.get("data_type")
@@ -87,7 +99,9 @@ class nvCompManager:
         if kwargs.get("type"):
             if not isinstance(kwargs["type"], _lib.pyNvcompType_t):
                 kwargs["input_type"] = kwargs.get("type")
-                kwargs["type"] = cp_to_nvcomp_dtype(cp.dtype(kwargs["type"]).type)
+                kwargs["type"] = cp_to_nvcomp_dtype(
+                    cp.dtype(kwargs["type"]).type
+                )
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -173,7 +187,9 @@ class nvCompManager:
             in.
         }
         """
-        return self._manager.configure_decompression_with_compressed_buffer(data)
+        return self._manager.configure_decompression_with_compressed_buffer(
+            data
+        )
 
     def get_required_scratch_buffer_size(self) -> int:
         """Return the size of the optional scratch buffer.
@@ -229,7 +245,9 @@ class ANSManager(nvCompManager):
 
 class BitcompManager(nvCompManager):
     def __init__(self, **kwargs):
-        raise NotImplementedError("BitcompManager is not supported yet in python.")
+        raise NotImplementedError(
+            "BitcompManager is not supported yet in python."
+        )
 
 
 class CascadedManager(nvCompManager):
@@ -279,7 +297,9 @@ class CascadedManager(nvCompManager):
 
 class GDeflateManager(nvCompManager):
     def __init__(self, **kwargs):
-        raise NotImplementedError("GDeflateManager is not supported yet in python.")
+        raise NotImplementedError(
+            "GDeflateManager is not supported yet in python."
+        )
 
 
 class LZ4Manager(nvCompManager):
