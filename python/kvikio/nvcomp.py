@@ -194,9 +194,9 @@ class nvCompManager:
 
         Parameters
         ----------
-        new_scratch_buffer
-        The buffer that you allocated on the GPU for compressor temporary
-        storage.
+        new_scratch_buffer : cp.ndarray
+            The buffer that you allocated on the GPU for compressor temporary
+            storage.
 
         Returns
         -------
