@@ -363,12 +363,5 @@ def test_managed_manager(compressor):
     ],
 )
 def test_xfail_device_id_and_stream(compressor, inputs):
-    length = 10000
-    data = cupy.array(
-        np.arange(
-            0,
-            length // cupy.dtype(cupy.uint8).type(0).itemsize,
-            dtype=cupy.uint8,
-        )
-    )
     compressor_instance = compressor(**inputs)
+    assert compressor_instance is None

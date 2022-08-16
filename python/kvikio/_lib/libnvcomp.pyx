@@ -100,8 +100,10 @@ cdef class _nvcompManager:
         self,
         comp_buffer
     ) -> dict:
-        cdef shared_ptr[DecompressionConfig] partial = make_shared[DecompressionConfig](
-            self._impl.configure_decompression(<uint8_t*><uintptr_t>comp_buffer.data.ptr)
+        cdef shared_ptr[DecompressionConfig] partial = make_shared[
+            DecompressionConfig](self._impl.configure_decompression(
+                <uint8_t*><uintptr_t>comp_buffer.data.ptr
+            )
         )
         self._decompression_config = make_shared[DecompressionConfig](
             (move(partial.get()[0]))
