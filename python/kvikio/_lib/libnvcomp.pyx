@@ -202,7 +202,7 @@ cdef class _ANSManager(_nvcompManager):
 cdef class _ManagedManager(_nvcompManager):
     def __init__(self, compressed_buffer):
         cdef shared_ptr[nvcompManagerBase] _mgr = create_manager(
-            <uint8_t*><size_t>compressed_buffer.data.ptr
+            <uint8_t*><uintptr_t>compressed_buffer.data.ptr
         )
         self._mgr = _mgr
         self._impl = move(_mgr).get()
