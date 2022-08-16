@@ -124,7 +124,7 @@ cdef class _nvcompManager:
 
     def set_scratch_buffer(self, new_scratch_buffer):
         return self._impl.set_scratch_buffer(
-            <uint8_t*><size_t>new_scratch_buffer.data.ptr
+            <uint8_t*><uintptr_t>new_scratch_buffer.data.ptr
         )
 
     def get_required_scratch_buffer_size(self):
