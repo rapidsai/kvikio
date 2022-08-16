@@ -117,8 +117,8 @@ cdef class _nvcompManager:
         comp_buffer,
     ):
         self._impl.decompress(
-            <uint8_t*><size_t>decomp_buffer.data.ptr,
-            <const uint8_t*><size_t>comp_buffer.data.ptr,
+            <uint8_t*><uintptr_t>decomp_buffer.data.ptr,
+            <const uint8_t*><uintptr_t>comp_buffer.data.ptr,
             <DecompressionConfig&>self._decompression_config.get()[0]
         )
 
