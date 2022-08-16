@@ -217,7 +217,7 @@ def test_get_compression_config_with_default_options(compressor_size):
 
 
 @pytest.mark.parametrize(
-    "compressor_size",
+    "compressor,expected",
     zip(
         [
             libnvcomp.LZ4Manager,
@@ -240,9 +240,9 @@ def test_get_compression_config_with_default_options(compressor_size):
         ],
     ),
 )
-def test_get_decompression_config_with_default_options(compressor_size):
-    compressor = compressor_size[0]
-    expected = compressor_size[1]
+def test_get_decompression_config_with_default_options(
+    compressor, expected
+):
     length = 10000
     dtype = cupy.uint8
     data = cupy.array(
