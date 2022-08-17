@@ -51,12 +51,16 @@ def test_round_trip_dtypes(compressor, dtype):
         {
             "chunk_size": 1 << 16,
             "data_type": np.uint8,
+            "device_id": 0
         },
         {
             "chunk_size": 1 << 16,
         },
         {
             "data_type": np.uint8,
+        },
+        {
+            "device_id": 0,
         },
     ],
 )
@@ -66,7 +70,7 @@ def test_lz4_compress_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.LZ4Manager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 401
+    assert len(final) == 393
 
 
 @pytest.mark.parametrize(
@@ -75,6 +79,13 @@ def test_lz4_compress_inputs(inputs):
         {},
         {
             "chunk_size": 1 << 16,
+            "device_id": 0
+        },
+        {
+            "chunk_size": 1 << 16,
+        },
+        {
+            "device_id": 0
         },
     ],
 )
@@ -84,7 +95,7 @@ def test_snappy_compress_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.SnappyManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 3556
+    assert len(final) == 3548
 
 
 @pytest.mark.parametrize(
@@ -128,6 +139,7 @@ def test_snappy_compress_inputs(inputs):
                 "num_deltas": 1,
                 "use_bp": True,
             },
+            "device_id": 0
         },
         {
             "options": {
@@ -146,7 +158,7 @@ def test_cascaded_compress_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.CascadedManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 624
+    assert len(final) == 600
 
 
 @pytest.mark.parametrize(
@@ -266,7 +278,7 @@ def test_set_scratch_buffer(compressor):
             libnvcomp.CascadedManager,
             libnvcomp.SnappyManager,
         ],
-        [252334080, 1641600, 67311200],
+        [252334080, 1641608, 67311208],
     ),
 )
 def test_get_required_scratch_buffer_size(compressor, expected):
@@ -293,7 +305,7 @@ def test_get_required_scratch_buffer_size(compressor, expected):
             libnvcomp.CascadedManager,
             libnvcomp.SnappyManager,
         ],
-        [401, 624, 3556],
+        [393, 600, 3548],
     ),
 )
 def test_get_compressed_output_size(compressor, expected):
@@ -350,14 +362,7 @@ def test_managed_manager(compressor):
 @pytest.mark.parametrize(
     "inputs",
     [
-        {"device_id": 0},
-        {
-            "stream": cupy.cuda.Stream(),
-        },
-        {
-            "device_id": 0,
-            "stream": cupy.cuda.Stream(),
-        },
+        {"stream": cupy.cuda.Stream()},
     ],
 )
 def test_xfail_device_id_and_stream(compressor, inputs):

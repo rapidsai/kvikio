@@ -82,10 +82,6 @@ class nvCompManager:
             raise NotImplementedError(
                 "stream argument not yet supported: " "Use the default argument"
             )
-        if kwargs.get("device_id") is not None:
-            raise NotImplementedError(
-                "user_stream argument not yet supported: " "Use the default argument"
-            )
 
         if kwargs.get("data_type"):
             if not isinstance(kwargs["data_type"], _lib.pyNvcompType_t):
