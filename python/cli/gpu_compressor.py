@@ -53,9 +53,12 @@ if __name__ == "__main__":
     data = cupy.arange(10000, dtype="uint8")
     """
     data = cupy.zeros(file_size, dtype=cupy.int8)
+    t = time.time()
     f = kvikio.CuFile(args.filename, "r")
     f.read(data)
     f.close()
+    read_time = time.time() - t
+    print(f"File read time: {read_time:.3} seconds.") if args.verbose else None
 
     if args.d:
         compressor = nvcomp.ManagedDecompressionManager(data)
@@ -83,7 +86,7 @@ if __name__ == "__main__":
         o.write(converted)
         o.close()
         io_time = time.time() - t
-        print(f"File writing time: {io_time:.3} seconds") if args.verbose else None
+        print(f"File write time: {io_time:.3} seconds") if args.verbose else None
 
         print(
             f"Decompressed file size {os.path.getsize(args.out_file)}"
@@ -105,7 +108,7 @@ if __name__ == "__main__":
         o.write(converted)
         o.close()
         io_time = time.time() - t
-        print(f"File writing time: {io_time:.3} seconds") if args.verbose else None
+        print(f"File write time: {io_time:.3} seconds") if args.verbose else None
 
         print(
             f"Compressed file size {compressor.get_compressed_output_size(converted)}"
