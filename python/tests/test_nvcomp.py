@@ -48,11 +48,7 @@ def test_round_trip_dtypes(compressor, dtype):
     "inputs",
     [
         {},
-        {
-            "chunk_size": 1 << 16,
-            "data_type": np.uint8,
-            "device_id": 0
-        },
+        {"chunk_size": 1 << 16, "data_type": np.uint8, "device_id": 0},
         {
             "chunk_size": 1 << 16,
         },
@@ -77,16 +73,11 @@ def test_lz4_compress_inputs(inputs):
     "inputs",
     [
         {},
-        {
-            "chunk_size": 1 << 16,
-            "device_id": 0
-        },
+        {"chunk_size": 1 << 16, "device_id": 0},
         {
             "chunk_size": 1 << 16,
         },
-        {
-            "device_id": 0
-        },
+        {"device_id": 0},
     ],
 )
 def test_snappy_compress_inputs(inputs):
@@ -139,7 +130,7 @@ def test_snappy_compress_inputs(inputs):
                 "num_deltas": 1,
                 "use_bp": True,
             },
-            "device_id": 0
+            "device_id": 0,
         },
         {
             "options": {
