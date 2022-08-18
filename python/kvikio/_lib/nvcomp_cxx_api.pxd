@@ -123,31 +123,21 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         size_t get_required_scratch_buffer_size() except +
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
+# C++ Concrete ANS Manager
+cdef extern from "nvcomp/ans.hpp":
+    cdef cppclass ANSManager "nvcomp::ANSManager":
+        ANSManager(
+            size_t uncomp_chunk_size,
+            cudaStream_t user_stream,
+            const int device_id
+        ) except +
+
 # C++ Concrete Bitcomp Manager
 cdef extern from "nvcomp/bitcomp.hpp":
     cdef cppclass BitcompManager "nvcomp::BitcompManager":
         BitcompManager(
-            size_t uncomp_chunk_size,
             nvcompType_t data_type,
-            cudaStream_t user_stream,
-            const int device_id
-        ) except +
-
-# C++ Concrete LZ4 Manager
-cdef extern from "nvcomp/lz4.hpp":
-    cdef cppclass LZ4Manager "nvcomp::LZ4Manager":
-        LZ4Manager(
-            size_t uncomp_chunk_size,
-            nvcompType_t data_type,
-            cudaStream_t user_stream,
-            const int device_id
-        ) except +
-
-# C++ Concrete Snappy Manager
-cdef extern from "nvcomp/lz4.hpp":
-    cdef cppclass SnappyManager "nvcomp::SnappyManager":
-        SnappyManager(
-            size_t uncomp_chunk_size,
+            int bitcomp_algo,
             cudaStream_t user_stream,
             const int device_id
         ) except +
@@ -168,10 +158,30 @@ cdef extern from "nvcomp/cascaded.hpp" nogil:
             int device_id
         )
 
+# C++ Concrete Gdeflate Manager
+cdef extern from "nvcomp/gdeflate.hpp":
+    cdef cppclass GdeflateManager "nvcomp::GdeflateManager":
+        GdeflateManager(
+            int uncomp_chunk_size,
+            int algo,
+            cudaStream_t user_stream,
+            const int device_id
+        ) except +
+
+# C++ Concrete LZ4 Manager
+cdef extern from "nvcomp/lz4.hpp":
+    cdef cppclass LZ4Manager "nvcomp::LZ4Manager":
+        LZ4Manager(
+            size_t uncomp_chunk_size,
+            nvcompType_t data_type,
+            cudaStream_t user_stream,
+            const int device_id
+        ) except +
+
 # C++ Concrete Snappy Manager
-cdef extern from "nvcomp/ans.hpp":
-    cdef cppclass ANSManager "nvcomp::ANSManager":
-        ANSManager(
+cdef extern from "nvcomp/snappy.hpp":
+    cdef cppclass SnappyManager "nvcomp::SnappyManager":
+        SnappyManager(
             size_t uncomp_chunk_size,
             cudaStream_t user_stream,
             const int device_id

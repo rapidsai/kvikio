@@ -33,19 +33,21 @@ from libcpp.utility cimport move
 
 from kvikio._lib.arr cimport Array
 from kvikio._lib.nvcomp_cxx_api cimport (
-    ANSManager,
-    CascadedManager,
-    CompressionConfig,
-    DecompressionConfig,
-    LZ4Manager,
-    SnappyManager,
-    create_manager,
     cudaStream_t,
     nvcompBatchedCascadedDefaultOpts,
     nvcompBatchedCascadedOpts_t,
-    nvcompManagerBase,
     nvcompStatus_t,
     nvcompType_t,
+    CompressionConfig,
+    DecompressionConfig,
+    ANSManager,
+    BitcompManager,
+    CascadedManager,
+    GdeflateManager,
+    LZ4Manager,
+    SnappyManager,
+    nvcompManagerBase,
+    create_manager,
 )
 
 
@@ -138,6 +140,66 @@ cdef class _nvcompManager:
         )
 
 
+cdef class _ANSManager(_nvcompManager):
+    def __cinit__(
+        self,
+        size_t uncomp_chunk_size,
+        user_stream,
+        const int device_id,
+    ):
+        self._impl = <nvcompManagerBase*>new ANSManager(
+            uncomp_chunk_size,
+            <cudaStream_t><void*>0,  # TODO
+            device_id
+        )
+
+
+cdef class _BitcompManager(_nvcompManager):
+    def __cinit__(
+        self,
+        nvcompType_t data_type,
+        int bitcomp_algo,
+        user_stream,
+        const int device_id
+    ):
+        self._impl = <nvcompManagerBase*>new BitcompManager(
+            <nvcompType_t>data_type,
+            <int>bitcomp_algo,
+            <cudaStream_t><void*>0,  # TODO
+            device_id
+        )
+
+
+cdef class _CascadedManager(_nvcompManager):
+    def __cinit__(
+        self,
+        _options,
+        user_stream,
+        const int device_id,
+    ):
+        self._impl = <nvcompManagerBase*>new CascadedManager(
+            <nvcompBatchedCascadedOpts_t>nvcompBatchedCascadedDefaultOpts,  # TODO
+            <cudaStream_t><void*>0,  # TODO
+            device_id,
+        )
+
+
+cdef class _GdeflateManager(_nvcompManager):
+    def __cinit__(
+        self,
+        int chunk_size,
+        int algo,
+        user_stream,
+        const int device_id
+    ):
+        self._impl = <nvcompManagerBase*>new GdeflateManager(
+            <int>chunk_size,
+            <int>algo,
+            <cudaStream_t><void*>0,  # TODO
+            device_id
+        )
+
+
 cdef class _LZ4Manager(_nvcompManager):
     def __cinit__(
         self,
@@ -169,32 +231,6 @@ cdef class _SnappyManager(_nvcompManager):
         # from anywhere up. I'm not going to rabbit hole on it until
         # everything else works.
         self._impl = <nvcompManagerBase*>new SnappyManager(
-            uncomp_chunk_size,
-            <cudaStream_t><void*>0,  # TODO
-            device_id
-        )
-
-cdef class _CascadedManager(_nvcompManager):
-    def __cinit__(
-        self,
-        _options,
-        user_stream,
-        const int device_id,
-    ):
-        self._impl = <nvcompManagerBase*>new CascadedManager(
-            <nvcompBatchedCascadedOpts_t>nvcompBatchedCascadedDefaultOpts,  # TODO
-            <cudaStream_t><void*>0,  # TODO
-            device_id,
-        )
-
-cdef class _ANSManager(_nvcompManager):
-    def __cinit__(
-        self,
-        size_t uncomp_chunk_size,
-        user_stream,
-        const int device_id,
-    ):
-        self._impl = <nvcompManagerBase*>new ANSManager(
             uncomp_chunk_size,
             <cudaStream_t><void*>0,  # TODO
             device_id

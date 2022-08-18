@@ -10,26 +10,30 @@ kvikio = pytest.importorskip("kvikio")
 libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
 
-@pytest.mark.parametrize(
-    "compressor",
-    [
-        libnvcomp.LZ4Manager,
+def managers():
+    return [
+        libnvcomp.ANSManager,
+        libnvcomp.BitcompManager,
         libnvcomp.CascadedManager,
+        libnvcomp.GdeflateManager,
+        libnvcomp.LZ4Manager,
         libnvcomp.SnappyManager,
-    ],
-)
-@pytest.mark.parametrize(
-    "dtype",
-    [
+    ]
+
+
+def dtypes():
+    return [
         "uint8",
         "uint16",
         "uint32",
         "int8",
         "int16",
         "int32",
-    ],
-)
-def test_round_trip_dtypes(compressor, dtype):
+    ]
+
+
+@pytest.mark.parametrize("manager, dtype", zip(managers(), dtypes()))
+def test_round_trip_dtypes(manager, dtype):
     length = 10000
     data = cupy.array(
         np.arange(
@@ -38,7 +42,7 @@ def test_round_trip_dtypes(compressor, dtype):
             dtype=dtype,
         )
     )
-    compressor_instance = compressor(data_type=dtype)
+    compressor_instance = manager(data_type=dtype)
     compressed = compressor_instance.compress(data)
     decompressed = compressor_instance.decompress(compressed)
     assert (data == decompressed).all()
@@ -197,30 +201,38 @@ def test_get_compression_config_with_default_options(compressor_size):
 
 
 @pytest.mark.parametrize(
-    "compressor,expected",
+    "manager,expected",
     zip(
+        managers(),
         [
-            libnvcomp.LZ4Manager,
-            libnvcomp.CascadedManager,
-            libnvcomp.SnappyManager,
-        ],
-        [
-            {
+            {  # ANS
                 "num_chunks": 1,
                 "decomp_data_size": 10000,
             },
-            {
+            {  # Bitcomp
+                "num_chunks": 1,
+                "decomp_data_size": 10000,
+            },
+            {  # Cascaded
                 "num_chunks": 3,
                 "decomp_data_size": 10000,
             },
-            {
+            {  # Gdeflate
+                "num_chunks": 1,
+                "decomp_data_size": 10000,
+            },
+            {  # LZ4
+                "num_chunks": 1,
+                "decomp_data_size": 10000,
+            },
+            {  # Snappy
                 "num_chunks": 1,
                 "decomp_data_size": 10000,
             },
         ],
     ),
 )
-def test_get_decompression_config_with_default_options(compressor, expected):
+def test_get_decompression_config_with_default_options(manager, expected):
     length = 10000
     dtype = cupy.uint8
     data = cupy.array(
@@ -230,7 +242,7 @@ def test_get_decompression_config_with_default_options(compressor, expected):
             dtype=dtype,
         )
     )
-    compressor_instance = compressor()
+    compressor_instance = manager()
     compressed = compressor_instance.compress(data)
     result = compressor_instance.configure_decompression_with_compressed_buffer(
         compressed
@@ -238,11 +250,8 @@ def test_get_decompression_config_with_default_options(compressor, expected):
     assert result == expected
 
 
-@pytest.mark.parametrize(
-    "compressor",
-    [libnvcomp.LZ4Manager, libnvcomp.CascadedManager, libnvcomp.SnappyManager],
-)
-def test_set_scratch_buffer(compressor):
+@pytest.mark.parametrize("manager", managers())
+def test_set_scratch_buffer(manager):
     length = 10000
     dtype = cupy.uint8
     data = cupy.array(
@@ -252,27 +261,34 @@ def test_set_scratch_buffer(compressor):
             dtype=dtype,
         )
     )
-    compressor_instance = compressor()
+    compressor_instance = manager()
     compressor_instance.configure_compression(len(data))
     buffer_size = compressor_instance.get_required_scratch_buffer_size()
     buffer = cupy.zeros(buffer_size, dtype="int8")
     compressor_instance.set_scratch_buffer(buffer)
     compressor_instance.compress(data)
-    assert buffer[0] != 0
+    if isinstance(compressor_instance, libnvcomp.BitcompManager):
+        # Bitcomp does not use the scratch buffer
+        pytest.skip()
+    else:
+        assert (buffer[0:5] != cupy.array([0, 0, 0, 0, 0])).any()
 
 
 @pytest.mark.parametrize(
-    "compressor,expected",
+    "manager,expected",
     zip(
+        managers(),
         [
-            libnvcomp.LZ4Manager,
-            libnvcomp.CascadedManager,
-            libnvcomp.SnappyManager,
+            317030400,  # ANS
+            8,  # Bitcomp
+            1641608,  # Cascaded
+            393222400,  # Gdeflate
+            252334080,  # LZ4
+            67311208,  # Snappy
         ],
-        [252334080, 1641608, 67311208],
     ),
 )
-def test_get_required_scratch_buffer_size(compressor, expected):
+def test_get_required_scratch_buffer_size(manager, expected):
     length = 10000
     dtype = cupy.uint8
     data = cupy.array(
@@ -282,24 +298,27 @@ def test_get_required_scratch_buffer_size(compressor, expected):
             dtype=dtype,
         )
     )
-    compressor_instance = compressor()
+    compressor_instance = manager()
     compressor_instance.configure_compression(len(data))
     buffer_size = compressor_instance.get_required_scratch_buffer_size()
     assert buffer_size == expected
 
 
 @pytest.mark.parametrize(
-    "compressor,expected",
+    "manager, expected",
     zip(
+        managers(),
         [
-            libnvcomp.LZ4Manager,
-            libnvcomp.CascadedManager,
-            libnvcomp.SnappyManager,
+            10436,  # ANS
+            3352,  # Bitcomp
+            600,  # Cascaded
+            732,  # Gdeflate
+            393,  # LZ4
+            3548,  # Snappy
         ],
-        [393, 600, 3548],
     ),
 )
-def test_get_compressed_output_size(compressor, expected):
+def test_get_compressed_output_size(manager, expected):
     length = 10000
     dtype = cupy.uint8
     data = cupy.array(
@@ -309,22 +328,14 @@ def test_get_compressed_output_size(compressor, expected):
             dtype=dtype,
         )
     )
-    compressor_instance = compressor()
+    compressor_instance = manager()
     compressed = compressor_instance.compress(data)
     buffer_size = compressor_instance.get_compressed_output_size(compressed)
     assert buffer_size == expected
 
 
-@pytest.mark.parametrize(
-    "compressor",
-    [
-        libnvcomp.LZ4Manager,
-        libnvcomp.CascadedManager,
-        libnvcomp.SnappyManager,
-    ],
-)
-def test_managed_manager(compressor):
-    compressor = compressor
+@pytest.mark.parametrize("manager", managers())
+def test_managed_manager(manager):
     length = 10000
     dtype = cupy.uint8
     data = cupy.array(
@@ -334,28 +345,8 @@ def test_managed_manager(compressor):
             dtype=dtype,
         )
     )
-    compressor_instance = compressor()
+    compressor_instance = manager()
     compressed = compressor_instance.compress(data)
     manager = libnvcomp.ManagedDecompressionManager(compressed)
     decompressed = manager.decompress(compressed)
     assert len(decompressed) == 10000
-
-
-@pytest.mark.xfail(raises=NotImplementedError)
-@pytest.mark.parametrize(
-    "compressor",
-    [
-        libnvcomp.LZ4Manager,
-        libnvcomp.CascadedManager,
-        libnvcomp.SnappyManager,
-    ],
-)
-@pytest.mark.parametrize(
-    "inputs",
-    [
-        {"stream": cupy.cuda.Stream()},
-    ],
-)
-def test_xfail_device_id_and_stream(compressor, inputs):
-    compressor_instance = compressor(**inputs)
-    assert compressor_instance is None

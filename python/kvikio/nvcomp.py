@@ -68,6 +68,12 @@ class nvCompManager:
     type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR
     device_id: int = 0
 
+    # Bitcomp Defaults
+    bitcomp_algo: int = 0
+
+    # Gdeflate defaults
+    algo: int = 0
+
     def __init__(self, kwargs):
         """Stores the results of all input arguments as class members.
 
@@ -230,12 +236,17 @@ class nvCompManager:
 
 class ANSManager(nvCompManager):
     def __init__(self, **kwargs):
-        raise NotImplementedError("ANSManager is not supported yet in python.")
+        super().__init__(kwargs)
+        self._manager = _lib._ANSManager(self.chunk_size, self.stream, self.device_id)
 
 
 class BitcompManager(nvCompManager):
     def __init__(self, **kwargs):
-        raise NotImplementedError("BitcompManager is not supported yet in python.")
+        super().__init__(kwargs)
+
+        self._manager = _lib._BitcompManager(
+            self.data_type.value, self.bitcomp_algo, self.stream, self.device_id
+        )
 
 
 class CascadedManager(nvCompManager):
@@ -283,9 +294,13 @@ class CascadedManager(nvCompManager):
         )
 
 
-class GDeflateManager(nvCompManager):
+class GdeflateManager(nvCompManager):
     def __init__(self, **kwargs):
-        raise NotImplementedError("GDeflateManager is not supported yet in python.")
+        super().__init__(kwargs)
+
+        self._manager = _lib._GdeflateManager(
+            self.chunk_size, self.algo, self.stream, self.device_id
+        )
 
 
 class LZ4Manager(nvCompManager):
