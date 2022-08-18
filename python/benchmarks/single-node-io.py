@@ -244,7 +244,7 @@ def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
     cupy.arange(10)  # Make sure CUDA is initialized
 
-    kvikio.defaults.reset_num_threads(args.nthreads)
+    kvikio.defaults.num_threads_reset(args.nthreads)
     props = kvikio.DriverProperties()
     try:
         import pynvml.smi
