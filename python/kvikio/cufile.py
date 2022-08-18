@@ -49,7 +49,9 @@ class CuFile:
     def __init__(self, file: Union[pathlib.Path, str], flags: str = "r"):
         """Open and register file for GDS IO operations
 
-        The file is always opened in binary and direct mode.
+        CuFile opens the file twice and maintains two file descriptors.
+        One file is opened with the specified `flags` and the other file is
+        opened with the `flags` plus the `O_DIRECT` flag.
 
         Parameters
         ----------
@@ -89,12 +91,12 @@ class CuFile:
     def pread(
         self, buf, size: int = None, file_offset: int = 0, task_size=None
     ) -> IOFuture:
-        """Reads specified bytes from the file into the device memory in parallel
+        """Reads specified bytes from the file into device or host memory in parallel
 
         `pread` reads the data from a specified file at a specified offset and size
-        bytes into the GPU memory by using GDS functionality. The API works correctly
-        for unaligned offsets and any data size, although the performance might not
-        match the performance of aligned reads.
+        bytes into `buf`. The API works correctly for unaligned offsets and any data
+        size, although the performance might not match the performance of aligned reads.
+        See additional details in the notes below.
 
         `pread` is non-blocking and returns a `IOFuture` that can be waited upon. It
         partitions the operation into tasks of size `task_size` for execution in the
@@ -103,8 +105,8 @@ class CuFile:
         Parameters
         ----------
         buf: buffer-like or array-like
-            Device buffer to read into.
-        size: int
+            Device or host buffer to read into.
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -116,30 +118,39 @@ class CuFile:
         IOFuture
             Future that on completion returns the size of bytes that were successfully
             read.
+
+        Notes
+        -----
+        KvikIO can only make use of GDS for reads that are aligned to a page boundary.
+        For unaligned reads, KvikIO has to split the reads into aligned and unaligned
+        parts. The GPU page size is 4kB, so all reads should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return IOFuture(self._handle.pread(buf, size, file_offset, task_size))
 
     def pwrite(
         self, buf, size: int = None, file_offset: int = 0, task_size=None
     ) -> IOFuture:
-        """Writes specified bytes from the device memory into the file in parallel
+        """Writes specified bytes from device or host memory into the file in parallel
 
-        `pwrite` writes the data from the GPU memory to the file at a specified
-        offset and size bytes by using GDS functionality. The API works correctly
-        for unaligned offset and data sizes, although the performance is not on-par
-        with aligned writes.
+        `pwrite` writes the data from `buf` to the file at a specified offset and size.
+        The API works correctly for unaligned offset and data sizes, although the
+        performance is not on-par with aligned writes. See additional details in the
+        notes below.
 
         `pwrite` is non-blocking and returns a `IOFuture` that can be waited upon. It
         partitions the operation into tasks of size `task_size` for execution in the
         default thread pool.
 
-
         Parameters
         ----------
         buf: buffer-like or array-like
-            Device buffer to write to.
-        size: int
-            Size in bytes to read.
+            Device or host buffer to write to.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         task_size: int, default=kvikio.defaults.task_size()
@@ -150,6 +161,16 @@ class CuFile:
         IOFuture
             Future that on completion returns the size of bytes that were successfully
             written.
+
+        Notes
+        -----
+        KvikIO can only make use of GDS for writes that are aligned to a page boundary.
+        For unaligned writes, KvikIO has to split the writes into aligned and unaligned
+        parts. The GPU page size is 4kB, so all writes should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return IOFuture(self._handle.pwrite(buf, size, file_offset, task_size))
 
@@ -162,7 +183,7 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
-        size: int
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -173,6 +194,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully read.
+
+        Notes
+        -----
+        KvikIO can only make use of GDS for reads that are aligned to a page boundary.
+        For unaligned reads, KvikIO has to split the reads into aligned and unaligned
+        parts. The GPU page size is 4kB, so all reads should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self.pread(buf, size, file_offset, task_size).get()
 
@@ -185,8 +216,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
-        size: int
-            Size in bytes to read.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         task_size: int, default=kvikio.defaults.task_size()
@@ -196,6 +227,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully written.
+
+        Notes
+        -----
+        KvikIO can only make use of GDS for writes that are aligned to a page boundary.
+        For unaligned writes, KvikIO has to split the writes into aligned and unaligned
+        parts. The GPU page size is 4kB, so all writes should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self.pwrite(buf, size, file_offset, task_size).get()
 
@@ -204,13 +245,14 @@ class CuFile:
     ) -> int:
         """Reads specified bytes from the file into the device memory
 
-        This is a low-level version of `.read` that doesn't use threads.
+        This is a low-level version of `.read` that doesn't use threads and
+        does not support host memory.
 
         Parameters
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
-        size: int
+        size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
@@ -221,6 +263,16 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully read.
+
+        Notes
+        -----
+        KvikIO can only make use of GDS for reads that are aligned to a page boundary.
+        For unaligned reads, KvikIO has to split the reads into aligned and unaligned
+        parts. The GPU page size is 4kB, so all reads should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self._handle.read(buf, size, file_offset, dev_offset)
 
@@ -229,14 +281,15 @@ class CuFile:
     ) -> int:
         """Writes specified bytes from the device memory into the file
 
-        This is a low-level version of `.write` that doesn't use threads.
+        This is a low-level version of `.write` that doesn't use threads and
+        does not support host memory.
 
         Parameters
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
-        size: int
-            Size in bytes to read.
+        size: int, optional
+            Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
         dev_offset: int, optional
@@ -246,5 +299,15 @@ class CuFile:
         ------
         int
             The size of bytes that were successfully written.
+
+        Notes
+        -----
+        KvikIO can only make use of GDS for writes that are aligned to a page boundary.
+        For unaligned writes, KvikIO has to split the writes into aligned and unaligned
+        parts. The GPU page size is 4kB, so all writes should be at an offset that is a
+        multiple of 4096 bytes. If the desired `file_offset` is not a multiple of 4096,
+        it is likely desirable to round down to the nearest multiple of 4096 and discard
+        any undesired bytes from the resulting data. Similarly, it is optimal for `size`
+        to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self._handle.write(buf, size, file_offset, dev_offset)

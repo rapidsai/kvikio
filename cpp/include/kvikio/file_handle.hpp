@@ -141,12 +141,9 @@ class FileHandle {
   /**
    * @brief Construct a file handle from a file path
    *
-   * In compatibility mode, FileHandle opens the file twice and maintains
-   * two file descriptors. One file are opened with the specified `flags`
-   * and the other file are opened with the `flags` plus the `O_DIRECT` flag.
-   *
-   * In regular mode, FileHandle opens only one file using the `flags` plus
-   * the `O_DIRECT` flag.
+   * FileHandle opens the file twice and maintains two file descriptors.
+   * One file is opened with the specified `flags` and the other file is
+   * opened with the `flags` plus the `O_DIRECT` flag.
    *
    * @param file_path File path to the file
    * @param flags Open flags (see also `fopen(3)`):
@@ -162,8 +159,7 @@ class FileHandle {
              mode_t mode              = m644,
              bool compat_mode         = defaults::compat_mode())
     : _fd_direct_on{detail::open_fd(file_path, flags, true, mode)},
-      // Only init `_fd_direct_off` when in compat mode
-      _fd_direct_off{compat_mode ? detail::open_fd(file_path, flags, false, mode) : -1},
+      _fd_direct_off{detail::open_fd(file_path, flags, false, mode)},
       _initialized{true},
       _compat_mode{compat_mode}
   {
@@ -212,14 +208,13 @@ class FileHandle {
   {
     if (closed()) { return; }
 
-    if (_compat_mode) {
-      ::close(_fd_direct_off);
-    } else {
+    if (!_compat_mode) {
 #ifdef KVIKIO_CUFILE_EXIST
       cuFileAPI::instance().HandleDeregister(_handle);
 #endif
     }
     ::close(_fd_direct_on);
+    ::close(_fd_direct_off);
     _fd_direct_on  = -1;
     _fd_direct_off = -1;
     _initialized   = false;
@@ -230,7 +225,7 @@ class FileHandle {
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the
    * `O_DIRECT` flag and one without. This function returns one of them but
-   * it is unspecified with one.
+   * it is unspecified which one.
    *
    * @return File descripter
    */
@@ -241,7 +236,7 @@ class FileHandle {
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the
    * `O_DIRECT` flag and one without. This function returns the flags of one of
-   * them but it is unspecified with one.
+   * them but it is unspecified which one.
    *
    * @return File descripter
    */
@@ -290,7 +285,7 @@ class FileHandle {
                    std::size_t devPtr_offset)
   {
     if (_compat_mode) {
-      return posix_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance().Read(
@@ -340,7 +335,7 @@ class FileHandle {
     _nbytes = 0;  // Invalidate the computed file size
 
     if (_compat_mode) {
-      return posix_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      return posix_device_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_EXIST
     ssize_t ret = cuFileAPI::instance().Write(
@@ -359,65 +354,94 @@ class FileHandle {
   }
 
   /**
-   * @brief Reads specified bytes from the file into the device memory in parallel.
+   * @brief Reads specified bytes from the file into the device or host memory in parallel.
    *
    * This API is a parallel async version of `.read()` that partition the operation
    * into tasks of size `task_size` for execution in the default thread pool.
    *
-   * @note `pread` use the base address of the allocation `devPtr` is part of. This means
-   * that when registering buffers, use the base address of the allocation. This is what
-   * `memory_register` and `memory_deregister` do automatically.
+   * @note For cuFile reads, the base address of the allocation `buf` is part of is used.
+   * This means that when registering buffers, use the base address of the allocation.
+   * This is what `memory_register` and `memory_deregister` do automatically.
    *
-   * @param devPtr Address to device memory.
+   * @param buf Address to device or host memory.
    * @param size Size in bytes to read.
    * @param file_offset Offset in the file to read from.
    * @param task_size Size of each task in bytes.
    * @return Future that on completion returns the size of bytes that were successfully read.
    */
-  std::future<std::size_t> pread(void* devPtr,
+  std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
                                  std::size_t file_offset = 0,
                                  std::size_t task_size   = defaults::task_size())
   {
-    // Lambda that calls this->read()
-    auto op = [this](void* devPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t devPtr_offset) -> std::size_t {
+    if (is_host_memory(buf)) {
+      auto op = [this](void* hostPtr_base,
+                       std::size_t size,
+                       std::size_t file_offset,
+                       std::size_t hostPtr_offset) -> std::size_t {
+        char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
+        return posix_host_read(_fd_direct_off, buf, size, file_offset, false);
+      };
+
+      return parallel_io(op, buf, size, file_offset, task_size, 0);
+    }
+
+    CUcontext ctx = get_context_from_device_pointer(buf);
+    auto task     = [this, ctx](void* devPtr_base,
+                            std::size_t size,
+                            std::size_t file_offset,
+                            std::size_t devPtr_offset) -> std::size_t {
+      PushAndPopContext c(ctx);
       return read(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return parallel_io(op, devPtr, size, file_offset, task_size);
+
+    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
+    return parallel_io(task, devPtr_base, size, file_offset, task_size, devPtr_offset);
   }
 
   /**
-   * @brief Writes specified bytes from the device memory into the file in parallel.
+   * @brief Writes specified bytes from device or host memory into the file in parallel.
    *
    * This API is a parallel async version of `.write()` that partition the operation
    * into tasks of size `task_size` for execution in the default thread pool.
    *
-   * @note `pwrite` use the base address of the allocation `devPtr` is part of. This means
-   * that when registering buffers, use the base address of the allocation. This is what
-   * `memory_register` and `memory_deregister` do automatically.
+   * @note For cuFile reads, the base address of the allocation `buf` is part of is used.
+   * This means that when registering buffers, use the base address of the allocation.
+   * This is what `memory_register` and `memory_deregister` do automatically.
    *
-   * @param devPtr Address to device memory.
+   * @param buf Address to device or host memory.
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
    * @param task_size Size of each task in bytes.
    * @return Future that on completion returns the size of bytes that were successfully written.
    */
-  std::future<std::size_t> pwrite(const void* devPtr,
+  std::future<std::size_t> pwrite(const void* buf,
                                   std::size_t size,
                                   std::size_t file_offset = 0,
                                   std::size_t task_size   = defaults::task_size())
   {
-    // Lambda that calls this->write()
-    auto op = [this](const void* devPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t devPtr_offset) -> std::size_t {
+    if (is_host_memory(buf)) {
+      auto op = [this](const void* hostPtr_base,
+                       std::size_t size,
+                       std::size_t file_offset,
+                       std::size_t hostPtr_offset) -> std::size_t {
+        const char* buf = static_cast<const char*>(hostPtr_base) + hostPtr_offset;
+        return posix_host_write(_fd_direct_off, buf, size, file_offset, false);
+      };
+
+      return parallel_io(op, buf, size, file_offset, task_size, 0);
+    }
+
+    CUcontext ctx = get_context_from_device_pointer(buf);
+    auto op       = [this, ctx](const void* devPtr_base,
+                          std::size_t size,
+                          std::size_t file_offset,
+                          std::size_t devPtr_offset) -> std::size_t {
+      PushAndPopContext c(ctx);
       return write(devPtr_base, size, file_offset, devPtr_offset);
     };
-    return parallel_io(op, devPtr, size, file_offset, task_size);
+    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
+    return parallel_io(op, devPtr_base, size, file_offset, task_size, devPtr_offset);
   }
 };
 

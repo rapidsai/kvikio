@@ -33,6 +33,9 @@ void check(bool condition)
   }
 }
 
+constexpr int NELEM = 1000;                 // Number of elements used throughout the test
+constexpr int SIZE  = NELEM * sizeof(int);  // Size of the memory allocations (in bytes)
+
 int main()
 {
   check(cudaSetDevice(0) == cudaSuccess);
@@ -54,61 +57,89 @@ int main()
     cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
   }
 
-  int a[1024], b[1024];
-  for (int i = 0; i < 1024; ++i) {
+  int* a{};
+  check(cudaHostAlloc((void**)&a, SIZE, cudaHostAllocDefault) == cudaSuccess);
+  for (int i = 0; i < NELEM; ++i) {
     a[i] = i;
   }
+  int* b      = (int*)malloc(SIZE);
   void* a_dev = nullptr;
   void* b_dev = nullptr;
   void* c_dev = nullptr;
-  check(cudaMalloc(&a_dev, sizeof(a)) == cudaSuccess);
-  check(cudaMalloc(&b_dev, sizeof(a)) == cudaSuccess);
-  check(cudaMalloc(&c_dev, sizeof(a)) == cudaSuccess);
+  check(cudaMalloc(&a_dev, SIZE) == cudaSuccess);
+  check(cudaMalloc(&b_dev, SIZE) == cudaSuccess);
+  check(cudaMalloc(&c_dev, SIZE) == cudaSuccess);
+
+  check(kvikio::is_host_memory(a) == true);
+  check(kvikio::is_host_memory(b) == true);
+  check(kvikio::is_host_memory(a_dev) == false);
+  check(kvikio::is_host_memory(b_dev) == false);
+  check(kvikio::is_host_memory(c_dev) == false);
 
   {
     kvikio::FileHandle f("/tmp/test-file", "w");
-    check(cudaMemcpy(a_dev, &a, sizeof(a), cudaMemcpyHostToDevice) == cudaSuccess);
-    size_t written = f.pwrite(a_dev, sizeof(a), 0, 1).get();
-    check(written == sizeof(a));
+    check(cudaMemcpy(a_dev, a, SIZE, cudaMemcpyHostToDevice) == cudaSuccess);
+    size_t written = f.pwrite(a_dev, SIZE, 0, 1).get();
+    check(written == SIZE);
     check(written == f.nbytes());
     cout << "Write: " << written << endl;
   }
   {
     kvikio::FileHandle f("/tmp/test-file", "r");
-    size_t read = f.pread(b_dev, sizeof(a), 0, 1).get();
-    check(read == sizeof(a));
+    size_t read = f.pread(b_dev, SIZE, 0, 1).get();
+    check(read == SIZE);
     check(read == f.nbytes());
     cout << "Read:  " << read << endl;
-    check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
-    for (int i = 0; i < 1024; ++i) {
+    check(cudaMemcpy(b, b_dev, SIZE, cudaMemcpyDeviceToHost) == cudaSuccess);
+    for (int i = 0; i < NELEM; ++i) {
       check(a[i] == b[i]);
     }
   }
   kvikio::defaults::thread_pool_nthreads_reset(16);
   {
     kvikio::FileHandle f("/tmp/test-file", "w");
-    size_t written = f.pwrite(a_dev, sizeof(a)).get();
-    check(written == sizeof(a));
+    size_t written = f.pwrite(a_dev, SIZE).get();
+    check(written == SIZE);
     check(written == f.nbytes());
     cout << "Parallel write (" << kvikio::defaults::thread_pool_nthreads()
          << " threads): " << written << endl;
   }
   {
     kvikio::FileHandle f("/tmp/test-file", "r");
-    size_t read = f.pread(b_dev, sizeof(a), 0).get();
+    size_t read = f.pread(b_dev, SIZE, 0).get();
     cout << "Parallel write (" << kvikio::defaults::thread_pool_nthreads() << " threads): " << read
          << endl;
-    check(cudaMemcpy(&b, b_dev, sizeof(a), cudaMemcpyDeviceToHost) == cudaSuccess);
-    for (int i = 0; i < 1024; ++i) {
+    check(cudaMemcpy(b, b_dev, SIZE, cudaMemcpyDeviceToHost) == cudaSuccess);
+    for (int i = 0; i < NELEM; ++i) {
       check(a[i] == b[i]);
     }
   }
   {
     kvikio::FileHandle f("/tmp/test-file", "r+", kvikio::FileHandle::m644);
-    kvikio::buffer_register(c_dev, size(a));
-    size_t read = f.pread(b_dev, sizeof(a)).get();
-    check(read == sizeof(a));
+    kvikio::buffer_register(c_dev, SIZE);
+    size_t read = f.pread(b_dev, SIZE).get();
+    check(read == SIZE);
     check(read == f.nbytes());
     kvikio::buffer_deregister(c_dev);
+  }
+
+  {
+    kvikio::FileHandle f("/tmp/test-file", "w");
+    size_t written = f.pwrite(a, SIZE).get();
+    check(written == SIZE);
+    check(written == f.nbytes());
+    cout << "Parallel POSIX write (" << kvikio::defaults::thread_pool_nthreads()
+         << " threads): " << written << endl;
+  }
+  {
+    kvikio::FileHandle f("/tmp/test-file", "r");
+    size_t read = f.pread(b, SIZE).get();
+    check(read == SIZE);
+    check(read == f.nbytes());
+    for (int i = 0; i < NELEM; ++i) {
+      check(a[i] == b[i]);
+    }
+    cout << "Parallel POSIX read (" << kvikio::defaults::thread_pool_nthreads()
+         << " threads): " << read << endl;
   }
 }

@@ -41,6 +41,7 @@ requirements:
     - scikit-build >=0.13.1
     - libkvikio {{ version }}
   run:
+    - python
     - cupy
     - zarr
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}

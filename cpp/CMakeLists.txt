@@ -22,7 +22,7 @@ include(rapids-find)
 
 project(
   KvikIO
-  VERSION 22.06.00
+  VERSION 22.08.00
   LANGUAGES CXX
 )
 
@@ -58,7 +58,7 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 if(NOT cuFile_FOUND)
-  message(WARNING "Building KvikIO without cuFile.h")
+  message(WARNING "Building KvikIO without cuFile")
 endif()
 
 # library targets
@@ -96,6 +96,16 @@ include(CPack)
 install(TARGETS kvikio EXPORT kvikio-exports)
 install(DIRECTORY include/kvikio/ DESTINATION include/kvikio)
 install(FILES ${KvikIO_BINARY_DIR}/include/kvikio/version_config.hpp DESTINATION include/kvikio)
+
+include("${rapids-cmake-dir}/export/find_package_file.cmake")
+rapids_export_find_package_file(BUILD
+                                "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake"
+                                kvikio-exports
+)
+rapids_export_find_package_file(INSTALL
+                                "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake"
+                                kvikio-exports
+)
 
 set(doc_string
     [=[

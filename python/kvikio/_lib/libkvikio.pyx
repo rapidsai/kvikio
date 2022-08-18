@@ -75,15 +75,15 @@ def task_size_reset(nthreads: int) -> None:
     kvikio_cxx_api.task_size_reset(nthreads)
 
 
-cdef pair[uintptr_t, size_t] _parse_buffer(buf, size):
+cdef pair[uintptr_t, size_t] _parse_buffer(buf, size, bint accept_host_buffer) except *:
     """Parse `buf` and `size` argument and return a pointer and nbytes"""
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
     if not arr._contiguous():
-        raise ValueError("Array must be C or F contiguous")
-    if not arr.cuda:
-        raise NotImplementedError("Non-CUDA buffers not implemented")
+        raise ValueError("Array must be contiguous")
+    if not accept_host_buffer and not arr.cuda:
+        raise ValueError("Non-CUDA buffers not supported")
     cdef size_t nbytes
     if size is None:
         nbytes = arr.nbytes
@@ -119,7 +119,7 @@ cdef class CuFile:
         return self._handle.fd_open_flags()
 
     def pread(self, buf, size: int, file_offset: int, task_size) -> IOFuture:
-        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, True)
         return _wrap_io_future(
             self._handle.pread(
                 <void*>info.first,
@@ -130,7 +130,7 @@ cdef class CuFile:
         )
 
     def pwrite(self, buf, size: int, file_offset: int, task_size) -> IOFuture:
-        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, True)
         return _wrap_io_future(
             self._handle.pwrite(
                 <void*>info.first,
@@ -141,7 +141,7 @@ cdef class CuFile:
         )
 
     def read(self, buf, size: int, file_offset: int, dev_offset: int) -> int:
-        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
         return self._handle.read(
             <void*>info.first,
             info.second,
@@ -150,7 +150,7 @@ cdef class CuFile:
         )
 
     def write(self, buf, size: int, file_offset: int, dev_offset: int) -> int:
-        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size)
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
         return self._handle.write(
             <void*>info.first,
             info.second,
@@ -163,9 +163,9 @@ cdef class DriverProperties:
     cdef kvikio_cxx_api.DriverProperties _handle
 
     @property
-    def is_gds_availabe(self) -> bool:
+    def is_gds_available(self) -> bool:
         try:
-            return self._handle.is_gds_availabe()
+            return self._handle.is_gds_available()
         except RuntimeError:
             return False
 

@@ -22,9 +22,9 @@ copyright = '2022, NVIDIA'
 author = 'NVIDIA'
 
 # The short X.Y version.
-version = '22.06'
+version = '22.08'
 # The full version, including alpha/beta/rc tags
-release = '22.06.00'
+release = '22.08.00'
 
 
 # -- General configuration ---------------------------------------------------
@@ -65,3 +65,7 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+def setup(app):
+    app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
+    app.add_js_file("https://docs.rapids.ai/assets/js/custom.js", loading_method="defer")

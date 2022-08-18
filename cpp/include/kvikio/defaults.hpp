@@ -190,7 +190,7 @@ class defaults {
    * @brief Get the default task size used for parallel IO operations.
    *
    * Set the default value using `kvikio::default::task_size_reset()` or by setting
-   * the `KVIKIO_TASK_SIZE` environment variable. If not set, the default value is 16 MiB.
+   * the `KVIKIO_TASK_SIZE` environment variable. If not set, the default value is 4 MiB.
    *
    * @return The default task size in bytes.
    */
