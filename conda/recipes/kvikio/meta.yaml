@@ -50,8 +50,6 @@ test:
   imports:
     - kvikio
     - kvikio.cufile
-    - kvikio.defaults
-    - kvikio.zarr
 
 about:
   home: http://rapids.ai/
