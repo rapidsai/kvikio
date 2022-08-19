@@ -47,6 +47,193 @@ def test_round_trip_dtypes(manager, dtype):
     decompressed = compressor_instance.decompress(compressed)
     assert (data == decompressed).all()
 
+#
+# ANS Options test
+#
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {},
+        {"chunk_size": 1 << 16, "device_id": 0},
+        {
+            "chunk_size": 1 << 16,
+        },
+        {
+            "device_id": 0,
+        },
+    ],
+)
+def test_ans_inputs(inputs):
+    size = 10000
+    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.ANSManager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == 10436
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {},
+        {"data_type": np.uint8, "algo": 0, "device_id": 0},
+        {
+            "data_type": np.uint8
+        },
+        {
+            "algo": 0,
+        },
+        {
+            "device_id": 0,
+        },
+    ],
+)
+def test_bitcomp_inputs(inputs):
+    size = 10000
+    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.BitcompManager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == 3208
+
+
+@pytest.mark.parametrize(
+    "inputs, expected",
+    zip(
+        [
+            {"algo": 0},
+            {"algo": 1},
+            {"algo": 2},
+        ],
+        [3208, 3208, 3208]
+    )
+)
+def test_bitcomp_algorithms(inputs, expected):
+    size = 10000
+    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.BitcompManager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == expected
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {},
+        {
+            "options": {
+                "chunk_size": 1 << 12,
+                "type": np.uint32,
+                "num_RLEs": 2,
+                "num_deltas": 1,
+                "use_bp": True,
+            },
+        },
+        {
+            "options": {
+                "chunk_size": 1 << 12,
+                "type": np.uint32,
+                "num_RLEs": 2,
+                "num_deltas": 1,
+                "use_bp": True,
+            },
+            "chunk_size": 1 << 16,
+        },
+        {
+            "options": {
+                "chunk_size": 1 << 12,
+                "type": np.uint32,
+                "num_RLEs": 2,
+                "num_deltas": 1,
+                "use_bp": True,
+            },
+            "data_type": np.uint8,
+        },
+        {
+            "options": {
+                "chunk_size": 1 << 12,
+                "type": np.uint32,
+                "num_RLEs": 2,
+                "num_deltas": 1,
+                "use_bp": True,
+            },
+            "device_id": 0,
+        },
+    ],
+)
+def test_cascaded_inputs(inputs):
+    size = 10000
+    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.CascadedManager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == 600
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {},
+        {"chunk_size": 1 << 16, "algo": 0, "device_id": 0},
+        {
+            "chunk_size": 1 << 16,
+        },
+        {
+            "algo": 0,
+        },
+        {
+            "device_id": 0,
+        },
+    ],
+)
+def test_gdeflate_inputs(inputs):
+    size = 10000
+    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.GdeflateManager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == 732
+
+
+@pytest.mark.parametrize(
+    "inputs, expected",
+    zip(
+        [
+            {"algo": 0},
+        ],
+        [732]
+    )
+)
+def test_gdeflate_algorithms(inputs, expected):
+    size = 10000
+    dtype = np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.GdeflateManager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == expected
+
+
+@pytest.mark.xfail(throws=ValueError)
+@pytest.mark.parametrize(
+    "inputs, expected",
+    zip(
+        [
+            {"algo": 1},
+            {"algo": 2}
+        ],
+        [732, 732]
+    )
+)
+def test_gdeflate_algorithms_not_implemented(inputs, expected):
+    size = 10000
+    dtype = np.int8
+    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
+    compressor = libnvcomp.GdeflateManager(**inputs)
+    final = compressor.compress(data)
+    assert len(final) == expected
+
+
 
 @pytest.mark.parametrize(
     "inputs",
@@ -64,7 +251,7 @@ def test_round_trip_dtypes(manager, dtype):
         },
     ],
 )
-def test_lz4_compress_inputs(inputs):
+def test_lz4_inputs(inputs):
     size = 10000
     dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
@@ -84,76 +271,13 @@ def test_lz4_compress_inputs(inputs):
         {"device_id": 0},
     ],
 )
-def test_snappy_compress_inputs(inputs):
+def test_snappy_inputs(inputs):
     size = 10000
-    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
+    dtype = np.int8
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.SnappyManager(**inputs)
     final = compressor.compress(data)
     assert len(final) == 3548
-
-
-@pytest.mark.parametrize(
-    "inputs",
-    [
-        {},
-        {
-            "options": {
-                "chunk_size": 1 << 12,
-                "type": np.uint32,
-                "num_RLEs": 2,
-                "num_deltas": 1,
-                "use_bp": True,
-            },
-        },
-        {
-            "options": {
-                "chunk_size": 1 << 12,
-                "type": np.uint32,
-                "num_RLEs": 2,
-                "num_deltas": 1,
-                "use_bp": True,
-            },
-            "chunk_size": 1 << 16,
-        },
-        {
-            "options": {
-                "chunk_size": 1 << 12,
-                "type": np.uint32,
-                "num_RLEs": 2,
-                "num_deltas": 1,
-                "use_bp": True,
-            },
-            "data_type": np.uint8,
-        },
-        {
-            "options": {
-                "chunk_size": 1 << 12,
-                "type": np.uint32,
-                "num_RLEs": 2,
-                "num_deltas": 1,
-                "use_bp": True,
-            },
-            "device_id": 0,
-        },
-        {
-            "options": {
-                "chunk_size": 1 << 12,
-                "type": np.uint32,
-                "num_RLEs": 2,
-                "num_deltas": 1,
-                "use_bp": True,
-            },
-        },
-    ],
-)
-def test_cascaded_compress_inputs(inputs):
-    size = 10000
-    dtype = inputs.get("data_type") if inputs.get("data_type") else np.int8
-    data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
-    compressor = libnvcomp.CascadedManager(**inputs)
-    final = compressor.compress(data)
-    assert len(final) == 600
 
 
 @pytest.mark.parametrize(
@@ -310,7 +434,7 @@ def test_get_required_scratch_buffer_size(manager, expected):
         managers(),
         [
             10436,  # ANS
-            3352,  # Bitcomp
+            3208,  # Bitcomp
             600,  # Cascaded
             732,  # Gdeflate
             393,  # LZ4

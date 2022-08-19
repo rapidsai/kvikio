@@ -63,9 +63,9 @@ class nvCompManager:
     # code.
     stream: cp.cuda.Stream = cp.cuda.Stream()
     chunk_size: int = 1 << 16
-    data_type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR
+    data_type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR
     # Some classes have this defined as type, some as data_type.
-    type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR
+    type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR
     device_id: int = 0
 
     # Bitcomp Defaults
@@ -89,6 +89,8 @@ class nvCompManager:
                 "stream argument not yet supported: " "Use the default argument"
             )
 
+        # data_type will be passed in as a python object. Convert it to
+        # a C++ nvcompType_t here. 
         if kwargs.get("data_type"):
             if not isinstance(kwargs["data_type"], _lib.pyNvcompType_t):
                 kwargs["input_type"] = kwargs.get("data_type")
@@ -236,12 +238,39 @@ class nvCompManager:
 
 class ANSManager(nvCompManager):
     def __init__(self, **kwargs):
+        """Initialize an ANSManager object.
+
+        Used to compress and decompress GPU buffers.
+        All parameters are optional and will be set to usable defaults.
+        
+        Parameters
+        ----------
+        chunk_size: int (optional)
+            Defaults to 4096. 
+        device_id: int (optional)
+            Specify which device_id on the node to use for allocation and compression.
+            Defaults to 0.
+        """
         super().__init__(kwargs)
+
         self._manager = _lib._ANSManager(self.chunk_size, self.stream, self.device_id)
 
 
 class BitcompManager(nvCompManager):
     def __init__(self, **kwargs):
+        """Create a GPU BitcompCompressor object.
+
+        Used to compress and decompress GPU buffers.
+        All parameters are optional and will be set to usable defaults.
+
+        Parameters
+        ----------
+        chunk_size: int (optional)
+            Defaults to 4096.
+        device_id: int (optional)
+            Specify which device_id on the node to use
+            Defaults to 0.
+        """
         super().__init__(kwargs)
 
         self._manager = _lib._BitcompManager(
@@ -253,19 +282,27 @@ class CascadedManager(nvCompManager):
     def __init__(self, **kwargs):
         """Initialize a CascadedManager for a specific dtype.
 
+        Used to compress and decompress GPU buffers.
+        All parameters are optional and will be set to usable defaults.
+
         Parameters
         ----------
-        dtype: cp.dtype
+        chunk_size: int (optional)
+            Defaults to 4096 and can't currently be changed.
+        dtype: cp.dtype (optional)
             The dtype of the input buffer to be compressed.
-        num_RLEs: int
+        num_RLEs: int (optional)
             Number of Run-Length Encoders to use, see [algorithms overview.md](
                 https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#run-length-encoding-rle)  # noqa: E501
-        num_deltas: int
+        num_deltas: int (optional)
             Number of Delta Encoders to use, see [algorithms overview.md](
                 https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#delta-encoding)  # noqa: E501
-        use_bp: bool
+        use_bp: bool (optional)
             Enable Bitpacking, see [algorithms overview.md](
                 https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#bitpacking)  # noqa: E501
+        device_id: int (optional)
+            Specify which device_id on the node to use
+            Defaults to 0.
         """
         super().__init__(kwargs)
         default_options = {
@@ -296,6 +333,24 @@ class CascadedManager(nvCompManager):
 
 class GdeflateManager(nvCompManager):
     def __init__(self, **kwargs):
+        """Create a GPU GdeflateCompressor object.
+
+        Used to compress and decompress GPU buffers.
+        All parameters are optional and will be set to usable defaults.
+
+        Parameters
+        ----------
+        chunk_size: int (optional)
+        algo: int (optional)
+            Integer in the range [0, 1, 2]. Only algorithm #0 is currently
+            supported.
+        stream: cudaStream_t (optional)
+            Which CUDA stream to perform the operation on. Not currently
+            supported.
+        device_id: int (optional)
+            Specify which device_id on the node to use
+            Defaults to 0.
+        """
         super().__init__(kwargs)
 
         self._manager = _lib._GdeflateManager(
@@ -308,15 +363,25 @@ class LZ4Manager(nvCompManager):
         """Create a GPU LZ4Compressor object.
 
         Used to compress and decompress GPU buffers of a specific dtype.
+        All parameters are optional and will be set to usable defaults.
 
         Parameters
         ----------
-        chunk_size: int
-        data_type: pyNVCOMP_TYPE
+        chunk_size: int (optional)
+            The size of each chunk of data to decompress indepentently with
+            LZ4. Must be within the range of [32768, 16777216]. Larger sizes will
+            result in higher compression, but with decreased parallelism. The
+            recommended size is 65536.
+            Defaults to the recommended size.
+        data_type: pyNVCOMP_TYPE (optional)
+            The data type returned for decompression.
+            Defaults to pyNVCOMP_TYPE.UCHAR
         stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on
+            Which CUDA stream to perform the operation on. Not currently
+            supported.
         device_id: int (optional)
             Specify which device_id on the node to use
+            Defaults to 0.
         """
         super().__init__(kwargs)
         self._manager = _lib._LZ4Manager(
@@ -329,14 +394,17 @@ class SnappyManager(nvCompManager):
         """Create a GPU SnappyCompressor object.
 
         Used to compress and decompress GPU buffers.
+        All parameters are optional and will be set to usable defaults.
 
         Parameters
         ----------
         chunk_size: int (optional)
         stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on
+            Which CUDA stream to perform the operation on. Not currently
+            supported.
         device_id: int (optional)
             Specify which device_id on the node to use
+            Defaults to 0.
         """
         super().__init__(kwargs)
         self._manager = _lib._SnappyManager(
