@@ -33,21 +33,21 @@ from libcpp.utility cimport move
 
 from kvikio._lib.arr cimport Array
 from kvikio._lib.nvcomp_cxx_api cimport (
-    cudaStream_t,
-    nvcompBatchedCascadedDefaultOpts,
-    nvcompBatchedCascadedOpts_t,
-    nvcompStatus_t,
-    nvcompType_t,
-    CompressionConfig,
-    DecompressionConfig,
     ANSManager,
     BitcompManager,
     CascadedManager,
+    CompressionConfig,
+    DecompressionConfig,
     GdeflateManager,
     LZ4Manager,
     SnappyManager,
-    nvcompManagerBase,
     create_manager,
+    cudaStream_t,
+    nvcompBatchedCascadedDefaultOpts,
+    nvcompBatchedCascadedOpts_t,
+    nvcompManagerBase,
+    nvcompStatus_t,
+    nvcompType_t,
 )
 
 
