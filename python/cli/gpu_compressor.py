@@ -33,7 +33,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-c",
-        choices=["lz4", "cascaded", "snappy"],
+        choices=[
+            "ans",
+            "bitcomp",
+            "cascaded",
+            "gdeflate",
+            "lz4",
+            "snappy"
+        ],
         action="store",
         dest="compression",
         help="Which GPU algorithm to use for compression.",
@@ -62,8 +69,14 @@ if __name__ == "__main__":
 
     if args.d:
         compressor = nvcomp.ManagedDecompressionManager(data)
+    elif args.compression == "ans":
+        compressor = nvcomp.ANSManager()
+    elif args.compression == "bitcomp":
+        compressor = nvcomp.BitcompManager()
     elif args.compression == "cascaded":
         compressor = nvcomp.CascadedManager()
+    elif args.compression == "gdeflate":
+        compressor = nvcomp.GdeflateManager()
     elif args.compression == "snappy":
         compressor = nvcomp.SnappyManager()
     else:
