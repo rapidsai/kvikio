@@ -47,6 +47,7 @@ def test_round_trip_dtypes(manager, dtype):
     decompressed = compressor_instance.decompress(compressed)
     assert (data == decompressed).all()
 
+
 #
 # ANS Options test
 #
@@ -77,9 +78,7 @@ def test_ans_inputs(inputs):
     [
         {},
         {"data_type": np.uint8, "algo": 0, "device_id": 0},
-        {
-            "data_type": np.uint8
-        },
+        {"data_type": np.uint8},
         {
             "algo": 0,
         },
@@ -105,8 +104,8 @@ def test_bitcomp_inputs(inputs):
             {"algo": 1},
             {"algo": 2},
         ],
-        [3208, 3208, 3208]
-    )
+        [3208, 3208, 3208],
+    ),
 )
 def test_bitcomp_algorithms(inputs, expected):
     size = 10000
@@ -202,8 +201,8 @@ def test_gdeflate_inputs(inputs):
         [
             {"algo": 0},
         ],
-        [732]
-    )
+        [732],
+    ),
 )
 def test_gdeflate_algorithms(inputs, expected):
     size = 10000
@@ -214,16 +213,9 @@ def test_gdeflate_algorithms(inputs, expected):
     assert len(final) == expected
 
 
-@pytest.mark.xfail(throws=ValueError)
+@pytest.mark.xfail(raises=ValueError)
 @pytest.mark.parametrize(
-    "inputs, expected",
-    zip(
-        [
-            {"algo": 1},
-            {"algo": 2}
-        ],
-        [732, 732]
-    )
+    "inputs, expected", zip([{"algo": 1}, {"algo": 2}], [732, 732])
 )
 def test_gdeflate_algorithms_not_implemented(inputs, expected):
     size = 10000
@@ -232,7 +224,6 @@ def test_gdeflate_algorithms_not_implemented(inputs, expected):
     compressor = libnvcomp.GdeflateManager(**inputs)
     final = compressor.compress(data)
     assert len(final) == expected
-
 
 
 @pytest.mark.parametrize(

@@ -90,7 +90,7 @@ class nvCompManager:
             )
 
         # data_type will be passed in as a python object. Convert it to
-        # a C++ nvcompType_t here. 
+        # a C++ nvcompType_t here.
         if kwargs.get("data_type"):
             if not isinstance(kwargs["data_type"], _lib.pyNvcompType_t):
                 kwargs["input_type"] = kwargs.get("data_type")
@@ -242,11 +242,11 @@ class ANSManager(nvCompManager):
 
         Used to compress and decompress GPU buffers.
         All parameters are optional and will be set to usable defaults.
-        
+
         Parameters
         ----------
         chunk_size: int (optional)
-            Defaults to 4096. 
+            Defaults to 4096.
         device_id: int (optional)
             Specify which device_id on the node to use for allocation and compression.
             Defaults to 0.

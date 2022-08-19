@@ -33,14 +33,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-c",
-        choices=[
-            "ans",
-            "bitcomp",
-            "cascaded",
-            "gdeflate",
-            "lz4",
-            "snappy"
-        ],
+        choices=["ans", "bitcomp", "cascaded", "gdeflate", "lz4", "snappy"],
         action="store",
         dest="compression",
         help="Which GPU algorithm to use for compression.",
