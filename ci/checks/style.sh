@@ -33,3 +33,4 @@ IFS=$'\n'
 RETVAL=`echo "${RETVALS[*]}" | sort -nr | head -n1`
 
 exit $RETVAL
+
