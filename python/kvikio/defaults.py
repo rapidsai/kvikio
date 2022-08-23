@@ -53,7 +53,7 @@ def set_compat_mode(enable: bool):
     enable : bool
         Set to True to enable and False to disable compatibility mode
     """
-    reset_num_threads(get_num_threads())  # Sync all running threads
+    num_threads_reset(get_num_threads())  # Sync all running threads
     old_value = compat_mode()
     try:
         compat_mode_reset(enable)
@@ -65,7 +65,7 @@ def set_compat_mode(enable: bool):
 def get_num_threads() -> int:
     """Get the number of threads of the thread pool.
 
-    Set the default value using `reset_num_threads()` or by setting the
+    Set the default value using `num_threads_reset()` or by setting the
     `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
 
     Return
@@ -76,7 +76,7 @@ def get_num_threads() -> int:
     return libkvikio.thread_pool_nthreads()
 
 
-def reset_num_threads(nthreads: int) -> None:
+def num_threads_reset(nthreads: int) -> None:
     """Reset the number of threads in the default thread pool.
 
     Waits for all currently running tasks to be completed, then destroys all threads
@@ -104,10 +104,10 @@ def set_num_threads(nthreads: int):
     """
     old_value = get_num_threads()
     try:
-        reset_num_threads(nthreads)
+        num_threads_reset(nthreads)
         yield
     finally:
-        reset_num_threads(old_value)
+        num_threads_reset(old_value)
 
 
 def task_size() -> int:
@@ -125,7 +125,7 @@ def task_size() -> int:
     return libkvikio.task_size()
 
 
-def reset_task_size(nbytes: int) -> None:
+def task_size_reset(nbytes: int) -> None:
     """Reset the default task size used for parallel IO operations.
 
     Parameters
@@ -147,7 +147,7 @@ def set_task_size(nbytes: int):
     """
     old_value = task_size()
     try:
-        reset_task_size(nbytes)
+        task_size_reset(nbytes)
         yield
     finally:
-        reset_task_size(old_value)
+        task_size_reset(old_value)
