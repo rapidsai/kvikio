@@ -49,14 +49,7 @@ requirements:
 
 test:
   commands:
-    - test -f $PREFIX/include/kvikio/utils.hpp
-    - test -f $PREFIX/include/kvikio/parallel_operation.hpp
     - test -f $PREFIX/include/kvikio/file_handle.hpp
-    - test -f $PREFIX/include/kvikio/error.hpp
-    - test -f $PREFIX/include/kvikio/driver.hpp
-    - test -f $PREFIX/include/kvikio/buffer.hpp
-    - test -f $PREFIX/include/kvikio/thread_pool.hpp
-    - test -f $PREFIX/include/kvikio/defaults.hpp
 
 about:
   home: http://rapids.ai/
