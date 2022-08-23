@@ -11,3 +11,4 @@ python/kvikio/_lib/*.cpp
 cufile.log
 docs/build/
 cpp/doxygen/html/
+.mypy_cache
