@@ -70,6 +70,15 @@ cdef class _nvcompManager:
     cdef shared_ptr[CompressionConfig] _compression_config
     cdef shared_ptr[DecompressionConfig] _decompression_config
 
+    def __dealloc__(self):
+        # `ManagedManager` uses a temporary object, self._mgr
+        # to retain a reference count to the Manager created by
+        # create_manager. If it is present, then the `shared_ptr`
+        # system will free self._impl. Otherwise, we need to free
+        # self._iNonempl
+        if self._mgr == nullptr:
+            del self._impl
+
     def configure_compression(self, decomp_buffer_size):
         cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
             self._impl.configure_compression(decomp_buffer_size)
@@ -87,24 +96,25 @@ cdef class _nvcompManager:
             "num_chunks": self._compression_config.get()[0].num_chunks
         }
 
-    def compress(self, decomp_buffer, comp_buffer):
+    def compress(self, Array decomp_buffer, Array comp_buffer):
+        cdef uintptr_t comp_buffer_ptr = comp_buffer.ptr
         self._impl.compress(
-            <const uint8_t*><uintptr_t>decomp_buffer.data.ptr,
-            <uint8_t*><uintptr_t>comp_buffer.data.ptr,
+            <const uint8_t*>decomp_buffer.ptr,
+            <uint8_t*>comp_buffer_ptr,
             <CompressionConfig&>self._compression_config.get()[0]
         )
         size = self._impl.get_compressed_output_size(
-            <uint8_t*><uintptr_t>comp_buffer.data.ptr
+            <uint8_t*>comp_buffer_ptr
         )
         return size
 
     def configure_decompression_with_compressed_buffer(
         self,
-        comp_buffer
+        Array comp_buffer
     ) -> dict:
         cdef shared_ptr[DecompressionConfig] partial = make_shared[
             DecompressionConfig](self._impl.configure_decompression(
-                <uint8_t*><uintptr_t>comp_buffer.data.ptr
+                <uint8_t*>comp_buffer.ptr
             )
         )
         self._decompression_config = make_shared[DecompressionConfig](
@@ -118,26 +128,26 @@ cdef class _nvcompManager:
 
     def decompress(
         self,
-        decomp_buffer,
-        comp_buffer,
+        Array decomp_buffer,
+        Array comp_buffer,
     ):
         self._impl.decompress(
-            <uint8_t*><uintptr_t>decomp_buffer.data.ptr,
-            <const uint8_t*><uintptr_t>comp_buffer.data.ptr,
+            <uint8_t*>decomp_buffer.ptr,
+            <const uint8_t*>comp_buffer.ptr,
             <DecompressionConfig&>self._decompression_config.get()[0]
         )
 
-    def set_scratch_buffer(self, new_scratch_buffer):
+    def set_scratch_buffer(self, Array new_scratch_buffer):
         return self._impl.set_scratch_buffer(
-            <uint8_t*><uintptr_t>new_scratch_buffer.data.ptr
+            <uint8_t*>new_scratch_buffer.data.ptr
         )
 
     def get_required_scratch_buffer_size(self):
         return self._impl.get_required_scratch_buffer_size()
 
-    def get_compressed_output_size(self, comp_buffer):
+    def get_compressed_output_size(self, Array comp_buffer):
         return self._impl.get_compressed_output_size(
-            <uint8_t*><uintptr_t>comp_buffer.data.ptr
+            <uint8_t*>comp_buffer.data.ptr
         )
 
 
@@ -165,7 +175,7 @@ cdef class _BitcompManager(_nvcompManager):
     ):
         self._impl = <nvcompManagerBase*>new BitcompManager(
             <nvcompType_t>data_type,
-            <int>bitcomp_algo,
+            bitcomp_algo,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
@@ -194,8 +204,8 @@ cdef class _GdeflateManager(_nvcompManager):
         const int device_id
     ):
         self._impl = <nvcompManagerBase*>new GdeflateManager(
-            <int>chunk_size,
-            <int>algo,
+            chunk_size,
+            algo,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
@@ -215,7 +225,7 @@ cdef class _LZ4Manager(_nvcompManager):
         cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
         self._impl = <nvcompManagerBase*>new LZ4Manager(
             uncomp_chunk_size,
-            <nvcompType_t>data_type,
+            data_type,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )

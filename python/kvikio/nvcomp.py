@@ -122,7 +122,7 @@ class nvCompManager:
         # last incoming data, and reuse temp and out buffer if so.
         data_size = data.size * data.itemsize
         self.config = self._manager.configure_compression(data_size)
-        self.compress_out_buffer = cp.zeros(
+        self.compress_out_buffer = cp.empty(
             self.config["max_compressed_buffer_size"], dtype="uint8"
         )
         size = self._manager.compress(data, self.compress_out_buffer)
@@ -144,7 +144,7 @@ class nvCompManager:
         self.decompression_config = (
             self._manager.configure_decompression_with_compressed_buffer(data)
         )
-        decomp_buffer = cp.zeros(
+        decomp_buffer = cp.empty(
             self.decompression_config["decomp_data_size"], dtype="uint8"
         )
         self._manager.decompress(decomp_buffer, data)
