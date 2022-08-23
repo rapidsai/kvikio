@@ -110,9 +110,10 @@ cdef class _nvcompManager:
         self._decompression_config = make_shared[DecompressionConfig](
             (move(partial.get()[0]))
         )
+        cdef const DecompressionConfig* decompression_config_ptr = self._decompression_config.get()
         return {
-            "decomp_data_size": self._decompression_config.get()[0].decomp_data_size,
-            "num_chunks": self._decompression_config.get()[0].num_chunks
+            "decomp_data_size": decompression_config_ptr.decomp_data_size,
+            "num_chunks": decompression_config_ptr.num_chunks
         }
 
     def decompress(
