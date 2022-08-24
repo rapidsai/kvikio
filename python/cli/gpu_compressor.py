@@ -10,8 +10,8 @@ import cupy
 import kvikio
 import kvikio.nvcomp as nvcomp
 
-if __name__ == "__main__":
 
+def get_parser():
     class NvcompParser(argparse.ArgumentParser):
         """
         Handle special case and show help on invalid argument
@@ -44,6 +44,11 @@ if __name__ == "__main__":
         help="Decompress the incoming file",
     )
     parser.add_argument(action="store", dest="filename", help="Relative Filename")
+    return parser
+
+
+def main():
+    parser = get_parser()
     args = parser.parse_args()
 
     print("GPU Compression Initialized") if args.verbose else None
@@ -125,3 +130,7 @@ if __name__ == "__main__":
     else:
         end_name = args.filename + ".gpc"
     print(f"Created file {end_name}") if args.verbose else None
+
+
+if __name__ == "__main__":
+    main()

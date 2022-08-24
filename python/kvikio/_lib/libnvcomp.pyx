@@ -80,20 +80,21 @@ cdef class _nvcompManager:
             del self._impl
 
     def configure_compression(self, decomp_buffer_size):
-        cdef shared_ptr[CompressionConfig] partial = make_shared[CompressionConfig](
-            self._impl.configure_compression(decomp_buffer_size)
+        cdef shared_ptr[CompressionConfig] partial = make_shared[
+            CompressionConfig](
+                self._impl.configure_compression(decomp_buffer_size)
         )
         self._compression_config = make_shared[CompressionConfig](
             (move(partial.get()[0]))
         )
+        cdef const CompressionConfig* compression_config_ptr = \
+            self._compression_config.get()
         return {
-            "uncompressed_buffer_size": self._compression_config.get()[
-                0
-            ].uncompressed_buffer_size,
-            "max_compressed_buffer_size": self._compression_config.get()[
-                0
-            ].max_compressed_buffer_size,
-            "num_chunks": self._compression_config.get()[0].num_chunks
+            "uncompressed_buffer_size": compression_config_ptr.
+            uncompressed_buffer_size,
+            "max_compressed_buffer_size": compression_config_ptr.
+            max_compressed_buffer_size,
+            "num_chunks": compression_config_ptr.num_chunks
         }
 
     def compress(self, Array decomp_buffer, Array comp_buffer):
@@ -120,7 +121,8 @@ cdef class _nvcompManager:
         self._decompression_config = make_shared[DecompressionConfig](
             (move(partial.get()[0]))
         )
-        cdef const DecompressionConfig* decompression_config_ptr = self._decompression_config.get()
+        cdef const DecompressionConfig* decompression_config_ptr = \
+            self._decompression_config.get()
         return {
             "decomp_data_size": decompression_config_ptr.decomp_data_size,
             "num_chunks": decompression_config_ptr.num_chunks
