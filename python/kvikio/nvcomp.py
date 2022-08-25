@@ -7,6 +7,7 @@ import cupy as cp
 import numpy as np
 
 import kvikio._lib.libnvcomp as _lib
+from kvikio._lib.arr import asarray
 
 _dtype_map = {
     cp.dtype("int8"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
@@ -125,7 +126,7 @@ class nvCompManager:
         self.compress_out_buffer = cp.empty(
             self.config["max_compressed_buffer_size"], dtype="uint8"
         )
-        size = self._manager.compress(data, self.compress_out_buffer)
+        size = self._manager.compress(asarray(data), asarray(self.compress_out_buffer))
         return self.compress_out_buffer[0:size]
 
     def decompress(self, data: cp.ndarray) -> cp.ndarray:
@@ -142,12 +143,12 @@ class nvCompManager:
             An array of `self.dtype` produced after decompressing the input argument.
         """
         self.decompression_config = (
-            self._manager.configure_decompression_with_compressed_buffer(data)
+            self._manager.configure_decompression_with_compressed_buffer(asarray(data))
         )
         decomp_buffer = cp.empty(
             self.decompression_config["decomp_data_size"], dtype="uint8"
         )
-        self._manager.decompress(decomp_buffer, data)
+        self._manager.decompress(asarray(decomp_buffer), asarray(data))
         return decomp_buffer.view(self.input_type)
 
     def configure_compression(self, data_size: int) -> dict:
@@ -187,7 +188,9 @@ class nvCompManager:
             in.
         }
         """
-        return self._manager.configure_decompression_with_compressed_buffer(data)
+        return self._manager.configure_decompression_with_compressed_buffer(
+            asarray(data)
+        )
 
     def get_required_scratch_buffer_size(self) -> int:
         """Return the size of the optional scratch buffer.
@@ -216,7 +219,7 @@ class nvCompManager:
         -------
         cp.ndarray
         """
-        return self._manager.set_scratch_buffer(new_scratch_buffer)
+        return self._manager.set_scratch_buffer(asarray(new_scratch_buffer))
 
     def get_compressed_output_size(self, comp_buffer: cp.ndarray) -> int:
         """Return the actual size of compression result.
@@ -233,7 +236,7 @@ class nvCompManager:
         -------
         int
         """
-        return self._manager.get_compressed_output_size(comp_buffer)
+        return self._manager.get_compressed_output_size(asarray(comp_buffer))
 
 
 class ANSManager(nvCompManager):
@@ -432,4 +435,4 @@ class ManagedDecompressionManager(nvCompManager):
             A buffer of compressed bytes of unknown origin.
         """
         super().__init__({})
-        self._manager = _lib._ManagedManager(compressed_buffer)
+        self._manager = _lib._ManagedManager(asarray(compressed_buffer))
