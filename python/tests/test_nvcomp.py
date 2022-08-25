@@ -274,20 +274,31 @@ def test_snappy_inputs(inputs):
 @pytest.mark.parametrize(
     "compressor_size",
     zip(
-        [
-            libnvcomp.LZ4Manager,
-            libnvcomp.CascadedManager,
-            libnvcomp.SnappyManager,
-        ],
+        managers(),
         [
             {
-                "max_compressed_buffer_size": 65888,
+                "max_compressed_buffer_size": 131669,
+                "num_chunks": 1,
+                "uncompressed_buffer_size": 10000,
+            },
+            {
+                "max_compressed_buffer_size": 16432,
                 "num_chunks": 1,
                 "uncompressed_buffer_size": 10000,
             },
             {
                 "max_compressed_buffer_size": 12460,
                 "num_chunks": 3,
+                "uncompressed_buffer_size": 10000,
+            },
+            {
+                "max_compressed_buffer_size": 131160,
+                "num_chunks": 1,
+                "uncompressed_buffer_size": 10000,
+            },
+            {
+                "max_compressed_buffer_size": 65888,
+                "num_chunks": 1,
                 "uncompressed_buffer_size": 10000,
             },
             {
