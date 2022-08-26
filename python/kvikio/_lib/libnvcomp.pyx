@@ -141,7 +141,7 @@ cdef class _nvcompManager:
 
     def set_scratch_buffer(self, Array new_scratch_buffer):
         return self._impl.set_scratch_buffer(
-            <uint8_t*>new_scratch_buffer.data.ptr
+            <uint8_t*>new_scratch_buffer.ptr
         )
 
     def get_required_scratch_buffer_size(self):
@@ -149,7 +149,7 @@ cdef class _nvcompManager:
 
     def get_compressed_output_size(self, Array comp_buffer):
         return self._impl.get_compressed_output_size(
-            <uint8_t*>comp_buffer.data.ptr
+            <uint8_t*>comp_buffer.ptr
         )
 
 
@@ -253,7 +253,7 @@ cdef class _SnappyManager(_nvcompManager):
 cdef class _ManagedManager(_nvcompManager):
     def __init__(self, compressed_buffer):
         cdef shared_ptr[nvcompManagerBase] _mgr = create_manager(
-            <uint8_t*><uintptr_t>compressed_buffer.data.ptr
+            <uint8_t*><uintptr_t>compressed_buffer.ptr
         )
         self._mgr = _mgr
         self._impl = move(_mgr).get()
