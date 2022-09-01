@@ -158,11 +158,16 @@ class FileHandle {
              const std::string& flags = "r",
              mode_t mode              = m644,
              bool compat_mode         = defaults::compat_mode())
-    : _fd_direct_on{detail::open_fd(file_path, flags, true, mode)},
-      _fd_direct_off{detail::open_fd(file_path, flags, false, mode)},
+    : _fd_direct_off{detail::open_fd(file_path, flags, false, mode)},
       _initialized{true},
       _compat_mode{compat_mode}
   {
+    try {
+      _fd_direct_on = detail::open_fd(file_path, flags, true, mode);
+    } catch (const std::system_error&) {
+      _compat_mode = true;  // Fall back to compat mode if we cannot open the file with O_DIRECT
+    }
+
     if (_compat_mode) { return; }
 #ifdef KVIKIO_CUFILE_EXIST
     CUfileDescr_t desc{};  // It is important to set to zero!
@@ -213,8 +218,8 @@ class FileHandle {
       cuFileAPI::instance().HandleDeregister(_handle);
 #endif
     }
-    ::close(_fd_direct_on);
     ::close(_fd_direct_off);
+    if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
     _fd_direct_on  = -1;
     _fd_direct_off = -1;
     _initialized   = false;
@@ -229,7 +234,7 @@ class FileHandle {
    *
    * @return File descripter
    */
-  [[nodiscard]] int fd() const noexcept { return _fd_direct_on; }
+  [[nodiscard]] int fd() const noexcept { return _fd_direct_off; }
 
   /**
    * @brief Get the flags of one of the file descriptors (see open(2))
@@ -240,7 +245,7 @@ class FileHandle {
    *
    * @return File descripter
    */
-  [[nodiscard]] int fd_open_flags() const { return detail::open_flags(_fd_direct_on); }
+  [[nodiscard]] int fd_open_flags() const { return detail::open_flags(_fd_direct_off); }
 
   /**
    * @brief Get the file size
@@ -252,7 +257,7 @@ class FileHandle {
   [[nodiscard]] inline std::size_t nbytes() const
   {
     if (closed()) { return 0; }
-    if (_nbytes == 0) { _nbytes = detail::get_file_size(_fd_direct_on); }
+    if (_nbytes == 0) { _nbytes = detail::get_file_size(_fd_direct_off); }
     return _nbytes;
   }
 
