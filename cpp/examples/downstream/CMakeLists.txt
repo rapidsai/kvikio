@@ -22,7 +22,7 @@ include(rapids-find)
 
 project(
   KvikIODownstreamExample
-  VERSION 22.04.00
+  VERSION 22.10.00
   LANGUAGES CXX
 )
 
@@ -45,7 +45,5 @@ rapids_find_package(
   INSTALL_EXPORT_SET downstream-example-exports
 )
 
-message(STATUS "KvikIO_INCLUDE_DIR: ${KvikIO_INCLUDE_DIR}")
 add_executable(downstream_example downstream_example.cpp)
-target_include_directories(downstream_example PRIVATE ${KvikIO_INCLUDE_DIR})
-target_link_libraries(downstream_example PRIVATE kvikio CUDA::cudart)
+target_link_libraries(downstream_example PRIVATE kvikio::kvikio CUDA::cudart)

@@ -32,5 +32,5 @@ function(find_and_configure_kvikio VERSION)
 
 endfunction()
 
-set(KVIKIO_MIN_VERSION_cudf "${CUDF_VERSION_MAJOR}.${CUDF_VERSION_MINOR}")
-find_and_configure_kvikio(${KVIKIO_MIN_VERSION_cudf})
+set(KVIKIO_MIN_VERSION_example "${KvikIODownstreamExample_VERSION_MAJOR}.${KvikIODownstreamExample_VERSION_MINOR}")
+find_and_configure_kvikio(${KVIKIO_MIN_VERSION_example})
