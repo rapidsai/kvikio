@@ -1,11 +1,7 @@
 #include <iostream>
 
-#include <cuda_runtime_api.h>
-
-#include <kvikio/buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/driver.hpp>
-#include <kvikio/file_handle.hpp>
 
 using namespace std;
 
@@ -19,8 +15,6 @@ void check(bool condition)
 
 int main()
 {
-  check(cudaSetDevice(0) == cudaSuccess);
-
   cout << "KvikIO defaults: " << endl;
   if (kvikio::defaults::compat_mode()) {
     cout << "  Compatibility mode: enabled" << endl;

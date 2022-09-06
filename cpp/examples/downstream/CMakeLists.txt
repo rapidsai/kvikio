@@ -20,21 +20,14 @@ project(
   LANGUAGES CXX
 )
 
-# Get CPM
+# Get CPM see <https://github.com/cpm-cmake/CPM.cmake>
 include(cmake/get_cpm.cmake)
 
-# Get KvikIO
+# Get KvikIO see <https://github.com/rapidsai/kvikio>
 include(cmake/get_kvikio.cmake)
-
-# Find `CUDA::cudart`
-rapids_find_package(
-  CUDAToolkit REQUIRED
-  BUILD_EXPORT_SET downstream-example-exports
-  INSTALL_EXPORT_SET downstream-example-exports
-)
 
 add_executable(downstream_example downstream_example.cpp)
 
 # Notice, even though KvikIO is a header-only library, we link to it here.
 # Linking to `kvikio::kvikio` makes CMake include the headers of KvikIO when building.
-target_link_libraries(downstream_example PRIVATE kvikio::kvikio CUDA::cudart)
+target_link_libraries(downstream_example PRIVATE kvikio::kvikio)
