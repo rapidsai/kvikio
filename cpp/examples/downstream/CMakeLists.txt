@@ -39,11 +39,5 @@ rapids_find_package(
   INSTALL_EXPORT_SET downstream-example-exports
 )
 
-rapids_find_package(
-  KvikIO REQUIRED
-  BUILD_EXPORT_SET downstream-example-exports
-  INSTALL_EXPORT_SET downstream-example-exports
-)
-
 add_executable(downstream_example downstream_example.cpp)
 target_link_libraries(downstream_example PRIVATE kvikio::kvikio CUDA::cudart)
