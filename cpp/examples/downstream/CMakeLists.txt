@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 project(
   KvikIODownstreamExample
-  VERSION 22.10.00
+  VERSION 1.00
   LANGUAGES CXX
 )
 
