@@ -14,22 +14,16 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-include(cmake/fetch_rapids.cmake)
-include(rapids-cmake)
-include(rapids-cpm)
-include(rapids-export)
-include(rapids-find)
-
 project(
   KvikIODownstreamExample
   VERSION 22.10.00
   LANGUAGES CXX
 )
 
-rapids_cmake_build_type(Release)
-rapids_cpm_init()
+# Get CPM
+include(cmake/get_cpm.cmake)
 
-# Find KvikIO
+# Get KvikIO
 include(cmake/get_kvikio.cmake)
 
 # Find `CUDA::cudart`
@@ -40,4 +34,7 @@ rapids_find_package(
 )
 
 add_executable(downstream_example downstream_example.cpp)
+
+# Notice, even though KvikIO is a header-only library, we link to it here.
+# Linking to `kvikio::kvikio` makes CMake include the headers of KvikIO when building.
 target_link_libraries(downstream_example PRIVATE kvikio::kvikio CUDA::cudart)

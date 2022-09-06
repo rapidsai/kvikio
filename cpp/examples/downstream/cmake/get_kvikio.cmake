@@ -12,24 +12,17 @@
 # the License.
 # =============================================================================
 
-# This function finds KvikIO
-function(find_and_configure_kvikio VERSION)
+# Use CPM to fetch KvikIO, which makes `kvikio::kvikio` available for `target_link_libraries`
+function(find_and_configure_kvikio MIN_VERSION)
 
-  rapids_cpm_find(
-    KvikIO ${VERSION}
-    GLOBAL_TARGETS kvikio::kvikio
-    CPM_ARGS
+  CPMAddPackage(
+    KvikIO ${MIN_VERSION}
     GIT_REPOSITORY https://github.com/rapidsai/kvikio.git
-    GIT_TAG branch-${VERSION}
+    GIT_TAG branch-${MIN_VERSION}
     GIT_SHALLOW TRUE SOURCE_SUBDIR cpp
     OPTIONS "KvikIO_BUILD_EXAMPLES OFF"
   )
 
-  if(KvikIO_BINARY_DIR)
-    include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(BUILD KvikIO "${KvikIO_BINARY_DIR}" cudf-exports)
-  endif()
-
 endfunction()
 
-find_and_configure_kvikio(22.10)
+find_and_configure_kvikio("22.10")
