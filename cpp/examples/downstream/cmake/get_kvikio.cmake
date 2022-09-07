@@ -15,8 +15,8 @@
 # Use CPM to fetch KvikIO, which makes `kvikio::kvikio` available for `target_link_libraries`
 function(find_and_configure_kvikio MIN_VERSION)
 
-  CPMAddPackage(
-    KvikIO ${MIN_VERSION}
+  CPMFindPackage(
+    NAME KvikIO VERSION ${MIN_VERSION}
     GIT_REPOSITORY https://github.com/rapidsai/kvikio.git
     GIT_TAG branch-${MIN_VERSION}
     GIT_SHALLOW TRUE SOURCE_SUBDIR cpp
