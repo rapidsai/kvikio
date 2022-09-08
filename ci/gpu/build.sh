@@ -64,7 +64,7 @@ gpuci_logger "Build downstream C++ example"
 mkdir build
 cd build
 cmake ..
-make
+cmake --build .
 ./downstream_example
 
 ################################################################################
