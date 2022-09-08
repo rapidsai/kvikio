@@ -55,6 +55,19 @@ conda config --show-sources
 conda list --show-channel-urls
 
 ################################################################################
+# TEST - C++
+################################################################################
+
+cd "$WORKSPACE/cpp/examples/downstream"
+
+gpuci_logger "Build downstream C++ example"
+mkdir build
+cd build
+cmake ..
+cmake --build .
+./downstream_example
+
+################################################################################
 # TEST - Run py.test for kvikio
 ################################################################################
 
