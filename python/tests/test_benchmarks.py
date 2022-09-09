@@ -30,7 +30,7 @@ def test_single_node_io(run_cmd, tmp_path, api):
     if "zarr" in api:
         zarr = pytest.importorskip("zarr")
         if not hasattr(zarr.Array, "meta_array"):
-            pytest.skip("Requires Zarr v2.13.0+ for CuPy support")
+            pytest.skip("requires Zarr v2.13+")
 
     retcode = run_cmd(
         cmd=[

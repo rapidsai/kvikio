@@ -202,7 +202,7 @@ def run_zarr(args):
     dir_path = args.dir / "zarr"
 
     if not hasattr(zarr.Array, "meta_array"):
-        RuntimeError("Requires Zarr v2.13.0+ for CuPy support")
+        raise RuntimeError("requires Zarr v2.13+")
 
     a = cupy.arange(args.nbytes, dtype="uint8")
 

@@ -8,11 +8,10 @@ cupy = pytest.importorskip("cupy")
 zarr = pytest.importorskip("zarr")
 GDSStore = pytest.importorskip("kvikio.zarr").GDSStore
 
-
-cupy_support = pytest.mark.skipif(
-    not hasattr(zarr.Array, "meta_array"),
-    reason="Requires Zarr v2.13.0+ for CuPy support",
-)
+# To support CuPy arrays, we need the `meta_array` argument introduced in
+# Zarr v2.13, see <https://github.com/zarr-developers/zarr-python/pull/934>
+if not hasattr(zarr.Array, "meta_array"):
+    pytest.skip("requires Zarr v2.13+", allow_module_level=True)
 
 
 @pytest.fixture
@@ -35,7 +34,6 @@ def test_direct_store_access(store, array_type):
     cupy.testing.assert_array_equal(a, b)
 
 
-@cupy_support
 def test_array(store):
     """Test Zarr array"""
 
@@ -49,7 +47,6 @@ def test_array(store):
     cupy.testing.assert_array_equal(a, z[:])
 
 
-@cupy_support
 def test_group(store):
     """Test Zarr group"""
 
