@@ -8,6 +8,11 @@ cupy = pytest.importorskip("cupy")
 zarr = pytest.importorskip("zarr")
 GDSStore = pytest.importorskip("kvikio.zarr").GDSStore
 
+# To support CuPy arrays, we need the `meta_array` argument introduced in
+# Zarr v2.13, see <https://github.com/zarr-developers/zarr-python/pull/934>
+if not hasattr(zarr.Array, "meta_array"):
+    pytest.skip("requires Zarr v2.13+", allow_module_level=True)
+
 
 @pytest.fixture
 def store(tmp_path):
@@ -32,14 +37,6 @@ def test_direct_store_access(store, array_type):
 def test_array(store):
     """Test Zarr array"""
 
-    pytest.importorskip(
-        "zarr.cupy",
-        reason=(
-            "To use Zarr arrays with GDS directly, Zarr needs CuPy support: "
-            "<https://github.com/zarr-developers/zarr-python/pull/934>"
-        ),
-    )
-
     a = cupy.arange(100)
     z = zarr.array(
         a, chunks=10, compressor=None, store=store, meta_array=cupy.empty(())
@@ -52,14 +49,6 @@ def test_array(store):
 
 def test_group(store):
     """Test Zarr group"""
-
-    pytest.importorskip(
-        "zarr.cupy",
-        reason=(
-            "To use Zarr arrays with GDS directly, Zarr needs CuPy support: "
-            "<https://github.com/zarr-developers/zarr-python/pull/934>"
-        ),
-    )
 
     g = zarr.open_group(store, meta_array=cupy.empty(()))
     g.ones("data", shape=(10, 11), dtype=int, compressor=None)
