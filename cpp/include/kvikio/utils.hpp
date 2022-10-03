@@ -74,8 +74,13 @@ inline bool is_host_memory(const void* ptr)
   };
   CUmemorytype memtype{};
   void* data[1] = {&memtype};
-  CUDA_DRIVER_TRY(
-    cudaAPI::instance().PointerGetAttributes(1, attrs, data, convert_void2deviceptr(ptr)));
+  CUresult result =
+    cudaAPI::instance().PointerGetAttributes(1, attrs, data, convert_void2deviceptr(ptr));
+
+  // We assume that `ptr` is host memory when CUDA_ERROR_NOT_INITIALIZED
+  if (result == CUDA_ERROR_NOT_INITIALIZED) { return true; }
+  CUDA_DRIVER_TRY(result);
+
   // Notice, queying `CU_POINTER_ATTRIBUTE_MEMORY_TYPE` returns zero when the memory
   // is unregistered host memory. This is undocumented but how the Runtime CUDA API
   // does it to support `cudaMemoryTypeUnregistered`.
