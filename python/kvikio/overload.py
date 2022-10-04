@@ -6,7 +6,7 @@ import os.path
 import kvikio
 
 
-class FromFile:
+class ArrayFromFile:
     def __init__(self, meta_array) -> None:
         self._meta_array = meta_array
 
