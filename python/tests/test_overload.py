@@ -24,6 +24,11 @@ def test_from_file(tmp_path, xp, dtype):
     dst = xp.fromfile(file=filepath, dtype=dtype, like=like)
     xp.testing.assert_array_equal(src, dst)
 
+    filepath = str(tmp_path / "test_from_file")
+    with open(filepath, mode="rb") as f:
+        dst = xp.fromfile(file=f, dtype=dtype, like=like)
+        xp.testing.assert_array_equal(src, dst)
+
 
 @pytest.mark.parametrize("xp", ["numpy", "cupy"])
 def test_from_file_error(tmp_path, xp):

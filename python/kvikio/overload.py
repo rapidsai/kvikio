@@ -22,6 +22,10 @@ class ArrayFromFile:
         else:
             filepath = kwargs.pop("file")
 
+        # If `filepath` is a File, we get its filepath
+        if hasattr(filepath, "fileno"):
+            filepath = filepath.name
+
         if len(args):
             dtype = args[0]
             args = args[1:]
@@ -42,5 +46,4 @@ class ArrayFromFile:
         ret = numpy.empty_like(self._meta_array, shape=(size,), dtype=dtype)
         with kvikio.CuFile(filepath, "r") as f:
             f.read(ret)
-
         return ret
