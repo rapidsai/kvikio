@@ -10,6 +10,7 @@ import pytest
 
 benchmarks_path = Path(os.path.realpath(__file__)).parent / ".." / "benchmarks"
 
+pytest.importorskip("cupy")
 pytest.importorskip("dask")
 
 
