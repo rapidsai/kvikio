@@ -4,19 +4,19 @@
 
 import pytest
 
-from kvikio.numpy import FromFile
+from kvikio.numpy import LikeWrapper
 
 
 @pytest.mark.parametrize("xp", ["numpy", "cupy"])
 @pytest.mark.parametrize("dtype", ["u1", "int64", "float32", "float64"])
 def test_from_file(tmp_path, xp, dtype):
-    """Test NumPy's and CuPy's fromfile() with FromFile"""
+    """Test NumPy's and CuPy's fromfile() with LikeWrapper"""
 
     xp = pytest.importorskip(xp)
     filepath = str(tmp_path / "test_from_file")
     src = xp.arange(100, dtype=dtype)
     src.tofile(filepath)
-    like = FromFile(like=xp.empty(()))
+    like = LikeWrapper(like=xp.empty(()))
     dst = xp.fromfile(filepath, dtype, like=like)
     xp.testing.assert_array_equal(src, dst)
     dst = xp.fromfile(filepath, dtype=dtype, like=like)
@@ -44,7 +44,7 @@ def test_from_file_error(tmp_path, xp):
     filepath = str(tmp_path / "test_from_file")
     src = xp.arange(1, dtype="u1")
     src.tofile(filepath)
-    like = FromFile(like=src)
+    like = LikeWrapper(like=src)
 
     with pytest.raises(FileNotFoundError, match="no file"):
         xp.fromfile("no file", like=like)

@@ -26,15 +26,18 @@ class FileLike(Protocol):
         ...
 
 
-class FromFile:
+class LikeWrapper:
+    """Wrapper for NumPy's `like` argument introduced in NumPy v1.20
+
+    Wraps an array-like instance in order to seamlessly utilize KvikIO.
+    """
+
     def __init__(self, like: ArrayLike) -> None:
         self._like = like
 
     def __array_function__(self, func, types, args, kwargs):
-
         if func is not np.fromfile:
-            raise NotImplementedError()
-
+            return func(*args, **kwargs)
         return fromfile(*args, **kwargs)
 
 
