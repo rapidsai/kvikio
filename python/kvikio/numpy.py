@@ -30,6 +30,32 @@ class LikeWrapper:
     """Wrapper for NumPy's `like` argument introduced in NumPy v1.20
 
     Wraps an array-like instance in order to seamlessly utilize KvikIO.
+
+    Examples
+    --------
+    Read file into a NumPy array:
+
+    >>> np.arange(10).tofile("/tmp/myfile")
+    >>> np.fromfile("/tmp/myfile", dtype=int)
+    array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    >>> type(_)
+    <class 'numpy.ndarray'>
+
+    Read file into a CuPy array using the like argument. The file is read
+    directly into device memory using GDS if available:
+
+    >>> import cupy
+    >>> np.fromfile("/tmp/myfile", dtype=int, like=cupy.empty(()))
+    array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    >>> type(_)
+    <class 'cupy._core.core.ndarray'>
+
+    We can also use CuPy's fromfile function:
+
+    >>> np.fromfile("/tmp/myfile", dtype=int, like=cupy.empty(()))
+    array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    >>> type(_)
+    <class 'cupy._core.core.ndarray'>
     """
 
     def __init__(self, like: ArrayLike) -> None:
@@ -74,6 +100,25 @@ def fromfile(
     like : array_like, optional
         Reference object to allow the creation of arrays which are not
         NumPy arrays.
+
+    Examples
+    --------
+    Read file into a NumPy array:
+
+    >>> np.arange(10).tofile("/tmp/myfile")
+    >>> fromfile("/tmp/myfile", dtype=int)
+    array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    >>> type(_)
+    <class 'numpy.ndarray'>
+
+    Read file into a CuPy array using the like argument. The file is read
+    directly into device memory using GDS if available:
+
+    >>> import cupy
+    >>> fromfile("/tmp/myfile", dtype=int, like=cupy.empty(()))
+    array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    >>> type(_)
+    <class 'cupy._core.core.ndarray'>
     """
 
     if sep != "":
