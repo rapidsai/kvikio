@@ -55,5 +55,5 @@ def test_from_file_error(tmp_path, xp):
     with pytest.raises(ValueError, match="not divisible with dtype"):
         xp.fromfile(file=filepath, like=like)
 
-    with pytest.raises(ValueError, match="negative dimensions are not allowed"):
+    with pytest.raises(ValueError, match="[Nn]egative dimensions are not allowed"):
         xp.fromfile(file=filepath, like=like, count=-42)

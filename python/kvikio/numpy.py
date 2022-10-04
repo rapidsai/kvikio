@@ -38,7 +38,7 @@ class LikeWrapper:
     def __array_function__(self, func, types, args, kwargs):
         if func is not np.fromfile:
             return func(*args, **kwargs)
-        return fromfile(*args, **kwargs)
+        return fromfile(*args, like=self._like, **kwargs)
 
 
 def fromfile(
