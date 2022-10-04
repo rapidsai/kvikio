@@ -4,16 +4,30 @@
 
 import pytest
 
-from kvikio.numpy import LikeWrapper
+from kvikio.numpy import LikeWrapper, tofile
 
 
 @pytest.mark.parametrize("xp", ["numpy", "cupy"])
 @pytest.mark.parametrize("dtype", ["u1", "int64", "float32", "float64"])
-def test_from_file(tmp_path, xp, dtype):
+def test_tofile(tmp_path, xp, dtype):
+    """Test tofile()"""
+
+    xp = pytest.importorskip(xp)
+    filepath = str(tmp_path / "test_tofile")
+    src = xp.arange(100, dtype=dtype)
+    tofile(src, filepath)
+
+    dst = xp.fromfile(filepath, dtype=dtype)
+    xp.testing.assert_array_equal(src, dst)
+
+
+@pytest.mark.parametrize("xp", ["numpy", "cupy"])
+@pytest.mark.parametrize("dtype", ["u1", "int64", "float32", "float64"])
+def test_fromfile(tmp_path, xp, dtype):
     """Test NumPy's and CuPy's fromfile() with LikeWrapper"""
 
     xp = pytest.importorskip(xp)
-    filepath = str(tmp_path / "test_from_file")
+    filepath = str(tmp_path / "test_fromfile")
     src = xp.arange(100, dtype=dtype)
     src.tofile(filepath)
     like = LikeWrapper(like=xp.empty(()))
@@ -32,16 +46,16 @@ def test_from_file(tmp_path, xp, dtype):
     dst = xp.fromfile(file=filepath, dtype="u1", offset=7, like=like)
     xp.testing.assert_array_equal(src.view(dtype="u1")[7:], dst)
 
-    filepath = str(tmp_path / "test_from_file")
+    filepath = str(tmp_path / "test_fromfile")
     with open(filepath, mode="rb") as f:
         dst = xp.fromfile(file=f, dtype=dtype, like=like)
         xp.testing.assert_array_equal(src, dst)
 
 
 @pytest.mark.parametrize("xp", ["numpy", "cupy"])
-def test_from_file_error(tmp_path, xp):
+def test_fromfile_error(tmp_path, xp):
     xp = pytest.importorskip(xp)
-    filepath = str(tmp_path / "test_from_file")
+    filepath = str(tmp_path / "test_fromfile")
     src = xp.arange(1, dtype="u1")
     src.tofile(filepath)
     like = LikeWrapper(like=src)

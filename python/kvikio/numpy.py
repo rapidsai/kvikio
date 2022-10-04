@@ -90,7 +90,7 @@ def fromfile(
         of the items in the file.
         Most builtin numeric types are supported and extension types may be supported.
     count : int
-        Number of items to read. ``-1`` means all items (i.e., the complete file).
+        Number of items to read. `-1` means all items (i.e., the complete file).
     sep : str
         Empty ("") separator means the file should be treated as binary. Any other
         value is not supported and will raise NotImplementedError.
@@ -147,3 +147,42 @@ def fromfile(
     with kvikio.CuFile(filepath, "r") as f:
         f.read(ret, file_offset=offset)
     return ret
+
+
+def tofile(
+    ary: ArrayLike,
+    file: Union[str, os.PathLike, io.FileIO],
+) -> None:
+    """Write array to a file using KvikIO.
+
+    Overload `numpy.fromfile` to use KvikIO.
+
+    Data is always written in 'C' order, independent of the order of `a`.
+    The data produced by this method can be recovered using the function
+    fromfile().
+
+    Parameters
+    ----------
+    ary : array_like
+        Data to write.
+    file : FileLike or str or PathLike
+        Open file object or filename.
+
+    Notes
+    -----
+    This is a convenience function for quick storage of array data.
+    Information on endianness and precision is lost, so this method is not a
+    good choice for files intended to archive data or transport data between
+    machines with different endianness.
+
+    When file is a file object, array contents are directly written to the
+    file, bypassing the file object's `write` method. As a result, tofile
+    cannot be used with files objects supporting compression (e.g., GzipFile)
+    or file-like objects that do not support `fileno()` (e.g., BytesIO).
+    """
+    if isinstance(file, FileLike):
+        filepath = file.name
+    else:
+        filepath = str(file)
+    with kvikio.CuFile(filepath, "w") as f:
+        f.write(ary)
