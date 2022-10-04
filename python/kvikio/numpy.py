@@ -52,7 +52,7 @@ class LikeWrapper:
 
     We can also use CuPy's fromfile function:
 
-    >>> np.fromfile("/tmp/myfile", dtype=int, like=cupy.empty(()))
+    >>> cupy.fromfile("/tmp/myfile", dtype=int, like=cupy.empty(()))
     array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     >>> type(_)
     <class 'cupy._core.core.ndarray'>
