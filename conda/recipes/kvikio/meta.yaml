@@ -42,14 +42,16 @@ requirements:
     - libkvikio {{ version }}
   run:
     - python
+    - numpy >=1.20
     - cupy
     - zarr
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 
 test:
+  requires:
+    - pytest
   imports:
     - kvikio
-    - kvikio.cufile
 
 about:
   home: http://rapids.ai/
