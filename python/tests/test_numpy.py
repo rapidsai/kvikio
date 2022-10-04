@@ -16,13 +16,21 @@ def test_from_file(tmp_path, xp, dtype):
     filepath = str(tmp_path / "test_from_file")
     src = xp.arange(100, dtype=dtype)
     src.tofile(filepath)
-    like = FromFile(meta_array=xp.empty(()))
+    like = FromFile(like=xp.empty(()))
     dst = xp.fromfile(filepath, dtype, like=like)
     xp.testing.assert_array_equal(src, dst)
     dst = xp.fromfile(filepath, dtype=dtype, like=like)
     xp.testing.assert_array_equal(src, dst)
     dst = xp.fromfile(file=filepath, dtype=dtype, like=like)
     xp.testing.assert_array_equal(src, dst)
+    dst = xp.fromfile(file=filepath, dtype=dtype, count=100 - 42, like=like)
+    xp.testing.assert_array_equal(src[:-42], dst)
+    dst = xp.fromfile(file=filepath, dtype=dtype, offset=src.itemsize, like=like)
+    xp.testing.assert_array_equal(src[1:], dst)
+
+    # Test non-divisible offset
+    dst = xp.fromfile(file=filepath, dtype="u1", offset=7, like=like)
+    xp.testing.assert_array_equal(src.view(dtype="u1")[7:], dst)
 
     filepath = str(tmp_path / "test_from_file")
     with open(filepath, mode="rb") as f:
@@ -36,9 +44,16 @@ def test_from_file_error(tmp_path, xp):
     filepath = str(tmp_path / "test_from_file")
     src = xp.arange(1, dtype="u1")
     src.tofile(filepath)
+    like = FromFile(like=src)
 
     with pytest.raises(FileNotFoundError, match="no file"):
-        xp.fromfile("no file", like=FromFile(meta_array=src))
+        xp.fromfile("no file", like=like)
+
+    with pytest.raises(NotImplementedError, match="Non-default value of the `sep`"):
+        xp.fromfile(file=filepath, sep=",", like=like)
 
     with pytest.raises(ValueError, match="not divisible with dtype"):
-        xp.fromfile(file=filepath, like=FromFile(meta_array=src))
+        xp.fromfile(file=filepath, like=like)
+
+    with pytest.raises(ValueError, match="negative dimensions are not allowed"):
+        xp.fromfile(file=filepath, like=like, count=-42)
