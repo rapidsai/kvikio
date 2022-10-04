@@ -20,6 +20,10 @@ def test_tofile(tmp_path, xp, dtype):
     dst = xp.fromfile(filepath, dtype=dtype)
     xp.testing.assert_array_equal(src, dst)
 
+    tofile(src[::2], filepath)
+    dst = xp.fromfile(filepath, dtype=dtype)
+    xp.testing.assert_array_equal(src[::2], dst)
+
 
 @pytest.mark.parametrize("xp", ["numpy", "cupy"])
 @pytest.mark.parametrize("dtype", ["u1", "int64", "float32", "float64"])

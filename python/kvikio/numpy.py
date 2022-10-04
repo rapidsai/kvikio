@@ -185,4 +185,4 @@ def tofile(
     else:
         filepath = str(file)
     with kvikio.CuFile(filepath, "w") as f:
-        f.write(ary)
+        f.write(np.ascontiguousarray(ary, like=ary))  # type: ignore
