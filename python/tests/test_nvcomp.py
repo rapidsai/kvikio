@@ -1,10 +1,10 @@
 # Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import cupy
-import numpy as np
 import pytest
 
+np = pytest.importorskip("numpy")
+cupy = pytest.importorskip("cupy")
 cudf = pytest.importorskip("cudf")
 kvikio = pytest.importorskip("kvikio")
 libnvcomp = pytest.importorskip("kvikio.nvcomp")
