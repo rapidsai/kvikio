@@ -45,6 +45,8 @@ def test_fromfile(tmp_path, xp, dtype):
     xp.testing.assert_array_equal(src[:-42], dst)
     dst = xp.fromfile(file=filepath, dtype=dtype, offset=src.itemsize, like=like)
     xp.testing.assert_array_equal(src[1:], dst)
+    dst = xp.fromfile(file=filepath, dtype=dtype, offset=1, count=10, like=like)
+    assert len(dst) == 10
 
     # Test non-divisible offset
     dst = xp.fromfile(file=filepath, dtype="u1", offset=7, like=like)
@@ -69,9 +71,6 @@ def test_fromfile_error(tmp_path, xp):
 
     with pytest.raises(NotImplementedError, match="Non-default value of the `sep`"):
         xp.fromfile(file=filepath, sep=",", like=like)
-
-    with pytest.raises(ValueError, match="not divisible with dtype"):
-        xp.fromfile(file=filepath, like=like)
 
     with pytest.raises(ValueError, match="[Nn]egative dimensions are not allowed"):
         xp.fromfile(file=filepath, like=like, count=-42)

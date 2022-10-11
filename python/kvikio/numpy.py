@@ -2,7 +2,6 @@
 # See file LICENSE for terms.
 
 import io
-import math
 import os
 import os.path
 from typing import Protocol, Union, runtime_checkable
@@ -133,15 +132,9 @@ def fromfile(
 
     nbytes = os.path.getsize(filepath)
     itemsize = np.dtype(dtype).itemsize
-    if count == -1:
-        count = nbytes // itemsize
-        if nbytes % itemsize != 0:
-            raise ValueError(f"file size ({nbytes}) not divisible with dtype ({dtype})")
-    if count * itemsize > nbytes:
-        raise ValueError(f"count ({count*itemsize}) greater than file size ({nbytes})")
-
-    # Truncate to itemsize divisible
-    count -= math.ceil(offset / itemsize)
+    count = nbytes if count == -1 else count
+    # Notice, Numpy truncate to filesize silently.
+    count = min(count, (nbytes - offset) // itemsize)
 
     ret = np.empty_like(like, shape=(count,), dtype=dtype)
     with kvikio.CuFile(filepath, "r") as f:
