@@ -35,18 +35,29 @@ def test_direct_store_access(store, array_type):
     a.data == b
 
 
-@pytest.mark.parametrize("array_type", ["numpy", "cupy"])
-def test_direct_store_access_getitems(store, array_type):
+@pytest.mark.parametrize("xp_write", ["numpy", "cupy"])
+@pytest.mark.parametrize("xp_read_a", ["numpy", "cupy"])
+@pytest.mark.parametrize("xp_read_b", ["numpy", "cupy"])
+def test_direct_store_access_getitems(store, xp_write, xp_read_a, xp_read_b):
     """Test accessing the GDS Store directly using getitems()"""
 
-    xp = pytest.importorskip(array_type)
-    a = xp.arange(5, dtype="u1")
+    xp_read_a = pytest.importorskip(xp_read_a)
+    xp_read_b = pytest.importorskip(xp_read_b)
+    xp_write = pytest.importorskip(xp_write)
+    a = xp_write.arange(5, dtype="u1")
     b = a * 2
     store["a"] = a
     store["b"] = b
-    res = store.getitems(keys=["a", "b"], meta_array=a)
 
-    assert isinstance(res["a"], type(a))
+    res = store.getitems(
+        keys=["a", "b"],
+        contexts={
+            "a": {"meta_array": xp_read_a.empty(())},
+            "b": {"meta_array": xp_read_b.empty(())},
+        },
+    )
+    assert isinstance(res["a"], xp_read_a.ndarray)
+    assert isinstance(res["b"], xp_read_b.ndarray)
     cupy.testing.assert_array_equal(res["a"], a)
     cupy.testing.assert_array_equal(res["b"], b)
 

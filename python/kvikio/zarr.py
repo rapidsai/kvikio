@@ -7,7 +7,6 @@ from typing import Any, Mapping, Sequence
 
 import numpy
 import zarr.storage
-from numcodecs.ndarray_like import NDArrayLike
 
 import kvikio
 
@@ -36,9 +35,10 @@ class GDSStore(zarr.storage.DirectoryStore):
             assert written == a.nbytes
 
     def getitems(
-        self, keys: Sequence[str], meta_array: NDArrayLike
+        self, keys: Sequence[str], contexts: Mapping[str, Mapping] = {}
     ) -> Mapping[str, Any]:
 
+        default_meta_array = numpy.empty(())
         files = []
         ret = {}
         io_results = []
@@ -47,6 +47,10 @@ class GDSStore(zarr.storage.DirectoryStore):
                 filepath = os.path.join(self.path, key)
                 if not os.path.isfile(filepath):
                     continue
+                try:
+                    meta_array = contexts[key]["meta_array"]
+                except KeyError:
+                    meta_array = default_meta_array
 
                 nbytes = os.path.getsize(filepath)
                 f = kvikio.CuFile(filepath, "r")
