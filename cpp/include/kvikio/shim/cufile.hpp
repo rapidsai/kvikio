@@ -49,7 +49,7 @@ class cuFileAPI {
  private:
   cuFileAPI()
   {
-    void* lib = load_library("libcufile.so");
+    void* lib = load_library("libcufile.so.1");
     get_symbol(HandleRegister, lib, KVIKIO_STRINGIFY(cuFileHandleRegister));
     get_symbol(HandleDeregister, lib, KVIKIO_STRINGIFY(cuFileHandleDeregister));
     get_symbol(Read, lib, KVIKIO_STRINGIFY(cuFileRead));
@@ -80,7 +80,7 @@ class cuFileAPI {
 /**
  * @brief Check if the cuFile library is available
  *
- * Notice, this doesn't check if the runtime environment supported by cuFile.
+ * Notice, this doesn't check if the runtime environment supports cuFile.
  *
  * @return The boolean answer
  */

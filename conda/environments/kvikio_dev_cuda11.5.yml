@@ -11,12 +11,13 @@ dependencies:
   - cxx-compiler
   - clang=11.1.0
   - clang-tools=11.1.0
-  - cupy>=9.5.0,<11.0.0a0
-  - cmake>=3.20.1,!=3.23.0
-  - cmake-format>=3.20.1,!=3.23.0
+  - cupy>=9.5.0,<12.0.0a0
+  - cmake>=3.23.1
+  - cmake-format
   - cmake_setuptools>=0.1.3
   - scikit-build>=0.13.1
   - python>=3.8,<3.10
+  - pynvml
   - numpy
   - ninja
   - wheel
@@ -44,6 +45,3 @@ dependencies:
   - pydata-sphinx-theme
   - gcc_linux-64=9.* # [linux64]
   - sysroot_linux-64==2.17 # [linux64]
-  # Un-comment following lines for ARM specific packages.
-  # - gcc_linux-aarch64=9.* # [aarch64]
-  # - sysroot_linux-aarch64==2.17 # [aarch64]

@@ -21,21 +21,16 @@ pytest.importorskip("dask")
         "cufile-mfma",
         "cufile-mf",
         "cufile-ma",
-        "zarr-gds",
-        "zarr-posix",
+        "zarr",
     ],
 )
 def test_single_node_io(run_cmd, tmp_path, api):
     """Test benchmarks/single-node-io.py"""
 
     if "zarr" in api:
-        pytest.importorskip(
-            "zarr.cupy",
-            reason=(
-                "To use Zarr arrays with GDS directly, Zarr needs CuPy support: "
-                "<https://github.com/zarr-developers/zarr-python/pull/934>"
-            ),
-        )
+        zarr = pytest.importorskip("zarr")
+        if not hasattr(zarr.Array, "meta_array"):
+            pytest.skip("requires Zarr v2.13+")
 
     retcode = run_cmd(
         cmd=[

@@ -29,4 +29,4 @@ Defaults
 
 .. autofunction:: get_num_threads
 
-.. autofunction:: reset_num_threads
+.. autofunction:: num_threads_reset

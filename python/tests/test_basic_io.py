@@ -13,16 +13,8 @@ cupy = pytest.importorskip("cupy")
 numpy = pytest.importorskip("numpy")
 
 
-def check_bit_flags(
-    x: int, y: int, add_o_direct=not kvikio.defaults.compat_mode()
-) -> bool:
-    """Check that the bits set in `y` is also set in `x`
-
-    Set `add_o_direct=True` to add the `os.O_DIRECT` bit to `y`. This is True
-    by default when KvikIO is NOT running in compatibility mode.
-    """
-    if add_o_direct:
-        y |= os.O_DIRECT
+def check_bit_flags(x: int, y: int) -> bool:
+    """Check that the bits set in `y` is also set in `x`"""
     return x & y == y
 
 

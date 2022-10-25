@@ -3,7 +3,6 @@
 
 import argparse
 import contextlib
-import functools
 import os
 import os.path
 import pathlib
@@ -193,30 +192,30 @@ def run_posix(args):
     return read_time, write_time
 
 
-def run_zarr(store_type, args):
+def run_zarr(args):
     """Use the Zarr API"""
 
     import zarr
-    import zarr.cupy
 
     import kvikio.zarr
 
+    dir_path = args.dir / "zarr"
+
+    if not hasattr(zarr.Array, "meta_array"):
+        raise RuntimeError("requires Zarr v2.13+")
+
     a = cupy.arange(args.nbytes, dtype="uint8")
 
-    # Retrieve the store and compressor to use based on `store_type`
-    shutil.rmtree(str(args.dir / store_type), ignore_errors=True)
-    store, compressor = {
-        "gds": (kvikio.zarr.GDSStore(args.dir / store_type), None),
-        "posix": (
-            zarr.DirectoryStore(args.dir / store_type),
-            zarr.cupy.CuPyCPUCompressor(),
-        ),
-    }[store_type]
+    shutil.rmtree(str(dir_path), ignore_errors=True)
 
     # Write
     t0 = clock()
     z = zarr.array(
-        a, chunks=False, compressor=compressor, store=store, meta_array=cupy.empty(())
+        a,
+        chunks=False,
+        compressor=None,
+        store=kvikio.zarr.GDSStore(dir_path),
+        meta_array=cupy.empty(()),
     )
     write_time = clock() - t0
 
@@ -231,8 +230,7 @@ def run_zarr(store_type, args):
 
 API = {
     "cufile": run_cufile,
-    "zarr-gds": functools.partial(run_zarr, "gds"),
-    "zarr-posix": functools.partial(run_zarr, "posix"),
+    "zarr": run_zarr,
     "posix": run_posix,
     "cufile-mfma": run_cufile_multiple_files_multiple_arrays,
     "cufile-mf": run_cufile_multiple_files,
@@ -244,7 +242,7 @@ def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
     cupy.arange(10)  # Make sure CUDA is initialized
 
-    kvikio.defaults.reset_num_threads(args.nthreads)
+    kvikio.defaults.num_threads_reset(args.nthreads)
     props = kvikio.DriverProperties()
     try:
         import pynvml.smi

@@ -12,9 +12,9 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-set(kvikio_version 22.08.00)
+set(kvikio_version 22.10.00)
 
 set(CYTHON_FLAGS
     "--directive binding=True,embedsignature=True,always_allow_keywords=True"

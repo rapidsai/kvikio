@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,10 +12,22 @@
 # the License.
 # =============================================================================
 
-# Set the list of Cython files to build
-set(cython_modules arr libnvcomp libkvikio)
-  
-# Build all of the Cython targets
-add_cython_modules("${cython_modules}")
+cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-target_link_libraries(libnvcomp nvcomp::nvcomp)
+project(
+  KvikIODownstreamExample
+  VERSION 1.00
+  LANGUAGES CXX
+)
+
+# Get CPM see <https://github.com/cpm-cmake/CPM.cmake>
+include(cmake/get_cpm.cmake)
+
+# Get KvikIO see <https://github.com/rapidsai/kvikio>
+include(cmake/get_kvikio.cmake)
+
+add_executable(downstream_example downstream_example.cpp)
+
+# Notice, even though KvikIO is a header-only library, we link to it here.
+# Linking to `kvikio::kvikio` makes CMake include the headers of KvikIO when building.
+target_link_libraries(downstream_example PRIVATE kvikio::kvikio)

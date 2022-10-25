@@ -26,7 +26,7 @@ build:
 
 requirements:
   build:
-    - cmake >=3.20.1
+    - cmake >=3.23.1
     - ninja
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
@@ -50,8 +50,6 @@ test:
   imports:
     - kvikio
     - kvikio.cufile
-    - kvikio.defaults
-    - kvikio.zarr
 
 about:
   home: http://rapids.ai/

@@ -28,7 +28,7 @@ def test_num_threads():
     before = kvikio.defaults.get_num_threads()
     with kvikio.defaults.set_num_threads(3):
         assert kvikio.defaults.get_num_threads() == 3
-        kvikio.defaults.reset_num_threads(4)
+        kvikio.defaults.num_threads_reset(4)
         assert kvikio.defaults.get_num_threads() == 4
     assert before == kvikio.defaults.get_num_threads()
 
@@ -39,6 +39,6 @@ def test_task_size():
     before = kvikio.defaults.task_size()
     with kvikio.defaults.set_task_size(3):
         assert kvikio.defaults.task_size() == 3
-        kvikio.defaults.reset_task_size(4)
+        kvikio.defaults.task_size_reset(4)
         assert kvikio.defaults.task_size() == 4
     assert before == kvikio.defaults.task_size()

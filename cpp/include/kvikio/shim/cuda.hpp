@@ -46,7 +46,7 @@ class cudaAPI {
  private:
   cudaAPI()
   {
-    void* lib = load_library("libcuda.so");
+    void* lib = load_library("libcuda.so.1");
     // Notice, the API version loaded must match the version used downstream. That is,
     // if a project uses the `_v2` CUDA Driver API or the newest Runtime API, the symbols
     // loaded should also be the `_v2` symbols. Thus, we use KVIKIO_STRINGIFY() to get

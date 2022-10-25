@@ -12,10 +12,17 @@
 # the License.
 # =============================================================================
 
-# Set the list of Cython files to build
-set(cython_modules arr libnvcomp libkvikio)
-  
-# Build all of the Cython targets
-add_cython_modules("${cython_modules}")
+# Use CPM to fetch KvikIO, which makes `kvikio::kvikio` available for `target_link_libraries`
+function(find_and_configure_kvikio MIN_VERSION)
 
-target_link_libraries(libnvcomp nvcomp::nvcomp)
+  CPMFindPackage(
+    NAME KvikIO VERSION ${MIN_VERSION}
+    GIT_REPOSITORY https://github.com/rapidsai/kvikio.git
+    GIT_TAG branch-${MIN_VERSION}
+    GIT_SHALLOW TRUE SOURCE_SUBDIR cpp
+    OPTIONS "KvikIO_BUILD_EXAMPLES OFF"
+  )
+
+endfunction()
+
+find_and_configure_kvikio("22.10")
