@@ -18,6 +18,7 @@
 #include <dlfcn.h>
 #include <sys/utsname.h>
 #include <filesystem>
+#include <sstream>
 #include <vector>
 
 namespace kvikio {
