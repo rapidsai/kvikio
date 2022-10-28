@@ -49,7 +49,7 @@ class cuFileAPI {
  private:
   cuFileAPI()
   {
-    void* lib = load_library("libcufile.so.1");
+    void* lib = load_library({"libcufile.so.1", "libcufile.so.0", "libcufile.so"});
     get_symbol(HandleRegister, lib, KVIKIO_STRINGIFY(cuFileHandleRegister));
     get_symbol(HandleDeregister, lib, KVIKIO_STRINGIFY(cuFileHandleDeregister));
     get_symbol(Read, lib, KVIKIO_STRINGIFY(cuFileRead));
