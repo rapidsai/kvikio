@@ -35,7 +35,7 @@ def run_cmd(cmd: Iterable[str], cwd=root(), check=False):
     return res.returncode
 
 
-def cmake_format_cmd(version="22.12"):
+def cmake_format_cmd(version="23.02"):
     # Find files
     files = []
     for root in ["cpp", "python"]:
