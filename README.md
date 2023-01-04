@@ -2,13 +2,19 @@
 
 ## Summary
 
-This provides C++ and Python bindings to cuFile, which enables GPUDirect Storage (or GDS).
+This provides C++ and Python bindings to cuFile, which enables GPUDirect Storage (GDS).
+KvikIO also works efficiently when GDS isn't available and can read/write both host and
+device data seamlessly. KvikIO
 
 ### Features
 
-* Object Oriented API
-* Exception handling
-* Zarr reader
+* Object Oriented API.
+* Exception handling.
+* Concurrent reads and writes using an internal thread pool.
+* Non-blocking API.
+* Python Zarr reader.
+* Handle both host and device IO seamlessly.
+* Provides Python bindings to [nvCOMP](https://github.com/NVIDIA/nvcomp).
 
 ## Requirements
 
@@ -17,19 +23,22 @@ installed (v11.4+) and a working compiler toolchain (C++17 and cmake).
 
 ### C++
 
-The C++ bindings are header-only and depends on CUDA Driver and Runtime API.
-In order to build and run the example code, CMake is required.
+The C++ bindings are header-only and depends on the CUDA Driver API.
+In order to build and run the example code, CMake and the CUDA Runtime
+API is required.
 
 ### Python
 
-The Python packages depends on the following packages:
+The Python package depends on the following packages:
 
-* Cython
-* Pip
-* Setuptools
+* cython
+* pip
+* setuptools
+* scikit-build
 
-For testing:
+For nvCOMP, benchmarks, examples, and tests:
 * pytest
+* numpy
 * cupy
 
 ## Install

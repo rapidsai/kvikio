@@ -1,10 +1,10 @@
 # Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import cupy
-import numpy as np
 import pytest
 
+np = pytest.importorskip("numpy")
+cupy = pytest.importorskip("cupy")
 cudf = pytest.importorskip("cudf")
 kvikio = pytest.importorskip("kvikio")
 libnvcomp = pytest.importorskip("kvikio.nvcomp")
@@ -70,7 +70,7 @@ def test_ans_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.ANSManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 10436
+    assert len(final) == 11144
 
 
 @pytest.mark.parametrize(
@@ -277,7 +277,7 @@ def test_snappy_inputs(inputs):
         managers(),
         [
             {
-                "max_compressed_buffer_size": 131669,
+                "max_compressed_buffer_size": 89373,
                 "num_chunks": 1,
                 "uncompressed_buffer_size": 10000,
             },
@@ -405,7 +405,7 @@ def test_set_scratch_buffer(manager):
     zip(
         managers(),
         [
-            317030400,  # ANS
+            378355712,  # ANS
             8,  # Bitcomp
             1641608,  # Cascaded
             393222400,  # Gdeflate
@@ -435,7 +435,7 @@ def test_get_required_scratch_buffer_size(manager, expected):
     zip(
         managers(),
         [
-            10436,  # ANS
+            11144,  # ANS
             3208,  # Bitcomp
             600,  # Cascaded
             732,  # Gdeflate

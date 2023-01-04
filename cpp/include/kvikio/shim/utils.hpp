@@ -18,6 +18,8 @@
 #include <dlfcn.h>
 #include <sys/utsname.h>
 #include <filesystem>
+#include <sstream>
+#include <vector>
 
 namespace kvikio {
 
@@ -36,6 +38,26 @@ inline void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | 
   void* ret = ::dlopen(name, mode);
   if (ret == nullptr) { throw std::runtime_error(::dlerror()); }
   return ret;
+}
+
+/**
+ * @brief Load shared library
+ *
+ * @param names Vector of names to try when loading shared library.
+ * @return The library handle.
+ */
+inline void* load_library(const std::vector<const char*>& names,
+                          int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE)
+{
+  std::stringstream ss;
+  for (const char* name : names) {
+    ss << name << " ";
+    try {
+      return load_library(name);
+    } catch (const std::runtime_error&) {
+    }
+  }
+  throw std::runtime_error("cannot open shared object file, tried: " + ss.str());
 }
 
 /**
