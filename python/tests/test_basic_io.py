@@ -97,7 +97,7 @@ def test_write_to_files_in_chunks(tmp_path, xp):
     for i in order:
         chunk_size = len(a) // nchunks
         offset = i * chunk_size
-        chunks.append(a[offset : offset + chunk_size])
+        chunks.append(a[offset:offset + chunk_size])
         file_offsets.append(offset * 8)
 
     for i in range(nchunks):

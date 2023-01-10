@@ -101,7 +101,7 @@ def run_cufile_multiple_files(args):
     files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
     t0 = clock()
     futures = [
-        f.pwrite(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
+        f.pwrite(data[i * chunksize:(i + 1) * chunksize]) for i, f in enumerate(files)
     ]
     res = sum(f.get() for f in futures)
     del files
@@ -112,7 +112,7 @@ def run_cufile_multiple_files(args):
     files = [kvikio.CuFile(file_path % i, flags="r") for i in range(args.nthreads)]
     t0 = clock()
     futures = [
-        f.pread(data[i * chunksize : (i + 1) * chunksize]) for i, f in enumerate(files)
+        f.pread(data[i * chunksize:(i + 1) * chunksize]) for i, f in enumerate(files)
     ]
     res = sum(f.get() for f in futures)
     del files
