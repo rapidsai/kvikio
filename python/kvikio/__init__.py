@@ -3,7 +3,6 @@
 
 from . import _version
 from ._lib import libkvikio  # type: ignore
-
 from .cufile import CuFile  # noqa: F401
 
 __version__ = _version.get_versions()["version"]
