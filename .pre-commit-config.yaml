@@ -43,17 +43,17 @@ repos:
     rev: v0.1.10
     hooks:
       - id: cython-lint
-  #- repo: https://github.com/pre-commit/mirrors-mypy
-  #  rev: 'v0.971'
-  #  hooks:
-  #    - id: mypy
-  #      additional_dependencies: [types-cachetools]
-  #      args: ["--config-file=setup.cfg",
-  #              "python/cudf/cudf",
-  #              "python/custreamz/custreamz",
-  #              "python/cudf_kafka/cudf_kafka",
-  #              "python/dask_cudf/dask_cudf"]
-  #      pass_filenames: false
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: 'v0.971'
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-cachetools]
+        args: ["--config-file=python/setup.cfg",
+                "python/kvikio",
+                "python/tests",
+                "python/examples",
+                "python/benchmarks"]
+        pass_filenames: false
   #- repo: https://github.com/PyCQA/pydocstyle
   #  rev: 6.1.1
   #  hooks:
