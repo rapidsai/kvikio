@@ -4,11 +4,9 @@
 # distutils: language = c++
 # cython: language_level=3
 
-import os
 import pathlib
-from typing import Tuple
 
-from libc.stdint cimport uint32_t, uintptr_t
+from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api

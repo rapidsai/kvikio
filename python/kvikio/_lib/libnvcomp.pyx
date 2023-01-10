@@ -22,12 +22,8 @@
 
 from enum import Enum
 
-import cupy as cp
-import cython
-
-from cython.operator cimport dereference
-from libc.stdint cimport int32_t, uint8_t, uintptr_t
-from libcpp cimport bool, nullptr
+from libc.stdint cimport uint8_t, uintptr_t
+from libcpp cimport nullptr
 from libcpp.memory cimport make_shared, shared_ptr
 from libcpp.utility cimport move
 
@@ -46,7 +42,6 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     nvcompBatchedCascadedDefaultOpts,
     nvcompBatchedCascadedOpts_t,
     nvcompManagerBase,
-    nvcompStatus_t,
     nvcompType_t,
 )
 
@@ -224,7 +219,7 @@ cdef class _LZ4Manager(_nvcompManager):
         # TODO: Doesn't work with user specified streams passed down
         # from anywhere up. I'm not going to rabbit hole on it until
         # everything else works.
-        cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
+        # cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
         self._impl = <nvcompManagerBase*>new LZ4Manager(
             uncomp_chunk_size,
             data_type,
