@@ -17,12 +17,52 @@
 
 #include <stdexcept>
 
+#include <kvikio/env_var.hpp>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/shim/utils.hpp>
 
 namespace kvikio {
 
 #ifdef KVIKIO_CUFILE_EXIST
+
+namespace detail {
+
+/**
+ * @brief Load the cuFile library
+ *
+ * If the environment variable `KVIKIO_RDMA` is unset or "auto", we first try
+ * to load `libcufile_rdma.so` and if it isn't found, we load `libcufile.so`
+ * and raise `runtime_error` if it isn't found.
+ *
+ * If `KVIKIO_RDMA=ON`, we load `libcufile_rdma.so` and raise `runtime_error`
+ * if it isn't found.
+ *
+ * If `KVIKIO_RDMA=OFF`, we load `libcufile.so` and raise `runtime_error`
+ * if it isn't found.
+ *
+ * Notice, if an exception is raised while `KVIKIO_COMPAT_MODE=ON`, the execution
+ * continues in KvikIO's compatibility mode.
+ *
+ * @return The loaded library ready to be used with `get_symbol()`
+ */
+void* load_cufile()
+{
+  auto libs_rdma = {"libcufile_rdma.so.1", "libcufile_rdma.so.0", "libcufile_rdma.so"};
+  auto libs_std  = {"libcufile.so.1", "libcufile.so.0", "libcufile.so"};
+
+  if (detail::env_unset_or_auto("KVIKIO_RDMA")) {
+    try {
+      return load_library(libs_rdma);
+    } catch (const std::runtime_error&) {
+      return load_library(libs_std);
+    }
+  } else if (detail::getenv_or("KVIKIO_RDMA", true)) {
+    return load_library(libs_rdma);
+  } else {
+    return load_library(libs_std);
+  }
+}
+}  // namespace detail
 
 /**
  * @brief Shim layer of the cuFile C-API
@@ -49,7 +89,7 @@ class cuFileAPI {
  private:
   cuFileAPI()
   {
-    void* lib = load_library({"libcufile.so.1", "libcufile.so.0", "libcufile.so"});
+    void* lib = detail::load_cufile();
     get_symbol(HandleRegister, lib, KVIKIO_STRINGIFY(cuFileHandleRegister));
     get_symbol(HandleDeregister, lib, KVIKIO_STRINGIFY(cuFileHandleDeregister));
     get_symbol(Read, lib, KVIKIO_STRINGIFY(cuFileRead));

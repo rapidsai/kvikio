@@ -23,54 +23,11 @@
 #include <string>
 #include <utility>
 
+#include <kvikio/env_var.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/thread_pool.hpp>
 
 namespace kvikio {
-namespace detail {
-
-template <typename T>
-T getenv_or(std::string_view env_var_name, T default_val)
-{
-  const auto* env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return default_val; }
-
-  std::stringstream sstream(env_val);
-  T converted_val;
-  sstream >> converted_val;
-  if (sstream.fail()) {
-    throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
-                                std::string{env_val});
-  }
-  return converted_val;
-}
-
-template <>
-inline bool getenv_or(std::string_view env_var_name, bool default_val)
-{
-  const auto* env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return default_val; }
-  try {
-    // Try parsing `env_var_name` as a integer
-    return static_cast<bool>(std::stoi(env_val));
-  } catch (const std::invalid_argument&) {
-  }
-  // Convert to lowercase
-  std::string str{env_val};
-  std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-  // Trim whitespaces
-  std::stringstream trimmer;
-  trimmer << str;
-  str.clear();
-  trimmer >> str;
-  // Match value
-  if (str == "true" || str == "on" || str == "yes") { return true; }
-  if (str == "false" || str == "off" || str == "no") { return false; }
-  throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
-                              std::string{env_val});
-}
-
-}  // namespace detail
 
 /**
  * @brief Singleton class of default values used thoughtout KvikIO.
