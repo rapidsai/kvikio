@@ -28,10 +28,10 @@ cdef class IOFuture:
         return is_future_done(self._handle)
 
 
-cdef IOFuture _wrap_io_future(future[size_t] &future):
+cdef IOFuture _wrap_io_future(future[size_t] &fut):
     """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
     ret = IOFuture()
-    ret._handle = move(future)
+    ret._handle = move(fut)
     return ret
 
 
