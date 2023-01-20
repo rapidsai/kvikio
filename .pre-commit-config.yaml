@@ -59,14 +59,14 @@ repos:
       - id: clang-format
         types_or: [c, c++, cuda]
         args: ["-fallback-style=none", "-style=file", "-i"]
-  #- repo: local
-  #  hooks:
-  #    - id: copyright-check
-  #      name: copyright-check
-  #      entry: python ./ci/checks/copyright.py --git-modified-only --update-current-year
-  #      language: python
-  #      pass_filenames: false
-  #      additional_dependencies: [gitpython]
+  - repo: local
+    hooks:
+      - id: copyright-check
+        name: copyright-check
+        entry: python ./ci/checks/copyright.py --git-modified-only --update-current-year
+        language: python
+        pass_filenames: false
+        additional_dependencies: [gitpython]
   #    - id: doxygen-check
   #      name: doxygen-check
   #      entry: ./ci/checks/doxygen.sh
