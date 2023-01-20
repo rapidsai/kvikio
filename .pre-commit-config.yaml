@@ -53,17 +53,12 @@ repos:
                 "python/examples",
                 "python/benchmarks"]
         pass_filenames: false
-  #- repo: https://github.com/PyCQA/pydocstyle
-  #  rev: 6.1.1
-  #  hooks:
-  #    - id: pydocstyle
-  #      args: ["--config=setup.cfg"]
-  #- repo: https://github.com/pre-commit/mirrors-clang-format
-  #  rev: v11.1.0
-  #  hooks:
-  #    - id: clang-format
-  #      types_or: [c, c++, cuda]
-  #      args: ["-fallback-style=none", "-style=file", "-i"]
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v11.1.0
+    hooks:
+      - id: clang-format
+        types_or: [c, c++, cuda]
+        args: ["-fallback-style=none", "-style=file", "-i"]
   #- repo: https://github.com/sirosen/texthooks
   #  rev: 0.4.0
   #  hooks:
