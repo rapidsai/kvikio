@@ -29,6 +29,7 @@ FilesToCheck = [
 ]
 ExemptFiles = [
     re.compile(r"versioneer[.]py"),
+    re.compile(r"get_cpm[.]cmake"),
 ]
 
 # this will break starting at year 10000, which is probably OK :)
