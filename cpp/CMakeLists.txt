@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -142,5 +142,3 @@ rapids_export(
 #   kvikio_doc
 #   DEPENDS KvikIO_DOXYGEN
 #   COMMENT "Target for the custom command to build the KvikIO doxygen docs")
-
-
