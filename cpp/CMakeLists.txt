@@ -98,19 +98,18 @@ install(DIRECTORY include/kvikio/ DESTINATION include/kvikio)
 install(FILES ${KvikIO_BINARY_DIR}/include/kvikio/version_config.hpp DESTINATION include/kvikio)
 
 include("${rapids-cmake-dir}/export/find_package_file.cmake")
-rapids_export_find_package_file(BUILD
-                                "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake"
-                                kvikio-exports
+rapids_export_find_package_file(
+  BUILD "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake" kvikio-exports
 )
-rapids_export_find_package_file(INSTALL
-                                "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake"
-                                kvikio-exports
+rapids_export_find_package_file(
+  INSTALL "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake" kvikio-exports
 )
 
 set(doc_string
     [=[
 Provide targets for KvikIO: C++ bindings for cuFile.
-]=])
+]=]
+)
 
 rapids_export(
   INSTALL kvikio
@@ -131,14 +130,8 @@ rapids_export(
 
 # make documentation
 
-# add_custom_command(
-#   OUTPUT KvikIO_DOXYGEN
-#   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
-#   COMMAND doxygen Doxyfile
-#   VERBATIM
-#   COMMENT "Custom command for KvikIO doxygen docs")
+# add_custom_command( OUTPUT KvikIO_DOXYGEN WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
+# COMMAND doxygen Doxyfile VERBATIM COMMENT "Custom command for KvikIO doxygen docs")
 
-# add_custom_target(
-#   kvikio_doc
-#   DEPENDS KvikIO_DOXYGEN
-#   COMMENT "Target for the custom command to build the KvikIO doxygen docs")
+# add_custom_target( kvikio_doc DEPENDS KvikIO_DOXYGEN COMMENT "Target for the custom command to
+# build the KvikIO doxygen docs")
