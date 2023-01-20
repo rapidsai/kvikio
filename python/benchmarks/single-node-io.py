@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import argparse
@@ -294,7 +294,7 @@ def main(args):
     print(f"nbytes            | {args.nbytes} bytes ({format_bytes(args.nbytes)})")
     print(f"4K aligned        | {args.nbytes % 4096 == 0}")
     print(f"pre-reg-buf       | {args.pre_register_buffer}")
-    print(f"diretory          | {args.dir}")
+    print(f"directory         | {args.dir}")
     print(f"nthreads          | {args.nthreads}")
     print(f"nruns             | {args.nruns}")
     print("==================================")
@@ -351,7 +351,7 @@ if __name__ == "__main__":
         metavar="PATH",
         default=None,
         type=parse_directory,
-        help="Path to the diretory to r/w from (default: tempfile.TemporaryDirectory)",
+        help="Path to the directory to r/w from (default: tempfile.TemporaryDirectory)",
     )
     parser.add_argument(
         "--nruns",

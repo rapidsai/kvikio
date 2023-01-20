@@ -67,36 +67,15 @@ repos:
         language: python
         pass_filenames: false
         additional_dependencies: [gitpython]
-  #    - id: doxygen-check
-  #      name: doxygen-check
-  #      entry: ./ci/checks/doxygen.sh
-  #      files: ^cpp/include/
-  #      types_or: [file]
-  #      language: system
-  #      pass_filenames: false
-  #      verbose: true
-  #    - id: headers-recipe-check
-  #      name: headers-recipe-check
-  #      entry: ./ci/checks/headers_test.sh
-  #      files: |
-  #        (?x)^(
-  #          ^cpp/include/|
-  #          ^conda/.*/meta.yaml
-  #        )
-  #      types_or: [file]
-  #      language: system
-  #      pass_filenames: false
-  #      verbose: false
-  #- repo: https://github.com/codespell-project/codespell
-  #  rev: v2.1.0
-  #  hooks:
-  #    - id: codespell
-  #      exclude: |
-  #        (?x)^(
-  #          .*test.*|
-  #          ^CHANGELOG.md$|
-  #          ^.*versioneer.py$
-  #        )
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.1.0
+    hooks:
+      - id: codespell
+        exclude: |
+          (?x)^(
+            ^CHANGELOG.md$|
+            ^.*versioneer.py$
+          )
 
 default_language_version:
       python: python3

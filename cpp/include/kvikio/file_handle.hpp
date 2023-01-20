@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,9 +120,9 @@ inline int open_fd(const std::string& file_path,
 }  // namespace detail
 
 /**
- * @brief Handle of an open file registred with cufile.
+ * @brief Handle of an open file registered with cufile.
  *
- * In order to utilize cufile and GDS, a file must be registred with cufile.
+ * In order to utilize cufile and GDS, a file must be registered with cufile.
  */
 class FileHandle {
  private:
