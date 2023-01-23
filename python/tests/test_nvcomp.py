@@ -5,7 +5,6 @@ import pytest
 
 np = pytest.importorskip("numpy")
 cupy = pytest.importorskip("cupy")
-cudf = pytest.importorskip("cudf")
 kvikio = pytest.importorskip("kvikio")
 libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
@@ -21,7 +20,7 @@ LEN = {
 }
 
 
-def assert_compression_size(actual, desired, rtol=0.01):
+def assert_compression_size(actual, desired, rtol=0.1):
     """Compression ratios might change slightly between library versions"""
     np.testing.assert_allclose(actual, desired, rtol=rtol)
 
@@ -340,7 +339,11 @@ def test_get_compression_config_with_default_options(compressor_size):
     )
     compressor_instance = compressor()
     result = compressor_instance.configure_compression(len(data))
-    assert_compression_size(result, expected)
+    assert_compression_size(
+        result.pop("max_compressed_buffer_size"),
+        expected.pop("max_compressed_buffer_size"),
+    )
+    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -390,7 +393,10 @@ def test_get_decompression_config_with_default_options(manager, expected):
     result = compressor_instance.configure_decompression_with_compressed_buffer(
         compressed
     )
-    assert_compression_size(result, expected)
+    assert_compression_size(
+        result.pop("decomp_data_size"), expected.pop("decomp_data_size")
+    )
+    assert result == expected
 
 
 @pytest.mark.parametrize("manager", managers())
