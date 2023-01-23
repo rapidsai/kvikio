@@ -10,6 +10,17 @@ kvikio = pytest.importorskip("kvikio")
 libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
 
+# TODO: don't hardcode the following expected values
+LEN = {
+    "ANS": 11144,
+    "Bitcomp": 3208,
+    "Cascaded": 600,
+    "Gdeflate": 760,
+    "LZ4": 393,
+    "Snappy": 3548,
+}
+
+
 def managers():
     return [
         libnvcomp.ANSManager,
@@ -70,7 +81,7 @@ def test_ans_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.ANSManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 11144
+    assert len(final) == LEN["ANS"]
 
 
 @pytest.mark.parametrize(
@@ -93,7 +104,7 @@ def test_bitcomp_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.BitcompManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 3208
+    assert len(final) == LEN["Bitcomp"]
 
 
 @pytest.mark.parametrize(
@@ -104,7 +115,7 @@ def test_bitcomp_inputs(inputs):
             {"algo": 1},
             {"algo": 2},
         ],
-        [3208, 3208, 3208],
+        [LEN["Bitcomp"], LEN["Bitcomp"], LEN["Bitcomp"]],
     ),
 )
 def test_bitcomp_algorithms(inputs, expected):
@@ -167,7 +178,7 @@ def test_cascaded_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.CascadedManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 600
+    assert len(final) == LEN["Cascaded"]
 
 
 @pytest.mark.parametrize(
@@ -192,7 +203,7 @@ def test_gdeflate_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.GdeflateManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 732
+    assert len(final) == LEN["Gdeflate"]
 
 
 @pytest.mark.parametrize(
@@ -201,7 +212,7 @@ def test_gdeflate_inputs(inputs):
         [
             {"algo": 0},
         ],
-        [732],
+        [LEN["Gdeflate"]],
     ),
 )
 def test_gdeflate_algorithms(inputs, expected):
@@ -215,7 +226,8 @@ def test_gdeflate_algorithms(inputs, expected):
 
 @pytest.mark.xfail(raises=ValueError)
 @pytest.mark.parametrize(
-    "inputs, expected", zip([{"algo": 1}, {"algo": 2}], [732, 732])
+    "inputs, expected",
+    zip([{"algo": 1}, {"algo": 2}], [LEN["Gdeflate"], LEN["Gdeflate"]]),
 )
 def test_gdeflate_algorithms_not_implemented(inputs, expected):
     size = 10000
@@ -248,7 +260,7 @@ def test_lz4_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.LZ4Manager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 393
+    assert len(final) == LEN["LZ4"]
 
 
 @pytest.mark.parametrize(
@@ -268,7 +280,7 @@ def test_snappy_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.SnappyManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == 3548
+    assert len(final) == LEN["Snappy"]
 
 
 @pytest.mark.parametrize(
@@ -432,17 +444,7 @@ def test_get_required_scratch_buffer_size(manager, expected):
 
 @pytest.mark.parametrize(
     "manager, expected",
-    zip(
-        managers(),
-        [
-            11144,  # ANS
-            3208,  # Bitcomp
-            600,  # Cascaded
-            732,  # Gdeflate
-            393,  # LZ4
-            3548,  # Snappy
-        ],
-    ),
+    zip(managers(), list(LEN.values())),
 )
 def test_get_compressed_output_size(manager, expected):
     length = 10000
