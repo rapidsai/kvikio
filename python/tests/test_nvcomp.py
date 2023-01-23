@@ -21,6 +21,11 @@ LEN = {
 }
 
 
+def assert_compression_size(actual, desired, rtol=0.01):
+    """Actual compression ratios might change between library versions"""
+    np.testing.assert_allclose(actual, desired, rtol=rtol)
+
+
 def managers():
     return [
         libnvcomp.ANSManager,
@@ -81,7 +86,7 @@ def test_ans_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.ANSManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == LEN["ANS"]
+    assert_compression_size(len(final), LEN["ANS"])
 
 
 @pytest.mark.parametrize(
@@ -104,7 +109,7 @@ def test_bitcomp_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.BitcompManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == LEN["Bitcomp"]
+    assert_compression_size(len(final), LEN["Bitcomp"])
 
 
 @pytest.mark.parametrize(
@@ -124,7 +129,7 @@ def test_bitcomp_algorithms(inputs, expected):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.BitcompManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == expected
+    assert_compression_size(len(final), expected)
 
 
 @pytest.mark.parametrize(
@@ -178,7 +183,7 @@ def test_cascaded_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.CascadedManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == LEN["Cascaded"]
+    assert_compression_size(len(final), LEN["Cascaded"])
 
 
 @pytest.mark.parametrize(
@@ -203,7 +208,7 @@ def test_gdeflate_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.GdeflateManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == LEN["Gdeflate"]
+    assert_compression_size(len(final), LEN["Gdeflate"])
 
 
 @pytest.mark.parametrize(
@@ -221,7 +226,7 @@ def test_gdeflate_algorithms(inputs, expected):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.GdeflateManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == expected
+    assert_compression_size(len(final), expected)
 
 
 @pytest.mark.xfail(raises=ValueError)
@@ -235,7 +240,7 @@ def test_gdeflate_algorithms_not_implemented(inputs, expected):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.GdeflateManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == expected
+    assert_compression_size(len(final), expected)
 
 
 @pytest.mark.parametrize(
@@ -260,7 +265,7 @@ def test_lz4_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.LZ4Manager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == LEN["LZ4"]
+    assert_compression_size(len(final), LEN["LZ4"])
 
 
 @pytest.mark.parametrize(
@@ -280,7 +285,7 @@ def test_snappy_inputs(inputs):
     data = cupy.array(np.arange(0, size // dtype(0).itemsize, dtype=dtype))
     compressor = libnvcomp.SnappyManager(**inputs)
     final = compressor.compress(data)
-    assert len(final) == LEN["Snappy"]
+    assert_compression_size(len(final), LEN["Snappy"])
 
 
 @pytest.mark.parametrize(
@@ -288,32 +293,32 @@ def test_snappy_inputs(inputs):
     zip(
         managers(),
         [
-            {
+            {  # ANS
                 "max_compressed_buffer_size": 89373,
                 "num_chunks": 1,
                 "uncompressed_buffer_size": 10000,
             },
-            {
+            {  # Bitcomp
                 "max_compressed_buffer_size": 16432,
                 "num_chunks": 1,
                 "uncompressed_buffer_size": 10000,
             },
-            {
+            {  # Cascaded
                 "max_compressed_buffer_size": 12460,
                 "num_chunks": 3,
                 "uncompressed_buffer_size": 10000,
             },
-            {
+            {  # Gdeflate
                 "max_compressed_buffer_size": 131160,
                 "num_chunks": 1,
                 "uncompressed_buffer_size": 10000,
             },
-            {
+            {  # LZ4
                 "max_compressed_buffer_size": 65888,
                 "num_chunks": 1,
                 "uncompressed_buffer_size": 10000,
             },
-            {
+            {  # Snappy
                 "max_compressed_buffer_size": 76575,
                 "num_chunks": 1,
                 "uncompressed_buffer_size": 10000,
@@ -335,7 +340,7 @@ def test_get_compression_config_with_default_options(compressor_size):
     )
     compressor_instance = compressor()
     result = compressor_instance.configure_compression(len(data))
-    assert result == expected
+    assert_compression_size(result, expected)
 
 
 @pytest.mark.parametrize(
@@ -385,7 +390,7 @@ def test_get_decompression_config_with_default_options(manager, expected):
     result = compressor_instance.configure_decompression_with_compressed_buffer(
         compressed
     )
-    assert result == expected
+    assert_compression_size(result, expected)
 
 
 @pytest.mark.parametrize("manager", managers())
@@ -439,7 +444,7 @@ def test_get_required_scratch_buffer_size(manager, expected):
     compressor_instance = manager()
     compressor_instance.configure_compression(len(data))
     buffer_size = compressor_instance.get_required_scratch_buffer_size()
-    assert buffer_size == expected
+    assert_compression_size(buffer_size, expected)
 
 
 @pytest.mark.parametrize(
@@ -459,7 +464,7 @@ def test_get_compressed_output_size(manager, expected):
     compressor_instance = manager()
     compressed = compressor_instance.compress(data)
     buffer_size = compressor_instance.get_compressed_output_size(compressed)
-    assert buffer_size == expected
+    assert_compression_size(buffer_size, expected)
 
 
 @pytest.mark.parametrize("manager", managers())
