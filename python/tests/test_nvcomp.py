@@ -22,7 +22,7 @@ LEN = {
 
 
 def assert_compression_size(actual, desired, rtol=0.01):
-    """Actual compression ratios might change between library versions"""
+    """Compression ratios might change slightly between library versions"""
     np.testing.assert_allclose(actual, desired, rtol=rtol)
 
 
