@@ -26,7 +26,7 @@ class IOFuture:
         This call blocks until the IO operation finishes.
 
         Returns
-        ------
+        -------
         int
             The size of bytes that were read or written successfully.
         """
@@ -36,7 +36,7 @@ class IOFuture:
         """Return True if the future is done.
 
         Returns
-        ------
+        -------
         bool
             Whether the future is done or not
         """
@@ -114,7 +114,7 @@ class CuFile:
             Size of each task in bytes.
 
         Returns
-        ------
+        -------
         IOFuture
             Future that on completion returns the size of bytes that were successfully
             read.
@@ -157,7 +157,7 @@ class CuFile:
             Size of each task in bytes.
 
         Returns
-        ------
+        -------
         IOFuture
             Future that on completion returns the size of bytes that were successfully
             written.
@@ -224,7 +224,7 @@ class CuFile:
             Size of each task in bytes.
 
         Returns
-        ------
+        -------
         int
             The size of bytes that were successfully written.
 
@@ -260,7 +260,7 @@ class CuFile:
             Offset in the `buf` to read from.
 
         Returns
-        ------
+        -------
         int
             The size of bytes that were successfully read.
 
@@ -296,7 +296,7 @@ class CuFile:
             Offset in the `buf` to write from.
 
         Returns
-        ------
+        -------
         int
             The size of bytes that were successfully written.
 

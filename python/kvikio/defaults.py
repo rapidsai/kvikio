@@ -18,10 +18,10 @@ def compat_mode() -> bool:
 
     Set the environment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility
     mode. By default, compatibility mode is enabled:
-        - when `libcufile` cannot be found
-        - when running in Windows Subsystem for Linux (WSL)
-        - when `/run/udev` isn't readable, which typically happens when running inside
-          a docker image not launched with `--volume /run/udev:/run/udev:ro`
+    - when `libcufile` cannot be found
+    - when running in Windows Subsystem for Linux (WSL)
+    - when `/run/udev` isn't readable, which typically happens when running inside
+    a docker image not launched with `--volume /run/udev:/run/udev:ro`
 
     Return
     ------
