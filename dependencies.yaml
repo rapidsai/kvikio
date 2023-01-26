@@ -1,0 +1,144 @@
+# Dependency list for https://github.com/rapidsai/dependency-file-generator
+files:
+  all:
+    output: conda
+    matrix:
+      cuda: ["11.8"]
+      arch: [x86_64]
+    includes:
+      - build
+      - checks
+      - cudatoolkit
+      - run
+      - test_python
+  test_python:
+    output: none
+    includes:
+      - cudatoolkit
+      - py_version
+      - test_python
+  test_cpp:
+    output: none
+    includes:
+      - cudatoolkit
+  checks:
+    output: none
+    includes:
+      - checks
+      - py_version
+  docs:
+    output: none
+    includes:
+      - cudatoolkit
+      - docs
+      - py_version
+channels:
+  - rapidsai
+  - rapidsai-nightly
+  - conda-forge
+  - nvidia
+dependencies:
+  checks:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - black=22.3.0
+          - clang=11.1.0
+          - clang-tools=11.1.0
+          - cmake-format
+          - flake8=3.8.3
+          - pre-commit
+  build:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - cmake>=3.23.1,!=3.25.0
+          - cython>=0.29,<0.30
+          - ninja
+          - python>=3.8,<3.10
+          - scikit-build>=0.13.1
+      - output_types: conda
+        packages:
+          - c-compiler
+          - cxx-compiler
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              arch: x86_64
+            packages:
+              - gcc_linux-64=9.*
+              - sysroot_linux-64=2.17
+          - matrix:
+              arch: aarch64
+            packages:
+              - gcc_linux-aarch64=9.*
+              - sysroot_linux-aarch64=2.17
+  run:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - numpy
+      - output_types: conda
+        packages:
+          - cupy>=7.8.0,<12.0.0a0
+    specific:
+      - output_types: requirements
+        matrices:
+          - matrix:
+              arch: x86_64
+            packages:
+              - cupy-cuda115>=9.5.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
+          - matrix:
+              arch: aarch64
+            packages:
+              - cupy-cuda11x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
+  cudatoolkit:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "11.2"
+            packages:
+              - cudatoolkit=11.2
+          - matrix:
+              cuda: "11.4"
+            packages:
+              - cudatoolkit=11.4
+          - matrix:
+              cuda: "11.5"
+            packages:
+              - cudatoolkit=11.5
+          - matrix:
+              cuda: "11.8"
+            packages:
+              - cudatoolkit=11.8
+  docs:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - pydata-sphinx-theme
+          - sphinx<6
+      - output_types: conda
+        packages:
+          - doxygen=1.8.20 # pre-commit hook needs a specific version.
+  py_version:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              py: "3.8"
+            packages:
+              - python=3.8
+          - matrix:
+              py: "3.9"
+            packages:
+              - python=3.9
+          - matrix:
+            packages:
+              - python>=3.8,<3.10
+  test_python:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - pytest
