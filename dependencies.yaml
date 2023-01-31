@@ -47,6 +47,8 @@ dependencies:
           - clang-tools=11.1.0
           - cmake-format
           - flake8=3.8.3
+          - isort=5.6.4
+          - mypy=0.782
           - pre-commit
   build:
     common:
