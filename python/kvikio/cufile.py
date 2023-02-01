@@ -191,7 +191,7 @@ class CuFile:
             Size of each task in bytes.
 
         Returns
-        ------
+        -------
         int
             The size of bytes that were successfully read.
 
