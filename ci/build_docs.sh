@@ -33,8 +33,8 @@ popd
 # Build Python docs
 rapids-logger "Build Python docs"
 pushd docs
-sphinx-build -b dirhtml . _html -W
-sphinx-build -b text . _text -W
+sphinx-build -b dirhtml ./source _html -W
+sphinx-build -b text ./source _text -W
 popd
 
 if [[ "${RAPIDS_BUILD_TYPE}" == "branch" ]]; then
