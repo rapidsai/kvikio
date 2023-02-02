@@ -26,10 +26,7 @@ export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 # Switch to project root; also root of repo checkout
 cd "$WORKSPACE"
 
-# If nightly build, append current YYMMDD to version
-if [[ "$BUILD_MODE" = "branch" && "$SOURCE_BRANCH" = branch-* ]] ; then
-  export VERSION_SUFFIX=`date +%y%m%d`
-fi
+export RAPIDS_DATE_STRING=$(git show --no-patch --date=format:'%y%m%d' --format='%cd')
 
 ################################################################################
 # SETUP - Check environment

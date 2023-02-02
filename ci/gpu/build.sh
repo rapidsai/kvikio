@@ -30,6 +30,8 @@ export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
 
+export RAPIDS_DATE_STRING=$(git show --no-patch --date=format:'%y%m%d' --format='%cd')
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
