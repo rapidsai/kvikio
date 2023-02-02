@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -19,7 +19,7 @@ class GDSStore(zarr.storage.DirectoryStore):
     The store supports both CPU and GPU buffers but when reading, GPU
     buffers are returned always.
 
-    TODO: Write metadata to disk in order to perserve the item types such that
+    TODO: Write metadata to disk in order to preserve the item types such that
     GPU items are read as GPU device buffers and CPU items are read as bytes.
     """
 

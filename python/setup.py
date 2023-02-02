@@ -1,10 +1,9 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+import versioneer
 from setuptools import find_packages
 from skbuild import setup
-
-import versioneer
 
 setup(
     name="kvikio",

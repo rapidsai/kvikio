@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -36,21 +36,18 @@ function(add_cython_modules cython_modules)
     python_extension_module(${cython_module})
 
     # To avoid libraries being prefixed with "lib".
-    set_target_properties(
-        ${cython_module}
-        PROPERTIES PREFIX ""
-                   CXX_STANDARD 17
-    )
+    set_target_properties(${cython_module} PROPERTIES PREFIX "" CXX_STANDARD 17)
     # Link to the C++ library.
     target_link_libraries(${cython_module} kvikio)
     # Treat warnings as errors when compiling.
-	  target_compile_options(${cython_module} PRIVATE -Werror)
+    target_compile_options(${cython_module} PRIVATE -Werror)
 
     # Compute the install directory relative to the source and rely on installs being relative to
     # the CMAKE_PREFIX_PATH for e.g. editable installs.
-    cmake_path(RELATIVE_PATH CMAKE_CURRENT_SOURCE_DIR BASE_DIRECTORY ${kvikio-python_SOURCE_DIR}
-               OUTPUT_VARIABLE install_dst)
+    cmake_path(
+      RELATIVE_PATH CMAKE_CURRENT_SOURCE_DIR BASE_DIRECTORY ${kvikio-python_SOURCE_DIR}
+      OUTPUT_VARIABLE install_dst
+    )
     install(TARGETS ${cython_module} DESTINATION ${install_dst})
   endforeach(cython_module ${cython_sources})
 endfunction()
-

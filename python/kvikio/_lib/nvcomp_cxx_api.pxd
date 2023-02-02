@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Carson Swope
 # Use, modification, and distribution is subject to the MIT License
 # https://github.com/carsonswope/py-nvcomp/blob/main/LICENSE)
-# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # All rights reserved.
 # SPDX-License-Identifier: MIT
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -59,7 +59,7 @@ cdef extern from "nvcomp/nvcompManagerFactory.hpp" namespace 'nvcomp':
     ) except +
 
 
-# Compresion Manager
+# Compression Manager
 cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
     cdef cppclass PinnedPtrPool[T]:
         pass
