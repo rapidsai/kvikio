@@ -119,10 +119,16 @@ dependencies:
               - libcufile-dev>=1.1.0.37,<=1.1.1.25
           - matrix:
               cuda: "11.8"
+              arch: x86_64
             packages:
               - cudatoolkit=11.8
               - libcufile=1.4.0.31
               - libcufile-dev=1.4.0.31
+          - matrix:
+              cuda: "11.8"
+              arch: aarch64
+            packages:
+              - cudatoolkit=11.8
   docs:
     common:
       - output_types: [conda, requirements]
