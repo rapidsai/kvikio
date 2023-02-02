@@ -103,18 +103,26 @@ dependencies:
               cuda: "11.2"
             packages:
               - cudatoolkit=11.2
+              - libcufile>=1.0.0.82,<=1.0.2.10
+              - libcufile-dev>=1.0.0.82,<=1.0.2.10
           - matrix:
               cuda: "11.4"
             packages:
               - cudatoolkit=11.4
+              - libcufile>=1.0.0.82,<=1.0.2.10
+              - libcufile-dev>=1.0.0.82,<=1.0.2.10
           - matrix:
               cuda: "11.5"
             packages:
               - cudatoolkit=11.5
+              - libcufile>=1.1.0.37,<=1.1.1.25
+              - libcufile-dev>=1.1.0.37,<=1.1.1.25
           - matrix:
               cuda: "11.8"
             packages:
               - cudatoolkit=11.8
+              - libcufile=1.4.0.31
+              - libcufile-dev=1.4.0.31
   docs:
     common:
       - output_types: [conda, requirements]
