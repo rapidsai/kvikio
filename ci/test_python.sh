@@ -30,6 +30,7 @@ SUITEERROR=0
 rapids-print-env
 
 rapids-mamba-retry install \
+  --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
   libkvikio kvikio
 
