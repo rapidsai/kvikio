@@ -19,6 +19,7 @@ conda activate test
 set -u
 
 rapids-logger "Downloading artifacts from previous jobs"
+CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
@@ -30,7 +31,7 @@ rapids-print-env
 
 rapids-mamba-retry install \
   --channel "${PYTHON_CHANNEL}" \
-  kvikio
+  libkvikio kvikio
 
 rapids-logger "Check GPU usage"
 nvidia-smi
