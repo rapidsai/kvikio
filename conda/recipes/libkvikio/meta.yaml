@@ -45,12 +45,12 @@ requirements:
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - cudatoolkit {{ cuda_version }}.*
-    - libcufile {{ libcufile_host_version }}
-    - libcufile-dev {{ libcufile_host_version }}
+    - libcufile {{ libcufile_host_version }} # [linux64]
+    - libcufile-dev {{ libcufile_host_version }} # [linux64]
   run:
     - cudatoolkit {{ cuda_spec }}
-    - libcufile {{ libcufile_run_version }}
-    - libcufile-dev {{ libcufile_run_version }}
+    - libcufile {{ libcufile_run_version }} # [linux64]
+    - libcufile-dev {{ libcufile_run_version }} # [linux64]
 
 
 test:
