@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 ##############################################
 # kvikIO GPU build and test script for CI    #
 ##############################################
@@ -99,7 +99,7 @@ gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio
 # Check that `libcuda.so` is NOT being linked
 LDD_BASIC_IO=$(ldd "${CONDA_BLD_DIR}/work/cpp/build/examples/basic_io")
 if [[ "$LDD_BASIC_IO" == *"libcuda.so"* ]]; then
-  echo "[ERROR] examples/basic_io shouln't link to libcuda.so: ${LDD_BASIC_IO}"
+  echo "[ERROR] examples/basic_io shouldn't link to libcuda.so: ${LDD_BASIC_IO}"
   return 1
 fi
 
