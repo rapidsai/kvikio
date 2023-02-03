@@ -18,12 +18,11 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libkvikio kvikio -v -g -n -s --ptds -h tests benchmarks"
+VALIDARGS="clean libkvikio kvikio -v -g -n -s --ptds -h"
 HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [-s] [--ptds] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
    libkvikio                      - build and install the libkvikio C++ code
    kvikio                         - build and install the kvikio Python package
-   tests                       - build tests
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
@@ -87,7 +86,6 @@ function ensureCMakeRan {
     cd ${REPODIR}/cpp
     if (( RAN_CMAKE == 0 )); then
         echo "Executing cmake for libkvikio..."
-        # export CMAKE_EXTRA_ARGS="-DCMAKE_DISABLE_FIND_PACKAGE_cuFile=TRUE"
         cmake -B "${LIBKVIKIO_BUILD_DIR}" -S . \
               -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
               ${EXTRA_CMAKE_ARGS}
