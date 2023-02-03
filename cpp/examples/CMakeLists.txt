@@ -16,10 +16,7 @@ set(TEST_INSTALL_PATH bin/tests/libkvikio)
 set(TEST_NAME BASIC_IO_TEST)
 
 add_executable(BASIC_IO_TEST basic_io.cpp)
-set_target_properties(
-      BASIC_IO_TEST
-      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib"
-    )
+set_target_properties(BASIC_IO_TEST PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
 target_include_directories(BASIC_IO_TEST PRIVATE ../include ${cuFile_INCLUDE_DIRS})
 target_link_libraries(BASIC_IO_TEST PRIVATE kvikio CUDA::cudart)
 
@@ -32,8 +29,8 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 install(
-      TARGETS ${TEST_NAME}
-      COMPONENT testing
-      DESTINATION ${TEST_INSTALL_PATH}
-      EXCLUDE_FROM_ALL
-    )
+  TARGETS ${TEST_NAME}
+  COMPONENT testing
+  DESTINATION ${TEST_INSTALL_PATH}
+  EXCLUDE_FROM_ALL
+)
