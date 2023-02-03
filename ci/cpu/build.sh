@@ -26,7 +26,7 @@ export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 # Switch to project root; also root of repo checkout
 cd "$WORKSPACE"
 
-export RAPIDS_DATE_STRING=$(git show --no-patch --date=format:'%y%m%d' --format='%cd')
+export RAPIDS_DATE_STRING=$(date +%y%m%d)
 
 ################################################################################
 # SETUP - Check environment
