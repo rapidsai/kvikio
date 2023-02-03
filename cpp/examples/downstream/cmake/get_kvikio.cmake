@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -16,10 +16,15 @@
 function(find_and_configure_kvikio MIN_VERSION)
 
   CPMFindPackage(
-    NAME KvikIO VERSION ${MIN_VERSION}
-    GIT_REPOSITORY https://github.com/rapidsai/kvikio.git
+    NAME KvikIO
+    VERSION ${MIN_VERSION}
+            GIT_REPOSITORY
+            https://github.com/rapidsai/kvikio.git
     GIT_TAG branch-${MIN_VERSION}
-    GIT_SHALLOW TRUE SOURCE_SUBDIR cpp
+    GIT_SHALLOW
+      TRUE
+      SOURCE_SUBDIR
+      cpp
     OPTIONS "KvikIO_BUILD_EXAMPLES OFF"
   )
 

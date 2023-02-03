@@ -80,44 +80,60 @@ python benchmarks/single-node-io.py
 
 ### Code Formatting
 
+#### Using pre-commit hooks
 
-#### Python
+KvikIO uses [pre-commit](https://pre-commit.com/) to execute all code linters and formatters. These
+tools ensure a consistent code format throughout the project. Using pre-commit ensures that linter
+versions and options are aligned for all developers. Additionally, there is a CI check in place to
+enforce that committed code follows our standards.
 
-KvikIO uses [Black](https://black.readthedocs.io/en/stable/),
-[isort](https://readthedocs.org/projects/isort/), and
-[flake8](http://flake8.pycqa.org/en/latest/) to ensure a consistent code format
-throughout the project.
-
-These tools are used to auto-format the Python code, as well as check the Cython
-code in the repository. Additionally, there is a CI check in place to enforce
-that committed code follows our standards. You can use the tools to
-automatically format your python code by running:
+To use `pre-commit`, install via `conda` or `pip`:
 
 ```bash
-isort python
-black python
+conda install -c conda-forge pre-commit
 ```
-
-and then check the syntax of your Python and Cython code by running:
 
 ```bash
-flake8 python
-flake8 --config=python/.flake8.cython
+pip install pre-commit
 ```
 
-Additionally, many editors have plugins that will apply `isort` and `Black` as
-you edit files, as well as use `flake8` to report any style / syntax issues.
+Then run pre-commit hooks before committing code:
 
-#### C++
-
-KvikIO uses [`clang-format`](https://clang.llvm.org/docs/ClangFormat.html)
-
-In order to format the C++ files, navigate to the root directory and run:
-```
-python3 scripts/run-clang-format.py -inplace
+```bash
+pre-commit run
 ```
 
-Additionally, many editors have plugins or extensions that you can set up to automatically run `clang-format` either manually or on file save.
+By default, pre-commit runs on staged files (only changes and additions that will be committed).
+To run pre-commit checks on all files, execute:
+
+```bash
+pre-commit run --all-files
+```
+
+Optionally, you may set up the pre-commit hooks to run automatically when you make a git commit. This can be done by running:
+
+```bash
+pre-commit install
+```
+
+Now code linters and formatters will be run each time you commit changes.
+
+You can skip these checks with `git commit --no-verify` or with the short version `git commit -n`.
+
+#### Summary of pre-commit hooks
+
+The following section describes some of the core pre-commit hooks used by the repository.
+See `.pre-commit-config.yaml` for a full list.
+
+C++/CUDA is formatted with [`clang-format`](https://clang.llvm.org/docs/ClangFormat.html).
+
+Python code runs several linters including [Black](https://black.readthedocs.io/en/stable/),
+[isort](https://pycqa.github.io/isort/), and [flake8](https://flake8.pycqa.org/en/latest/).
+
+[Codespell](https://github.com/codespell-project/codespell) is used to find spelling
+mistakes, and this check is run as a pre-commit hook. To apply the suggested spelling fixes,
+you can run  `codespell -i 3 -w .` from the repository root directory.
+This will bring up an interactive prompt to select which spelling fixes to apply.
 
 ## Attribution
  * Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md

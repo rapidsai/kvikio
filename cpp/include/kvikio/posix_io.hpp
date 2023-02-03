@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ inline AllocRetain manager;  // NOLINT(cppcoreguidelines-avoid-non-const-global-
  * @brief Read or write host memory to or from disk using POSIX
  *
  * @tparam IsReadOperation Whether the operation is a read or a write
- * @param fd File decriptor
+ * @param fd File descriptor
  * @param buf Buffer to write
  * @param count Number of bytes to write
  * @param offset File offset
@@ -150,7 +150,7 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
  * @brief Read or write device memory to or from disk using POSIX
  *
  * @tparam IsReadOperation Whether the operation is a read or a write
- * @param fd File decriptor
+ * @param fd File descriptor
  * @param devPtr_base Device pointer to read or write to.
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
@@ -195,7 +195,7 @@ std::size_t posix_device_io(int fd,
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
- * @param fd File decriptor
+ * @param fd File descriptor
  * @param buf Base address of buffer in host memory.
  * @param size Size in bytes to read.
  * @param file_offset Offset in the file to read from.
@@ -214,7 +214,7 @@ inline std::size_t posix_host_read(
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
- * @param fd File decriptor
+ * @param fd File descriptor
  * @param buf Base address of buffer in host memory.
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.
@@ -233,7 +233,7 @@ inline std::size_t posix_host_write(
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
- * @param fd File decriptor
+ * @param fd File descriptor
  * @param devPtr_base Base address of buffer in device memory.
  * @param size Size in bytes to read.
  * @param file_offset Offset in the file to read from.
@@ -255,7 +255,7 @@ inline std::size_t posix_device_read(int fd,
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
- * @param fd File decriptor
+ * @param fd File descriptor
  * @param devPtr_base Base address of buffer in device memory.
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.

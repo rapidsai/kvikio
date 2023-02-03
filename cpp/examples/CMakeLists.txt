@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -28,9 +28,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   if(NOT cuFile_FOUND)
     set(KVIKIO_CXX_FLAGS "${KVIKIO_CXX_FLAGS};-DKVIKIO_DISABLE_CUFILE")
   endif()
-  target_compile_options(
-    BASIC_IO_TEST PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
- )
+  target_compile_options(BASIC_IO_TEST PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
 endif()
 
 install(
