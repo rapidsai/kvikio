@@ -19,6 +19,7 @@ dependencies:
 - cython>=0.29,<0.30
 - dask>=2022.05.2
 - distributed>=2022.05.2
+- doxygen=1.8.20
 - flake8=3.8.3
 - gcc_linux-64=9.*
 - isort=5.6.4
@@ -28,8 +29,10 @@ dependencies:
 - ninja
 - numpy
 - pre-commit
+- pydata-sphinx-theme
 - pytest
-- python>=3.8,<3.10
+- python>=3.8,<3.11
 - scikit-build>=0.13.1
+- sphinx<6
 - sysroot_linux-64=2.17
 name: all_cuda-118_arch-x86_64
