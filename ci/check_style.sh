@@ -11,32 +11,13 @@ rapids-dependency-file-generator \
   --file_key checks \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
-
-# Ignore errors and set path
-set +e
-PATH=/conda/bin:$PATH
-LC_ALL=C.UTF-8
-LANG=C.UTF-8
-
 rapids-mamba-retry env create --force -f env.yaml -n checks
 conda activate checks
 
-# Run formatting script
-FORMAT=`python scripts/format-all.py --check 2>&1`
-FORMAT_RETVAL=$?
+FORMAT_FILE_URL=https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.02/cmake-format-rapids-cmake.json
+export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-formats-rapids-cmake.json
+mkdir -p $(dirname ${RAPIDS_CMAKE_FORMAT_FILE})
+wget -O ${RAPIDS_CMAKE_FORMAT_FILE} ${FORMAT_FILE_URL}
 
-if [ "$FORMAT_RETVAL" != "0" ]; then
-  echo -e "\n\n>>>> FAILED: format check; begin output\n\n"
-  echo -e "$FORMAT"
-  echo -e "\n\n>>>> FAILED: format check; end output\n\n"
-else
-  echo -e "\n\n>>>> PASSED: format check\n\n"
-fi
-
-RETVALS=(
-  $FORMAT_RETVAL
-)
-IFS=$'\n'
-RETVAL=`echo "${RETVALS[*]}" | sort -nr | head -n1`
-
-exit $RETVAL
+# Run pre-commit checks
+pre-commit run --hook-stage manual --all-files --show-diff-on-failure
