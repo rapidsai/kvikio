@@ -107,14 +107,14 @@ gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} --no-remove-work-dir --kee
 gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio
 
 # Check that `libcuda.so` is NOT being linked
-LDD_BASIC_IO=$(ldd "${CONDA_BLD_DIR}/work/cpp/build/examples/basic_io")
+LDD_BASIC_IO=$(ldd "${CONDA_BLD_DIR}/work/cpp/build/examples/BASIC_IO_TEST")
 if [[ "$LDD_BASIC_IO" == *"libcuda.so"* ]]; then
-  echo "[ERROR] examples/basic_io shouldn't link to libcuda.so: ${LDD_BASIC_IO}"
+  echo "[ERROR] examples/BASIC_IO_TEST shouldn't link to libcuda.so: ${LDD_BASIC_IO}"
   return 1
 fi
 
-# Run basic_io
-"${CONDA_BLD_DIR}/work/cpp/build/examples/basic_io"
+# Run BASIC_IO_TEST
+"${CONDA_BLD_DIR}/work/cpp/build/examples/BASIC_IO_TEST"
 
 gpuci_logger "Clean previous conda builds"
 gpuci_mamba_retry uninstall libkvikio
@@ -125,8 +125,8 @@ export CMAKE_EXTRA_ARGS="-DCMAKE_DISABLE_FIND_PACKAGE_cuFile=TRUE"
 gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} --no-remove-work-dir --keep-old-work conda/recipes/libkvikio
 gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" libkvikio
 
-# Run basic_io
-"${CONDA_BLD_DIR}/work/cpp/build/examples/basic_io"
+# Run BASIC_IO_TEST
+"${CONDA_BLD_DIR}/work/cpp/build/examples/BASIC_IO_TEST"
 
 if [ -n "${CODECOV_TOKEN}" ]; then
     codecov -t $CODECOV_TOKEN
