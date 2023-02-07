@@ -26,17 +26,15 @@ rapids-mamba-retry install \
   --channel "${PYTHON_CHANNEL}" \
   kvikio libkvikio
 
-# Build CPP docs
 rapids-logger "Build Doxygen docs"
 pushd cpp/doxygen
 doxygen Doxyfile
 popd
 
-# Build Python docs
-rapids-logger "Build Python docs"
+rapids-logger "Build Sphinx docs"
 pushd docs
-sphinx-build -b dirhtml ./source _html -W
-sphinx-build -b text ./source _text -W
+sphinx-build -b dirhtml source _html -W
+sphinx-build -b text source _text -W
 popd
 
 if [[ "${RAPIDS_BUILD_TYPE}" == "branch" ]]; then
