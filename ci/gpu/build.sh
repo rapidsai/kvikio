@@ -25,6 +25,14 @@ cd "${WORKSPACE}"
 # Determine CUDA release version
 export CUDA_REL=${CUDA_VERSION%.*}
 
+# Workaround to keep Jenkins builds working
+# until we migrate fully to GitHub Actions
+export RAPIDS_CUDA_VERSION="${CUDA}"
+export SCCACHE_BUCKET=rapids-sccache
+export SCCACHE_REGION=us-west-2
+export SCCACHE_IDLE_TIMEOUT=32768
+export RAPIDS_DATE_STRING=$(date +%y%m%d)
+
 # Parse git describe
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
