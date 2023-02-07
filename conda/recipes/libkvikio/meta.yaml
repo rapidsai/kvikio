@@ -13,12 +13,8 @@ source:
   git_url: ../../..
 
 build:
-  number: {{ GIT_DESCRIBE_NUMBER }}
-  string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
     - PARALLEL_LEVEL
-    - VERSION_SUFFIX
-    - PROJECT_FLASH
     - CMAKE_GENERATOR
     - CMAKE_C_COMPILER_LAUNCHER
     - CMAKE_CXX_COMPILER_LAUNCHER
@@ -29,11 +25,6 @@ build:
     - SCCACHE_REGION=us-west-2
     - SCCACHE_IDLE_TIMEOUT=32768
     - CMAKE_EXTRA_ARGS
-  run_exports:
-    - {{ pin_subpackage("libkvikio", max_pin="x.x") }}
-  ignore_run_exports_from:
-    - {{ compiler('cuda') }}
-
 
 requirements:
   build:
@@ -54,9 +45,9 @@ outputs:
     script: install_libkvikio.sh
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      ignore_run_exports_from:
-        - {{ compiler('cuda') }}
+      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      run_exports:
+        - {{ pin_subpackage("libkvikio", max_pin="x.x") }}
     requirements:
       build:
         - cmake {{ cmake_version }}
@@ -68,7 +59,7 @@ outputs:
         commands:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
     about:
-      home: http://rapids.ai/
+      home: https://github.com/rapidsai/kvikio
       license: Apache-2.0
       license_family: Apache
       license_file: LICENSE
@@ -78,9 +69,7 @@ outputs:
     script: install_libkvikio_tests.sh
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      ignore_run_exports_from:
-        - {{ compiler('cuda') }}
+      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
         - cmake {{ cmake_version }}
@@ -89,7 +78,7 @@ outputs:
         - libcufile {{ libcufile_run_version }} # [linux64]
         - libcufile-dev {{ libcufile_run_version }} # [linux64]
     about:
-      home: http://rapids.ai/
+      home: https://github.com/rapidsai/kvikio
       license: Apache-2.0
       license_family: Apache
       license_file: LICENSE
