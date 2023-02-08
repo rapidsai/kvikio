@@ -1,7 +1,7 @@
 # Copyright (c) 2023, NVIDIA CORPORATION.
 
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
-{% set py_version = environ.get('CONDA_PY', 36) %}
+{% set py_version = environ['CONDA_PY'] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
@@ -54,7 +54,7 @@ test:
     - kvikio
 
 about:
-  home: https://github.com/rapidsai/kvikio
+  home: https://rapids.ai
   license: Apache-2.0
   license_family: Apache
   license_file: LICENSE

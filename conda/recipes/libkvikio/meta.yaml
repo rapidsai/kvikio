@@ -2,7 +2,7 @@
 
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
-{% set cuda_major=cuda_version.split('.')[0] %}
+{% set cuda_major = cuda_version.split('.')[0] %}
 {% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
@@ -21,9 +21,9 @@ build:
     - CMAKE_CUDA_COMPILER_LAUNCHER
     - SCCACHE_S3_KEY_PREFIX=libkvikio-aarch64 # [aarch64]
     - SCCACHE_S3_KEY_PREFIX=libkvikio-linux64 # [linux64]
-    - SCCACHE_BUCKET=rapids-sccache
-    - SCCACHE_REGION=us-west-2
-    - SCCACHE_IDLE_TIMEOUT=32768
+    - SCCACHE_BUCKET
+    - SCCACHE_REGION
+    - SCCACHE_IDLE_TIMEOUT
 
 requirements:
   build:
@@ -58,7 +58,7 @@ outputs:
         commands:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
     about:
-      home: https://github.com/rapidsai/kvikio
+      home: https://rapids.ai
       license: Apache-2.0
       license_family: Apache
       license_file: LICENSE
@@ -77,7 +77,7 @@ outputs:
         - libcufile {{ libcufile_run_version }} # [linux64]
         - libcufile-dev {{ libcufile_run_version }} # [linux64]
     about:
-      home: https://github.com/rapidsai/kvikio
+      home: https://rapids.ai
       license: Apache-2.0
       license_family: Apache
       license_file: LICENSE
