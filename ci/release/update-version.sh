@@ -57,3 +57,7 @@ sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.
 for FILE in conda/environments/*.yaml dependencies.yaml; do
   sed_runner "s/cudf=.*/cudf=${NEXT_SHORT_TAG}/g" ${FILE};
 done
+
+for FILE in .github/workflows/*.yaml; do
+  sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
+done
