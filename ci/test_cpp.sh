@@ -32,15 +32,12 @@ rapids-mamba-retry install \
 rapids-logger "Check GPU usage"
 nvidia-smi
 
+EXITCODE=0
+trap "EXITCODE=1" ERR
 set +e
 
 # Run BASIC_IO_TEST
 "$CONDA_PREFIX"/bin/tests/libkvikio/BASIC_IO_TEST
 
-exitcode=$?
-if (( ${exitcode} != 0 )); then
-    SUITEERROR=${exitcode}
-    echo "FAILED: BASIC_IO_TEST"
-fi
-
-exit ${SUITEERROR}
+rapids-logger "Test script exiting with value: $EXITCODE"
+exit ${EXITCODE}

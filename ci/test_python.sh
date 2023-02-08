@@ -25,7 +25,6 @@ PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
 RAPIDS_COVERAGE_DIR=${RAPIDS_COVERAGE_DIR:-"${PWD}/coverage-results"}
 mkdir -p "${RAPIDS_TESTS_DIR}" "${RAPIDS_COVERAGE_DIR}"
-SUITEERROR=0
 
 rapids-print-env
 
@@ -37,9 +36,10 @@ rapids-mamba-retry install \
 rapids-logger "Check GPU usage"
 nvidia-smi
 
+EXITCODE=0
+trap "EXITCODE=1" ERR
 set +e
 
-# TODO: exit code handling is too verbose. Find a cleaner solution.
 rapids-logger "pytest kvikio"
 pushd python/
 pytest \
@@ -51,12 +51,6 @@ pytest \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/kvikio-coverage.xml" \
   --cov-report=term \
   tests
-exitcode=$?
 
-if (( ${exitcode} != 0 )); then
-    SUITEERROR=${exitcode}
-    echo "FAILED: 1 or more tests in kvikio"
-fi
-popd
-
-exit ${SUITEERROR}
+rapids-logger "Test script exiting with value: $EXITCODE"
+exit ${EXITCODE}
