@@ -42,7 +42,7 @@ set +e
 # TODO: exit code handling is too verbose. Find a cleaner solution.
 rapids-logger "pytest kvikio"
 pushd python/
-py.test \
+pytest \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-kvikio.xml" \
   --verbose
