@@ -45,7 +45,12 @@ pushd python/
 pytest \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-kvikio.xml" \
-  --verbose
+  --verbose \
+  --cov-config=.coveragerc \
+  --cov=kvikio \
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/kvikio-coverage.xml" \
+  --cov-report=term \
+  tests
 exitcode=$?
 
 if (( ${exitcode} != 0 )); then

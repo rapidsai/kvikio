@@ -161,3 +161,4 @@ dependencies:
           - dask>=2022.05.2
           - distributed>=2022.05.2
           - pytest
+          - pytest-cov
