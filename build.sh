@@ -26,8 +26,6 @@ HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [-s] [--ptds] [--cmake-args
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
-   -s                          - statically link against cudart
-   --ptds                      - enable per-thread default stream
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h                          - print this text
    default action (no args) is to build and install 'libkvikio' and 'kvikio' targets
@@ -40,10 +38,6 @@ BUILD_DIRS="${LIBKVIKIO_BUILD_DIR} ${KVIKIO_BUILD_DIR}"
 VERBOSE_FLAG=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
-BUILD_BENCHMARKS=OFF
-BUILD_TESTS=OFF
-CUDA_STATIC_RUNTIME=OFF
-PER_THREAD_DEFAULT_STREAM=OFF
 RAN_CMAKE=0
 
 # Set defaults for vars that may not have been defined externally
@@ -88,6 +82,7 @@ function ensureCMakeRan {
         echo "Executing cmake for libkvikio..."
         cmake -B "${LIBKVIKIO_BUILD_DIR}" -S . \
               -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
+              -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
               ${EXTRA_CMAKE_ARGS}
         RAN_CMAKE=1
     fi
@@ -120,18 +115,6 @@ if hasArg -g; then
 fi
 if hasArg -n; then
     INSTALL_TARGET=""
-fi
-if hasArg benchmarks; then
-    BUILD_BENCHMARKS=ON
-fi
-if hasArg tests; then
-    BUILD_TESTS=ON
-fi
-if hasArg -s; then
-    CUDA_STATIC_RUNTIME=ON
-fi
-if hasArg --ptds; then
-    PER_THREAD_DEFAULT_STREAM=ON
 fi
 
 # If clean given, run it prior to any other steps
