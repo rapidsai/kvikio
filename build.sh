@@ -21,8 +21,8 @@ REPODIR=$(cd $(dirname $0); pwd)
 VALIDARGS="clean libkvikio kvikio -v -g -n -s --ptds -h"
 HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [-s] [--ptds] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
-   libkvikio                      - build and install the libkvikio C++ code
-   kvikio                         - build and install the kvikio Python package
+   libkvikio                   - build and install the libkvikio C++ code
+   kvikio                      - build and install the kvikio Python package
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
