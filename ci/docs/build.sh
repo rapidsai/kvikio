@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 ###################################
 # kvikIO Docs build script for CI #
 ###################################
@@ -57,10 +57,9 @@ for PROJECT in ${PROJECTS[@]}; do
     if [ ! -d "api/$PROJECT/$BRANCH_VERSION" ]; then
         mkdir -p api/$PROJECT/$BRANCH_VERSION
     fi
-    rm -rf $DOCS_WORKSPACE/api/$PROJECT/$BRANCH_VERSION/*	
+    rm -rf $DOCS_WORKSPACE/api/$PROJECT/$BRANCH_VERSION/*
 done
 
 
 mv $PROJECT_WORKSPACE/cpp/doxygen/html/* $DOCS_WORKSPACE/api/libkvikio/$BRANCH_VERSION
 mv $PROJECT_WORKSPACE/docs/build/html/* $DOCS_WORKSPACE/api/kvikio/$BRANCH_VERSION
-

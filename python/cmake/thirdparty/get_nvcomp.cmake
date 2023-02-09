@@ -19,8 +19,8 @@ function(find_and_configure_nvcomp)
 
   include(${rapids-cmake-dir}/cpm/nvcomp.cmake)
   rapids_cpm_nvcomp(
-    BUILD_EXPORT_SET cuspatial-exports
-    INSTALL_EXPORT_SET cuspatial-exports
+    BUILD_EXPORT_SET kvikio-exports
+    INSTALL_EXPORT_SET kvikio-exports
     USE_PROPRIETARY_BINARY ${KVIKIO_USE_PROPRIETARY_BINARY}
   )
 

@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -22,7 +22,7 @@ include(rapids-find)
 
 project(
   KvikIO
-  VERSION 22.12.00
+  VERSION 23.02.00
   LANGUAGES CXX
 )
 
@@ -98,19 +98,18 @@ install(DIRECTORY include/kvikio/ DESTINATION include/kvikio)
 install(FILES ${KvikIO_BINARY_DIR}/include/kvikio/version_config.hpp DESTINATION include/kvikio)
 
 include("${rapids-cmake-dir}/export/find_package_file.cmake")
-rapids_export_find_package_file(BUILD
-                                "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake"
-                                kvikio-exports
+rapids_export_find_package_file(
+  BUILD "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake" kvikio-exports
 )
-rapids_export_find_package_file(INSTALL
-                                "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake"
-                                kvikio-exports
+rapids_export_find_package_file(
+  INSTALL "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake" kvikio-exports
 )
 
 set(doc_string
     [=[
 Provide targets for KvikIO: C++ bindings for cuFile.
-]=])
+]=]
+)
 
 rapids_export(
   INSTALL kvikio
@@ -131,16 +130,8 @@ rapids_export(
 
 # make documentation
 
-# add_custom_command(
-#   OUTPUT KvikIO_DOXYGEN
-#   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
-#   COMMAND doxygen Doxyfile
-#   VERBATIM
-#   COMMENT "Custom command for KvikIO doxygen docs")
+# add_custom_command( OUTPUT KvikIO_DOXYGEN WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
+# COMMAND doxygen Doxyfile VERBATIM COMMENT "Custom command for KvikIO doxygen docs")
 
-# add_custom_target(
-#   kvikio_doc
-#   DEPENDS KvikIO_DOXYGEN
-#   COMMENT "Target for the custom command to build the KvikIO doxygen docs")
-
-
+# add_custom_target( kvikio_doc DEPENDS KvikIO_DOXYGEN COMMENT "Target for the custom command to
+# build the KvikIO doxygen docs")

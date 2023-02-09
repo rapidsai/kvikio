@@ -1,14 +1,12 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
 # cython: language_level=3
 
-import os
 import pathlib
-from typing import Tuple
 
-from libc.stdint cimport uint32_t, uintptr_t
+from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
@@ -30,10 +28,10 @@ cdef class IOFuture:
         return is_future_done(self._handle)
 
 
-cdef IOFuture _wrap_io_future(future[size_t] &future):
+cdef IOFuture _wrap_io_future(future[size_t] &fut):
     """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
     ret = IOFuture()
-    ret._handle = move(future)
+    ret._handle = move(fut)
     return ret
 
 

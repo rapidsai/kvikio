@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ inline int open_fd(const std::string& file_path,
 }
 
 /**
- * @brief Get the flags of the file descripter (see `open(2)`)
+ * @brief Get the flags of the file descriptor (see `open(2)`)
  *
  * @return Open flags
  */
@@ -120,9 +120,9 @@ inline int open_fd(const std::string& file_path,
 }  // namespace detail
 
 /**
- * @brief Handle of an open file registred with cufile.
+ * @brief Handle of an open file registered with cufile.
  *
- * In order to utilize cufile and GDS, a file must be registred with cufile.
+ * In order to utilize cufile and GDS, a file must be registered with cufile.
  */
 class FileHandle {
  private:
@@ -232,7 +232,7 @@ class FileHandle {
    * `O_DIRECT` flag and one without. This function returns one of them but
    * it is unspecified which one.
    *
-   * @return File descripter
+   * @return File descriptor
    */
   [[nodiscard]] int fd() const noexcept { return _fd_direct_off; }
 
@@ -243,7 +243,7 @@ class FileHandle {
    * `O_DIRECT` flag and one without. This function returns the flags of one of
    * them but it is unspecified which one.
    *
-   * @return File descripter
+   * @return File descriptor
    */
   [[nodiscard]] int fd_open_flags() const { return detail::open_flags(_fd_direct_off); }
 

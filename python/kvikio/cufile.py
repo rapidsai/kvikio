@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import pathlib
@@ -75,11 +75,11 @@ class CuFile:
         return self._handle.closed()
 
     def fileno(self) -> int:
-        """Get the file descripter of the open file"""
+        """Get the file descriptor of the open file"""
         return self._handle.fileno()
 
     def open_flags(self) -> int:
-        """Get the flags of the file descripter (see open(2))"""
+        """Get the flags of the file descriptor (see open(2))"""
         return self._handle.open_flags()
 
     def __enter__(self) -> "CuFile":
