@@ -1,6 +1,16 @@
-# kvikio 23.02.00 (Date TBD)
+# kvikio 23.02.00 (9 Feb 2023)
 
-Please see https://github.com/rapidsai/kvikio/releases/tag/v23.02.00a for the latest changes to this development branch.
+## 🐛 Bug Fixes
+
+- Manually open and close the cuFile driver ([#160](https://github.com/rapidsai/kvikio/pull/160)) [@madsbk](https://github.com/madsbk)
+- nvcomp tests: update hardcoded lengths ([#156](https://github.com/rapidsai/kvikio/pull/156)) [@madsbk](https://github.com/madsbk)
+
+## 🛠️ Improvements
+
+- Update changelog for releases 22.06-22.12. ([#157](https://github.com/rapidsai/kvikio/pull/157)) [@bdice](https://github.com/bdice)
+- Add nvcomp to kvikio-exports export set ([#155](https://github.com/rapidsai/kvikio/pull/155)) [@trxcllnt](https://github.com/trxcllnt)
+- Use pre-commit for style checks. ([#154](https://github.com/rapidsai/kvikio/pull/154)) [@bdice](https://github.com/bdice)
+- Enable copy_prs. ([#151](https://github.com/rapidsai/kvikio/pull/151)) [@bdice](https://github.com/bdice)
 
 # kvikio 22.12.00 (4 Jan 2023)
 
