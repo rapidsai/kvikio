@@ -139,6 +139,9 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - numpy
+          - zarr
+          - libcufile {{ libcufile_run_version }} # [linux64]
+          - libcufile-dev {{ libcufile_run_version }} # [linux64]
       - output_types: conda
         packages:
           - cupy>=7.8.0,<12.0.0a0
