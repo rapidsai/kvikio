@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+#
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -17,9 +20,9 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'kvikio'
-copyright = '2022, NVIDIA'
-author = 'NVIDIA'
+project = "kvikio"
+copyright = "2022, NVIDIA"
+author = "NVIDIA"
 
 # The short X.Y version.
 version = '23.04'
@@ -37,7 +40,7 @@ extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -64,8 +67,11 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
+
 
 def setup(app):
     app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
-    app.add_js_file("https://docs.rapids.ai/assets/js/custom.js", loading_method="defer")
+    app.add_js_file(
+        "https://docs.rapids.ai/assets/js/custom.js", loading_method="defer"
+    )

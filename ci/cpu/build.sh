@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 ##############################################
 # kvikIO CPU conda build script for CI       #
 ##############################################
@@ -18,6 +18,14 @@ export CUDA_REL=${CUDA_VERSION%.*}
 # Setup 'gpuci_conda_retry' for build retries (results in 2 total attempts)
 export GPUCI_CONDA_RETRY_MAX=1
 export GPUCI_CONDA_RETRY_SLEEP=30
+
+# Workaround to keep Jenkins builds working
+# until we migrate fully to GitHub Actions
+export RAPIDS_CUDA_VERSION="${CUDA}"
+export SCCACHE_BUCKET=rapids-sccache
+export SCCACHE_REGION=us-west-2
+export SCCACHE_IDLE_TIMEOUT=32768
+export RAPIDS_DATE_STRING=$(date +%y%m%d)
 
 # Use Ninja to build, setup Conda Build Dir
 # export CMAKE_GENERATOR="Ninja"
