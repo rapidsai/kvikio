@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 
@@ -7,12 +7,10 @@ import pytest
 from kvikio.numpy import LikeWrapper, tofile
 
 
-@pytest.mark.parametrize("xp", ["numpy", "cupy"])
 @pytest.mark.parametrize("dtype", ["u1", "int64", "float32", "float64"])
 def test_tofile(tmp_path, xp, dtype):
     """Test tofile()"""
 
-    xp = pytest.importorskip(xp)
     filepath = str(tmp_path / "test_tofile")
     src = xp.arange(100, dtype=dtype)
     tofile(src, filepath)
@@ -25,12 +23,10 @@ def test_tofile(tmp_path, xp, dtype):
     xp.testing.assert_array_equal(src[::2], dst)
 
 
-@pytest.mark.parametrize("xp", ["numpy", "cupy"])
 @pytest.mark.parametrize("dtype", ["u1", "int64", "float32", "float64"])
 def test_fromfile(tmp_path, xp, dtype):
     """Test NumPy's and CuPy's fromfile() with LikeWrapper"""
 
-    xp = pytest.importorskip(xp)
     filepath = str(tmp_path / "test_fromfile")
     src = xp.arange(100, dtype=dtype)
     src.tofile(filepath)
@@ -58,9 +54,7 @@ def test_fromfile(tmp_path, xp, dtype):
         xp.testing.assert_array_equal(src, dst)
 
 
-@pytest.mark.parametrize("xp", ["numpy", "cupy"])
 def test_fromfile_error(tmp_path, xp):
-    xp = pytest.importorskip(xp)
     filepath = str(tmp_path / "test_fromfile")
     src = xp.arange(1, dtype="u1")
     src.tofile(filepath)

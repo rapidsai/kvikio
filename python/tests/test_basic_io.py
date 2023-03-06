@@ -21,8 +21,7 @@ def check_bit_flags(x: int, y: int) -> bool:
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
 @pytest.mark.parametrize("tasksize", [199, 1024])
-@pytest.mark.parametrize("xp", [cupy, numpy])
-def test_read_write(tmp_path, size, nthreads, tasksize, xp):
+def test_read_write(tmp_path, xp, size, nthreads, tasksize):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
@@ -81,7 +80,6 @@ def test_set_compat_mode_between_io(tmp_path):
             assert f.write(a) == a.nbytes
 
 
-@pytest.mark.parametrize("xp", [cupy, numpy])
 def test_write_to_files_in_chunks(tmp_path, xp):
     """Write to files in chunks"""
     filename = tmp_path / "test-file"
@@ -119,8 +117,7 @@ def test_write_to_files_in_chunks(tmp_path, xp):
     "start,end",
     [(0, 10 * 4096), (1, int(1.3 * 4096)), (int(2.1 * 4096), int(5.6 * 4096))],
 )
-@pytest.mark.parametrize("xp", [cupy, numpy])
-def test_read_write_slices(tmp_path, nthreads, tasksize, start, end, xp):
+def test_read_write_slices(tmp_path, xp, nthreads, tasksize, start, end):
     """Read and write different slices"""
 
     with kvikio.defaults.set_num_threads(nthreads):
