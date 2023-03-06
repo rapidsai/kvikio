@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,10 +96,6 @@ class PushAndPopContext {
 
  public:
   PushAndPopContext(CUcontext ctx) : _ctx{ctx}
-  {
-    CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(_ctx));
-  }
-  PushAndPopContext(const void* devPtr) : _ctx{get_context_from_device_pointer(devPtr)}
   {
     CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(_ctx));
   }
