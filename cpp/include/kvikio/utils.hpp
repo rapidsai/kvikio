@@ -51,12 +51,37 @@ inline constexpr std::size_t page_size = 4096;
   return reinterpret_cast<CUdeviceptr>(devPtr);
 }
 
-[[nodiscard]] inline CUcontext get_context_from_device_pointer(const void* devPtr)
+/**
+ * @brief Get the current cuda context
+ *
+ * Previously, we got the cuda context from the provided device pointer by calling
+ * `cuPointerGetAttribute(..., CU_POINTER_ATTRIBUTE_CONTEXT)`. However, this doesn't
+ * work for stream ordered device memory allocations[1] so we now get the current
+ * cuda context instead.
+ * [1] <https://docs.nvidia.com/cuda/cuda-c-programming-guide/#pointer-attributes>
+ *
+ * @param check_owning_devPtr If not NULL, a device memory pointer that must have
+ * been allocated by, mapped by, or registered with the current context. If this
+ * isn't the case, a CUfileException is thrown.
+ *
+ * @return The current cuda context
+ */
+[[nodiscard]] inline CUcontext get_current_context(const void* check_owning_devPtr = nullptr)
 {
-  CUcontext ctx{};
-  auto dev = convert_void2deviceptr(devPtr);
-  CUDA_DRIVER_TRY(cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev));
-  return ctx;
+  if (check_owning_devPtr != nullptr) {
+    CUdeviceptr current_ctx_devPtr{};
+    CUdeviceptr dev_ptr = convert_void2deviceptr(check_owning_devPtr);
+
+    CUresult const err = cudaAPI::instance().PointerGetAttribute(
+      &current_ctx_devPtr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr);
+    if (err != CUDA_SUCCESS || current_ctx_devPtr != dev_ptr) {
+      throw CUfileException("The current CUDA context must own the given device memory");
+    }
+  }
+
+  CUcontext ret{};
+  CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ret));
+  return ret;
 }
 
 /**
@@ -124,7 +149,7 @@ inline std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* de
   if (ctx != nullptr) {
     _ctx = *ctx;
   } else {
-    _ctx = get_context_from_device_pointer(devPtr);
+    _ctx = get_current_context(devPtr);
   }
   PushAndPopContext context(_ctx);
   CUDA_DRIVER_TRY(cudaAPI::instance().MemGetAddressRange(&base_ptr, &base_size, dev));

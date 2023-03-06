@@ -391,7 +391,7 @@ class FileHandle {
       return parallel_io(op, buf, size, file_offset, task_size, 0);
     }
 
-    CUcontext ctx = get_context_from_device_pointer(buf);
+    CUcontext ctx = get_current_context(buf);
     auto task     = [this, ctx](void* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
@@ -437,7 +437,7 @@ class FileHandle {
       return parallel_io(op, buf, size, file_offset, task_size, 0);
     }
 
-    CUcontext ctx = get_context_from_device_pointer(buf);
+    CUcontext ctx = get_current_context(buf);
     auto op       = [this, ctx](const void* devPtr_base,
                           std::size_t size,
                           std::size_t file_offset,

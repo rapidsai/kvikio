@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -150,9 +150,17 @@ def test_multiple_gpus(tmp_path):
 
             filename = tmp_path / "test-file"
             with kvikio.CuFile(filename, "w") as f:
-                assert f.write(a0) == a0.nbytes
+                with cupy.cuda.Device(0):
+                    assert f.write(a0) == a0.nbytes
+
             with kvikio.CuFile(filename, "r") as f:
-                assert f.read(a1) == a1.nbytes
+                with pytest.raises(
+                    RuntimeError,
+                    match="The current CUDA context must own the given device memory",
+                ):
+                    f.read(a1)
+                with cupy.cuda.Device(1):
+                    assert f.read(a1) == a1.nbytes
             assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
 
 
