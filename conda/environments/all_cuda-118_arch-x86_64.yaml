@@ -16,7 +16,7 @@ dependencies:
 - dask>=2022.05.2
 - distributed>=2022.05.2
 - doxygen=1.8.20
-- gcc_linux-64=9.*
+- gcc_linux-64=11.*
 - libcufile-dev=1.4.0.31
 - libcufile=1.4.0.31
 - ninja
