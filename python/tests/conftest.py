@@ -1,3 +1,7 @@
+# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+# See file LICENSE for terms.
+
+import contextlib
 import multiprocessing as mp
 import subprocess
 from typing import Iterable
@@ -61,3 +65,21 @@ def managers():
         libnvcomp.LZ4Manager,
         libnvcomp.SnappyManager,
     ]
+
+
+@pytest.fixture(
+    params=[("cupy", False), ("cupy", True), ("numpy", False)],
+    ids=["cupy", "cupy_async", "numpy"],
+)
+def xp(request):
+    """Fixture to parametrize over numpy-like libraries"""
+
+    module_name, async_malloc = request.param
+    if async_malloc:
+        cupy = pytest.importorskip("cupy")
+        ctx = cupy.cuda.using_allocator(cupy.cuda.malloc_async)
+    else:
+        ctx = contextlib.nullcontext()
+
+    with ctx:
+        yield pytest.importorskip(module_name)
