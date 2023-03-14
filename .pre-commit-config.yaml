@@ -13,20 +13,20 @@ repos:
         # Use the config file specific to each subproject so that each
         # project can specify its own first/third-party packages.
         args: ["--config-root=python/", "--resolve-all-configs"]
-        files: python/.*
+        files: (python|legate)/.*
         types_or: [python, cython, pyi]
   - repo: https://github.com/psf/black
     rev: 22.12.0
     hooks:
       - id: black
-        files: python/.*
+        files: (python|legate)/.*
         args: ["--config", "python/pyproject.toml"]
   - repo: https://github.com/PyCQA/flake8
     rev: 6.0.0
     hooks:
       - id: flake8
         args: ["--config=python/setup.cfg"]
-        files: python/.*$
+        files: (python|legate)/.*$
         types: [file]
         types_or: [python, cython]
         additional_dependencies: ["flake8-force"]
