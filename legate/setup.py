@@ -21,7 +21,7 @@ os.environ["SKBUILD_CONFIGURE_OPTIONS"] = " ".join(cmake_flags)
 
 
 setup(
-    name="kvikio",
+    name="legate_kvikio",
     version=versioneer.get_version(),
     description="KvikIO - GPUDirect Storage",
     url="https://github.com/rapidsai/kvikio",
