@@ -9,7 +9,7 @@ from legate.core import Store
 def get_legate_store(buf: Any) -> Store:
     """Extracts a Legate store from object
 
-    Supports any object that implements the legate data interface
+    Supports any object that implements the Legate data interface
     (`__legate_data_interface__`).
 
     Parameters
