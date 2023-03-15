@@ -53,9 +53,9 @@ class WriteTask : public Task<WriteTask, TaskOpCode::OP_WRITE> {
     size_t strides[1];
     const char* data = acc.ptr(shape, strides);
     size_t itemsize  = sizeof_legate_type_code(store.code());
-    assert(strides[0] == itemsize);
-    size_t nbytes = shape.volume() * itemsize;  // Must be contiguous
-    size_t offset = shape.lo.x * itemsize;      // Offset in bytes
+    assert(strides[0] == itemsize);  // Must be contiguous
+    size_t nbytes = shape.volume() * itemsize;
+    size_t offset = shape.lo.x * itemsize;  // Offset in bytes
 
     // {
     //   std::stringstream ss;
@@ -66,15 +66,13 @@ class WriteTask : public Task<WriteTask, TaskOpCode::OP_WRITE> {
     // }
 
     kvikio::FileHandle f(path, "w");
-    size_t written = f.pwrite(data, nbytes, offset).get();  // TODO: use the blocking POSIX API
-
-    using Reduce = Legion::SumReduction<std::int64_t>;
-    auto sum     = context.reductions()[0].reduce_accessor<Reduce, true, 1>();
-    sum.reduce(0, written);
+    f.pwrite(data, nbytes, offset).get();
   }
 
   static void gpu_variant(legate::TaskContext& context) { cpu_variant(context); }
 };
+
+// static file_handle = nullptr;
 
 class ReadTask : public Task<ReadTask, TaskOpCode::OP_READ> {
  public:
@@ -87,9 +85,9 @@ class ReadTask : public Task<ReadTask, TaskOpCode::OP_READ> {
     size_t strides[1];
     char* data      = acc.ptr(shape, strides);
     size_t itemsize = sizeof_legate_type_code(store.code());
-    assert(strides[0] == itemsize);
-    size_t nbytes = shape.volume() * itemsize;  // Must be contiguous
-    size_t offset = shape.lo.x * itemsize;      // Offset in bytes
+    assert(strides[0] == itemsize);  // Must be contiguous
+    size_t nbytes = shape.volume() * itemsize;
+    size_t offset = shape.lo.x * itemsize;  // Offset in bytes
 
     // {
     //   std::stringstream ss;
@@ -100,7 +98,7 @@ class ReadTask : public Task<ReadTask, TaskOpCode::OP_READ> {
     // }
 
     kvikio::FileHandle f(path, "r");
-    size_t written = f.pread(data, nbytes, offset).get();  // TODO: use the blocking POSIX API
+    f.pread(data, nbytes, offset).get();
   }
 
   static void gpu_variant(legate::TaskContext& context) { cpu_variant(context); }
