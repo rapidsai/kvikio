@@ -32,8 +32,7 @@ struct elem_size_fn {
   template <legate::LegateTypeCode DTYPE>
   size_t operator()()
   {
-    using dtype = typename legate::LegateTypeOf<DTYPE>::type;
-    return sizeof(dtype);
+    return sizeof(legate::legate_type_of<DTYPE>);
   }
 };
 
