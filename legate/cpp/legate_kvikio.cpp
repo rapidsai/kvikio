@@ -22,8 +22,8 @@
 #include <sstream>
 #include <utility>
 
-#include "legate_kvikio.hpp"
 #include "legate_mapping.hpp"
+#include "task_opcodes.hpp"
 
 #include <kvikio/file_handle.hpp>
 

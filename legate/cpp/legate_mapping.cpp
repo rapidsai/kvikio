@@ -16,7 +16,7 @@
 
 #include "legate_mapping.hpp"
 #include "core/mapping/mapping.h"
-#include "legate_kvikio.hpp"
+#include "task_opcodes.hpp"
 
 namespace legate_kvikio {
 
