@@ -21,8 +21,8 @@
 #include <sstream>
 #include <utility>
 
-#include <legate_library.h>
-#include <legate_kvikio.hpp>
+#include "legate_kvikio.hpp"
+#include "legate_mapping.hpp"
 
 #include <kvikio/file_handle.hpp>
 

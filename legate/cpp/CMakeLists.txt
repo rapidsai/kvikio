@@ -12,13 +12,14 @@
 # the License.
 # =============================================================================
 
-legate_cpp_library_template(legate_kvikio TEMPLATE_SOURCES)
+# legate_cpp_library_template(legate_kvikio TEMPLATE_SOURCES)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(CUDAToolkit REQUIRED)
 
-add_library(legate_kvikio legate_kvikio.cpp legate_kvikio.hpp ${TEMPLATE_SOURCES})
+file(GLOB SOURCES "*.cpp" "*.hpp")
+add_library(legate_kvikio ${SOURCES})
 
 target_include_directories(
   legate_kvikio

@@ -33,7 +33,7 @@ find_package(legate_kvikio QUIET)
 find_package(legate_core REQUIRED)
 
 legate_add_cpp_subdirectory(cpp TARGET legate_kvikio EXPORT legate_kvikio-export)
-
-legate_add_cffi(${CMAKE_SOURCE_DIR}/cpp/legate_kvikio.hpp TARGET legate_kvikio)
-legate_python_library_template(legate_kvikio)
 legate_default_python_install(legate_kvikio EXPORT legate_kvikio-export)
+
+# Generates `install_info.py`
+legate_add_cffi(${CMAKE_SOURCE_DIR}/cpp/legate_kvikio.hpp TARGET legate_kvikio)

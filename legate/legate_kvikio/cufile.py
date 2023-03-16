@@ -9,13 +9,13 @@ from typing import Any
 
 import legate.core.types as types
 
-from .library import user_context, user_lib
+from .library_description import context, description
 from .utils import get_legate_store
 
 
 class TaskOpCode(IntEnum):
-    WRITE = user_lib.cffi.OP_WRITE
-    READ = user_lib.cffi.OP_READ
+    WRITE = description.cffi.OP_WRITE
+    READ = description.cffi.OP_READ
 
 
 class CuFile:
@@ -82,7 +82,7 @@ class CuFile:
             raise ValueError(f"Cannot read a file opened with flags={self._flags}")
 
         output = get_legate_store(buf)
-        task = user_context.create_auto_task(TaskOpCode.READ)
+        task = context.create_auto_task(TaskOpCode.READ)
         task.add_scalar_arg(self._filepath, types.string)
         task.add_output(output)
         task.set_side_effect(True)
@@ -105,7 +105,7 @@ class CuFile:
             raise ValueError(f"Cannot write to a file opened with flags={self._flags}")
 
         input = get_legate_store(buf)
-        task = user_context.create_auto_task(TaskOpCode.WRITE)
+        task = context.create_auto_task(TaskOpCode.WRITE)
         task.add_scalar_arg(self._filepath, types.string)
         task.add_input(input)
         task.set_side_effect(True)
