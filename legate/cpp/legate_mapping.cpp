@@ -37,7 +37,7 @@ class Mapper : public legate::mapping::LegateMapper {
     const legate::mapping::Task& task,
     const std::vector<legate::mapping::TaskTarget>& options) override
   {
-    return *options.begin();
+    return *options.begin();  // Choose first priority
   }
 
   std::vector<legate::mapping::StoreMapping> store_mappings(

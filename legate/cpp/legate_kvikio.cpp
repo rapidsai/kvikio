@@ -52,9 +52,13 @@ class WriteTask : public Task<WriteTask, TaskOpCode::OP_WRITE> {
     size_t strides[1];
     const char* data = acc.ptr(shape, strides);
     size_t itemsize  = sizeof_legate_type_code(store.code());
-    assert(strides[0] == itemsize);  // Must be contiguous
-    size_t nbytes = shape.volume() * itemsize;
-    size_t offset = shape.lo.x * itemsize;  // Offset in bytes
+    size_t nbytes    = shape.volume() * itemsize;
+    size_t offset    = shape.lo.x * itemsize;  // Offset in bytes
+
+    // We know that this is contiguous because we set `policy.exact = true`
+    // in `Mapper::store_mappings()`.
+    // TODO: support of non-contigues stores
+    assert(strides[0] == itemsize);
 
     // {
     //   std::stringstream ss;
@@ -84,9 +88,13 @@ class ReadTask : public Task<ReadTask, TaskOpCode::OP_READ> {
     size_t strides[1];
     char* data      = acc.ptr(shape, strides);
     size_t itemsize = sizeof_legate_type_code(store.code());
-    assert(strides[0] == itemsize);  // Must be contiguous
-    size_t nbytes = shape.volume() * itemsize;
-    size_t offset = shape.lo.x * itemsize;  // Offset in bytes
+    size_t nbytes   = shape.volume() * itemsize;
+    size_t offset   = shape.lo.x * itemsize;  // Offset in bytes
+
+    // We know that this is contiguous because we set `policy.exact = true`
+    // in `Mapper::store_mappings()`.
+    // TODO: support of non-contigues stores
+    assert(strides[0] == itemsize);
 
     // {
     //   std::stringstream ss;
