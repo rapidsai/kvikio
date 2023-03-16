@@ -37,10 +37,6 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
     ],
-    # packages=find_packages(
-    #     where=".",
-    #     include=["hello", "hello.*"],
-    # ),
     packages=find_packages(exclude=["tests*"]),
     include_package_data=True,
     cmdclass=versioneer.get_cmdclass(),

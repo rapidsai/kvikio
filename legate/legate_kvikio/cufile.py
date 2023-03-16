@@ -91,7 +91,7 @@ class CuFile:
     def write(self, buf: Any) -> None:
         """Writes specified buffer from device or host memory to the file
 
-        Hint, if a subsequent operation read this file, use insert a fence in between
+        Hint, if a subsequent operation read this file, insert a fence in between
         such as `legate.core.get_legate_runtime().issue_execution_fence(block=False)`
 
         Parameters
