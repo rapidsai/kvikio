@@ -99,6 +99,14 @@ void read_write_store(legate::TaskContext& context)
   }
 }
 
+/**
+ * @brief Write a Legate store to disk using KvikIO
+ * Task signature:
+ *   - scalars:
+ *     - path: std::string
+ *   - inputs:
+ *     - buffer: 1d store (any dtype)
+ */
 class WriteTask : public Task<WriteTask, TaskOpCode::OP_WRITE> {
  public:
   static void cpu_variant(legate::TaskContext& context) { read_write_store<false>(context); }
@@ -106,8 +114,14 @@ class WriteTask : public Task<WriteTask, TaskOpCode::OP_WRITE> {
   static void gpu_variant(legate::TaskContext& context) { read_write_store<false>(context); }
 };
 
-// static file_handle = nullptr;
-
+/**
+ * @brief Read a Legate store from disk using KvikIO
+ * Task signature:
+ *   - scalars:
+ *     - path: std::string
+ *   - outputs:
+ *     - buffer: 1d store (any dtype)
+ */
 class ReadTask : public Task<ReadTask, TaskOpCode::OP_READ> {
  public:
   static void cpu_variant(legate::TaskContext& context) { read_write_store<true>(context); }
