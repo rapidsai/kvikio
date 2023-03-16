@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -28,6 +29,9 @@
 
 namespace legate_kvikio {
 
+/**
+ * @brief Functor converting Legate type code to size
+ */
 struct elem_size_fn {
   template <legate::LegateTypeCode DTYPE>
   size_t operator()()
@@ -36,79 +40,79 @@ struct elem_size_fn {
   }
 };
 
+/**
+ * @brief Get the size of a Legate type code
+ *
+ * @param code Legate type code
+ * @return The number of bytes
+ */
 size_t sizeof_legate_type_code(legate::LegateTypeCode code)
 {
   return legate::type_dispatch(code, elem_size_fn{});
 }
 
-class WriteTask : public Task<WriteTask, TaskOpCode::OP_WRITE> {
- public:
-  static void cpu_variant(legate::TaskContext& context)
-  {
-    std::string path     = context.scalars()[0].value<std::string>();
-    legate::Store& store = context.inputs()[0];
-    auto shape           = store.shape<1>();
-    auto acc             = store.read_accessor<char, 1>();
-    size_t strides[1];
-    const char* data = acc.ptr(shape, strides);
-    size_t itemsize  = sizeof_legate_type_code(store.code());
-    size_t nbytes    = shape.volume() * itemsize;
-    size_t offset    = shape.lo.x * itemsize;  // Offset in bytes
+/**
+ * @brief Get store argument from task context
+ *
+ * @tparam IsOutputArgument Whether it is an output or an input argument
+ * @param context Legate task context.
+ * @param i The argument index
+ * @return The i'th argument store argument
+ */
+template <bool IsOutputArgument>
+legate::Store& get_store_arg(legate::TaskContext& context, int i)
+{
+  if constexpr (IsOutputArgument) { return context.outputs()[i]; }
+  return context.inputs()[i];
+}
 
-    // We know that this is contiguous because we set `policy.exact = true`
-    // in `Mapper::store_mappings()`.
-    // TODO: support of non-contigues stores
+/**
+ * @brief Read or write Legate store to or from disk using KvikIO
+ *
+ * @tparam IsReadOperation Whether the operation is a read or a write operation
+ * @param context Legate task context.
+ */
+template <bool IsReadOperation>
+void read_write_store(legate::TaskContext& context)
+{
+  std::string path     = context.scalars()[0].value<std::string>();
+  legate::Store& store = get_store_arg<IsReadOperation>(context, 0);
+  auto shape           = store.shape<1>();
+  size_t itemsize      = sizeof_legate_type_code(store.code());
+  size_t nbytes        = shape.volume() * itemsize;
+  size_t offset        = shape.lo.x * itemsize;  // Offset in bytes
+  std::array<size_t, 1> strides{};
+
+  // We know that the accessor is contiguous because we set `policy.exact = true`
+  // in `Mapper::store_mappings()`.
+  // TODO: support of non-contigues stores
+  if constexpr (IsReadOperation) {
+    kvikio::FileHandle f(path, "r");
+    auto* data = store.write_accessor<char, 1>().ptr(shape, strides.data());
     assert(strides[0] == itemsize);
-
-    // {
-    //   std::stringstream ss;
-    //   ss << "WriteTask - path: " << path << ", task_idx: " << context.get_task_index()
-    //      << ", shape: " << shape << ", offset: " << offset << ", itemsize: " << itemsize
-    //      << ", nbytes: " << nbytes << std::endl;
-    //   std::cout << ss.str();
-    // }
-
+    f.pread(data, nbytes, offset).get();
+  } else {
     kvikio::FileHandle f(path, "w");
+    const auto* data = store.read_accessor<char, 1>().ptr(shape, strides.data());
+    assert(strides[0] == itemsize);
     f.pwrite(data, nbytes, offset).get();
   }
+}
 
-  static void gpu_variant(legate::TaskContext& context) { cpu_variant(context); }
+class WriteTask : public Task<WriteTask, TaskOpCode::OP_WRITE> {
+ public:
+  static void cpu_variant(legate::TaskContext& context) { read_write_store<false>(context); }
+
+  static void gpu_variant(legate::TaskContext& context) { read_write_store<false>(context); }
 };
 
 // static file_handle = nullptr;
 
 class ReadTask : public Task<ReadTask, TaskOpCode::OP_READ> {
  public:
-  static void cpu_variant(legate::TaskContext& context)
-  {
-    std::string path     = context.scalars()[0].value<std::string>();
-    legate::Store& store = context.outputs()[0];
-    auto shape           = store.shape<1>();
-    auto acc             = store.write_accessor<char, 1>();
-    size_t strides[1];
-    char* data      = acc.ptr(shape, strides);
-    size_t itemsize = sizeof_legate_type_code(store.code());
-    size_t nbytes   = shape.volume() * itemsize;
-    size_t offset   = shape.lo.x * itemsize;  // Offset in bytes
+  static void cpu_variant(legate::TaskContext& context) { read_write_store<true>(context); }
 
-    // We know that this is contiguous because we set `policy.exact = true`
-    // in `Mapper::store_mappings()`.
-    // TODO: support of non-contigues stores
-    assert(strides[0] == itemsize);
-
-    // {
-    //   std::stringstream ss;
-    //   ss << "ReadTask - path: " << path << ", task_idx: " << context.get_task_index()
-    //      << ", shape: " << shape << ", offset: " << offset << ", itemsize: " << itemsize
-    //      << ", nbytes: " << nbytes << std::endl;
-    //   std::cout << ss.str();
-    // }
-
-    kvikio::FileHandle f(path, "r");
-    f.pread(data, nbytes, offset).get();
-  }
-
-  static void gpu_variant(legate::TaskContext& context) { cpu_variant(context); }
+  static void gpu_variant(legate::TaskContext& context) { read_write_store<true>(context); }
 };
 
 }  // namespace legate_kvikio
