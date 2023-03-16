@@ -4,18 +4,12 @@
 from __future__ import annotations
 
 import pathlib
-from enum import IntEnum
 from typing import Any
 
 import legate.core.types as types
 
-from .library_description import context, description
+from .library_description import TaskOpCode, context
 from .utils import get_legate_store
-
-
-class TaskOpCode(IntEnum):
-    WRITE = description.cffi.OP_WRITE
-    READ = description.cffi.OP_READ
 
 
 class CuFile:

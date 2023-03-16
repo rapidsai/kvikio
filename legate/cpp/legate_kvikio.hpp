@@ -15,4 +15,8 @@
  * limitations under the License.
  */
 
-enum TaskOpCode { _OP_CODE_BASE = 0, OP_WRITE = 1, OP_READ = 2 };
+enum TaskOpCode {
+  OP_WRITE,
+  OP_READ,
+  OP_NUM_TASK_IDS,  // must be last
+};

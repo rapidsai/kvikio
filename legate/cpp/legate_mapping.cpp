@@ -16,6 +16,7 @@
 
 #include "legate_mapping.hpp"
 #include "core/mapping/mapping.h"
+#include "legate_kvikio.hpp"
 
 namespace legate_kvikio {
 
@@ -78,8 +79,9 @@ Legion::Logger log_legate_kvikio(library_name);
 void registration_callback()
 {
   legate::ResourceConfig config;
-  config.max_mappers       = 1;
-  config.max_reduction_ops = 8;
+  config.max_mappers = 1;
+  config.max_tasks   = OP_NUM_TASK_IDS;
+
   legate::LibraryContext context(library_name, config);
 
   Registry::get_registrar().register_all_tasks(context);
