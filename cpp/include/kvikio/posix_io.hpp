@@ -127,16 +127,19 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
       nbytes = ::pwrite(fd, buffer, byte_remaining, cur_offset);
     }
     if (nbytes == -1) {
+      std::string name = IsReadOperation ? "pread" : "pwrite";
       if (errno == EBADF) {
-        throw CUfileException{std::string{"POSIX error on pwrite at: "} + __FILE__ + ":" +
+        throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
                               KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
       }
-      throw CUfileException{std::string{"POSIX error on pwrite at: "} + __FILE__ + ":" +
+      throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
                             KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
     }
-    if (nbytes == 0) {
-      throw CUfileException{std::string{"POSIX error on pwrite at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
+    if constexpr (IsReadOperation) {
+      if (nbytes == 0) {
+        throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
+                              KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
+      }
     }
     if (partial) { return nbytes; }
     buffer += nbytes;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
