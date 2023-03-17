@@ -56,7 +56,13 @@ def test_file_handle_context(tmp_path):
 
 @pytest.mark.parametrize(
     "start,end",
-    [(0, 10 * 4096), (1, int(1.3 * 4096)), (int(2.1 * 4096), int(5.6 * 4096))],
+    [
+        (0, 10),
+        (1, 10),
+        (0, 10 * 4096),
+        (1, int(1.3 * 4096)),
+        (int(2.1 * 4096), int(5.6 * 4096)),
+    ],
 )
 def test_read_write_slices(tmp_path, start, end):
     """Read and write different slices"""

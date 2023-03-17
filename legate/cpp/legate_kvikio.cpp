@@ -19,7 +19,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include <sstream>
 #include <utility>
 
 #include "legate_mapping.hpp"
@@ -78,9 +77,11 @@ void read_write_store(legate::TaskContext& context)
   std::string path     = context.scalars()[0].value<std::string>();
   legate::Store& store = get_store_arg<IsReadOperation>(context, 0);
   auto shape           = store.shape<1>();
-  size_t itemsize      = sizeof_legate_type_code(store.code());
-  size_t nbytes        = shape.volume() * itemsize;
-  size_t offset        = shape.lo.x * itemsize;  // Offset in bytes
+
+  size_t itemsize = sizeof_legate_type_code(store.code());
+  if (shape.volume() == 0) { return; }
+  size_t nbytes = shape.volume() * itemsize;
+  size_t offset = shape.lo.x * itemsize;  // Offset in bytes
   std::array<size_t, 1> strides{};
 
   // We know that the accessor is contiguous because we set `policy.exact = true`
@@ -92,7 +93,7 @@ void read_write_store(legate::TaskContext& context)
     assert(strides[0] == itemsize);
     f.pread(data, nbytes, offset).get();
   } else {
-    kvikio::FileHandle f(path, "w");
+    kvikio::FileHandle f(path, "r+");
     const auto* data = store.read_accessor<char, 1>().ptr(shape, strides.data());
     assert(strides[0] == itemsize);
     f.pwrite(data, nbytes, offset).get();
@@ -106,6 +107,8 @@ void read_write_store(legate::TaskContext& context)
  *     - path: std::string
  *   - inputs:
  *     - buffer: 1d store (any dtype)
+ * NB: the file must exist before running this task because in order to support
+ *     access from multiple processes, this task opens the file in "r+" mode.
  */
 class WriteTask : public Task<WriteTask, TaskOpCode::OP_WRITE> {
  public:

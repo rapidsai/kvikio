@@ -31,10 +31,9 @@ class CuFile:
         flags: str, optional
             "r" -> "open for reading (default)"
             "w" -> "open for writing, truncating the file first"
-            "a" -> "open for writing, appending to the end of file if it exists"
             "+" -> "open for updating (reading and writing)"
         """
-        assert "a" not in flags  # TODO: support appending
+        assert "a" not in flags
         self._closed = False
         self._filepath = str(file)
         self._flags = flags
@@ -67,7 +66,7 @@ class CuFile:
 
         Parameters
         ----------
-        buf: legate-store-like
+        buf: legate-store-like (1-dimensional)
             A Legate store or any object implementing `__legate_data_interface__` to
             read into.
         """
@@ -90,12 +89,18 @@ class CuFile:
 
         Parameters
         ----------
-        buf: legate-store-like
+        buf: legate-store-like (1-dimensional)
             A Legate store or any object implementing `__legate_data_interface__` to
             write into buffer.
         """
         assert not self._closed
-        if "w" not in self._flags and "+" not in self._flags:
+
+        if "w" in self._flags:
+            # We create or truncate the file here because `TaskOpCode.WRITE` always
+            # opens the file in "r+" mode.
+            with open(self._filepath, mode="w"):
+                pass
+        elif "+" not in self._flags:
             raise ValueError(f"Cannot write to a file opened with flags={self._flags}")
 
         input = get_legate_store(buf)
