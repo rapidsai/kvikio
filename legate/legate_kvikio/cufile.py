@@ -38,6 +38,14 @@ class CuFile:
         self._filepath = str(file)
         self._flags = flags
 
+        # We open the file here in order to:
+        #   * trigger exceptions here instead of in the Legate tasks, which forces
+        #     the Python interpreter to exit.
+        #   * create or truncate files opened in "w" mode, which is required by
+        #     because `TaskOpCode.WRITE` always opens the file in "r+" mode.
+        with open(self._filepath, mode=flags):
+            pass
+
     def close(self) -> None:
         """Deregister the file and close the file"""
         self._closed = True
@@ -94,13 +102,7 @@ class CuFile:
             write into buffer.
         """
         assert not self._closed
-
-        if "w" in self._flags:
-            # We create or truncate the file here because `TaskOpCode.WRITE` always
-            # opens the file in "r+" mode.
-            with open(self._filepath, mode="w"):
-                pass
-        elif "+" not in self._flags:
+        if "w" not in self._flags and "+" not in self._flags:
             raise ValueError(f"Cannot write to a file opened with flags={self._flags}")
 
         input = get_legate_store(buf)
