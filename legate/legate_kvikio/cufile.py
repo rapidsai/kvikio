@@ -39,9 +39,9 @@ class CuFile:
         self._flags = flags
 
         # We open the file here in order to:
-        #   * trigger exceptions here instead of in the Legate tasks, which forces
-        #     the Python interpreter to exit.
-        #   * create or truncate files opened in "w" mode, which is required by
+        #   * trigger exceptions here instead of in the Legate tasks, which
+        #     forces the Python interpreter to exit.
+        #   * create or truncate files opened in "w" mode, which is required
         #     because `TaskOpCode.WRITE` always opens the file in "r+" mode.
         with open(self._filepath, mode=flags):
             pass
