@@ -10,7 +10,7 @@ from legate.core import get_legate_runtime
 num = pytest.importorskip("cunumeric")
 
 
-def fence(block=False):
+def fence(*, block: bool):
     """Shorthand for a Legate fence"""
     get_legate_runtime().issue_execution_fence(block=block)
 
@@ -23,7 +23,7 @@ def test_read_write(tmp_path, size):
     f = CuFile(filename, "w")
     f.write(a)
     assert not f.closed
-    fence()
+    fence(block=True)
 
     # Try to read file opened in write-only mode
     with pytest.raises(ValueError, match="Cannot read a file opened with flags"):
@@ -48,7 +48,7 @@ def test_file_handle_context(tmp_path):
     with CuFile(filename, "w+") as f:
         assert not f.closed
         f.write(a)
-        fence()
+        fence(block=False)
         f.read(b)
         assert all(a == b)
     assert f.closed
@@ -73,7 +73,7 @@ def test_read_write_slices(tmp_path, start, end):
     a[start:end] = 42
     with CuFile(filename, "w") as f:
         f.write(a[start:end])
-        fence()
+    fence(block=True)
     with CuFile(filename, "r") as f:
         f.read(b[start:end])
     assert all(a == b)

@@ -18,16 +18,19 @@ class CuFile:
     def __init__(self, file: pathlib.Path | str, flags: str = "r"):
         """Open file for GDS IO operations
 
-        The file is opened on demand when calling `.read()` and `.write()`.
+        The file is opened in this constructor immediately and not in a
+        Legate task. This means that re-opening a file that was created
+        by a not-yet-executed Legate task requires a blocking fence like
+        `get_legate_runtime().issue_execution_fence(block=True)`.
 
-        Warning, Legate-KvikIO doesn't maintain a file descriptor thus the file path
+        Legate-KvikIO doesn't maintain a file descriptor thus the file path
         to the file must not change while opened by this handle.
 
         Parameters
         ----------
         file: pathlib.Path or str
-            Path-like object giving the pathname (absolute or relative to the current
-            working directory) of the file to be opened and registered.
+            Path-like object giving the pathname (absolute or relative to the
+            current working directory) of the file to be opened and registered.
         flags: str, optional
             "r" -> "open for reading (default)"
             "w" -> "open for writing, truncating the file first"
