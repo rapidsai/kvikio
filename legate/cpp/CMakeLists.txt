@@ -12,8 +12,6 @@
 # the License.
 # =============================================================================
 
-# legate_cpp_library_template(legate_kvikio TEMPLATE_SOURCES)
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(CUDAToolkit REQUIRED)

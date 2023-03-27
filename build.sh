@@ -18,11 +18,12 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libkvikio kvikio -v -g -n -s --ptds -h"
-HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [-s] [--ptds] [--cmake-args=\"<args>\"] [-h]
+VALIDARGS="clean libkvikio kvikio legate -v -g -n -s --ptds -h"
+HELP="$0 [clean] [libkvikio] [kvikio] [legate] [-v] [-g] [-n] [-s] [--ptds] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
    libkvikio                   - build and install the libkvikio C++ code
    kvikio                      - build and install the kvikio Python package
+   legate                      - build and install the legate-kvikio Python package
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
@@ -32,7 +33,8 @@ HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [-s] [--ptds] [--cmake-args
 "
 LIBKVIKIO_BUILD_DIR=${LIBKVIKIO_BUILD_DIR:=${REPODIR}/cpp/build}
 KVIKIO_BUILD_DIR="${REPODIR}/python/build ${REPODIR}/python/_skbuild"
-BUILD_DIRS="${LIBKVIKIO_BUILD_DIR} ${KVIKIO_BUILD_DIR}"
+LEGATE_BUILD_DIR="${REPODIR}/legate/build ${REPODIR}/legate/_skbuild"
+BUILD_DIRS="${LIBKVIKIO_BUILD_DIR} ${KVIKIO_BUILD_DIR} ${LEGATE_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
 VERBOSE_FLAG=""
@@ -129,6 +131,7 @@ if hasArg clean; then
             rmdir "${bd}" || true
         fi
     done
+    rm -f ${REPODIR}/legate/legate_kvikio/install_info.py
 fi
 
 ################################################################################
@@ -149,5 +152,14 @@ if (( NUMARGS == 0 )) || hasArg kvikio; then
     export INSTALL_PREFIX
     echo "building kvikio..."
     python setup.py build_ext --inplace
+    python setup.py install --single-version-externally-managed --record=record.txt
+fi
+
+
+# Build and install the legate-kvikio Python package
+if hasArg legate; then
+    cd "${REPODIR}/legate"
+    export INSTALL_PREFIX
+    echo "building legate..."
     python setup.py install --single-version-externally-managed --record=record.txt
 fi
