@@ -28,10 +28,11 @@ endif()
 set(BUILD_SHARED_LIBS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Look for an existing C++ editable build Not required. We will build it if not found.
-find_package(legate_kvikio QUIET)
+# We always want to build our bindings, so we trick the legate wrappers to never search for an
+# installed version which is currently deduced by seeing if it is invoked via scikit-build See
+# <https://github.com/nv-legate/legate.core/pull/645>
 find_package(legate_core REQUIRED)
-
+set(SKBUILD OFF)
 legate_add_cpp_subdirectory(cpp TARGET legate_kvikio EXPORT legate_kvikio-export)
 legate_default_python_install(legate_kvikio EXPORT legate_kvikio-export)
 
