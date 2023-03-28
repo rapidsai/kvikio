@@ -1,6 +1,10 @@
 *.*~
 build
 python/_skbuild
+legate/_skbuild
+legate/legate_kvikio/install_info.py
+legate/record.txt
+python/record.txt
 *.so
 dask-worker-space
 __pycache__
