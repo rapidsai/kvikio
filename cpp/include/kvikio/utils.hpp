@@ -116,7 +116,7 @@ class CudaPrimaryContext {
       return ctx;
     }
   }
-  // If this isn't the case, we check the current context. If it exist and can access `devPtr`,
+  // If this isn't the case, we check the current context. If it exists and can access `devPtr`,
   // we return it.
   {
     CUcontext ctx;
