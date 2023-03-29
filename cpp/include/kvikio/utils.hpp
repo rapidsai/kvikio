@@ -19,6 +19,7 @@
 #include <cstring>
 #include <future>
 #include <iostream>
+#include <map>
 #include <tuple>
 
 #include <kvikio/error.hpp>
@@ -51,6 +52,12 @@ inline constexpr std::size_t page_size = 4096;
   return reinterpret_cast<CUdeviceptr>(devPtr);
 }
 
+/**
+ * @brief Return the device owning the pointer
+ *
+ * @param ptr Device pointer to query
+ * @return The device ordinal
+ */
 [[nodiscard]] inline int get_device_ordinal_from_pointer(const void* devPtr)
 {
   CUdeviceptr dev_ptr = convert_void2deviceptr(devPtr);
@@ -87,6 +94,12 @@ class CudaPrimaryContext {
   }
 };
 
+/**
+ * @brief Return a CUDA that can be used with the given device pointer
+ *
+ * @param devPtr Device pointer to query
+ * @return Usable CUDA context
+ */
 [[nodiscard]] inline CUcontext get_context_from_pointer(const void* devPtr)
 {
   static std::map<int, CudaPrimaryContext> _primary_contexts;
