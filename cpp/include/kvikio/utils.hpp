@@ -51,37 +51,62 @@ inline constexpr std::size_t page_size = 4096;
   return reinterpret_cast<CUdeviceptr>(devPtr);
 }
 
-/**
- * @brief Get the current cuda context
- *
- * Previously, we got the cuda context from the provided device pointer by calling
- * `cuPointerGetAttribute(..., CU_POINTER_ATTRIBUTE_CONTEXT)`. However, this doesn't
- * work for stream ordered device memory allocations[1] so we now get the current
- * cuda context instead.
- * [1] <https://docs.nvidia.com/cuda/cuda-c-programming-guide/#pointer-attributes>
- *
- * @param check_owning_devPtr If not NULL, a device memory pointer that must have
- * been allocated by, mapped by, or registered with the current context. If this
- * isn't the case, a CUfileException is thrown.
- *
- * @return The current cuda context
- */
-[[nodiscard]] inline CUcontext get_current_context(const void* check_owning_devPtr = nullptr)
+[[nodiscard]] inline int get_device_ordinal_from_pointer(const void* devPtr)
 {
-  if (check_owning_devPtr != nullptr) {
-    CUdeviceptr current_ctx_devPtr{};
-    CUdeviceptr dev_ptr = convert_void2deviceptr(check_owning_devPtr);
+  CUdeviceptr dev_ptr = convert_void2deviceptr(devPtr);
+  int ret;
+  CUDA_DRIVER_TRY(
+    cudaAPI::instance().PointerGetAttribute(&ret, CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL, dev_ptr));
+  return ret;
+}
 
-    CUresult const err = cudaAPI::instance().PointerGetAttribute(
-      &current_ctx_devPtr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr);
-    if (err != CUDA_SUCCESS || current_ctx_devPtr != dev_ptr) {
-      throw CUfileException("The current CUDA context must own the given device memory");
+/**
+ * @brief RAII wrapper for a CUDA primary context
+ */
+class CudaPrimaryContext {
+ public:
+  CUdevice dev;
+  CUcontext ctx;
+
+  CudaPrimaryContext(int device_ordinal)
+  {
+    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, device_ordinal));
+    CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
+  }
+  CudaPrimaryContext(const CudaPrimaryContext&) = delete;
+  CudaPrimaryContext& operator=(CudaPrimaryContext const&) = delete;
+  CudaPrimaryContext(CudaPrimaryContext&&)                 = delete;
+  CudaPrimaryContext&& operator=(CudaPrimaryContext&&) = delete;
+  ~CudaPrimaryContext()
+  {
+    try {
+      CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRelease(dev), CUfileException);
+    } catch (const CUfileException& e) {
+      std::cerr << e.what() << std::endl;
     }
   }
+};
 
-  CUcontext ret{};
-  CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ret));
-  return ret;
+[[nodiscard]] inline CUcontext get_context_from_pointer(const void* devPtr)
+{
+  static std::map<int, CudaPrimaryContext> _primary_contexts;
+  CUdeviceptr dev_ptr = convert_void2deviceptr(devPtr);
+
+  // First we try to get the current context and making sure it can access the device pointer.
+  {
+    CUcontext ctx;
+    CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
+    if (ctx != nullptr) {
+      CUdeviceptr current_ctx_dev_ptr{};
+      CUDA_DRIVER_TRY(cudaAPI::instance().PointerGetAttribute(
+        &current_ctx_dev_ptr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr));
+      if (current_ctx_dev_ptr != dev_ptr) { return ctx; }
+    }
+  }
+  // If the current context isn't available, we return the primary context.
+  int ordinal = get_device_ordinal_from_pointer(devPtr);
+  _primary_contexts.try_emplace(ordinal, ordinal);
+  return _primary_contexts.at(ordinal).ctx;
 }
 
 /**
@@ -149,7 +174,7 @@ inline std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* de
   if (ctx != nullptr) {
     _ctx = *ctx;
   } else {
-    _ctx = get_current_context(devPtr);
+    _ctx = get_context_from_pointer(devPtr);
   }
   PushAndPopContext context(_ctx);
   CUDA_DRIVER_TRY(cudaAPI::instance().MemGetAddressRange(&base_ptr, &base_size, dev));

@@ -43,6 +43,9 @@ class cudaAPI {
   decltype(cuMemGetAddressRange)* MemGetAddressRange{nullptr};
   decltype(cuGetErrorName)* GetErrorName{nullptr};
   decltype(cuGetErrorString)* GetErrorString{nullptr};
+  decltype(cuDeviceGet)* DeviceGet{nullptr};
+  decltype(cuDevicePrimaryCtxRetain)* DevicePrimaryCtxRetain{nullptr};
+  decltype(cuDevicePrimaryCtxRelease)* DevicePrimaryCtxRelease{nullptr};
 
  private:
   cudaAPI()
@@ -64,6 +67,9 @@ class cudaAPI {
     get_symbol(MemGetAddressRange, lib, KVIKIO_STRINGIFY(cuMemGetAddressRange));
     get_symbol(GetErrorName, lib, KVIKIO_STRINGIFY(cuGetErrorName));
     get_symbol(GetErrorString, lib, KVIKIO_STRINGIFY(cuGetErrorString));
+    get_symbol(DeviceGet, lib, KVIKIO_STRINGIFY(cuDeviceGet));
+    get_symbol(DevicePrimaryCtxRetain, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRetain));
+    get_symbol(DevicePrimaryCtxRelease, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRelease));
   }
 
  public:
