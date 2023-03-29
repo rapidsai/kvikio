@@ -58,9 +58,8 @@ inline constexpr std::size_t page_size = 4096;
  * @param ptr Device pointer to query
  * @return The device ordinal
  */
-[[nodiscard]] inline int get_device_ordinal_from_pointer(const void* devPtr)
+[[nodiscard]] inline int get_device_ordinal_from_pointer(CUdeviceptr dev_ptr)
 {
-  CUdeviceptr dev_ptr = convert_void2deviceptr(devPtr);
   int ret;
   CUDA_DRIVER_TRY(
     cudaAPI::instance().PointerGetAttribute(&ret, CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL, dev_ptr));
@@ -132,7 +131,7 @@ class CudaPrimaryContext {
   // Finally, if we didn't find any usable context, we return the primary context of the
   // device that owns `devPtr`. Notice, we use `_primary_contexts` to cache the primary
   // context of each device.
-  int ordinal = get_device_ordinal_from_pointer(devPtr);
+  int ordinal = get_device_ordinal_from_pointer(dev_ptr);
   _primary_contexts.try_emplace(ordinal, ordinal);
   return _primary_contexts.at(ordinal).ctx;
 }
