@@ -95,7 +95,7 @@ class CudaPrimaryContext {
 };
 
 /**
- * @brief Return a CUDA that can be used with the given device pointer
+ * @brief Return a CUDA context that can be used with the given device pointer
  *
  * @param devPtr Device pointer to query
  * @return Usable CUDA context
