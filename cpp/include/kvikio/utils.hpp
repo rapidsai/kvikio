@@ -111,9 +111,12 @@ class CudaPrimaryContext {
     CUcontext ctx;
     const CUresult err =
       cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
-    if (err != CUDA_ERROR_INVALID_VALUE && ctx != nullptr) {
-      CUDA_DRIVER_TRY(err);  // Check for other errors
-      return ctx;
+    if (err == CUDA_SUCCESS && ctx != nullptr) {
+        return ctx;
+    } else if (err != CUDA_ERROR_INVALID) {
+        CUDA_DRIVER_TRY(err);
+    }
+    // either CUDA_ERROR_INVALID, or SUCCESS, but stream-ordered allocation
     }
   }
   // If this isn't the case, we check the current context. If it exists and can access `devPtr`,
