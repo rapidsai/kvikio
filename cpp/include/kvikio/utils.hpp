@@ -105,7 +105,9 @@ class CudaPrimaryContext {
   static std::map<int, CudaPrimaryContext> _primary_contexts;
   CUdeviceptr dev_ptr = convert_void2deviceptr(devPtr);
 
-  // First we check if a context has been associated with `devPtr`
+  // First we check if a context has been associated with `devPtr`.
+  // Notice, this is not the case for stream ordered device memory allocations.
+  // See <https://docs.nvidia.com/cuda/cuda-c-programming-guide/#pointer-attributes>
   CUcontext ctx;
   const CUresult err =
     cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
