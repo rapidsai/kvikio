@@ -108,26 +108,30 @@ class CudaPrimaryContext {
   // First we check if a context has been associated with `devPtr`.
   // Notice, this is not the case for stream ordered device memory allocations.
   // See <https://docs.nvidia.com/cuda/cuda-c-programming-guide/#pointer-attributes>
-  CUcontext ctx;
-  const CUresult err =
-    cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
-  if (err != CUDA_ERROR_INVALID_VALUE) {
-    // If this isn't the case, we grab the current context
+  {
+    CUcontext ctx;
+    const CUresult err =
+      cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
+    if (err != CUDA_ERROR_INVALID_VALUE) {
+      CUDA_DRIVER_TRY(err);  // Check for other errors
+      return ctx;
+    }
+  }
+  // If this isn't the case, we check the current context. If it exist and can access `devPtr`,
+  // we return it.
+  {
+    CUcontext ctx;
     CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
-  } else {
-    CUDA_DRIVER_TRY(err);  // Check for errors from previous asynchronous launches
+    if (ctx != nullptr) {
+      CUdeviceptr current_ctx_dev_ptr{};
+      CUDA_DRIVER_TRY(cudaAPI::instance().PointerGetAttribute(
+        &current_ctx_dev_ptr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr));
+      if (current_ctx_dev_ptr != dev_ptr) { return ctx; }
+    }
   }
-
-  // If we found a context and it can access `devPtr`, we return it.
-  if (ctx != nullptr) {
-    CUdeviceptr current_ctx_dev_ptr{};
-    CUDA_DRIVER_TRY(cudaAPI::instance().PointerGetAttribute(
-      &current_ctx_dev_ptr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr));
-    if (current_ctx_dev_ptr != dev_ptr) { return ctx; }
-  }
-
-  // If we didn't find any usable context, we return the primary context of the device owning
-  // `devPtr`.
+  // Finally, if we didn't find any usable context, we return the primary context of the
+  // device that owns `devPtr`. Notice, we use `_primary_contexts` to cache the primary
+  // context of each device.
   int ordinal = get_device_ordinal_from_pointer(devPtr);
   _primary_contexts.try_emplace(ordinal, ordinal);
   return _primary_contexts.at(ordinal).ctx;
