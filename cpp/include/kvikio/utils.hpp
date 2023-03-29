@@ -111,7 +111,7 @@ class CudaPrimaryContext {
     CUcontext ctx;
     const CUresult err =
       cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
-    if (err != CUDA_ERROR_INVALID_VALUE) {
+    if (err != CUDA_ERROR_INVALID_VALUE && ctx != nullptr) {
       CUDA_DRIVER_TRY(err);  // Check for other errors
       return ctx;
     }
