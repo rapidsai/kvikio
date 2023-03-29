@@ -116,7 +116,7 @@ class CudaPrimaryContext {
     CUDA_DRIVER_TRY(err);  // Check for errors from previous asynchronous launches
   }
 
-  // If we found a context, we return it if it can access the `devPtr`.
+  // If we found a context and it can access `devPtr`, we return it.
   if (ctx != nullptr) {
     CUdeviceptr current_ctx_dev_ptr{};
     CUDA_DRIVER_TRY(cudaAPI::instance().PointerGetAttribute(
