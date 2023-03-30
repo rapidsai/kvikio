@@ -173,10 +173,15 @@ class CudaPrimaryContext {
  * @brief Return a CUDA context that can be used with the given device pointer
  *
  * For robustness, we look for an usabale context in the following order:
- *   1) If a context has been associated with `devPtr`, it is returned
+ *   1) If a context has been associated with `devPtr`, it is returned.
  *   2) If the current context exists and can access `devPtr`, it is returned.
  *   3) Return the primary context of the device that owns `devPtr`. We assume the
- *      primary context can access `devPtr`.
+ *      primary context can access `devPtr`, which might not be true in the exceptional
+ *      disjoint addressing cases mention in the CUDA docs[1]. In these cases, the user
+ *      has to set an usable current context before reading/writing using KvikIO.
+ *
+ * [1] <https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__UNIFIED.html>
+ *
  * @param devPtr Device pointer to query
  * @return Usable CUDA context
  */
@@ -198,7 +203,7 @@ class CudaPrimaryContext {
   {
     CUcontext ctx = nullptr;
     CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
-    if (ctx != nullptr && can_current_context_access_pointer(dev_ptr)) {
+    if (ctx != nullptr && current_context_can_access_pointer(dev_ptr)) {
       std::cout << "get_context_from_pointer() - can_current_context_access_pointer" << std::endl;
       return ctx;
     }

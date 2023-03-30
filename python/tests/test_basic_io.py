@@ -178,48 +178,49 @@ def with_no_cuda_context():
         assert err == cuda.CUresult.CUDA_SUCCESS
 
 
-def test_no_current_cuda_context(tmp_path):
+def test_no_current_cuda_context(tmp_path, xp):
+    """Test IO when CUDA context is current"""
     filename = tmp_path / "test-file"
-    ary = cupy.arange(100)
+    a = xp.arange(100)
+    b = xp.empty_like(a)
 
-    with with_no_cuda_context():
-        with kvikio.CuFile(filename, "w") as f:
-            f.write(ary)
-
-    with cupy.cuda.using_allocator(cupy.cuda.malloc_async):
-        ary = cupy.arange(100)
-
-    with with_no_cuda_context():
-        with kvikio.CuFile(filename, "w") as f:
-            f.write(ary)
-
-    with kvikio.CuFile(filename, "w") as f:
-        f.write(ary)
+    with kvikio.CuFile(filename, "w+") as f:
+        with with_no_cuda_context():
+            f.write(a)
+        f.read(b)
+    assert all(a == b)
 
 
 @pytest.mark.skipif(
     cupy.cuda.runtime.getDeviceCount() < 2, reason="requires multiple GPUs"
 )
-def test_multiple_gpus(tmp_path):
+def test_multiple_gpus(tmp_path, xp):
     """Test IO from two different GPUs"""
+    filename = tmp_path / "test-file"
+
     with kvikio.defaults.set_num_threads(10):
         with kvikio.defaults.set_task_size(10):
-            with cupy.cuda.Device(0):
-                a0 = cupy.arange(200)
-            with cupy.cuda.Device(1):
-                a1 = cupy.zeros(200, dtype=a0.dtype)
 
-            filename = tmp_path / "test-file"
+            # Allocate an array on each device
+            with cupy.cuda.Device(0):
+                a0 = xp.arange(200)
+            with cupy.cuda.Device(1):
+                a1 = xp.zeros(200, dtype=a0.dtype)
+
+            # Test when the device match the allocation
             with kvikio.CuFile(filename, "w") as f:
                 with cupy.cuda.Device(0):
                     assert f.write(a0) == a0.nbytes
-
             with kvikio.CuFile(filename, "r") as f:
-                with pytest.raises(
-                    RuntimeError,
-                    match="The current CUDA context must own the given device memory",
-                ):
-                    f.read(a1)
                 with cupy.cuda.Device(1):
                     assert f.read(a1) == a1.nbytes
-            assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
+            assert bytes(a0) == bytes(a1)
+
+            # Test when the device doesn't match the allocation
+            with kvikio.CuFile(filename, "w") as f:
+                with cupy.cuda.Device(1):
+                    assert f.write(a0) == a0.nbytes
+            with kvikio.CuFile(filename, "r") as f:
+                with cupy.cuda.Device(0):
+                    assert f.read(a1) == a1.nbytes
+            assert bytes(a0) == bytes(a1)
