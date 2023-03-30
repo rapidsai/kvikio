@@ -20,6 +20,7 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <tuple>
 
 #include <kvikio/error.hpp>
@@ -53,93 +54,6 @@ inline constexpr std::size_t page_size = 4096;
 }
 
 /**
- * @brief Return the device owning the pointer
- *
- * @param ptr Device pointer to query
- * @return The device ordinal
- */
-[[nodiscard]] inline int get_device_ordinal_from_pointer(CUdeviceptr dev_ptr)
-{
-  int ret;
-  CUDA_DRIVER_TRY(
-    cudaAPI::instance().PointerGetAttribute(&ret, CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL, dev_ptr));
-  return ret;
-}
-
-/**
- * @brief RAII wrapper for a CUDA primary context
- */
-class CudaPrimaryContext {
- public:
-  CUdevice dev;
-  CUcontext ctx;
-
-  CudaPrimaryContext(int device_ordinal)
-  {
-    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, device_ordinal));
-    CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
-  }
-  CudaPrimaryContext(const CudaPrimaryContext&) = delete;
-  CudaPrimaryContext& operator=(CudaPrimaryContext const&) = delete;
-  CudaPrimaryContext(CudaPrimaryContext&&)                 = delete;
-  CudaPrimaryContext&& operator=(CudaPrimaryContext&&) = delete;
-  ~CudaPrimaryContext()
-  {
-    try {
-      CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRelease(dev), CUfileException);
-    } catch (const CUfileException& e) {
-      std::cerr << e.what() << std::endl;
-    }
-  }
-};
-
-/**
- * @brief Return a CUDA context that can be used with the given device pointer
- *
- * @param devPtr Device pointer to query
- * @return Usable CUDA context
- */
-[[nodiscard]] inline CUcontext get_context_from_pointer(const void* devPtr)
-{
-  static std::map<int, CudaPrimaryContext> _primary_contexts;
-  CUdeviceptr dev_ptr = convert_void2deviceptr(devPtr);
-
-  // First we check if a context has been associated with `devPtr`.
-  // Notice, this is not the case for stream ordered device memory allocations.
-  // See <https://docs.nvidia.com/cuda/cuda-c-programming-guide/#pointer-attributes>
-  {
-    CUcontext ctx;
-    const CUresult err =
-      cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
-    if (err == CUDA_SUCCESS && ctx != nullptr) {
-        return ctx;
-    } else if (err != CUDA_ERROR_INVALID) {
-        CUDA_DRIVER_TRY(err);
-    }
-    // either CUDA_ERROR_INVALID, or SUCCESS, but stream-ordered allocation
-    }
-  }
-  // If this isn't the case, we check the current context. If it exists and can access `devPtr`,
-  // we return it.
-  {
-    CUcontext ctx;
-    CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
-    if (ctx != nullptr) {
-      CUdeviceptr current_ctx_dev_ptr{};
-      CUDA_DRIVER_TRY(cudaAPI::instance().PointerGetAttribute(
-        &current_ctx_dev_ptr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr));
-      if (current_ctx_dev_ptr != dev_ptr) { return ctx; }
-    }
-  }
-  // Finally, if we didn't find any usable context, we return the primary context of the
-  // device that owns `devPtr`. Notice, we use `_primary_contexts` to cache the primary
-  // context of each device.
-  int ordinal = get_device_ordinal_from_pointer(dev_ptr);
-  _primary_contexts.try_emplace(ordinal, ordinal);
-  return _primary_contexts.at(ordinal).ctx;
-}
-
-/**
  * @brief Check if `ptr` points to host memory (as opposed to device memory)
  *
  * In this context, managed memory counts as device memory
@@ -165,6 +79,136 @@ inline bool is_host_memory(const void* ptr)
   // is unregistered host memory. This is undocumented but how the Runtime CUDA API
   // does it to support `cudaMemoryTypeUnregistered`.
   return memtype == 0 || memtype == CU_MEMORYTYPE_HOST;
+}
+
+/**
+ * @brief Return the device owning the pointer
+ *
+ * @param ptr Device pointer to query
+ * @return The device ordinal
+ */
+[[nodiscard]] inline int get_device_ordinal_from_pointer(CUdeviceptr dev_ptr)
+{
+  int ret = 0;
+  CUDA_DRIVER_TRY(
+    cudaAPI::instance().PointerGetAttribute(&ret, CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL, dev_ptr));
+  return ret;
+}
+
+/**
+ * @brief RAII wrapper for a CUDA primary context
+ */
+class CudaPrimaryContext {
+ public:
+  CUdevice dev{};
+  CUcontext ctx{};
+
+  CudaPrimaryContext(int device_ordinal)
+  {
+    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, device_ordinal));
+    CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
+  }
+  CudaPrimaryContext(const CudaPrimaryContext&) = delete;
+  CudaPrimaryContext& operator=(CudaPrimaryContext const&) = delete;
+  CudaPrimaryContext(CudaPrimaryContext&&)                 = delete;
+  CudaPrimaryContext&& operator=(CudaPrimaryContext&&) = delete;
+  ~CudaPrimaryContext()
+  {
+    try {
+      CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRelease(dev), CUfileException);
+    } catch (const CUfileException& e) {
+      std::cerr << e.what() << std::endl;
+    }
+  }
+};
+
+/**
+ * @brief Given a device ordinal, return the primary context of the device.
+ *
+ * This function cache the primary contexts retrieved until program exit
+ *
+ * @param ordinal Device ordinal - an integer between 0 and the number of CUDA devices
+ * @return Primary CUDA context
+ */
+[[nodiscard]] inline CUcontext get_primary_cuda_context(int ordinal)
+{
+  static std::map<int, CudaPrimaryContext> _primary_contexts;
+  _primary_contexts.try_emplace(ordinal, ordinal);
+  return _primary_contexts.at(ordinal).ctx;
+}
+
+/**
+ * @brief Return the CUDA context associated the given device pointer, if any.
+ *
+ * @param dev_ptr Device pointer to query
+ * @return Usable CUDA context, if one were found.
+ */
+[[nodiscard]] inline std::optional<CUcontext> get_context_associated_pointer(CUdeviceptr dev_ptr)
+{
+  CUcontext ctx = nullptr;
+  const CUresult err =
+    cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
+  if (err == CUDA_SUCCESS && ctx != nullptr) { return ctx; }
+  if (err != CUDA_ERROR_INVALID_VALUE) { CUDA_DRIVER_TRY(err); }
+  return {};
+}
+
+/**
+ * @brief Check if the current CUDA context can access the given device pointer
+ *
+ * @param dev_ptr Device pointer to query
+ * @return The boolean answer
+ */
+[[nodiscard]] inline bool can_current_context_access_pointer(CUdeviceptr dev_ptr)
+{
+  CUdeviceptr current_ctx_dev_ptr{};
+  const CUresult err = cudaAPI::instance().PointerGetAttribute(
+    &current_ctx_dev_ptr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr);
+  if (err == CUDA_SUCCESS && current_ctx_dev_ptr == dev_ptr) { return true; }
+  if (err != CUDA_ERROR_INVALID_VALUE) { CUDA_DRIVER_TRY(err); }
+  return false;
+}
+
+/**
+ * @brief Return a CUDA context that can be used with the given device pointer
+ *
+ * For robustness, we look for an usabale context in the following order:
+ *   1) If a context has been associated with `devPtr`, it is returned
+ *   2) If the current context exist and can access `devPtr`, it is returned.
+ *   3) Return the primary context of the device that owns `devPtr`. We assume the
+ *      primary context can access `devPtr`.
+ * @param devPtr Device pointer to query
+ * @return Usable CUDA context
+ */
+[[nodiscard]] inline CUcontext get_context_from_pointer(const void* devPtr)
+{
+  CUdeviceptr dev_ptr = convert_void2deviceptr(devPtr);
+
+  // First we check if a context has been associated with `devPtr`.
+  {
+    auto ctx = get_context_associated_pointer(dev_ptr);
+    if (ctx.has_value()) {
+      std::cout << "get_context_from_pointer() - context_associated" << std::endl;
+      return ctx.value();
+    }
+  }
+
+  // If this isn't the case, we check the current context. If it exist and can access `devPtr`, we
+  // return the current context.
+  {
+    CUcontext ctx = nullptr;
+    CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
+    if (ctx != nullptr && can_current_context_access_pointer(dev_ptr)) {
+      std::cout << "get_context_from_pointer() - can_current_context_access_pointer" << std::endl;
+      return ctx;
+    }
+  }
+
+  std::cout << "get_context_from_pointer() - get_primary_cuda_context" << std::endl;
+
+  // Finally, if we didn't find any usable context, we return the primary context of the
+  // device that owns `devPtr`. If the primary context cannot access `devPtr`, we accept failure.
+  return get_primary_cuda_context(get_device_ordinal_from_pointer(dev_ptr));
 }
 
 /**

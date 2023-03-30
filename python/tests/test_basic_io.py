@@ -3,6 +3,7 @@
 
 import os
 import random
+from contextlib import contextmanager
 
 import pytest
 
@@ -133,6 +134,69 @@ def test_read_write_slices(tmp_path, xp, nthreads, tasksize, start, end):
             assert all(a == b)
 
 
+@pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
+def test_raw_read_write(tmp_path, size):
+    """Test raw read/write"""
+    filename = tmp_path / "test-file"
+
+    a = cupy.arange(size)
+    with kvikio.CuFile(filename, "w") as f:
+        assert f.raw_write(a) == a.nbytes
+    with kvikio.CuFile(filename, "r") as f:
+        assert f.raw_read(a) == a.nbytes
+
+
+def test_raw_read_write_of_host_memory(tmp_path):
+    """Test raw read/write of host memory, which isn't supported"""
+    filename = tmp_path / "test-file"
+
+    a = numpy.arange(1024)
+    with kvikio.CuFile(filename, "w") as f:
+        with pytest.raises(ValueError, match="Non-CUDA buffers not supported"):
+            f.raw_write(a)
+    with kvikio.CuFile(filename, "r") as f:
+        with pytest.raises(ValueError, match="Non-CUDA buffers not supported"):
+            assert f.raw_read(a) == a.nbytes
+
+
+@contextmanager
+def with_no_cuda_context():
+    """Context that pop all CUDA contexts before the test and push them back on after"""
+    cuda = pytest.importorskip("cuda.cuda")
+    assert cuda.cuInit(0)[0] == cuda.CUresult.CUDA_SUCCESS
+
+    ctx_stack = []
+    while True:
+        err, ctx = cuda.cuCtxPopCurrent()
+        if err == cuda.CUresult.CUDA_ERROR_INVALID_CONTEXT:
+            break
+        assert err == cuda.CUresult.CUDA_SUCCESS
+        ctx_stack.append(ctx)
+    yield
+    for ctx in reversed(ctx_stack):
+        (err,) = cuda.cuCtxPushCurrent(ctx)
+        assert err == cuda.CUresult.CUDA_SUCCESS
+
+
+def test_no_current_cuda_context(tmp_path):
+    filename = tmp_path / "test-file"
+    ary = cupy.arange(100)
+
+    with with_no_cuda_context():
+        with kvikio.CuFile(filename, "w") as f:
+            f.write(ary)
+
+    with cupy.cuda.using_allocator(cupy.cuda.malloc_async):
+        ary = cupy.arange(100)
+
+    with with_no_cuda_context():
+        with kvikio.CuFile(filename, "w") as f:
+            f.write(ary)
+
+    with kvikio.CuFile(filename, "w") as f:
+        f.write(ary)
+
+
 @pytest.mark.skipif(
     cupy.cuda.runtime.getDeviceCount() < 2, reason="requires multiple GPUs"
 )
@@ -159,28 +223,3 @@ def test_multiple_gpus(tmp_path):
                 with cupy.cuda.Device(1):
                     assert f.read(a1) == a1.nbytes
             assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
-
-
-@pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
-def test_raw_read_write(tmp_path, size):
-    """Test raw read/write"""
-    filename = tmp_path / "test-file"
-
-    a = cupy.arange(size)
-    with kvikio.CuFile(filename, "w") as f:
-        assert f.raw_write(a) == a.nbytes
-    with kvikio.CuFile(filename, "r") as f:
-        assert f.raw_read(a) == a.nbytes
-
-
-def test_raw_read_write_of_host_memory(tmp_path):
-    """Test raw read/write of host memory, which isn't supported"""
-    filename = tmp_path / "test-file"
-
-    a = numpy.arange(1024)
-    with kvikio.CuFile(filename, "w") as f:
-        with pytest.raises(ValueError, match="Non-CUDA buffers not supported"):
-            f.raw_write(a)
-    with kvikio.CuFile(filename, "r") as f:
-        with pytest.raises(ValueError, match="Non-CUDA buffers not supported"):
-            assert f.raw_read(a) == a.nbytes
