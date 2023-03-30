@@ -192,10 +192,7 @@ class CudaPrimaryContext {
   // First we check if a context has been associated with `devPtr`.
   {
     auto ctx = get_context_associated_pointer(dev_ptr);
-    if (ctx.has_value()) {
-      std::cout << "get_context_from_pointer() - context_associated" << std::endl;
-      return ctx.value();
-    }
+    if (ctx.has_value()) { return ctx.value(); }
   }
 
   // If this isn't the case, we check the current context. If it exist and can access `devPtr`, we
@@ -203,13 +200,8 @@ class CudaPrimaryContext {
   {
     CUcontext ctx = nullptr;
     CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
-    if (ctx != nullptr && current_context_can_access_pointer(dev_ptr)) {
-      std::cout << "get_context_from_pointer() - can_current_context_access_pointer" << std::endl;
-      return ctx;
-    }
+    if (ctx != nullptr && current_context_can_access_pointer(dev_ptr)) { return ctx; }
   }
-
-  std::cout << "get_context_from_pointer() - get_primary_cuda_context" << std::endl;
 
   // Finally, if we didn't find any usable context, we return the primary context of the
   // device that owns `devPtr`. If the primary context cannot access `devPtr`, we accept failure.
