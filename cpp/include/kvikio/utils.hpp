@@ -125,7 +125,7 @@ class CudaPrimaryContext {
 /**
  * @brief Given a device ordinal, return the primary context of the device.
  *
- * This function cache the primary contexts retrieved until program exit
+ * This function caches the primary contexts retrieved until program exit
  *
  * @param ordinal Device ordinal - an integer between 0 and the number of CUDA devices
  * @return Primary CUDA context
@@ -159,7 +159,7 @@ class CudaPrimaryContext {
  * @param dev_ptr Device pointer to query
  * @return The boolean answer
  */
-[[nodiscard]] inline bool can_current_context_access_pointer(CUdeviceptr dev_ptr)
+[[nodiscard]] inline bool current_context_can_access_pointer(CUdeviceptr dev_ptr)
 {
   CUdeviceptr current_ctx_dev_ptr{};
   const CUresult err = cudaAPI::instance().PointerGetAttribute(
@@ -174,7 +174,7 @@ class CudaPrimaryContext {
  *
  * For robustness, we look for an usabale context in the following order:
  *   1) If a context has been associated with `devPtr`, it is returned
- *   2) If the current context exist and can access `devPtr`, it is returned.
+ *   2) If the current context exists and can access `devPtr`, it is returned.
  *   3) Return the primary context of the device that owns `devPtr`. We assume the
  *      primary context can access `devPtr`.
  * @param devPtr Device pointer to query
