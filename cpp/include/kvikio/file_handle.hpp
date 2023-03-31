@@ -376,8 +376,9 @@ class FileHandle {
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
-                                 std::size_t file_offset = 0,
-                                 std::size_t task_size   = defaults::task_size())
+                                 std::size_t file_offset   = 0,
+                                 std::size_t task_size     = defaults::task_size(),
+                                 std::size_t gds_threshold = defaults::gds_threshold())
   {
     if (is_host_memory(buf)) {
       auto op = [this](void* hostPtr_base,
@@ -389,6 +390,12 @@ class FileHandle {
       };
 
       return parallel_io(op, buf, size, file_offset, task_size, 0);
+    }
+
+    if (size < gds_threshold) {
+      CUcontext ctx = get_context_from_pointer(buf);
+      PushAndPopContext c(ctx);
+      return std::async(std::launch::deferred, posix_host_read, _fd_direct_off, buf, size, 0, 0);
     }
 
     CUcontext ctx = get_context_from_pointer(buf);
@@ -422,8 +429,9 @@ class FileHandle {
    */
   std::future<std::size_t> pwrite(const void* buf,
                                   std::size_t size,
-                                  std::size_t file_offset = 0,
-                                  std::size_t task_size   = defaults::task_size())
+                                  std::size_t file_offset   = 0,
+                                  std::size_t task_size     = defaults::task_size(),
+                                  std::size_t gds_threshold = defaults::gds_threshold())
   {
     if (is_host_memory(buf)) {
       auto op = [this](const void* hostPtr_base,
@@ -435,6 +443,12 @@ class FileHandle {
       };
 
       return parallel_io(op, buf, size, file_offset, task_size, 0);
+    }
+
+    if (size < gds_threshold) {
+      CUcontext ctx = get_context_from_pointer(buf);
+      PushAndPopContext c(ctx);
+      return std::async(std::launch::deferred, posix_device_write, _fd_direct_off, buf, size, 0, 0);
     }
 
     CUcontext ctx = get_context_from_pointer(buf);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@ class defaults {
   kvikio::third_party::thread_pool _thread_pool{get_num_threads_from_env()};
   bool _compat_mode;
   std::size_t _task_size;
+  std::size_t _gds_threshold;
 
   static unsigned int get_num_threads_from_env()
   {
@@ -108,6 +109,14 @@ class defaults {
         throw std::invalid_argument("KVIKIO_TASK_SIZE has to be a positive integer");
       }
       _task_size = env;
+    }
+    // Determine the default value of `gds_threshold`
+    {
+      const ssize_t env = detail::getenv_or("KVIKIO_GDS_THRESHOLD", 1024 * 1024);
+      if (env <= 0) {
+        throw std::invalid_argument("KVIKIO_GDS_THRESHOLD has to be a positive integer");
+      }
+      _gds_threshold = env;
     }
   }
 
@@ -202,6 +211,25 @@ class defaults {
    * @param nbytes The default task size in bytes.
    */
   static void task_size_reset(std::size_t nbytes) { instance()->_task_size = nbytes; }
+
+  /**
+   * @brief Get the default GDS threshold, which is the minimum size to use GDS (in bytes).
+   *
+   * In order to improve performance of small IO, `.pread()` and `.pwrite()` implements a shortcut
+   * that circumvent the threadpool and use the POSIX backend directly.
+   *
+   * Set the default value using `kvikio::default::task_size_reset()` or by setting the
+   * `KVIKIO_TASK_SIZE` environment variable. If not set, the default value is 1 MiB.
+   *
+   * @return The default GDS threshold size in bytes.
+   */
+  [[nodiscard]] static std::size_t gds_threshold() { return instance()->_gds_threshold; }
+
+  /**
+   * @brief Reset the default GDS threshold, which is the minimum size to use GDS (in bytes).
+   * @param nbytes The default GDS threshold size in bytes.
+   */
+  static void gds_threshold_reset(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
 };
 
 }  // namespace kvikio
