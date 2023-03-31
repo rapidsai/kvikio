@@ -89,12 +89,10 @@ def xp(request):
 
 @pytest.fixture(
     params=[0, 2**20],
-    ids=["gds_threshold=0", "gds_threshold=1MB"],
+    ids=["gds_threshold=0MB", "gds_threshold=1MB"],
 )
 def gds_threshold(request):
     """Fixture to parametrize over GDS threshold values"""
 
-    val = request.param
-    print("gds_threshold: ", val)
-    with kvikio.defaults.set_gds_threshold(val):
-        yield val
+    with kvikio.defaults.set_gds_threshold(request.param):
+        yield request.param
