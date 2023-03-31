@@ -395,7 +395,7 @@ class FileHandle {
     if (size < gds_threshold) {
       CUcontext ctx = get_context_from_pointer(buf);
       PushAndPopContext c(ctx);
-      return std::async(std::launch::deferred, posix_host_read, _fd_direct_off, buf, size, 0, 0);
+      return std::async(std::launch::deferred, posix_device_read, _fd_direct_off, buf, size, 0, 0);
     }
 
     CUcontext ctx = get_context_from_pointer(buf);
