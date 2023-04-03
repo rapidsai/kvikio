@@ -3,6 +3,7 @@
 
 import os
 import random
+from contextlib import contextmanager
 
 import pytest
 
@@ -133,34 +134,6 @@ def test_read_write_slices(tmp_path, xp, nthreads, tasksize, start, end):
             assert all(a == b)
 
 
-@pytest.mark.skipif(
-    cupy.cuda.runtime.getDeviceCount() < 2, reason="requires multiple GPUs"
-)
-def test_multiple_gpus(tmp_path):
-    """Test IO from two different GPUs"""
-    with kvikio.defaults.set_num_threads(10):
-        with kvikio.defaults.set_task_size(10):
-            with cupy.cuda.Device(0):
-                a0 = cupy.arange(200)
-            with cupy.cuda.Device(1):
-                a1 = cupy.zeros(200, dtype=a0.dtype)
-
-            filename = tmp_path / "test-file"
-            with kvikio.CuFile(filename, "w") as f:
-                with cupy.cuda.Device(0):
-                    assert f.write(a0) == a0.nbytes
-
-            with kvikio.CuFile(filename, "r") as f:
-                with pytest.raises(
-                    RuntimeError,
-                    match="The current CUDA context must own the given device memory",
-                ):
-                    f.read(a1)
-                with cupy.cuda.Device(1):
-                    assert f.read(a1) == a1.nbytes
-            assert all(cupy.asnumpy(a0) == cupy.asnumpy(a1))
-
-
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 def test_raw_read_write(tmp_path, size):
     """Test raw read/write"""
@@ -184,3 +157,70 @@ def test_raw_read_write_of_host_memory(tmp_path):
     with kvikio.CuFile(filename, "r") as f:
         with pytest.raises(ValueError, match="Non-CUDA buffers not supported"):
             assert f.raw_read(a) == a.nbytes
+
+
+@contextmanager
+def with_no_cuda_context():
+    """Context that pop all CUDA contexts before the test and push them back on after"""
+    cuda = pytest.importorskip("cuda.cuda")
+    assert cuda.cuInit(0)[0] == cuda.CUresult.CUDA_SUCCESS
+
+    ctx_stack = []
+    while True:
+        err, ctx = cuda.cuCtxPopCurrent()
+        if err == cuda.CUresult.CUDA_ERROR_INVALID_CONTEXT:
+            break
+        assert err == cuda.CUresult.CUDA_SUCCESS
+        ctx_stack.append(ctx)
+    yield
+    for ctx in reversed(ctx_stack):
+        (err,) = cuda.cuCtxPushCurrent(ctx)
+        assert err == cuda.CUresult.CUDA_SUCCESS
+
+
+def test_no_current_cuda_context(tmp_path, xp):
+    """Test IO when CUDA context is current"""
+    filename = tmp_path / "test-file"
+    a = xp.arange(100)
+    b = xp.empty_like(a)
+
+    with kvikio.CuFile(filename, "w+") as f:
+        with with_no_cuda_context():
+            f.write(a)
+        f.read(b)
+    assert all(a == b)
+
+
+@pytest.mark.skipif(
+    cupy.cuda.runtime.getDeviceCount() < 2, reason="requires multiple GPUs"
+)
+def test_multiple_gpus(tmp_path, xp):
+    """Test IO from two different GPUs"""
+    filename = tmp_path / "test-file"
+
+    with kvikio.defaults.set_num_threads(10):
+        with kvikio.defaults.set_task_size(10):
+
+            # Allocate an array on each device
+            with cupy.cuda.Device(0):
+                a0 = xp.arange(200)
+            with cupy.cuda.Device(1):
+                a1 = xp.zeros(200, dtype=a0.dtype)
+
+            # Test when the device match the allocation
+            with kvikio.CuFile(filename, "w") as f:
+                with cupy.cuda.Device(0):
+                    assert f.write(a0) == a0.nbytes
+            with kvikio.CuFile(filename, "r") as f:
+                with cupy.cuda.Device(1):
+                    assert f.read(a1) == a1.nbytes
+            assert bytes(a0) == bytes(a1)
+
+            # Test when the device doesn't match the allocation
+            with kvikio.CuFile(filename, "w") as f:
+                with cupy.cuda.Device(1):
+                    assert f.write(a0) == a0.nbytes
+            with kvikio.CuFile(filename, "r") as f:
+                with cupy.cuda.Device(0):
+                    assert f.read(a1) == a1.nbytes
+            assert bytes(a0) == bytes(a1)

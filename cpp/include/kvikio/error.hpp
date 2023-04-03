@@ -40,9 +40,10 @@ struct CUfileException : public std::runtime_error {
                              KVIKIO_STRINGIFY(__LINE__) +                                      \
                              ": CUDA_ERROR_STUB_LIBRARY("                                      \
                              "The CUDA driver loaded is a stub library)"};                     \
-    } else if (error != CUDA_SUCCESS) {                                                        \
-      const char* err_name;                                                                    \
-      const char* err_str;                                                                     \
+    }                                                                                          \
+    if (error != CUDA_SUCCESS) {                                                               \
+      const char* err_name     = nullptr;                                                      \
+      const char* err_str      = nullptr;                                                      \
       CUresult err_name_status = cudaAPI::instance().GetErrorName(error, &err_name);           \
       CUresult err_str_status  = cudaAPI::instance().GetErrorString(error, &err_str);          \
       if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }               \
