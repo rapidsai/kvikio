@@ -392,22 +392,25 @@ class FileHandle {
       return parallel_io(op, buf, size, file_offset, task_size, 0);
     }
 
+    CUcontext ctx = get_context_from_pointer(buf);
+
+    // Shortcut that circumvent the threadpool and use the POSIX backend directly.
     if (size < gds_threshold) {
-      CUcontext ctx = get_context_from_pointer(buf);
-      PushAndPopContext c(ctx);
-      return std::async(
-        std::launch::deferred, posix_device_read, _fd_direct_off, buf, size, file_offset, 0);
+      auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
+        PushAndPopContext c(ctx);
+        return posix_device_read(_fd_direct_off, buf, size, file_offset, 0);
+      };
+      return std::async(std::launch::deferred, task);
     }
 
-    CUcontext ctx = get_context_from_pointer(buf);
-    auto task     = [this, ctx](void* devPtr_base,
+    // Regular case that use the threadpool and run the tasks in parallel
+    auto task = [this, ctx](void* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
                             std::size_t devPtr_offset) -> std::size_t {
       PushAndPopContext c(ctx);
       return read(devPtr_base, size, file_offset, devPtr_offset);
     };
-
     auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
     return parallel_io(task, devPtr_base, size, file_offset, task_size, devPtr_offset);
   }
@@ -446,15 +449,19 @@ class FileHandle {
       return parallel_io(op, buf, size, file_offset, task_size, 0);
     }
 
+    CUcontext ctx = get_context_from_pointer(buf);
+
+    // Shortcut that circumvent the threadpool and use the POSIX backend directly.
     if (size < gds_threshold) {
-      CUcontext ctx = get_context_from_pointer(buf);
-      PushAndPopContext c(ctx);
-      return std::async(
-        std::launch::deferred, posix_device_write, _fd_direct_off, buf, size, file_offset, 0);
+      auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
+        PushAndPopContext c(ctx);
+        return posix_device_write(_fd_direct_off, buf, size, file_offset, 0);
+      };
+      return std::async(std::launch::deferred, task);
     }
 
-    CUcontext ctx = get_context_from_pointer(buf);
-    auto op       = [this, ctx](const void* devPtr_base,
+    // Regular case that use the threadpool and run the tasks in parallel
+    auto op = [this, ctx](const void* devPtr_base,
                           std::size_t size,
                           std::size_t file_offset,
                           std::size_t devPtr_offset) -> std::size_t {

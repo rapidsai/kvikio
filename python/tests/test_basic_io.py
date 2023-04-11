@@ -178,7 +178,7 @@ def with_no_cuda_context():
         assert err == cuda.CUresult.CUDA_SUCCESS
 
 
-def test_no_current_cuda_context(tmp_path, xp):
+def test_no_current_cuda_context(tmp_path, xp, gds_threshold):
     """Test IO when CUDA context is current"""
     filename = tmp_path / "test-file"
     a = xp.arange(100)
@@ -194,7 +194,7 @@ def test_no_current_cuda_context(tmp_path, xp):
 @pytest.mark.skipif(
     cupy.cuda.runtime.getDeviceCount() < 2, reason="requires multiple GPUs"
 )
-def test_multiple_gpus(tmp_path, xp):
+def test_multiple_gpus(tmp_path, xp, gds_threshold):
     """Test IO from two different GPUs"""
     filename = tmp_path / "test-file"
 
