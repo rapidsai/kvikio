@@ -22,10 +22,11 @@ include(rapids-find)
 
 project(
   KvikIO
-  VERSION 23.02.00
+  VERSION 23.04.00
   LANGUAGES CXX
 )
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
 # Write the version header

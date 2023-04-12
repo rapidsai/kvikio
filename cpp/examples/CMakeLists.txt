@@ -12,14 +12,25 @@
 # the License.
 # =============================================================================
 
-add_executable(basic_io basic_io.cpp)
-target_include_directories(basic_io PRIVATE ../include ${cuFile_INCLUDE_DIRS})
-target_link_libraries(basic_io PRIVATE kvikio CUDA::cudart)
+set(TEST_INSTALL_PATH bin/tests/libkvikio)
+set(TEST_NAME BASIC_IO_TEST)
+
+add_executable(BASIC_IO_TEST basic_io.cpp)
+set_target_properties(BASIC_IO_TEST PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
+target_include_directories(BASIC_IO_TEST PRIVATE ../include ${cuFile_INCLUDE_DIRS})
+target_link_libraries(BASIC_IO_TEST PRIVATE kvikio CUDA::cudart)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
   if(NOT cuFile_FOUND)
     set(KVIKIO_CXX_FLAGS "${KVIKIO_CXX_FLAGS};-DKVIKIO_DISABLE_CUFILE")
   endif()
-  target_compile_options(basic_io PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
+  target_compile_options(BASIC_IO_TEST PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
 endif()
+
+install(
+  TARGETS ${TEST_NAME}
+  COMPONENT testing
+  DESTINATION ${TEST_INSTALL_PATH}
+  EXCLUDE_FROM_ALL
+)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,9 +39,13 @@ class cudaAPI {
   decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};
   decltype(cuCtxPushCurrent)* CtxPushCurrent{nullptr};
   decltype(cuCtxPopCurrent)* CtxPopCurrent{nullptr};
+  decltype(cuCtxGetCurrent)* CtxGetCurrent{nullptr};
   decltype(cuMemGetAddressRange)* MemGetAddressRange{nullptr};
   decltype(cuGetErrorName)* GetErrorName{nullptr};
   decltype(cuGetErrorString)* GetErrorString{nullptr};
+  decltype(cuDeviceGet)* DeviceGet{nullptr};
+  decltype(cuDevicePrimaryCtxRetain)* DevicePrimaryCtxRetain{nullptr};
+  decltype(cuDevicePrimaryCtxRelease)* DevicePrimaryCtxRelease{nullptr};
 
  private:
   cudaAPI()
@@ -59,9 +63,13 @@ class cudaAPI {
     get_symbol(PointerGetAttributes, lib, KVIKIO_STRINGIFY(cuPointerGetAttributes));
     get_symbol(CtxPushCurrent, lib, KVIKIO_STRINGIFY(cuCtxPushCurrent));
     get_symbol(CtxPopCurrent, lib, KVIKIO_STRINGIFY(cuCtxPopCurrent));
+    get_symbol(CtxGetCurrent, lib, KVIKIO_STRINGIFY(cuCtxGetCurrent));
     get_symbol(MemGetAddressRange, lib, KVIKIO_STRINGIFY(cuMemGetAddressRange));
     get_symbol(GetErrorName, lib, KVIKIO_STRINGIFY(cuGetErrorName));
     get_symbol(GetErrorString, lib, KVIKIO_STRINGIFY(cuGetErrorString));
+    get_symbol(DeviceGet, lib, KVIKIO_STRINGIFY(cuDeviceGet));
+    get_symbol(DevicePrimaryCtxRetain, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRetain));
+    get_symbol(DevicePrimaryCtxRelease, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRelease));
   }
 
  public:
