@@ -215,7 +215,7 @@ class defaults {
   /**
    * @brief Get the default GDS threshold, which is the minimum size to use GDS (in bytes).
    *
-   * In order to improve performance of small IO, `.pread()` and `.pwrite()` implements a shortcut
+   * In order to improve performance of small IO, `.pread()` and `.pwrite()` implement a shortcut
    * that circumvent the threadpool and use the POSIX backend directly.
    *
    * Set the default value using `kvikio::default::task_size_reset()` or by setting the
