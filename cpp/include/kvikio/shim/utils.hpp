@@ -87,8 +87,7 @@ void get_symbol(T& handle, void* lib, const char* name)
  */
 [[nodiscard]] inline bool is_running_in_wsl()
 {
-  struct utsname buf {
-  };
+  struct utsname buf {};
   int err = ::uname(&buf);
   if (err == 0) {
     const std::string name(static_cast<char*>(buf.release));

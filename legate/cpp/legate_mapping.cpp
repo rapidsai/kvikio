@@ -24,7 +24,7 @@ class Mapper : public legate::mapping::LegateMapper {
  public:
   Mapper() {}
 
-  Mapper(const Mapper& rhs) = delete;
+  Mapper(const Mapper& rhs)            = delete;
   Mapper& operator=(const Mapper& rhs) = delete;
 
   // Legate mapping functions

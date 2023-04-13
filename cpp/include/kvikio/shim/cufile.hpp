@@ -83,7 +83,7 @@ class cuFileAPI {
   }
 
  public:
-  cuFileAPI(cuFileAPI const&) = delete;
+  cuFileAPI(cuFileAPI const&)      = delete;
   void operator=(cuFileAPI const&) = delete;
 
   static cuFileAPI& instance()

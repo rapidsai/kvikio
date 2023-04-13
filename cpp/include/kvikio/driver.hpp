@@ -47,9 +47,9 @@ class DriverInitializer {
  public:
   DriverInitializer() { CUFILE_TRY(cuFileAPI::instance().DriverOpen()); }
 
-  DriverInitializer(DriverInitializer const&) = delete;
-  DriverInitializer& operator=(DriverInitializer const&) = delete;
-  DriverInitializer(DriverInitializer&&) noexcept        = delete;
+  DriverInitializer(DriverInitializer const&)                = delete;
+  DriverInitializer& operator=(DriverInitializer const&)     = delete;
+  DriverInitializer(DriverInitializer&&) noexcept            = delete;
   DriverInitializer& operator=(DriverInitializer&&) noexcept = delete;
 
   ~DriverInitializer()
