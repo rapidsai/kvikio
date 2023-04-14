@@ -17,6 +17,7 @@ if not hasattr(zarr.Array, "meta_array"):
 @pytest.fixture
 def store(tmp_path):
     """Fixture that creates a GDS Store"""
+    cupy.arange(1)  # Making sure that CUDA has been initialized
     return GDSStore(tmp_path / "test-file.zarr")
 
 
@@ -24,14 +25,30 @@ def store(tmp_path):
 def test_direct_store_access(store, array_type):
     """Test accessing the GDS Store directly"""
 
-    module = pytest.importorskip(array_type)
-    a = module.arange(5, dtype="u1")
+    xp = pytest.importorskip(array_type)
+    a = xp.arange(5, dtype="u1")
     store["a"] = a
     b = store["a"]
 
-    # Notice, GDSStore always returns a cupy array
-    assert type(b) is cupy.ndarray
-    cupy.testing.assert_array_equal(a, b)
+    # Notice, when not using getitems(), GDSStore returns bytes always
+    assert isinstance(b, bytes)
+    a.data == b
+
+
+@pytest.mark.parametrize("array_type", ["numpy", "cupy"])
+def test_direct_store_access_getitems(store, array_type):
+    """Test accessing the GDS Store directly using getitems()"""
+
+    xp = pytest.importorskip(array_type)
+    a = xp.arange(5, dtype="u1")
+    b = a * 2
+    store["a"] = a
+    store["b"] = b
+    res = store.getitems(keys=["a", "b"], meta_array=a)
+
+    assert isinstance(res["a"], type(a))
+    cupy.testing.assert_array_equal(res["a"], a)
+    cupy.testing.assert_array_equal(res["b"], b)
 
 
 def test_array(store):

@@ -3,51 +3,64 @@
 
 import os
 import os.path
+from typing import Any, Mapping, Sequence
 
-import cupy
+import numpy
 import zarr.storage
+from numcodecs.ndarray_like import NDArrayLike
 
 import kvikio
-from kvikio._lib.arr import asarray
 
 
 class GDSStore(zarr.storage.DirectoryStore):
     """GPUDirect Storage (GDS) class using directories and files.
 
-    This class works like `zarr.storage.DirectoryStore` but use GPU
-    buffers and will use GDS when applicable.
-    The store supports both CPU and GPU buffers but when reading, GPU
-    buffers are returned always.
+    This class works like `zarr.storage.DirectoryStore` but implements
+    getitems() in order to support direct reading into device memory.
+    It uses KvikIO for reads and writes, which in turn will use GDS
+    when applicable.
 
-    TODO: Write metadata to disk in order to preserve the item types such that
-    GPU items are read as GPU device buffers and CPU items are read as bytes.
+    Notes
+    -----
+    GDSStore doesn't implement `_fromfile()` thus non-array data such as
+    meta data is always read into host memory.
+    This is because only zarr.Array use getitems() to retrieve data.
     """
 
     def __eq__(self, other):
         return isinstance(other, GDSStore) and self.path == other.path
 
-    def _fromfile(self, fn):
-        """Read `fn` into device memory _unless_ `fn` refers to Zarr metadata"""
-        if os.path.basename(fn) in [
-            zarr.storage.array_meta_key,
-            zarr.storage.group_meta_key,
-            zarr.storage.attrs_key,
-        ]:
-            return super()._fromfile(fn)
-        else:
-            nbytes = os.path.getsize(fn)
-            with kvikio.CuFile(fn, "r") as f:
-                ret = cupy.empty(nbytes, dtype="u1")
-                read = f.read(ret)
-                assert read == nbytes
-                return ret
-
     def _tofile(self, a, fn):
-        a = asarray(a)
-        assert a.contiguous
-        if a.cuda:
-            with kvikio.CuFile(fn, "w") as f:
-                written = f.write(a)
-                assert written == a.nbytes
-        else:
-            super()._tofile(a.obj, fn)
+        with kvikio.CuFile(fn, "w") as f:
+            written = f.write(a)
+            assert written == a.nbytes
+
+    def getitems(
+        self, keys: Sequence[str], meta_array: NDArrayLike
+    ) -> Mapping[str, Any]:
+
+        files = []
+        ret = {}
+        io_results = []
+        try:
+            for key in keys:
+                filepath = os.path.join(self.path, key)
+                if not os.path.isfile(filepath):
+                    continue
+
+                nbytes = os.path.getsize(filepath)
+                f = kvikio.CuFile(filepath, "r")
+                files.append(f)
+                ret[key] = numpy.empty_like(meta_array, shape=(nbytes,), dtype="u1")
+                io_results.append((f.pread(ret[key]), nbytes))
+
+            for future, nbytes in io_results:
+                nbytes_read = future.get()
+                if nbytes_read != nbytes:
+                    raise RuntimeError(
+                        f"Incomplete read ({nbytes_read}) expected {nbytes}"
+                    )
+        finally:
+            for f in files:
+                f.close()
+        return ret
