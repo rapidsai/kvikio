@@ -22,7 +22,7 @@ def check_bit_flags(x: int, y: int) -> bool:
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
 @pytest.mark.parametrize("tasksize", [199, 1024])
-def test_read_write(tmp_path, xp, size, nthreads, tasksize):
+def test_read_write(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
@@ -81,7 +81,7 @@ def test_set_compat_mode_between_io(tmp_path):
             assert f.write(a) == a.nbytes
 
 
-def test_write_to_files_in_chunks(tmp_path, xp):
+def test_write_to_files_in_chunks(tmp_path, xp, gds_threshold):
     """Write to files in chunks"""
     filename = tmp_path / "test-file"
 
@@ -118,7 +118,7 @@ def test_write_to_files_in_chunks(tmp_path, xp):
     "start,end",
     [(0, 10 * 4096), (1, int(1.3 * 4096)), (int(2.1 * 4096), int(5.6 * 4096))],
 )
-def test_read_write_slices(tmp_path, xp, nthreads, tasksize, start, end):
+def test_read_write_slices(tmp_path, xp, gds_threshold, nthreads, tasksize, start, end):
     """Read and write different slices"""
 
     with kvikio.defaults.set_num_threads(nthreads):
@@ -178,7 +178,7 @@ def with_no_cuda_context():
         assert err == cuda.CUresult.CUDA_SUCCESS
 
 
-def test_no_current_cuda_context(tmp_path, xp):
+def test_no_current_cuda_context(tmp_path, xp, gds_threshold):
     """Test IO when CUDA context is current"""
     filename = tmp_path / "test-file"
     a = xp.arange(100)
@@ -194,7 +194,7 @@ def test_no_current_cuda_context(tmp_path, xp):
 @pytest.mark.skipif(
     cupy.cuda.runtime.getDeviceCount() < 2, reason="requires multiple GPUs"
 )
-def test_multiple_gpus(tmp_path, xp):
+def test_multiple_gpus(tmp_path, xp, gds_threshold):
     """Test IO from two different GPUs"""
     filename = tmp_path / "test-file"
 
