@@ -7,6 +7,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy
 import zarr.storage
+import zarr.version
 
 import kvikio
 
@@ -26,6 +27,11 @@ class GDSStore(zarr.storage.DirectoryStore):
     This is because only zarr.Array use getitems() to retrieve data.
     """
 
+    def __init__(self, *args, **kwargs) -> None:
+        if zarr.version.version_tuple < (2, 15):
+            raise RuntimeError("GDSStore requires Zarr v2.15+")
+        super().__init__(*args, **kwargs)
+
     def __eq__(self, other):
         return isinstance(other, GDSStore) and self.path == other.path
 
@@ -35,7 +41,10 @@ class GDSStore(zarr.storage.DirectoryStore):
             assert written == a.nbytes
 
     def getitems(
-        self, keys: Sequence[str], contexts: Mapping[str, Mapping] = {}
+        self,
+        keys: Sequence[str],
+        *,
+        contexts: Mapping[str, Mapping] = {},
     ) -> Mapping[str, Any]:
 
         default_meta_array = numpy.empty(())
