@@ -73,7 +73,7 @@ class cudaAPI {
   }
 
  public:
-  cudaAPI(cudaAPI const&) = delete;
+  cudaAPI(cudaAPI const&)        = delete;
   void operator=(cudaAPI const&) = delete;
 
   static cudaAPI& instance()

@@ -108,10 +108,10 @@ class CudaPrimaryContext {
     CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, device_ordinal));
     CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
   }
-  CudaPrimaryContext(const CudaPrimaryContext&) = delete;
+  CudaPrimaryContext(const CudaPrimaryContext&)            = delete;
   CudaPrimaryContext& operator=(CudaPrimaryContext const&) = delete;
   CudaPrimaryContext(CudaPrimaryContext&&)                 = delete;
-  CudaPrimaryContext&& operator=(CudaPrimaryContext&&) = delete;
+  CudaPrimaryContext&& operator=(CudaPrimaryContext&&)     = delete;
   ~CudaPrimaryContext()
   {
     try {
@@ -220,10 +220,10 @@ class PushAndPopContext {
   {
     CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(_ctx));
   }
-  PushAndPopContext(const PushAndPopContext&) = delete;
+  PushAndPopContext(const PushAndPopContext&)            = delete;
   PushAndPopContext& operator=(PushAndPopContext const&) = delete;
   PushAndPopContext(PushAndPopContext&&)                 = delete;
-  PushAndPopContext&& operator=(PushAndPopContext&&) = delete;
+  PushAndPopContext&& operator=(PushAndPopContext&&)     = delete;
   ~PushAndPopContext()
   {
     try {

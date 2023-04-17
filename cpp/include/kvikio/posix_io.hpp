@@ -51,10 +51,10 @@ class AllocRetain {
 
    public:
     Alloc(AllocRetain* manager, void* alloc) : _manager(manager), _alloc{alloc} {}
-    Alloc(const Alloc&) = delete;
+    Alloc(const Alloc&)            = delete;
     Alloc& operator=(Alloc const&) = delete;
     Alloc(Alloc&& o)               = delete;
-    Alloc& operator=(Alloc&& o) = delete;
+    Alloc& operator=(Alloc&& o)    = delete;
     ~Alloc() noexcept { _manager->put(_alloc); }
     void* get() noexcept { return _alloc; }
   };
@@ -93,11 +93,11 @@ class AllocRetain {
     }
   }
 
-  AllocRetain(const AllocRetain&) = delete;
+  AllocRetain(const AllocRetain&)            = delete;
   AllocRetain& operator=(AllocRetain const&) = delete;
   AllocRetain(AllocRetain&& o)               = delete;
-  AllocRetain& operator=(AllocRetain&& o) = delete;
-  ~AllocRetain() noexcept                 = default;
+  AllocRetain& operator=(AllocRetain&& o)    = delete;
+  ~AllocRetain() noexcept                    = default;
 };
 
 inline AllocRetain manager;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

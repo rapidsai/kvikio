@@ -108,8 +108,7 @@ inline int open_fd(const std::string& file_path,
  */
 [[nodiscard]] inline std::size_t get_file_size(int file_descriptor)
 {
-  struct stat st {
-  };
+  struct stat st {};
   int ret = fstat(file_descriptor, &st);
   if (ret == -1) {
     throw std::system_error(errno, std::generic_category(), "Unable to query file size");
@@ -181,7 +180,7 @@ class FileHandle {
   /**
    * @brief FileHandle support move semantic but isn't copyable
    */
-  FileHandle(const FileHandle&) = delete;
+  FileHandle(const FileHandle&)            = delete;
   FileHandle& operator=(FileHandle const&) = delete;
   FileHandle(FileHandle&& o) noexcept
     : _fd_direct_on{std::exchange(o._fd_direct_on, -1)},

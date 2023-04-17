@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,9 +47,9 @@ class DriverInitializer {
  public:
   DriverInitializer() { CUFILE_TRY(cuFileAPI::instance().DriverOpen()); }
 
-  DriverInitializer(DriverInitializer const&) = delete;
-  DriverInitializer& operator=(DriverInitializer const&) = delete;
-  DriverInitializer(DriverInitializer&&) noexcept        = delete;
+  DriverInitializer(DriverInitializer const&)                = delete;
+  DriverInitializer& operator=(DriverInitializer const&)     = delete;
+  DriverInitializer(DriverInitializer&&) noexcept            = delete;
   DriverInitializer& operator=(DriverInitializer&&) noexcept = delete;
 
   ~DriverInitializer()
