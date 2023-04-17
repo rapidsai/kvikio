@@ -69,8 +69,16 @@ def task_size() -> int:
     return kvikio_cxx_api.task_size()
 
 
-def task_size_reset(nthreads: int) -> None:
-    kvikio_cxx_api.task_size_reset(nthreads)
+def task_size_reset(nbytes: int) -> None:
+    kvikio_cxx_api.task_size_reset(nbytes)
+
+
+def gds_threshold() -> int:
+    return kvikio_cxx_api.gds_threshold()
+
+
+def gds_threshold_reset(nbytes: int) -> None:
+    kvikio_cxx_api.gds_threshold_reset(nbytes)
 
 
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size, bint accept_host_buffer) except *:
