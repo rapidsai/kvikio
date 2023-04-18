@@ -481,10 +481,10 @@ class FileHandle {
 
   /**
    * @brief Returns `true` if the compatibility mode has been enabled for this file.
-   * 
+   *
    * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
    * automatically, if file cannot be opened with the `O_DIRECT` flag.
-   * 
+   *
    * @return compatibility mode state for the object
    */
   [[nodiscard]] bool is_compat_mode_on() const noexcept { return _compat_mode; }
