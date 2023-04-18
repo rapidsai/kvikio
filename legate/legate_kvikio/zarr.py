@@ -14,6 +14,17 @@ from .tile import read_tiles, write_tiles
 
 
 def _get_padded_array(zarr_ary: zarr.Array) -> Optional[cunumeric.ndarray]:
+    """Get a padded array that has an shape divisible by `zarr_ary.chunks`.
+
+    Parameters
+    ----------
+    zarr_ary
+       The Zarr array
+
+    Return
+    ------
+        The padded array or None if the shapes are already divisible
+    """
     if all(s % c == 0 for s, c in zip(zarr_ary.shape, zarr_ary.chunks)):
         return None  # Already aligned
 
@@ -29,6 +40,27 @@ def write_array(
     chunks: Optional[int | Tuple[int]],
     compressor=None,
 ) -> None:
+    """Write an Zarr array to disk using KvikIO
+
+    Notes
+    -----
+    The array is padded to make its shape divisible by chunks (if not already).
+    This involves coping the whole array, which can be expensive both in terms of
+    performance and memory usage.
+    TODO: minimize the copy needed
+
+    Parameters
+    ----------
+    ary
+       The cuNumeric array to write.
+    dirpath
+        Root directory of the tile files.
+    tile_shape
+        The shape of each tile.
+    tile_start
+        The start coordinate of the tiles
+    """
+
     dirpath = pathlib.Path(dirpath)
     if compressor is not None:
         raise NotImplementedError("compressor isn't supported")
@@ -52,6 +84,24 @@ def write_array(
 
 
 def read_array(dirpath: pathlib.Path | str) -> cunumeric.ndarray:
+    """Read an Zarr array from disk using KvikIO
+
+    Notes
+    -----
+    The returned array is padded to make its shape divisible by the shape of
+    the Zarr chunks on disk (if not already). This means that the returned
+    Legate store can be larger than the returned cuNumeric array.
+
+    Parameters
+    ----------
+    dirpath
+        Root directory of the tile files.
+
+    Return
+    ------
+        The cuNumeric array read from disk.
+    """
+
     dirpath = pathlib.Path(dirpath)
 
     # We use Zarr to read the meta data
