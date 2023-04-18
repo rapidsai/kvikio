@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include "legate_mapping.hpp"
+#include <vector>
+
 #include "core/mapping/mapping.h"
+#include "legate_mapping.hpp"
 #include "task_opcodes.hpp"
 
 namespace legate_kvikio {

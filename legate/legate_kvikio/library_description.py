@@ -51,3 +51,5 @@ context = get_legate_runtime().register_library(description)
 class TaskOpCode(IntEnum):
     WRITE = description.cffi.OP_WRITE
     READ = description.cffi.OP_READ
+    TILE_WRITE = description.cffi.OP_TILE_WRITE
+    TILE_READ = description.cffi.OP_TILE_READ
