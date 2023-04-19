@@ -78,7 +78,6 @@ def write_array(
     if padded_ary is None:
         write_tiles(ary, dirpath=dirpath, tile_shape=zarr_ary.chunks)
     else:
-        padded_ary[...] = -1  # TODO: remove line
         padded_ary[tuple(slice(s) for s in zarr_ary.shape)] = ary
         write_tiles(padded_ary, dirpath=dirpath, tile_shape=zarr_ary.chunks)
 
@@ -112,7 +111,6 @@ def read_array(dirpath: pathlib.Path | str) -> cunumeric.ndarray:
     padded_ary = _get_padded_array(zarr_ary)
     if padded_ary is None:
         ret = cunumeric.empty(shape=zarr_ary.shape, dtype=zarr_ary.dtype)
-        ret[...] = -1  # TODO: remove line
         read_tiles(ret, dirpath=dirpath, tile_shape=zarr_ary.chunks)
     else:
         read_tiles(padded_ary, dirpath=dirpath, tile_shape=zarr_ary.chunks)
