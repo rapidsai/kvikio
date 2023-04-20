@@ -60,27 +60,46 @@ def test_direct_store_access_getitems(store, xp_write, xp_read_a, xp_read_b):
     cupy.testing.assert_array_equal(res["b"], b)
 
 
-def test_array(store):
+def test_array(store, xp):
     """Test Zarr array"""
 
-    a = cupy.arange(100)
-    z = zarr.array(
-        a, chunks=10, compressor=None, store=store, meta_array=cupy.empty(())
-    )
+    a = xp.arange(100)
+    z = zarr.array(a, chunks=10, compressor=None, store=store, meta_array=xp.empty(()))
+    assert isinstance(z.meta_array, type(a))
     assert a.shape == z.shape
     assert a.dtype == z.dtype
     assert isinstance(a, type(z[:]))
     cupy.testing.assert_array_equal(a, z[:])
 
 
-def test_group(store):
+def test_group(store, xp):
     """Test Zarr group"""
 
-    g = zarr.open_group(store, meta_array=cupy.empty(()))
+    g = zarr.open_group(store, meta_array=xp.empty(()))
     g.ones("data", shape=(10, 11), dtype=int, compressor=None)
     a = g["data"]
     assert a.shape == (10, 11)
     assert a.dtype == int
     assert isinstance(a, zarr.Array)
-    assert isinstance(a[:], cupy.ndarray)
+    assert isinstance(a.meta_array, type(xp.empty(())))
+    assert isinstance(a[:], xp.ndarray)
     assert (a[:] == 1).all()
+
+
+def test_open_array(store, xp):
+    """Test Zarr's open_array()"""
+
+    a = xp.arange(10)
+    z = zarr.open_array(
+        store,
+        shape=a.shape,
+        dtype=a.dtype,
+        chunks=(10,),
+        compressor=None,
+        meta_array=xp.empty(()),
+    )
+    z[:] = a
+    assert a.shape == z.shape
+    assert a.dtype == z.dtype
+    assert isinstance(a, type(z[:]))
+    cupy.testing.assert_array_equal(a, z[:])
