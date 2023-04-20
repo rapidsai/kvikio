@@ -103,3 +103,30 @@ def test_open_array(store, xp):
     assert a.dtype == z.dtype
     assert isinstance(a, type(z[:]))
     cupy.testing.assert_array_equal(a, z[:])
+
+
+@pytest.mark.parametrize("inline_array", [True, False])
+def test_dask_read(store, xp, inline_array):
+    """Test Zarr read in Dask"""
+
+    da = pytest.importorskip("dask.array")
+    a = xp.arange(100)
+    z = zarr.array(a, chunks=10, compressor=None, store=store, meta_array=xp.empty(()))
+    d = da.from_zarr(z, inline_array=inline_array)
+    d += 1
+    cupy.testing.assert_array_equal(a + 1, d.compute())
+
+
+def test_dask_write(store, xp):
+    """Test Zarr write in Dask"""
+
+    da = pytest.importorskip("dask.array")
+
+    # Write dask array to disk using Zarr
+    a = xp.arange(100)
+    d = da.from_array(a, chunks=10)
+    da.to_zarr(d, store, compressor=None, meta_array=xp.empty(()))
+
+    # Validate the written Zarr array
+    z = zarr.open_array(store)
+    cupy.testing.assert_array_equal(a, z[:])
