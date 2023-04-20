@@ -53,7 +53,7 @@ inline void* load_library(const std::vector<const char*>& names,
   for (const char* name : names) {
     ss << name << " ";
     try {
-      return load_library(name);
+      return load_library(name, mode);
     } catch (const std::runtime_error&) {
     }
   }
