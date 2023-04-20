@@ -200,9 +200,8 @@ def run_zarr(args):
     import kvikio.zarr
 
     dir_path = args.dir / "zarr"
-
-    if not hasattr(zarr.Array, "meta_array"):
-        raise RuntimeError("requires Zarr v2.13+")
+    if not kvikio.zarr.supported():
+        raise RuntimeError("requires Zarr v2.15+")
 
     a = cupy.arange(args.nbytes, dtype="uint8")
 

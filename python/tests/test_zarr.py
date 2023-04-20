@@ -6,12 +6,11 @@ import pytest
 
 cupy = pytest.importorskip("cupy")
 zarr = pytest.importorskip("zarr")
-GDSStore = pytest.importorskip("kvikio.zarr").GDSStore
+kvikio_zarr = pytest.importorskip("kvikio.zarr")
+GDSStore = kvikio_zarr.GDSStore
 
 
-# To support CuPy arrays, we need the `Context` argument introduced in
-# Zarr v2.15, see <https://github.com/zarr-developers/zarr-python/pull/1131>
-if zarr.version.version_tuple < (2, 15):
+if not kvikio_zarr.supported():
     pytest.skip("requires Zarr v2.15+", allow_module_level=True)
 
 

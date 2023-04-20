@@ -7,9 +7,22 @@ from typing import Any, Mapping, Sequence
 
 import numpy
 import zarr.storage
-import zarr.version
 
 import kvikio
+import kvikio.zarr
+
+
+def supported() -> bool:
+    """Check if Zarr is available and supports Context
+
+    We depend on the `Context` argument introduced in Zarr v2.15,
+    see <https://github.com/zarr-developers/zarr-python/pull/1131>.
+    """
+    try:
+        import zarr.context  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 class GDSStore(zarr.storage.DirectoryStore):
@@ -28,7 +41,7 @@ class GDSStore(zarr.storage.DirectoryStore):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        if zarr.version.version_tuple < (2, 15):
+        if not kvikio.zarr.supported():
             raise RuntimeError("GDSStore requires Zarr v2.15+")
         super().__init__(*args, **kwargs)
 
