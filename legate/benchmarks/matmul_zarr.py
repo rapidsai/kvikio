@@ -3,6 +3,7 @@
 
 import argparse
 import contextlib
+import functools
 import pathlib
 import tempfile
 from time import perf_counter as clock
@@ -10,6 +11,7 @@ from typing import ContextManager
 
 import numpy as np
 import zarr
+from kvikio.zarr import GDSStore
 from zarr.errors import ArrayNotFoundError
 
 
@@ -44,16 +46,26 @@ def create_zarr_array(dirpath, shape, chunks=None, dtype=np.float64) -> None:
 
 
 @contextlib.contextmanager
-def run_dask(args):
+def run_dask(args, *, use_cupy):
     from dask import array as da
     from dask_cuda import LocalCUDACluster
     from distributed import Client
 
     def f():
         t0 = clock()
-        a = da.from_zarr(args.dir / "A")
-        b = da.from_zarr(args.dir / "B")
+        if use_cupy:
+            import cupy
+
+            az = zarr.open_array(GDSStore(args.dir / "A"), meta_array=cupy.empty(()))
+            bz = zarr.open_array(GDSStore(args.dir / "B"), meta_array=cupy.empty(()))
+        else:
+            az = args.dir / "A"
+            bz = args.dir / "B"
+
+        a = da.from_zarr(az)
+        b = da.from_zarr(bz)
         c = da.matmul(a, b)
+
         int(c.sum().compute())
         t1 = clock()
         return t1 - t0
@@ -84,7 +96,8 @@ def run_legate(args):
 
 
 API = {
-    "dask": run_dask,
+    "dask-cpu": functools.partial(run_dask, use_cupy=False),
+    "dask-gpu": functools.partial(run_dask, use_cupy=True),
     "legate": run_legate,
 }
 
@@ -149,7 +162,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--api",
         metavar="API",
-        default="dask",
+        default=tuple(API.keys())[0],
         choices=tuple(API.keys()),
         help="API to use {%(choices)s}",
     )
