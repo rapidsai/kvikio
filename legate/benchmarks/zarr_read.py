@@ -108,10 +108,16 @@ def main(args):
     create_zarr_array(args.dir / "A", shape=(args.m, args.m))
     create_zarr_array(args.dir / "B", shape=(args.m, args.m))
 
+    timings = []
     with API[args.api](args) as f:
-        for _ in range(args.nruns):
+        for _ in range(args.n_warmup_runs):
             elapsed = f()
-            print("elapsed: ", elapsed)
+            print("elapsed[warmup]: ", elapsed)
+        for i in range(args.nruns):
+            elapsed = f()
+            print(f"elapsed[run #{i}]: ", elapsed)
+            timings.append(elapsed)
+    print(f"elapsed mean: {np.mean(timings):.5}s (std: {np.std(timings):.5}s)")
 
 
 if __name__ == "__main__":
@@ -166,6 +172,12 @@ if __name__ == "__main__":
         default=tuple(OP.keys())[0],
         choices=tuple(OP.keys()),
         help="Operation to run {%(choices)s}",
+    )
+    parser.add_argument(
+        "--n-warmup-runs",
+        default=1,
+        type=int,
+        help="Number of warmup runs (default: %(default)s).",
     )
 
     args = parser.parse_args()
