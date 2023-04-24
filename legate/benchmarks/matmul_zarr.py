@@ -103,8 +103,8 @@ API = {
 
 
 def main(args):
-    create_zarr_array(args.dir / "A", shape=(args.m, args.k))
-    create_zarr_array(args.dir / "B", shape=(args.k, args.n))
+    create_zarr_array(args.dir / "A", shape=(args.m, args.m))
+    create_zarr_array(args.dir / "B", shape=(args.m, args.m))
 
     with API[args.api](args) as f:
         for _ in range(args.nruns):
@@ -123,26 +123,12 @@ if __name__ == "__main__":
                 raise argparse.ArgumentTypeError("Must be a directory")
             return p
 
-    parser = argparse.ArgumentParser(
-        description="Matrix multiplication of two Zarr files"
-    )
+    parser = argparse.ArgumentParser(description="Matrix operation on two Zarr files")
     parser.add_argument(
         "-m",
         default=100,
         type=int,
-        help="Size of the M dimension (default: %(default)s).",
-    )
-    parser.add_argument(
-        "-n",
-        default=0,
-        type=int,
-        help="Size of the N dimension. If not set, using the value of `-m`.",
-    )
-    parser.add_argument(
-        "-k",
-        default=0,
-        type=int,
-        help="Size of the K dimension. If not set, using the value of `-m`.",
+        help="Dimension of the two squired input matrix (MxM) (default: %(default)s).",
     )
     parser.add_argument(
         "-d",
@@ -173,10 +159,6 @@ if __name__ == "__main__":
         help="Number of workers (default: %(default)s).",
     )
     args = parser.parse_args()
-
-    # Default `-n` and `-k` to the value of `-m`
-    args.n = args.n or args.m
-    args.k = args.k or args.m
 
     # Create a temporary directory if user didn't specify a directory
     temp_dir: tempfile.TemporaryDirectory | ContextManager
