@@ -64,7 +64,7 @@ def run_dask(args, *, use_cupy):
 
         a = da.from_zarr(az)
         b = da.from_zarr(bz)
-        c = da.matmul(a, b)
+        c = args.op(da, a, b)
 
         int(c.sum().compute())
         t1 = clock()
@@ -87,7 +87,7 @@ def run_legate(args):
         t0 = clock()
         a = read_array(args.dir / "A")
         b = read_array(args.dir / "B")
-        c = num.matmul(a, b)
+        c = args.op(num, a, b)
         int(c.sum())
         t1 = clock()
         return t1 - t0
@@ -100,6 +100,8 @@ API = {
     "dask-gpu": functools.partial(run_dask, use_cupy=True),
     "legate": run_legate,
 }
+
+OP = {"add": lambda xp, a, b: a + b, "matmul": lambda xp, a, b: xp.matmul(a, b)}
 
 
 def main(args):
@@ -158,7 +160,16 @@ if __name__ == "__main__":
         type=int,
         help="Number of workers (default: %(default)s).",
     )
+    parser.add_argument(
+        "--op",
+        metavar="OP",
+        default=tuple(OP.keys())[0],
+        choices=tuple(OP.keys()),
+        help="Operation to run {%(choices)s}",
+    )
+
     args = parser.parse_args()
+    args.op = OP[args.op]  # Parse the operation argument
 
     # Create a temporary directory if user didn't specify a directory
     temp_dir: tempfile.TemporaryDirectory | ContextManager
