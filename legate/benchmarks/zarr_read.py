@@ -11,8 +11,9 @@ from typing import ContextManager
 
 import numpy as np
 import zarr
-from kvikio.zarr import GDSStore
 from zarr.errors import ArrayNotFoundError
+
+from kvikio.zarr import GDSStore
 
 
 def try_open_zarr_array(dirpath, shape, chunks, dtype):
