@@ -79,9 +79,9 @@ def run_dask(args, *, use_cupy):
 @contextlib.contextmanager
 def run_legate(args):
     import cunumeric as num
-    from legate_kvikio.zarr import read_array
 
     from legate.core import get_legate_runtime
+    from legate_kvikio.zarr import read_array
 
     def f():
         get_legate_runtime().issue_execution_fence(block=True)

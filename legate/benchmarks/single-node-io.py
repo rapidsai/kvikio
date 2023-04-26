@@ -13,11 +13,11 @@ from typing import ContextManager, Union
 
 import cunumeric as num
 from dask.utils import format_bytes, parse_bytes
-from legate_kvikio import CuFile
 
 import kvikio
 import kvikio.defaults
 import legate.core
+from legate_kvikio import CuFile
 
 runtime = legate.core.get_legate_runtime()
 

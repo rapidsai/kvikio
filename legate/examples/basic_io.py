@@ -2,8 +2,8 @@
 # See file LICENSE for terms.
 
 import cunumeric as num
-import legate_kvikio as kvikio
 
+import legate_kvikio as kvikio
 from legate.core import get_legate_runtime
 
 
