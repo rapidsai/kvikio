@@ -25,7 +25,7 @@ dependencies:
 - pydata-sphinx-theme
 - pytest
 - pytest-cov
-- python>=3.8,<3.11
+- python>=3.9,<3.11
 - scikit-build>=0.13.1
 - sphinx<6
 - sysroot_linux-64=2.17
