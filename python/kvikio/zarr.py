@@ -182,9 +182,7 @@ class Snappy(NVCompCompressor):
         return kvikio.nvcomp.SnappyManager(device_id=self.device_ordinal)
 
 
-register_codec(ANS)
-register_codec(Bitcomp)
-register_codec(Cascaded)
-register_codec(Gdeflate)
-register_codec(LZ4)
-register_codec(Snappy)
+# Expose a list of available nvCOMP compressors and register them as Zarr condecs
+nvcomp_compressors = [ANS, Bitcomp, Cascaded, Gdeflate, LZ4, Snappy]
+for c in nvcomp_compressors:
+    register_codec(c)
