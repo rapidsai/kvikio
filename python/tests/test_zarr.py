@@ -64,13 +64,10 @@ def test_group(store):
 
 @pytest.mark.parametrize("xp_read", ["numpy", "cupy"])
 @pytest.mark.parametrize("xp_write", ["numpy", "cupy"])
-@pytest.mark.parametrize(
-    "compressor", ["ANS", "Bitcomp", "Cascaded", "Gdeflate", "LZ4", "Snappy"]
-)
+@pytest.mark.parametrize("compressor", kvikio_zarr.nvcomp_compressors)
 def test_compressor(store, xp_write, xp_read, compressor):
     xp_read = pytest.importorskip(xp_read)
     xp_write = pytest.importorskip(xp_write)
-    compressor = getattr(kvikio_zarr, compressor)
 
     shape = (10, 1)
     chunks = (10, 1)
