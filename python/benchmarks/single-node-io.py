@@ -10,7 +10,7 @@ import shutil
 import statistics
 import tempfile
 from time import perf_counter as clock
-from typing import ContextManager, Union
+from typing import Any, ContextManager, Dict, Union
 
 import cupy
 from dask.utils import format_bytes, parse_bytes
@@ -19,11 +19,25 @@ import kvikio
 import kvikio.defaults
 
 
+def get_zarr_compressors() -> Dict[str, Any]:
+    """Returns a dict of available Zarr compressors"""
+    try:
+        import kvikio.zarr
+    except ImportError:
+        return {}
+    return {c.__name__.lower(): c for c in kvikio.zarr.nvcomp_compressors}
+
+
+def create_data(nbytes):
+    """Return a random uint8 cupy array"""
+    return cupy.arange(nbytes, dtype="uint8")
+
+
 def run_cufile(args):
     """Single file and array"""
 
     file_path = args.dir / "kvikio-single-file"
-    data = cupy.arange(args.nbytes, dtype="uint8")
+    data = create_data(args.nbytes)
     if args.pre_register_buffer:
         kvikio.memory_register(data)
 
@@ -57,7 +71,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
 
     # Create a file path and CuPy array per thread
     file_path = str(args.dir / "cufile-p-%03d")
-    arrays = [cupy.arange(chunksize, dtype="uint8") for _ in range(args.nthreads)]
+    arrays = [create_data(chunksize) for _ in range(args.nthreads)]
     if args.pre_register_buffer:
         for array in arrays:
             kvikio.memory_register(array)
@@ -93,7 +107,7 @@ def run_cufile_multiple_files(args):
     chunksize = args.nbytes // args.nthreads
     assert args.nbytes % args.nthreads == 0, "--nbytes must be divisible by --nthreads"
     file_path = str(args.dir / "cufile-p-%03d")
-    data = cupy.arange(args.nbytes, dtype="uint8")
+    data = create_data(args.nbytes)
     if args.pre_register_buffer:
         kvikio.memory_register(data)
 
@@ -133,7 +147,7 @@ def run_cufile_multiple_arrays(args):
     file_path = args.dir / "kvikio-multiple-arrays"
 
     # Create a CuPy array per thread
-    arrays = [cupy.arange(chunksize, dtype="uint8") for _ in range(args.nthreads)]
+    arrays = [create_data(chunksize) for _ in range(args.nthreads)]
     if args.pre_register_buffer:
         for array in arrays:
             kvikio.memory_register(array)
@@ -170,7 +184,7 @@ def run_posix(args):
     """Use the posix API, no calls to kvikio"""
 
     file_path = args.dir / "posix-single-file"
-    data = cupy.arange(args.nbytes, dtype="uint8")
+    data = create_data(args.nbytes)
 
     # Write
     f = open(file_path, "wb")
@@ -204,7 +218,11 @@ def run_zarr(args):
     if not hasattr(zarr.Array, "meta_array"):
         raise RuntimeError("requires Zarr v2.13+")
 
-    a = cupy.arange(args.nbytes, dtype="uint8")
+    compressor = None
+    if args.zarr_compressor is not None:
+        compressor = get_zarr_compressors()[args.zarr_compressor]()
+
+    a = create_data(args.nbytes)
 
     shutil.rmtree(str(dir_path), ignore_errors=True)
 
@@ -213,7 +231,7 @@ def run_zarr(args):
     z = zarr.array(
         a,
         chunks=False,
-        compressor=None,
+        compressor=compressor,
         store=kvikio.zarr.GDSStore(dir_path),
         meta_array=cupy.empty(()),
     )
@@ -297,6 +315,8 @@ def main(args):
     print(f"directory         | {args.dir}")
     print(f"nthreads          | {args.nthreads}")
     print(f"nruns             | {args.nruns}")
+    if args.zarr_compressor is not None:
+        print(f"Zarr compressor   | {args.zarr_compressor}")
     print("==================================")
 
     # Run each benchmark using the requested APIs
@@ -374,7 +394,6 @@ if __name__ == "__main__":
         type=int,
         help="Number of threads to use (default: %(default)s).",
     )
-
     parser.add_argument(
         "--api",
         metavar="API",
@@ -382,6 +401,16 @@ if __name__ == "__main__":
         nargs="+",
         choices=tuple(API.keys()) + ("all",),
         help="List of APIs to use {%(choices)s}",
+    )
+    parser.add_argument(
+        "--zarr-compressor",
+        metavar="COMPRESSOR",
+        default=None,
+        choices=tuple(get_zarr_compressors().keys()),
+        help=(
+            "Set a nvCOMP compressor to use with Zarr "
+            "{%(choices)s} (default: %(default)s)"
+        ),
     )
 
     args = parser.parse_args()
