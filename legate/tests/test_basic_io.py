@@ -5,10 +5,10 @@
 import math
 
 import pytest
-from legate_kvikio import CuFile
-from legate_kvikio.tile import read_tiles, write_tiles
 
 from legate.core import get_legate_runtime
+from legate_kvikio import CuFile
+from legate_kvikio.tile import read_tiles, write_tiles
 
 num = pytest.importorskip("cunumeric")
 

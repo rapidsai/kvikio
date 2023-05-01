@@ -5,9 +5,8 @@ import os
 from enum import IntEnum
 from typing import Any
 
-from legate_kvikio.install_info import header, libpath
-
 from legate.core import Library, get_legate_runtime
+from legate_kvikio.install_info import header, libpath
 
 
 class LibraryDescription(Library):
