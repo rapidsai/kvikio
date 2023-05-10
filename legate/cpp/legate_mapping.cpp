@@ -81,7 +81,7 @@ Legion::Logger log_legate_kvikio(library_name);
 void registration_callback()
 {
   legate::ResourceConfig config = {.max_tasks = OP_NUM_TASK_IDS};
-  auto context = legate::Runtime::get_runtime()->create_library(
+  auto context                  = legate::Runtime::get_runtime()->create_library(
     library_name, config, std::make_unique<Mapper>());
   Registry::get_registrar().register_all_tasks(context);
 }
