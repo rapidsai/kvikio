@@ -74,7 +74,7 @@ std::filesystem::path get_file_path(const std::string& dirpath,
  */
 template <bool IsReadOperation>
 struct tile_read_write_fn {
-  template <legate::LegateTypeCode CODE, int32_t DIM>
+  template <legate::Type::Code CODE, int32_t DIM>
   void operator()(legate::TaskContext& context, legate::Store& store)
   {
     using DTYPE                             = legate::legate_type_of<CODE>;

@@ -22,7 +22,7 @@
 
 namespace legate_kvikio {
 
-class Mapper : public legate::mapping::LegateMapper {
+class Mapper : public legate::mapping::Mapper {
  public:
   Mapper() {}
 
@@ -80,16 +80,10 @@ Legion::Logger log_legate_kvikio(library_name);
 
 void registration_callback()
 {
-  legate::ResourceConfig config;
-  config.max_mappers = 1;
-  config.max_tasks   = OP_NUM_TASK_IDS;
-
-  legate::LibraryContext context(library_name, config);
-
+  legate::ResourceConfig config = {.max_tasks = OP_NUM_TASK_IDS};
+  auto context                  = legate::Runtime::get_runtime()->create_library(
+    library_name, config, std::make_unique<Mapper>());
   Registry::get_registrar().register_all_tasks(context);
-
-  // Now we can register our mapper with the runtime
-  context.register_mapper(std::make_unique<Mapper>(), 0);
 }
 
 }  // namespace legate_kvikio
