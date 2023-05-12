@@ -134,7 +134,7 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - numpy >=1.20
+          - numpy >=1.23
           - zarr
       - output_types: conda
         packages:

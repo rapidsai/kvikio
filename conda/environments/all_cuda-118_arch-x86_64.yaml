@@ -20,7 +20,7 @@ dependencies:
 - libcufile-dev=1.4.0.31
 - libcufile=1.4.0.31
 - ninja
-- numpy >=1.20
+- numpy >=1.23
 - pre-commit
 - pydata-sphinx-theme
 - pytest
