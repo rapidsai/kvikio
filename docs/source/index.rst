@@ -1,7 +1,7 @@
-Welcome to kvikIO's documentation!
+Welcome to KvikIO's documentation!
 ==================================
 
-kvikIO is a Python library providing bindings to `cuFile <https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html>`_, which enables `GPUDirectStorage <https://developer.nvidia.com/blog/gpudirect-storage/>`_ (GDS).
+KvikIO is a Python library providing bindings to `cuFile <https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html>`_, which enables `GPUDirectStorage <https://developer.nvidia.com/blog/gpudirect-storage/>`_ (GDS).
 
 .. toctree::
    :maxdepth: 2
