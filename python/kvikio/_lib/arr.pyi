@@ -1,11 +1,11 @@
 # Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-from typing import Tuple, TypeVar
+from typing import Generic, Tuple, TypeVar
 
 T = TypeVar("T")
 
-class Array:
+class Array(Generic[T]):
     def __init__(self, obj: T): ...
     @property
     def c_contiguous(self) -> bool: ...

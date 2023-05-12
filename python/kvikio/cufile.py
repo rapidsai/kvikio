@@ -2,7 +2,7 @@
 # See file LICENSE for terms.
 
 import pathlib
-from typing import Union
+from typing import Optional, Union
 
 from ._lib import libkvikio  # type: ignore
 
@@ -89,7 +89,11 @@ class CuFile:
         self.close()
 
     def pread(
-        self, buf, size: int = None, file_offset: int = 0, task_size=None
+        self,
+        buf,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        task_size: Optional[int] = None,
     ) -> IOFuture:
         """Reads specified bytes from the file into device or host memory in parallel
 
@@ -132,7 +136,11 @@ class CuFile:
         return IOFuture(self._handle.pread(buf, size, file_offset, task_size))
 
     def pwrite(
-        self, buf, size: int = None, file_offset: int = 0, task_size=None
+        self,
+        buf,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        task_size: Optional[int] = None,
     ) -> IOFuture:
         """Writes specified bytes from device or host memory into the file in parallel
 
@@ -174,7 +182,13 @@ class CuFile:
         """
         return IOFuture(self._handle.pwrite(buf, size, file_offset, task_size))
 
-    def read(self, buf, size: int = None, file_offset: int = 0, task_size=None) -> int:
+    def read(
+        self,
+        buf,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        task_size: Optional[int] = None,
+    ) -> int:
         """Reads specified bytes from the file into the device memory in parallel
 
         This is a blocking version of `.pread`.
@@ -207,7 +221,13 @@ class CuFile:
         """
         return self.pread(buf, size, file_offset, task_size).get()
 
-    def write(self, buf, size: int = None, file_offset: int = 0, task_size=None) -> int:
+    def write(
+        self,
+        buf,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        task_size: Optional[int] = None,
+    ) -> int:
         """Writes specified bytes from the device memory into the file in parallel
 
         This is a blocking version of `.pwrite`.
@@ -241,7 +261,7 @@ class CuFile:
         return self.pwrite(buf, size, file_offset, task_size).get()
 
     def raw_read(
-        self, buf, size: int = None, file_offset: int = 0, dev_offset: int = 0
+        self, buf, size: Optional[int] = None, file_offset: int = 0, dev_offset: int = 0
     ) -> int:
         """Reads specified bytes from the file into the device memory
 
@@ -277,7 +297,7 @@ class CuFile:
         return self._handle.read(buf, size, file_offset, dev_offset)
 
     def raw_write(
-        self, buf, size: int = None, file_offset: int = 0, dev_offset: int = 0
+        self, buf, size: Optional[int] = None, file_offset: int = 0, dev_offset: int = 0
     ) -> int:
         """Writes specified bytes from the device memory into the file
 
