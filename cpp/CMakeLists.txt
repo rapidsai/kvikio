@@ -140,11 +140,3 @@ rapids_export(
   NAMESPACE kvikio::
   DOCUMENTATION doc_string
 )
-
-# make documentation
-
-# add_custom_command( OUTPUT KvikIO_DOXYGEN WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
-# COMMAND doxygen Doxyfile VERBATIM COMMENT "Custom command for KvikIO doxygen docs")
-
-# add_custom_target( kvikio_doc DEPENDS KvikIO_DOXYGEN COMMENT "Target for the custom command to
-# build the KvikIO doxygen docs")

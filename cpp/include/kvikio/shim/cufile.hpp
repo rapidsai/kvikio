@@ -47,6 +47,14 @@ class cuFileAPI {
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
 
+#ifdef CUFILE_BATCH_API_FOUND
+  decltype(cuFileBatchIOSetUp)* BatchIOSetUp{nullptr};
+  decltype(cuFileBatchIOSubmit)* BatchIOSubmit{nullptr};
+  decltype(cuFileBatchIOGetStatus)* BatchIOGetStatus{nullptr};
+  decltype(cuFileBatchIOCancel)* BatchIOCancel{nullptr};
+  decltype(cuFileBatchIODestroy)* BatchIODestroy{nullptr};
+#endif
+
  private:
   cuFileAPI()
   {
@@ -73,6 +81,14 @@ class cuFileAPI {
     get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
     get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
+
+#ifdef CUFILE_BATCH_API_FOUND
+    get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
+    get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
+    get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
+    get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
+    get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
+#endif
 
     // cuFile is supposed to open and close the driver automatically but because of a bug in
     // CUDA 11.8, it sometimes segfault. See <https://github.com/rapidsai/kvikio/issues/159>.

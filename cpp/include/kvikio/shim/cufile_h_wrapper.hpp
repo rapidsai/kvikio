@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,4 +35,23 @@ using CUfileDriverControlFlags_t = enum CUfileDriverControlFlags {
   CU_FILE_ALLOW_COMPAT_MODE = 1  /*!< allow COMPATIBILITY mode. properties.allow_compat_mode*/
 };
 using CUfileHandle_t = void*;
+
+typedef enum CUfileOpcode { CUFILE_READ = 0, CUFILE_WRITE } CUfileOpcode_t;
+
+typedef enum CUFILEStatus_enum {
+  CUFILE_WAITING  = 0x000001,  /* required value prior to submission */
+  CUFILE_PENDING  = 0x000002,  /* once enqueued */
+  CUFILE_INVALID  = 0x000004,  /* request was ill-formed or could not be enqueued */
+  CUFILE_CANCELED = 0x000008,  /* request successfully canceled */
+  CUFILE_COMPLETE = 0x0000010, /* request successfully completed */
+  CUFILE_TIMEOUT  = 0x0000020, /* request timed out */
+  CUFILE_FAILED   = 0x0000040  /* unable to complete */
+} CUfileStatus_t;
+
+typedef struct CUfileIOEvents {
+  void* cookie;
+  CUfileStatus_t status; /* status of the operation */
+  size_t ret;            /* -ve error or amount of I/O done. */
+} CUfileIOEvents_t;
+
 #endif
