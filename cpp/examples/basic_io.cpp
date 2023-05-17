@@ -145,8 +145,7 @@ int main()
          << " threads): " << read << endl;
   }
 
-#ifdef CUFILE_BATCH_API_FOUND
-  {
+  if (kvikio::is_batch_available()) {
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
     // submitting 4 batch operations.
     constexpr int num_of_batches = 4;
@@ -187,5 +186,4 @@ int main()
     }
     cout << "Batch read using 4 operations: " << total_read << endl;
   }
-#endif
 }
