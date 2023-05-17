@@ -37,7 +37,7 @@ sphinx-build -b dirhtml source _html -W
 sphinx-build -b text source _text -W
 popd
 
-if [[ "${RAPIDS_BUILD_TYPE}" == "branch" ]]; then
+if [[ "${RAPIDS_BUILD_TYPE}" != "pull-request" ]]; then
   rapids-logger "Upload Docs to S3"
   aws s3 sync --no-progress --delete cpp/doxygen/html "s3://rapidsai-docs/libkvikio/${VERSION_NUMBER}/html"
   aws s3 sync --no-progress --delete docs/_html "s3://rapidsai-docs/kvikio/${VERSION_NUMBER}/html"
