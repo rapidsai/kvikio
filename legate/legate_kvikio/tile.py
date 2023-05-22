@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
 import cunumeric
 
@@ -102,3 +102,39 @@ def read_tiles(
         The start coordinate of the tiles
     """
     return _tile_read_write(TaskOpCode.TILE_READ, ary, dirpath, tile_shape, tile_start)
+
+
+def read_tiles_by_offsets(
+    ary: cunumeric.ndarray,
+    filepaths: Iterable[pathlib.Path | str],
+    offsets: Tuple[int],
+    sizes: Tuple[int],
+    tile_shape: Tuple[int],
+) -> None:
+    # TODO; support a filepath per offset/size
+    assert len(filepaths) == 1, "For now, only a single filepath is supported"
+    filepath = str(filepaths[0])
+
+    if any(d % c != 0 for d, c in zip(ary.shape, tile_shape)):
+        raise ValueError(
+            f"The tile shape {tile_shape} must be "
+            f"divisible with the array shape {ary.shape}"
+        )
+
+    # Partition the array into even tiles
+    store_partition = get_legate_store(ary).partition_by_tiling(tile_shape)
+
+    # Use the partition's color shape as the launch shape so there will be
+    # one task for each tile
+    launch_shape = store_partition.partition.color_shape
+    task = context.create_manual_task(
+        TaskOpCode.TILE_READ_BY_OFFSETS,
+        launch_domain=Rect(launch_shape),
+    )
+
+    task.add_output(store_partition)
+    task.add_scalar_arg(filepath, types.string)
+    task.add_scalar_arg(offsets, (types.uint64,))
+    task.add_scalar_arg(sizes, (types.uint64,))
+    task.add_scalar_arg(tile_shape, (types.uint64,))
+    task.execute()
