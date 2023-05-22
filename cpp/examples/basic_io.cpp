@@ -185,5 +185,11 @@ int main()
       check(a[i] == b[i]);
     }
     cout << "Batch read using 4 operations: " << total_read << endl;
+
+    batch.submit(ops);
+    batch.cancel();
+    statuses = batch.status(num_ops_in_batch, num_ops_in_batch);
+    check(statuses.empty());
+    cout << "Batch canceling of all 4 operations" << endl;
   }
 }

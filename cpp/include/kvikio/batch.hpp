@@ -37,6 +37,11 @@ struct BatchOp {
 
 #ifdef CUFILE_BATCH_API_FOUND
 
+/**
+ * @brief Handle of an cuFile batch.
+ *
+ * In order to utilize cufile and GDS, a file must be registered with cufile.
+ */
 class BatchHandle {
  private:
   bool _initialized{false};
@@ -103,6 +108,8 @@ class BatchHandle {
     ret.resize(max_nr);
     return ret;
   }
+
+  void cancel() { CUFILE_TRY(cuFileAPI::instance().BatchIOCancel(_handle)); }
 };
 
 #else
