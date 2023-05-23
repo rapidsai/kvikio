@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2022-2023, NVIDIA CORPORATION.
 ###################################
-# kvikIO Docs build script for CI #
+# KvikIO Docs build script for CI #
 ###################################
 
 if [ -z "$PROJECT_WORKSPACE" ]; then
@@ -27,7 +27,7 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
-gpuci_logger "Install kvikIO"
+gpuci_logger "Install KvikIO"
 gpuci_conda_retry install -y -c rapidsai-nightly kvikio
 
 gpuci_logger "Check versions"

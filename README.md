@@ -70,10 +70,7 @@ conda env create --name kvikio-dev --file conda/environments/all_cuda-118_arch-x
 To build the C++ example, go to the `cpp` subdiretory and run:
 
 ```
-mkdir build
-cd build
-cmake ..
-make
+./build.sh libkvikio
 ```
 
 Then run the example:
@@ -87,7 +84,7 @@ Then run the example:
 To build and install the extension, go to the `python` subdirectory and run:
 
 ```
-python -m pip install .
+./build.sh kvikio
 ```
 
 One might have to define `CUDA_HOME` to the path to the CUDA installation.

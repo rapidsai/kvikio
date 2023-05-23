@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2022-2023, NVIDIA CORPORATION.
 ##########################
-# kvikIO Version Updater #
+# KvikIO Version Updater #
 ##########################
 
 ## Usage
