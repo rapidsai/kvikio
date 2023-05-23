@@ -6,7 +6,6 @@ import h5py
 import numpy as np
 
 import legate_kvikio.kerchunk
-import legate_kvikio.zarr
 
 
 def hdf5_io(filename):
