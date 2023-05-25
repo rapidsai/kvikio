@@ -31,13 +31,26 @@ requirements:
     - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('cuda') }} {{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} {{ cuda_version }}
+    {% else %}
+    - cuda-version {{ cuda_version }}
+    - {{ compiler('cuda') }}
+    - libcufile         # [linux64]
+    - libcufile-dev     # [linux64]
+    {% endif %}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cudatoolkit {{ cuda_version }}.*
-    - libcufile {{ libcufile_host_version }} # [linux64]
-    - libcufile-dev {{ libcufile_host_version }} # [linux64]
+    {% if cuda_major == "11" %}
+    - cudatoolkit ={{ cuda_version }}
+    - libcufile {{ cuda11_libcufile_host_version }}
+    - libcufile-dev {{ cuda11_libcufile_host_version }}
+    {% else %}
+    - cuda-version {{ cuda_version }}
+    - libcufile {{ libcufile_host_version }}      # [linux64]
+    - libcufile-dev {{ libcufile_host_version }}  # [linux64]
+    {% endif %}
 
 outputs:
   - name: libkvikio
@@ -52,9 +65,15 @@ outputs:
       build:
         - cmake {{ cmake_version }}
       run:
+        {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
-        - libcufile {{ libcufile_run_version }} # [linux64]
-        - libcufile-dev {{ libcufile_run_version }} # [linux64]
+        - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
+        - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
+        {% else %}
+        - cuda-cudart {{ cuda_spec }}
+        - libcufile {{ libcufile_run_version }}      # [linux64]
+        - libcufile-dev {{ libcufile_run_version }}  # [linux64]
+        {% endif %}
     test:
         commands:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
@@ -74,9 +93,15 @@ outputs:
       build:
         - cmake {{ cmake_version }}
       run:
+        {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
-        - libcufile {{ libcufile_run_version }} # [linux64]
-        - libcufile-dev {{ libcufile_run_version }} # [linux64]
+        - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
+        - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
+        {% else %}
+        - cuda-cudart {{ cuda_spec }}
+        - libcufile {{ libcufile_run_version }}      # [linux64]
+        - libcufile-dev {{ libcufile_run_version }}  # [linux64]
+        {% endif %}
     about:
       home: https://rapids.ai
       license: Apache-2.0

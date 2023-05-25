@@ -30,14 +30,23 @@ requirements:
     - ninja
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('cuda') }} {{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} {{ cuda_version }}
+    {% else %}
+    - cuda-version {{ cuda_version }}
+    - {{ compiler('cuda') }}
+    {% endif %}
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - python
     - setuptools
     - pip
     - cython >=0.29,<0.30
-    - cudatoolkit {{ cuda_version }}.*
+    {% if cuda_major == "11" %}
+    - cudatoolkit ={{ cuda_version }}
+    {% else %}
+    - cuda-version {{ cuda_version }}
+    {% endif %}
     - scikit-build >=0.13.1
     - libkvikio {{ version }}
   run:
@@ -45,7 +54,11 @@ requirements:
     - numpy >=1.20
     - cupy >=12.0.0
     - zarr
+    {% if cuda_major == "11" %}
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    {% else %}
+    - cuda-cudart {{ cuda_spec }}
+    {% endif %}
 
 test:
   requires:
