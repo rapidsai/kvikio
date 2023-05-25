@@ -36,16 +36,14 @@ requirements:
     {% else %}
     - cuda-version {{ cuda_version }}
     - {{ compiler('cuda') }}
-    - libcufile         # [linux64]
-    - libcufile-dev     # [linux64]
     {% endif %}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     {% if cuda_major == "11" %}
     - cudatoolkit ={{ cuda_version }}
-    - libcufile {{ cuda11_libcufile_host_version }}
-    - libcufile-dev {{ cuda11_libcufile_host_version }}
+    - libcufile {{ cuda11_libcufile_host_version }}      # [linux64]
+    - libcufile-dev {{ cuda11_libcufile_host_version }}  # [linux64]
     {% else %}
     - cuda-version {{ cuda_version }}
     - libcufile {{ libcufile_host_version }}      # [linux64]
