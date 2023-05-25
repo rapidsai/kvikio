@@ -79,7 +79,7 @@ dependencies:
               arch: x86_64
             packages:
               - cuda-version=12.0
-              - cuda-cudart
+              - cuda-nvcc
               - libcufile-dev
               - libcufile
           - matrix:
@@ -87,7 +87,7 @@ dependencies:
               arch: aarch64
             packages:
               - cuda-version=12.0
-              - cuda-cudart
+              - cuda-nvcc
           - matrix:
               cuda: "11.8"
               arch: x86_64
