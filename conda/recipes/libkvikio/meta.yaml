@@ -51,8 +51,7 @@ requirements:
     - libcufile-dev {{ cuda11_libcufile_host_version }}  # [linux64]
     {% else %}
     - cuda-version {{ cuda_version }}
-    - libcufile {{ libcufile_host_version }}      # [linux64]
-    - libcufile-dev {{ libcufile_host_version }}  # [linux64]
+    - libcufile-dev  # [linux64]
     {% endif %}
 
 outputs:
@@ -73,9 +72,8 @@ outputs:
         - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
         - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - cuda-cudart {{ cuda_spec }}
-        - libcufile {{ libcufile_run_version }}      # [linux64]
-        - libcufile-dev {{ libcufile_run_version }}  # [linux64]
+        - cuda-version {{ cuda_spec }}
+        - libcufile-dev  # [linux64]
         {% endif %}
     test:
         commands:
@@ -98,12 +96,10 @@ outputs:
       run:
         {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
-        - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
-        - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
+        - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - cuda-cudart {{ cuda_spec }}
-        - libcufile {{ libcufile_run_version }}      # [linux64]
-        - libcufile-dev {{ libcufile_run_version }}  # [linux64]
+        - cuda-version {{ cuda_spec }}
+        - libcufile  # [linux64]
         {% endif %}
     about:
       home: https://rapids.ai
