@@ -28,8 +28,8 @@ build:
     - SCCACHE_BUCKET
     - SCCACHE_IDLE_TIMEOUT
     - SCCACHE_REGION
-    - SCCACHE_S3_KEY_PREFIX=libkvikio-aarch64 # [aarch64]
-    - SCCACHE_S3_KEY_PREFIX=libkvikio-linux64 # [linux64]
+    - SCCACHE_S3_KEY_PREFIX=kvikio-aarch64 # [aarch64]
+    - SCCACHE_S3_KEY_PREFIX=kvikio-linux64 # [linux64]
     - SCCACHE_S3_USE_SSL
     - SCCACHE_S3_NO_CREDENTIALS
   script:
