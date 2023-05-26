@@ -71,7 +71,8 @@ requirements:
     {% if cuda_major == "11" %}
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     {% else %}
-    - cuda-cudart {{ cuda_spec }}
+    - cuda-version {{ cuda_version }}
+    - cuda-cudart
     {% endif %}
 
 test:
