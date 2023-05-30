@@ -21,7 +21,7 @@ def _tile_read_write(
     dirpath: pathlib.Path | str,
     tile_shape: Tuple[int],
     tile_start: Optional[Tuple[int]],
-):
+) -> None:
     """Implementation of `write_tiles` and `read_tiles`"""
 
     dirpath = pathlib.Path(dirpath)
@@ -77,7 +77,7 @@ def write_tiles(
     tile_start
         The start coordinate of the tiles
     """
-    return _tile_read_write(TaskOpCode.TILE_WRITE, ary, dirpath, tile_shape, tile_start)
+    _tile_read_write(TaskOpCode.TILE_WRITE, ary, dirpath, tile_shape, tile_start)
 
 
 def read_tiles(
@@ -101,7 +101,7 @@ def read_tiles(
     tile_start
         The start coordinate of the tiles
     """
-    return _tile_read_write(TaskOpCode.TILE_READ, ary, dirpath, tile_shape, tile_start)
+    _tile_read_write(TaskOpCode.TILE_READ, ary, dirpath, tile_shape, tile_start)
 
 
 def read_tiles_by_offsets(

@@ -90,17 +90,16 @@ struct tile_read_write_fn {
     auto shape_volume = shape.volume();
     if (shape_volume == 0) { return; }
     size_t nbytes = shape_volume * sizeof(DTYPE);
-    std::array<size_t, DIM> strides{};
 
     // We know that the accessor is contiguous because we set `policy.exact = true`
     // in `Mapper::store_mappings()`.
     if constexpr (IsReadOperation) {
       kvikio::FileHandle f(filepath, "r");
-      auto* data = store.write_accessor<DTYPE, DIM>().ptr(shape, strides.data());
+      auto* data = store.write_accessor<DTYPE, DIM>().ptr(shape);
       f.pread(data, nbytes).get();
     } else {
       kvikio::FileHandle f(filepath, "w");
-      const auto* data = store.read_accessor<DTYPE, DIM>().ptr(shape, strides.data());
+      const auto* data = store.read_accessor<DTYPE, DIM>().ptr(shape);
       f.pwrite(data, nbytes).get();
     }
   }
