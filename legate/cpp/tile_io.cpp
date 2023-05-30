@@ -147,10 +147,8 @@ struct tile_read_by_offsets_fn {
     legate::Span<const uint64_t> tile_shape = context.scalars().at(2).values<uint64_t>();
 
     // Flatten task index
-    uint32_t flatten_task_index = 0;
-    if (!context.is_single_task()) {
-      flatten_task_index = linearize<DIM>(launch_domain.lo(), launch_domain.hi(), task_index);
-    }
+    uint32_t flatten_task_index =
+      linearize<DIM>(launch_domain.lo(), launch_domain.hi(), task_index);
 
     auto shape        = store.shape<DIM>();
     auto shape_volume = shape.volume();
