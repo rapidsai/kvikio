@@ -52,14 +52,14 @@ def hdf5_read(filepath: pathlib.Path | str, dataset_name: str) -> cunumeric.ndar
     # Extract offset and bytes for each chunk
     refs = annotations["refs"]
     offsets = []
-    sizes = []
+    tile_nbytes = math.prod(zarr_ary.chunks) * zarr_ary.itemsize
     for chunk_coord in itertools.product(
         *(range(math.ceil(s / c)) for s, c in zip(zarr_ary.shape, zarr_ary.chunks))
     ):
         key = zarr_ary._chunk_key(chunk_coord)
         _, offset, nbytes = refs[key]
         offsets.append(offset)
-        sizes.append(nbytes)
+        assert tile_nbytes == nbytes
 
     padded_ary = get_padded_array(zarr_ary)
     if padded_ary is None:
@@ -68,7 +68,6 @@ def hdf5_read(filepath: pathlib.Path | str, dataset_name: str) -> cunumeric.ndar
             ret,
             filepath=filepath,
             offsets=tuple(offsets),
-            sizes=tuple(sizes),
             tile_shape=zarr_ary.chunks,
         )
     else:
@@ -76,7 +75,6 @@ def hdf5_read(filepath: pathlib.Path | str, dataset_name: str) -> cunumeric.ndar
             padded_ary,
             filepath=filepath,
             offsets=tuple(offsets),
-            sizes=tuple(sizes),
             tile_shape=zarr_ary.chunks,
         )
         ret = padded_ary[tuple(slice(s) for s in zarr_ary.shape)]

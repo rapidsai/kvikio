@@ -145,8 +145,7 @@ struct tile_read_by_offsets_fn {
     const auto launch_domain                = context.get_launch_domain();
     const std::string path                  = context.scalars().at(0).value<std::string>();
     legate::Span<const uint64_t> offsets    = context.scalars().at(1).values<uint64_t>();
-    legate::Span<const uint64_t> sizes      = context.scalars().at(2).values<uint64_t>();
-    legate::Span<const uint64_t> tile_shape = context.scalars().at(3).values<uint64_t>();
+    legate::Span<const uint64_t> tile_shape = context.scalars().at(2).values<uint64_t>();
 
     // Flatten task index
     uint32_t flatten_task_index = 0;
@@ -159,9 +158,6 @@ struct tile_read_by_offsets_fn {
     if (shape_volume == 0) { return; }
     size_t nbytes = shape_volume * sizeof(DTYPE);
     std::array<size_t, DIM> strides{};
-    if (nbytes != sizes[flatten_task_index]) {
-      throw std::runtime_error("sizes doesn't match the size of the output store");
-    }
 
     // We know that the accessor is contiguous because we set `policy.exact = true`
     // in `Mapper::store_mappings()`.
@@ -239,7 +235,6 @@ class TileReadTask : public Task<TileReadTask, TaskOpCode::OP_TILE_READ> {
  *   - scalars:
  *     - path: std::string
  *     - offsets: tuple of int64_t
- *     - sizes: tuple of int64_t
  *     - tile_shape: tuple of int64_t
  *   - outputs:
  *     - buffer: store (any dtype)

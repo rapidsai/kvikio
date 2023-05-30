@@ -108,7 +108,6 @@ def read_tiles_by_offsets(
     ary: cunumeric.ndarray,
     filepath: Iterable[pathlib.Path | str],
     offsets: Tuple[int],
-    sizes: Tuple[int],
     tile_shape: Tuple[int],
 ) -> None:
     """Read multiple tiles from a single file into an array using KvikIO
@@ -125,8 +124,6 @@ def read_tiles_by_offsets(
         Filepath to the file.
     offsets
         The offset of each tile in the file (in bytes).
-    sizes
-        The size of each tile in the file (in bytes).
     tile_shape
         The shape of each tile.
     """
@@ -149,11 +146,6 @@ def read_tiles_by_offsets(
             f"Number of offsets ({len(offsets)}) must match the number "
             f"of tiles of `ary` ({launch_vol})"
         )
-    if launch_vol != len(sizes):
-        raise ValueError(
-            f"Number of sizes ({len(sizes)}) must match the number "
-            f"of tiles of `ary` ({launch_vol})"
-        )
     task = context.create_manual_task(
         TaskOpCode.TILE_READ_BY_OFFSETS,
         launch_domain=launch_shape,
@@ -162,6 +154,5 @@ def read_tiles_by_offsets(
     task.add_output(store_partition)
     task.add_scalar_arg(str(filepath), types.string)
     task.add_scalar_arg(offsets, (types.uint64,))
-    task.add_scalar_arg(sizes, (types.uint64,))
     task.add_scalar_arg(tile_shape, (types.uint64,))
     task.execute()
