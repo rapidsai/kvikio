@@ -3,7 +3,6 @@
 
 import argparse
 import contextlib
-import operator
 import pathlib
 import tempfile
 from time import perf_counter as clock
@@ -19,17 +18,17 @@ def try_open_hdf5_array(filepath, shape, chunks, dtype):
     try:
         with h5py.File(filepath, "r") as f:
             a = f[DATASET]
-        chunks = chunks or a.chunks
         if a.shape == shape and a.chunks == chunks and a.dtype == dtype:
             return a
-    except FileNotFoundError:
+    except BaseException:
         pass
     return None
 
 
-def create_hdf5_array(filepath, shape, chunks, dtype=np.float64) -> None:
+def create_hdf5_array(filepath: pathlib.Path, shape, chunks, dtype=np.float64) -> None:
     ret = try_open_hdf5_array(filepath, shape, chunks, dtype)
     if ret is None:
+        filepath.unlink(missing_ok=True)
         # Write array using h5py
         with h5py.File(filepath, "w") as f:
             f.create_dataset(DATASET, chunks=chunks, data=np.random.random(shape))
@@ -38,6 +37,7 @@ def create_hdf5_array(filepath, shape, chunks, dtype=np.float64) -> None:
 
 @contextlib.contextmanager
 def dask_h5py(args):
+    import cupy
     import h5py
     from dask import array as da
     from dask_cuda import LocalCUDACluster
@@ -49,6 +49,8 @@ def dask_h5py(args):
             with h5py.File(args.dir / "B", "r") as bf:
                 a = da.from_array(af[DATASET], chunks=af[DATASET].chunks)
                 b = da.from_array(bf[DATASET], chunks=bf[DATASET].chunks)
+                a = a.map_blocks(cupy.asarray)
+                b = b.map_blocks(cupy.asarray)
                 c = args.op(da, a, b)
                 int(c.sum().compute())
                 t1 = clock()
@@ -84,8 +86,7 @@ API = {
     "legate": run_legate,
 }
 
-
-OP = {"add": operator.add, "matmul": operator.matmul}
+OP = {"add": lambda xp, a, b: a + b, "matmul": lambda xp, a, b: xp.matmul(a, b)}
 
 
 def main(args):
@@ -120,13 +121,13 @@ if __name__ == "__main__":
         "-m",
         default=100,
         type=int,
-        help="Dimension of the two squired input matrix (MxM) (default: %(default)s).",
+        help="Dimension of the two square input matrices (MxM) (default: %(default)s).",
     )
     parser.add_argument(
         "-c",
         default=None,
         type=int,
-        help="Dimension of the squired chunk (CxC) (default: M/10).",
+        help="Dimension of the square chunks (CxC) (default: M//10).",
     )
     parser.add_argument(
         "-d",
