@@ -149,7 +149,7 @@ def read_tiles_by_offsets(
             f"Number of offsets ({len(offsets)}) must match the number "
             f"of tiles of `ary` ({launch_vol})"
         )
-    if launch_vol != len(offsets):
+    if launch_vol != len(sizes):
         raise ValueError(
             f"Number of sizes ({len(sizes)}) must match the number "
             f"of tiles of `ary` ({launch_vol})"
