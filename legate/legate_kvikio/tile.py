@@ -28,6 +28,8 @@ def _tile_read_write(
     if tile_start is None:
         tile_start = (0,) * len(tile_shape)
 
+    if len(ary.shape) != len(tile_shape):
+        raise ValueError("Tile shape and array shape must have same number of axes")
     if any(d % c != 0 for d, c in zip(ary.shape, tile_shape)):
         raise ValueError(
             f"The tile shape {tile_shape} must be "
@@ -128,6 +130,8 @@ def read_tiles_by_offsets(
         The shape of each tile.
     """
 
+    if len(ary.shape) != len(tile_shape):
+        raise ValueError("Tile shape and array shape must have same number of axes")
     if any(d % c != 0 for d, c in zip(ary.shape, tile_shape)):
         raise ValueError(
             f"The tile shape {tile_shape} must be "
