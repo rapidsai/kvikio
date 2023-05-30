@@ -121,11 +121,11 @@ size_t linearize(const legate::DomainPoint& lo_dp,
 {
   const legate::Point<DIM> lo      = lo_dp;
   const legate::Point<DIM> hi      = hi_dp;
-  const legate::Point<DIM> point   = point_dp;
+  const legate::Point<DIM> point   = point_dp - lo_dp;
   const legate::Point<DIM> extents = hi - lo + legate::Point<DIM>::ONES();
   size_t idx                       = 0;
   for (int32_t dim = 0; dim < DIM; ++dim) {
-    idx = idx * extents[dim] + point[dim] - lo[dim];
+    idx = idx * extents[dim] + point[dim];
   }
   return idx;
 }
