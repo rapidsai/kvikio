@@ -154,12 +154,11 @@ struct tile_read_by_offsets_fn {
     auto shape_volume = shape.volume();
     if (shape_volume == 0) { return; }
     size_t nbytes = shape_volume * sizeof(DTYPE);
-    std::array<size_t, DIM> strides{};
 
     // We know that the accessor is contiguous because we set `policy.exact = true`
     // in `Mapper::store_mappings()`.
     kvikio::FileHandle f(path, "r");
-    auto* data = store.write_accessor<DTYPE, DIM>().ptr(shape, strides.data());
+    auto* data = store.write_accessor<DTYPE, DIM>().ptr(shape);
     f.pread(data, nbytes, offsets[flatten_task_index]).get();
   }
 };
