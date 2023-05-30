@@ -9,8 +9,9 @@ import pytest
 from numpy.testing import assert_array_equal
 
 from legate.core import get_legate_runtime
-from legate_kvikio.zarr import read_array, write_array
 
+read_array = pytest.importorskip("legate_kvikio.zarr").read_array
+write_array = pytest.importorskip("legate_kvikio.zarr").write_array
 num = pytest.importorskip("cunumeric")
 zarr = pytest.importorskip("zarr")
 

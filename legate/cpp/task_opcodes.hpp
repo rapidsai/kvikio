@@ -20,5 +20,6 @@ enum TaskOpCode {
   OP_READ,
   OP_TILE_WRITE,
   OP_TILE_READ,
+  OP_TILE_READ_BY_OFFSETS,
   OP_NUM_TASK_IDS,  // must be last
 };
