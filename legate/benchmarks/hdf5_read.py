@@ -121,13 +121,13 @@ if __name__ == "__main__":
         "-m",
         default=100,
         type=int,
-        help="Dimension of the two squired input matrix (MxM) (default: %(default)s).",
+        help="Dimension of the two square input matrices (MxM) (default: %(default)s).",
     )
     parser.add_argument(
         "-c",
         default=None,
         type=int,
-        help="Dimension of the squired chunk (CxC) (default: M/10).",
+        help="Dimension of the square chunks (CxC) (default: M//10).",
     )
     parser.add_argument(
         "-d",
