@@ -87,9 +87,8 @@ def read_array(dirpath: pathlib.Path | str) -> cunumeric.ndarray:
 
     Notes
     -----
-    The returned array is padded to make its shape divisible by the shape of
-    the Zarr chunks on disk (if not already). This means that the returned
-    Legate store can be larger than the returned cuNumeric array.
+    The returned array might be a view of a underlying array that has been padded in
+    order to make its shape divisible by the shape of the Zarr chunks on disk.
 
     Parameters
     ----------
