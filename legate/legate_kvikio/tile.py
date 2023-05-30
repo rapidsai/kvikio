@@ -106,14 +106,30 @@ def read_tiles(
 
 def read_tiles_by_offsets(
     ary: cunumeric.ndarray,
-    filepaths: Iterable[pathlib.Path | str],
+    filepath: Iterable[pathlib.Path | str],
     offsets: Tuple[int],
     sizes: Tuple[int],
     tile_shape: Tuple[int],
 ) -> None:
-    # TODO; support a filepath per offset/size
-    assert len(filepaths) == 1, "For now, only a single filepath is supported"
-    filepath = str(filepaths[0])
+    """Read multiple tiles from a single file into an array using KvikIO
+
+    The array shape must be divisible with the tile shape.
+
+    # TODO: support a filepath per offset/size
+
+    Parameters
+    ----------
+    ary
+       The cuNumeric array to read into.
+    filepath
+        Filepath to the file.
+    offsets
+        The offset of each tile in the file (in bytes).
+    sizes
+        The size of each tile in the file (in bytes).
+    tile_shape
+        The shape of each tile.
+    """
 
     if any(d % c != 0 for d, c in zip(ary.shape, tile_shape)):
         raise ValueError(
@@ -126,14 +142,25 @@ def read_tiles_by_offsets(
 
     # Use the partition's color shape as the launch shape so there will be
     # one task for each tile
-    launch_shape = store_partition.partition.color_shape
+    launch_shape = Rect(store_partition.partition.color_shape)
+    launch_vol = launch_shape.get_volume()
+    if launch_vol != len(offsets):
+        raise ValueError(
+            f"Number of offsets ({len(offsets)}) must match the number "
+            f"of tiles of `ary` ({launch_vol})"
+        )
+    if launch_vol != len(offsets):
+        raise ValueError(
+            f"Number of sizes ({len(sizes)}) must match the number "
+            f"of tiles of `ary` ({launch_vol})"
+        )
     task = context.create_manual_task(
         TaskOpCode.TILE_READ_BY_OFFSETS,
-        launch_domain=Rect(launch_shape),
+        launch_domain=launch_shape,
     )
 
     task.add_output(store_partition)
-    task.add_scalar_arg(filepath, types.string)
+    task.add_scalar_arg(str(filepath), types.string)
     task.add_scalar_arg(offsets, (types.uint64,))
     task.add_scalar_arg(sizes, (types.uint64,))
     task.add_scalar_arg(tile_shape, (types.uint64,))

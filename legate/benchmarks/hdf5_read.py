@@ -3,6 +3,7 @@
 
 import argparse
 import contextlib
+import operator
 import pathlib
 import tempfile
 from time import perf_counter as clock
@@ -83,7 +84,8 @@ API = {
     "legate": run_legate,
 }
 
-OP = {"add": lambda xp, a, b: a + b, "matmul": lambda xp, a, b: xp.matmul(a, b)}
+
+OP = {"add": operator.add, "matmul": operator.matmul}
 
 
 def main(args):

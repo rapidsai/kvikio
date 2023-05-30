@@ -18,7 +18,10 @@ from .zarr import get_padded_array
 
 
 def hdf5_read(filepath: pathlib.Path | str, dataset_name: str) -> cunumeric.ndarray:
-    """Read an HDF5 array from disk using KvikIO
+    """Read an HDF5 array from disk using Kerchunk and KvikIO
+
+    We use Kerchunk's `SingleHdf5ToZarr` to find the data chunks embedded
+    in the hdf5 file. If it fails for any reason, this function fails as well.
 
     Notes
     -----
@@ -63,7 +66,7 @@ def hdf5_read(filepath: pathlib.Path | str, dataset_name: str) -> cunumeric.ndar
         ret = cunumeric.empty(shape=zarr_ary.shape, dtype=zarr_ary.dtype)
         read_tiles_by_offsets(
             ret,
-            filepaths=[filepath],
+            filepath=filepath,
             offsets=tuple(offsets),
             sizes=tuple(sizes),
             tile_shape=zarr_ary.chunks,
@@ -71,7 +74,7 @@ def hdf5_read(filepath: pathlib.Path | str, dataset_name: str) -> cunumeric.ndar
     else:
         read_tiles_by_offsets(
             padded_ary,
-            filepaths=[filepath],
+            filepath=filepath,
             offsets=tuple(offsets),
             sizes=tuple(sizes),
             tile_shape=zarr_ary.chunks,
