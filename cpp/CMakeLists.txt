@@ -60,6 +60,15 @@ rapids_find_package(
 )
 if(NOT cuFile_FOUND)
   message(WARNING "Building KvikIO without cuFile")
+else()
+  file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
+  string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
+  if(cuFileBatchIOSetUp_location EQUAL "-1")
+    set(cuFile_BATCH_API_FOUND FALSE)
+  else()
+    set(cuFile_BATCH_API_FOUND TRUE)
+  endif()
+  message(STATUS "Found cuFile's Batch API: ${cuFile_BATCH_API_FOUND}")
 endif()
 
 # library targets
@@ -75,6 +84,9 @@ target_link_libraries(kvikio INTERFACE Threads::Threads)
 target_link_libraries(kvikio INTERFACE CUDA::toolkit)
 if(cuFile_FOUND)
   target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
+  if(cuFile_BATCH_API_FOUND)
+    target_compile_definitions(kvikio INTERFACE CUFILE_BATCH_API_FOUND)
+  endif()
 endif()
 target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
 target_compile_features(kvikio INTERFACE cxx_std_17)
@@ -128,11 +140,3 @@ rapids_export(
   NAMESPACE kvikio::
   DOCUMENTATION doc_string
 )
-
-# make documentation
-
-# add_custom_command( OUTPUT KvikIO_DOXYGEN WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
-# COMMAND doxygen Doxyfile VERBATIM COMMENT "Custom command for KvikIO doxygen docs")
-
-# add_custom_target( kvikio_doc DEPENDS KvikIO_DOXYGEN COMMENT "Target for the custom command to
-# build the KvikIO doxygen docs")
