@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include <cuda_runtime_api.h>
 
+#include <kvikio/batch.hpp>
 #include <kvikio/buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/driver.hpp>
@@ -48,13 +49,14 @@ int main()
     cout << "  Compatibility mode: disabled" << endl;
     kvikio::DriverProperties props;
     cout << "DriverProperties: " << endl;
-    cout << "  Version: " << props.get_nvfs_major_version() << "." << props.get_nvfs_minor_version()
-         << endl;
+    cout << "  nvfs version: " << props.get_nvfs_major_version() << "."
+         << props.get_nvfs_minor_version() << endl;
     cout << "  Allow compatibility mode: " << std::boolalpha << props.get_nvfs_allow_compat_mode()
          << endl;
     cout << "  Pool mode - enabled: " << std::boolalpha << props.get_nvfs_poll_mode()
          << ", threshold: " << props.get_nvfs_poll_thresh_size() << " kb" << endl;
     cout << "  Max pinned memory: " << props.get_max_pinned_memory_size() << " kb" << endl;
+    cout << "  Max batch IO size: " << props.get_max_batch_io_size() << endl;
   }
 
   int* a{};
@@ -141,5 +143,53 @@ int main()
     }
     cout << "Parallel POSIX read (" << kvikio::defaults::thread_pool_nthreads()
          << " threads): " << read << endl;
+  }
+
+  if (kvikio::is_batch_available()) {
+    // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
+    // submitting 4 batch operations.
+    constexpr int num_ops_in_batch = 4;
+    constexpr int batchsize        = SIZE / num_ops_in_batch;
+    kvikio::DriverProperties props;
+    check(num_ops_in_batch < props.get_max_batch_io_size());
+
+    // We open the file as usual.
+    kvikio::FileHandle f("/tmp/test-file", "r");
+
+    // Then we create a batch
+    auto batch = kvikio::BatchHandle(num_ops_in_batch);
+
+    // And submit 4 operations each with its own offset
+    std::vector<kvikio::BatchOp> ops;
+    for (int i = 0; i < num_ops_in_batch; ++i) {
+      ops.push_back(kvikio::BatchOp{.file_handle   = f,
+                                    .devPtr_base   = b_dev,
+                                    .file_offset   = i * batchsize,
+                                    .devPtr_offset = i * batchsize,
+                                    .size          = batchsize,
+                                    .opcode        = CUFILE_READ});
+    }
+    batch.submit(ops);
+
+    // Finally, we wait on all 4 operations to be finished and check the result
+    auto statuses = batch.status(num_ops_in_batch, num_ops_in_batch);
+    check(statuses.size() == num_ops_in_batch);
+    size_t total_read = 0;
+    for (auto status : statuses) {
+      check(status.status == CUFILE_COMPLETE);
+      check(status.ret == batchsize);
+      total_read += status.ret;
+    }
+    check(cudaMemcpy(b, b_dev, SIZE, cudaMemcpyDeviceToHost) == cudaSuccess);
+    for (int i = 0; i < NELEM; ++i) {
+      check(a[i] == b[i]);
+    }
+    cout << "Batch read using 4 operations: " << total_read << endl;
+
+    batch.submit(ops);
+    batch.cancel();
+    statuses = batch.status(num_ops_in_batch, num_ops_in_batch);
+    check(statuses.empty());
+    cout << "Batch canceling of all 4 operations" << endl;
   }
 }
