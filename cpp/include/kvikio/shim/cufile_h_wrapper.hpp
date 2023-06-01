@@ -35,7 +35,11 @@ using CUfileDriverControlFlags_t = enum CUfileDriverControlFlags {
   CU_FILE_ALLOW_COMPAT_MODE = 1  /*!< allow COMPATIBILITY mode. properties.allow_compat_mode*/
 };
 using CUfileHandle_t = void*;
+#endif
 
+// If the Batch API isn't defined, we define some of the data types here.
+// Notice, this doesn't need to be ABI compatible with the cufile definitions.
+#ifndef CUFILE_BATCH_API_FOUND
 typedef enum CUfileOpcode { CUFILE_READ = 0, CUFILE_WRITE } CUfileOpcode_t;
 
 typedef enum CUFILEStatus_enum {
@@ -53,5 +57,4 @@ typedef struct CUfileIOEvents {
   CUfileStatus_t status; /* status of the operation */
   size_t ret;            /* -ve error or amount of I/O done. */
 } CUfileIOEvents_t;
-
 #endif
