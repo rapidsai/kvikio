@@ -126,7 +126,7 @@ class BatchHandle {
     }
 
     CUFILE_TRY(
-      cuFileAPI::instance().BatchIOSubmit(_handle, io_batch_params.size(), &io_batch_params[0], 0));
+      cuFileAPI::instance().BatchIOSubmit(_handle, io_batch_params.size(), io_batch_params.data(), 0));
   }
 
   /**
