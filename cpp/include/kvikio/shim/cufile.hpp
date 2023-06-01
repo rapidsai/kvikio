@@ -173,7 +173,7 @@ inline bool is_cufile_available()
  *
  * @return The boolean answer
  */
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef CUFILE_BATCH_API_FOUND
 inline bool is_batch_available()
 {
   try {

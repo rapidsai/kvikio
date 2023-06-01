@@ -125,8 +125,8 @@ class BatchHandle {
                                                  .cookie = nullptr});
     }
 
-    CUFILE_TRY(
-      cuFileAPI::instance().BatchIOSubmit(_handle, io_batch_params.size(), io_batch_params.data(), 0));
+    CUFILE_TRY(cuFileAPI::instance().BatchIOSubmit(
+      _handle, io_batch_params.size(), io_batch_params.data(), 0));
   }
 
   /**
