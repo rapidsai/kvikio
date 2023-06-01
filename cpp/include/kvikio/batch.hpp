@@ -112,6 +112,9 @@ class BatchHandle {
    */
   void submit(const std::vector<BatchOp>& operations)
   {
+    if (convert_size2ssize(operations.size()) > _max_num_events) {
+      throw CUfileException("Cannot submit more than the max_num_events)");
+    }
     std::vector<CUfileIOParams_t> io_batch_params;
     io_batch_params.reserve(operations.size());
     for (const auto& op : operations) {
