@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import io
@@ -7,8 +7,7 @@ import os.path
 from typing import Protocol, Union, runtime_checkable
 
 import numpy as np
-from numpy._typing._array_like import ArrayLike
-from numpy._typing._dtype_like import DTypeLike
+from numpy.typing import ArrayLike, DTypeLike
 
 import kvikio
 

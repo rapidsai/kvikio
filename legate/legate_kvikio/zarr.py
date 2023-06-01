@@ -13,7 +13,7 @@ import zarr.core
 from .tile import read_tiles, write_tiles
 
 
-def _get_padded_array(zarr_ary: zarr.Array) -> Optional[cunumeric.ndarray]:
+def get_padded_array(zarr_ary: zarr.Array) -> Optional[cunumeric.ndarray]:
     """Get a padded array that has an shape divisible by `zarr_ary.chunks`.
 
     Parameters
@@ -74,7 +74,7 @@ def write_array(
         chunks=chunks,
         compressor=compressor,
     )
-    padded_ary = _get_padded_array(zarr_ary)
+    padded_ary = get_padded_array(zarr_ary)
     if padded_ary is None:
         write_tiles(ary, dirpath=dirpath, tile_shape=zarr_ary.chunks)
     else:
@@ -87,9 +87,8 @@ def read_array(dirpath: pathlib.Path | str) -> cunumeric.ndarray:
 
     Notes
     -----
-    The returned array is padded to make its shape divisible by the shape of
-    the Zarr chunks on disk (if not already). This means that the returned
-    Legate store can be larger than the returned cuNumeric array.
+    The returned array might be a view of a underlying array that has been padded in
+    order to make its shape divisible by the shape of the Zarr chunks on disk.
 
     Parameters
     ----------
@@ -108,7 +107,7 @@ def read_array(dirpath: pathlib.Path | str) -> cunumeric.ndarray:
     if zarr_ary.compressor is not None:
         raise NotImplementedError("compressor isn't supported")
 
-    padded_ary = _get_padded_array(zarr_ary)
+    padded_ary = get_padded_array(zarr_ary)
     if padded_ary is None:
         ret = cunumeric.empty(shape=zarr_ary.shape, dtype=zarr_ary.dtype)
         read_tiles(ret, dirpath=dirpath, tile_shape=zarr_ary.chunks)

@@ -32,7 +32,7 @@ namespace legate_kvikio {
  * @brief Functor converting Legate type code to size
  */
 struct elem_size_fn {
-  template <legate::LegateTypeCode DTYPE>
+  template <legate::Type::Code DTYPE>
   size_t operator()()
   {
     return sizeof(legate::legate_type_of<DTYPE>);
@@ -45,7 +45,7 @@ struct elem_size_fn {
  * @param code Legate type code
  * @return The number of bytes
  */
-size_t sizeof_legate_type_code(legate::LegateTypeCode code)
+size_t sizeof_legate_type_code(legate::Type::Code code)
 {
   return legate::type_dispatch(code, elem_size_fn{});
 }
