@@ -225,6 +225,23 @@ class FileHandle {
   }
 
   /**
+   * @brief Get the underlying cuFile file handle
+   *
+   * The file handle must be open and not in compatibility mode i.e.
+   * both `.closed()` and `.is_compat_mode_on()` must be return false.
+   *
+   * @return cuFile's file handle
+   */
+  [[nodiscard]] CUfileHandle_t handle()
+  {
+    if (closed()) { throw CUfileException("File handle is closed"); }
+    if (_compat_mode) {
+      throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
+    }
+    return _handle;
+  }
+
+  /**
    * @brief Get one of the file descriptors
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the

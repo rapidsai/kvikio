@@ -8,7 +8,9 @@ import pytest
 
 from legate.core import get_legate_runtime
 from legate_kvikio import CuFile
-from legate_kvikio.tile import read_tiles, write_tiles
+
+read_tiles = pytest.importorskip("legate_kvikio.tile").read_tiles
+write_tiles = pytest.importorskip("legate_kvikio.tile").write_tiles
 
 num = pytest.importorskip("cunumeric")
 

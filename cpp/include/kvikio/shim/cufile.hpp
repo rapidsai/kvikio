@@ -47,6 +47,15 @@ class cuFileAPI {
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
 
+#ifdef CUFILE_BATCH_API_FOUND
+  decltype(cuFileBatchIOSetUp)* BatchIOSetUp{nullptr};
+  decltype(cuFileBatchIOSubmit)* BatchIOSubmit{nullptr};
+  decltype(cuFileBatchIOGetStatus)* BatchIOGetStatus{nullptr};
+  decltype(cuFileBatchIOCancel)* BatchIOCancel{nullptr};
+  decltype(cuFileBatchIODestroy)* BatchIODestroy{nullptr};
+#endif
+  bool batch_available = false;
+
  private:
   cuFileAPI()
   {
@@ -73,6 +82,26 @@ class cuFileAPI {
     get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
     get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
+
+#ifdef CUFILE_BATCH_API_FOUND
+    get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
+    get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
+    get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
+    get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
+    get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
+
+    // HACK: we use the mangled name of the `cuFileBatchContextState` to determine if cuFile's
+    // batch API is available. Notice, the symbols of `cuFileBatchIOSetUp` & co. exist all
+    // the way back to CUDA v11.5 but calling them is undefined behavior.
+    // TODO: when CUDA v12.2 is released, use `cuFileReadAsync` to determine the availability of
+    // both the batch and async API.
+    try {
+      void* s{};
+      get_symbol(s, lib, "_ZTS23cuFileBatchContextState");
+      batch_available = true;
+    } catch (const std::runtime_error&) {
+    }
+#endif
 
     // cuFile is supposed to open and close the driver automatically but because of a bug in
     // CUDA 11.8, it sometimes segfault. See <https://github.com/rapidsai/kvikio/issues/159>.
@@ -138,5 +167,23 @@ inline bool is_cufile_available()
 {
   return is_cufile_library_available() && run_udev_readable() && !is_running_in_wsl();
 }
+
+/**
+ * @brief Check if cuFile's batch API is available
+ *
+ * @return The boolean answer
+ */
+#ifdef CUFILE_BATCH_API_FOUND
+inline bool is_batch_available()
+{
+  try {
+    return cuFileAPI::instance().batch_available;
+  } catch (const std::runtime_error&) {
+    return false;
+  }
+}
+#else
+constexpr bool is_batch_available() { return false; }
+#endif
 
 }  // namespace kvikio

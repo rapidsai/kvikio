@@ -45,3 +45,4 @@ class TaskOpCode(IntEnum):
     READ = description.cffi.OP_READ
     TILE_WRITE = description.cffi.OP_TILE_WRITE
     TILE_READ = description.cffi.OP_TILE_READ
+    TILE_READ_BY_OFFSETS = description.cffi.OP_TILE_READ_BY_OFFSETS
