@@ -36,21 +36,21 @@ files:
       - py_version
   py_build:
     output: pyproject
-    pyproject_dir: python/kvikio
+    pyproject_dir: python
     extras:
       table: build-system
     includes:
       - build
   py_run:
     output: pyproject
-    pyproject_dir: python/kvikio
+    pyproject_dir: python
     extras:
       table: project
     includes:
       - run
   py_optional_test:
     output: pyproject
-    pyproject_dir: python/kvikio
+    pyproject_dir: python
     extras:
       table: project.optional-dependencies
       key: test
@@ -74,6 +74,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+      - output_types: [requirements, pyproject]
+        packages:
+          - setuptools
+          - wheel
     specific:
       - output_types: conda
         matrices:
@@ -174,8 +178,9 @@ dependencies:
               - libcufile-dev
   test_python:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
+          - cuda-python>=11.7.1,<12.0
           - cudf=23.08.*
           - dask>=2022.05.2
           - distributed>=2022.05.2
