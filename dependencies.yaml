@@ -78,7 +78,6 @@ files:
       key: test
     includes:
       - test_python
-
 channels:
   - rapidsai
   - rapidsai-nightly
