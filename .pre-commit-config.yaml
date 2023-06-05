@@ -92,6 +92,11 @@ repos:
             ^CHANGELOG.md$|
             ^.*versioneer.py$
           )
+  - repo: https://github.com/rapidsai/dependency-file-generator
+    rev: v1.5.2
+    hooks:
+      - id: rapids-dependency-file-generator
+        args: ["--clean"]
 
 default_language_version:
       python: python3
