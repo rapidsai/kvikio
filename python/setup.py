@@ -19,9 +19,10 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     # Include the separately-compiled shared library
-    extras_require={"test": ["pytest", "pytest-xdist"]},
+    extras_require={"test": ["pytest", "pytest-cov"]},
     packages=find_packages(exclude=["tests*"]),
     package_data={
         # Note: A dict comprehension with an explicit copy is necessary (rather
