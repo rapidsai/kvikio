@@ -10,8 +10,6 @@ exclude =
     build,
     docs,
     .git,
-    versioneer.py,
-    _version.py,
     _skbuild,
 ignore =
     # line break before binary operator
@@ -34,48 +32,3 @@ per-file-ignores =
     *.pyx: E211, E225, E226, E227, E275, E402, E999, W503, W504
     *.pxd: E211, E225, E226, E227, E275, E402, E999, W503, W504
     *.pxi: E211, E225, E226, E227, E275, E402, E999, W503, W504
-
-[isort]
-line_length=88
-multi_line_output=3
-include_trailing_comma=True
-force_grid_wrap=0
-combine_as_imports=True
-order_by_type=True
-known_rapids=
-    nvtext
-    cudf
-    cuml
-    cugraph
-    dask_cudf
-known_first_party=
-    cufile
-    kvikio
-    legate_kvikio
-default_section=THIRDPARTY
-sections=FUTURE,STDLIB,THIRDPARTY,RAPIDS,FIRSTPARTY,LOCALFOLDER
-skip=
-    thirdparty
-    .eggs
-    .git
-    .hg
-    .mypy_cache
-    .tox
-    .venv
-    _build
-    buck-out
-    build
-    dist
-    __init__.py
-
-[options]
-packages = find:
-python_requires = >=3.9
-
-[options.extras_require]
-nvcomp =
-    numpy >=1.20
-    cupy >=9.5.0
-
-[mypy]
-ignore_missing_imports = True

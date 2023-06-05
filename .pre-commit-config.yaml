@@ -27,7 +27,7 @@ repos:
     rev: 6.0.0
     hooks:
       - id: flake8
-        args: ["--config=python/setup.cfg"]
+        args: ["--config=.flake8"]
         files: (python|legate)/.*$
         types: [file]
         types_or: [python, cython]
@@ -41,7 +41,7 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-cachetools]
-        args: ["--config-file=python/setup.cfg",
+        args: ["--config-file=python/pyproject.toml",
                 "python/kvikio",
                 "python/tests",
                 "python/examples",
@@ -89,8 +89,7 @@ repos:
       - id: codespell
         exclude: |
           (?x)^(
-            ^CHANGELOG.md$|
-            ^.*versioneer.py$
+            ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/dependency-file-generator
     rev: v1.5.2

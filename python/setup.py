@@ -1,13 +1,12 @@
 # Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
 setup(
     name="kvikio",
-    version=versioneer.get_version(),
+    version="23.08.00",
     description="KvikIO - GPUDirect Storage",
     url="https://github.com/rapidsai/kvikio",
     author="NVIDIA Corporation",
@@ -31,6 +30,5 @@ setup(
         key: ["*.pyi", "*.pxd"]
         for key in find_packages(include=["kvikio._lib"])
     },
-    cmdclass=versioneer.get_cmdclass(),
     zip_safe=False,
 )

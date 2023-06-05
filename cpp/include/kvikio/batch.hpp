@@ -27,7 +27,7 @@
 namespace kvikio {
 
 /**
- * @brief IO operation used when submiting batches
+ * @brief IO operation used when submitting batches
  */
 struct BatchOp {
   // The file handle of the file to read or write

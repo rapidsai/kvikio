@@ -5,7 +5,6 @@
 import os
 from pathlib import Path
 
-import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
@@ -22,7 +21,7 @@ os.environ["SKBUILD_CONFIGURE_OPTIONS"] = " ".join(cmake_flags)
 
 setup(
     name="legate_kvikio",
-    version=versioneer.get_version(),
+    version="23.08.00",
     description="KvikIO - GPUDirect Storage",
     url="https://github.com/rapidsai/kvikio",
     author="NVIDIA Corporation",
@@ -38,6 +37,5 @@ setup(
     ],
     packages=find_packages(exclude=["tests*"]),
     include_package_data=True,
-    cmdclass=versioneer.get_cmdclass(),
     zip_safe=False,
 )
