@@ -20,21 +20,6 @@ os.environ["SKBUILD_CONFIGURE_OPTIONS"] = " ".join(cmake_flags)
 
 
 setup(
-    name="legate_kvikio",
-    version="23.08.00",
-    description="KvikIO - GPUDirect Storage",
-    url="https://github.com/rapidsai/kvikio",
-    author="NVIDIA Corporation",
-    license="Apache 2.0",
-    classifiers=[
-        "Intended Audience :: Developers",
-        "Topic :: Database",
-        "Topic :: Scientific/Engineering",
-        "License :: OSI Approved :: Apache Software License",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-    ],
     packages=find_packages(exclude=["tests*"]),
     include_package_data=True,
     zip_safe=False,
