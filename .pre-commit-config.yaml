@@ -18,7 +18,7 @@ repos:
         files: legate/.*
         types_or: [python, cython, pyi]
   - repo: https://github.com/psf/black
-    rev: 22.12.0
+    rev: 23.3.0
     hooks:
       - id: black
         files: (python|legate)/.*
@@ -33,7 +33,7 @@ repos:
         types_or: [python, cython]
         additional_dependencies: ["flake8-force"]
   - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.10.1
+    rev: v0.15.0
     hooks:
       - id: cython-lint
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -48,7 +48,7 @@ repos:
                 "python/benchmarks"]
         pass_filenames: false
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v16.0.1
+    rev: v16.0.4
     hooks:
       - id: clang-format
         types_or: [c, c++, cuda]
@@ -84,7 +84,7 @@ repos:
         verbose: true
         require_serial: true
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.2
+    rev: v2.2.4
     hooks:
       - id: codespell
         exclude: |

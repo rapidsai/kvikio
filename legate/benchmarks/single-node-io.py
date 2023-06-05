@@ -56,7 +56,6 @@ API = {
 
 
 def main(args):
-
     props = kvikio.DriverProperties()
     try:
         import pynvml.smi
