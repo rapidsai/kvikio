@@ -52,6 +52,8 @@ requirements:
     - {{ compiler('cuda') }}
     {% endif %}
     - sysroot_{{ target_platform }} {{ sysroot_version }}
+      # Will this search the host env correctly?
+    - pkg-config
   host:
     - python
     - setuptools

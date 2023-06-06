@@ -44,6 +44,8 @@ requirements:
     {% endif %}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
+      # Will this search the host env correctly?
+    - pkg-config
   host:
     {% if cuda_major == "11" %}
     - cudatoolkit ={{ cuda_version }}
