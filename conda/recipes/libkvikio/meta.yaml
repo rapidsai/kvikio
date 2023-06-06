@@ -67,12 +67,12 @@ outputs:
       build:
         - cmake {{ cmake_version }}
       run:
+        - cuda-version {{ cuda_spec }}
         {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
         - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
         - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - cuda-version {{ cuda_spec }}
         - libcufile-dev  # [linux64]
         {% endif %}
     test:
@@ -94,11 +94,11 @@ outputs:
       build:
         - cmake {{ cmake_version }}
       run:
+        - cuda-version {{ cuda_spec }}
         {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - cuda-version {{ cuda_spec }}
         - libcufile  # [linux64]
         {% endif %}
     about:
