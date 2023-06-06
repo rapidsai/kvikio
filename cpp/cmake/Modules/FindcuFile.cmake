@@ -63,6 +63,7 @@ message("pkg libs: ${PKG_cuFile_LIBRARY_DIRS}")
 message("ctk libs: ${CUDAToolkit_LIBRARY_DIR}")
 
 # Find the location of the CUDA Toolkit
+set(CMAKE_FIND_DEBUG_MODE TRUE)
 find_package(CUDAToolkit QUIET)
 find_path(
   cuFile_INCLUDE_DIR
@@ -81,6 +82,7 @@ find_library(
   NAMES cufile_rdma
   HINTS ${PKG_cuFile_LIBRARY_DIRS} ${CUDAToolkit_LIBRARY_DIR}
 )
+set(CMAKE_FIND_DEBUG_MODE FALSE)
 message("The discovered paths")
 message("Include: ${cuFile_INCLUDE_DIR}")
 message("lib: ${cuFile_LIBRARY}")
