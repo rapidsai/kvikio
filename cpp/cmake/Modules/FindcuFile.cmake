@@ -48,11 +48,19 @@ This will define the following variables in your project:
 
 # use pkg-config to get the directories and then use these values in the FIND_PATH() and
 # FIND_LIBRARY() calls
-find_package(PkgConfig QUIET)
-pkg_check_modules(PKG_cuFile QUIET cuFile)
+message("Find pkgconfig")
+find_package(PkgConfig)
+message("Find cufile with pkgconfig")
+pkg_check_modules(PKG_cuFile cuFile)
 
 set(cuFile_COMPILE_OPTIONS ${PKG_cuFile_CFLAGS_OTHER})
 set(cuFile_VERSION ${PKG_cuFile_VERSION})
+
+message("The hint libs")
+message("pkg include: ${PKG_cuFile_INCLUDE_DIRS}")
+message("ctk include: ${CUDAToolkit_INCLUDE_DIRS}")
+message("pkg libs: ${PKG_cuFile_LIBRARY_DIRS}")
+message("ctk libs: ${CUDAToolkit_LIBRARY_DIR}")
 
 # Find the location of the CUDA Toolkit
 find_package(CUDAToolkit QUIET)
@@ -73,6 +81,9 @@ find_library(
   NAMES cufile_rdma
   HINTS ${PKG_cuFile_LIBRARY_DIRS} ${CUDAToolkit_LIBRARY_DIR}
 )
+message("The discovered paths")
+message("Include: ${cuFile_INCLUDE_DIR}")
+message("lib: ${cuFile_LIBRARY}")
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(
