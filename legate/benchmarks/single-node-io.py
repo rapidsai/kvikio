@@ -12,12 +12,12 @@ from time import perf_counter as clock
 from typing import ContextManager, Union
 
 import cunumeric as num
-import kvikio.defaults
 from dask.utils import format_bytes, parse_bytes
-from legate_kvikio import CuFile
 
 import kvikio
+import kvikio.defaults
 import legate.core
+from legate_kvikio import CuFile
 
 runtime = legate.core.get_legate_runtime()
 

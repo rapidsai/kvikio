@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,9 +47,9 @@ class DriverInitializer {
  public:
   DriverInitializer() { CUFILE_TRY(cuFileAPI::instance().DriverOpen()); }
 
-  DriverInitializer(DriverInitializer const&) = delete;
-  DriverInitializer& operator=(DriverInitializer const&) = delete;
-  DriverInitializer(DriverInitializer&&) noexcept        = delete;
+  DriverInitializer(DriverInitializer const&)                = delete;
+  DriverInitializer& operator=(DriverInitializer const&)     = delete;
+  DriverInitializer(DriverInitializer&&) noexcept            = delete;
   DriverInitializer& operator=(DriverInitializer&&) noexcept = delete;
 
   ~DriverInitializer()
@@ -175,6 +175,16 @@ class DriverProperties {
     CUFILE_TRY(cuFileAPI::instance().DriverSetMaxPinnedMemSize(size_in_kb));
     _props.max_device_pinned_mem_size = size_in_kb;
   }
+
+  [[nodiscard]] std::size_t get_max_batch_io_size()
+  {
+#ifdef CUFILE_BATCH_API_FOUND
+    lazy_init();
+    return _props.max_batch_io_size;
+#else
+    return 0;
+#endif
+  }
 };
 
 #else
@@ -250,6 +260,11 @@ struct DriverProperties {
   }
 
   static void set_max_pinned_memory_size(std::size_t size_in_kb)
+  {
+    throw CUfileException("KvikIO not compiled with cuFile.h");
+  }
+
+  [[nodiscard]] std::size_t get_max_batch_io_size()
   {
     throw CUfileException("KvikIO not compiled with cuFile.h");
   }

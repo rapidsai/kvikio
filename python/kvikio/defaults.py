@@ -119,8 +119,8 @@ def task_size() -> int:
 
     Return
     ------
-    nthreads: int
-        The number of threads in the current thread pool.
+    nbytes: int
+        The default task size in bytes.
     """
     return libkvikio.task_size()
 
@@ -131,7 +131,7 @@ def task_size_reset(nbytes: int) -> None:
     Parameters
     ----------
     nbytes : int
-        The number of threads to use.
+        The default task size in bytes.
     """
     libkvikio.task_size_reset(nbytes)
 
@@ -143,7 +143,7 @@ def set_task_size(nbytes: int):
     Parameters
     ----------
     nbytes : int
-        The number of threads to use.
+        The default task size in bytes.
     """
     old_value = task_size()
     try:
@@ -151,3 +151,50 @@ def set_task_size(nbytes: int):
         yield
     finally:
         task_size_reset(old_value)
+
+
+def gds_threshold() -> int:
+    """Get the default GDS threshold, which is the minimum size to use GDS.
+
+    In order to improve performance of small IO, `.pread()` and `.pwrite()`
+    implements a shortcut that circumvent the threadpool and use the POSIX
+    backend directly.
+
+    Set the default value using `gds_threshold_reset()` or by setting the
+    `KVIKIO_TASK_SIZE` environment variable. If not set, the default value
+    is 1 MiB.
+
+    Return
+    ------
+    nbytes : int
+        The default GDS threshold size in bytes.
+    """
+    return libkvikio.gds_threshold()
+
+
+def gds_threshold_reset(nbytes: int) -> None:
+    """Reset the default GDS threshold, which is the minimum size to use GDS.
+
+    Parameters
+    ----------
+    nbytes : int
+        The default GDS threshold size in bytes.
+    """
+    libkvikio.gds_threshold_reset(nbytes)
+
+
+@contextlib.contextmanager
+def set_gds_threshold(nbytes: int):
+    """Context for resetting the default GDS threshold.
+
+    Parameters
+    ----------
+    nbytes : int
+        The default GDS threshold size in bytes.
+    """
+    old_value = gds_threshold()
+    try:
+        gds_threshold_reset(nbytes)
+        yield
+    finally:
+        gds_threshold_reset(old_value)

@@ -47,10 +47,29 @@ class cuFileAPI {
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
 
+#ifdef CUFILE_BATCH_API_FOUND
+  decltype(cuFileBatchIOSetUp)* BatchIOSetUp{nullptr};
+  decltype(cuFileBatchIOSubmit)* BatchIOSubmit{nullptr};
+  decltype(cuFileBatchIOGetStatus)* BatchIOGetStatus{nullptr};
+  decltype(cuFileBatchIOCancel)* BatchIOCancel{nullptr};
+  decltype(cuFileBatchIODestroy)* BatchIODestroy{nullptr};
+#endif
+  bool batch_available = false;
+
  private:
   cuFileAPI()
   {
-    void* lib = load_library({"libcufile.so.1", "libcufile.so.0", "libcufile.so"});
+    // CUDA versions before CUDA 11.7.1 did not ship libcufile.so.0, so this is
+    // a workaround that adds support for all prior versions of libcufile.
+    void* lib = load_library({"libcufile.so.0",
+                              "libcufile.so.1.3.0" /* 11.7.0 */,
+                              "libcufile.so.1.2.1" /* 11.6.2, 11.6.1 */,
+                              "libcufile.so.1.2.0" /* 11.6.0 */,
+                              "libcufile.so.1.1.1" /* 11.5.1 */,
+                              "libcufile.so.1.1.0" /* 11.5.0 */,
+                              "libcufile.so.1.0.2" /* 11.4.4, 11.4.3, 11.4.2 */,
+                              "libcufile.so.1.0.1" /* 11.4.1 */,
+                              "libcufile.so.1.0.0" /* 11.4.0 */});
     get_symbol(HandleRegister, lib, KVIKIO_STRINGIFY(cuFileHandleRegister));
     get_symbol(HandleDeregister, lib, KVIKIO_STRINGIFY(cuFileHandleDeregister));
     get_symbol(Read, lib, KVIKIO_STRINGIFY(cuFileRead));
@@ -63,6 +82,26 @@ class cuFileAPI {
     get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
     get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
+
+#ifdef CUFILE_BATCH_API_FOUND
+    get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
+    get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
+    get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
+    get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
+    get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
+
+    // HACK: we use the mangled name of the `cuFileBatchContextState` to determine if cuFile's
+    // batch API is available. Notice, the symbols of `cuFileBatchIOSetUp` & co. exist all
+    // the way back to CUDA v11.5 but calling them is undefined behavior.
+    // TODO: when CUDA v12.2 is released, use `cuFileReadAsync` to determine the availability of
+    // both the batch and async API.
+    try {
+      void* s{};
+      get_symbol(s, lib, "_ZTS23cuFileBatchContextState");
+      batch_available = true;
+    } catch (const std::runtime_error&) {
+    }
+#endif
 
     // cuFile is supposed to open and close the driver automatically but because of a bug in
     // CUDA 11.8, it sometimes segfault. See <https://github.com/rapidsai/kvikio/issues/159>.
@@ -83,7 +122,7 @@ class cuFileAPI {
   }
 
  public:
-  cuFileAPI(cuFileAPI const&) = delete;
+  cuFileAPI(cuFileAPI const&)      = delete;
   void operator=(cuFileAPI const&) = delete;
 
   static cuFileAPI& instance()
@@ -128,5 +167,23 @@ inline bool is_cufile_available()
 {
   return is_cufile_library_available() && run_udev_readable() && !is_running_in_wsl();
 }
+
+/**
+ * @brief Check if cuFile's batch API is available
+ *
+ * @return The boolean answer
+ */
+#ifdef CUFILE_BATCH_API_FOUND
+inline bool is_batch_available()
+{
+  try {
+    return cuFileAPI::instance().batch_available;
+  } catch (const std::runtime_error&) {
+    return false;
+  }
+}
+#else
+constexpr bool is_batch_available() { return false; }
+#endif
 
 }  // namespace kvikio

@@ -108,8 +108,7 @@ inline int open_fd(const std::string& file_path,
  */
 [[nodiscard]] inline std::size_t get_file_size(int file_descriptor)
 {
-  struct stat st {
-  };
+  struct stat st {};
   int ret = fstat(file_descriptor, &st);
   if (ret == -1) {
     throw std::system_error(errno, std::generic_category(), "Unable to query file size");
@@ -181,7 +180,7 @@ class FileHandle {
   /**
    * @brief FileHandle support move semantic but isn't copyable
    */
-  FileHandle(const FileHandle&) = delete;
+  FileHandle(const FileHandle&)            = delete;
   FileHandle& operator=(FileHandle const&) = delete;
   FileHandle(FileHandle&& o) noexcept
     : _fd_direct_on{std::exchange(o._fd_direct_on, -1)},
@@ -223,6 +222,23 @@ class FileHandle {
     _fd_direct_on  = -1;
     _fd_direct_off = -1;
     _initialized   = false;
+  }
+
+  /**
+   * @brief Get the underlying cuFile file handle
+   *
+   * The file handle must be open and not in compatibility mode i.e.
+   * both `.closed()` and `.is_compat_mode_on()` must be return false.
+   *
+   * @return cuFile's file handle
+   */
+  [[nodiscard]] CUfileHandle_t handle()
+  {
+    if (closed()) { throw CUfileException("File handle is closed"); }
+    if (_compat_mode) {
+      throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
+    }
+    return _handle;
   }
 
   /**
@@ -364,6 +380,9 @@ class FileHandle {
    * This API is a parallel async version of `.read()` that partition the operation
    * into tasks of size `task_size` for execution in the default thread pool.
    *
+   * In order to improve performance of small buffers, when `size < gds_threshold` a shortcut
+   * that circumvent the threadpool and use the POSIX backend directly is used.
+   *
    * @note For cuFile reads, the base address of the allocation `buf` is part of is used.
    * This means that when registering buffers, use the base address of the allocation.
    * This is what `memory_register` and `memory_deregister` do automatically.
@@ -372,12 +391,14 @@ class FileHandle {
    * @param size Size in bytes to read.
    * @param file_offset Offset in the file to read from.
    * @param task_size Size of each task in bytes.
+   * @param gds_threshold Minimum buffer size to use GDS and the thread pool.
    * @return Future that on completion returns the size of bytes that were successfully read.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
-                                 std::size_t file_offset = 0,
-                                 std::size_t task_size   = defaults::task_size())
+                                 std::size_t file_offset   = 0,
+                                 std::size_t task_size     = defaults::task_size(),
+                                 std::size_t gds_threshold = defaults::gds_threshold())
   {
     if (is_host_memory(buf)) {
       auto op = [this](void* hostPtr_base,
@@ -392,14 +413,24 @@ class FileHandle {
     }
 
     CUcontext ctx = get_context_from_pointer(buf);
-    auto task     = [this, ctx](void* devPtr_base,
+
+    // Shortcut that circumvent the threadpool and use the POSIX backend directly.
+    if (size < gds_threshold) {
+      auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
+        PushAndPopContext c(ctx);
+        return posix_device_read(_fd_direct_off, buf, size, file_offset, 0);
+      };
+      return std::async(std::launch::deferred, task);
+    }
+
+    // Regular case that use the threadpool and run the tasks in parallel
+    auto task = [this, ctx](void* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
                             std::size_t devPtr_offset) -> std::size_t {
       PushAndPopContext c(ctx);
       return read(devPtr_base, size, file_offset, devPtr_offset);
     };
-
     auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
     return parallel_io(task, devPtr_base, size, file_offset, task_size, devPtr_offset);
   }
@@ -410,6 +441,9 @@ class FileHandle {
    * This API is a parallel async version of `.write()` that partition the operation
    * into tasks of size `task_size` for execution in the default thread pool.
    *
+   * In order to improve performance of small buffers, when `size < gds_threshold` a shortcut
+   * that circumvent the threadpool and use the POSIX backend directly is used.
+   *
    * @note For cuFile reads, the base address of the allocation `buf` is part of is used.
    * This means that when registering buffers, use the base address of the allocation.
    * This is what `memory_register` and `memory_deregister` do automatically.
@@ -418,12 +452,14 @@ class FileHandle {
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
    * @param task_size Size of each task in bytes.
+   * @param gds_threshold Minimum buffer size to use GDS and the thread pool.
    * @return Future that on completion returns the size of bytes that were successfully written.
    */
   std::future<std::size_t> pwrite(const void* buf,
                                   std::size_t size,
-                                  std::size_t file_offset = 0,
-                                  std::size_t task_size   = defaults::task_size())
+                                  std::size_t file_offset   = 0,
+                                  std::size_t task_size     = defaults::task_size(),
+                                  std::size_t gds_threshold = defaults::gds_threshold())
   {
     if (is_host_memory(buf)) {
       auto op = [this](const void* hostPtr_base,
@@ -438,7 +474,18 @@ class FileHandle {
     }
 
     CUcontext ctx = get_context_from_pointer(buf);
-    auto op       = [this, ctx](const void* devPtr_base,
+
+    // Shortcut that circumvent the threadpool and use the POSIX backend directly.
+    if (size < gds_threshold) {
+      auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
+        PushAndPopContext c(ctx);
+        return posix_device_write(_fd_direct_off, buf, size, file_offset, 0);
+      };
+      return std::async(std::launch::deferred, task);
+    }
+
+    // Regular case that use the threadpool and run the tasks in parallel
+    auto op = [this, ctx](const void* devPtr_base,
                           std::size_t size,
                           std::size_t file_offset,
                           std::size_t devPtr_offset) -> std::size_t {
@@ -448,6 +495,16 @@ class FileHandle {
     auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
     return parallel_io(op, devPtr_base, size, file_offset, task_size, devPtr_offset);
   }
+
+  /**
+   * @brief Returns `true` if the compatibility mode has been enabled for this file.
+   *
+   * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
+   * automatically, if file cannot be opened with the `O_DIRECT` flag.
+   *
+   * @return compatibility mode state for the object
+   */
+  [[nodiscard]] bool is_compat_mode_on() const noexcept { return _compat_mode; }
 };
 
 }  // namespace kvikio

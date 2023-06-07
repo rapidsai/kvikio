@@ -39,7 +39,7 @@ inline constexpr std::size_t page_size = 4096;
   return static_cast<off_t>(x);
 }
 
-[[nodiscard]] inline off_t convert_size2ssize(std::size_t x)
+[[nodiscard]] inline ssize_t convert_size2ssize(std::size_t x)
 {
   if (x >= static_cast<std::size_t>(std::numeric_limits<ssize_t>::max())) {
     throw CUfileException("size_t argument too large to fit ssize_t");
@@ -108,10 +108,10 @@ class CudaPrimaryContext {
     CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, device_ordinal));
     CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
   }
-  CudaPrimaryContext(const CudaPrimaryContext&) = delete;
+  CudaPrimaryContext(const CudaPrimaryContext&)            = delete;
   CudaPrimaryContext& operator=(CudaPrimaryContext const&) = delete;
   CudaPrimaryContext(CudaPrimaryContext&&)                 = delete;
-  CudaPrimaryContext&& operator=(CudaPrimaryContext&&) = delete;
+  CudaPrimaryContext&& operator=(CudaPrimaryContext&&)     = delete;
   ~CudaPrimaryContext()
   {
     try {
@@ -220,10 +220,10 @@ class PushAndPopContext {
   {
     CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(_ctx));
   }
-  PushAndPopContext(const PushAndPopContext&) = delete;
+  PushAndPopContext(const PushAndPopContext&)            = delete;
   PushAndPopContext& operator=(PushAndPopContext const&) = delete;
   PushAndPopContext(PushAndPopContext&&)                 = delete;
-  PushAndPopContext&& operator=(PushAndPopContext&&) = delete;
+  PushAndPopContext&& operator=(PushAndPopContext&&)     = delete;
   ~PushAndPopContext()
   {
     try {

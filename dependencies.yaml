@@ -120,10 +120,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.8"
-            packages:
-              - python=3.8
-          - matrix:
               py: "3.9"
             packages:
               - python=3.9
@@ -133,7 +129,7 @@ dependencies:
               - python=3.10
           - matrix:
             packages:
-              - python>=3.8,<3.11
+              - python>=3.9,<3.11
   run:
     common:
       - output_types: [conda, requirements]
@@ -142,7 +138,7 @@ dependencies:
           - zarr
       - output_types: conda
         packages:
-          - cupy >=9.5.0
+          - cupy >=12.0.0
     specific:
       - output_types: requirements
         matrices:
@@ -155,7 +151,7 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - cudf=23.04
+          - cudf=23.06
           - dask>=2022.05.2
           - distributed>=2022.05.2
           - pytest

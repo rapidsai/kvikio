@@ -1,10 +1,10 @@
-# C++ and Python bindings to cuFile
+# KvikIO: C++ and Python bindings to cuFile
 
 ## Summary
 
 This provides C++ and Python bindings to cuFile, which enables GPUDirect Storage (GDS).
 KvikIO also works efficiently when GDS isn't available and can read/write both host and
-device data seamlessly. KvikIO
+device data seamlessly.
 
 ### Features
 
@@ -37,6 +37,7 @@ The Python package depends on the following packages:
 * scikit-build
 
 For nvCOMP, benchmarks, examples, and tests:
+
 * pytest
 * numpy
 * cupy
@@ -46,57 +47,64 @@ For nvCOMP, benchmarks, examples, and tests:
 ### Conda
 
 Install the stable release from the `rapidsai` channel like:
+
 ```
 conda create -n kvikio_env -c rapidsai -c conda-forge kvikio
 ```
 
 Install the `kvikio` conda package from the `rapidsai-nightly` channel like:
+
 ```
-conda create -n kvikio_env -c rapidsai-nightly -c conda-forge python=3.9 cudatoolkit=11.5 kvikio
+conda create -n kvikio_env -c rapidsai-nightly -c conda-forge python=3.10 cudatoolkit=11.8 kvikio
 ```
 
 If the nightly install doesn't work, set `channel_priority: flexible` in your `.condarc`.
 
 In order to setup a development environment run:
 ```
-conda env create --name kvikio-dev --file conda/environments/kvikio_dev_cuda11.5.yml
+conda env create --name kvikio-dev --file conda/environments/all_cuda-118_arch-x86_64.yaml
 ```
 
 ### C++ (build from source)
+
 To build the C++ example, go to the `cpp` subdiretory and run:
+
 ```
-mkdir build
-cd build
-cmake ..
-make
+./build.sh libkvikio
 ```
+
 Then run the example:
+
 ```
 ./examples/basic_io
 ```
 
 ### Python (build from source)
 
-To build and install the extension, go to the `python` subdiretory and run:
+To build and install the extension, go to the `python` subdirectory and run:
+
 ```
-python -m pip install .
+./build.sh kvikio
 ```
+
 One might have to define `CUDA_HOME` to the path to the CUDA installation.
 
 In order to test the installation, run the following:
+
 ```
 pytest tests/
 ```
 
 And to test performance, run the following:
+
 ```
 python benchmarks/single-node-io.py
 ```
 
-
 ## Examples
 
 ### C++
+
 ```c++
 #include <cstddef>
 #include <cuda_runtime.h>
@@ -134,6 +142,7 @@ int main()
 ```
 
 ### Python
+
 ```python
 import cupy
 import kvikio

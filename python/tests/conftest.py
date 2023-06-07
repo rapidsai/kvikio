@@ -8,6 +8,8 @@ from typing import Iterable
 
 import pytest
 
+import kvikio.defaults
+
 mp = mp.get_context("spawn")  # type: ignore
 
 
@@ -83,3 +85,14 @@ def xp(request):
 
     with ctx:
         yield pytest.importorskip(module_name)
+
+
+@pytest.fixture(
+    params=[0, 2**20],
+    ids=["gds_threshold=0MB", "gds_threshold=1MB"],
+)
+def gds_threshold(request):
+    """Fixture to parametrize over GDS threshold values"""
+
+    with kvikio.defaults.set_gds_threshold(request.param):
+        yield request.param

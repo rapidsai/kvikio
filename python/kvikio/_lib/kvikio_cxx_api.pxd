@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -52,6 +52,9 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio::defaults" nogil:
     void thread_pool_nthreads_reset(unsigned int nthreads) except +
     size_t task_size() except +
     void task_size_reset(size_t nbytes) except +
+    size_t gds_threshold() except +
+    void gds_threshold_reset(size_t nbytes) except +
+
 
 cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
     cdef cppclass FileHandle:

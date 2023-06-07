@@ -5,9 +5,8 @@ import os
 from enum import IntEnum
 from typing import Any
 
+from legate.core import Library, get_legate_runtime
 from legate_kvikio.install_info import header, libpath
-
-from legate.core import Library, ResourceConfig, get_legate_runtime
 
 
 class LibraryDescription(Library):
@@ -30,13 +29,6 @@ class LibraryDescription(Library):
     def get_registration_callback(self) -> str:
         return "legate_kvikio_perform_registration"
 
-    def get_resource_configuration(self) -> ResourceConfig:
-        assert self.shared_object is not None
-        config = ResourceConfig()
-        config.max_mappers = 1
-        config.max_tasks = self.cffi.OP_NUM_TASK_IDS
-        return config
-
     def initialize(self, shared_object: Any) -> None:
         self.shared_object = shared_object
 
@@ -51,3 +43,6 @@ context = get_legate_runtime().register_library(description)
 class TaskOpCode(IntEnum):
     WRITE = description.cffi.OP_WRITE
     READ = description.cffi.OP_READ
+    TILE_WRITE = description.cffi.OP_TILE_WRITE
+    TILE_READ = description.cffi.OP_TILE_READ
+    TILE_READ_BY_OFFSETS = description.cffi.OP_TILE_READ_BY_OFFSETS
