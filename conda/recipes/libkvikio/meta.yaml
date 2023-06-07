@@ -52,6 +52,7 @@ requirements:
     {% else %}
     - cuda-version {{ cuda_version }}
     - libcufile-dev  # [linux64]
+    - pkg-config
     {% endif %}
 
 outputs:
