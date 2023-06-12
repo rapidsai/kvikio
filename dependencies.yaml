@@ -144,6 +144,7 @@ dependencies:
               cuda: "11.8"
               arch: x86_64
             packages:
+              # libcufile package version reference: https://anaconda.org/nvidia/libcufile/files
               - libcufile=1.4.0.31
               - libcufile-dev=1.4.0.31
           - matrix:
