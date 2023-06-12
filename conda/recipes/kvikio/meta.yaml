@@ -59,8 +59,6 @@ requirements:
     - cython >=0.29,<0.30
     {% if cuda_major == "11" %}
     - cudatoolkit ={{ cuda_version }}
-    {% else %}
-    - pkg-config
     {% endif %}
     - scikit-build >=0.13.1
     - libkvikio {{ version }}*=cuda{{ cuda_major }}*
