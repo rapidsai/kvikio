@@ -200,7 +200,6 @@ def test_multiple_gpus(tmp_path, xp, gds_threshold):
 
     with kvikio.defaults.set_num_threads(10):
         with kvikio.defaults.set_task_size(10):
-
             # Allocate an array on each device
             with cupy.cuda.Device(0):
                 a0 = xp.arange(200)
