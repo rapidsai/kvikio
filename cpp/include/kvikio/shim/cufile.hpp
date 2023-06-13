@@ -177,7 +177,7 @@ inline bool is_cufile_available()
 inline bool is_batch_available()
 {
   try {
-    return cuFileAPI::instance().batch_available;
+    return is_cufile_available() && cuFileAPI::instance().batch_available;
   } catch (const std::runtime_error&) {
     return false;
   }
