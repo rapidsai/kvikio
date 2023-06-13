@@ -61,6 +61,7 @@ class cuFileAPI {
   {
     // CUDA versions before CUDA 11.7.1 did not ship libcufile.so.0, so this is
     // a workaround that adds support for all prior versions of libcufile.
+    std::cout << "Try loading library" << std::endl;
     void* lib = load_library({"libcufile.so.0",
                               "libcufile.so.1.3.0" /* 11.7.0 */,
                               "libcufile.so.1.2.1" /* 11.6.2, 11.6.1 */,
@@ -70,6 +71,7 @@ class cuFileAPI {
                               "libcufile.so.1.0.2" /* 11.4.4, 11.4.3, 11.4.2 */,
                               "libcufile.so.1.0.1" /* 11.4.1 */,
                               "libcufile.so.1.0.0" /* 11.4.0 */});
+    std::cout << "Loaded" << std::endl;
     get_symbol(HandleRegister, lib, KVIKIO_STRINGIFY(cuFileHandleRegister));
     get_symbol(HandleDeregister, lib, KVIKIO_STRINGIFY(cuFileHandleDeregister));
     get_symbol(Read, lib, KVIKIO_STRINGIFY(cuFileRead));
@@ -127,6 +129,7 @@ class cuFileAPI {
 
   static cuFileAPI& instance()
   {
+    std::cout << "In instance" << std::endl;
     static cuFileAPI _instance;
     return _instance;
   }
@@ -144,6 +147,7 @@ class cuFileAPI {
 #ifdef KVIKIO_CUFILE_EXIST
 inline bool is_cufile_library_available()
 {
+    std::cout << "Compiled right" << std::endl;
   try {
     cuFileAPI::instance();
   } catch (const std::runtime_error&) {
@@ -152,7 +156,7 @@ inline bool is_cufile_library_available()
   return true;
 }
 #else
-constexpr bool is_cufile_library_available() { return false; }
+constexpr bool is_cufile_library_available() { std::cout << "Compiled wrong" << std::endl; return false; }
 #endif
 
 /**
@@ -165,6 +169,9 @@ constexpr bool is_cufile_library_available() { return false; }
  */
 inline bool is_cufile_available()
 {
+    std::cout << "Library: " << is_cufile_library_available() << std::endl;
+    std::cout << "run udev: " << run_udev_readable() << std::endl;
+    std::cout << "wsl: " << !is_running_in_wsl() << std::endl;
   return is_cufile_library_available() && run_udev_readable() && !is_running_in_wsl();
 }
 
