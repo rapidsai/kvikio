@@ -13,6 +13,7 @@ files:
       - py_version
       - run
       - test_python
+      - notebooks
   test_cpp:
     output: none
     includes:
@@ -244,3 +245,8 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0
+  notebooks:
+    common:
+      - output_types: conda
+        packages:
+          - cudf==23.8.*
