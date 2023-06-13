@@ -145,7 +145,7 @@ int main()
          << " threads): " << read << endl;
   }
 
-  if (kvikio::is_batch_available()) {
+  if (kvikio::is_batch_available() && !kvikio::defaults::compat_mode()) {
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
     // submitting 4 batch operations.
     constexpr int num_ops_in_batch = 4;
