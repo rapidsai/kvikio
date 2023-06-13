@@ -40,7 +40,6 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "cuda-python>=11.7.1,<12.0",
-    "cudf==23.8.*",
     "dask>=2022.05.2",
     "distributed>=2022.05.2",
     "pytest",
