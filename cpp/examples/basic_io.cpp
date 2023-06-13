@@ -146,7 +146,6 @@ int main()
   }
 
   if (kvikio::is_batch_available()) {
-    cout << "Batch available" << endl;
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
     // submitting 4 batch operations.
     constexpr int num_ops_in_batch = 4;
@@ -154,16 +153,13 @@ int main()
     kvikio::DriverProperties props;
     check(num_ops_in_batch < props.get_max_batch_io_size());
 
-    cout << "Open handle" << endl;
     // We open the file as usual.
     kvikio::FileHandle f("/tmp/test-file", "r");
 
     // Then we create a batch
-    cout << "Batch handle" << endl;
     auto batch = kvikio::BatchHandle(num_ops_in_batch);
 
     // And submit 4 operations each with its own offset
-    cout << "Create ops" << endl;
     std::vector<kvikio::BatchOp> ops;
     for (int i = 0; i < num_ops_in_batch; ++i) {
       ops.push_back(kvikio::BatchOp{.file_handle   = f,
@@ -173,21 +169,17 @@ int main()
                                     .size          = batchsize,
                                     .opcode        = CUFILE_READ});
     }
-    cout << "Submit ops" << endl;
     batch.submit(ops);
 
     // Finally, we wait on all 4 operations to be finished and check the result
-    cout << "Checking" << endl;
     auto statuses = batch.status(num_ops_in_batch, num_ops_in_batch);
     check(statuses.size() == num_ops_in_batch);
     size_t total_read = 0;
-    cout << "Parse all statuses" << endl;
     for (auto status : statuses) {
       check(status.status == CUFILE_COMPLETE);
       check(status.ret == batchsize);
       total_read += status.ret;
     }
-    cout << "Copying" << endl;
     check(cudaMemcpy(b, b_dev, SIZE, cudaMemcpyDeviceToHost) == cudaSuccess);
     for (int i = 0; i < NELEM; ++i) {
       check(a[i] == b[i]);
