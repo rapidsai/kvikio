@@ -10,10 +10,10 @@ files:
       - checks
       - cudatoolkit
       - docs
+      - notebooks
       - py_version
       - run
       - test_python
-      - notebooks
   test_cpp:
     output: none
     includes:
