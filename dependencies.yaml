@@ -127,6 +127,7 @@ dependencies:
               arch: x86_64
             packages:
               - cuda-version=12.0
+              - libcufile
               - libcufile-dev
           - matrix:
               cuda: "12.0"
