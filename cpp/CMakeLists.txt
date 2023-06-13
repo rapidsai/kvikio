@@ -38,6 +38,8 @@ rapids_cmake_build_type(Release)
 # build options
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 
+rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
+
 # find packages we depend on
 rapids_cpm_init()
 
@@ -90,6 +92,11 @@ if(cuFile_FOUND)
 endif()
 target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
 target_compile_features(kvikio INTERFACE cxx_std_17)
+
+# Add Conda library, and include paths if specified
+if(TARGET conda_env)
+  target_link_libraries(kvikio PRIVATE conda_env)
+endif()
 
 # optionally build examples
 if(KvikIO_BUILD_EXAMPLES)
