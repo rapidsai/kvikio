@@ -156,7 +156,7 @@ inline bool is_cufile_library_available()
   return true;
 }
 #else
-inline bool is_cufile_library_available()
+constexpr bool is_cufile_library_available()
 {
   std::cout << "Compiled wrong" << std::endl;
   return false;
