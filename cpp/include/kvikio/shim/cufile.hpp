@@ -147,7 +147,7 @@ class cuFileAPI {
 #ifdef KVIKIO_CUFILE_EXIST
 inline bool is_cufile_library_available()
 {
-    std::cout << "Compiled right" << std::endl;
+  std::cout << "Compiled right" << std::endl;
   try {
     cuFileAPI::instance();
   } catch (const std::runtime_error&) {
@@ -156,7 +156,11 @@ inline bool is_cufile_library_available()
   return true;
 }
 #else
-constexpr bool is_cufile_library_available() { std::cout << "Compiled wrong" << std::endl; return false; }
+constexpr bool is_cufile_library_available()
+{
+  std::cout << "Compiled wrong" << std::endl;
+  return false;
+}
 #endif
 
 /**
@@ -169,9 +173,9 @@ constexpr bool is_cufile_library_available() { std::cout << "Compiled wrong" << 
  */
 inline bool is_cufile_available()
 {
-    std::cout << "Library: " << is_cufile_library_available() << std::endl;
-    std::cout << "run udev: " << run_udev_readable() << std::endl;
-    std::cout << "wsl: " << !is_running_in_wsl() << std::endl;
+  std::cout << "Library: " << is_cufile_library_available() << std::endl;
+  std::cout << "run udev: " << run_udev_readable() << std::endl;
+  std::cout << "wsl: " << !is_running_in_wsl() << std::endl;
   return is_cufile_library_available() && run_udev_readable() && !is_running_in_wsl();
 }
 
