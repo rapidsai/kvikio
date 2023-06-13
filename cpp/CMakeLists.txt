@@ -93,11 +93,6 @@ endif()
 target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
-# Add Conda library, and include paths if specified
-if(TARGET conda_env)
-  target_link_libraries(kvikio PRIVATE conda_env)
-endif()
-
 # optionally build examples
 if(KvikIO_BUILD_EXAMPLES)
   add_subdirectory(examples)
