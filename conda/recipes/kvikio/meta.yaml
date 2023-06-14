@@ -51,7 +51,8 @@ requirements:
     - setuptools
     - pip
     - cython >=0.29,<0.30
-    - cudatoolkit {{ cuda_version }}.*
+    - cudatoolkit ={{ cuda_version }}
+    - nvcomp {{ nvcomp_version }}
     - scikit-build >=0.13.1
     - libkvikio {{ version }}
   run:

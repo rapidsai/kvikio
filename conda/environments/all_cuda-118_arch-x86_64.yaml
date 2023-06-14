@@ -22,6 +22,7 @@ dependencies:
 - libcufile=1.4.0.31
 - ninja
 - numpy>=1.21
+- nvcomp==2.6.1
 - pre-commit
 - pydata-sphinx-theme
 - pytest
