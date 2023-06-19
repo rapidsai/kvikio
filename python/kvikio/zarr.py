@@ -21,7 +21,7 @@ import kvikio.zarr
 
 
 def supported() -> bool:
-    """Check if Zarr is available and supports Context
+    """Check if Zarr is available and supports "Context"
 
     We depend on the `Context` argument introduced in Zarr v2.15,
     see <https://github.com/zarr-developers/zarr-python/pull/1131>.
@@ -67,7 +67,6 @@ class GDSStore(zarr.storage.DirectoryStore):
         *,
         contexts: Mapping[str, Mapping] = {},
     ) -> Mapping[str, Any]:
-
         default_meta_array = numpy.empty(())
         files = []
         ret = {}
