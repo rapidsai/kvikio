@@ -28,7 +28,6 @@ FilesToCheck = [
     re.compile(r"meta[.]yaml$"),
 ]
 ExemptFiles = [
-    re.compile(r"versioneer[.]py"),
     re.compile(r"get_cpm[.]cmake"),
 ]
 
