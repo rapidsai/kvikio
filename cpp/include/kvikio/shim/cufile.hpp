@@ -23,7 +23,7 @@
 
 namespace kvikio {
 
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
 
 /**
  * @brief Shim layer of the cuFile C-API
@@ -47,7 +47,7 @@ class cuFileAPI {
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
 
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
   decltype(cuFileBatchIOSetUp)* BatchIOSetUp{nullptr};
   decltype(cuFileBatchIOSubmit)* BatchIOSubmit{nullptr};
   decltype(cuFileBatchIOGetStatus)* BatchIOGetStatus{nullptr};
@@ -83,7 +83,7 @@ class cuFileAPI {
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
     get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
 
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
     get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
     get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
     get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
@@ -141,7 +141,7 @@ class cuFileAPI {
  *
  * @return The boolean answer
  */
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
 inline bool is_cufile_library_available()
 {
   try {
@@ -173,7 +173,7 @@ inline bool is_cufile_available()
  *
  * @return The boolean answer
  */
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
 inline bool is_batch_available()
 {
   try {
