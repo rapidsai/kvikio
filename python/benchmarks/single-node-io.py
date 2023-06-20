@@ -214,8 +214,8 @@ def run_zarr(args):
     import kvikio.zarr
 
     dir_path = args.dir / "zarr"
-    if not kvikio.zarr.supported():
-        raise RuntimeError("requires Zarr v2.15+")
+    if not kvikio.zarr.supported:
+        raise RuntimeError(f"requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}")
 
     compressor = None
     if args.zarr_compressor is not None:

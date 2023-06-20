@@ -11,8 +11,11 @@ zarr = pytest.importorskip("zarr")
 kvikio_zarr = pytest.importorskip("kvikio.zarr")
 
 
-if not kvikio_zarr.supported():
-    pytest.skip("requires Zarr v2.15+", allow_module_level=True)
+if not kvikio_zarr.supported:
+    pytest.skip(
+        f"requires Zarr >={kvikio_zarr.MINIMUM_ZARR_VERSION}", 
+        allow_module_level=True,
+    )
 
 
 @pytest.fixture
@@ -29,9 +32,9 @@ def test_direct_store_access(store, xp):
     store["a"] = a
     b = store["a"]
 
-    # Notice, when not using getitems(), GDSStore returns bytes always
+    # Notice, unless using getitems(), GDSStore always returns bytes
     assert isinstance(b, bytes)
-    a.data == b
+    assert (xp.frombuffer(b, dtype="u1") == a).all()
 
 
 @pytest.mark.parametrize("xp_write", ["numpy", "cupy"])

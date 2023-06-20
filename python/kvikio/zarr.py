@@ -17,20 +17,15 @@ from numcodecs.registry import register_codec
 
 import kvikio
 import kvikio.nvcomp
-import kvikio.zarr
+from packaging.version import parse
+import zarr
 
+MINIMUM_ZARR_VERSION = "2.15"
 
-def supported() -> bool:
-    """Check if Zarr is available and supports "Context"
-
-    We depend on the `Context` argument introduced in Zarr v2.15,
-    see <https://github.com/zarr-developers/zarr-python/pull/1131>.
-    """
-    try:
-        import zarr.context  # noqa: F401
-    except ImportError:
-        return False
-    return True
+# Is this version of zarr supported? We depend on the `Context`
+# argument introduced in https://github.com/zarr-developers/zarr-python/pull/1131
+# in zarr 2.15.
+supported = parse(zarr.__version) >= parse(MINIMUM_ZARR_VERSION)
 
 
 class GDSStore(zarr.storage.DirectoryStore):
@@ -49,8 +44,8 @@ class GDSStore(zarr.storage.DirectoryStore):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        if not kvikio.zarr.supported():
-            raise RuntimeError("GDSStore requires Zarr v2.15+")
+        if not kvikio.zarr.supported:
+            raise RuntimeError(f"GDSStore requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}")
         super().__init__(*args, **kwargs)
 
     def __eq__(self, other):
