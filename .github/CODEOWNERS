@@ -10,8 +10,8 @@ legate/            @rapidsai/kvikio-legate-codeowners
 #cmake code owners
 **/CMakeLists.txt  @rapidsai/kvikio-cmake-codeowners
 **/cmake/          @rapidsai/kvikio-cmake-codeowners
-python/setup.py    @rapidsai/kvikio-cmake-codeowners
 build.sh           @rapidsai/kvikio-cmake-codeowners
+python/setup.py    @rapidsai/kvikio-cmake-codeowners @rapidsai/kvikio-python-codeowners
 
 #build/ops code owners
 .github/           @rapidsai/ops-codeowners
