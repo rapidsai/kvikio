@@ -200,6 +200,7 @@ dependencies:
         packages:
           - numpy>=1.21
           - zarr
+          - packaging
       - output_types: conda
         packages:
           - cupy>=12.0.0

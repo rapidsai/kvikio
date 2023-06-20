@@ -19,13 +19,14 @@ from packaging.version import parse
 
 import kvikio
 import kvikio.nvcomp
+import kvikio.zarr
 
 MINIMUM_ZARR_VERSION = "2.15"
 
 # Is this version of zarr supported? We depend on the `Context`
 # argument introduced in https://github.com/zarr-developers/zarr-python/pull/1131
-# in zarr 2.15.
-supported = parse(zarr.__version) >= parse(MINIMUM_ZARR_VERSION)
+# in zarr v2.15.
+supported = parse(zarr.__version__) >= parse(MINIMUM_ZARR_VERSION)
 
 
 class GDSStore(zarr.storage.DirectoryStore):
