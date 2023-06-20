@@ -1,6 +1,7 @@
 # Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+import contextlib
 import os
 import os.path
 from abc import abstractmethod
@@ -83,10 +84,10 @@ class GDSStore(zarr.storage.DirectoryStore):
         Mapping
             A collection mapping the input keys to their results.
         """
-        files = []
         ret = {}
         io_results = []
-        try:
+
+        with contextlib.ExitStack() as stack:
             for key in keys:
                 filepath = os.path.join(self.path, key)
                 if not os.path.isfile(filepath):
@@ -97,8 +98,7 @@ class GDSStore(zarr.storage.DirectoryStore):
                     meta_array = self.default_meta_array
 
                 nbytes = os.path.getsize(filepath)
-                f = kvikio.CuFile(filepath, "r")
-                files.append(f)
+                f = stack.enter_context(kvikio.CuFile(filepath, "r"))
                 ret[key] = numpy.empty_like(meta_array, shape=(nbytes,), dtype="u1")
                 io_results.append((f.pread(ret[key]), nbytes))
 
@@ -108,9 +108,6 @@ class GDSStore(zarr.storage.DirectoryStore):
                     raise RuntimeError(
                         f"Incomplete read ({nbytes_read}) expected {nbytes}"
                     )
-        finally:
-            for f in files:
-                f.close()
         return ret
 
 
