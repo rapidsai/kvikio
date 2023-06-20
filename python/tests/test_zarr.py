@@ -21,7 +21,6 @@ if not kvikio_zarr.supported:
 @pytest.fixture
 def store(tmp_path):
     """Fixture that creates a GDS Store"""
-    cupy.arange(1)  # Making sure that CUDA has been initialized
     return kvikio_zarr.GDSStore(tmp_path / "test-file.zarr")
 
 
