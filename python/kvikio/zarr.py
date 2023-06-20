@@ -9,16 +9,16 @@ from typing import Any, Mapping, Sequence
 import cupy
 import numpy
 import numpy as np
+import zarr
 import zarr.creation
 import zarr.storage
 from numcodecs.abc import Codec
 from numcodecs.compat import ensure_contiguous_ndarray_like
 from numcodecs.registry import register_codec
+from packaging.version import parse
 
 import kvikio
 import kvikio.nvcomp
-from packaging.version import parse
-import zarr
 
 MINIMUM_ZARR_VERSION = "2.15"
 
@@ -45,7 +45,9 @@ class GDSStore(zarr.storage.DirectoryStore):
 
     def __init__(self, *args, **kwargs) -> None:
         if not kvikio.zarr.supported:
-            raise RuntimeError(f"GDSStore requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}")
+            raise RuntimeError(
+                f"GDSStore requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}"
+            )
         super().__init__(*args, **kwargs)
 
     def __eq__(self, other):

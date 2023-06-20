@@ -13,7 +13,7 @@ kvikio_zarr = pytest.importorskip("kvikio.zarr")
 
 if not kvikio_zarr.supported:
     pytest.skip(
-        f"requires Zarr >={kvikio_zarr.MINIMUM_ZARR_VERSION}", 
+        f"requires Zarr >={kvikio_zarr.MINIMUM_ZARR_VERSION}",
         allow_module_level=True,
     )
 
