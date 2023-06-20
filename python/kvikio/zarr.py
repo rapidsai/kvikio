@@ -19,7 +19,6 @@ from packaging.version import parse
 
 import kvikio
 import kvikio.nvcomp
-import kvikio.zarr
 
 MINIMUM_ZARR_VERSION = "2.15"
 
@@ -44,6 +43,9 @@ class GDSStore(zarr.storage.DirectoryStore):
     This is because only zarr.Array use getitems() to retrieve data.
     """
 
+    # The default output array type used by getitems().
+    default_meta_array = numpy.empty(())
+
     def __init__(self, *args, **kwargs) -> None:
         if not kvikio.zarr.supported:
             raise RuntimeError(
@@ -65,7 +67,22 @@ class GDSStore(zarr.storage.DirectoryStore):
         *,
         contexts: Mapping[str, Mapping] = {},
     ) -> Mapping[str, Any]:
-        default_meta_array = numpy.empty(())
+        """Retrieve data from multiple keys.
+
+        Parameters
+        ----------
+        keys : Iterable[str]
+            The keys to retrieve
+        contexts: Mapping[str, Context]
+            A mapping of keys to their context. Each context is a mapping of store
+            specific information. If the "meta_array" key exist, GDSStore use its
+            values as the output array otherwise GDSStore.default_meta_array is used.
+
+        Returns
+        -------
+        Mapping
+            A collection mapping the input keys to their results.
+        """
         files = []
         ret = {}
         io_results = []
@@ -77,7 +94,7 @@ class GDSStore(zarr.storage.DirectoryStore):
                 try:
                     meta_array = contexts[key]["meta_array"]
                 except KeyError:
-                    meta_array = default_meta_array
+                    meta_array = self.default_meta_array
 
                 nbytes = os.path.getsize(filepath)
                 f = kvikio.CuFile(filepath, "r")
