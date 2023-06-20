@@ -73,7 +73,7 @@ def test_array(store, xp):
     assert a.shape == z.shape
     assert a.dtype == z.dtype
     assert isinstance(a, type(z[:]))
-    cupy.testing.assert_array_equal(a, z[:])
+    xp.testing.assert_array_equal(a, z[:])
 
 
 def test_group(store, xp):
@@ -85,7 +85,7 @@ def test_group(store, xp):
     assert a.shape == (10, 11)
     assert a.dtype == int
     assert isinstance(a, zarr.Array)
-    assert isinstance(a.meta_array, type(xp.empty(())))
+    assert isinstance(a.meta_array, xp.ndarray)
     assert isinstance(a[:], xp.ndarray)
     assert (a[:] == 1).all()
 
@@ -106,7 +106,7 @@ def test_open_array(store, xp):
     assert a.shape == z.shape
     assert a.dtype == z.dtype
     assert isinstance(a, type(z[:]))
-    cupy.testing.assert_array_equal(a, z[:])
+    xp.testing.assert_array_equal(a, z[:])
 
 
 @pytest.mark.parametrize("inline_array", [True, False])
@@ -118,7 +118,7 @@ def test_dask_read(store, xp, inline_array):
     z = zarr.array(a, chunks=10, compressor=None, store=store, meta_array=xp.empty(()))
     d = da.from_zarr(z, inline_array=inline_array)
     d += 1
-    cupy.testing.assert_array_equal(a + 1, d.compute())
+    xp.testing.assert_array_equal(a + 1, d.compute())
 
 
 def test_dask_write(store, xp):
@@ -133,7 +133,7 @@ def test_dask_write(store, xp):
 
     # Validate the written Zarr array
     z = zarr.open_array(store)
-    cupy.testing.assert_array_equal(a, z[:])
+    xp.testing.assert_array_equal(a, z[:])
 
 
 @pytest.mark.parametrize("xp_read", ["numpy", "cupy"])
