@@ -45,12 +45,12 @@ requirements:
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
+    - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
     - cudatoolkit ={{ cuda_version }}
     - libcufile {{ cuda11_libcufile_host_version }}      # [linux64]
     - libcufile-dev {{ cuda11_libcufile_host_version }}  # [linux64]
     {% else %}
-    - cuda-version ={{ cuda_version }}
     - libcufile-dev  # [linux64]
     {% endif %}
 
