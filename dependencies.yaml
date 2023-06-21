@@ -10,9 +10,11 @@ files:
       - checks
       - cudatoolkit
       - docs
+      - notebooks
       - py_version
       - run
       - test_python
+      - test_python_legate
   test_cpp:
     output: none
     includes:
@@ -78,6 +80,7 @@ files:
       key: test
     includes:
       - test_python
+      - test_python_legate
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -220,8 +223,17 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cuda-python>=11.7.1,<12.0
-          - cudf==23.8.*
-          - dask>=2022.05.2
-          - distributed>=2022.05.2
+          - &dask dask>=2022.05.2
           - pytest
           - pytest-cov
+  test_python_legate:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - *dask
+          - distributed>=2022.05.2
+  notebooks:
+    common:
+      - output_types: conda
+        packages:
+          - cudf==23.8.*
