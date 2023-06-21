@@ -37,7 +37,9 @@ build:
     - cd python
     - python -m pip install . -vv
   ignore_run_exports_from:
-    - {{ compiler('cuda') }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }}
+    {% endif %}
 
 requirements:
   build:
