@@ -63,7 +63,7 @@ requirements:
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - scikit-build >=0.13.1
-    - libkvikio {{ version }}
+    - libkvikio ={{ version }}
   run:
     - python
     - numpy >=1.20
