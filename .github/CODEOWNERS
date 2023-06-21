@@ -5,7 +5,7 @@ cpp/               @rapidsai/kvikio-cpp-codeowners
 python/            @rapidsai/kvikio-python-codeowners
 
 #legate code owners
-legate/            @rapidsai/kvikio-legate-codeowners
+legate/            @rapidsai/kvikio-cpp-codeowners @rapidsai/kvikio-python-codeowners
 
 #cmake code owners
 **/CMakeLists.txt  @rapidsai/kvikio-cmake-codeowners
