@@ -17,19 +17,14 @@
 
 /**
  * In order to support compilation when `cufile.h` isn't available, we
- * wrap all use of cufile in a `#ifdef KVIKIO_CUFILE_EXIST` guard.
+ * wrap all use of cufile in a `#ifdef KVIKIO_CUFILE_FOUND` guard.
  *
  * The motivation here is to make KvikIO work in all circumstances so
  * that libraries doesn't have to implement there own fallback solutions.
  */
-#ifndef KVIKIO_DISABLE_CUFILE
-#if __has_include(<cufile.h>)
+#ifdef KVIKIO_CUFILE_FOUND
 #include <cufile.h>
-#define KVIKIO_CUFILE_EXIST
-#endif
-#endif
-
-#ifndef KVIKIO_CUFILE_EXIST
+#else
 using CUfileDriverControlFlags_t = enum CUfileDriverControlFlags {
   CU_FILE_USE_POLL_MODE     = 0, /*!< use POLL mode. properties.use_poll_mode*/
   CU_FILE_ALLOW_COMPAT_MODE = 1  /*!< allow COMPATIBILITY mode. properties.allow_compat_mode*/
@@ -39,7 +34,7 @@ using CUfileHandle_t = void*;
 
 // If the Batch API isn't defined, we define some of the data types here.
 // Notice, this doesn't need to be ABI compatible with the cufile definitions.
-#ifndef CUFILE_BATCH_API_FOUND
+#ifndef KVIKIO_CUFILE_BATCH_API_FOUND
 typedef enum CUfileOpcode { CUFILE_READ = 0, CUFILE_WRITE } CUfileOpcode_t;
 
 typedef enum CUFILEStatus_enum {

@@ -14,6 +14,7 @@ files:
       - py_version
       - run
       - test_python
+      - test_python_legate
   test_cpp:
     output: none
     includes:
@@ -79,6 +80,7 @@ files:
       key: test
     includes:
       - test_python
+      - test_python_legate
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -211,6 +213,7 @@ dependencies:
         packages:
           - numpy>=1.21
           - zarr
+          - packaging
       - output_types: conda
         packages:
           - cupy>=12.0.0
@@ -229,8 +232,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask>=2022.05.2
-          - distributed>=2022.05.2
+          - &dask dask>=2022.05.2
           - pytest
           - pytest-cov
     specific:
@@ -243,6 +245,12 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0
+  test_python_legate:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - *dask
+          - distributed>=2022.05.2
   notebooks:
     common:
       - output_types: conda

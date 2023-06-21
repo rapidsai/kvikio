@@ -168,7 +168,7 @@ class FileHandle {
     }
 
     if (_compat_mode) { return; }
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
     CUfileDescr_t desc{};  // It is important to set to zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
@@ -213,7 +213,7 @@ class FileHandle {
     if (closed()) { return; }
 
     if (!_compat_mode) {
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
       cuFileAPI::instance().HandleDeregister(_handle);
 #endif
     }
@@ -308,7 +308,7 @@ class FileHandle {
     if (_compat_mode) {
       return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -358,7 +358,7 @@ class FileHandle {
     if (_compat_mode) {
       return posix_device_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
     ssize_t ret = cuFileAPI::instance().Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {

@@ -40,7 +40,7 @@ inline void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noe
 }
 }  // namespace detail
 
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
 
 class DriverInitializer {
   // Optional, if not used cuFiles opens the driver automatically
@@ -178,7 +178,7 @@ class DriverProperties {
 
   [[nodiscard]] std::size_t get_max_batch_io_size()
   {
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
     lazy_init();
     return _props.max_batch_io_size;
 #else
