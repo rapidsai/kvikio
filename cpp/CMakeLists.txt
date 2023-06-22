@@ -38,6 +38,8 @@ rapids_cmake_build_type(Release)
 # build options
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 
+rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
+
 # find packages we depend on
 rapids_cpm_init()
 
