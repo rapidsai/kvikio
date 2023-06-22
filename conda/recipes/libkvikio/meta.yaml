@@ -107,6 +107,7 @@ outputs:
         - cudatoolkit ={{ cuda_version }}
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
+        - cuda-cudart-dev
         - libcufile-dev  # [linux64]
         {% endif %}
       run:
