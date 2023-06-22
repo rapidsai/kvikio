@@ -101,13 +101,19 @@ outputs:
     requirements:
       build:
         - cmake {{ cmake_version }}
+      host:
+        - cuda-version ={{ cuda_version }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit ={{ cuda_version }}
+        - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
+        {% else %}
+        - libcufile-dev  # [linux64]
+        {% endif %}
       run:
         - cuda-version {{ cuda_spec }}
         {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
-        {% else %}
-        - libcufile  # [linux64]
         {% endif %}
     about:
       home: https://rapids.ai
