@@ -62,6 +62,7 @@ requirements:
     - cudatoolkit
     {% endif %}
     - cuda-version ={{ cuda_version }}
+    - nvcomp {{ nvcomp_version }}
     - scikit-build >=0.13.1
     - libkvikio ={{ version }}
   run:

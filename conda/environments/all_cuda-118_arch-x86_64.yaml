@@ -24,6 +24,7 @@ dependencies:
 - ninja
 - numpy>=1.21
 - nvcc_linux-64=11.8
+- nvcomp==2.6.1
 - packaging
 - pre-commit
 - pydata-sphinx-theme
