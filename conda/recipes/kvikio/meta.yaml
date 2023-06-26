@@ -59,7 +59,7 @@ requirements:
     - pip
     - cython >=0.29,<0.30
     {% if cuda_major == "11" %}
-    - cudatoolkit ={{ cuda_version }}
+    - cudatoolkit
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - nvcomp {{ nvcomp_version }}
@@ -73,7 +73,7 @@ requirements:
     - packaging
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
-    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - cudatoolkit
     {% endif %}
 
 test:

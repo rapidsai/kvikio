@@ -47,7 +47,7 @@ requirements:
   host:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
-    - cudatoolkit ={{ cuda_version }}
+    - cudatoolkit
     - libcufile {{ cuda11_libcufile_host_version }}      # [linux64]
     - libcufile-dev {{ cuda11_libcufile_host_version }}  # [linux64]
     {% else %}
@@ -73,7 +73,7 @@ outputs:
       run:
         - cuda-version {{ cuda_spec }}
         {% if cuda_major == "11" %}
-        - cudatoolkit {{ cuda_spec }}
+        - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
         - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
@@ -104,7 +104,7 @@ outputs:
       host:
         - cuda-version ={{ cuda_version }}
         {% if cuda_major == "11" %}
-        - cudatoolkit ={{ cuda_version }}
+        - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
         - cuda-cudart-dev
@@ -113,7 +113,7 @@ outputs:
       run:
         - cuda-version {{ cuda_spec }}
         {% if cuda_major == "11" %}
-        - cudatoolkit {{ cuda_spec }}
+        - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% endif %}
     about:

@@ -55,7 +55,7 @@ conda create -n kvikio_env -c rapidsai -c conda-forge kvikio
 Install the `kvikio` conda package from the `rapidsai-nightly` channel like:
 
 ```
-conda create -n kvikio_env -c rapidsai-nightly -c conda-forge python=3.10 cudatoolkit=11.8 kvikio
+conda create -n kvikio_env -c rapidsai-nightly -c conda-forge python=3.10 cuda-version=11.8 kvikio
 ```
 
 If the nightly install doesn't work, set `channel_priority: flexible` in your `.condarc`.
