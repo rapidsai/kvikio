@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -29,9 +29,9 @@ def test_single_node_io(run_cmd, tmp_path, api):
     """Test benchmarks/single-node-io.py"""
 
     if "zarr" in api:
-        zarr = pytest.importorskip("zarr")
-        if not hasattr(zarr.Array, "meta_array"):
-            pytest.skip("requires Zarr v2.13+")
+        kz = pytest.importorskip("kvikio.zarr")
+        if not kz.supported:
+            pytest.skip(f"requires Zarr >={kz.MINIMUM_ZARR_VERSION}")
 
     retcode = run_cmd(
         cmd=[

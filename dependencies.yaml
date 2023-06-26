@@ -3,16 +3,18 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8"]
+      cuda: ["11.8", "12.0"]
       arch: [x86_64]
     includes:
       - build
       - checks
       - cudatoolkit
       - docs
+      - notebooks
       - py_version
       - run
       - test_python
+      - test_python_legate
   test_cpp:
     output: none
     includes:
@@ -78,6 +80,7 @@ files:
       key: test
     includes:
       - test_python
+      - test_python_legate
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -113,6 +116,23 @@ dependencies:
             packages:
               - gcc_linux-aarch64=11.*
               - sysroot_linux-aarch64=2.17
+      - output_types: conda
+        matrices:
+          - matrix:
+              arch: x86_64
+              cuda: "11.8"
+            packages:
+              - nvcc_linux-64=11.8
+          - matrix:
+              arch: aarch64
+              cuda: "11.8"
+            packages:
+              - nvcc_linux-aarch64=11.8
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-version=12.0
+              - cuda-nvcc
   checks:
     common:
       - output_types: [conda, requirements]
@@ -122,6 +142,10 @@ dependencies:
     specific:
       - output_types: conda
         matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-version=12.0
           - matrix:
               cuda: "11.8"
             packages:
@@ -140,6 +164,12 @@ dependencies:
               - cudatoolkit=11.2
       - output_types: conda
         matrices:
+          - matrix:
+              cuda: "12.0"
+              arch: x86_64
+            packages:
+              - libcufile
+              - libcufile-dev
           - matrix:
               cuda: "11.8"
               arch: x86_64
@@ -213,6 +243,7 @@ dependencies:
         packages:
           - numpy>=1.21
           - zarr
+          - packaging
       - output_types: conda
         packages:
           - cupy>=12.0.0
@@ -231,9 +262,27 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cuda-python>=11.7.1,<12.0
-          - cudf==23.8.*
-          - dask>=2022.05.2
-          - distributed>=2022.05.2
+          - &dask dask>=2022.05.2
           - pytest
           - pytest-cov
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-python>=12.0,<13.0a0
+          - matrix: # All CUDA 11 versions
+            packages:
+              - cuda-python>=11.7.1,<12.0a0
+  test_python_legate:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - *dask
+          - distributed>=2022.05.2
+  notebooks:
+    common:
+      - output_types: conda
+        packages:
+          - cudf==23.8.*

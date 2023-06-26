@@ -44,7 +44,7 @@ struct BatchOp {
   CUfileOpcode_t opcode;
 };
 
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
 
 /**
  * @brief Handle of an cuFile batch using  semantic.

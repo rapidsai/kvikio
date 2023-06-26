@@ -56,7 +56,7 @@ struct CUfileException : public std::runtime_error {
 #define CUDA_DRIVER_TRY_1(_call) CUDA_DRIVER_TRY_2(_call, CUfileException)
 #endif
 
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
 #ifndef CUFILE_TRY
 #define CUFILE_TRY(...)                                         \
   GET_CUFILE_TRY_MACRO(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
