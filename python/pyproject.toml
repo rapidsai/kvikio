@@ -105,3 +105,6 @@ skip = [
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[project.entry-points."numcodecs.codecs"]
+nvcomp_batch = "kvikio.nvcomp_codec:NvCompBatchCodec"
