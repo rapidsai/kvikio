@@ -1,7 +1,7 @@
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-from typing import Any, Mapping, Optional
+from typing import Any, List, Mapping, Optional
 
 import cupy as cp
 import numpy as np
@@ -66,7 +66,7 @@ class NvCompBatchCodec(Codec):
         """
         return self.encode_batch([buf])[0]
 
-    def encode_batch(self, bufs):
+    def encode_batch(self, bufs: List[Any]) -> List[Any]:
         """Encode data in `bufs` using nvCOMP.
 
         Parameters
@@ -82,7 +82,8 @@ class NvCompBatchCodec(Codec):
             protocol.
         """
         num_chunks = len(bufs)
-        assert num_chunks > 0
+        if num_chunks == 0:
+            return []
 
         bufs = [cp.asarray(ensure_contiguous_ndarray_like(b)) for b in bufs]
         buf_sizes = [b.size * b.itemsize for b in bufs]
@@ -142,9 +143,12 @@ class NvCompBatchCodec(Codec):
     def decode(self, buf, out=None):
         return self.decode_batch([buf], [out])[0]
 
-    def decode_batch(self, bufs, out=None):
+    def decode_batch(
+        self, bufs: List[Any], out: Optional[List[Any]] = None
+    ) -> List[Any]:
         num_chunks = len(bufs)
-        assert num_chunks > 0
+        if num_chunks == 0:
+            return []
 
         # TODO(akamenev): check only first buffer, assuming they are all
         # of the same kind.
@@ -203,17 +207,17 @@ class NvCompBatchCodec(Codec):
         res = []
         for i in range(num_chunks):
             ret = uncomp_chunks[i]
-            if is_host_buffer:
-                ret = cp.asnumpy(ret)
-
             if out is not None and out[i] is not None:
                 o = ensure_contiguous_ndarray_like(out[i])
                 if hasattr(o, "__cuda_array_interface__"):
                     cp.copyto(o, ret.view(dtype=o.dtype), casting="no")
                 else:
                     np.copyto(o, cp.asnumpy(ret.view(dtype=o.dtype)), casting="no")
-
-            res.append(ret)
+                res.append(o)
+            elif is_host_buffer:
+                res.append(cp.asnumpy(ret))
+            else:
+                res.append(ret)
 
         return res
 

@@ -163,3 +163,10 @@ def test_lz4_cpu_comp_gpu_decomp():
     z2 = zarr.open_array(store, compressor=gpu_codec)
 
     assert_equal(z1[:], z2[:])
+
+
+def test_empty_batch():
+    codec = _get_codec(LZ4_ALGO)
+
+    assert len(codec.encode_batch([])) == 0
+    assert len(codec.decode_batch([])) == 0
