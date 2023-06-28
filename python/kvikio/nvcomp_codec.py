@@ -72,14 +72,14 @@ class NvCompBatchCodec(Codec):
         Parameters
         ----------
         bufs : List[buffer-like].
-            Data to be encoded. May be any object supporting the new-style
-            buffer protocol.
+            Data to be encoded. Each buffer in the list may be any object
+            supporting the new-style buffer protocol.
 
         Returns
         -------
         enc : List[buffer-like]
-            Encoded data. May be any object supporting the new-style buffer
-            protocol.
+            List of encoded buffers. Each buffer may be any object supporting
+            the new-style buffer protocol.
         """
         num_chunks = len(bufs)
         if num_chunks == 0:
@@ -141,11 +141,46 @@ class NvCompBatchCodec(Codec):
         return res
 
     def decode(self, buf, out=None):
+        """Decode data in `buf` using nvCOMP.
+
+        Parameters
+        ----------
+        buf : buffer-like
+            Encoded data. May be any object supporting the new-style buffer
+            protocol.
+        out : buffer-like, optional
+            Writeable buffer to store decoded data. N.B. if provided, this buffer must
+            be exactly the right size to store the decoded data.
+
+        Returns
+        -------
+        dec : buffer-like
+            Decoded data. May be any object supporting the new-style
+            buffer protocol.
+        """
         return self.decode_batch([buf], [out])[0]
 
     def decode_batch(
         self, bufs: List[Any], out: Optional[List[Any]] = None
     ) -> List[Any]:
+        """Decode data in `bufs` using nvCOMP.
+
+        Parameters
+        ----------
+        bufs : List[buffer-like]
+            Encoded data. Each buffer in the list may be any object
+            supporting the new-style buffer protocol.
+        out : List[buffer-like], optional
+            List of writeable buffers to store decoded data.
+            N.B. if provided, each buffer must be exactly the right size
+            to store the decoded data.
+
+        Returns
+        -------
+        dec : List[buffer-like]
+            List of decoded buffers. Each buffer may be any object supporting
+            the new-style buffer protocol.
+        """
         num_chunks = len(bufs)
         if num_chunks == 0:
             return []
