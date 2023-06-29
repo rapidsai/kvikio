@@ -1,6 +1,7 @@
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+import itertools as it
 import json
 
 import numcodecs
@@ -26,6 +27,23 @@ def _get_codec(algo: str):
     return numcodecs.registry.get_codec(codec_args)
 
 
+@pytest.fixture(params=[(16,), (8, 16), (16, 16)])
+def shape(request):
+    return request.param
+
+
+# Separate fixture for combinations of shapes and chunks, since
+# chunks array must have the same rank as data array.
+@pytest.fixture(
+    params=it.chain(
+        it.product([(32,)], [(16,), (32,), (40,)]),
+        it.product([(16, 8), (16, 16)], [(8, 16), (16, 16), (40, 12)]),
+    )
+)
+def shape_chunks(request):
+    return request.param
+
+
 @pytest.mark.parametrize("algo", SUPPORTED_CODECS)
 def test_codec_registry(algo: str):
     codec = _get_codec(algo)
@@ -33,8 +51,7 @@ def test_codec_registry(algo: str):
 
 
 @pytest.mark.parametrize("algo", SUPPORTED_CODECS)
-def test_basic(algo: str):
-    shape = (16, 16)
+def test_basic(algo: str, shape):
     codec = NvCompBatchCodec(algo)
 
     # Create data.
@@ -49,9 +66,8 @@ def test_basic(algo: str):
 
 
 @pytest.mark.parametrize("algo", SUPPORTED_CODECS)
-def test_basic_zarr(algo: str):
-    shape = (16, 16)
-    chunks = (8, 8)
+def test_basic_zarr(algo: str, shape_chunks):
+    shape, chunks = shape_chunks
 
     codec = NvCompBatchCodec(algo)
 
@@ -86,13 +102,12 @@ def test_batch_comp_decomp(algo: str):
 
 
 @pytest.mark.parametrize("algo", SUPPORTED_CODECS)
-def test_comp_decomp(algo: str):
+def test_comp_decomp(algo: str, shape_chunks):
+    shape, chunks = shape_chunks
+
     codec = _get_codec(algo)
 
     np.random.seed(1)
-
-    shape = (16, 16)
-    chunks = (8, 8)
 
     data = np.random.randn(*shape).astype(np.float32)
 

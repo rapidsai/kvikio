@@ -104,16 +104,21 @@ class NvCompBatchCodec(Codec):
         temp_buf = cp.empty(temp_size, dtype=cp.uint8)
 
         # Includes header with the original buffer size,
-        # same as in numcodecs codec.
+        # same as in numcodecs codec. This enables data compatibility between
+        # numcodecs default codecs and this nvCOMP batch codec.
         # TODO(akamenev): probably should use contiguous buffer which stores all chunks?
         comp_chunks_header = [
             cp.empty(self.HEADER_SIZE_BYTES + comp_chunk_size, dtype=cp.uint8)
             for _ in range(num_chunks)
         ]
+        # comp_chunks is used as a container that stores pointers to actual chunks.
+        # nvCOMP requires this container to be in GPU memory.
         comp_chunks = cp.array(
             [c.data.ptr + self.HEADER_SIZE_BYTES for c in comp_chunks_header],
             dtype=cp.uint64,
         )
+        # Similar to comp_chunks, comp_chunk_sizes is an array that contains
+        # chunk sizes and is required by nvCOMP to be in GPU memory.
         comp_chunk_sizes = cp.empty(num_chunks, dtype=cp.uint64)
 
         self._algo.compress(
@@ -213,12 +218,16 @@ class NvCompBatchCodec(Codec):
         temp_buf = cp.empty(temp_size, dtype=cp.uint8)
 
         # Prepare uncompressed chunks buffers.
+        # First, allocate chunks of appropriate sizes and then
+        # copy the pointers to a pointer array in GPU memory as required by nvCOMP.
+        # TODO(akamenev): probably can allocate single contiguous buffer.
         uncomp_chunks = [cp.empty(size, dtype=cp.uint8) for size in uncomp_chunk_sizes]
         uncomp_chunk_ptrs = cp.array(
             [c.data.ptr for c in uncomp_chunks], dtype=cp.uint64
         )
-
+        # Sizes array must be in GPU memory.
         uncomp_chunk_sizes = cp.array(uncomp_chunk_sizes, dtype=cp.uint64)
+
         # TODO(akamenev): currently we provide the following 2 buffers to decompress()
         # but do not check/use them afterwards since some of the algos
         # (e.g. LZ4 and Gdeflate) do not require it and run faster
