@@ -56,6 +56,15 @@ class cuFileAPI {
 #endif
   bool batch_available = false;
 
+#ifdef CUFILE_STREAM_API_FOUND
+  decltype(cuFileGetVersion)* GetVersion{nullptr};
+  decltype(cuFileReadAsync)* ReadAsync{nullptr};
+  decltype(cuFileWriteAsync)* WriteAsync{nullptr};
+  decltype(cuFileStreamRegister)* StreamRegister{nullptr};
+  decltype(cuFileStreamDeregister)* StreamDeregister{nullptr};
+#endif
+  bool stream_available = false;
+
  private:
   cuFileAPI()
   {
@@ -100,6 +109,21 @@ class cuFileAPI {
       get_symbol(s, lib, "_ZTS13CUfileOpError");
       batch_available = true;
     } catch (const std::runtime_error&) {
+    }
+#endif
+
+#ifdef CUFILE_STREAM_API_FOUND
+    get_symbol(GetVersion, lib, KVIKIO_STRINGIFY(cuFileGetVersion));
+    get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
+    get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
+    get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
+    get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
+    try {
+      void* s{};
+      get_symbol(s, lib, "cuFileGetVersion");
+      stream_available = true;
+    } catch (const std::runtime_error&) {
+      stream_available = false;
     }
 #endif
 
@@ -184,6 +208,24 @@ inline bool is_batch_available()
 }
 #else
 constexpr bool is_batch_available() { return false; }
+#endif
+
+/**
+ * @brief Check if cuFile's stream API is available
+ *
+ * @return The boolean answer
+ */
+#ifdef CUFILE_STREAM_API_FOUND
+inline bool is_stream_available()
+{
+  try {
+    return cuFileAPI::instance().stream_available;
+  } catch (const std::runtime_error&) {
+    return false;
+  }
+}
+#else
+constexpr bool is_stream_available() { return false; }
 #endif
 
 }  // namespace kvikio

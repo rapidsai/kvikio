@@ -46,6 +46,12 @@ class cudaAPI {
   decltype(cuDeviceGet)* DeviceGet{nullptr};
   decltype(cuDevicePrimaryCtxRetain)* DevicePrimaryCtxRetain{nullptr};
   decltype(cuDevicePrimaryCtxRelease)* DevicePrimaryCtxRelease{nullptr};
+  decltype(cuStreamCreate)* StreamCreate{nullptr};
+  decltype(cuStreamCreateWithPriority)* StreamCreateWithPriority{nullptr};
+  decltype(cuMemHostRegister)* MemHostRegister{nullptr};
+  decltype(cuMemHostUnregister)* MemHostUnregister{nullptr};
+  decltype(cuStreamSynchronize)* StreamSynchronize{nullptr};
+  decltype(cuStreamDestroy)* StreamDestroy{nullptr};
 
  private:
   cudaAPI()
@@ -70,6 +76,12 @@ class cudaAPI {
     get_symbol(DeviceGet, lib, KVIKIO_STRINGIFY(cuDeviceGet));
     get_symbol(DevicePrimaryCtxRetain, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRetain));
     get_symbol(DevicePrimaryCtxRelease, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRelease));
+    get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
+    get_symbol(StreamCreateWithPriority, lib, KVIKIO_STRINGIFY(cuStreamCreateWithPriority));
+    get_symbol(MemHostRegister, lib, KVIKIO_STRINGIFY(cuMemHostRegister));
+    get_symbol(MemHostUnregister, lib, KVIKIO_STRINGIFY(cuMemHostUnregister));
+    get_symbol(StreamSynchronize, lib, KVIKIO_STRINGIFY(cuStreamSynchronize));
+    get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
   }
 
  public:

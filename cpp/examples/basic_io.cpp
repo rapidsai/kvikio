@@ -19,9 +19,11 @@
 #include <cuda_runtime_api.h>
 
 #include <kvikio/batch.hpp>
+#include <kvikio/stream.hpp>
 #include <kvikio/buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/driver.hpp>
+#include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 
 using namespace std;
@@ -34,11 +36,12 @@ void check(bool condition)
   }
 }
 
-constexpr int NELEM = 1000;                 // Number of elements used throughout the test
+constexpr int NELEM = 1024;                 // Number of elements used throughout the test
 constexpr int SIZE  = NELEM * sizeof(int);  // Size of the memory allocations (in bytes)
 
 int main()
 {
+  std::size_t io_size = SIZE;
   check(cudaSetDevice(0) == cudaSuccess);
 
   cout << "KvikIO defaults: " << endl;
@@ -192,4 +195,24 @@ int main()
     check(statuses.empty());
     cout << "Batch canceling of all 4 operations" << endl;
   }
+
+  if (kvikio::is_stream_available()) {
+     off_t f_off = 0, d_off = 0;
+
+     kvikio::StreamHandle s_handle_wr("/tmp/test-file", "w", kvikio::StreamHandle::m644, true);
+     check(cudaMemcpy(a_dev, a, SIZE, cudaMemcpyHostToDevice) == cudaSuccess);
+     kvikio::buffer_register(a_dev, SIZE);
+     size_t bytes_done = s_handle_wr.write_async(a_dev, &io_size, &f_off, &d_off);
+     s_handle_wr.stream_synchronize();
+     check(bytes_done == SIZE);
+     cout << "Stream Write : " << bytes_done << endl; 
+
+     /* Read */
+     kvikio::StreamHandle s_handle("/tmp/test-file", "r", kvikio::StreamHandle::m644, true);
+     kvikio::buffer_register(c_dev, SIZE);
+     bytes_done = s_handle.read_async(c_dev, &io_size, &f_off, &d_off);
+     s_handle.stream_synchronize();
+     check(bytes_done == SIZE);
+     cout << "Stream Read : " << bytes_done << endl; 
+   }
 }
