@@ -287,3 +287,66 @@ cdef extern from "nvcomp/snappy.h" nogil:
         nvcompStatus_t* device_statuses,
         cudaStream_t stream
     )
+
+
+#
+# Deflate batch compression/decompression API.
+#
+cdef extern from "nvcomp/deflate.h" nogil:
+    ctypedef struct nvcompBatchedDeflateOpts_t:
+        int algo
+
+    # Compression API.
+    cdef nvcompStatus_t nvcompBatchedDeflateCompressGetTempSize(
+        size_t batch_size,
+        size_t max_uncompressed_chunk_bytes,
+        nvcompBatchedDeflateOpts_t format_opts,
+        size_t* temp_bytes
+    )
+
+    cdef nvcompStatus_t nvcompBatchedDeflateCompressGetMaxOutputChunkSize(
+        size_t max_uncompressed_chunk_bytes,
+        nvcompBatchedDeflateOpts_t format_opts,
+        size_t* max_compressed_bytes
+    )
+
+    cdef nvcompStatus_t nvcompBatchedDeflateCompressAsync(
+        const void* const* device_uncompressed_ptrs,
+        const size_t* device_uncompressed_bytes,
+        size_t max_uncompressed_chunk_bytes,
+        size_t batch_size,
+        void* device_temp_ptr,
+        size_t temp_bytes,
+        void* const* device_compressed_ptrs,
+        size_t* device_compressed_bytes,
+        nvcompBatchedDeflateOpts_t format_opts,
+        cudaStream_t stream
+    )
+
+    # Decompression API.
+    cdef nvcompStatus_t nvcompBatchedDeflateDecompressGetTempSize(
+        size_t num_chunks,
+        size_t max_uncompressed_chunk_bytes,
+        size_t* temp_bytes
+    )
+
+    nvcompStatus_t nvcompBatchedDeflateGetDecompressSizeAsync(
+        const void* const* device_compressed_ptrs,
+        const size_t* device_compressed_bytes,
+        size_t* device_uncompressed_bytes,
+        size_t batch_size,
+        cudaStream_t stream
+    )
+
+    nvcompStatus_t nvcompBatchedDeflateDecompressAsync(
+        const void* const* device_compressed_ptrs,
+        const size_t* device_compressed_bytes,
+        const size_t* device_uncompressed_bytes,
+        size_t* device_actual_uncompressed_bytes,
+        size_t batch_size,
+        void* const device_temp_ptr,
+        size_t temp_bytes,
+        void* const* device_uncompressed_ptrs,
+        nvcompStatus_t* device_statuses,
+        cudaStream_t stream
+    )
