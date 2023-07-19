@@ -4,9 +4,16 @@
 from abc import ABC, abstractmethod
 from enum import IntEnum
 
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uint32_t, uint64_t, uintptr_t
 
-from kvikio._lib.nvcomp_ll_cxx_api cimport cudaStream_t, nvcompStatus_t, nvcompType_t
+from kvikio._lib.nvcomp_ll_cxx_api cimport (
+    cudaMemcpyKind,
+    cudaStream_t,
+    nvcompStatus_t,
+    nvcompType_t,
+)
+
+from cupy.cuda.runtime import memcpyAsync
 
 
 class nvCompStatus(IntEnum):
@@ -210,6 +217,58 @@ class nvCompBatchAlgorithm(ABC):
         """Algorithm-specific implementation."""
         ...
 
+    def get_decompress_size(
+        self,
+        comp_chunks,
+        comp_chunk_sizes,
+        size_t batch_size,
+        uncomp_chunk_sizes,
+        stream,
+    ):
+        """Get the amount of space required on the GPU for decompression.
+
+        Parameters
+        ----------
+        comp_chunks: cp.ndarray
+            The pointers on the GPU, to compressed batched items.
+        comp_chunk_sizes: cp.ndarray
+            The size in bytes of each compressed batch item on the GPU.
+        batch_size: int
+            The number of items in the batch.
+        uncomp_chunk_sizes: cp.ndarray
+            (output) The decompressed size in bytes of each chunk on the GPU.
+        stream: cp.cuda.Stream
+            CUDA stream.
+
+        Returns
+        -------
+        int
+            The amount of GPU space in bytes that will be required to decompress.
+        """
+        err = self._get_decomp_size(
+            comp_chunks,
+            comp_chunk_sizes,
+            batch_size,
+            uncomp_chunk_sizes,
+            stream,
+        )
+        if err != nvcompStatus_t.nvcompSuccess:
+            raise RuntimeError(
+                f"Could not get decompress buffer size, error: {nvCompStatus(err)!r}."
+            )
+
+    @abstractmethod
+    def _get_decomp_size(
+        self,
+        comp_chunks,
+        comp_chunk_sizes,
+        size_t batch_size,
+        uncomp_chunk_sizes,
+        stream,
+    ):
+        """Algorithm-specific implementation."""
+        ...
+
     def decompress(
         self,
         comp_chunks,
@@ -294,6 +353,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedLZ4CompressGetTempSize,
     nvcompBatchedLZ4DecompressAsync,
     nvcompBatchedLZ4DecompressGetTempSize,
+    nvcompBatchedLZ4GetDecompressSizeAsync,
     nvcompBatchedLZ4Opts_t,
 )
 
@@ -305,8 +365,23 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
 
     options: nvcompBatchedLZ4Opts_t
 
-    def __init__(self, data_type: int = 0):
+    HEADER_SIZE_BYTES: int = 4
+
+    def __init__(self, data_type: int = 0, has_header: bool = True):
+        """Initialized the codec.
+
+        Parameters
+         ----------
+         data_type: int
+             Source data type.
+         has_header: bool
+             Whether the compressed data has a header.
+             This enables data compatibility between numcodecs LZ4 codec,
+             which has the header and nvCOMP LZ4 codec which does not
+             require the header.
+        """
         self.options = nvcompBatchedLZ4Opts_t(data_type)
+        self.has_header = has_header
 
     def _get_comp_temp_size(
         self,
@@ -333,6 +408,10 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
             &max_compressed_bytes
         )
 
+        # Add header size, if needed.
+        if err == nvcompStatus_t.nvcompSuccess and self.has_header:
+            max_compressed_bytes += self.HEADER_SIZE_BYTES
+
         return (err, max_compressed_bytes)
 
     def _compress(
@@ -346,9 +425,33 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
         comp_chunk_sizes,
         stream
     ):
+        if self.has_header:
+            # If there is a header, we need to:
+            # 1. Copy the uncompressed chunk size to the compressed chunk header.
+            # 2. Update target pointers in comp_chunks to skip the header portion,
+            # which is not compressed.
+            # TODO(akamenev): there are some D2H/H2D copies which
+            # potentially can be removed or replaced with D2D memcpyAsync.
+            #
+            # Get the base pointers to sizes.
+            psizes = uncomp_chunk_sizes.data.ptr
+            for i in range(batch_size):
+                # Get pointer to the header and copy original data size.
+                pheader = comp_chunks[i]
+                memcpyAsync(
+                    int(pheader),
+                    psizes,
+                    sizeof(uint32_t),
+                    cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+                    stream.ptr
+                )
+                psizes += sizeof(uint64_t)
+                # Update chunk pointer to skip the header.
+                comp_chunks[i] = pheader + self.HEADER_SIZE_BYTES
+
         # Cast buffer pointers that have Python int type to appropriate C types
         # suitable for passing to nvCOMP API.
-        return nvcompBatchedLZ4CompressAsync(
+        err = nvcompBatchedLZ4CompressAsync(
             <const void* const*>to_ptr(uncomp_chunks),
             <const size_t*>to_ptr(uncomp_chunk_sizes),
             max_uncomp_chunk_bytes,
@@ -360,6 +463,15 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
             self.options,
             to_stream(stream),
         )
+
+        if err == nvcompStatus_t.nvcompSuccess and self.has_header:
+            for i in range(batch_size):
+                # Update chunk pointer and size to include the header.
+                # TODO(akamenev): same note about copies as above.
+                comp_chunks[i] -= self.HEADER_SIZE_BYTES
+                comp_chunk_sizes[i] += self.HEADER_SIZE_BYTES
+
+        return err
 
     def _get_decomp_temp_size(
         self,
@@ -376,6 +488,47 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
 
         return (err, temp_bytes)
 
+    def _get_decomp_size(
+        self,
+        comp_chunks,
+        comp_chunk_sizes,
+        size_t batch_size,
+        uncomp_chunk_sizes,
+        stream,
+    ):
+        cdef uint32_t uncomp_size
+
+        if self.has_header:
+            # Set uncompressed size from the chunk headers.
+            # We need to use a temp uint32_t variable instead of
+            # directly copying D2D because LZ4 numcodecs header uses uint32_t
+            # to represent size while nvCOMP uses uint64_t. Since we cannot
+            # assume that uncomp_chunk_sizes are 0-initialized, we need a temp
+            # variable and additional copies.
+            for i in range(batch_size):
+                # Get pointer to the header and copy original data size.
+                pheader = comp_chunks[i]
+                memcpyAsync(
+                    <uintptr_t>&uncomp_size,
+                    int(pheader),
+                    sizeof(uint32_t),
+                    cudaMemcpyKind.cudaMemcpyDeviceToHost,
+                    stream.ptr
+                )
+                stream.synchronize()
+                uncomp_chunk_sizes[i] = uncomp_size
+            return nvcompStatus_t.nvcompSuccess
+
+        err = nvcompBatchedLZ4GetDecompressSizeAsync(
+            <const void* const*>to_ptr(comp_chunks),
+            <const size_t*>to_ptr(comp_chunk_sizes),
+            <size_t*>to_ptr(uncomp_chunk_sizes),
+            batch_size,
+            to_stream(stream),
+        )
+
+        return err
+
     def _decompress(
         self,
         comp_chunks,
@@ -388,9 +541,15 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
         statuses,
         stream,
     ):
+        if self.has_header:
+            for i in range(batch_size):
+                # Update chunk pointer and size to exclude the header.
+                comp_chunks[i] += self.HEADER_SIZE_BYTES
+                comp_chunk_sizes[i] -= self.HEADER_SIZE_BYTES
+
         # Cast buffer pointers that have Python int type to appropriate C types
         # suitable for passing to nvCOMP API.
-        return nvcompBatchedLZ4DecompressAsync(
+        err = nvcompBatchedLZ4DecompressAsync(
             <const void* const*>to_ptr(comp_chunks),
             <const size_t*>to_ptr(comp_chunk_sizes),
             <const size_t*>to_ptr(uncomp_chunk_sizes),
@@ -402,6 +561,14 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
             <nvcompStatus_t*>NULL,
             to_stream(stream),
         )
+
+        if err == nvcompStatus_t.nvcompSuccess and self.has_header:
+            for i in range(batch_size):
+                # Update chunk pointer and size to include the header.
+                comp_chunks[i] -= self.HEADER_SIZE_BYTES
+                comp_chunk_sizes[i] += self.HEADER_SIZE_BYTES
+
+        return err
 
     def __repr__(self):
         return f"{self.__class__.__name__}(data_type={self.options['data_type']})"
@@ -416,6 +583,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedGdeflateCompressGetTempSize,
     nvcompBatchedGdeflateDecompressAsync,
     nvcompBatchedGdeflateDecompressGetTempSize,
+    nvcompBatchedGdeflateGetDecompressSizeAsync,
     nvcompBatchedGdeflateOpts_t,
 )
 
@@ -496,6 +664,22 @@ class nvCompBatchAlgorithmGdeflate(nvCompBatchAlgorithm):
 
         return (err, temp_bytes)
 
+    def _get_decomp_size(
+        self,
+        comp_chunks,
+        comp_chunk_sizes,
+        size_t batch_size,
+        uncomp_chunk_sizes,
+        stream,
+    ):
+        return nvcompBatchedGdeflateGetDecompressSizeAsync(
+            <const void* const*>to_ptr(comp_chunks),
+            <const size_t*>to_ptr(comp_chunk_sizes),
+            <size_t*>to_ptr(uncomp_chunk_sizes),
+            batch_size,
+            to_stream(stream),
+        )
+
     def _decompress(
         self,
         comp_chunks,
@@ -534,6 +718,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedZstdCompressGetTempSize,
     nvcompBatchedZstdDecompressAsync,
     nvcompBatchedZstdDecompressGetTempSize,
+    nvcompBatchedZstdGetDecompressSizeAsync,
     nvcompBatchedZstdOpts_t,
 )
 
@@ -614,6 +799,22 @@ class nvCompBatchAlgorithmZstd(nvCompBatchAlgorithm):
 
         return (err, temp_bytes)
 
+    def _get_decomp_size(
+        self,
+        comp_chunks,
+        comp_chunk_sizes,
+        size_t batch_size,
+        uncomp_chunk_sizes,
+        stream,
+    ):
+        return nvcompBatchedZstdGetDecompressSizeAsync(
+            <const void* const*>to_ptr(comp_chunks),
+            <const size_t*>to_ptr(comp_chunk_sizes),
+            <size_t*>to_ptr(uncomp_chunk_sizes),
+            batch_size,
+            to_stream(stream),
+        )
+
     def _decompress(
         self,
         comp_chunks,
@@ -652,6 +853,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedSnappyCompressGetTempSize,
     nvcompBatchedSnappyDecompressAsync,
     nvcompBatchedSnappyDecompressGetTempSize,
+    nvcompBatchedSnappyGetDecompressSizeAsync,
     nvcompBatchedSnappyOpts_t,
 )
 
@@ -731,6 +933,22 @@ class nvCompBatchAlgorithmSnappy(nvCompBatchAlgorithm):
         )
 
         return (err, temp_bytes)
+
+    def _get_decomp_size(
+        self,
+        comp_chunks,
+        comp_chunk_sizes,
+        size_t batch_size,
+        uncomp_chunk_sizes,
+        stream,
+    ):
+        return nvcompBatchedSnappyGetDecompressSizeAsync(
+            <const void* const*>to_ptr(comp_chunks),
+            <const size_t*>to_ptr(comp_chunk_sizes),
+            <size_t*>to_ptr(uncomp_chunk_sizes),
+            batch_size,
+            to_stream(stream),
+        )
 
     def _decompress(
         self,

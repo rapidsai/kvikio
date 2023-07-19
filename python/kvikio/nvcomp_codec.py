@@ -95,28 +95,16 @@ class NvCompBatchCodec(Codec):
         comp_chunk_size = self._algo.get_compress_chunk_size(max_chunk_size)
 
         # Prepare data and size buffers.
-        uncomp_chunks = cp.array(
-            [b.data.ptr for b in bufs],
-            dtype=cp.uint64,
-        )
+        uncomp_chunks = cp.array([b.data.ptr for b in bufs], dtype=cp.uint64)
         uncomp_chunk_sizes = cp.array(buf_sizes, dtype=cp.uint64)
 
         temp_buf = cp.empty(temp_size, dtype=cp.uint8)
 
-        # Includes header with the original buffer size,
-        # same as in numcodecs codec. This enables data compatibility between
-        # numcodecs default codecs and this nvCOMP batch codec.
-        # TODO(akamenev): probably should use contiguous buffer which stores all chunks?
-        comp_chunks_header = [
-            cp.empty(self.HEADER_SIZE_BYTES + comp_chunk_size, dtype=cp.uint8)
-            for _ in range(num_chunks)
-        ]
-        # comp_chunks is used as a container that stores pointers to actual chunks.
+        comp_chunks = cp.empty((num_chunks, comp_chunk_size), dtype=cp.uint8)
+        # comp_chunk_ptrs is used as a container that stores pointers to actual chunks.
         # nvCOMP requires this container to be in GPU memory.
-        comp_chunks = cp.array(
-            [c.data.ptr + self.HEADER_SIZE_BYTES for c in comp_chunks_header],
-            dtype=cp.uint64,
-        )
+        comp_chunk_ptrs = cp.array([c.data.ptr for c in comp_chunks], dtype=cp.uint64)
+
         # Similar to comp_chunks, comp_chunk_sizes is an array that contains
         # chunk sizes and is required by nvCOMP to be in GPU memory.
         comp_chunk_sizes = cp.empty(num_chunks, dtype=cp.uint64)
@@ -127,22 +115,14 @@ class NvCompBatchCodec(Codec):
             max_chunk_size,
             num_chunks,
             temp_buf,
-            comp_chunks,
+            comp_chunk_ptrs,
             comp_chunk_sizes,
             self._stream,
         )
 
-        # Write output buffers, each with the header.
         res = []
         for i in range(num_chunks):
-            comp_chunk = comp_chunks_header[i]
-            header = comp_chunk[:4].view(dtype=cp.uint32)
-            header[:] = buf_sizes[i]
-
-            res.append(
-                comp_chunk[: self.HEADER_SIZE_BYTES + comp_chunk_sizes[0]].tobytes()
-            )
-
+            res.append(comp_chunks[i][: comp_chunk_sizes[i]].tobytes())
         return res
 
     def decode(self, buf, out=None):
@@ -196,24 +176,24 @@ class NvCompBatchCodec(Codec):
         if is_host_buffer:
             bufs = [cp.asarray(ensure_contiguous_ndarray_like(b)) for b in bufs]
 
-        # Get uncompressed chunk sizes from the header.
-        uncomp_chunk_sizes = [
-            int(b[: self.HEADER_SIZE_BYTES].view(dtype=cp.uint32)[0]) for b in bufs
-        ]
-        max_chunk_size = max(uncomp_chunk_sizes)
+        # Prepare compressed chunks buffers.
+        comp_chunks = cp.array([b.data.ptr for b in bufs], dtype=cp.uint64)
+        comp_chunk_sizes = cp.array([b.size for b in bufs], dtype=cp.uint64)
+
+        # Get uncompressed chunk sizes.
+        # Sizes array must be in GPU memory.
+        uncomp_chunk_sizes = cp.empty(num_chunks, dtype=cp.uint64)
+        self._algo.get_decompress_size(
+            comp_chunks,
+            comp_chunk_sizes,
+            num_chunks,
+            uncomp_chunk_sizes,
+            self._stream,
+        )
+        max_chunk_size = uncomp_chunk_sizes.max().item()
 
         # Get temp buffer size.
         temp_size = self._algo.get_decompress_temp_size(num_chunks, max_chunk_size)
-
-        # Prepare compressed chunks buffers.
-        comp_chunks = cp.array(
-            [b.data.ptr + self.HEADER_SIZE_BYTES for b in bufs],
-            dtype=cp.uint64,
-        )
-        comp_chunk_sizes = cp.array(
-            [b.size - self.HEADER_SIZE_BYTES for b in bufs],
-            dtype=cp.uint64,
-        )
 
         temp_buf = cp.empty(temp_size, dtype=cp.uint8)
 
@@ -221,12 +201,12 @@ class NvCompBatchCodec(Codec):
         # First, allocate chunks of appropriate sizes and then
         # copy the pointers to a pointer array in GPU memory as required by nvCOMP.
         # TODO(akamenev): probably can allocate single contiguous buffer.
-        uncomp_chunks = [cp.empty(size, dtype=cp.uint8) for size in uncomp_chunk_sizes]
+        uncomp_chunks = [
+            cp.empty(size, dtype=cp.uint8) for size in uncomp_chunk_sizes.get()
+        ]
         uncomp_chunk_ptrs = cp.array(
             [c.data.ptr for c in uncomp_chunks], dtype=cp.uint64
         )
-        # Sizes array must be in GPU memory.
-        uncomp_chunk_sizes = cp.array(uncomp_chunk_sizes, dtype=cp.uint64)
 
         # TODO(akamenev): currently we provide the following 2 buffers to decompress()
         # but do not check/use them afterwards since some of the algos
