@@ -498,7 +498,7 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
     ):
         # Cast buffer pointers that have Python int type to appropriate C types
         # suitable for passing to nvCOMP API.
-        err = nvcompBatchedLZ4CompressAsync(
+        return nvcompBatchedLZ4CompressAsync(
             <const void* const*>to_ptr(uncomp_chunks),
             <const size_t*>to_ptr(uncomp_chunk_sizes),
             max_uncomp_chunk_bytes,
@@ -510,8 +510,6 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
             self.options,
             to_stream(stream),
         )
-
-        return err
 
     def _get_decomp_temp_size(
         self,
