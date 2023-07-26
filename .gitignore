@@ -17,3 +17,6 @@ docs/build/
 cpp/doxygen/html/
 .mypy_cache
 .hypothesis
+
+# clang tooling
+compile_commands.json
