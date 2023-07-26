@@ -38,7 +38,7 @@ function(add_cython_modules cython_modules)
     # To avoid libraries being prefixed with "lib".
     set_target_properties(${cython_module} PROPERTIES PREFIX "" CXX_STANDARD 17)
     # Link to the C++ library.
-    target_link_libraries(${cython_module} kvikio)
+    target_link_libraries(${cython_module} kvikio::kvikio)
     # Treat warnings as errors when compiling.
     target_compile_options(${cython_module} PRIVATE -Werror)
 

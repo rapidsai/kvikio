@@ -16,6 +16,14 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 set(kvikio_version 23.08.00)
 
+include(../cpp/cmake/fetch_rapids.cmake)
+
+include(rapids-cpm)
+rapids_cpm_init()
+
+include(rapids-cuda)
+rapids_cuda_init_architectures(kvikio-python)
+
 set(CYTHON_FLAGS
     "--directive binding=True,embedsignature=True,always_allow_keywords=True"
     CACHE STRING "The directives for Cython compilation."
@@ -47,12 +55,12 @@ set(ignored_variable "${SKBUILD}")
 if(FIND_KVIKIO_CPP)
   find_package(KvikIO ${kvikio_version})
 else()
-  set(KVIKIO_FOUND OFF)
+  set(KvikIO_FOUND OFF)
 endif()
 
 find_package(CUDAToolkit REQUIRED)
 
-if(NOT KVIKIO_FOUND)
+if(NOT KvikIO_FOUND)
   add_subdirectory(../cpp kvikio-cpp)
 endif()
 
