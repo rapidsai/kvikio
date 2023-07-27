@@ -387,7 +387,7 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
 
     options: nvcompBatchedLZ4Opts_t
 
-    HEADER_SIZE_BYTES: int = 4
+    HEADER_SIZE_BYTES: size_t = sizeof(uint32_t)
 
     def __init__(self, data_type: int = 0, has_header: bool = True):
         """Initialize the codec.
@@ -460,7 +460,7 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
                 memcpyAsync(
                     <uintptr_t>comp_chunks[i],
                     psize,
-                    sizeof(uint32_t),
+                    self.HEADER_SIZE_BYTES,
                     cudaMemcpyKind.cudaMemcpyDeviceToDevice,
                     stream.ptr
                 )
