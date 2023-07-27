@@ -390,17 +390,17 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
     HEADER_SIZE_BYTES: int = 4
 
     def __init__(self, data_type: int = 0, has_header: bool = True):
-        """Initialized the codec.
+        """Initialize the codec.
 
         Parameters
-         ----------
-         data_type: int
-             Source data type.
-         has_header: bool
-             Whether the compressed data has a header.
-             This enables data compatibility between numcodecs LZ4 codec,
-             which has the header and nvCOMP LZ4 codec which does not
-             require the header.
+        ----------
+        data_type: int
+            Source data type.
+        has_header: bool
+            Whether the compressed data has a header.
+            This enables data compatibility between numcodecs LZ4 codec,
+            which has the header and nvCOMP LZ4 codec which does not
+            require the header.
         """
         self.options = nvcompBatchedLZ4Opts_t(data_type)
         self.has_header = has_header
