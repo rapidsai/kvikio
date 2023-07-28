@@ -34,14 +34,8 @@ option(FIND_KVIKIO_CPP
        "Search for existing KVIKIO C++ installations before defaulting to local files" OFF
 )
 
-find_package(PythonExtensions REQUIRED)
-find_package(Cython REQUIRED)
-
 # TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
 include(../cpp/cmake/Modules/FindcuFile.cmake)
-
-# Ignore unused variable warning.
-set(ignored_variable "${SKBUILD}")
 
 if(FIND_KVIKIO_CPP)
   find_package(KvikIO ${kvikio_version})
@@ -53,7 +47,12 @@ find_package(CUDAToolkit REQUIRED)
 
 if(NOT KVIKIO_FOUND)
   add_subdirectory(../cpp kvikio-cpp)
+  set(cython_lib_dir kvikio)
+  install(TARGETS kvikio DESTINATION ${cython_lib_dir})
 endif()
+
+include(rapids-cython)
+rapids_cython_init()
 
 add_subdirectory(cmake)
 add_subdirectory(kvikio/_lib)
