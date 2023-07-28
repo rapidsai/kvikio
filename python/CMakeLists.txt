@@ -16,10 +16,9 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 set(kvikio_version 23.10.00)
 
-set(CYTHON_FLAGS
-    "--directive binding=True,embedsignature=True,always_allow_keywords=True"
-    CACHE STRING "The directives for Cython compilation."
-)
+include(../cpp/cmake/fetch_rapids.cmake)
+include(rapids-cuda)
+rapids_cuda_init_architectures(kvikio-python)
 
 project(
   kvikio-python
