@@ -5,6 +5,7 @@
 # cython: language_level=3
 
 import pathlib
+from typing import Optional
 
 from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move, pair
@@ -49,7 +50,7 @@ def memory_deregister(buf) -> None:
     kvikio_cxx_api.memory_deregister(<void*>arr.ptr)
 
 
-def compat_mode() -> int:
+def compat_mode() -> bool:
     return kvikio_cxx_api.compat_mode()
 
 
@@ -124,7 +125,7 @@ cdef class CuFile:
     def open_flags(self) -> int:
         return self._handle.fd_open_flags()
 
-    def pread(self, buf, size: int, file_offset: int, task_size) -> IOFuture:
+    def pread(self, buf, size: Optional[int], file_offset: int, task_size) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, True)
         return _wrap_io_future(
             self._handle.pread(
@@ -135,7 +136,7 @@ cdef class CuFile:
             )
         )
 
-    def pwrite(self, buf, size: int, file_offset: int, task_size) -> IOFuture:
+    def pwrite(self, buf, size: Optional[int], file_offset: int, task_size) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, True)
         return _wrap_io_future(
             self._handle.pwrite(
@@ -146,7 +147,7 @@ cdef class CuFile:
             )
         )
 
-    def read(self, buf, size: int, file_offset: int, dev_offset: int) -> int:
+    def read(self, buf, size: Optional[int], file_offset: int, dev_offset: int) -> int:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
         return self._handle.read(
             <void*>info.first,
@@ -155,7 +156,7 @@ cdef class CuFile:
             dev_offset,
         )
 
-    def write(self, buf, size: int, file_offset: int, dev_offset: int) -> int:
+    def write(self, buf, size: Optional[int], file_offset: int, dev_offset: int) -> int:
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
         return self._handle.write(
             <void*>info.first,
