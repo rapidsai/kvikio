@@ -7,6 +7,13 @@
 cdef extern from "cuda_runtime.h":
     ctypedef void* cudaStream_t
 
+    ctypedef enum cudaMemcpyKind:
+        cudaMemcpyHostToHost = 0,
+        cudaMemcpyHostToDevice = 1,
+        cudaMemcpyDeviceToHost = 2,
+        cudaMemcpyDeviceToDevice = 3,
+        cudaMemcpyDefault = 4
+
 cdef extern from "nvcomp.h":
     ctypedef enum nvcompType_t:
         NVCOMP_TYPE_CHAR = 0,       # 1B
@@ -74,6 +81,14 @@ cdef extern from "nvcomp/lz4.h" nogil:
         size_t* temp_bytes
     )
 
+    cdef nvcompStatus_t nvcompBatchedLZ4GetDecompressSizeAsync(
+        const void* const* device_compressed_ptrs,
+        const size_t* device_compressed_bytes,
+        size_t* device_uncompressed_bytes,
+        size_t batch_size,
+        cudaStream_t stream
+    )
+
     nvcompStatus_t nvcompBatchedLZ4DecompressAsync(
         const void* const* device_compressed_ptrs,
         const size_t* device_compressed_bytes,
@@ -126,6 +141,14 @@ cdef extern from "nvcomp/gdeflate.h" nogil:
         size_t num_chunks,
         size_t max_uncompressed_chunk_bytes,
         size_t* temp_bytes
+    )
+
+    nvcompStatus_t nvcompBatchedGdeflateGetDecompressSizeAsync(
+        const void* const* device_compressed_ptrs,
+        const size_t* device_compressed_bytes,
+        size_t* device_uncompressed_bytes,
+        size_t batch_size,
+        cudaStream_t stream
     )
 
     nvcompStatus_t nvcompBatchedGdeflateDecompressAsync(
@@ -182,6 +205,14 @@ cdef extern from "nvcomp/zstd.h" nogil:
         size_t* temp_bytes
     )
 
+    nvcompStatus_t nvcompBatchedZstdGetDecompressSizeAsync(
+        const void* const* device_compressed_ptrs,
+        const size_t* device_compressed_bytes,
+        size_t* device_uncompressed_bytes,
+        size_t batch_size,
+        cudaStream_t stream
+    )
+
     nvcompStatus_t nvcompBatchedZstdDecompressAsync(
         const void* const* device_compressed_ptrs,
         const size_t* device_compressed_bytes,
@@ -234,6 +265,14 @@ cdef extern from "nvcomp/snappy.h" nogil:
         size_t num_chunks,
         size_t max_uncompressed_chunk_bytes,
         size_t* temp_bytes
+    )
+
+    nvcompStatus_t nvcompBatchedSnappyGetDecompressSizeAsync(
+        const void* const* device_compressed_ptrs,
+        const size_t* device_compressed_bytes,
+        size_t* device_uncompressed_bytes,
+        size_t batch_size,
+        cudaStream_t stream
     )
 
     nvcompStatus_t nvcompBatchedSnappyDecompressAsync(
