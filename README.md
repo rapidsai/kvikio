@@ -103,6 +103,11 @@ python benchmarks/single-node-io.py
 
 ## Examples
 
+
+### Notebooks
+ - [How to read and write GPU memory directly to/from Zarr files](notebooks/zarr.ipynb)
+
+
 ### C++
 
 ```c++
