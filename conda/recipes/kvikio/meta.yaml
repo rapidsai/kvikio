@@ -36,30 +36,45 @@ build:
     - cd python
     - python -m pip install . -vv
   ignore_run_exports_from:
-    - {{ compiler('cuda') }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }}
+    {% endif %}
 
 requirements:
   build:
-    - cmake >=3.23.1,!=3.25.0
+    - cmake {{ cmake_version }}
     - ninja
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('cuda') }} {{ cuda_version }}
+    - cuda-version ={{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    {% endif %}
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - python
     - setuptools
     - pip
     - cython >=0.29,<0.30
-    - cudatoolkit {{ cuda_version }}.*
+    {% if cuda_major == "11" %}
+    - cudatoolkit
+    {% endif %}
+    - cuda-version ={{ cuda_version }}
+    - nvcomp {{ nvcomp_version }}
     - scikit-build >=0.13.1
-    - libkvikio {{ version }}
+    - libkvikio ={{ version }}
   run:
     - python
     - numpy >=1.20
     - cupy >=12.0.0
     - zarr
-    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - packaging
+    - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+    {% if cuda_major == "11" %}
+    - cudatoolkit
+    {% endif %}
 
 test:
   requires:

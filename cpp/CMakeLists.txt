@@ -12,7 +12,7 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(cmake/fetch_rapids.cmake)
 include(rapids-cmake)
@@ -22,7 +22,7 @@ include(rapids-find)
 
 project(
   KvikIO
-  VERSION 23.06.00
+  VERSION 23.08.00
   LANGUAGES CXX
 )
 
@@ -37,6 +37,8 @@ rapids_cmake_build_type(Release)
 
 # build options
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
+
+rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # find packages we depend on
 rapids_cpm_init()
@@ -84,8 +86,10 @@ target_link_libraries(kvikio INTERFACE Threads::Threads)
 target_link_libraries(kvikio INTERFACE CUDA::toolkit)
 if(cuFile_FOUND)
   target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
+  target_compile_definitions(kvikio INTERFACE KVIKIO_CUFILE_FOUND)
+
   if(cuFile_BATCH_API_FOUND)
-    target_compile_definitions(kvikio INTERFACE CUFILE_BATCH_API_FOUND)
+    target_compile_definitions(kvikio INTERFACE KVIKIO_CUFILE_BATCH_API_FOUND)
   endif()
 endif()
 target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})

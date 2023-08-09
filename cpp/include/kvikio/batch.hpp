@@ -27,7 +27,7 @@
 namespace kvikio {
 
 /**
- * @brief IO operation used when submiting batches
+ * @brief IO operation used when submitting batches
  */
 struct BatchOp {
   // The file handle of the file to read or write
@@ -44,7 +44,7 @@ struct BatchOp {
   CUfileOpcode_t opcode;
 };
 
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
 
 /**
  * @brief Handle of an cuFile batch using  semantic.
@@ -118,6 +118,10 @@ class BatchHandle {
     std::vector<CUfileIOParams_t> io_batch_params;
     io_batch_params.reserve(operations.size());
     for (const auto& op : operations) {
+      if (op.file_handle.is_compat_mode_on()) {
+        throw CUfileException("Cannot submit a FileHandle opened in compatibility mode");
+      }
+
       io_batch_params.push_back(CUfileIOParams_t{.mode   = CUFILE_BATCH,
                                                  .u      = {.batch = {.devPtr_base   = op.devPtr_base,
                                                                       .file_offset   = op.file_offset,

@@ -23,7 +23,7 @@
 
 namespace kvikio {
 
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
 
 /**
  * @brief Shim layer of the cuFile C-API
@@ -47,7 +47,7 @@ class cuFileAPI {
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
 
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
   decltype(cuFileBatchIOSetUp)* BatchIOSetUp{nullptr};
   decltype(cuFileBatchIOSubmit)* BatchIOSubmit{nullptr};
   decltype(cuFileBatchIOGetStatus)* BatchIOGetStatus{nullptr};
@@ -83,21 +83,21 @@ class cuFileAPI {
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
     get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
 
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
     get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
     get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
     get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
     get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
     get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
 
-    // HACK: we use the mangled name of the `cuFileBatchContextState` to determine if cuFile's
-    // batch API is available. Notice, the symbols of `cuFileBatchIOSetUp` & co. exist all
-    // the way back to CUDA v11.5 but calling them is undefined behavior.
-    // TODO: when CUDA v12.2 is released, use `cuFileReadAsync` to determine the availability of
-    // both the batch and async API.
+    // HACK: we use the mangled name of the `CUfileOpError` to determine if cuFile's
+    // batch API is available (v12.0.1+). Notice, the symbols of `cuFileBatchIOSetUp` & co.
+    // exist all the way back to CUDA v11.5 but calling them is undefined behavior.
+    // TODO: when CUDA v12.2 is released, use `cuFileReadAsync` to determine the availability
+    // of both the batch and async API.
     try {
       void* s{};
-      get_symbol(s, lib, "_ZTS23cuFileBatchContextState");
+      get_symbol(s, lib, "_ZTS13CUfileOpError");
       batch_available = true;
     } catch (const std::runtime_error&) {
     }
@@ -141,7 +141,7 @@ class cuFileAPI {
  *
  * @return The boolean answer
  */
-#ifdef KVIKIO_CUFILE_EXIST
+#ifdef KVIKIO_CUFILE_FOUND
 inline bool is_cufile_library_available()
 {
   try {
@@ -173,11 +173,11 @@ inline bool is_cufile_available()
  *
  * @return The boolean answer
  */
-#ifdef CUFILE_BATCH_API_FOUND
+#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
 inline bool is_batch_available()
 {
   try {
-    return cuFileAPI::instance().batch_available;
+    return is_cufile_available() && cuFileAPI::instance().batch_available;
   } catch (const std::runtime_error&) {
     return false;
   }

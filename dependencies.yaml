@@ -3,16 +3,18 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8"]
+      cuda: ["11.8", "12.0"]
       arch: [x86_64]
     includes:
       - build
       - checks
       - cudatoolkit
       - docs
+      - notebooks
       - py_version
       - run
       - test_python
+      - test_python_legate
   test_cpp:
     output: none
     includes:
@@ -34,6 +36,51 @@ files:
       - cudatoolkit
       - docs
       - py_version
+  py_build:
+    output: pyproject
+    pyproject_dir: python
+    extras:
+      table: build-system
+    includes:
+      - build
+  py_run:
+    output: pyproject
+    pyproject_dir: python
+    extras:
+      table: project
+    includes:
+      - run
+  py_optional_test:
+    output: pyproject
+    pyproject_dir: python
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python
+  legate_py_build:
+    output: pyproject
+    pyproject_dir: legate
+    extras:
+      table: build-system
+    includes:
+      - build
+  legate_py_run:
+    output: pyproject
+    pyproject_dir: legate
+    extras:
+      table: project
+    includes:
+      - run
+  legate_py_optional_test:
+    output: pyproject
+    pyproject_dir: legate
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python
+      - test_python_legate
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -42,9 +89,9 @@ channels:
 dependencies:
   build:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
-          - cmake>=3.23.1,!=3.25.0
+          - cmake>=3.26.4
           - cython>=0.29,<0.30
           - ninja
           - scikit-build>=0.13.1
@@ -52,6 +99,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+      - output_types: [requirements, pyproject]
+        packages:
+          - setuptools
+          - wheel
     specific:
       - output_types: conda
         matrices:
@@ -65,6 +116,23 @@ dependencies:
             packages:
               - gcc_linux-aarch64=11.*
               - sysroot_linux-aarch64=2.17
+      - output_types: conda
+        matrices:
+          - matrix:
+              arch: x86_64
+              cuda: "11.8"
+            packages:
+              - nvcc_linux-64=11.8
+          - matrix:
+              arch: aarch64
+              cuda: "11.8"
+            packages:
+              - nvcc_linux-aarch64=11.8
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-version=12.0
+              - cuda-nvcc
   checks:
     common:
       - output_types: [conda, requirements]
@@ -75,37 +143,95 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              cuda: "11.8"
-              arch: x86_64
+              cuda: "12.0"
             packages:
-              - cudatoolkit=11.8
-              - libcufile=1.4.0.31
-              - libcufile-dev=1.4.0.31
+              - cuda-version=12.0
           - matrix:
               cuda: "11.8"
-              arch: aarch64
             packages:
-              - cudatoolkit=11.8
+              - cuda-version=11.8
+              - cudatoolkit
           - matrix:
               cuda: "11.5"
             packages:
-              - cudatoolkit=11.5
+              - cuda-version=11.5
+              - cudatoolkit
+          - matrix:
+              cuda: "11.4"
+            packages:
+              - cuda-version=11.4
+              - cudatoolkit
+          - matrix:
+              cuda: "11.2"
+            packages:
+              - cuda-version=11.2
+              - cudatoolkit
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "12.0"
+              arch: x86_64
+            packages:
+              - libcufile
+              - libcufile-dev
+          - matrix:
+              cuda: "11.8"
+              arch: x86_64
+            packages:
+              # libcufile package version reference: https://anaconda.org/nvidia/libcufile/files
+              - libcufile=1.4.0.31
+              - libcufile-dev=1.4.0.31
+          - matrix:
+              cuda: "11.5"
+              arch: x86_64
+            packages:
               - libcufile>=1.1.0.37,<=1.1.1.25
               - libcufile-dev>=1.1.0.37,<=1.1.1.25
           - matrix:
               cuda: "11.4"
+              arch: x86_64
             packages:
-              - cudatoolkit=11.4
               - &libcufile_114 libcufile>=1.0.0.82,<=1.0.2.10
               - &libcufile_dev114 libcufile-dev>=1.0.0.82,<=1.0.2.10
           - matrix:
               cuda: "11.2"
+              arch: x86_64
             packages:
-              - cudatoolkit=11.2
               # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
               # so 11.2 uses 11.4 packages (the oldest available).
               - *libcufile_114
               - *libcufile_dev114
+          # Fallback matrix for aarch64, which doesn't support libcufile.
+          - matrix:
+            packages:
+      - output_types: conda
+        matrices:
+          - matrix:
+              arch: x86_64
+            packages:
+              # Align nvcomp version with rapids-cmake
+              # TODO: not yet available for aarch64 CUDA 12
+              - &nvcomp nvcomp==2.6.1
+          - matrix:
+              arch: aarch64
+              cuda: "11.8"
+            packages:
+              - *nvcomp
+          - matrix:
+              arch: aarch64
+              cuda: "11.5"
+            packages:
+              - *nvcomp
+          - matrix:
+              arch: aarch64
+              cuda: "11.4"
+            packages:
+              - *nvcomp
+          - matrix:
+              arch: aarch64
+              cuda: "11.2"
+            packages:
+              - *nvcomp
   docs:
     common:
       - output_types: [conda, requirements]
@@ -132,13 +258,17 @@ dependencies:
               - python>=3.9,<3.11
   run:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy >=1.20
+          - numpy>=1.21
           - zarr
+          - packaging
       - output_types: conda
         packages:
-          - cupy >=12.0.0
+          - cupy>=12.0.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - cupy-cuda11x>=12.0.0
     specific:
       - output_types: requirements
         matrices:
@@ -149,10 +279,29 @@ dependencies:
               - libcufile-dev
   test_python:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf=23.06
-          - dask>=2022.05.2
-          - distributed>=2022.05.2
+          - &dask dask>=2022.05.2
           - pytest
           - pytest-cov
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-python>=12.0,<13.0a0
+          - matrix: # All CUDA 11 versions
+            packages:
+              - cuda-python>=11.7.1,<12.0a0
+  test_python_legate:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - *dask
+          - distributed>=2022.05.2
+  notebooks:
+    common:
+      - output_types: conda
+        packages:
+          - cudf==23.8.*

@@ -36,13 +36,23 @@ requirements:
     - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('cuda') }} {{ cuda_version }}
+    - cuda-version ={{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    {% endif %}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cudatoolkit {{ cuda_version }}.*
-    - libcufile {{ libcufile_host_version }} # [linux64]
-    - libcufile-dev {{ libcufile_host_version }} # [linux64]
+    - cuda-version ={{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - cudatoolkit
+    - libcufile {{ cuda11_libcufile_host_version }}      # [linux64]
+    - libcufile-dev {{ cuda11_libcufile_host_version }}  # [linux64]
+    {% else %}
+    - libcufile-dev  # [linux64]
+    {% endif %}
 
 outputs:
   - name: libkvikio
@@ -53,13 +63,22 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       run_exports:
         - {{ pin_subpackage("libkvikio", max_pin="x.x") }}
+      ignore_run_exports_from:
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
       run:
-        - cudatoolkit {{ cuda_spec }}
-        - libcufile {{ libcufile_run_version }} # [linux64]
-        - libcufile-dev {{ libcufile_run_version }} # [linux64]
+        - cuda-version {{ cuda_spec }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
+        - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
+        {% else %}
+        - libcufile-dev  # [linux64]
+        {% endif %}
     test:
         commands:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
@@ -75,13 +94,28 @@ outputs:
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
+      host:
+        - cuda-version ={{ cuda_version }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
+        {% else %}
+        - cuda-cudart-dev
+        - libcufile-dev  # [linux64]
+        {% endif %}
       run:
-        - cudatoolkit {{ cuda_spec }}
-        - libcufile {{ libcufile_run_version }} # [linux64]
-        - libcufile-dev {{ libcufile_run_version }} # [linux64]
+        - cuda-version {{ cuda_spec }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
+        {% endif %}
     about:
       home: https://rapids.ai
       license: Apache-2.0

@@ -1,63 +1,114 @@
 # Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+import contextlib
 import os
 import os.path
 from abc import abstractmethod
+from typing import Any, Mapping, Sequence
 
 import cupy
+import numpy
 import numpy as np
+import zarr
 import zarr.creation
 import zarr.storage
 from numcodecs.abc import Codec
 from numcodecs.compat import ensure_contiguous_ndarray_like
 from numcodecs.registry import register_codec
+from packaging.version import parse
 
 import kvikio
 import kvikio.nvcomp
-from kvikio._lib.arr import asarray
+
+MINIMUM_ZARR_VERSION = "2.15"
+
+# Is this version of zarr supported? We depend on the `Context`
+# argument introduced in https://github.com/zarr-developers/zarr-python/pull/1131
+# in zarr v2.15.
+supported = parse(zarr.__version__) >= parse(MINIMUM_ZARR_VERSION)
 
 
 class GDSStore(zarr.storage.DirectoryStore):
     """GPUDirect Storage (GDS) class using directories and files.
 
-    This class works like `zarr.storage.DirectoryStore` but use GPU
-    buffers and will use GDS when applicable.
-    The store supports both CPU and GPU buffers but when reading, GPU
-    buffers are returned always.
+    This class works like `zarr.storage.DirectoryStore` but implements
+    getitems() in order to support direct reading into device memory.
+    It uses KvikIO for reads and writes, which in turn will use GDS
+    when applicable.
 
-    TODO: Write metadata to disk in order to preserve the item types such that
-    GPU items are read as GPU device buffers and CPU items are read as bytes.
+    Notes
+    -----
+    GDSStore doesn't implement `_fromfile()` thus non-array data such as
+    meta data is always read into host memory.
+    This is because only zarr.Array use getitems() to retrieve data.
     """
+
+    # The default output array type used by getitems().
+    default_meta_array = numpy.empty(())
+
+    def __init__(self, *args, **kwargs) -> None:
+        if not kvikio.zarr.supported:
+            raise RuntimeError(
+                f"GDSStore requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}"
+            )
+        super().__init__(*args, **kwargs)
 
     def __eq__(self, other):
         return isinstance(other, GDSStore) and self.path == other.path
 
-    def _fromfile(self, fn):
-        """Read `fn` into device memory _unless_ `fn` refers to Zarr metadata"""
-        if os.path.basename(fn) in [
-            zarr.storage.array_meta_key,
-            zarr.storage.group_meta_key,
-            zarr.storage.attrs_key,
-        ]:
-            return super()._fromfile(fn)
-        else:
-            nbytes = os.path.getsize(fn)
-            with kvikio.CuFile(fn, "r") as f:
-                ret = cupy.empty(nbytes, dtype="u1")
-                read = f.read(ret)
-                assert read == nbytes
-                return ret
-
     def _tofile(self, a, fn):
-        a = asarray(a)
-        assert a.contiguous
-        if a.cuda:
-            with kvikio.CuFile(fn, "w") as f:
-                written = f.write(a)
-                assert written == a.nbytes
-        else:
-            super()._tofile(a.obj, fn)
+        with kvikio.CuFile(fn, "w") as f:
+            written = f.write(a)
+            assert written == a.nbytes
+
+    def getitems(
+        self,
+        keys: Sequence[str],
+        *,
+        contexts: Mapping[str, Mapping] = {},
+    ) -> Mapping[str, Any]:
+        """Retrieve data from multiple keys.
+
+        Parameters
+        ----------
+        keys : Iterable[str]
+            The keys to retrieve
+        contexts: Mapping[str, Context]
+            A mapping of keys to their context. Each context is a mapping of store
+            specific information. If the "meta_array" key exist, GDSStore use its
+            values as the output array otherwise GDSStore.default_meta_array is used.
+
+        Returns
+        -------
+        Mapping
+            A collection mapping the input keys to their results.
+        """
+        ret = {}
+        io_results = []
+
+        with contextlib.ExitStack() as stack:
+            for key in keys:
+                filepath = os.path.join(self.path, key)
+                if not os.path.isfile(filepath):
+                    continue
+                try:
+                    meta_array = contexts[key]["meta_array"]
+                except KeyError:
+                    meta_array = self.default_meta_array
+
+                nbytes = os.path.getsize(filepath)
+                f = stack.enter_context(kvikio.CuFile(filepath, "r"))
+                ret[key] = numpy.empty_like(meta_array, shape=(nbytes,), dtype="u1")
+                io_results.append((f.pread(ret[key]), nbytes))
+
+            for future, nbytes in io_results:
+                nbytes_read = future.get()
+                if nbytes_read != nbytes:
+                    raise RuntimeError(
+                        f"Incomplete read ({nbytes_read}) expected {nbytes}"
+                    )
+        return ret
 
 
 class NVCompCompressor(Codec):

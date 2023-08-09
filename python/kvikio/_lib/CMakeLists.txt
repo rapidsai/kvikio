@@ -13,9 +13,10 @@
 # =============================================================================
 
 # Set the list of Cython files to build
-set(cython_modules arr libnvcomp libkvikio)
+set(cython_modules arr libnvcomp libnvcomp_ll libkvikio)
 
 # Build all of the Cython targets
 add_cython_modules("${cython_modules}")
 
 target_link_libraries(libnvcomp nvcomp::nvcomp)
+target_link_libraries(libnvcomp_ll nvcomp::nvcomp)
