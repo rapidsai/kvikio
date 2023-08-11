@@ -73,7 +73,6 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
             size_t uncompressed_buffer_size) except +
         nvcompStatus_t* get_status() const
         CompressionConfig(CompressionConfig& other)
-        CompressionConfig& operator=(CompressionConfig&& other) except +
         CompressionConfig& operator=(const CompressionConfig& other) except +
 
     cdef cppclass DecompressionConfig "nvcomp::DecompressionConfig":
@@ -82,7 +81,6 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         DecompressionConfig(PinnedPtrPool[nvcompStatus_t]& pool) except +
         nvcompStatus_t* get_status() const
         DecompressionConfig(DecompressionConfig& other)
-        DecompressionConfig& operator=(DecompressionConfig&& other) except +
         DecompressionConfig& operator=(const DecompressionConfig& other) except +
 
     cdef cppclass nvcompManagerBase "nvcomp::nvcompManagerBase":

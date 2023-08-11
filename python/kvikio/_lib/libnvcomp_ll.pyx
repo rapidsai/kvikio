@@ -84,7 +84,7 @@ class nvCompBatchAlgorithm(ABC):
         self,
         size_t batch_size,
         size_t max_uncompressed_chunk_bytes,
-    ) -> (nvcompStatus_t, size_t):
+    ) -> tuple[nvcompStatus_t, size_t]:
         """Algorithm-specific implementation."""
         ...
 
@@ -409,7 +409,7 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
         self,
         size_t batch_size,
         size_t max_uncompressed_chunk_bytes,
-    ) -> (nvcompStatus_t, size_t):
+    ) -> tuple[nvcompStatus_t, size_t]:
         cdef size_t temp_bytes = 0
 
         err = nvcompBatchedLZ4CompressGetTempSize(
@@ -671,7 +671,7 @@ class nvCompBatchAlgorithmGdeflate(nvCompBatchAlgorithm):
         self,
         size_t batch_size,
         size_t max_uncompressed_chunk_bytes,
-    ) -> (nvcompStatus_t, size_t):
+    ) -> tuple[nvcompStatus_t, size_t]:
         cdef size_t temp_bytes = 0
 
         err = nvcompBatchedGdeflateCompressGetTempSize(
@@ -806,7 +806,7 @@ class nvCompBatchAlgorithmZstd(nvCompBatchAlgorithm):
         self,
         size_t batch_size,
         size_t max_uncompressed_chunk_bytes,
-    ) -> (nvcompStatus_t, size_t):
+    ) -> tuple[nvcompStatus_t, size_t]:
         cdef size_t temp_bytes = 0
 
         err = nvcompBatchedZstdCompressGetTempSize(
@@ -941,7 +941,7 @@ class nvCompBatchAlgorithmSnappy(nvCompBatchAlgorithm):
         self,
         size_t batch_size,
         size_t max_uncompressed_chunk_bytes,
-    ) -> (nvcompStatus_t, size_t):
+    ) -> tuple[nvcompStatus_t, size_t]:
         cdef size_t temp_bytes = 0
 
         err = nvcompBatchedSnappyCompressGetTempSize(
