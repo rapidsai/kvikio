@@ -1,6 +1,8 @@
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import IntEnum
 

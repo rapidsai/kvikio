@@ -74,6 +74,10 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         nvcompStatus_t* get_status() const
         CompressionConfig(CompressionConfig& other)
         CompressionConfig& operator=(const CompressionConfig& other) except +
+        # Commented as Cython doesn't support rvalues, but a user can call
+        # `move` with the existing operator and generate correct C++ code
+        # xref: https://github.com/cython/cython/issues/1445
+        # CompressionConfig& operator=(CompressionConfig&& other) except +
 
     cdef cppclass DecompressionConfig "nvcomp::DecompressionConfig":
         size_t decomp_data_size
@@ -82,6 +86,10 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         nvcompStatus_t* get_status() const
         DecompressionConfig(DecompressionConfig& other)
         DecompressionConfig& operator=(const DecompressionConfig& other) except +
+        # Commented as Cython doesn't support rvalues, but a user can call
+        # `move` with the existing operator and generate correct C++ code
+        # xref: https://github.com/cython/cython/issues/1445
+        # DecompressionConfig& operator=(DecompressionConfig&& other) except +
 
     cdef cppclass nvcompManagerBase "nvcomp::nvcompManagerBase":
         CompressionConfig configure_compression(
