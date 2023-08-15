@@ -56,7 +56,7 @@ class cuFileAPI {
 #endif
   bool batch_available = false;
 
-#ifdef CUFILE_STREAM_API_FOUND
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
   decltype(cuFileGetVersion)* GetVersion{nullptr};
   decltype(cuFileReadAsync)* ReadAsync{nullptr};
   decltype(cuFileWriteAsync)* WriteAsync{nullptr};
@@ -112,7 +112,7 @@ class cuFileAPI {
     }
 #endif
 
-#ifdef CUFILE_STREAM_API_FOUND
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
     get_symbol(GetVersion, lib, KVIKIO_STRINGIFY(cuFileGetVersion));
     get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
     get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
@@ -215,7 +215,7 @@ constexpr bool is_batch_available() { return false; }
  *
  * @return The boolean answer
  */
-#ifdef CUFILE_STREAM_API_FOUND
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
 inline bool is_stream_available()
 {
   try {
