@@ -92,7 +92,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cmake>=3.26.4
-          - cython>=0.29,<0.30
+          - cython>=3.0.0
           - ninja
           - scikit-build>=0.13.1
       - output_types: conda
@@ -217,12 +217,27 @@ dependencies:
               cuda: "11.8"
             packages:
               - *nvcomp
+          - matrix:
+              arch: aarch64
+              cuda: "11.5"
+            packages:
+              - *nvcomp
+          - matrix:
+              arch: aarch64
+              cuda: "11.4"
+            packages:
+              - *nvcomp
+          - matrix:
+              arch: aarch64
+              cuda: "11.2"
+            packages:
+              - *nvcomp
   docs:
     common:
       - output_types: [conda, requirements]
         packages:
           - pydata-sphinx-theme
-          - sphinx<6
+          - sphinx
       - output_types: conda
         packages:
           - doxygen=1.8.20 # pre-commit hook needs a specific version.
@@ -289,4 +304,4 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cudf==23.8.*
+          - cudf==23.10.*

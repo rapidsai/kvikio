@@ -67,7 +67,7 @@ conda env create --name kvikio-dev --file conda/environments/all_cuda-118_arch-x
 
 ### C++ (build from source)
 
-To build the C++ example, go to the `cpp` subdiretory and run:
+To build the C++ example run:
 
 ```
 ./build.sh libkvikio
@@ -81,7 +81,7 @@ Then run the example:
 
 ### Python (build from source)
 
-To build and install the extension, go to the `python` subdirectory and run:
+To build and install the extension run:
 
 ```
 ./build.sh kvikio
@@ -102,6 +102,11 @@ python benchmarks/single-node-io.py
 ```
 
 ## Examples
+
+
+### Notebooks
+ - [How to read and write GPU memory directly to/from Zarr files](notebooks/zarr.ipynb)
+
 
 ### C++
 

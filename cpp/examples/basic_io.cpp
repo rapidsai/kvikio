@@ -123,12 +123,12 @@ int main()
   {
     kvikio::FileHandle f("/tmp/test-file", "r+", kvikio::FileHandle::m644);
     kvikio::buffer_register(c_dev, SIZE);
-    size_t read = f.pread(b_dev, SIZE).get();
+    size_t read = f.pread(c_dev, SIZE).get();
     check(read == SIZE);
     check(read == f.nbytes());
     kvikio::buffer_deregister(c_dev);
+    cout << "Read buffer registered data: " << read << endl;
   }
-
   {
     kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a, SIZE).get();
