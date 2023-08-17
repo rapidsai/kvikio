@@ -527,9 +527,13 @@ class FileHandle {
                          ssize_t* bytes_read,
                          CUstream stream)
   {
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
     CUFILE_TRY(cuFileAPI::instance().ReadAsync(
       _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_read, stream));
     return;
+#else
+    throw CUfileException("KvikIO not compiled with stream support.");
+#endif
   }
 
   /**
@@ -564,9 +568,13 @@ class FileHandle {
                           ssize_t* bytes_written,
                           CUstream stream)
   {
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
     CUFILE_TRY(cuFileAPI::instance().WriteAsync(
       _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_written, stream));
     return;
+#else
+    throw CUfileException("KvikIO not compiled with stream support.");
+#endif
   }
 
   /**
