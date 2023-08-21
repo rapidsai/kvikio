@@ -555,8 +555,8 @@ class FileHandle {
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Size in bytes to write.
-   * @param file_offset Offset in the file to write from.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
+   * @param file_offset Offset in the file to write at.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
    * This parameter should be used only with registered buffers.
    * @param bytes_written number of bytes that were successfully written.
    * @param stream associated stream for this I/O.
