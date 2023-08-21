@@ -499,8 +499,8 @@ class FileHandle {
   /**
    * @brief Reads specified bytes from the file into the device memory.
    *
-   * This API reads asynchronously the data from the GPU memory to the file at a specified offset
-   * and size bytes by using GDS functionality. The API works correctly for unaligned
+   * This API reads size bytes asynchronously from the file into device memory writing
+   * to a specified offset using GDS functionality. The API works correctly for unaligned
    * offset and data sizes, although the performance is not on-par with aligned read.
    * This is an asynchronous call and will be executed in sequence for the specified stream.
    *
