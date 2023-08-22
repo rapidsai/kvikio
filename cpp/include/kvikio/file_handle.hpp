@@ -497,6 +497,87 @@ class FileHandle {
   }
 
   /**
+   * @brief Reads specified bytes from the file into the device memory.
+   *
+   * This API reads size bytes asynchronously from the file into device memory writing
+   * to a specified offset using GDS functionality. The API works correctly for unaligned
+   * offset and data sizes, although the performance is not on-par with aligned read.
+   * This is an asynchronous call and will be executed in sequence for the specified stream.
+   *
+   * @note For the `devPtr_offset`, if data will be read starting exactly from the
+   * `devPtr_base` that is registered with `buffer_register`, `devPtr_offset` should
+   * be set to 0. To read starting from an offset in the registered buffer range,
+   * the relative offset should be specified in the `devPtr_offset`, and the
+   * `devPtr_base` must remain set to the base address that was used in the
+   * `buffer_register` call.
+   *
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
+   * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
+   * @param size Size in bytes to read.
+   * @param file_offset Offset in the file to read from.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
+   * This parameter should be used only with registered buffers.
+   * @param bytes_read number of bytes that were successfully read.
+   * @param stream associated stream for this I/O.
+   */
+  inline void read_async(void* devPtr_base,
+                         std::size_t* size,
+                         off_t* file_offset,
+                         off_t* devPtr_offset,
+                         ssize_t* bytes_read,
+                         CUstream stream)
+  {
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
+    CUFILE_TRY(cuFileAPI::instance().ReadAsync(
+      _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_read, stream));
+    return;
+#else
+    throw CUfileException("KvikIO not compiled with stream support.");
+#endif
+  }
+
+  /**
+   * @brief Writes specified bytes from the device memory into the file.
+   *
+   * This API writes asynchronously the data from the GPU memory to the file at a specified offset
+   * and size bytes by using GDS functionality. The API works correctly for unaligned
+   * offset and data sizes, although the performance is not on-par with aligned writes.
+   * This is an asynchronous call and will be executed in sequence for the specified stream.
+   *
+   * @note  GDS functionality modified the standard file system metadata in SysMem.
+   * However, GDS functionality does not take any special responsibility for writing
+   * that metadata back to permanent storage. The data is not guaranteed to be present
+   * after a system crash unless the application uses an explicit `fsync(2)` call. If the
+   * file is opened with an `O_SYNC` flag, the metadata will be written to the disk before
+   * the call is complete.
+   * Refer to the note in read for more information about `devPtr_offset`.
+   *
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
+   * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
+   * @param size Size in bytes to write.
+   * @param file_offset Offset in the file to write at.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
+   * This parameter should be used only with registered buffers.
+   * @param bytes_written number of bytes that were successfully written.
+   * @param stream associated stream for this I/O.
+   */
+  inline void write_async(void* devPtr_base,
+                          std::size_t* size,
+                          off_t* file_offset,
+                          off_t* devPtr_offset,
+                          ssize_t* bytes_written,
+                          CUstream stream)
+  {
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
+    CUFILE_TRY(cuFileAPI::instance().WriteAsync(
+      _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_written, stream));
+    return;
+#else
+    throw CUfileException("KvikIO not compiled with stream support.");
+#endif
+  }
+
+  /**
    * @brief Returns `true` if the compatibility mode has been enabled for this file.
    *
    * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
