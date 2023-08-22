@@ -37,22 +37,39 @@ class GDSStore(zarr.storage.DirectoryStore):
     It uses KvikIO for reads and writes, which in turn will use GDS
     when applicable.
 
+    Parameters
+    ----------
+    path : string
+        Location of directory to use as the root of the storage hierarchy.
+    normalize_keys : bool, optional
+        If True, all store keys will be normalized to use lower case characters
+        (e.g. 'foo' and 'FOO' will be treated as equivalent). This can be
+        useful to avoid potential discrepancies between case-sensitive and
+        case-insensitive file system. Default value is False.
+    dimension_separator : {'.', '/'}, optional
+        Separator placed between the dimensions of a chunk.
+
     Notes
     -----
-    GDSStore doesn't implement `_fromfile()` thus non-array data such as
-    meta data is always read into host memory.
-    This is because only zarr.Array use getitems() to retrieve data.
+    Atomic writes are used, which means that data are first written to a
+    temporary file, then moved into place when the write is successfully
+    completed. Files are only held open while they are being read or written and are
+    closed immediately afterwards, so there is no need to manually close any files.
+
+    Safe to write in multiple threads or processes.
     """
 
     # The default output array type used by getitems().
     default_meta_array = numpy.empty(())
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, path, normalize_keys=False, dimension_separator=None) -> None:
         if not kvikio.zarr.supported:
             raise RuntimeError(
                 f"GDSStore requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}"
             )
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            path, normalize_keys=normalize_keys, dimension_separator=dimension_separator
+        )
 
     def __eq__(self, other):
         return isinstance(other, GDSStore) and self.path == other.path
