@@ -5,9 +5,10 @@ import contextlib
 import os
 import os.path
 from abc import abstractmethod
-from typing import Any, Mapping, Sequence
+from typing import Any, Literal, Mapping, Optional, Sequence
 
 import cupy
+import numcodecs
 import numpy
 import numpy as np
 import zarr
@@ -20,6 +21,9 @@ from packaging.version import parse
 
 import kvikio
 import kvikio.nvcomp
+import kvikio.nvcomp_codec
+import kvikio.zarr
+from kvikio.nvcomp_codec import NvCompBatchCodec
 
 MINIMUM_ZARR_VERSION = "2.15"
 
@@ -48,6 +52,17 @@ class GDSStore(zarr.storage.DirectoryStore):
         case-insensitive file system. Default value is False.
     dimension_separator : {'.', '/'}, optional
         Separator placed between the dimensions of a chunk.
+    compressor_config_overwrite
+        If not None, use this `Mapping` to specify what is written to the Zarr metadata
+        file on disk (`.zarray`). Normally, Zarr writes the configuration[1] given by
+        the `compressor` argument to the `.zarray` file. Use this argument to overwrite
+        the normal configuration and use the specified `Mapping` instead.
+    decompressor_config_overwrite
+        If not None, use this `Mapping` to specify what compressor configuration[1] is
+        used for decompressing no matter the configuration found in the Zarr metadata
+        on disk (the `.zarray` file).
+
+    [1] https://github.com/zarr-developers/numcodecs/blob/cb155432/numcodecs/abc.py#L79
 
     Notes
     -----
@@ -62,7 +77,15 @@ class GDSStore(zarr.storage.DirectoryStore):
     # The default output array type used by getitems().
     default_meta_array = numpy.empty(())
 
-    def __init__(self, path, normalize_keys=False, dimension_separator=None) -> None:
+    def __init__(
+        self,
+        path,
+        normalize_keys=False,
+        dimension_separator=None,
+        *,
+        compressor_config_overwrite: Optional[Mapping] = None,
+        decompressor_config_overwrite: Optional[Mapping] = None,
+    ) -> None:
         if not kvikio.zarr.supported:
             raise RuntimeError(
                 f"GDSStore requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}"
@@ -70,6 +93,8 @@ class GDSStore(zarr.storage.DirectoryStore):
         super().__init__(
             path, normalize_keys=normalize_keys, dimension_separator=dimension_separator
         )
+        self.compressor_config_overwrite = compressor_config_overwrite
+        self.decompressor_config_overwrite = decompressor_config_overwrite
 
     def __eq__(self, other):
         return isinstance(other, GDSStore) and self.path == other.path
@@ -78,6 +103,23 @@ class GDSStore(zarr.storage.DirectoryStore):
         with kvikio.CuFile(fn, "w") as f:
             written = f.write(a)
             assert written == a.nbytes
+
+    def __getitem__(self, key):
+        ret = super().__getitem__(key)
+        if self.decompressor_config_overwrite and key == ".zarray":
+            meta = self._metadata_class.decode_array_metadata(ret)
+            if meta["compressor"]:
+                meta["compressor"] = self.decompressor_config_overwrite
+                ret = self._metadata_class.encode_array_metadata(meta)
+        return ret
+
+    def __setitem__(self, key, value):
+        if self.compressor_config_overwrite and key == ".zarray":
+            meta = self._metadata_class.decode_array_metadata(value)
+            if meta["compressor"]:
+                meta["compressor"] = self.compressor_config_overwrite
+                value = self._metadata_class.encode_array_metadata(meta)
+        super().__setitem__(key, value)
 
     def getitems(
         self,
@@ -126,6 +168,94 @@ class GDSStore(zarr.storage.DirectoryStore):
                         f"Incomplete read ({nbytes_read}) expected {nbytes}"
                     )
         return ret
+
+
+lz4_cpu_compressor = numcodecs.LZ4()
+lz4_gpu_compressor = NvCompBatchCodec("lz4")
+
+
+def open_cupy_array(
+    store: os.PathLike | str,
+    mode: Literal["r", "r+", "a", "w", "w-"] = "a",
+    compressor: Codec = lz4_gpu_compressor,
+    meta_array=cupy.empty(()),
+    **kwargs,
+) -> zarr.Array:
+    """Open an Zarr array as a CuPy-like array using file-mode-like semantics.
+
+    This function is a CUDA friendly version of `zarr.open_array` that reads
+    and writes to CuPy arrays. Beside the arguments listed below, the arguments
+    have the same semantic as in `zarr.open_array`.
+
+    Parameters
+    ----------
+    store
+        Path to directory in file system. As opposed to `zarr.open_array`,
+        Store and path to zip files isn't supported.
+    mode
+        Persistence mode: 'r' means read only (must exist); 'r+' means
+        read/write (must exist); 'a' means read/write (create if doesn't
+        exist); 'w' means create (overwrite if exists); 'w-' means create
+        (fail if exists).
+    compressor : Codec, optional
+        The compressor use when create a Zarr file or None if no compressor
+        is to be used. This is ignored in "r" and "r+" mode. By default the
+        LZ4 compressor by nvCOMP is used.
+    meta_array : array-like, optional
+        An CuPy-like array instance to use for determining arrays to create and
+        return to users. It must implement `__cuda_array_interface__`.
+    **kwargs
+        The rest of the arguments are forwarded to `zarr.open_array` as-is.
+
+    Returns
+    -------
+    Zarr array backed by a GDS file store, nvCOMP compression, and CuPy arrays.
+    """
+
+    if not isinstance(store, (str, os.PathLike)):
+        raise ValueError("store must be a path")
+    store = str(os.fspath(store))
+    if not hasattr(meta_array, "__cuda_array_interface__"):
+        raise ValueError("meta_array must implement __cuda_array_interface__")
+
+    if mode in ("r", "r+"):
+        ret = zarr.open_array(
+            store=kvikio.zarr.GDSStore(path=store),
+            mode=mode,
+            meta_array=meta_array,
+            **kwargs,
+        )
+        if ret.compressor == lz4_cpu_compressor:
+            ret = zarr.open_array(
+                store=kvikio.zarr.GDSStore(
+                    path=store,
+                    compressor_config_overwrite=ret.compressor.get_config(),
+                    decompressor_config_overwrite=lz4_gpu_compressor.get_config(),
+                ),
+                mode=mode,
+                meta_array=meta_array,
+                **kwargs,
+            )
+        return ret
+
+    if compressor == lz4_gpu_compressor:
+        compressor_config_overwrite = lz4_cpu_compressor.get_config()
+        decompressor_config_overwrite = compressor.get_config()
+    else:
+        compressor_config_overwrite = None
+        decompressor_config_overwrite = None
+
+    return zarr.open_array(
+        store=kvikio.zarr.GDSStore(
+            path=store,
+            compressor_config_overwrite=compressor_config_overwrite,
+            decompressor_config_overwrite=decompressor_config_overwrite,
+        ),
+        mode=mode,
+        meta_array=meta_array,
+        compressor=compressor,
+        **kwargs,
+    )
 
 
 class NVCompCompressor(Codec):
