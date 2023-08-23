@@ -5,7 +5,7 @@ import contextlib
 import os
 import os.path
 from abc import abstractmethod
-from typing import Any, Literal, Mapping, Optional, Sequence
+from typing import Any, Literal, Mapping, Optional, Sequence, Union
 
 import cupy
 import numcodecs
@@ -175,7 +175,7 @@ lz4_gpu_compressor = NvCompBatchCodec("lz4")
 
 
 def open_cupy_array(
-    store: os.PathLike | str,
+    store: Union[os.PathLike, str],
     mode: Literal["r", "r+", "a", "w", "w-"] = "a",
     compressor: Codec = lz4_gpu_compressor,
     meta_array=cupy.empty(()),
