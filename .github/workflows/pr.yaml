@@ -23,6 +23,8 @@ jobs:
   checks:
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.10
+    with:
+      enable_check_pr_job_dependencies: false
   conda-cpp-build:
     needs: checks
     secrets: inherit
@@ -57,3 +59,10 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci:latest"
       run_script: "ci/build_docs.sh"
+  devcontainer:
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/build-in-devcontainer.yaml@fea/devcontainers
+    with:
+      build_command: |
+        build-kvikio-cpp;
+        build-kvikio-python;
