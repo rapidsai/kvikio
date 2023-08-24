@@ -48,7 +48,7 @@ def main(path):
     # and we can write to is as usual
     z[:] = numpy.arange(20, 40)
 
-    # Let's read the Zarr file back into a CuPy array.
+    # And we can read the Zarr file back into a CuPy array.
     z = kvikio.zarr.open_cupy_array(store=path, mode="r")
     assert isinstance(z[:], cupy.ndarray)
     assert (cupy.arange(20, 40) == z[:]).all()
