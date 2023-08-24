@@ -26,14 +26,21 @@ def main(path):
     assert isinstance(z[:], cupy.ndarray)
     assert (a == z[:]).all()
 
-    # By default, `open_cupy_array()` uses nvCOMP's `lz4` GPU compression, which is
-    # compatible with NumCodecs's `lz4` CPU compression (CPU). Normally, it is not
-    # possible to change which decompressor to use when reading a Zarr file. The
-    # decompressor specified in the Zarr file's metadata is always used. However,
-    # `open_cupy_array()` makes it possible to overwrite the metadata on-the-fly
-    # without having to modify the Zarr file on disk. In fact, the Zarr file written
-    # above appears, in the metadata, as if it was written by NumCodecs's `lz4` CPU
-    # compression. Thus, we can open the file using Zarr's regular API and the CPU.
+    # Normally, we cannot assume that GPU and CPU compressors are compatible.
+    # E.g., `open_cupy_array()` uses nvCOMP's Snappy GPU compression by default,
+    # which, as far as we know, isn’t compatible with any CPU compressor. Thus,
+    # let’s re-write our Zarr array using a CPU and GPU compatible compressor.
+    z = kvikio.zarr.open_cupy_array(
+        store=path,
+        mode="w",
+        shape=(20,),
+        chunks=(5,),
+        compressor=kvikio.zarr.CompatCompressor.lz4(),
+    )
+    z[:] = a
+
+    # Because we are using a CompatCompressor, it is now possible to open the file
+    # using Zarr's built-in LZ4 decompressor that uses the CPU.
     z = zarr.open_array(path)
     # `z` is now read as a regular NumPy array
     assert isinstance(z[:], numpy.ndarray)
@@ -41,9 +48,7 @@ def main(path):
     # and we can write to is as usual
     z[:] = numpy.arange(20, 40)
 
-    # Let's read the Zarr file back into a CuPy array. Notice, even though the metadata
-    # on disk is specifying NumCodecs's `lz4` CPU decompressor, `open_cupy_array` will
-    # use nvCOMP to decompress the files.
+    # Let's read the Zarr file back into a CuPy array.
     z = kvikio.zarr.open_cupy_array(store=path, mode="r")
     assert isinstance(z[:], cupy.ndarray)
     assert (cupy.arange(20, 40) == z[:]).all()

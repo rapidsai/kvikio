@@ -1,5 +1,6 @@
 # Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
+from __future__ import annotations
 
 import contextlib
 import os
@@ -170,94 +171,6 @@ class GDSStore(zarr.storage.DirectoryStore):
         return ret
 
 
-lz4_cpu_compressor = numcodecs.LZ4()
-lz4_gpu_compressor = NvCompBatchCodec("lz4")
-
-
-def open_cupy_array(
-    store: Union[os.PathLike, str],
-    mode: Literal["r", "r+", "a", "w", "w-"] = "a",
-    compressor: Codec = lz4_gpu_compressor,
-    meta_array=cupy.empty(()),
-    **kwargs,
-) -> zarr.Array:
-    """Open an Zarr array as a CuPy-like array using file-mode-like semantics.
-
-    This function is a CUDA friendly version of `zarr.open_array` that reads
-    and writes to CuPy arrays. Beside the arguments listed below, the arguments
-    have the same semantic as in `zarr.open_array`.
-
-    Parameters
-    ----------
-    store
-        Path to directory in file system. As opposed to `zarr.open_array`,
-        Store and path to zip files isn't supported.
-    mode
-        Persistence mode: 'r' means read only (must exist); 'r+' means
-        read/write (must exist); 'a' means read/write (create if doesn't
-        exist); 'w' means create (overwrite if exists); 'w-' means create
-        (fail if exists).
-    compressor : Codec, optional
-        The compressor use when create a Zarr file or None if no compressor
-        is to be used. This is ignored in "r" and "r+" mode. By default the
-        LZ4 compressor by nvCOMP is used.
-    meta_array : array-like, optional
-        An CuPy-like array instance to use for determining arrays to create and
-        return to users. It must implement `__cuda_array_interface__`.
-    **kwargs
-        The rest of the arguments are forwarded to `zarr.open_array` as-is.
-
-    Returns
-    -------
-    Zarr array backed by a GDS file store, nvCOMP compression, and CuPy arrays.
-    """
-
-    if not isinstance(store, (str, os.PathLike)):
-        raise ValueError("store must be a path")
-    store = str(os.fspath(store))
-    if not hasattr(meta_array, "__cuda_array_interface__"):
-        raise ValueError("meta_array must implement __cuda_array_interface__")
-
-    if mode in ("r", "r+"):
-        ret = zarr.open_array(
-            store=kvikio.zarr.GDSStore(path=store),
-            mode=mode,
-            meta_array=meta_array,
-            **kwargs,
-        )
-        if ret.compressor == lz4_cpu_compressor:
-            ret = zarr.open_array(
-                store=kvikio.zarr.GDSStore(
-                    path=store,
-                    compressor_config_overwrite=ret.compressor.get_config(),
-                    decompressor_config_overwrite=lz4_gpu_compressor.get_config(),
-                ),
-                mode=mode,
-                meta_array=meta_array,
-                **kwargs,
-            )
-        return ret
-
-    if compressor == lz4_gpu_compressor:
-        compressor_config_overwrite = lz4_cpu_compressor.get_config()
-        decompressor_config_overwrite = compressor.get_config()
-    else:
-        compressor_config_overwrite = None
-        decompressor_config_overwrite = None
-
-    return zarr.open_array(
-        store=kvikio.zarr.GDSStore(
-            path=store,
-            compressor_config_overwrite=compressor_config_overwrite,
-            decompressor_config_overwrite=decompressor_config_overwrite,
-        ),
-        mode=mode,
-        meta_array=meta_array,
-        compressor=compressor,
-        **kwargs,
-    )
-
-
 class NVCompCompressor(Codec):
     """Abstract base class for nvCOMP compressors
 
@@ -384,3 +297,107 @@ class Snappy(NVCompCompressor):
 nvcomp_compressors = [ANS, Bitcomp, Cascaded, Gdeflate, LZ4, Snappy]
 for c in nvcomp_compressors:
     register_codec(c)
+
+
+class CompatCompressor:
+    """A pair of compatible compressors one using the CPU and one using the GPU"""
+
+    def __init__(self, cpu: Codec, gpu: Codec) -> None:
+        self.cpu = cpu
+        self.gpu = gpu
+
+    @classmethod
+    def lz4(cls) -> CompatCompressor:
+        """A compatible pair of LZ4 compressors"""
+        return cls(cpu=numcodecs.LZ4(), gpu=NvCompBatchCodec("lz4"))
+
+
+def open_cupy_array(
+    store: Union[os.PathLike, str],
+    mode: Literal["r", "r+", "a", "w", "w-"] = "a",
+    compressor: Codec | CompatCompressor = Snappy(device_ordinal=0),
+    meta_array=cupy.empty(()),
+    **kwargs,
+) -> zarr.Array:
+    """Open an Zarr array as a CuPy-like array using file-mode-like semantics.
+
+    This function is a CUDA friendly version of `zarr.open_array` that reads
+    and writes to CuPy arrays. Beside the arguments listed below, the arguments
+    have the same semantic as in `zarr.open_array`.
+
+    Parameters
+    ----------
+    store
+        Path to directory in file system. As opposed to `zarr.open_array`,
+        Store and path to zip files isn't supported.
+    mode
+        Persistence mode: 'r' means read only (must exist); 'r+' means
+        read/write (must exist); 'a' means read/write (create if doesn't
+        exist); 'w' means create (overwrite if exists); 'w-' means create
+        (fail if exists).
+    compressor
+        The compressor use when create a Zarr file or None if no compressor
+        is to be used. If a `CompatCompressor` is given, `CompatCompressor.gpu`
+        is used for compression and decompression; and `CompatCompressor.cpu`
+        is written as the compressor in the Zarr file metadata on disk.
+        This argument is ignored in "r" and "r+" mode. By default the
+        Snappy compressor by nvCOMP is used.
+    meta_array : array-like, optional
+        An CuPy-like array instance to use for determining arrays to create and
+        return to users. It must implement `__cuda_array_interface__`.
+    **kwargs
+        The rest of the arguments are forwarded to `zarr.open_array` as-is.
+
+    Returns
+    -------
+    Zarr array backed by a GDS file store, nvCOMP compression, and CuPy arrays.
+    """
+
+    if not isinstance(store, (str, os.PathLike)):
+        raise ValueError("store must be a path")
+    store = str(os.fspath(store))
+    if not hasattr(meta_array, "__cuda_array_interface__"):
+        raise ValueError("meta_array must implement __cuda_array_interface__")
+
+    if mode in ("r", "r+"):
+        ret = zarr.open_array(
+            store=kvikio.zarr.GDSStore(path=store),
+            mode=mode,
+            meta_array=meta_array,
+            **kwargs,
+        )
+        # If we are reading a LZ4-CPU compressed file, we overwrite the metadata
+        # on-the-fly to make Zarr use LZ4-GPU for both compression and decompression.
+        compat_lz4 = CompatCompressor.lz4()
+        if ret.compressor == compat_lz4.cpu:
+            ret = zarr.open_array(
+                store=kvikio.zarr.GDSStore(
+                    path=store,
+                    compressor_config_overwrite=compat_lz4.cpu.get_config(),
+                    decompressor_config_overwrite=compat_lz4.gpu.get_config(),
+                ),
+                mode=mode,
+                meta_array=meta_array,
+                **kwargs,
+            )
+        return ret
+
+    if isinstance(compressor, CompatCompressor):
+        compressor_config_overwrite = compressor.cpu.get_config()
+        decompressor_config_overwrite = compressor.gpu.get_config()
+        compressor = compressor.gpu
+    else:
+        compressor_config_overwrite = None
+        decompressor_config_overwrite = None
+
+    return zarr.open_array(
+        store=kvikio.zarr.GDSStore(
+            path=store,
+            compressor_config_overwrite=compressor_config_overwrite,
+            decompressor_config_overwrite=decompressor_config_overwrite,
+        ),
+        mode=mode,
+        meta_array=meta_array,
+        compressor=compressor,
+        **kwargs,
+    )

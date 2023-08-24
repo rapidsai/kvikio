@@ -220,6 +220,7 @@ def test_open_cupy_array(tmp_path):
         shape=a.shape,
         dtype=a.dtype,
         chunks=(2,),
+        compressor=kvikio_zarr.CompatCompressor.lz4(),
     )
     z[:] = a
     assert a.shape == z.shape
@@ -242,5 +243,5 @@ def test_open_cupy_array(tmp_path):
     assert a.shape == z.shape
     assert a.dtype == z.dtype
     assert isinstance(z[:], numpy.ndarray)
-    assert z.compressor == kvikio_zarr.lz4_cpu_compressor
+    assert z.compressor == kvikio_zarr.CompatCompressor.lz4().cpu
     numpy.testing.assert_array_equal(a.get(), z[:])
