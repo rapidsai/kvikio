@@ -323,7 +323,7 @@ def open_cupy_array(
 
     This function is a CUDA friendly version of `zarr.open_array` that reads
     and writes to CuPy arrays. Beside the arguments listed below, the arguments
-    have the same semantic as in `zarr.open_array`.
+    have the same semantics as in `zarr.open_array`.
 
     Parameters
     ----------
