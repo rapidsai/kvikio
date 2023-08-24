@@ -28,7 +28,7 @@ to include KvikIO in your CMake projects.
 
 ### Conda/Mamba
 
-We strongly recommend to use `mamba <https://github.com/mamba-org/mamba>`_ inplace of conda, which we will do throughout the documents.
+We strongly recommend to use `mamba <https://github.com/mamba-org/mamba>`_ inplace of conda, which we will do throughout the documentation.
 
 Install the **stable release** from the ``rapidsai`` channel like:
 ```sh
