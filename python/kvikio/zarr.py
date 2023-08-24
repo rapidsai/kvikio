@@ -336,7 +336,7 @@ def open_cupy_array(
         exist); 'w' means create (overwrite if exists); 'w-' means create
         (fail if exists).
     compressor
-        The compressor use when create a Zarr file or None if no compressor
+        The compressor used when creating a Zarr file or None if no compressor
         is to be used. If a `CompatCompressor` is given, `CompatCompressor.gpu`
         is used for compression and decompression; and `CompatCompressor.cpu`
         is written as the compressor in the Zarr file metadata on disk.
