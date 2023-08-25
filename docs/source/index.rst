@@ -22,5 +22,6 @@ Contents
 
    install
    quickstart
+   zarr
    api
    genindex
