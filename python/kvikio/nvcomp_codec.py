@@ -8,7 +8,7 @@ import numpy as np
 from numcodecs.abc import Codec
 from numcodecs.compat import ensure_contiguous_ndarray_like
 
-import kvikio._lib.libnvcomp_ll as _ll
+from kvikio._lib.libnvcomp_ll import SUPPORTED_ALGORITHMS
 
 
 class NvCompBatchCodec(Codec):
@@ -34,11 +34,11 @@ class NvCompBatchCodec(Codec):
         stream: Optional[cp.cuda.Stream] = None,
     ) -> None:
         algo_id = algorithm.lower()
-        algo_t = _ll.SUPPORTED_ALGORITHMS.get(algo_id, None)
+        algo_t = SUPPORTED_ALGORITHMS.get(algo_id, None)
         if algo_t is None:
             raise ValueError(
                 f"{algorithm} is not supported. "
-                f"Must be one of: {list(_ll.SUPPORTED_ALGORITHMS.keys())}"
+                f"Must be one of: {list(SUPPORTED_ALGORITHMS.keys())}"
             )
 
         self.algorithm = algo_id
