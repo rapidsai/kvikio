@@ -532,7 +532,7 @@ class FileHandle {
       _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_read, stream));
     return;
 #else
-    throw CUfileException("KvikIO not compiled with stream support.");
+    throw CUfileException("cuFile's stream API isn't available, please build with CUDA v12.2+.");
 #endif
   }
 
@@ -573,7 +573,7 @@ class FileHandle {
       _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_written, stream));
     return;
 #else
-    throw CUfileException("KvikIO not compiled with stream support.");
+    throw CUfileException("cuFile's stream API isn't available, please build with CUDA v12.2+.");
 #endif
   }
 

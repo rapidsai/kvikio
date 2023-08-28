@@ -148,7 +148,9 @@ int main()
          << " threads): " << read << endl;
   }
 
-  if (kvikio::is_batch_available() && !kvikio::defaults::compat_mode()) {
+  cout << "is the batch and stream API available? : " << kvikio::is_batch_and_stream_available()
+       << endl;
+  if (kvikio::is_batch_and_stream_available() && !kvikio::defaults::compat_mode()) {
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
     // submitting 4 batch operations.
     constexpr int num_ops_in_batch = 4;
@@ -195,10 +197,7 @@ int main()
       check(statuses.empty());
       cout << "Batch canceling of all 4 operations" << endl;
     }
-  }
 
-  cout << "stream : " << kvikio::is_stream_available() << endl;
-  if (kvikio::is_stream_available()) {
     {
       cout << "Performing async I/O using file handle" << endl;
       off_t f_off{0};
@@ -220,13 +219,11 @@ int main()
 
       /* Read */
       bytes_done = 0;
-      kvikio::buffer_register(c_dev, SIZE);
       f_handle.read_async(c_dev, &io_size, &f_off, &d_off, &bytes_done, stream);
       check(cudaStreamSynchronize(stream) == cudaSuccess);
       CUFILE_CHECK_STREAM_IO(bytes_done);
       check(bytes_done == SIZE);
-      cout << "File stream Read : " << bytes_done << endl;
-      kvikio::buffer_deregister(c_dev);
+      cout << "File async read : " << bytes_done << endl;
     }
   }
 }
