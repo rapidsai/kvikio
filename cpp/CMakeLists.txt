@@ -55,11 +55,7 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 
-rapids_find_package(
-  cuFile
-  BUILD_EXPORT_SET kvikio-exports
-  INSTALL_EXPORT_SET kvikio-exports
-)
+# rapids_find_package( cuFile BUILD_EXPORT_SET kvikio-exports INSTALL_EXPORT_SET kvikio-exports )
 if(NOT cuFile_FOUND)
   message(WARNING "Building KvikIO without cuFile")
 else()
