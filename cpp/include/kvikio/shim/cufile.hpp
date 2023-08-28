@@ -54,7 +54,6 @@ class cuFileAPI {
   decltype(cuFileBatchIOCancel)* BatchIOCancel{nullptr};
   decltype(cuFileBatchIODestroy)* BatchIODestroy{nullptr};
 #endif
-  bool batch_available = false;
 
 #ifdef KVIKIO_CUFILE_STREAM_API_FOUND
   decltype(cuFileReadAsync)* ReadAsync{nullptr};
@@ -109,7 +108,6 @@ class cuFileAPI {
       get_symbol(s, lib, "cuFileReadAsync");
       stream_available = true;
     } catch (const std::runtime_error&) {
-      stream_available = false;
     }
 #endif
 
