@@ -200,31 +200,30 @@ int main()
   cout << "stream : " << kvikio::is_stream_available() << endl;
   if (kvikio::is_stream_available()) {
     {
-      cout << "Performing stream I/O using file handle" << endl;
-      off_t f_off = 0, d_off = 0;
-      ssize_t bytes_done;
-      CUstream stream;
+      cout << "Performing async I/O using file handle" << endl;
+      off_t f_off{0};
+      off_t d_off{0};
+      ssize_t bytes_done{0};
+      CUstream stream{};
       check(cudaStreamCreate(&stream) == cudaSuccess);
       kvikio::FileHandle f_handle("/data/test-file", "w+", kvikio::FileHandle::m644, false);
-      check(cudaMemcpy(a_dev, a, SIZE, cudaMemcpyHostToDevice) == cudaSuccess);
-
-      /*
-       * For stream based I/Os, buffer registration is not mandatory. However,
-       * it gives a better performance.
-       */
-
-      kvikio::buffer_register(a_dev, SIZE);
+      check(cudaMemcpyAsync(a_dev, a, SIZE, cudaMemcpyHostToDevice, stream) == cudaSuccess);
       f_handle.write_async(a_dev, &io_size, &f_off, &d_off, &bytes_done, stream);
+
+      // After synchronizing `stream`, we can read the number of bytes written
       check(cudaStreamSynchronize(stream) == cudaSuccess);
+      // Note, `bytes_done` might be negative, which indicate an IO error thus we
+      // use `CUFILE_CHECK_STREAM_IO` to check for errors.
+      CUFILE_CHECK_STREAM_IO(bytes_done);
       check(bytes_done == SIZE);
-      cout << "File stream Write : " << bytes_done << endl;
-      kvikio::buffer_deregister(a_dev);
+      cout << "File async write : " << bytes_done << endl;
 
       /* Read */
       bytes_done = 0;
       kvikio::buffer_register(c_dev, SIZE);
       f_handle.read_async(c_dev, &io_size, &f_off, &d_off, &bytes_done, stream);
       check(cudaStreamSynchronize(stream) == cudaSuccess);
+      CUFILE_CHECK_STREAM_IO(bytes_done);
       check(bytes_done == SIZE);
       cout << "File stream Read : " << bytes_done << endl;
       kvikio::buffer_deregister(c_dev);
