@@ -56,6 +56,9 @@ mamba create -n libkvikio-env -c rapidsai-nightly -c conda-forge python=3.10 cud
 
 ---
 
+### Include KvikIO in a CMake project
+An example of how to include KvikIO in an existing CMake project can be found here:  <https://github.com/rapidsai/kvikio/blob/HEAD/cpp/examples/downstream/>.
+
 
 ### Build from source
 
@@ -109,3 +112,5 @@ int main()
   }
 }
 ```
+
+For a full runable example see <https://github.com/rapidsai/kvikio/blob/HEAD/cpp/examples/basic_io.cpp>.
