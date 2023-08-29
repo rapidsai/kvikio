@@ -113,4 +113,4 @@ int main()
 }
 ```
 
-For a full runable example see <https://github.com/rapidsai/kvikio/blob/HEAD/cpp/examples/basic_io.cpp>.
+For a full runnable example see <https://github.com/rapidsai/kvikio/blob/HEAD/cpp/examples/basic_io.cpp>.
