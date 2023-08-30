@@ -497,28 +497,36 @@ class FileHandle {
   }
 
   /**
-   * @brief Reads specified bytes from the file into the device memory.
+   * @brief Reads specified bytes from the file into the device memory asynchronously.
    *
-   * This API reads size bytes asynchronously from the file into device memory writing
-   * to a specified offset using GDS functionality. The API works correctly for unaligned
-   * offset and data sizes, although the performance is not on-par with aligned read.
-   * This is an asynchronous call and will be executed in sequence for the specified stream.
+   * This is an asynchronous version of `.read()`, which will be executed in sequence
+   * for the specified stream.
    *
-   * @note For the `devPtr_offset`, if data will be read starting exactly from the
-   * `devPtr_base` that is registered with `buffer_register`, `devPtr_offset` should
-   * be set to 0. To read starting from an offset in the registered buffer range,
-   * the relative offset should be specified in the `devPtr_offset`, and the
-   * `devPtr_base` must remain set to the base address that was used in the
-   * `buffer_register` call.
+   * The arguments have the same meaning as in `.read()` but some of them are deferred. That is,
+   * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
+   * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
-   * @param size Size in bytes to read.
-   * @param file_offset Offset in the file to read from.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
-   * This parameter should be used only with registered buffers.
-   * @param bytes_read number of bytes that were successfully read.
-   * @param stream associated stream for this I/O.
+   * @param size Pointer to size in bytes to read. If the exact size is not known at the time of I/O
+   * submission, then you must set it to the maximum possible I/O size for that stream I/O. Later
+   the
+   * actual size can be set prior to the stream I/O execution.
+   * @param file_offset Pointer to offset in the file from which to read. Unless otherwise set using
+   cuFileStreamRegister API, this value will not be evaluated until execution time.
+   * @param devPtr_offset Pointer to the offset relative to the bufPtr_base pointer from which to
+   * write. Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated
+   * until execution time.
+   * @param bytes_read Pointer to the bytes read from file. This pointer should be a non-NULL value
+   * and *bytes_read set to 0. The bytes_read memory should be allocated with cuMemHostAlloc/malloc/
+   * mmap or registered with cuMemHostRegister.
+   * After successful execution of the operation in the stream, the value *bytes_read will contain
+   * either:
+   *     - The number of bytes successfully read.
+   *     - -1 on IO errors.
+   *     - All other errors return a negative integer value of the CUfileOpError enum value.
+   * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
+   * synchronous.
    */
   inline void read_async(void* devPtr_base,
                          std::size_t* size,
@@ -537,29 +545,38 @@ class FileHandle {
   }
 
   /**
-   * @brief Writes specified bytes from the device memory into the file.
+   * @brief Writes specified bytes from the device memory into the file asynchronously.
    *
-   * This API writes asynchronously the data from the GPU memory to the file at a specified offset
-   * and size bytes by using GDS functionality. The API works correctly for unaligned
-   * offset and data sizes, although the performance is not on-par with aligned writes.
-   * This is an asynchronous call and will be executed in sequence for the specified stream.
+   * This is an asynchronous version of `.write()`, which will be executed in sequence
+   * for the specified stream.
    *
-   * @note  GDS functionality modified the standard file system metadata in SysMem.
-   * However, GDS functionality does not take any special responsibility for writing
-   * that metadata back to permanent storage. The data is not guaranteed to be present
-   * after a system crash unless the application uses an explicit `fsync(2)` call. If the
-   * file is opened with an `O_SYNC` flag, the metadata will be written to the disk before
-   * the call is complete.
-   * Refer to the note in read for more information about `devPtr_offset`.
+   * The arguments have the same meaning as in `.write()` but some of them are deferred. That is,
+   * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
+   * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
-   * @param size Size in bytes to write.
-   * @param file_offset Offset in the file to write at.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
-   * This parameter should be used only with registered buffers.
-   * @param bytes_written number of bytes that were successfully written.
-   * @param stream associated stream for this I/O.
+   * @param size Pointer to size in bytes to read. If the exact size is not known at the time of I/O
+   * submission, then you must set it to the maximum possible I/O size for that stream I/O. Later
+   the
+   * actual size can be set prior to the stream I/O execution.
+   * @param file_offset Pointer to offset in the file from which to read. Unless otherwise set using
+   cuFileStreamRegister API, this value will not be evaluated until execution time.
+   * @param devPtr_offset Pointer to the offset relative to the bufPtr_base pointer from which to
+   * write.
+   * @param bytes_written Pointer to the bytes read from file. This pointer should be a non-NULL
+   value
+   * and *bytes_written set to 0. The bytes_written memory should be allocated with
+   cuMemHostAlloc/malloc/
+   * mmap or registered with cuMemHostRegister.
+   * After successful execution of the operation in the stream, the value *bytes_written will
+   contain
+   * either:
+   *     - The number of bytes successfully read.
+   *     - -1 on IO errors.
+   *     - All other errors return a negative integer value of the CUfileOpError enum value.
+   * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
+   * synchronous.
    */
   inline void write_async(void* devPtr_base,
                           std::size_t* size,

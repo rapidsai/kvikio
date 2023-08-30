@@ -86,14 +86,13 @@ struct CUfileException : public std::runtime_error {
   (__VA_ARGS__)
 #define GET_CUFILE_CHECK_STREAM_IO_MACRO(_1, _2, NAME, ...) NAME
 #ifdef KVIKIO_CUFILE_FOUND
-#define CUFILE_CHECK_STREAM_IO_2(_nbytes_done, _exception_type)                                    \
-  do {                                                                                             \
-    int const _nbytes = (_nbytes_done);                                                            \
-    if (_nbytes < 0) {                                                                             \
-      throw(_exception_type){std::string{"cuFile error at: "} + __FILE__ + ":" +                   \
-                             KVIKIO_STRINGIFY(__LINE__) + ": " +                                   \
-                             cufileop_status_error((CUfileOpError)(CUFILEOP_BASE_ERR - _nbytes))}; \
-    }                                                                                              \
+#define CUFILE_CHECK_STREAM_IO_2(_nbytes_done, _exception_type)                            \
+  do {                                                                                     \
+    int const _nbytes = (_nbytes_done);                                                    \
+    if (_nbytes < 0) {                                                                     \
+      throw(_exception_type){std::string{"cuFile error at: "} + __FILE__ + ":" +           \
+                             KVIKIO_STRINGIFY(__LINE__) + ": " + std::to_string(_nbytes)}; \
+    }                                                                                      \
   } while (0)
 #else
 // if cufile isn't available, we don't do anything in the body
