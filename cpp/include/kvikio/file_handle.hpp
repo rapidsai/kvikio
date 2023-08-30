@@ -17,6 +17,7 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <cstddef>
@@ -502,6 +503,9 @@ class FileHandle {
    * This is an asynchronous version of `.read()`, which will be executed in sequence
    * for the specified stream.
    *
+   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
+   * `stream` has been synchronized.
+   *
    * The arguments have the same meaning as in `.read()` but some of them are deferred. That is,
    * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
    * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
@@ -535,12 +539,15 @@ class FileHandle {
                          CUstream stream)
   {
 #ifdef KVIKIO_CUFILE_STREAM_API_FOUND
-    CUFILE_TRY(cuFileAPI::instance().ReadAsync(
-      _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_read, stream));
-    return;
-#else
-    throw CUfileException("cuFile's stream API isn't available, please build with CUDA v12.2+.");
+    if (kvikio::is_batch_and_stream_available() && !kvikio::defaults::compat_mode()) {
+      CUFILE_TRY(cuFileAPI::instance().ReadAsync(
+        _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_read, stream));
+      return;
+    }
 #endif
+
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    *bytes_read = static_cast<ssize_t>(read(devPtr_base, *size, *file_offset, *devPtr_offset));
   }
 
   /**
@@ -548,6 +555,9 @@ class FileHandle {
    *
    * This is an asynchronous version of `.write()`, which will be executed in sequence
    * for the specified stream.
+   *
+   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
+   * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.write()` but some of them are deferred. That is,
    * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
@@ -581,12 +591,15 @@ class FileHandle {
                           CUstream stream)
   {
 #ifdef KVIKIO_CUFILE_STREAM_API_FOUND
-    CUFILE_TRY(cuFileAPI::instance().WriteAsync(
-      _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_written, stream));
-    return;
-#else
-    throw CUfileException("cuFile's stream API isn't available, please build with CUDA v12.2+.");
+    if (kvikio::is_batch_and_stream_available() && !kvikio::defaults::compat_mode()) {
+      CUFILE_TRY(cuFileAPI::instance().WriteAsync(
+        _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_written, stream));
+      return;
+    }
 #endif
+
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    *bytes_written = static_cast<ssize_t>(write(devPtr_base, *size, *file_offset, *devPtr_offset));
   }
 
   /**
