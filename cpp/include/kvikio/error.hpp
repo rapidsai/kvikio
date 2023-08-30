@@ -88,7 +88,7 @@ struct CUfileException : public std::runtime_error {
 #ifdef KVIKIO_CUFILE_FOUND
 #define CUFILE_CHECK_STREAM_IO_2(_nbytes_done, _exception_type)                            \
   do {                                                                                     \
-    int const _nbytes = (_nbytes_done);                                                    \
+    int const _nbytes = (*_nbytes_done);                                                   \
     if (_nbytes < 0) {                                                                     \
       throw(_exception_type){std::string{"cuFile error at: "} + __FILE__ + ":" +           \
                              KVIKIO_STRINGIFY(__LINE__) + ": " + std::to_string(_nbytes)}; \
