@@ -567,8 +567,7 @@ class FileHandle {
    * @param bytes_written Pointer to the bytes read from file. This pointer should be a non-NULL
    value
    * and *bytes_written set to 0. The bytes_written memory should be allocated with
-   cuMemHostAlloc/malloc/
-   * mmap or registered with cuMemHostRegister.
+   * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister.
    * After successful execution of the operation in the stream, the value *bytes_written will
    contain
    * either:
