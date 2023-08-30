@@ -510,10 +510,9 @@ class FileHandle {
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Pointer to size in bytes to read. If the exact size is not known at the time of I/O
    * submission, then you must set it to the maximum possible I/O size for that stream I/O. Later
-   the
-   * actual size can be set prior to the stream I/O execution.
+   * the actual size can be set prior to the stream I/O execution.
    * @param file_offset Pointer to offset in the file from which to read. Unless otherwise set using
-   cuFileStreamRegister API, this value will not be evaluated until execution time.
+   * cuFileStreamRegister API, this value will not be evaluated until execution time.
    * @param devPtr_offset Pointer to the offset relative to the bufPtr_base pointer from which to
    * write. Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated
    * until execution time.
@@ -558,19 +557,16 @@ class FileHandle {
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Pointer to size in bytes to read. If the exact size is not known at the time of I/O
    * submission, then you must set it to the maximum possible I/O size for that stream I/O. Later
-   the
-   * actual size can be set prior to the stream I/O execution.
-   * @param file_offset Pointer to offset in the file from which to read. Unless otherwise set using
-   cuFileStreamRegister API, this value will not be evaluated until execution time.
+   * the actual size can be set prior to the stream I/O execution.
+   * @param file_offset Pointer to offset in the file from which to read. Unless otherwise set
+   * using cuFileStreamRegister API, this value will not be evaluated until execution time.
    * @param devPtr_offset Pointer to the offset relative to the bufPtr_base pointer from which to
    * write.
    * @param bytes_written Pointer to the bytes read from file. This pointer should be a non-NULL
-   value
-   * and *bytes_written set to 0. The bytes_written memory should be allocated with
+   * value and *bytes_written set to 0. The bytes_written memory should be allocated with
    * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister.
    * After successful execution of the operation in the stream, the value *bytes_written will
-   contain
-   * either:
+   * contain either:
    *     - The number of bytes successfully read.
    *     - -1 on IO errors.
    *     - All other errors return a negative integer value of the CUfileOpError enum value.
