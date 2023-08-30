@@ -227,7 +227,7 @@ int main()
       CUFILE_CHECK_STREAM_IO(bytes_done_p);
       check(*bytes_done_p == SIZE);
       cout << "File async read : " << *bytes_done_p << endl;
-      check(cudaHostFree((void*)bytes_done_p) == cudaSuccess);
+      check(cudaFreeHost((void*)bytes_done_p) == cudaSuccess);
     }
   } else {
     cout << "The batch and stream API isn't available, requires CUDA 12.2+" << endl;
