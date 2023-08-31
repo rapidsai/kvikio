@@ -345,7 +345,7 @@ class FileHandle {
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
    * This parameter should be used only with registered buffers.
    * @return Size of bytes that were successfully written.
    */
@@ -510,7 +510,7 @@ class FileHandle {
    * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
    * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
    *
-   * @param devPtr_base_p Base address of buffer in device memory. For registered buffers,
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size_p Pointer to size in bytes to read. If the exact size is not known at the time of
    * I/O submission, then you must set it to the maximum possible I/O size for that stream I/O.
@@ -563,7 +563,7 @@ class FileHandle {
    * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
    * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
    *
-   * @param devPtr_base_p Base address of buffer in device memory. For registered buffers,
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size_p Pointer to size in bytes to read. If the exact size is not known at the time of
    * I/O submission, then you must set it to the maximum possible I/O size for that stream I/O.
