@@ -507,8 +507,9 @@ class FileHandle {
    * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.read()` but some of them are deferred. That is,
-   * the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p` will not be evaluated until execution
-   * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
+   * the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p` will not be evaluated
+   * until execution time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister
+   * API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
@@ -517,9 +518,9 @@ class FileHandle {
    * Later the actual size can be set prior to the stream I/O execution.
    * @param file_offset_p Pointer to offset in the file from which to read. Unless otherwise set
    * using cuFileStreamRegister API, this value will not be evaluated until execution time.
-   * @param devPtr_offset_p Pointer to the offset relative to the bufPtr_base pointer from which to
-   * write. Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated
-   * until execution time.
+   * @param devPtr_offset_p Pointer to the offset relative to the bufPtr_base from which to write.
+   * Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated until
+   * execution time.
    * @param bytes_read_p Pointer to the bytes read from file. This pointer should be a non-NULL
    * value and *bytes_read_p set to 0. The bytes_read_p memory should be allocated with
    * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister. After successful execution of
@@ -538,7 +539,7 @@ class FileHandle {
                   CUstream stream)
   {
 #ifdef KVIKIO_CUFILE_STREAM_API_FOUND
-    if (kvikio::is_batch_and_stream_available() && !kvikio::defaults::compat_mode()) {
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
       CUFILE_TRY(cuFileAPI::instance().ReadAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
       return;
@@ -570,8 +571,9 @@ class FileHandle {
    * Later the actual size can be set prior to the stream I/O execution.
    * @param file_offset_p Pointer to offset in the file from which to read. Unless otherwise set
    * using cuFileStreamRegister API, this value will not be evaluated until execution time.
-   * @param devPtr_offset_p Pointer to the offset relative to the bufPtr_base pointer from which to
-   * write.
+   * @param devPtr_offset_p Pointer to the offset relative to the bufPtr_base from which to read.
+   * Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated until
+   * execution time.
    * @param bytes_written_p Pointer to the bytes read from file. This pointer should be a non-NULL
    * value and *bytes_written_p set to 0. The bytes_written_p memory should be allocated with
    * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister.
@@ -591,7 +593,7 @@ class FileHandle {
                    CUstream stream)
   {
 #ifdef KVIKIO_CUFILE_STREAM_API_FOUND
-    if (kvikio::is_batch_and_stream_available() && !kvikio::defaults::compat_mode()) {
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
       CUFILE_TRY(cuFileAPI::instance().WriteAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
       return;
