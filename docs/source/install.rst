@@ -7,7 +7,7 @@ KvikIO can be installed using Conda/Mamba or from source.
 Conda/Mamba
 -----------
 
-We strongly recommend to use `mamba <https://github.com/mamba-org/mamba>`_ inplace of conda, which we will do throughout the documentation.
+We strongly recommend using `mamba <https://github.com/mamba-org/mamba>`_ inplace of conda, which we will do throughout the documentation.
 
 Install the **stable release** from the ``rapidsai`` channel like:
 

@@ -12,7 +12,7 @@ The C++ library is header-only making it easy to include in [existing projects](
 ### Features
 
 * Object oriented API of [cuFile](https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html) with C++/Python exception handling.
-* A Python Zarr backend for reading and writing GPU data to file seamlessly.
+* A Python [Zarr](https://zarr.readthedocs.io/en/stable/) backend for reading and writing GPU data to file seamlessly.
 * Concurrent reads and writes using an internal thread pool.
 * Non-blocking API.
 * Handle both host and device IO seamlessly.

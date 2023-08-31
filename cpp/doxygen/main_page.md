@@ -28,9 +28,9 @@ to include KvikIO in your CMake projects.
 
 ### Conda/Mamba
 
-We strongly recommend to use `mamba <https://github.com/mamba-org/mamba>`_ inplace of conda, which we will do throughout the documentation.
+We strongly recommend using `mamba <https://github.com/mamba-org/mamba>`_ inplace of conda, which we will do throughout the documentation.
 
-Install the **stable release** from the ``rapidsai`` channel like:
+Install the **stable release** from the ``rapidsai`` channel with the following:
 ```sh
 # Install in existing environment
 mamba install -c rapidsai -c conda-forge libkvikio
@@ -40,7 +40,7 @@ mamba create -n libkvikio-env -c rapidsai -c conda-forge cuda-version=11.8 libkv
 mamba create -n libkvikio-env -c rapidsai -c conda-forge cuda-version=12.0 libkvikio
 ```
 
-Install the **nightly release** from the ``rapidsai-nightly`` channel like:
+Install the **nightly release** from the ``rapidsai-nightly`` channel with the following:
 
 ```sh
 # Install in existing environment
