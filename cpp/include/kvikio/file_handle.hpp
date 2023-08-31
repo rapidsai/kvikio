@@ -507,7 +507,7 @@ class FileHandle {
    * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.read()` but some of them are deferred. That is,
-   * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
+   * the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p` will not be evaluated until execution
    * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
@@ -522,7 +522,7 @@ class FileHandle {
    * until execution time.
    * @param bytes_read_p Pointer to the bytes read from file. This pointer should be a non-NULL
    * value and *bytes_read_p set to 0. The bytes_read_p memory should be allocated with
-   * cuMemHostAlloc/malloc/ mmap or registered with cuMemHostRegister. After successful execution of
+   * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister. After successful execution of
    * the operation in the stream, the value *bytes_read_p will contain either:
    *     - The number of bytes successfully read.
    *     - -1 on IO errors.
