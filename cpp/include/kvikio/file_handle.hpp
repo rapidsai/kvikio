@@ -561,7 +561,7 @@ class FileHandle {
    * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.write()` but some of them are deferred. That is,
-   * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
+   * the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p` will not be evaluated until execution
    * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
