@@ -55,8 +55,8 @@ def run_kvikio(args):
     t0 = clock()
     z = zarr.create(
         shape=(args.nelem,),
+        chunks=(args.chunksize,),
         dtype=args.dtype,
-        chunks=False,
         compressor=compressor,
         store=kvikio.zarr.GDSStore(dir_path),
         meta_array=cupy.empty(()),
@@ -89,8 +89,8 @@ def run_posix(args):
     t0 = clock()
     z = zarr.create(
         shape=(args.nelem,),
+        chunks=(args.chunksize,),
         dtype=args.dtype,
-        chunks=False,
         compressor=compressor,
         store=zarr.DirectoryStore(dir_path),
         meta_array=numpy.empty(()),
@@ -152,6 +152,7 @@ def main(args):
     drop_vm_cache_msg = str(args.drop_vm_cache)
     if not args.drop_vm_cache:
         drop_vm_cache_msg += " (use --drop-vm-cache for better accuracy!)"
+    chunksize = args.chunksize * args.dtype.itemsize
 
     print("Roundtrip benchmark")
     print("----------------------------------")
@@ -172,6 +173,7 @@ def main(args):
     print(f"GDS config.json   | {gds_config_json_path}")
     print("----------------------------------")
     print(f"nbytes            | {args.nbytes} bytes ({format_bytes(args.nbytes)})")
+    print(f"chunksize         | {chunksize} bytes ({format_bytes(chunksize)})")
     print(f"4K aligned        | {args.nbytes % 4096 == 0}")
     print(f"drop-vm-cache     | {drop_vm_cache_msg}")
     print(f"directory         | {args.dir}")
@@ -184,6 +186,8 @@ def main(args):
     for api in args.api:
         rs = []
         ws = []
+        for _ in range(args.n_warmup_runs):
+            read, write = API[api](args)
         for _ in range(args.nruns):
             read, write = API[api](args)
             rs.append(args.nbytes / read)
@@ -227,6 +231,13 @@ if __name__ == "__main__":
         help="Message size, which must be a multiple of 8 (default: %(default)s).",
     )
     parser.add_argument(
+        "--chunksize",
+        metavar="BYTES",
+        default="10 MiB",
+        type=parse_bytes,
+        help="Chunk size (default: %(default)s).",
+    )
+    parser.add_argument(
         "--dtype",
         default="float32",
         type=numpy.dtype,
@@ -247,7 +258,12 @@ if __name__ == "__main__":
         type=int,
         help="Number of runs per API (default: %(default)s).",
     )
-
+    parser.add_argument(
+        "--n-warmup-runs",
+        default=0,
+        type=int,
+        help="Number of warmup runs (default: %(default)s).",
+    )
     parser.add_argument(
         "-t",
         "--nthreads",
@@ -288,9 +304,13 @@ if __name__ == "__main__":
     if "all" in args.api:
         args.api = tuple(API.keys())
 
-    # Compute nelem
-    args.nelem = args.nbytes // args.dtype.itemsize
+    # Check if size is divisible by size of datatype
     assert args.nbytes % args.dtype.itemsize == 0
+    assert args.chunksize % args.dtype.itemsize == 0
+
+    # Compute/convert to number of elements
+    args.nelem = args.nbytes // args.dtype.itemsize
+    args.chunksize = args.chunksize // args.dtype.itemsize
 
     # Create a temporary directory if user didn't specify a directory
     temp_dir: Union[tempfile.TemporaryDirectory, ContextManager]
