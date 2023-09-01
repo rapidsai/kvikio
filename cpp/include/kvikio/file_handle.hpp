@@ -506,10 +506,10 @@ class FileHandle {
    * When running CUDA v12.1 or older, this function falls back to use `.read()` after
    * `stream` has been synchronized.
    *
-   * The arguments have the same meaning as in `.read()` but some of them are deferred. That is,
-   * the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p` will not be evaluated
-   * until execution time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister
-   * API.
+   * The arguments have the same meaning as in `.read()` but some of them are deferred.
+   * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
+   * will not be evaluated until execution time. Notice, this behavior can be changed
+   * using cuFile's cuFileStreamRegister API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
@@ -560,9 +560,10 @@ class FileHandle {
    * When running CUDA v12.1 or older, this function falls back to use `.read()` after
    * `stream` has been synchronized.
    *
-   * The arguments have the same meaning as in `.write()` but some of them are deferred. That is,
-   * the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p` will not be evaluated until execution
-   * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
+   * The arguments have the same meaning as in `.write()` but some of them are deferred.
+   * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
+   * will not be evaluated until execution time. Notice, this behavior can be changed
+   * using cuFile's cuFileStreamRegister API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
