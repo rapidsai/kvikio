@@ -147,7 +147,6 @@ int main()
     cout << "Parallel POSIX read (" << kvikio::defaults::thread_pool_nthreads()
          << " threads): " << read << endl;
   }
-
   if (kvikio::is_batch_and_stream_available() && !kvikio::defaults::compat_mode()) {
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
     // submitting 4 batch operations.
@@ -195,41 +194,40 @@ int main()
       check(statuses.empty());
       cout << "Batch canceling of all 4 operations" << endl;
     }
-
-    {
-      cout << "Performing async I/O using file handle" << endl;
-      off_t f_off{0};
-      off_t d_off{0};
-      // Notice, we have to allocate the `bytes_done_p` argument on the heap and set it to 0.
-      ssize_t* bytes_done_p{};
-      check(cudaHostAlloc((void**)&bytes_done_p, SIZE, cudaHostAllocDefault) == cudaSuccess);
-      *bytes_done_p = 0;
-
-      // Let's create a new stream and submit a sync write
-      CUstream stream{};
-      check(cudaStreamCreate(&stream) == cudaSuccess);
-      kvikio::FileHandle f_handle("/data/test-file", "w+", kvikio::FileHandle::m644, false);
-      check(cudaMemcpyAsync(a_dev, a, SIZE, cudaMemcpyHostToDevice, stream) == cudaSuccess);
-      f_handle.write_async(a_dev, &io_size, &f_off, &d_off, bytes_done_p, stream);
-
-      // After synchronizing `stream`, we can read the number of bytes written
-      check(cudaStreamSynchronize(stream) == cudaSuccess);
-      // Note, `*bytes_done_p` might be negative, which indicate an IO error thus we
-      // use `CUFILE_CHECK_STREAM_IO` to check for errors.
-      CUFILE_CHECK_STREAM_IO(bytes_done_p);
-      check(*bytes_done_p == SIZE);
-      cout << "File async write : " << *bytes_done_p << endl;
-
-      /* Read */
-      *bytes_done_p = 0;
-      f_handle.read_async(c_dev, &io_size, &f_off, &d_off, bytes_done_p, stream);
-      check(cudaStreamSynchronize(stream) == cudaSuccess);
-      CUFILE_CHECK_STREAM_IO(bytes_done_p);
-      check(*bytes_done_p == SIZE);
-      cout << "File async read : " << *bytes_done_p << endl;
-      check(cudaFreeHost((void*)bytes_done_p) == cudaSuccess);
-    }
   } else {
-    cout << "The batch and stream API isn't available, requires CUDA 12.2+" << endl;
+    cout << "The batch API isn't available, requires CUDA 12.2+" << endl;
+  }
+  {
+    cout << "Performing async I/O using by-reference arguments" << endl;
+    off_t f_off{0};
+    off_t d_off{0};
+    // Notice, we have to allocate the `bytes_done_p` argument on the heap and set it to 0.
+    ssize_t* bytes_done_p{};
+    check(cudaHostAlloc((void**)&bytes_done_p, SIZE, cudaHostAllocDefault) == cudaSuccess);
+    *bytes_done_p = 0;
+
+    // Let's create a new stream and submit an async write
+    CUstream stream{};
+    check(cudaStreamCreate(&stream) == cudaSuccess);
+    kvikio::FileHandle f_handle("/tmp/test-file", "w+");
+    check(cudaMemcpyAsync(a_dev, a, SIZE, cudaMemcpyHostToDevice, stream) == cudaSuccess);
+    f_handle.write_async(a_dev, &io_size, &f_off, &d_off, bytes_done_p, stream);
+
+    // After synchronizing `stream`, we can read the number of bytes written
+    check(cudaStreamSynchronize(stream) == cudaSuccess);
+    // Note, `*bytes_done_p` might be negative, which indicate an IO error thus we
+    // use `CUFILE_CHECK_STREAM_IO` to check for errors.
+    CUFILE_CHECK_STREAM_IO(bytes_done_p);
+    check(*bytes_done_p == SIZE);
+    cout << "File async write: " << *bytes_done_p << endl;
+
+    // Let's async read the data back into device memory
+    *bytes_done_p = 0;
+    f_handle.read_async(c_dev, &io_size, &f_off, &d_off, bytes_done_p, stream);
+    check(cudaStreamSynchronize(stream) == cudaSuccess);
+    CUFILE_CHECK_STREAM_IO(bytes_done_p);
+    check(*bytes_done_p == SIZE);
+    cout << "File async read: " << *bytes_done_p << endl;
+    check(cudaFreeHost((void*)bytes_done_p) == cudaSuccess);
   }
 }
