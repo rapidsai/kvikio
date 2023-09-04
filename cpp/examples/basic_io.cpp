@@ -230,4 +230,25 @@ int main()
     cout << "File async read: " << *bytes_done_p << endl;
     check(cudaFreeHost((void*)bytes_done_p) == cudaSuccess);
   }
+  {
+    cout << "Performing async I/O using by-value arguments" << endl;
+
+    // Let's create a new stream and submit an async write
+    CUstream stream{};
+    check(cudaStreamCreate(&stream) == cudaSuccess);
+    kvikio::FileHandle f_handle("/tmp/test-file", "w+");
+    check(cudaMemcpyAsync(a_dev, a, SIZE, cudaMemcpyHostToDevice, stream) == cudaSuccess);
+
+    // Notice, we MUST keep `res` alive until the data has been written to disk
+    kvikio::StreamFuture res = f_handle.write_async(a_dev, SIZE, 0, 0, stream);
+    // We can use `check_bytes_done()` to sync the associated stream and return the number
+    // of bytes written.
+    check(res.check_bytes_done() == SIZE);
+    cout << "File async write: " << res.check_bytes_done() << endl;
+
+    // Let's async read the data back into device memory
+    res = f_handle.read_async(c_dev, SIZE, 0, 0, stream);
+    check(res.check_bytes_done() == SIZE);
+    cout << "File async read: " << res.check_bytes_done() << endl;
+  }
 }
