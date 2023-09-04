@@ -31,7 +31,7 @@ namespace kvikio {
  * This class shouldn't be used directly, instead some stream operations such as
  * `FileHandle.read_async` and `FileHandle.write_async` returns an instance of this class. Use
  * `.check_bytes_done()` to synchronize the associated CUDA stream and return the number of bytes
- * precessed by the operation.
+ * read or written by the operation.
  */
 class StreamFuture {
  public:
@@ -117,7 +117,7 @@ class StreamFuture {
   }
 
   /**
-   * @brief Return the number of bytes precessed by the future operation.
+   * @brief Return the number of bytes read or written by the future operation.
    *
    * Synchronize the associated CUDA stream.
    *
