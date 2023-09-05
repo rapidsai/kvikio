@@ -90,15 +90,15 @@ def main(args):
             )
         )
 
-    nbytes = f"{format_bytes(args.nbytes)} bytes ({args.nbytes})"
     print("Encode/decode benchmark")
     print("----------------------------------")
     print(f"GPU                     | {gpu_name}")
     print(f"GPU Memory Total        | {mem_total}")
     print(f"BAR1 Memory Total       | {bar1_total}")
     print("----------------------------------")
-    print(f"nbytes                  | {nbytes}")
+    print(f"nbytes                  | {format_bytes(args.nbytes)} ({args.nbytes})")
     print(f"4K aligned              | {args.nbytes % 4096 == 0}")
+    print(f"dtype                   | {args.dtype}")
     print(f"nruns                   | {args.nruns}")
     print("==================================")
 
