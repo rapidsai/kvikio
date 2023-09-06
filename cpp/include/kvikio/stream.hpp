@@ -32,6 +32,18 @@ namespace kvikio {
  * `FileHandle.read_async` and `FileHandle.write_async` returns an instance of this class. Use
  * `.check_bytes_done()` to synchronize the associated CUDA stream and return the number of bytes
  * read or written by the operation.
+ *
+ * The goal of this class is twofold:
+ *   - Have `read_async` and `write_async` return an object that clearly associates the function
+ *     arguments with the CUDA stream used. This is useful because the current validity of the
+ *     arguments depends on the stream.
+ *   - Support of by-value arguments. In many cases, a user will use `read_async` and `write_async`
+ *     like most other asynchronous CUDA functions that take by-value arguments.
+ *
+ * To support by-value arguments, we allocate the arguments on the heap (malloc `ArgByVal`) and have
+ * the by-reference arguments (`ArgByRef`) points into `ArgByVal`. This way, the `read_async` and
+ * `write_async` can call `.get_args()` to get the by-reference arguments required by cuFile's
+ * stream API.
  */
 class StreamFuture {
  public:
