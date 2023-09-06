@@ -43,7 +43,9 @@ namespace kvikio {
  * To support by-value arguments, we allocate the arguments on the heap (malloc `ArgByVal`) and have
  * the by-reference arguments (`ArgByRef`) points into `ArgByVal`. This way, the `read_async` and
  * `write_async` can call `.get_args()` to get the by-reference arguments required by cuFile's
- * stream API.
+ * stream API. However, this also means that the caller of `read_async` and `write_async` MUST keep
+ * the returned `StreamFuture` alive until the operations is done otherwise `StreamFuture` will free
+ * `ArgByVal` before cuFile had a change to use them!
  */
 class StreamFuture {
  public:
