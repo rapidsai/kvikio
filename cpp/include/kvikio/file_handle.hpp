@@ -17,6 +17,7 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <cstddef>
@@ -344,7 +345,7 @@ class FileHandle {
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
    * This parameter should be used only with registered buffers.
    * @return Size of bytes that were successfully written.
    */
@@ -502,45 +503,52 @@ class FileHandle {
    * This is an asynchronous version of `.read()`, which will be executed in sequence
    * for the specified stream.
    *
-   * The arguments have the same meaning as in `.read()` but some of them are deferred. That is,
-   * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
-   * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
+   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
+   * `stream` has been synchronized.
+   *
+   * The arguments have the same meaning as in `.read()` but some of them are deferred.
+   * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
+   * will not be evaluated until execution time. Notice, this behavior can be changed
+   * using cuFile's cuFileStreamRegister API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
-   * @param size Pointer to size in bytes to read. If the exact size is not known at the time of I/O
-   * submission, then you must set it to the maximum possible I/O size for that stream I/O. Later
-   * the actual size can be set prior to the stream I/O execution.
-   * @param file_offset Pointer to offset in the file from which to read. Unless otherwise set using
-   * cuFileStreamRegister API, this value will not be evaluated until execution time.
-   * @param devPtr_offset Pointer to the offset relative to the bufPtr_base pointer from which to
-   * write. Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated
-   * until execution time.
-   * @param bytes_read Pointer to the bytes read from file. This pointer should be a non-NULL value
-   * and *bytes_read set to 0. The bytes_read memory should be allocated with cuMemHostAlloc/malloc/
-   * mmap or registered with cuMemHostRegister.
-   * After successful execution of the operation in the stream, the value *bytes_read will contain
-   * either:
+   * @param size_p Pointer to size in bytes to read. If the exact size is not known at the time of
+   * I/O submission, then you must set it to the maximum possible I/O size for that stream I/O.
+   * Later the actual size can be set prior to the stream I/O execution.
+   * @param file_offset_p Pointer to offset in the file from which to read. Unless otherwise set
+   * using cuFileStreamRegister API, this value will not be evaluated until execution time.
+   * @param devPtr_offset_p Pointer to the offset relative to the bufPtr_base from which to write.
+   * Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated until
+   * execution time.
+   * @param bytes_read_p Pointer to the bytes read from file. This pointer should be a non-NULL
+   * value and *bytes_read_p set to 0. The bytes_read_p memory should be allocated with
+   * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister. After successful execution of
+   * the operation in the stream, the value *bytes_read_p will contain either:
    *     - The number of bytes successfully read.
    *     - -1 on IO errors.
    *     - All other errors return a negative integer value of the CUfileOpError enum value.
    * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
    * synchronous.
    */
-  inline void read_async(void* devPtr_base,
-                         std::size_t* size,
-                         off_t* file_offset,
-                         off_t* devPtr_offset,
-                         ssize_t* bytes_read,
-                         CUstream stream)
+  void read_async(void* devPtr_base,
+                  std::size_t* size_p,
+                  off_t* file_offset_p,
+                  off_t* devPtr_offset_p,
+                  ssize_t* bytes_read_p,
+                  CUstream stream)
   {
 #ifdef KVIKIO_CUFILE_STREAM_API_FOUND
-    CUFILE_TRY(cuFileAPI::instance().ReadAsync(
-      _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_read, stream));
-    return;
-#else
-    throw CUfileException("cuFile's stream API isn't available, please build with CUDA v12.2+.");
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+      CUFILE_TRY(cuFileAPI::instance().ReadAsync(
+        _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
+      return;
+    }
 #endif
+
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    *bytes_read_p =
+      static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   }
 
   /**
@@ -549,23 +557,28 @@ class FileHandle {
    * This is an asynchronous version of `.write()`, which will be executed in sequence
    * for the specified stream.
    *
-   * The arguments have the same meaning as in `.write()` but some of them are deferred. That is,
-   * the values of `size`, `file_offset` and `devPtr_offset` will not be evaluated until execution
-   * time. Notice, this behavior can be changed using cuFile's cuFileStreamRegister API.
+   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
+   * `stream` has been synchronized.
+   *
+   * The arguments have the same meaning as in `.write()` but some of them are deferred.
+   * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
+   * will not be evaluated until execution time. Notice, this behavior can be changed
+   * using cuFile's cuFileStreamRegister API.
    *
    * @param devPtr_base Base address of buffer in device memory. For registered buffers,
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
-   * @param size Pointer to size in bytes to read. If the exact size is not known at the time of I/O
-   * submission, then you must set it to the maximum possible I/O size for that stream I/O. Later
-   * the actual size can be set prior to the stream I/O execution.
-   * @param file_offset Pointer to offset in the file from which to read. Unless otherwise set
+   * @param size_p Pointer to size in bytes to read. If the exact size is not known at the time of
+   * I/O submission, then you must set it to the maximum possible I/O size for that stream I/O.
+   * Later the actual size can be set prior to the stream I/O execution.
+   * @param file_offset_p Pointer to offset in the file from which to read. Unless otherwise set
    * using cuFileStreamRegister API, this value will not be evaluated until execution time.
-   * @param devPtr_offset Pointer to the offset relative to the bufPtr_base pointer from which to
-   * write.
-   * @param bytes_written Pointer to the bytes read from file. This pointer should be a non-NULL
-   * value and *bytes_written set to 0. The bytes_written memory should be allocated with
+   * @param devPtr_offset_p Pointer to the offset relative to the bufPtr_base from which to read.
+   * Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated until
+   * execution time.
+   * @param bytes_written_p Pointer to the bytes read from file. This pointer should be a non-NULL
+   * value and *bytes_written_p set to 0. The bytes_written_p memory should be allocated with
    * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister.
-   * After successful execution of the operation in the stream, the value *bytes_written will
+   * After successful execution of the operation in the stream, the value *bytes_written_p will
    * contain either:
    *     - The number of bytes successfully read.
    *     - -1 on IO errors.
@@ -573,20 +586,24 @@ class FileHandle {
    * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
    * synchronous.
    */
-  inline void write_async(void* devPtr_base,
-                          std::size_t* size,
-                          off_t* file_offset,
-                          off_t* devPtr_offset,
-                          ssize_t* bytes_written,
-                          CUstream stream)
+  void write_async(void* devPtr_base,
+                   std::size_t* size_p,
+                   off_t* file_offset_p,
+                   off_t* devPtr_offset_p,
+                   ssize_t* bytes_written_p,
+                   CUstream stream)
   {
 #ifdef KVIKIO_CUFILE_STREAM_API_FOUND
-    CUFILE_TRY(cuFileAPI::instance().WriteAsync(
-      _handle, devPtr_base, size, file_offset, devPtr_offset, bytes_written, stream));
-    return;
-#else
-    throw CUfileException("cuFile's stream API isn't available, please build with CUDA v12.2+.");
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+      CUFILE_TRY(cuFileAPI::instance().WriteAsync(
+        _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
+      return;
+    }
 #endif
+
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    *bytes_written_p =
+      static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   }
 
   /**
