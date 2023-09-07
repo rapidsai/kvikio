@@ -23,5 +23,6 @@ Contents
    install
    quickstart
    zarr
+   runtime_settings
    api
    genindex
