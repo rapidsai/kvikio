@@ -240,7 +240,7 @@ dependencies:
           - sphinx
       - output_types: conda
         packages:
-          - doxygen=1.8.20 # pre-commit hook needs a specific version.
+          - doxygen=1.9.1 # pre-commit hook needs a specific version.
   py_version:
     specific:
       - output_types: conda
