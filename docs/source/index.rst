@@ -10,7 +10,7 @@ KvikIO is a part of the `RAPIDS <https://rapids.ai/>`_ suite of open-source soft
 
 
 .. note::
-   This is the documentation for the Python library. For the C++ documentation of KvikIO, see under **libkvikio**.
+   This is the documentation for the Python library. For the C++ documentation, see under `libkvikio <https://docs.rapids.ai/api/libkvikio/nightly/>`_.
 
 
 Contents
