@@ -13,7 +13,7 @@ rapids-logger "Begin py build"
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
-rapids-mamba-retry mambabuild \
+rapids-conda-retry mambabuild \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/kvikio
 
