@@ -236,8 +236,10 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - pydata-sphinx-theme
+          - numpydoc
           - sphinx
+          - sphinx-click
+          - sphinx_rtd_theme
       - output_types: conda
         packages:
           - doxygen=1.9.1 # pre-commit hook needs a specific version.
