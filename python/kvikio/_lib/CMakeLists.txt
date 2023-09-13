@@ -18,5 +18,5 @@ set(cython_modules arr.pyx libnvcomp.pyx libnvcomp_ll.pyx libkvikio.pyx)
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
-  LINKED_LIBRARIES nvcomp::nvcomp
+  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
 )

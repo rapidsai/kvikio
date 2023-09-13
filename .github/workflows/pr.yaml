@@ -18,6 +18,7 @@ jobs:
       - conda-python-build
       - conda-python-tests
       - docs-build
+      - devcontainer
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.10
   checks:
@@ -57,3 +58,11 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci:latest"
       run_script: "ci/build_docs.sh"
+  devcontainer:
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/build-in-devcontainer.yaml@fea/devcontainers
+    with:
+      build_command: |
+        sccache -z;
+        build-all;
+        sccache -s;
