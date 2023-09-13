@@ -8,7 +8,8 @@ KvikIO also works efficiently when GDS isn't available and can read/write both h
 KvikIO C++ is a header-only library that is part of the [RAPIDS](https://rapids.ai/) suite of open-source software libraries for GPU-accelerated data science.
 
 ---
-**Notice** this is the documentation for the C++ library. For the Python documentation of KvikIO, see under **KvikIO**.
+**Notice** this is the documentation for the C++ library. For the Python documentation, see under [kvikio](https://docs.rapids.ai/api/kvikio/nightly/).
+
 
 ---
 
@@ -28,7 +29,7 @@ to include KvikIO in your CMake projects.
 
 ### Conda/Mamba
 
-We strongly recommend using `mamba <https://github.com/mamba-org/mamba>`_ inplace of conda, which we will do throughout the documentation.
+We strongly recommend using [mamba](https://github.com/mamba-org/mamba) in place of conda, which we will do throughout the documentation.
 
 Install the **stable release** from the ``rapidsai`` channel with the following:
 ```sh
