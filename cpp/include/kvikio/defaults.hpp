@@ -218,8 +218,8 @@ class defaults {
    * In order to improve performance of small IO, `.pread()` and `.pwrite()` implement a shortcut
    * that circumvent the threadpool and use the POSIX backend directly.
    *
-   * Set the default value using `kvikio::default::task_size_reset()` or by setting the
-   * `KVIKIO_TASK_SIZE` environment variable. If not set, the default value is 1 MiB.
+   * Set the default value using `kvikio::default::gds_threshold_reset()` or by setting the
+   * `KVIKIO_GDS_THRESHOLD` environment variable. If not set, the default value is 1 MiB.
    *
    * @return The default GDS threshold size in bytes.
    */
