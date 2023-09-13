@@ -239,10 +239,10 @@ int main()
     kvikio::FileHandle f_handle("/tmp/test-file", "w+");
     check(cudaMemcpyAsync(a_dev, a, SIZE, cudaMemcpyHostToDevice, stream) == cudaSuccess);
 
-    // Notice, we MUST keep `res` alive until the data has been written to disk
+    // Notice, we get a handle `res`, which will synchronize the CUDA stream on destruction
     kvikio::StreamFuture res = f_handle.write_async(a_dev, SIZE, 0, 0, stream);
-    // We can use `check_bytes_done()` to sync the associated stream and return the number
-    // of bytes written.
+    // But we can also trigger the synchronization and get the bytes written by calling
+    // `check_bytes_done()`.
     check(res.check_bytes_done() == SIZE);
     cout << "File async write: " << res.check_bytes_done() << endl;
 
