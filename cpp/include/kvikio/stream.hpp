@@ -150,7 +150,7 @@ class StreamFuture {
       } catch (const kvikio::CUfileException& e) {
         std::cerr << e.what() << std::endl;
       }
-      free(_val);
+      std::free(_val);
     }
   }
 };
