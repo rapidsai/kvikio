@@ -298,4 +298,4 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cudf==23.10.*
+          - cudf==23.12.*
