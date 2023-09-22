@@ -4,6 +4,7 @@
 import itertools as it
 import json
 
+import cupy as cp
 import numcodecs
 import numpy as np
 import pytest
@@ -81,24 +82,38 @@ def test_basic_zarr(algo: str, shape_chunks):
 
 
 @pytest.mark.parametrize("algo", SUPPORTED_CODECS)
-def test_batch_comp_decomp(algo: str):
+@pytest.mark.parametrize("chunk_sizes", [(100, 100), (100, 150)])
+@pytest.mark.parametrize("out", [None, "cpu", "gpu"])
+def test_batch_comp_decomp(algo: str, chunk_sizes, out: str):
     codec = _get_codec(algo)
 
     np.random.seed(1)
 
     dtype = np.float32
-    # 2 equal-sized chunks.
-    chunks = list(np.random.randn(2, 100).astype(dtype))
+    chunks = [np.random.randn(s).astype(dtype) for s in chunk_sizes]
+    out_buf = None
+    if out == "cpu":
+        out_buf = [np.empty_like(c) for c in chunks]
+    elif out == "gpu":
+        out_buf = [cp.empty_like(c) for c in chunks]
 
     comp_chunks = codec.encode_batch([c.tobytes() for c in chunks])
     assert len(comp_chunks) == 2
 
-    decomp_chunks = codec.decode_batch(comp_chunks)
+    decomp_chunks = codec.decode_batch(comp_chunks, out=out_buf)
     assert len(decomp_chunks) == 2
 
-    decomp_chunks = [c.view(dtype=dtype) for c in decomp_chunks]
-    assert_equal(decomp_chunks[0], chunks[0])
-    assert_equal(decomp_chunks[1], chunks[1])
+    for i, dc in enumerate(decomp_chunks):
+        dc = dc.view(dtype=dtype)
+        if isinstance(dc, cp.ndarray):
+            dc = dc.get()
+        assert_equal(dc, chunks[i], f"{i=}")
+
+        if out_buf is not None:
+            ob = out_buf[i]
+            if isinstance(ob, cp.ndarray):
+                ob = ob.get()
+            assert_equal(ob, chunks[i], f"{i=}")
 
 
 @pytest.mark.parametrize("algo", SUPPORTED_CODECS)

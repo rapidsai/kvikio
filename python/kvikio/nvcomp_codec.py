@@ -1,7 +1,7 @@
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-from typing import Any, List, Mapping, Optional
+from typing import Any, Mapping, Optional, Sequence
 
 import cupy as cp
 import numpy as np
@@ -66,18 +66,18 @@ class NvCompBatchCodec(Codec):
         """
         return self.encode_batch([buf])[0]
 
-    def encode_batch(self, bufs: List[Any]) -> List[Any]:
+    def encode_batch(self, bufs: Sequence[Any]) -> Sequence[Any]:
         """Encode data in `bufs` using nvCOMP.
 
         Parameters
         ----------
-        bufs : List[buffer-like].
+        bufs : Sequence[buffer-like].
             Data to be encoded. Each buffer in the list may be any object
             supporting the new-style buffer protocol.
 
         Returns
         -------
-        enc : List[buffer-like]
+        enc : Sequence[buffer-like]
             List of encoded buffers. Each buffer may be any object supporting
             the new-style buffer protocol.
         """
@@ -104,9 +104,9 @@ class NvCompBatchCodec(Codec):
 
         comp_chunks = cp.empty((num_chunks, comp_chunk_size), dtype=cp.uint8)
         # Array of pointers to each compressed chunk.
-        comp_chunk_ptrs = np.array([c.data.ptr for c in comp_chunks], dtype=cp.uintp)
+        comp_chunk_ptrs = cp.array([c.data.ptr for c in comp_chunks], dtype=cp.uintp)
         # Resulting compressed chunk sizes.
-        comp_chunk_sizes = np.empty(num_chunks, dtype=np.uint64)
+        comp_chunk_sizes = cp.empty(num_chunks, dtype=cp.uint64)
 
         self._algo.compress(
             uncomp_chunks,
@@ -120,6 +120,11 @@ class NvCompBatchCodec(Codec):
         )
 
         res = []
+        # Copy to host to subsequently avoid many smaller D2H copies.
+        comp_chunks = cp.asnumpy(comp_chunks, self._stream)
+        comp_chunk_sizes = cp.asnumpy(comp_chunk_sizes, self._stream)
+        self._stream.synchronize()
+
         for i in range(num_chunks):
             res.append(comp_chunks[i, : comp_chunk_sizes[i]].tobytes())
         return res
@@ -145,23 +150,23 @@ class NvCompBatchCodec(Codec):
         return self.decode_batch([buf], [out])[0]
 
     def decode_batch(
-        self, bufs: List[Any], out: Optional[List[Any]] = None
-    ) -> List[Any]:
+        self, bufs: Sequence[Any], out: Optional[Sequence[Any]] = None
+    ) -> Sequence[Any]:
         """Decode data in `bufs` using nvCOMP.
 
         Parameters
         ----------
-        bufs : List[buffer-like]
+        bufs : Sequence[buffer-like]
             Encoded data. Each buffer in the list may be any object
             supporting the new-style buffer protocol.
-        out : List[buffer-like], optional
+        out : Sequence[buffer-like], optional
             List of writeable buffers to store decoded data.
             N.B. if provided, each buffer must be exactly the right size
             to store the decoded data.
 
         Returns
         -------
-        dec : List[buffer-like]
+        dec : Sequence[buffer-like]
             List of decoded buffers. Each buffer may be any object supporting
             the new-style buffer protocol.
         """
@@ -176,8 +181,8 @@ class NvCompBatchCodec(Codec):
             bufs = [cp.asarray(ensure_contiguous_ndarray_like(b)) for b in bufs]
 
         # Prepare compressed chunks buffers.
-        comp_chunks = np.array([b.data.ptr for b in bufs], dtype=np.uintp)
-        comp_chunk_sizes = np.array([b.size for b in bufs], dtype=np.uint64)
+        comp_chunks = cp.array([b.data.ptr for b in bufs], dtype=cp.uintp)
+        comp_chunk_sizes = cp.array([b.size for b in bufs], dtype=cp.uint64)
 
         # Get uncompressed chunk sizes.
         uncomp_chunk_sizes = self._algo.get_decompress_size(
@@ -185,10 +190,12 @@ class NvCompBatchCodec(Codec):
             comp_chunk_sizes,
             self._stream,
         )
-        # Copy to host since we'll need it to properly allocate buffers.
-        uncomp_chunk_sizes_h = uncomp_chunk_sizes.get()
 
-        max_chunk_size = uncomp_chunk_sizes_h.max()
+        # Check whether the uncompressed chunks are all the same size.
+        # cupy.unique returns sorted sizes.
+        sorted_chunk_sizes = cp.unique(uncomp_chunk_sizes)
+        max_chunk_size = sorted_chunk_sizes[-1].item()
+        is_equal_chunks = sorted_chunk_sizes.shape[0] == 1
 
         # Get temp buffer size.
         temp_size = self._algo.get_decompress_temp_size(num_chunks, max_chunk_size)
@@ -196,14 +203,14 @@ class NvCompBatchCodec(Codec):
         temp_buf = cp.empty(temp_size, dtype=cp.uint8)
 
         # Prepare uncompressed chunks buffers.
-        # First, allocate chunks of appropriate sizes and then
+        # First, allocate chunks of max_chunk_size and then
         # copy the pointers to a pointer array in GPU memory as required by nvCOMP.
-        # TODO(akamenev): probably can allocate single contiguous buffer.
-        uncomp_chunks = [
-            cp.empty(size, dtype=cp.uint8) for size in uncomp_chunk_sizes_h
-        ]
-        uncomp_chunk_ptrs = cp.array(
-            [c.data.ptr for c in uncomp_chunks], dtype=cp.uintp
+        # For performance reasons, we use max_chunk_size so we can create
+        # a rectangular array with the same pointer increments.
+        uncomp_chunks = cp.empty((num_chunks, max_chunk_size), dtype=cp.uint8)
+        p_start = uncomp_chunks.data.ptr
+        uncomp_chunk_ptrs = p_start + (
+            cp.arange(0, num_chunks * max_chunk_size, max_chunk_size)
         )
 
         # TODO(akamenev): currently we provide the following 2 buffers to decompress()
@@ -226,20 +233,23 @@ class NvCompBatchCodec(Codec):
             self._stream,
         )
 
+        # If all chunks are the same size, we can just return uncomp_chunks.
+        if is_equal_chunks and out is None:
+            return cp.asnumpy(uncomp_chunks) if is_host_buffer else uncomp_chunks
+
         res = []
         for i in range(num_chunks):
-            ret = uncomp_chunks[i]
-            if out is not None and out[i] is not None:
+            ret = uncomp_chunks[i, : uncomp_chunk_sizes[i].item()]
+            if out is None or out[i] is None:
+                res.append(cp.asnumpy(ret) if is_host_buffer else ret)
+            else:
                 o = ensure_contiguous_ndarray_like(out[i])
                 if hasattr(o, "__cuda_array_interface__"):
                     cp.copyto(o, ret.view(dtype=o.dtype), casting="no")
                 else:
+                    # TODO(akamenev): remove redundant H2H copy?
                     np.copyto(o, cp.asnumpy(ret.view(dtype=o.dtype)), casting="no")
                 res.append(o)
-            elif is_host_buffer:
-                res.append(cp.asnumpy(ret))
-            else:
-                res.append(ret)
 
         return res
 
