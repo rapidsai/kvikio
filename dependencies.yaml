@@ -236,8 +236,10 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - pydata-sphinx-theme
+          - numpydoc
           - sphinx
+          - sphinx-click
+          - sphinx_rtd_theme
       - output_types: conda
         packages:
           - doxygen=1.9.1 # pre-commit hook needs a specific version.
@@ -269,14 +271,6 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - cupy-cuda11x>=12.0.0
-    specific:
-      - output_types: requirements
-        matrices:
-          - matrix:
-              arch: x86_64
-            packages:
-              - libcufile
-              - libcufile-dev
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
