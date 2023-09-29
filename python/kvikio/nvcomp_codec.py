@@ -71,13 +71,12 @@ class NvCompBatchCodec(Codec):
 
         Parameters
         ----------
-        bufs : Sequence[buffer-like].
+        bufs :
             Data to be encoded. Each buffer in the list may be any object
             supporting the new-style buffer protocol.
 
         Returns
         -------
-        enc : Sequence[buffer-like]
             List of encoded buffers. Each buffer may be any object supporting
             the new-style buffer protocol.
         """
@@ -156,17 +155,16 @@ class NvCompBatchCodec(Codec):
 
         Parameters
         ----------
-        bufs : Sequence[buffer-like]
+        bufs :
             Encoded data. Each buffer in the list may be any object
             supporting the new-style buffer protocol.
-        out : Sequence[buffer-like], optional
+        out :
             List of writeable buffers to store decoded data.
             N.B. if provided, each buffer must be exactly the right size
             to store the decoded data.
 
         Returns
         -------
-        dec : Sequence[buffer-like]
             List of decoded buffers. Each buffer may be any object supporting
             the new-style buffer protocol.
         """
