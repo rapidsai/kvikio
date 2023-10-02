@@ -6,17 +6,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import IntEnum
 
-from libc.stdint cimport uint32_t, uint64_t, uintptr_t
+from libc.stdint cimport uint32_t, uintptr_t
 
-from kvikio._lib.nvcomp_ll_cxx_api cimport (
-    cudaMemcpyKind,
-    cudaStream_t,
-    nvcompStatus_t,
-    nvcompType_t,
-)
+from kvikio._lib.nvcomp_ll_cxx_api cimport cudaStream_t, nvcompStatus_t, nvcompType_t
 
 import cupy
-from cupy.cuda.runtime import memcpyAsync
 
 
 class nvCompStatus(IntEnum):
