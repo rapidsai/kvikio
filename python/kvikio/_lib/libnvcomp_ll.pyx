@@ -387,6 +387,14 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
         self.options = nvcompBatchedLZ4Opts_t(data_type)
         self.has_header = has_header
 
+        # Note on LZ4 header structure: numcodecs LZ4 codec prepends
+        # a 4-byte (uint32_t) header to each compressed chunk.
+        # The header stores the size of the original (uncompressed) data:
+        # https://github.com/zarr-developers/numcodecs/blob/cb155432e36536e17a2d054c8c24b7bf6f4a7347/numcodecs/lz4.pyx#L89
+        #
+        # The following CUDA kernels read / write chunk header by
+        # casting the chunk pointer to a pointer to unsigned int.
+
         # CUDA kernel that copies uncompressed chunk size from the chunk header.
         self._get_size_from_header_kernel = cupy.ElementwiseKernel(
             "uint64 comp_chunk_ptr",
