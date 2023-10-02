@@ -4,7 +4,6 @@
 from typing import Any, Mapping, Optional, Sequence
 
 import cupy as cp
-import numpy as np
 from numcodecs.abc import Codec
 from numcodecs.compat import ensure_contiguous_ndarray_like
 
@@ -207,8 +206,8 @@ class NvCompBatchCodec(Codec):
         # a rectangular array with the same pointer increments.
         uncomp_chunks = cp.empty((num_chunks, max_chunk_size), dtype=cp.uint8)
         p_start = uncomp_chunks.data.ptr
-        uncomp_chunk_ptrs = p_start + (
-            cp.arange(0, num_chunks * max_chunk_size, max_chunk_size)
+        uncomp_chunk_ptrs = cp.uint64(p_start) + (
+            cp.arange(0, num_chunks * max_chunk_size, max_chunk_size, dtype=cp.uint64)
         )
 
         # TODO(akamenev): currently we provide the following 2 buffers to decompress()
@@ -236,8 +235,9 @@ class NvCompBatchCodec(Codec):
             return cp.asnumpy(uncomp_chunks) if is_host_buffer else uncomp_chunks
 
         res = []
+        uncomp_chunk_sizes = uncomp_chunk_sizes.get()
         for i in range(num_chunks):
-            ret = uncomp_chunks[i, : uncomp_chunk_sizes[i].item()]
+            ret = uncomp_chunks[i, : uncomp_chunk_sizes[i]]
             if out is None or out[i] is None:
                 res.append(cp.asnumpy(ret) if is_host_buffer else ret)
             else:
@@ -245,9 +245,9 @@ class NvCompBatchCodec(Codec):
                 if hasattr(o, "__cuda_array_interface__"):
                     cp.copyto(o, ret.view(dtype=o.dtype), casting="no")
                 else:
-                    # TODO(akamenev): remove redundant H2H copy?
-                    np.copyto(o, cp.asnumpy(ret.view(dtype=o.dtype)), casting="no")
+                    cp.asnumpy(ret.view(dtype=o.dtype), out=o, stream=self._stream)
                 res.append(o)
+        self._stream.synchronize()
 
         return res
 

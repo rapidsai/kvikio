@@ -399,7 +399,7 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
         self._set_chunk_size_header_kernel = cupy.ElementwiseKernel(
             "uint64 uncomp_chunk_size",
             "uint64 comp_chunk_ptr",
-            "((unsigned int *)comp_chunk_ptr)[0] = uncomp_chunk_size",
+            "((unsigned int *)comp_chunk_ptr)[0] = (unsigned int)uncomp_chunk_size",
             "set_chunk_size_header",
             no_return=True,
         )
