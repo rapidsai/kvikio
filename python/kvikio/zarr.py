@@ -372,12 +372,10 @@ def open_cupy_array(
                 **kwargs,
             )
         except (zarr.errors.ContainsGroupError, zarr.errors.ArrayNotFoundError):
-            # If the array doesn't exist, we re-raise the error when reading ("r", "r+")
-            # and continue when appendding ("a").
+            # If we are reading, this is a genuine error.
             if mode in ("r", "r+"):
                 raise
         else:
-            # If we were able to read the file without error, we handle CPU/GPU mixing.
             # If we are reading a LZ4-CPU compressed file, we overwrite the
             # metadata on-the-fly to make Zarr use LZ4-GPU for both compression
             # and decompression.
