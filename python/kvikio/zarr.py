@@ -24,6 +24,7 @@ import kvikio
 import kvikio.nvcomp
 import kvikio.nvcomp_codec
 import kvikio.zarr
+from kvikio.numcodecs import BufferLike, CudaCodec
 from kvikio.nvcomp_codec import NvCompBatchCodec
 
 MINIMUM_ZARR_VERSION = "2.15"
@@ -171,7 +172,7 @@ class GDSStore(zarr.storage.DirectoryStore):
         return ret
 
 
-class NVCompCompressor(Codec):
+class NVCompCompressor(CudaCodec):
     """Abstract base class for nvCOMP compressors
 
     The derived classes must set `codec_id` and implement
@@ -197,7 +198,7 @@ class NVCompCompressor(Codec):
         """
         pass  # TODO: cache Manager
 
-    def encode(self, buf) -> cupy.ndarray:
+    def encode(self, buf: BufferLike) -> cupy.typing.NDArray:
         """Compress using `get_nvcomp_manager()`
 
         Parameters
@@ -302,7 +303,7 @@ for c in nvcomp_compressors:
 class CompatCompressor:
     """A pair of compatible compressors one using the CPU and one using the GPU"""
 
-    def __init__(self, cpu: Codec, gpu: Codec) -> None:
+    def __init__(self, cpu: Codec, gpu: CudaCodec) -> None:
         self.cpu = cpu
         self.gpu = gpu
 
