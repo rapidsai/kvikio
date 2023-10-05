@@ -1,7 +1,7 @@
 Quickstart
 ==========
 
-KvikIO can be used inplace of Python's built-in `open() <https://docs.python.org/3/library/functions.html#open>`_ function with the caveat that a file is always opened in binary (``"b"``) mode.
+KvikIO can be used in place of Python's built-in `open() <https://docs.python.org/3/library/functions.html#open>`_ function with the caveat that a file is always opened in binary (``"b"``) mode.
 In order to open a file, use KvikIO's filehandle :py:meth:`kvikio.cufile.CuFile`.
 
 .. code-block:: python
