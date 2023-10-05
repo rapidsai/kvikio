@@ -245,3 +245,11 @@ def test_open_cupy_array(tmp_path):
     assert isinstance(z[:], numpy.ndarray)
     assert z.compressor == kvikio_zarr.CompatCompressor.lz4().cpu
     numpy.testing.assert_array_equal(a.get(), z[:])
+
+
+@pytest.mark.parametrize("mode", ["r", "r+"])
+def test_open_cupy_array_incompatible_compressor(tmp_path, mode):
+    zarr.create((10,), store=tmp_path, compressor=numcodecs.Blosc())
+
+    with pytest.raises(ValueError, match="non-CUDA compatible compressor"):
+        kvikio_zarr.open_cupy_array(tmp_path, mode=mode)

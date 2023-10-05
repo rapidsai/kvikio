@@ -381,6 +381,12 @@ def open_cupy_array(
                 meta_array=meta_array,
                 **kwargs,
             )
+        elif not isinstance(ret.compressor, CudaCodec):
+            raise ValueError(
+                "The Zarr file was written using a non-CUDA compatible "
+                f"compressor, {ret.compressor}, please use something "
+                "like kvikio.zarr.CompatCompressor"
+            )
         return ret
 
     if isinstance(compressor, CompatCompressor):
