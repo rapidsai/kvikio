@@ -27,6 +27,8 @@ class CudaCodec(Codec):
     def encode(self, buf: BufferLike) -> cupy.typing.NDArray:
         """Encode `buf` using CUDA.
 
+        This method should support both device and host buffers.
+
         Parameters
         ----------
         buf
@@ -40,7 +42,9 @@ class CudaCodec(Codec):
 
     @abstractmethod
     def decode(self, buf: BufferLike, out: Optional[BufferLike] = None) -> BufferLike:
-        """Encode `buf` using CUDA.
+        """Decode `buf` using CUDA.
+
+        This method should support both device and host buffers.
 
         Parameters
         ----------

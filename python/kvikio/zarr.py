@@ -9,6 +9,7 @@ from abc import abstractmethod
 from typing import Any, Literal, Mapping, Optional, Sequence, Union
 
 import cupy
+import cupy.typing
 import numcodecs
 import numpy
 import numpy as np
@@ -201,40 +202,10 @@ class NVCompCompressor(CudaCodec):
         pass  # TODO: cache Manager
 
     def encode(self, buf: BufferLike) -> cupy.typing.NDArray:
-        """Compress using `get_nvcomp_manager()`
-
-        Parameters
-        ----------
-        buf : buffer-like
-            The buffer to compress. Accepts both host and device memory.
-
-        Returns
-        -------
-        cupy.ndarray
-            The compressed buffer wrapped in a CuPy array
-        """
         buf = cupy.asarray(ensure_contiguous_ndarray_like(buf))
         return self.get_nvcomp_manager().compress(buf)
 
-    def decode(self, buf, out=None):
-        """Decompress using `get_nvcomp_manager()`
-
-        Parameters
-        ----------
-        buf : buffer-like
-            The buffer to decompress. Accepts both host and device memory.
-        out : buffer-like, optional
-            Writeable buffer to store decoded data. N.B. if provided, this buffer must
-            be exactly the right size to store the decoded data. Accepts both host and
-            device memory.
-
-        Returns
-        -------
-        buffer-like
-            Decompress data, which is either host or device memory based on the type
-            of `out`. If `out` is None, the type of `buf` determines the return buffer
-            type.
-        """
+    def decode(self, buf: BufferLike, out: Optional[BufferLike] = None) -> BufferLike:
         buf = ensure_contiguous_ndarray_like(buf)
         is_host_buffer = not hasattr(buf, "__cuda_array_interface__")
         if is_host_buffer:
