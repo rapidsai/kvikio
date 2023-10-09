@@ -22,7 +22,7 @@ dependencies:
 - libcufile-dev=1.4.0.31
 - libcufile=1.4.0.31
 - ninja
-- numcodecs <=0.12.0
+- numcodecs <0.12.0
 - numpy>=1.21
 - numpydoc
 - nvcc_linux-64=11.8
