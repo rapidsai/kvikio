@@ -24,6 +24,7 @@ license = { text = "Apache 2.0" }
 requires-python = ">=3.9"
 dependencies = [
     "cupy-cuda11x>=12.0.0",
+    "numcodecs <=0.12.0",
     "numpy>=1.21",
     "packaging",
     "zarr",

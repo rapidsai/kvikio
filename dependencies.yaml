@@ -264,6 +264,8 @@ dependencies:
         packages:
           - numpy>=1.21
           - zarr
+          # See https://github.com/zarr-developers/numcodecs/pull/475
+          - numcodecs <=0.12.0
           - packaging
       - output_types: conda
         packages:
