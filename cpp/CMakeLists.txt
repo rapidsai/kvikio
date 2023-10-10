@@ -125,12 +125,10 @@ install(FILES ${KvikIO_BINARY_DIR}/include/kvikio/version_config.hpp DESTINATION
 
 include("${rapids-cmake-dir}/export/find_package_file.cmake")
 rapids_export_find_package_file(
-  BUILD "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake"
-  EXPORT_SET kvikio-exports
+  BUILD "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake" EXPORT_SET kvikio-exports
 )
 rapids_export_find_package_file(
-  INSTALL "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake"
-  EXPORT_SET kvikio-exports
+  INSTALL "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/FindcuFile.cmake" EXPORT_SET kvikio-exports
 )
 
 set(doc_string
