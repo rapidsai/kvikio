@@ -70,6 +70,8 @@ requirements:
     - numpy >=1.20
     - cupy >=12.0.0
     - zarr
+    # See https://github.com/zarr-developers/numcodecs/pull/475
+    - numcodecs <0.12.0
     - packaging
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
