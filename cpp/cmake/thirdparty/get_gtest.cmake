@@ -32,7 +32,8 @@ function(find_and_configure_gtest)
 
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
     rapids_export_find_package_root(
-      BUILD GTest [=[${CMAKE_CURRENT_LIST_DIR}]=] kvikio-testing-exports
+      BUILD GTest [=[${CMAKE_CURRENT_LIST_DIR}]=]
+      EXPORT_SET kvikio-testing-exports
     )
   endif()
 
