@@ -4,12 +4,14 @@
 
 import math
 
+import numpy
 import pytest
 
 cupy = pytest.importorskip("cupy")
 zarr = pytest.importorskip("zarr")
 kvikio_zarr = pytest.importorskip("kvikio.zarr")
-
+kvikio_nvcomp_codec = pytest.importorskip("kvikio.nvcomp_codec")
+numcodecs = pytest.importorskip("numcodecs")
 
 if not kvikio_zarr.supported:
     pytest.skip(
@@ -156,3 +158,90 @@ def test_compressor(store, xp_write, xp_read, compressor):
     b = z[:]
     assert isinstance(b, xp_read.ndarray)
     cupy.testing.assert_array_equal(b, a)
+
+
+@pytest.mark.parametrize("algo", ["lz4", "zstd"])
+def test_decompressor_config_overwrite(tmp_path, xp, algo):
+    cpu_codec = numcodecs.registry.get_codec({"id": algo})
+    gpu_codec = kvikio_nvcomp_codec.NvCompBatchCodec(algo)
+
+    # Write using Zarr's default file store and the `cpu_codec` compressor
+    z = zarr.open_array(tmp_path, mode="w", shape=(10,), compressor=cpu_codec)
+    z[:] = range(10)
+    assert z.compressor == cpu_codec
+
+    # Open file using GDSStore and use `gpu_codec` as decompressor.
+    z = zarr.open_array(
+        kvikio_zarr.GDSStore(
+            tmp_path,
+            decompressor_config_overwrite=gpu_codec.get_config(),
+        ),
+        mode="r",
+        meta_array=xp.empty(()),
+    )
+    assert z.compressor == gpu_codec
+    assert isinstance(z[:], xp.ndarray)
+    xp.testing.assert_array_equal(z[:], range(10))
+
+
+@pytest.mark.parametrize("algo", ["lz4"])
+def test_compressor_config_overwrite(tmp_path, xp, algo):
+    cpu_codec = numcodecs.registry.get_codec({"id": algo})
+    gpu_codec = kvikio_nvcomp_codec.NvCompBatchCodec(algo)
+
+    # Write file using GDSStore and the `gpu_codec` compressor. In order
+    # to make the file compatible with Zarr's builtin CPU decompressor,
+    # we set `cpu_codec` as the compressor in the meta file on disk.
+    z = zarr.open_array(
+        kvikio_zarr.GDSStore(
+            tmp_path,
+            compressor_config_overwrite=cpu_codec.get_config(),
+            decompressor_config_overwrite=gpu_codec.get_config(),
+        ),
+        mode="w",
+        shape=10,
+        compressor=gpu_codec,
+        meta_array=xp.empty(()),
+    )
+    assert z.compressor == gpu_codec
+    z[:] = xp.arange(10)
+
+    # We can now open the file using Zarr's builtin CPU decompressor
+    z = zarr.open_array(tmp_path, mode="r")
+    assert isinstance(z[:], numpy.ndarray)
+    numpy.testing.assert_array_equal(z[:], range(10))
+
+
+def test_open_cupy_array(tmp_path):
+    a = cupy.arange(10)
+    z = kvikio_zarr.open_cupy_array(
+        tmp_path,
+        mode="w",
+        shape=a.shape,
+        dtype=a.dtype,
+        chunks=(2,),
+        compressor=kvikio_zarr.CompatCompressor.lz4(),
+    )
+    z[:] = a
+    assert a.shape == z.shape
+    assert a.dtype == z.dtype
+    assert isinstance(z[:], type(a))
+    assert z.compressor == kvikio_nvcomp_codec.NvCompBatchCodec("lz4")
+    cupy.testing.assert_array_equal(a, z[:])
+
+    z = kvikio_zarr.open_cupy_array(
+        tmp_path,
+        mode="r",
+    )
+    assert a.shape == z.shape
+    assert a.dtype == z.dtype
+    assert isinstance(z[:], type(a))
+    assert z.compressor == kvikio_nvcomp_codec.NvCompBatchCodec("lz4")
+    cupy.testing.assert_array_equal(a, z[:])
+
+    z = zarr.open_array(tmp_path, mode="r")
+    assert a.shape == z.shape
+    assert a.dtype == z.dtype
+    assert isinstance(z[:], numpy.ndarray)
+    assert z.compressor == kvikio_zarr.CompatCompressor.lz4().cpu
+    numpy.testing.assert_array_equal(a.get(), z[:])

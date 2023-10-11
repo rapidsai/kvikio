@@ -54,7 +54,14 @@ class cuFileAPI {
   decltype(cuFileBatchIOCancel)* BatchIOCancel{nullptr};
   decltype(cuFileBatchIODestroy)* BatchIODestroy{nullptr};
 #endif
-  bool batch_available = false;
+
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
+  decltype(cuFileReadAsync)* ReadAsync{nullptr};
+  decltype(cuFileWriteAsync)* WriteAsync{nullptr};
+  decltype(cuFileStreamRegister)* StreamRegister{nullptr};
+  decltype(cuFileStreamDeregister)* StreamDeregister{nullptr};
+#endif
+  bool stream_available = false;
 
  private:
   cuFileAPI()
@@ -89,16 +96,17 @@ class cuFileAPI {
     get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
     get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
     get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
+#endif
 
-    // HACK: we use the mangled name of the `CUfileOpError` to determine if cuFile's
-    // batch API is available (v12.0.1+). Notice, the symbols of `cuFileBatchIOSetUp` & co.
-    // exist all the way back to CUDA v11.5 but calling them is undefined behavior.
-    // TODO: when CUDA v12.2 is released, use `cuFileReadAsync` to determine the availability
-    // of both the batch and async API.
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
+    get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
+    get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
+    get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
+    get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
     try {
       void* s{};
-      get_symbol(s, lib, "_ZTS13CUfileOpError");
-      batch_available = true;
+      get_symbol(s, lib, "cuFileReadAsync");
+      stream_available = true;
     } catch (const std::runtime_error&) {
     }
 #endif
@@ -169,21 +177,25 @@ inline bool is_cufile_available()
 }
 
 /**
- * @brief Check if cuFile's batch API is available
+ * @brief Check if cuFile's batch and stream API is available
+ *
+ * Technically, the batch API is available in CUDA 12.1 but since there is no good
+ * way to check CUDA version using the driver API, we check for the existing of the
+ * `cuFileReadAsync` symbol, which is defined in CUDA 12.2+.
  *
  * @return The boolean answer
  */
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
-inline bool is_batch_available()
+#if defined(KVIKIO_CUFILE_STREAM_API_FOUND) && defined(KVIKIO_CUFILE_STREAM_API_FOUND)
+inline bool is_batch_and_stream_available()
 {
   try {
-    return is_cufile_available() && cuFileAPI::instance().batch_available;
+    return is_cufile_available() && cuFileAPI::instance().stream_available;
   } catch (const std::runtime_error&) {
     return false;
   }
 }
 #else
-constexpr bool is_batch_available() { return false; }
+constexpr bool is_batch_and_stream_available() { return false; }
 #endif
 
 }  // namespace kvikio

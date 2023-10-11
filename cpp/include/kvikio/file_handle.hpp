@@ -17,6 +17,7 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <cstddef>
@@ -33,6 +34,7 @@
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/stream.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -344,7 +346,7 @@ class FileHandle {
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
    * This parameter should be used only with registered buffers.
    * @return Size of bytes that were successfully written.
    */
@@ -494,6 +496,191 @@ class FileHandle {
     };
     auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
     return parallel_io(op, devPtr_base, size, file_offset, task_size, devPtr_offset);
+  }
+
+  /**
+   * @brief Reads specified bytes from the file into the device memory asynchronously.
+   *
+   * This is an asynchronous version of `.read()`, which will be executed in sequence
+   * for the specified stream.
+   *
+   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
+   * `stream` has been synchronized.
+   *
+   * The arguments have the same meaning as in `.read()` but some of them are deferred.
+   * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
+   * will not be evaluated until execution time. Notice, this behavior can be changed
+   * using cuFile's cuFileStreamRegister API.
+   *
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
+   * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
+   * @param size_p Pointer to size in bytes to read. If the exact size is not known at the time of
+   * I/O submission, then you must set it to the maximum possible I/O size for that stream I/O.
+   * Later the actual size can be set prior to the stream I/O execution.
+   * @param file_offset_p Pointer to offset in the file from which to read. Unless otherwise set
+   * using cuFileStreamRegister API, this value will not be evaluated until execution time.
+   * @param devPtr_offset_p Pointer to the offset relative to the bufPtr_base from which to write.
+   * Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated until
+   * execution time.
+   * @param bytes_read_p Pointer to the bytes read from file. This pointer should be a non-NULL
+   * value and *bytes_read_p set to 0. The bytes_read_p memory should be allocated with
+   * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister. After successful execution of
+   * the operation in the stream, the value *bytes_read_p will contain either:
+   *     - The number of bytes successfully read.
+   *     - -1 on IO errors.
+   *     - All other errors return a negative integer value of the CUfileOpError enum value.
+   * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
+   * synchronous.
+   */
+  void read_async(void* devPtr_base,
+                  std::size_t* size_p,
+                  off_t* file_offset_p,
+                  off_t* devPtr_offset_p,
+                  ssize_t* bytes_read_p,
+                  CUstream stream)
+  {
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+      CUFILE_TRY(cuFileAPI::instance().ReadAsync(
+        _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
+      return;
+    }
+#endif
+
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    *bytes_read_p =
+      static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+  }
+
+  /**
+   * @brief Reads specified bytes from the file into the device memory asynchronously.
+   *
+   * This is an asynchronous version of `.read()`, which will be executed in sequence
+   * for the specified stream.
+   *
+   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
+   * `stream` has been synchronized.
+   *
+   * The arguments have the same meaning as in `.read()` but returns a `StreamFuture` object
+   * that the caller must keep alive until all data has been read from disk. One way to do this,
+   * is by calling `StreamFuture.check_bytes_done()`, which will synchronize the associated stream
+   * and return the number of bytes read.
+   *
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
+   * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
+   * @param size Size in bytes to read.
+   * @param file_offset Offset in the file to read from.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
+   * This parameter should be used only with registered buffers.
+   * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
+   * synchronous.
+   * @return A future object that must be kept alive until all data has been read to disk e.g.
+   * by synchronizing `stream`.
+   */
+  [[nodiscard]] StreamFuture read_async(void* devPtr_base,
+                                        std::size_t size,
+                                        off_t file_offset   = 0,
+                                        off_t devPtr_offset = 0,
+                                        CUstream stream     = nullptr)
+  {
+    StreamFuture ret(devPtr_base, size, file_offset, devPtr_offset, stream);
+    auto [devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_] =
+      ret.get_args();
+    read_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_);
+    return ret;
+  }
+
+  /**
+   * @brief Writes specified bytes from the device memory into the file asynchronously.
+   *
+   * This is an asynchronous version of `.write()`, which will be executed in sequence
+   * for the specified stream.
+   *
+   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
+   * `stream` has been synchronized.
+   *
+   * The arguments have the same meaning as in `.write()` but some of them are deferred.
+   * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
+   * will not be evaluated until execution time. Notice, this behavior can be changed
+   * using cuFile's cuFileStreamRegister API.
+   *
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
+   * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
+   * @param size_p Pointer to size in bytes to read. If the exact size is not known at the time of
+   * I/O submission, then you must set it to the maximum possible I/O size for that stream I/O.
+   * Later the actual size can be set prior to the stream I/O execution.
+   * @param file_offset_p Pointer to offset in the file from which to read. Unless otherwise set
+   * using cuFileStreamRegister API, this value will not be evaluated until execution time.
+   * @param devPtr_offset_p Pointer to the offset relative to the bufPtr_base from which to read.
+   * Unless otherwise set using cuFileStreamRegister API, this value will not be evaluated until
+   * execution time.
+   * @param bytes_written_p Pointer to the bytes read from file. This pointer should be a non-NULL
+   * value and *bytes_written_p set to 0. The bytes_written_p memory should be allocated with
+   * cuMemHostAlloc/malloc/mmap or registered with cuMemHostRegister.
+   * After successful execution of the operation in the stream, the value *bytes_written_p will
+   * contain either:
+   *     - The number of bytes successfully read.
+   *     - -1 on IO errors.
+   *     - All other errors return a negative integer value of the CUfileOpError enum value.
+   * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
+   * synchronous.
+   */
+  void write_async(void* devPtr_base,
+                   std::size_t* size_p,
+                   off_t* file_offset_p,
+                   off_t* devPtr_offset_p,
+                   ssize_t* bytes_written_p,
+                   CUstream stream)
+  {
+#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+      CUFILE_TRY(cuFileAPI::instance().WriteAsync(
+        _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
+      return;
+    }
+#endif
+
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    *bytes_written_p =
+      static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+  }
+
+  /**
+   * @brief Writes specified bytes from the device memory into the file asynchronously.
+   *
+   * This is an asynchronous version of `.write()`, which will be executed in sequence
+   * for the specified stream.
+   *
+   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
+   * `stream` has been synchronized.
+   *
+   * The arguments have the same meaning as in `.write()` but returns a `StreamFuture` object
+   * that the caller must keep alive until all data has been written to disk. One way to do this,
+   * is by calling `StreamFuture.check_bytes_done()`, which will synchronize the associated stream
+   * and return the number of bytes written.
+   *
+   * @param devPtr_base Base address of buffer in device memory. For registered buffers,
+   * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
+   * @param size Size in bytes to write.
+   * @param file_offset Offset in the file to write from.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
+   * This parameter should be used only with registered buffers.
+   * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
+   * synchronous.
+   * @return A future object that must be kept alive until all data has been written to disk e.g.
+   * by synchronizing `stream`.
+   */
+  [[nodiscard]] StreamFuture write_async(void* devPtr_base,
+                                         std::size_t size,
+                                         off_t file_offset   = 0,
+                                         off_t devPtr_offset = 0,
+                                         CUstream stream     = nullptr)
+  {
+    StreamFuture ret(devPtr_base, size, file_offset, devPtr_offset, stream);
+    auto [devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream_] =
+      ret.get_args();
+    write_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream_);
+    return ret;
   }
 
   /**

@@ -22,12 +22,12 @@ ZSTD_ALGO = "zstd"
 SUPPORTED_CODECS = [LZ4_ALGO, GDEFLATE_ALGO, SNAPPY_ALGO, ZSTD_ALGO]
 
 
-def _get_codec(algo: str):
-    codec_args = {"id": NVCOMP_CODEC_ID, "algorithm": algo}
+def _get_codec(algo: str, **kwargs):
+    codec_args = {"id": NVCOMP_CODEC_ID, "algorithm": algo, "options": kwargs}
     return numcodecs.registry.get_codec(codec_args)
 
 
-@pytest.fixture(params=[(16,), (8, 16), (16, 16)])
+@pytest.fixture(params=[(32,), (8, 16), (16, 16)])
 def shape(request):
     return request.param
 
@@ -36,7 +36,7 @@ def shape(request):
 # chunks array must have the same rank as data array.
 @pytest.fixture(
     params=it.chain(
-        it.product([(32,)], [(16,), (32,), (40,)]),
+        it.product([(64,)], [(64,), (100,)]),
         it.product([(16, 8), (16, 16)], [(8, 16), (16, 16), (40, 12)]),
     )
 )
@@ -156,9 +156,16 @@ def test_codec_invalid_options():
         zarr.array(data, compressor=codec)
 
 
-def test_lz4_cpu_comp_gpu_decomp():
-    cpu_codec = numcodecs.registry.get_codec({"id": "lz4"})
-    gpu_codec = _get_codec(LZ4_ALGO)
+@pytest.mark.parametrize(
+    "cpu_algo, gpu_algo",
+    [
+        ("lz4", LZ4_ALGO),
+        ("zstd", ZSTD_ALGO),
+    ],
+)
+def test_cpu_comp_gpu_decomp(cpu_algo, gpu_algo):
+    cpu_codec = numcodecs.registry.get_codec({"id": cpu_algo})
+    gpu_codec = _get_codec(gpu_algo)
 
     shape = (16, 16)
     chunks = (8, 8)
@@ -170,14 +177,32 @@ def test_lz4_cpu_comp_gpu_decomp():
     zarr.save_array(store, z1, compressor=cpu_codec)
 
     meta = json.loads(store[".zarray"])
-    assert meta["compressor"]["id"] == "lz4"
+    assert meta["compressor"]["id"] == cpu_algo
 
-    meta["compressor"] = {"id": NVCOMP_CODEC_ID, "algorithm": LZ4_ALGO}
+    meta["compressor"] = {"id": NVCOMP_CODEC_ID, "algorithm": gpu_algo}
     store[".zarray"] = json.dumps(meta).encode()
 
     z2 = zarr.open_array(store, compressor=gpu_codec)
 
     assert_equal(z1[:], z2[:])
+
+
+def test_lz4_codec_header(shape_chunks):
+    shape, chunks = shape_chunks
+
+    # Test LZ4 nvCOMP codecs with and without the header.
+    codec_h = _get_codec(LZ4_ALGO, has_header=True)
+    codec_no_h = _get_codec(LZ4_ALGO, has_header=False)
+
+    np.random.seed(1)
+
+    data = np.random.randn(*shape).astype(np.float32)
+
+    z_h = zarr.array(data, chunks=chunks, compressor=codec_h)
+    z_no_h = zarr.array(data, chunks=chunks, compressor=codec_no_h)
+
+    # Result must be the same regardless of the header presence.
+    assert_equal(z_h[:], z_no_h[:])
 
 
 def test_empty_batch():

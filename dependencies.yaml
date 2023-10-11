@@ -92,7 +92,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cmake>=3.26.4
-          - cython>=0.29,<0.30
+          - cython>=3.0.0
           - ninja
           - scikit-build>=0.13.1
       - output_types: conda
@@ -236,11 +236,13 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - pydata-sphinx-theme
-          - sphinx<6
+          - numpydoc
+          - sphinx
+          - sphinx-click
+          - sphinx_rtd_theme
       - output_types: conda
         packages:
-          - doxygen=1.8.20 # pre-commit hook needs a specific version.
+          - doxygen=1.9.1 # pre-commit hook needs a specific version.
   py_version:
     specific:
       - output_types: conda
@@ -262,6 +264,8 @@ dependencies:
         packages:
           - numpy>=1.21
           - zarr
+          # See https://github.com/zarr-developers/numcodecs/pull/475
+          - numcodecs <0.12.0
           - packaging
       - output_types: conda
         packages:
@@ -269,14 +273,6 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - cupy-cuda11x>=12.0.0
-    specific:
-      - output_types: requirements
-        matrices:
-          - matrix:
-              arch: x86_64
-            packages:
-              - libcufile
-              - libcufile-dev
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -304,4 +300,4 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cudf==23.8.*
+          - cudf==23.10.*

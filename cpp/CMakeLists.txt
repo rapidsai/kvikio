@@ -22,7 +22,7 @@ include(rapids-find)
 
 project(
   KvikIO
-  VERSION 23.08.00
+  VERSION 23.10.00
   LANGUAGES CXX
 )
 
@@ -71,6 +71,13 @@ else()
     set(cuFile_BATCH_API_FOUND TRUE)
   endif()
   message(STATUS "Found cuFile's Batch API: ${cuFile_BATCH_API_FOUND}")
+  string(FIND "${CUFILE_H_STR}" "cuFileReadAsync" cuFileReadAsync_location)
+  if(cuFileReadAsync_location EQUAL "-1")
+    set(cuFile_STREAM_API_FOUND FALSE)
+  else()
+    set(cuFile_STREAM_API_FOUND TRUE)
+  endif()
+  message(STATUS "Found cuFile's Stream API: ${cuFile_STREAM_API_FOUND}")
 endif()
 
 # library targets
@@ -87,9 +94,11 @@ target_link_libraries(kvikio INTERFACE CUDA::toolkit)
 if(cuFile_FOUND)
   target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
   target_compile_definitions(kvikio INTERFACE KVIKIO_CUFILE_FOUND)
-
   if(cuFile_BATCH_API_FOUND)
     target_compile_definitions(kvikio INTERFACE KVIKIO_CUFILE_BATCH_API_FOUND)
+  endif()
+  if(cuFile_STREAM_API_FOUND)
+    target_compile_definitions(kvikio INTERFACE KVIKIO_CUFILE_STREAM_API_FOUND)
   endif()
 endif()
 target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})

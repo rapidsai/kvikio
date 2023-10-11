@@ -18,7 +18,6 @@ Zarr
 .. autoclass:: GDSStore
     :members:
 
-
 Defaults
 --------
 .. currentmodule:: kvikio.defaults

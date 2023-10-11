@@ -17,3 +17,7 @@ docs/build/
 cpp/doxygen/html/
 .mypy_cache
 .hypothesis
+.ipynb_checkpoints
+
+# clang tooling
+compile_commands.json
