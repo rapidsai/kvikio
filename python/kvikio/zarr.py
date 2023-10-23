@@ -370,7 +370,10 @@ def open_cupy_array(
                 )
             return ret
 
-    # At this point, we known that we are writing a new array ("w", "w-", "a")
+    # At this point, we known that we are writing a new array
+    if mode not in ("w", "w-", "a"):
+        raise ValueError(f"Unknown mode: {mode}")
+
     if isinstance(compressor, CompatCompressor):
         compressor_config_overwrite = compressor.cpu.get_config()
         decompressor_config_overwrite = compressor.gpu.get_config()
