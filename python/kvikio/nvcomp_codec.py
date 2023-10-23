@@ -4,13 +4,14 @@
 from typing import Any, Mapping, Optional, Sequence
 
 import cupy as cp
-from numcodecs.abc import Codec
+import cupy.typing
 from numcodecs.compat import ensure_contiguous_ndarray_like
 
 from kvikio._lib.libnvcomp_ll import SUPPORTED_ALGORITHMS
+from kvikio.numcodecs import BufferLike, CudaCodec
 
 
-class NvCompBatchCodec(Codec):
+class NvCompBatchCodec(CudaCodec):
     """Codec that uses batch algorithms from nvCOMP library.
 
     An algorithm is selected using `algorithm` parameter.
@@ -48,21 +49,7 @@ class NvCompBatchCodec(Codec):
         # Use default stream, if needed.
         self._stream = stream if stream is not None else cp.cuda.Stream.ptds
 
-    def encode(self, buf):
-        """Encode data in `buf` using nvCOMP.
-
-        Parameters
-        ----------
-        buf : buffer-like
-            Data to be encoded. May be any object supporting the new-style
-            buffer protocol.
-
-        Returns
-        -------
-        enc : buffer-like
-            Encoded data. May be any object supporting the new-style buffer
-            protocol.
-        """
+    def encode(self, buf: BufferLike) -> cupy.typing.NDArray:
         return self.encode_batch([buf])[0]
 
     def encode_batch(self, bufs: Sequence[Any]) -> Sequence[Any]:
@@ -127,24 +114,7 @@ class NvCompBatchCodec(Codec):
             res.append(comp_chunks[i, : comp_chunk_sizes[i]].tobytes())
         return res
 
-    def decode(self, buf, out=None):
-        """Decode data in `buf` using nvCOMP.
-
-        Parameters
-        ----------
-        buf : buffer-like
-            Encoded data. May be any object supporting the new-style buffer
-            protocol.
-        out : buffer-like, optional
-            Writeable buffer to store decoded data. N.B. if provided, this buffer must
-            be exactly the right size to store the decoded data.
-
-        Returns
-        -------
-        dec : buffer-like
-            Decoded data. May be any object supporting the new-style
-            buffer protocol.
-        """
+    def decode(self, buf: BufferLike, out: Optional[BufferLike] = None) -> BufferLike:
         return self.decode_batch([buf], [out])[0]
 
     def decode_batch(
