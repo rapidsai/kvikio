@@ -255,3 +255,15 @@ def test_open_cupy_array_incompatible_compressor(tmp_path, mode):
 
     with pytest.raises(ValueError, match="non-CUDA compatible compressor"):
         kvikio_zarr.open_cupy_array(tmp_path, mode=mode)
+
+
+def test_open_cupy_array_unknown_mode(tmp_path):
+    a = cupy.arange(10)
+    with pytest.raises(ValueError, match="Unknown mode: x"):
+        kvikio_zarr.open_cupy_array(
+            tmp_path,
+            mode="x",
+            shape=a.shape,
+            dtype=a.dtype,
+            chunks=(2,),
+        )
