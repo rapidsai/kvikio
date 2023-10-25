@@ -88,7 +88,9 @@ def num_threads_reset(nthreads: int) -> None:
     Parameters
     ----------
     nthreads : int
-        The number of threads to use.
+        The number of threads to use. The default value can be specified by setting
+        the `KVIKIO_NTHREADS` environment variable. If not set, the default value
+        is 1.
     """
     libkvikio.thread_pool_nthreads_reset(nthreads)
 
