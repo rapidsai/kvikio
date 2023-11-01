@@ -30,9 +30,11 @@ def main(path):
     # E.g., `open_cupy_array()` uses nvCOMP's Snappy GPU compression by default,
     # which, as far as we know, isn’t compatible with any CPU compressor. Thus,
     # let's re-write our Zarr array using a CPU and GPU compatible compressor.
+    #
     # Warning: `CompatCompressor` is only supported by KvikIO's `open_cupy_array()`
     #          and cannot be used as a compressor argument in Zarr functions like
-    #          `open()` and `open_array()`.
+    #          `open()` and `open_array()` directly. However, it is possible to use
+    #          its `.cpu` like: `open(..., compressor=CompatCompressor.lz4().cpu)`.
     z = kvikio.zarr.open_cupy_array(
         store=path,
         mode="w",

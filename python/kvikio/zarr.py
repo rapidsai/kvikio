@@ -280,7 +280,8 @@ class CompatCompressor:
     -------
     `CompatCompressor` is only supported by KvikIO's `open_cupy_array()` and
     cannot be used as a compressor argument in Zarr functions like `open()`
-    and `open_array()`.
+    and `open_array()` directly. However, it is possible to use its `.cpu`
+    like: `open(..., compressor=CompatCompressor.lz4().cpu)`.
 
     Parameters
     ----------
