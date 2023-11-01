@@ -274,7 +274,21 @@ for c in nvcomp_compressors:
 
 
 class CompatCompressor:
-    """A pair of compatible compressors one using the CPU and one using the GPU"""
+    """A pair of compatible compressors one using the CPU and one using the GPU
+
+    Warning
+    -------
+    `CompatCompressor` is only supported by KvikIO's `open_cupy_array()` and
+    cannot be used as a compressor argument in Zarr functions like `open()`
+    and `open_array()`.
+
+    Parameters
+    ----------
+    cpu
+        The CPU compressor.
+    gpu
+        The GPU compressor.
+    """
 
     def __init__(self, cpu: Codec, gpu: CudaCodec) -> None:
         self.cpu = cpu

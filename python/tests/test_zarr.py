@@ -249,6 +249,21 @@ def test_open_cupy_array(tmp_path, write_mode, read_mode):
     numpy.testing.assert_array_equal(a.get(), z[:])
 
 
+def test_open_cupy_array_written_by_zarr(tmp_path):
+    data = numpy.arange(100)
+    z = zarr.open_array(
+        tmp_path,
+        shape=data.shape,
+        mode="w",
+        compressor=kvikio_zarr.CompatCompressor.lz4().cpu,
+    )
+    z[:] = data
+
+    z = kvikio_zarr.open_cupy_array(tmp_path, mode="r")
+    assert isinstance(z[:], cupy.ndarray)
+    cupy.testing.assert_array_equal(z[:], data)
+
+
 @pytest.mark.parametrize("mode", ["r", "r+", "a"])
 def test_open_cupy_array_incompatible_compressor(tmp_path, mode):
     zarr.create((10,), store=tmp_path, compressor=numcodecs.Blosc())
