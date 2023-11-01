@@ -362,6 +362,8 @@ def open_cupy_array(
             if mode in ("r", "r+"):
                 raise
         else:
+            if ret.compressor is None:
+                return ret
             # If we are reading a LZ4-CPU compressed file, we overwrite the
             # metadata on-the-fly to make Zarr use LZ4-GPU for both compression
             # and decompression.
