@@ -31,10 +31,9 @@ def main(path):
     # which, as far as we know, isn’t compatible with any CPU compressor. Thus,
     # let's re-write our Zarr array using a CPU and GPU compatible compressor.
     #
-    # Warning: `CompatCompressor` is only supported by KvikIO's `open_cupy_array()`
-    #          and cannot be used as a compressor argument in Zarr functions like
-    #          `open()` and `open_array()` directly. However, it is possible to use
-    #          its `.cpu` like: `open(..., compressor=CompatCompressor.lz4().cpu)`.
+    # Warning: it isn't possible to use `CompatCompressor` as a compressor argument
+    #          in Zarr directly. It is only meant for `open_cupy_array()`. However,
+    #          in an example further down, we show how to write using regular Zarr.
     z = kvikio.zarr.open_cupy_array(
         store=path,
         mode="w",
@@ -57,6 +56,32 @@ def main(path):
     z = kvikio.zarr.open_cupy_array(store=path, mode="r")
     assert isinstance(z[:], cupy.ndarray)
     assert (cupy.arange(20, 40) == z[:]).all()
+
+    # Similarly, we can also open a file written by regular Zarr.
+    # Let's write the file without any compressor.
+    ary = numpy.arange(10)
+    z = zarr.open(store=path, mode="w", shape=ary.shape, compressor=None)
+    z[:] = ary
+    # This works as before where the file is read as a CuPy array
+    z = kvikio.zarr.open_cupy_array(store=path)
+    assert isinstance(z[:], cupy.ndarray)
+    assert (z[:] == cupy.asarray(ary)).all()
+
+    # Using a compressor is a bit more tricky since not all CPU compressors
+    # are GPU compatible. To make sure we use a compable compressor, we use
+    # the CPU-part of `CompatCompressor.lz4()`.
+    ary = numpy.arange(10)
+    z = zarr.open(
+        store=path,
+        mode="w",
+        shape=ary.shape,
+        compressor=kvikio.zarr.CompatCompressor.lz4().cpu,
+    )
+    z[:] = ary
+    # This works as before where the file is read as a CuPy array
+    z = kvikio.zarr.open_cupy_array(store=path)
+    assert isinstance(z[:], cupy.ndarray)
+    assert (z[:] == cupy.asarray(ary)).all()
 
 
 if __name__ == "__main__":
