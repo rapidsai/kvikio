@@ -142,7 +142,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - nvcomp==2.6.1
+          - nvcomp==3.0.4
     specific:
       - output_types: conda
         matrices:
