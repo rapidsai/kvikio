@@ -424,8 +424,8 @@ def test_set_scratch_alloc(manager):
     if isinstance(compressor_instance, libnvcomp.BitcompManager):
         # Bitcomp does not use the scratch buffer
         pytest.skip()
-    # else:
-    #    assert (buffer[0:5] != cupy.array([0, 0, 0, 0, 0])).any()
+    else:
+        assert (buffer[0:5] != cupy.array([0, 0, 0, 0, 0])).any()
 
 
 @pytest.mark.parametrize(
