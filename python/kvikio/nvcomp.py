@@ -192,7 +192,6 @@ class nvCompManager:
             asarray(data)
         )
 
-    # TODO def set_scratch_allocators
 
     def get_compressed_output_size(self, comp_buffer: cp.ndarray) -> int:
         """Return the actual size of compression result.

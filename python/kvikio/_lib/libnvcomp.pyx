@@ -29,12 +29,10 @@ from libcpp.utility cimport move
 
 from kvikio._lib.arr cimport Array
 from kvikio._lib.nvcomp_cxx_api cimport (
-    AllocFn_t,
     ANSManager,
     BitcompManager,
     CascadedManager,
     CompressionConfig,
-    DeAllocFn_t,
     DecompressionConfig,
     GdeflateManager,
     LZ4Manager,
@@ -134,16 +132,6 @@ cdef class _nvcompManager:
             <uint8_t*>decomp_buffer.ptr,
             <const uint8_t*>comp_buffer.ptr,
             <DecompressionConfig&>self._decompression_config.get()[0]
-        )
-
-    def set_scratch_allocators(
-        self,
-        alloc_fn,
-        dealloc_fn
-    ):
-        self._impl.set_scratch_allocators(
-            <AllocFn_t>(alloc_fn),
-            <DeAllocFn_t>(dealloc_fn)
         )
 
     def get_compressed_output_size(self, Array comp_buffer):
