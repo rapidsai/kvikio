@@ -63,7 +63,7 @@ cdef extern from "nvcomp/nvcompManagerFactory.hpp" namespace 'nvcomp':
 cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
     ctypedef void* (*AllocFn_t)(size_t)
     ctypedef void (*DeAllocFn_t)(void*, size_t)
-    
+
     cdef cppclass PinnedPtrPool[T]:
         pass
 
