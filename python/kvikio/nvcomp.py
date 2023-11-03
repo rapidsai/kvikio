@@ -192,34 +192,6 @@ class nvCompManager:
             asarray(data)
         )
 
-    def get_required_scratch_buffer_size(self) -> int:
-        """Return the size of the optional scratch buffer.
-
-        Returns
-        -------
-        int
-        """
-        return self._manager.get_required_scratch_buffer_size()
-
-    def set_scratch_buffer(self, new_scratch_buffer: cp.ndarray) -> None:
-        """Use a pre-allocated buffer for compression.
-
-        Use a GPU-allocated buffer that will be used for compression
-        temporary storage instead of allowing the library to create the
-        scratch buffer.
-        Can reduce memory usage.
-
-        Parameters
-        ----------
-        new_scratch_buffer : cp.ndarray
-            The buffer that you allocated on the GPU for compressor temporary
-            storage.
-
-        Returns
-        -------
-        cp.ndarray
-        """
-        return self._manager.set_scratch_buffer(asarray(new_scratch_buffer))
 
     def get_compressed_output_size(self, comp_buffer: cp.ndarray) -> int:
         """Return the actual size of compression result.

@@ -106,8 +106,6 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
             uint8_t* decomp_buffer,
             const uint8_t* comp_buffer,
             const DecompressionConfig& decomp_config)
-        void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
-        size_t get_required_scratch_buffer_size() except +
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
     cdef cppclass PimplManager "nvcomp::PimplManager":
@@ -125,8 +123,6 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
             uint8_t* decomp_buffer,
             const uint8_t* comp_buffer,
             const DecompressionConfig& decomp_config) except +
-        void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
-        size_t get_required_scratch_buffer_size() except +
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
 # C++ Concrete ANS Manager
