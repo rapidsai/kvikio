@@ -274,7 +274,22 @@ for c in nvcomp_compressors:
 
 
 class CompatCompressor:
-    """A pair of compatible compressors one using the CPU and one using the GPU"""
+    """A pair of compatible compressors one using the CPU and one using the GPU
+
+    Warning
+    -------
+    `CompatCompressor` is only supported by KvikIO's `open_cupy_array()` and
+    cannot be used as a compressor argument in Zarr functions like `open()`
+    and `open_array()` directly. However, it is possible to use its `.cpu`
+    like: `open(..., compressor=CompatCompressor.lz4().cpu)`.
+
+    Parameters
+    ----------
+    cpu
+        The CPU compressor.
+    gpu
+        The GPU compressor.
+    """
 
     def __init__(self, cpu: Codec, gpu: CudaCodec) -> None:
         self.cpu = cpu
@@ -347,6 +362,8 @@ def open_cupy_array(
             if mode in ("r", "r+"):
                 raise
         else:
+            if ret.compressor is None:
+                return ret
             # If we are reading a LZ4-CPU compressed file, we overwrite the
             # metadata on-the-fly to make Zarr use LZ4-GPU for both compression
             # and decompression.
