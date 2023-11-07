@@ -131,7 +131,7 @@ cdef extern from "nvcomp/ans.h" nogil:
         nvcomp_rANS = 0
 
     ctypedef struct nvcompBatchedANSOpts_t:
-        nvcompANSType_t type;
+        nvcompANSType_t type
     cdef nvcompBatchedANSOpts_t nvcompBatchedANSDefaultOpts
 
 cdef extern from "nvcomp/ans.hpp":
@@ -185,7 +185,7 @@ cdef extern from "nvcomp/gdeflate.hpp":
     cdef cppclass GdeflateManager "nvcomp::GdeflateManager":
         GdeflateManager(
             int uncomp_chunk_size,
-            const nvcompBatchedGdeflateOpts_t& format_opts, 
+            const nvcompBatchedGdeflateOpts_t& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +

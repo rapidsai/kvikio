@@ -174,7 +174,7 @@ cdef class _BitcompManager(_nvcompManager):
         const int device_id
     ):
         self._impl = <nvcompManagerBase*>new BitcompManager(
-            0, # TODO
+            0,  # TODO
             <nvcompBatchedBitcompFormatOpts>nvcompBatchedBitcompDefaultOpts,  # TODO
             <cudaStream_t><void*>0,  # TODO
             device_id
@@ -189,7 +189,7 @@ cdef class _CascadedManager(_nvcompManager):
         const int device_id,
     ):
         self._impl = <nvcompManagerBase*>new CascadedManager(
-            0, # TODO
+            0,  # TODO
             <nvcompBatchedCascadedOpts_t>nvcompBatchedCascadedDefaultOpts,  # TODO
             <cudaStream_t><void*>0,  # TODO
             device_id,
