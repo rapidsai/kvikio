@@ -43,9 +43,7 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     nvcompBatchedANSOpts_t,
     nvcompBatchedBitcompFormatOpts,
     nvcompBatchedCascadedOpts_t,
-    nvcompBatchedGdeflateDefaultOpts,
     nvcompBatchedGdeflateOpts_t,
-    nvcompBatchedLZ4DefaultOpts,
     nvcompBatchedLZ4Opts_t,
     nvcompBatchedSnappyDefaultOpts,
     nvcompBatchedSnappyOpts_t,
@@ -209,9 +207,10 @@ cdef class _GdeflateManager(_nvcompManager):
         user_stream,
         const int device_id
     ):
+        cdef opts = nvcompBatchedGdeflateOpts_t(algo)
         self._impl = <nvcompManagerBase*>new GdeflateManager(
             chunk_size,
-            <nvcompBatchedGdeflateOpts_t>nvcompBatchedGdeflateDefaultOpts,  # TODO
+            opts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
@@ -229,9 +228,10 @@ cdef class _LZ4Manager(_nvcompManager):
         # from anywhere up. I'm not going to rabbit hole on it until
         # everything else works.
         # cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
+        cdef opts = nvcompBatchedLZ4Opts_t(data_type)
         self._impl = <nvcompManagerBase*>new LZ4Manager(
             uncomp_chunk_size,
-            <nvcompBatchedLZ4Opts_t>nvcompBatchedLZ4DefaultOpts,
+            opts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
