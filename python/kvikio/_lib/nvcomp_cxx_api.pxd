@@ -206,10 +206,16 @@ cdef extern from "nvcomp/lz4.hpp":
         ) except +
 
 # C++ Concrete Snappy Manager
+cdef extern from "nvcomp/snappy.h" nogil:
+    ctypedef struct nvcompBatchedSnappyOpts_t:
+        int reserved
+    cdef nvcompBatchedSnappyOpts_t nvcompBatchedSnappyDefaultOpts
+
 cdef extern from "nvcomp/snappy.hpp":
     cdef cppclass SnappyManager "nvcomp::SnappyManager":
         SnappyManager(
             size_t uncomp_chunk_size,
+            const nvcompBatchedSnappyOpts_t& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +

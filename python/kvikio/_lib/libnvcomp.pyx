@@ -49,6 +49,8 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     nvcompBatchedGdeflateOpts_t,
     nvcompBatchedLZ4DefaultOpts,
     nvcompBatchedLZ4Opts_t,
+    nvcompBatchedSnappyDefaultOpts,
+    nvcompBatchedSnappyOpts_t,
     nvcompManagerBase,
     nvcompType_t,
 )
@@ -242,6 +244,7 @@ cdef class _SnappyManager(_nvcompManager):
         # everything else works.
         self._impl = <nvcompManagerBase*>new SnappyManager(
             uncomp_chunk_size,
+            <nvcompBatchedSnappyOpts_t>nvcompBatchedSnappyDefaultOpts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
