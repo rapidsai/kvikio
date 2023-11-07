@@ -47,6 +47,8 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     nvcompBatchedCascadedOpts_t,
     nvcompBatchedGdeflateDefaultOpts,
     nvcompBatchedGdeflateOpts_t,
+    nvcompBatchedLZ4DefaultOpts,
+    nvcompBatchedLZ4Opts_t,
     nvcompManagerBase,
     nvcompType_t,
 )
@@ -222,7 +224,7 @@ cdef class _LZ4Manager(_nvcompManager):
         # cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
         self._impl = <nvcompManagerBase*>new LZ4Manager(
             uncomp_chunk_size,
-            data_type,
+            <nvcompBatchedLZ4Opts_t>nvcompBatchedLZ4DefaultOpts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )

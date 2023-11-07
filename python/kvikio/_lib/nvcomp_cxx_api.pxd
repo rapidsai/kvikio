@@ -191,11 +191,16 @@ cdef extern from "nvcomp/gdeflate.hpp":
         ) except +
 
 # C++ Concrete LZ4 Manager
+cdef extern from "nvcomp/gdeflate.h" nogil:
+    ctypedef struct nvcompBatchedLZ4Opts_t:
+        nvcompType_t data_type
+    cdef nvcompBatchedLZ4Opts_t nvcompBatchedLZ4DefaultOpts
+
 cdef extern from "nvcomp/lz4.hpp":
     cdef cppclass LZ4Manager "nvcomp::LZ4Manager":
         LZ4Manager(
             size_t uncomp_chunk_size,
-            nvcompType_t data_type,
+            const nvcompBatchedLZ4Opts_t& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +
