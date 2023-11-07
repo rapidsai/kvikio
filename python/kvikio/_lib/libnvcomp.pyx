@@ -41,6 +41,8 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     cudaStream_t,
     nvcompBatchedANSDefaultOpts,
     nvcompBatchedANSOpts_t,
+    nvcompBatchedBitcompDefaultOpts,
+    nvcompBatchedBitcompFormatOpts,
     nvcompBatchedCascadedDefaultOpts,
     nvcompBatchedCascadedOpts_t,
     nvcompManagerBase,
@@ -166,8 +168,8 @@ cdef class _BitcompManager(_nvcompManager):
         const int device_id
     ):
         self._impl = <nvcompManagerBase*>new BitcompManager(
-            <nvcompType_t>data_type,
-            bitcomp_algo,
+            0, # TODO
+            <nvcompBatchedBitcompFormatOpts>nvcompBatchedBitcompDefaultOpts,  # TODO
             <cudaStream_t><void*>0,  # TODO
             device_id
         )

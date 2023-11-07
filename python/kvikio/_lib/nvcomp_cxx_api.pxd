@@ -144,11 +144,16 @@ cdef extern from "nvcomp/ans.hpp":
         ) except +
 
 # C++ Concrete Bitcomp Manager
+cdef extern from "nvcomp/bitcomp.h" nogil:
+    ctypedef struct nvcompBatchedBitcompFormatOpts:
+        nvcompType_t data_type
+    cdef nvcompBatchedBitcompFormatOpts nvcompBatchedBitcompDefaultOpts
+
 cdef extern from "nvcomp/bitcomp.hpp":
     cdef cppclass BitcompManager "nvcomp::BitcompManager":
         BitcompManager(
-            nvcompType_t data_type,
-            int bitcomp_algo,
+            size_t uncomp_chunk_size,
+            const nvcompBatchedBitcompFormatOpts& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +
