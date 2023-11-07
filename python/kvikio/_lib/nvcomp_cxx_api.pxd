@@ -126,10 +126,19 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
 # C++ Concrete ANS Manager
+cdef extern from "nvcomp/ans.h" nogil:
+    ctypedef enum nvcompANSType_t:
+        nvcomp_rANS = 0
+
+    ctypedef struct nvcompBatchedANSOpts_t:
+        nvcompANSType_t type;
+    cdef nvcompBatchedANSOpts_t nvcompBatchedANSDefaultOpts
+
 cdef extern from "nvcomp/ans.hpp":
     cdef cppclass ANSManager "nvcomp::ANSManager":
         ANSManager(
             size_t uncomp_chunk_size,
+            const nvcompBatchedANSOpts_t& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +

@@ -39,6 +39,8 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     SnappyManager,
     create_manager,
     cudaStream_t,
+    nvcompBatchedANSDefaultOpts,
+    nvcompBatchedANSOpts_t,
     nvcompBatchedCascadedDefaultOpts,
     nvcompBatchedCascadedOpts_t,
     nvcompManagerBase,
@@ -149,6 +151,7 @@ cdef class _ANSManager(_nvcompManager):
     ):
         self._impl = <nvcompManagerBase*>new ANSManager(
             uncomp_chunk_size,
+            <nvcompBatchedANSOpts_t>nvcompBatchedANSDefaultOpts,  # TODO
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
