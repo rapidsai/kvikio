@@ -169,17 +169,23 @@ cdef extern from "nvcomp/cascaded.h" nogil:
 cdef extern from "nvcomp/cascaded.hpp" nogil:
     cdef cppclass CascadedManager "nvcomp::CascadedManager":
         CascadedManager(
+            size_t uncomp_chunk_size,
             const nvcompBatchedCascadedOpts_t& options,
             cudaStream_t user_stream,
             int device_id
         )
 
 # C++ Concrete Gdeflate Manager
+cdef extern from "nvcomp/gdeflate.h" nogil:
+    ctypedef struct nvcompBatchedGdeflateOpts_t:
+        int algo
+    cdef nvcompBatchedGdeflateOpts_t nvcompBatchedGdeflateDefaultOpts
+
 cdef extern from "nvcomp/gdeflate.hpp":
     cdef cppclass GdeflateManager "nvcomp::GdeflateManager":
         GdeflateManager(
             int uncomp_chunk_size,
-            int algo,
+            const nvcompBatchedGdeflateOpts_t& format_opts, 
             cudaStream_t user_stream,
             const int device_id
         ) except +

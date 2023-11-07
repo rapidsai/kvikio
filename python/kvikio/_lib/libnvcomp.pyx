@@ -45,6 +45,8 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     nvcompBatchedBitcompFormatOpts,
     nvcompBatchedCascadedDefaultOpts,
     nvcompBatchedCascadedOpts_t,
+    nvcompBatchedGdeflateDefaultOpts,
+    nvcompBatchedGdeflateOpts_t,
     nvcompManagerBase,
     nvcompType_t,
 )
@@ -183,6 +185,7 @@ cdef class _CascadedManager(_nvcompManager):
         const int device_id,
     ):
         self._impl = <nvcompManagerBase*>new CascadedManager(
+            0, # TODO
             <nvcompBatchedCascadedOpts_t>nvcompBatchedCascadedDefaultOpts,  # TODO
             <cudaStream_t><void*>0,  # TODO
             device_id,
@@ -199,7 +202,7 @@ cdef class _GdeflateManager(_nvcompManager):
     ):
         self._impl = <nvcompManagerBase*>new GdeflateManager(
             chunk_size,
-            algo,
+            <nvcompBatchedGdeflateOpts_t>nvcompBatchedGdeflateDefaultOpts,  # TODO
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
