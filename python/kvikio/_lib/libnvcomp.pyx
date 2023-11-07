@@ -168,14 +168,16 @@ cdef class _ANSManager(_nvcompManager):
 cdef class _BitcompManager(_nvcompManager):
     def __cinit__(
         self,
+        size_t uncomp_chunk_size,
         nvcompType_t data_type,
         int bitcomp_algo,
         user_stream,
         const int device_id
     ):
+        cdef opts = nvcompBatchedBitcompFormatOpts(bitcomp_algo, data_type)
         self._impl = <nvcompManagerBase*>new BitcompManager(
-            0,  # TODO
-            <nvcompBatchedBitcompFormatOpts>nvcompBatchedBitcompDefaultOpts,  # TODO
+            uncomp_chunk_size,
+            opts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )

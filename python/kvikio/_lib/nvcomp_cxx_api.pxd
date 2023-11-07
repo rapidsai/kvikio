@@ -146,6 +146,7 @@ cdef extern from "nvcomp/ans.hpp":
 # C++ Concrete Bitcomp Manager
 cdef extern from "nvcomp/bitcomp.h" nogil:
     ctypedef struct nvcompBatchedBitcompFormatOpts:
+        int algorithm_type
         nvcompType_t data_type
     cdef nvcompBatchedBitcompFormatOpts nvcompBatchedBitcompDefaultOpts
 

@@ -248,7 +248,11 @@ class BitcompManager(nvCompManager):
         super().__init__(kwargs)
 
         self._manager = _lib._BitcompManager(
-            self.data_type.value, self.bitcomp_algo, self.stream, self.device_id
+            self.chunk_size,
+            self.data_type.value,
+            self.bitcomp_algo,
+            self.stream,
+            self.device_id,
         )
 
 
