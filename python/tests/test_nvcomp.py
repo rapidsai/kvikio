@@ -67,6 +67,9 @@ def test_round_trip_dtypes(manager, dtype):
     compressor_instance = manager(data_type=dtype)
     compressed = compressor_instance.compress(data)
     decompressed = compressor_instance.decompress(compressed)
+    print()
+    print("data: \n", data.get().tolist())
+    print("decompressed: \n", data.get().tolist())
     assert (data == decompressed).all()
 
 
