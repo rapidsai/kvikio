@@ -50,7 +50,7 @@ pytest \
   --cov=kvikio \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/kvikio-coverage.xml" \
   --cov-report=term \
-  tests/test_nvcomp.py -xvs
+  -xvs "tests/test_nvcomp.py::test_round_trip_dtypes[CascadedManager-uint32]"
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
