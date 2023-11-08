@@ -406,28 +406,6 @@ def test_get_decompression_config_with_default_options(manager, expected):
     assert result == expected
 
 
-@pytest.mark.parametrize("manager", managers())
-def test_set_scratch_alloc(manager):
-    length = 10000
-    dtype = cupy.uint8
-    data = cupy.array(
-        np.arange(
-            0,
-            length // cupy.dtype(dtype).type(0).itemsize,
-            dtype=dtype,
-        )
-    )
-    compressor_instance = manager()
-    compressor_instance.configure_compression(len(data))
-    # TODO set_scratch_allocators
-    compressor_instance.compress(data)
-    if isinstance(compressor_instance, libnvcomp.BitcompManager):
-        # Bitcomp does not use the scratch buffer
-        pytest.skip()
-    # else:
-    #    assert (buffer[0:5] != cupy.array([0, 0, 0, 0, 0])).any()
-
-
 @pytest.mark.parametrize(
     "manager, expected",
     zip(managers(), list(LEN.values())),
