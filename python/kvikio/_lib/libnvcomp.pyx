@@ -192,7 +192,7 @@ cdef class _CascadedManager(_nvcompManager):
             _options["use_bp"]
         )
         self._impl = <nvcompManagerBase*>new CascadedManager(
-            _options.chunk_size,
+            _options["chunk_size"],
             opts,
             <cudaStream_t><void*>0,  # TODO
             device_id,
