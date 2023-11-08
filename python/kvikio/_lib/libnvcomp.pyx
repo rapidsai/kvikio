@@ -187,6 +187,8 @@ cdef class _CascadedManager(_nvcompManager):
         const int device_id,
     ):
         cdef opts = nvcompBatchedCascadedOpts_t(
+            _options["chunk_size"],
+            _options["type"],
             _options["num_RLEs"],
             _options["num_deltas"],
             _options["use_bp"]

@@ -162,6 +162,8 @@ cdef extern from "nvcomp/bitcomp.hpp":
 # C++ Concrete Cascaded Manager
 cdef extern from "nvcomp/cascaded.h" nogil:
     ctypedef struct nvcompBatchedCascadedOpts_t:
+        size_t chunk_size
+        nvcompType_t type
         int num_RLEs
         int num_deltas
         int use_bp
