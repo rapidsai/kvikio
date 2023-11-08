@@ -69,7 +69,7 @@ def test_round_trip_dtypes(manager, dtype):
     decompressed = compressor_instance.decompress(compressed)
     print()
     print("data: \n", data.get().tolist())
-    print("decompressed: \n", data.get().tolist())
+    print("decompressed: \n", decompressed.get().tolist())
     assert (data == decompressed).all()
 
 
