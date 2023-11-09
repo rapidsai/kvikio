@@ -39,8 +39,15 @@ from kvikio._lib.nvcomp_cxx_api cimport (
     SnappyManager,
     create_manager,
     cudaStream_t,
+    nvcompBatchedANSDefaultOpts,
+    nvcompBatchedANSOpts_t,
+    nvcompBatchedBitcompFormatOpts,
     nvcompBatchedCascadedDefaultOpts,
     nvcompBatchedCascadedOpts_t,
+    nvcompBatchedGdeflateOpts_t,
+    nvcompBatchedLZ4Opts_t,
+    nvcompBatchedSnappyDefaultOpts,
+    nvcompBatchedSnappyOpts_t,
     nvcompManagerBase,
     nvcompType_t,
 )
@@ -134,14 +141,6 @@ cdef class _nvcompManager:
             <DecompressionConfig&>self._decompression_config.get()[0]
         )
 
-    def set_scratch_buffer(self, Array new_scratch_buffer):
-        return self._impl.set_scratch_buffer(
-            <uint8_t*>new_scratch_buffer.ptr
-        )
-
-    def get_required_scratch_buffer_size(self):
-        return self._impl.get_required_scratch_buffer_size()
-
     def get_compressed_output_size(self, Array comp_buffer):
         return self._impl.get_compressed_output_size(
             <uint8_t*>comp_buffer.ptr
@@ -157,6 +156,7 @@ cdef class _ANSManager(_nvcompManager):
     ):
         self._impl = <nvcompManagerBase*>new ANSManager(
             uncomp_chunk_size,
+            <nvcompBatchedANSOpts_t>nvcompBatchedANSDefaultOpts,  # TODO
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
@@ -165,14 +165,16 @@ cdef class _ANSManager(_nvcompManager):
 cdef class _BitcompManager(_nvcompManager):
     def __cinit__(
         self,
+        size_t uncomp_chunk_size,
         nvcompType_t data_type,
         int bitcomp_algo,
         user_stream,
         const int device_id
     ):
+        cdef opts = nvcompBatchedBitcompFormatOpts(bitcomp_algo, data_type)
         self._impl = <nvcompManagerBase*>new BitcompManager(
-            <nvcompType_t>data_type,
-            bitcomp_algo,
+            uncomp_chunk_size,
+            opts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
@@ -186,6 +188,7 @@ cdef class _CascadedManager(_nvcompManager):
         const int device_id,
     ):
         self._impl = <nvcompManagerBase*>new CascadedManager(
+            _options["chunk_size"],
             <nvcompBatchedCascadedOpts_t>nvcompBatchedCascadedDefaultOpts,  # TODO
             <cudaStream_t><void*>0,  # TODO
             device_id,
@@ -200,9 +203,10 @@ cdef class _GdeflateManager(_nvcompManager):
         user_stream,
         const int device_id
     ):
+        cdef opts = nvcompBatchedGdeflateOpts_t(algo)
         self._impl = <nvcompManagerBase*>new GdeflateManager(
             chunk_size,
-            algo,
+            opts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
@@ -220,9 +224,10 @@ cdef class _LZ4Manager(_nvcompManager):
         # from anywhere up. I'm not going to rabbit hole on it until
         # everything else works.
         # cdef cudaStream_t stream = <cudaStream_t><void*>user_stream
+        cdef opts = nvcompBatchedLZ4Opts_t(data_type)
         self._impl = <nvcompManagerBase*>new LZ4Manager(
             uncomp_chunk_size,
-            data_type,
+            opts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
@@ -240,6 +245,7 @@ cdef class _SnappyManager(_nvcompManager):
         # everything else works.
         self._impl = <nvcompManagerBase*>new SnappyManager(
             uncomp_chunk_size,
+            <nvcompBatchedSnappyOpts_t>nvcompBatchedSnappyDefaultOpts,
             <cudaStream_t><void*>0,  # TODO
             device_id
         )
