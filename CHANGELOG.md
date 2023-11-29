@@ -1,3 +1,41 @@
+# kvikio 23.10.00 (11 Oct 2023)
+
+## 🚨 Breaking Changes
+
+- Update to Cython 3.0.0 ([#258](https://github.com/rapidsai/kvikio/pull/258)) [@vyasr](https://github.com/vyasr)
+
+## 🐛 Bug Fixes
+
+- Add numcodecs pin ([#300](https://github.com/rapidsai/kvikio/pull/300)) [@vyasr](https://github.com/vyasr)
+- Add missed filename to sed_runner call ([#286](https://github.com/rapidsai/kvikio/pull/286)) [@raydouglass](https://github.com/raydouglass)
+- Use `conda mambabuild` not `mamba mambabuild` ([#278](https://github.com/rapidsai/kvikio/pull/278)) [@bdice](https://github.com/bdice)
+- fixes #254 ([#262](https://github.com/rapidsai/kvikio/pull/262)) [@madsbk](https://github.com/madsbk)
+
+## 📖 Documentation
+
+- minor doc fixes ([#279](https://github.com/rapidsai/kvikio/pull/279)) [@madsbk](https://github.com/madsbk)
+- Docs ([#268](https://github.com/rapidsai/kvikio/pull/268)) [@madsbk](https://github.com/madsbk)
+- Zarr notebook ([#261](https://github.com/rapidsai/kvikio/pull/261)) [@madsbk](https://github.com/madsbk)
+
+## 🛠️ Improvements
+
+- Use branch-23.10 for devcontainers workflow. ([#289](https://github.com/rapidsai/kvikio/pull/289)) [@bdice](https://github.com/bdice)
+- Update image names ([#284](https://github.com/rapidsai/kvikio/pull/284)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Update to clang 16.0.6. ([#280](https://github.com/rapidsai/kvikio/pull/280)) [@bdice](https://github.com/bdice)
+- Update doxygen to 1.9.1 ([#277](https://github.com/rapidsai/kvikio/pull/277)) [@vyasr](https://github.com/vyasr)
+- Async I/O using by-value arguments ([#275](https://github.com/rapidsai/kvikio/pull/275)) [@madsbk](https://github.com/madsbk)
+- Zarr-IO Benchmark ([#274](https://github.com/rapidsai/kvikio/pull/274)) [@madsbk](https://github.com/madsbk)
+- Add KvikIO devcontainers ([#273](https://github.com/rapidsai/kvikio/pull/273)) [@trxcllnt](https://github.com/trxcllnt)
+- async: fall back to blocking ([#272](https://github.com/rapidsai/kvikio/pull/272)) [@madsbk](https://github.com/madsbk)
+- Unify batch and stream API check ([#271](https://github.com/rapidsai/kvikio/pull/271)) [@madsbk](https://github.com/madsbk)
+- Use `copy-pr-bot` ([#269](https://github.com/rapidsai/kvikio/pull/269)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Zarr+CuPy+GDS+nvCOMP made easy ([#267](https://github.com/rapidsai/kvikio/pull/267)) [@madsbk](https://github.com/madsbk)
+- Remove sphinx pinning ([#260](https://github.com/rapidsai/kvikio/pull/260)) [@vyasr](https://github.com/vyasr)
+- Initial changes to support cufile stream I/O. ([#259](https://github.com/rapidsai/kvikio/pull/259)) [@tell-rebanta](https://github.com/tell-rebanta)
+- Update to Cython 3.0.0 ([#258](https://github.com/rapidsai/kvikio/pull/258)) [@vyasr](https://github.com/vyasr)
+- Modernize Python build ([#257](https://github.com/rapidsai/kvikio/pull/257)) [@vyasr](https://github.com/vyasr)
+- Enable roundtrip for nvCOMP batch codecs. ([#253](https://github.com/rapidsai/kvikio/pull/253)) [@Alexey-Kamenev](https://github.com/Alexey-Kamenev)
+
 # kvikio 23.08.00 (9 Aug 2023)
 
 ## 🐛 Bug Fixes
