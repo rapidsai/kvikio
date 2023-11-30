@@ -30,7 +30,7 @@ using namespace std;
 
 class Timer {
  public:
-  Timer(const std::string& name) : name(name), start(std::chrono::high_resolution_clock::now()) {}
+  Timer() : start(std::chrono::high_resolution_clock::now()) {}
 
   ~Timer()
   {
@@ -40,12 +40,10 @@ class Timer {
     auto end_ms =
       std::chrono::time_point_cast<std::chrono::microseconds>(end).time_since_epoch().count();
 
-    std::cout << "Benchmark " << name << " takes: " << end_ms - start_ms << " microseconds"
-              << std::endl;
+    cout << "(" << end_ms - start_ms << " us)" << endl;
   }
 
  private:
-  std::string name;
   std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
 
@@ -104,7 +102,8 @@ int main()
   check(kvikio::is_host_memory(c_dev) == false);
 
   {
-    Timer timer("Write");
+    cout << endl;
+    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "w");
     check(cudaMemcpy(a_dev, a, SIZE, cudaMemcpyHostToDevice) == cudaSuccess);
     size_t written = f.pwrite(a_dev, SIZE, 0, 1).get();
@@ -114,7 +113,7 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer("Read");
+    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, SIZE, 0, 1).get();
     check(read == SIZE);
@@ -128,7 +127,7 @@ int main()
   kvikio::defaults::thread_pool_nthreads_reset(16);
   {
     std::cout << std::endl;
-    Timer timer("Parallel write");
+    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a_dev, SIZE).get();
     check(written == SIZE);
@@ -138,7 +137,7 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer("Parallel read");
+    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, SIZE, 0).get();
     cout << "Parallel read (" << kvikio::defaults::thread_pool_nthreads() << " threads): " << read
@@ -150,7 +149,7 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer("Reader buffer registered data");
+    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "r+", kvikio::FileHandle::m644);
     kvikio::buffer_register(c_dev, SIZE);
     size_t read = f.pread(c_dev, SIZE).get();
@@ -161,7 +160,7 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer("Parallel POSIX write");
+    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a, SIZE).get();
     check(written == SIZE);
@@ -171,7 +170,7 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer("Parallel POSIX read");
+    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b, SIZE).get();
     check(read == SIZE);
@@ -184,7 +183,7 @@ int main()
   }
   if (kvikio::is_batch_and_stream_available() && !kvikio::defaults::compat_mode()) {
     std::cout << std::endl;
-    Timer timer("Batch read");
+    Timer timer;
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
     // submitting 4 batch operations.
     constexpr int num_ops_in_batch = 4;
@@ -236,7 +235,7 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer("Async IO by reference");
+    Timer timer;
     cout << "Performing async I/O using by-reference arguments" << endl;
     off_t f_off{0};
     off_t d_off{0};
@@ -271,7 +270,7 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer("Async IO by-value");
+    Timer timer;
     cout << "Performing async I/O using by-value arguments" << endl;
 
     // Let's create a new stream and submit an async write
