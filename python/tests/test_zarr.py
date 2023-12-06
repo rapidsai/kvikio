@@ -212,11 +212,13 @@ def test_compressor_config_overwrite(tmp_path, xp, algo):
     numpy.testing.assert_array_equal(z[:], range(10))
 
 
-def test_open_cupy_array(tmp_path):
+@pytest.mark.parametrize("write_mode", ["w", "w-", "a"])
+@pytest.mark.parametrize("read_mode", ["r", "r+", "a"])
+def test_open_cupy_array(tmp_path, write_mode, read_mode):
     a = cupy.arange(10)
     z = kvikio_zarr.open_cupy_array(
         tmp_path,
-        mode="w",
+        mode=write_mode,
         shape=a.shape,
         dtype=a.dtype,
         chunks=(2,),
@@ -231,7 +233,7 @@ def test_open_cupy_array(tmp_path):
 
     z = kvikio_zarr.open_cupy_array(
         tmp_path,
-        mode="r",
+        mode=read_mode,
     )
     assert a.shape == z.shape
     assert a.dtype == z.dtype
@@ -239,9 +241,45 @@ def test_open_cupy_array(tmp_path):
     assert z.compressor == kvikio_nvcomp_codec.NvCompBatchCodec("lz4")
     cupy.testing.assert_array_equal(a, z[:])
 
-    z = zarr.open_array(tmp_path, mode="r")
+    z = zarr.open_array(tmp_path, mode=read_mode)
     assert a.shape == z.shape
     assert a.dtype == z.dtype
     assert isinstance(z[:], numpy.ndarray)
     assert z.compressor == kvikio_zarr.CompatCompressor.lz4().cpu
     numpy.testing.assert_array_equal(a.get(), z[:])
+
+
+@pytest.mark.parametrize("compressor", [None, kvikio_zarr.CompatCompressor.lz4().cpu])
+def test_open_cupy_array_written_by_zarr(tmp_path, compressor):
+    data = numpy.arange(100)
+    z = zarr.open_array(
+        tmp_path,
+        shape=data.shape,
+        mode="w",
+        compressor=compressor,
+    )
+    z[:] = data
+
+    z = kvikio_zarr.open_cupy_array(tmp_path, mode="r")
+    assert isinstance(z[:], cupy.ndarray)
+    cupy.testing.assert_array_equal(z[:], data)
+
+
+@pytest.mark.parametrize("mode", ["r", "r+", "a"])
+def test_open_cupy_array_incompatible_compressor(tmp_path, mode):
+    zarr.create((10,), store=tmp_path, compressor=numcodecs.Blosc())
+
+    with pytest.raises(ValueError, match="non-CUDA compatible compressor"):
+        kvikio_zarr.open_cupy_array(tmp_path, mode=mode)
+
+
+def test_open_cupy_array_unknown_mode(tmp_path):
+    a = cupy.arange(10)
+    with pytest.raises(ValueError, match="Unknown mode: x"):
+        kvikio_zarr.open_cupy_array(
+            tmp_path,
+            mode="x",
+            shape=a.shape,
+            dtype=a.dtype,
+            chunks=(2,),
+        )
