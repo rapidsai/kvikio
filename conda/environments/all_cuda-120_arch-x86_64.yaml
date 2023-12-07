@@ -25,7 +25,7 @@ dependencies:
 - numcodecs <0.12.0
 - numpy>=1.21
 - numpydoc
-- nvcomp==3.0.4
+- nvcomp==3.0.5
 - packaging
 - pre-commit
 - pytest
