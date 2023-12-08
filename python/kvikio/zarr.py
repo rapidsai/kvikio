@@ -9,12 +9,15 @@ from abc import abstractmethod
 from typing import Any, Literal, Mapping, Optional, Sequence, Union
 
 import cupy
+import cupy.typing
 import numcodecs
 import numpy
 import numpy as np
 import zarr
 import zarr.creation
+import zarr.errors
 import zarr.storage
+import zarr.util
 from numcodecs.abc import Codec
 from numcodecs.compat import ensure_contiguous_ndarray_like
 from numcodecs.registry import register_codec
@@ -24,6 +27,7 @@ import kvikio
 import kvikio.nvcomp
 import kvikio.nvcomp_codec
 import kvikio.zarr
+from kvikio.numcodecs import BufferLike, CudaCodec
 from kvikio.nvcomp_codec import NvCompBatchCodec
 
 MINIMUM_ZARR_VERSION = "2.15"
@@ -171,7 +175,7 @@ class GDSStore(zarr.storage.DirectoryStore):
         return ret
 
 
-class NVCompCompressor(Codec):
+class NVCompCompressor(CudaCodec):
     """Abstract base class for nvCOMP compressors
 
     The derived classes must set `codec_id` and implement
@@ -197,41 +201,11 @@ class NVCompCompressor(Codec):
         """
         pass  # TODO: cache Manager
 
-    def encode(self, buf) -> cupy.ndarray:
-        """Compress using `get_nvcomp_manager()`
-
-        Parameters
-        ----------
-        buf : buffer-like
-            The buffer to compress. Accepts both host and device memory.
-
-        Returns
-        -------
-        cupy.ndarray
-            The compressed buffer wrapped in a CuPy array
-        """
+    def encode(self, buf: BufferLike) -> cupy.typing.NDArray:
         buf = cupy.asarray(ensure_contiguous_ndarray_like(buf))
         return self.get_nvcomp_manager().compress(buf)
 
-    def decode(self, buf, out=None):
-        """Decompress using `get_nvcomp_manager()`
-
-        Parameters
-        ----------
-        buf : buffer-like
-            The buffer to decompress. Accepts both host and device memory.
-        out : buffer-like, optional
-            Writeable buffer to store decoded data. N.B. if provided, this buffer must
-            be exactly the right size to store the decoded data. Accepts both host and
-            device memory.
-
-        Returns
-        -------
-        buffer-like
-            Decompress data, which is either host or device memory based on the type
-            of `out`. If `out` is None, the type of `buf` determines the return buffer
-            type.
-        """
+    def decode(self, buf: BufferLike, out: Optional[BufferLike] = None) -> BufferLike:
         buf = ensure_contiguous_ndarray_like(buf)
         is_host_buffer = not hasattr(buf, "__cuda_array_interface__")
         if is_host_buffer:
@@ -300,9 +274,24 @@ for c in nvcomp_compressors:
 
 
 class CompatCompressor:
-    """A pair of compatible compressors one using the CPU and one using the GPU"""
+    """A pair of compatible compressors one using the CPU and one using the GPU
 
-    def __init__(self, cpu: Codec, gpu: Codec) -> None:
+    Warning
+    -------
+    `CompatCompressor` is only supported by KvikIO's `open_cupy_array()` and
+    cannot be used as a compressor argument in Zarr functions like `open()`
+    and `open_array()` directly. However, it is possible to use its `.cpu`
+    like: `open(..., compressor=CompatCompressor.lz4().cpu)`.
+
+    Parameters
+    ----------
+    cpu
+        The CPU compressor.
+    gpu
+        The GPU compressor.
+    """
+
+    def __init__(self, cpu: Codec, gpu: CudaCodec) -> None:
         self.cpu = cpu
         self.gpu = gpu
 
@@ -359,28 +348,48 @@ def open_cupy_array(
     if not hasattr(meta_array, "__cuda_array_interface__"):
         raise ValueError("meta_array must implement __cuda_array_interface__")
 
-    if mode in ("r", "r+"):
-        ret = zarr.open_array(
-            store=kvikio.zarr.GDSStore(path=store),
-            mode=mode,
-            meta_array=meta_array,
-            **kwargs,
-        )
-        # If we are reading a LZ4-CPU compressed file, we overwrite the metadata
-        # on-the-fly to make Zarr use LZ4-GPU for both compression and decompression.
-        compat_lz4 = CompatCompressor.lz4()
-        if ret.compressor == compat_lz4.cpu:
+    if mode in ("r", "r+", "a"):
+        # In order to handle "a", we start by trying to open the file in read mode.
+        try:
             ret = zarr.open_array(
-                store=kvikio.zarr.GDSStore(
-                    path=store,
-                    compressor_config_overwrite=compat_lz4.cpu.get_config(),
-                    decompressor_config_overwrite=compat_lz4.gpu.get_config(),
-                ),
-                mode=mode,
+                store=kvikio.zarr.GDSStore(path=store),
+                mode="r+",
                 meta_array=meta_array,
                 **kwargs,
             )
-        return ret
+        except (zarr.errors.ContainsGroupError, zarr.errors.ArrayNotFoundError):
+            # If we are reading, this is a genuine error.
+            if mode in ("r", "r+"):
+                raise
+        else:
+            if ret.compressor is None:
+                return ret
+            # If we are reading a LZ4-CPU compressed file, we overwrite the
+            # metadata on-the-fly to make Zarr use LZ4-GPU for both compression
+            # and decompression.
+            compat_lz4 = CompatCompressor.lz4()
+            if ret.compressor == compat_lz4.cpu:
+                ret = zarr.open_array(
+                    store=kvikio.zarr.GDSStore(
+                        path=store,
+                        compressor_config_overwrite=compat_lz4.cpu.get_config(),
+                        decompressor_config_overwrite=compat_lz4.gpu.get_config(),
+                    ),
+                    mode=mode,
+                    meta_array=meta_array,
+                    **kwargs,
+                )
+            elif not isinstance(ret.compressor, CudaCodec):
+                raise ValueError(
+                    "The Zarr file was written using a non-CUDA compatible "
+                    f"compressor, {ret.compressor}, please use something "
+                    "like kvikio.zarr.CompatCompressor"
+                )
+            return ret
+
+    # At this point, we known that we are writing a new array
+    if mode not in ("w", "w-", "a"):
+        raise ValueError(f"Unknown mode: {mode}")
 
     if isinstance(compressor, CompatCompressor):
         compressor_config_overwrite = compressor.cpu.get_config()

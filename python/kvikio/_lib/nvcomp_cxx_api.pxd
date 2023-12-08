@@ -106,8 +106,6 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
             uint8_t* decomp_buffer,
             const uint8_t* comp_buffer,
             const DecompressionConfig& decomp_config)
-        void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
-        size_t get_required_scratch_buffer_size() except +
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
     cdef cppclass PimplManager "nvcomp::PimplManager":
@@ -125,25 +123,38 @@ cdef extern from "nvcomp/nvcompManager.hpp" namespace 'nvcomp':
             uint8_t* decomp_buffer,
             const uint8_t* comp_buffer,
             const DecompressionConfig& decomp_config) except +
-        void set_scratch_buffer(uint8_t* new_scratch_buffer) except +
-        size_t get_required_scratch_buffer_size() except +
         size_t get_compressed_output_size(uint8_t* comp_buffer) except +
 
 # C++ Concrete ANS Manager
+cdef extern from "nvcomp/ans.h" nogil:
+    ctypedef enum nvcompANSType_t:
+        nvcomp_rANS = 0
+
+    ctypedef struct nvcompBatchedANSOpts_t:
+        nvcompANSType_t type
+    cdef nvcompBatchedANSOpts_t nvcompBatchedANSDefaultOpts
+
 cdef extern from "nvcomp/ans.hpp":
     cdef cppclass ANSManager "nvcomp::ANSManager":
         ANSManager(
             size_t uncomp_chunk_size,
+            const nvcompBatchedANSOpts_t& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +
 
 # C++ Concrete Bitcomp Manager
+cdef extern from "nvcomp/bitcomp.h" nogil:
+    ctypedef struct nvcompBatchedBitcompFormatOpts:
+        int algorithm_type
+        nvcompType_t data_type
+    cdef nvcompBatchedBitcompFormatOpts nvcompBatchedBitcompDefaultOpts
+
 cdef extern from "nvcomp/bitcomp.hpp":
     cdef cppclass BitcompManager "nvcomp::BitcompManager":
         BitcompManager(
-            nvcompType_t data_type,
-            int bitcomp_algo,
+            size_t uncomp_chunk_size,
+            const nvcompBatchedBitcompFormatOpts& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +
@@ -151,6 +162,8 @@ cdef extern from "nvcomp/bitcomp.hpp":
 # C++ Concrete Cascaded Manager
 cdef extern from "nvcomp/cascaded.h" nogil:
     ctypedef struct nvcompBatchedCascadedOpts_t:
+        size_t chunk_size
+        nvcompType_t type
         int num_RLEs
         int num_deltas
         int use_bp
@@ -159,36 +172,53 @@ cdef extern from "nvcomp/cascaded.h" nogil:
 cdef extern from "nvcomp/cascaded.hpp" nogil:
     cdef cppclass CascadedManager "nvcomp::CascadedManager":
         CascadedManager(
+            size_t uncomp_chunk_size,
             const nvcompBatchedCascadedOpts_t& options,
             cudaStream_t user_stream,
             int device_id
         )
 
 # C++ Concrete Gdeflate Manager
+cdef extern from "nvcomp/gdeflate.h" nogil:
+    ctypedef struct nvcompBatchedGdeflateOpts_t:
+        int algo
+    cdef nvcompBatchedGdeflateOpts_t nvcompBatchedGdeflateDefaultOpts
+
 cdef extern from "nvcomp/gdeflate.hpp":
     cdef cppclass GdeflateManager "nvcomp::GdeflateManager":
         GdeflateManager(
             int uncomp_chunk_size,
-            int algo,
+            const nvcompBatchedGdeflateOpts_t& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +
 
 # C++ Concrete LZ4 Manager
+cdef extern from "nvcomp/gdeflate.h" nogil:
+    ctypedef struct nvcompBatchedLZ4Opts_t:
+        nvcompType_t data_type
+    cdef nvcompBatchedLZ4Opts_t nvcompBatchedLZ4DefaultOpts
+
 cdef extern from "nvcomp/lz4.hpp":
     cdef cppclass LZ4Manager "nvcomp::LZ4Manager":
         LZ4Manager(
             size_t uncomp_chunk_size,
-            nvcompType_t data_type,
+            const nvcompBatchedLZ4Opts_t& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +
 
 # C++ Concrete Snappy Manager
+cdef extern from "nvcomp/snappy.h" nogil:
+    ctypedef struct nvcompBatchedSnappyOpts_t:
+        int reserved
+    cdef nvcompBatchedSnappyOpts_t nvcompBatchedSnappyDefaultOpts
+
 cdef extern from "nvcomp/snappy.hpp":
     cdef cppclass SnappyManager "nvcomp::SnappyManager":
         SnappyManager(
             size_t uncomp_chunk_size,
+            const nvcompBatchedSnappyOpts_t& format_opts,
             cudaStream_t user_stream,
             const int device_id
         ) except +

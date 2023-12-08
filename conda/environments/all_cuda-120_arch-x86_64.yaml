@@ -11,7 +11,7 @@ dependencies:
 - cuda-nvcc
 - cuda-python>=12.0,<13.0a0
 - cuda-version=12.0
-- cudf==23.10.*
+- cudf==24.2.*
 - cupy>=12.0.0
 - cxx-compiler
 - cython>=3.0.0
@@ -25,7 +25,7 @@ dependencies:
 - numcodecs <0.12.0
 - numpy>=1.21
 - numpydoc
-- nvcomp==2.6.1
+- nvcomp==3.0.5
 - packaging
 - pre-commit
 - pytest

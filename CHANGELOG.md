@@ -1,3 +1,31 @@
+# kvikio 23.12.00 (6 Dec 2023)
+
+## 🚨 Breaking Changes
+
+- Update nvcomp to 3.0.4 (includes API changes) ([#314](https://github.com/rapidsai/kvikio/pull/314)) [@vuule](https://github.com/vuule)
+
+## 🐛 Bug Fixes
+
+- Remove duplicated thread-pool API ([#308](https://github.com/rapidsai/kvikio/pull/308)) [@madsbk](https://github.com/madsbk)
+- updated the nvcomp notebook to use the new API ([#294](https://github.com/rapidsai/kvikio/pull/294)) [@madsbk](https://github.com/madsbk)
+
+## 🚀 New Features
+
+- Update nvcomp to 3.0.4 (includes API changes) ([#314](https://github.com/rapidsai/kvikio/pull/314)) [@vuule](https://github.com/vuule)
+
+## 🛠️ Improvements
+
+- Build concurrency for nightly and merge triggers ([#319](https://github.com/rapidsai/kvikio/pull/319)) [@bdice](https://github.com/bdice)
+- Revert rapids-cmake branch. ([#316](https://github.com/rapidsai/kvikio/pull/316)) [@bdice](https://github.com/bdice)
+- Support no compressor in `open_cupy_array()` ([#312](https://github.com/rapidsai/kvikio/pull/312)) [@madsbk](https://github.com/madsbk)
+- Update `shared-action-workflows` references ([#305](https://github.com/rapidsai/kvikio/pull/305)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Use branch-23.12 workflows. ([#304](https://github.com/rapidsai/kvikio/pull/304)) [@bdice](https://github.com/bdice)
+- Update rapids-cmake functions to non-deprecated signatures ([#301](https://github.com/rapidsai/kvikio/pull/301)) [@robertmaynard](https://github.com/robertmaynard)
+- Unify the CUDA Codecs ([#298](https://github.com/rapidsai/kvikio/pull/298)) [@madsbk](https://github.com/madsbk)
+- Improve performance of nvCOMP batch codec. ([#293](https://github.com/rapidsai/kvikio/pull/293)) [@Alexey-Kamenev](https://github.com/Alexey-Kamenev)
+- Merge branch-23.10 into branch-23.12 and fix devcontainer CI workflow. ([#292](https://github.com/rapidsai/kvikio/pull/292)) [@bdice](https://github.com/bdice)
+- kvikio: Build CUDA 12.0 ARM conda packages. ([#282](https://github.com/rapidsai/kvikio/pull/282)) [@bdice](https://github.com/bdice)
+
 # kvikio 23.10.00 (11 Oct 2023)
 
 ## 🚨 Breaking Changes

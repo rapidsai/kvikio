@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-set(kvikio_version 23.10.00)
+set(kvikio_version 24.02.00)
 
 include(../cpp/cmake/fetch_rapids.cmake)
 include(rapids-cpm)
