@@ -18,7 +18,7 @@ jobs:
       - conda-python-build
       - conda-python-tests
       - docs-build
-#     - devcontainer
+      - devcontainer
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.02
   checks:
