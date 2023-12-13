@@ -63,7 +63,7 @@ requirements:
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - nvcomp {{ nvcomp_version }}
-    - scikit-build-core>=0.7.0
+    - scikit-build-core >=0.7.0
     - libkvikio ={{ version }}
   run:
     - python
