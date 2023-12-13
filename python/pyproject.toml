@@ -109,9 +109,9 @@ ignore_missing_imports = true
 nvcomp_batch = "kvikio.nvcomp_codec:NvCompBatchCodec"
 
 [tool.scikit-build]
+build-dir = "build/{wheel_tag}"
+cmake.build-type = "Release"
 cmake.minimum-version = "3.26.4"
 ninja.make-fallback = true
-cmake.build-type = "Release"
 sdist.reproducible = true
 wheel.packages = ["kvikio"]
-build-dir = "build/{wheel_tag}"
