@@ -188,7 +188,6 @@ dependencies:
         matrices:
           - matrix:
               cuda: "12.*"
-              arch: x86_64
             packages:
               - libcufile
               - libcufile-dev
