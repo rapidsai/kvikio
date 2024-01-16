@@ -77,7 +77,7 @@ outputs:
         - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
         - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - libcufile-dev  # [linux64]
+        - libcufile-dev
         {% endif %}
     test:
         commands:
@@ -108,7 +108,7 @@ outputs:
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
         - cuda-cudart-dev
-        - libcufile-dev  # [linux64]
+        - libcufile-dev
         {% endif %}
       run:
         - cuda-version {{ cuda_spec }}
