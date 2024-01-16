@@ -1,9 +1,13 @@
 #!/bin/bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
-source rapids-env-update
+rapids-configure-conda-channels
+
+source rapids-configure-sccache
+
+source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
 
