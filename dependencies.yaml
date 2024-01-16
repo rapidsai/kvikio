@@ -11,6 +11,7 @@ files:
       - checks
       - cuda
       - cuda_version
+      - depends_on_cupy
       - docs
       - notebooks
       - py_version
@@ -51,6 +52,7 @@ files:
     extras:
       table: project
     includes:
+      - depends_on_cupy
       - run
   py_optional_test:
     output: pyproject
@@ -74,6 +76,7 @@ files:
     extras:
       table: project
     includes:
+      - depends_on_cupy
       - run
   legate_py_optional_test:
     output: pyproject
@@ -222,6 +225,21 @@ dependencies:
               # so 11.2 uses 11.4 packages (the oldest available).
               - *libcufile_114
               - *libcufile_dev114
+  depends_on_cupy:
+    common:
+      - output_types: conda
+        packages:
+          - cupy>=12.0.0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - cupy-cuda12x>=12.0.0
+          - matrix: {cuda: "11.*"}
+            packages: &cupy_packages_cu11
+              - cupy-cuda11x>=12.0.0
+          - {matrix: null, packages: *cupy_packages_cu11}
   docs:
     common:
       - output_types: [conda, requirements]
@@ -257,12 +275,6 @@ dependencies:
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs <0.12.0
           - packaging
-      - output_types: conda
-        packages:
-          - cupy>=12.0.0
-      - output_types: [requirements, pyproject]
-        packages:
-          - cupy-cuda11x>=12.0.0
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
