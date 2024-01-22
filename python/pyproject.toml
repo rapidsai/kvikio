@@ -12,7 +12,7 @@ requires = [
 
 [project]
 name = "kvikio"
-version = "24.02.00"
+version = "24.04.00"
 description = "KvikIO - GPUDirect Storage"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
