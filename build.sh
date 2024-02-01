@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 # kvikio build script
 
@@ -148,18 +148,7 @@ fi
 
 # Build and install the kvikio Python package
 if (( NUMARGS == 0 )) || hasArg kvikio; then
-    cd "${REPODIR}/python"
-    export INSTALL_PREFIX
-    echo "building kvikio..."
-    python setup.py build_ext --inplace
-    python setup.py install --single-version-externally-managed --record=record.txt
-fi
-
-
-# Build and install the legate-kvikio Python package
-if hasArg legate; then
-    cd "${REPODIR}/legate"
-    export INSTALL_PREFIX
-    echo "building legate..."
-    python setup.py install --single-version-externally-managed --record=record.txt
+    cd ${REPODIR}/python
+    SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_LIBRARY_PATH=${LIBKVIKIO_BUILD_DIR};${EXTRA_CMAKE_ARGS}" \
+        python -m pip install --no-build-isolation --no-deps .
 fi
