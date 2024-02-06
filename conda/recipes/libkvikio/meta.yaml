@@ -102,6 +102,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - libcufile-dev
         {% endif %}
     requirements:
       build:
@@ -112,7 +113,6 @@ outputs:
         - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - cuda-cudart-dev
         - libcufile-dev
         {% endif %}
       run:
@@ -120,6 +120,9 @@ outputs:
         {% if cuda_major == "11" %}
         - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
+        {% else %}
+        - cuda-cudart
+        - libcufile
         {% endif %}
     about:
       home: https://rapids.ai
