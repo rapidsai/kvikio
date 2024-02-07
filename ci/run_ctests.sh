@@ -3,9 +3,8 @@
 
 set -euo pipefail
 
-if [ -d "${INSTALL_PREFIX:-${CONDA_PREFIX:-/usr}}/bin/tests/libkvikio/" ]; then
-    # Support customizing the ctests' install location
-    cd "${INSTALL_PREFIX:-${CONDA_PREFIX:-/usr}}/bin/tests/libkvikio/"
-    # Run BASIC_IO_TEST
-    ./BASIC_IO_TEST
-fi
+# Support customizing the ctests' install location
+cd "${INSTALL_PREFIX:-${CONDA_PREFIX:-/usr}}/bin/tests/libkvikio/"
+
+# Run BASIC_IO_TEST
+./BASIC_IO_TEST
