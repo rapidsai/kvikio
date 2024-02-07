@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # Support invoking test_python.sh outside the script directory
-cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 . /opt/conda/etc/profile.d/conda.sh
 
@@ -40,7 +40,7 @@ rapids-logger "Check GPU usage"
 nvidia-smi
 
 rapids-logger "pytest kvikio"
-./run_pytests.sh \
+./ci/run_pytests.sh \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-kvikio.xml" \
   --cov-config=.coveragerc \
   --cov=kvikio \
