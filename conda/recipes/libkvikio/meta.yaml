@@ -103,6 +103,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         - libcufile-dev  # [linux64]
         {% endif %}
     requirements:
@@ -114,6 +115,7 @@ outputs:
         - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
+        - cuda-cudart-dev
         - libcufile-dev  # [linux64]
         {% endif %}
       run:
