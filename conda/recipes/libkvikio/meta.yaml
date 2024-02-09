@@ -50,7 +50,7 @@ requirements:
     - libcufile {{ cuda11_libcufile_host_version }}      # [linux64]
     - libcufile-dev {{ cuda11_libcufile_host_version }}  # [linux64]
     {% else %}
-    - libcufile-dev
+    - libcufile-dev  # [linux64]
     {% endif %}
 
 outputs:
@@ -81,7 +81,7 @@ outputs:
         - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
         - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - libcufile-dev
+        - libcufile-dev  # [linux64]
         {% endif %}
     test:
         commands:
@@ -114,7 +114,7 @@ outputs:
         - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - libcufile-dev
+        - libcufile-dev  # [linux64]
         {% endif %}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
