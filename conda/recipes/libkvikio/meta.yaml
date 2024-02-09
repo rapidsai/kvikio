@@ -67,6 +67,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
+        - libcufile-dev  # [linux64]
         {% endif %}
     requirements:
       build:
@@ -102,7 +103,7 @@ outputs:
         - {{ compiler('cuda11') }}
         {% else %}
         - {{ compiler('cuda') }}
-        - libcufile-dev
+        - libcufile-dev  # [linux64]
         {% endif %}
     requirements:
       build:
@@ -122,7 +123,7 @@ outputs:
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
         - cuda-cudart
-        - libcufile
+        - libcufile  # [linux64]
         {% endif %}
     about:
       home: https://rapids.ai
