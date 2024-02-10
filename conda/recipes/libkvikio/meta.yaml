@@ -1,9 +1,8 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
-{% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
@@ -66,12 +65,17 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - libcufile-dev  # [linux64]
         {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
+      host:
+        - cuda-version ={{ cuda_version }}
       run:
-        - cuda-version {{ cuda_spec }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
@@ -97,6 +101,10 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
+        - libcufile-dev  # [linux64]
         {% endif %}
     requirements:
       build:
@@ -111,10 +119,13 @@ outputs:
         - libcufile-dev  # [linux64]
         {% endif %}
       run:
-        - cuda-version {{ cuda_spec }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
+        {% else %}
+        - cuda-cudart
+        - libcufile  # [linux64]
         {% endif %}
     about:
       home: https://rapids.ai
