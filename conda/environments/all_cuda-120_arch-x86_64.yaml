@@ -11,7 +11,7 @@ dependencies:
 - cuda-nvcc
 - cuda-python>=12.0,<13.0a0
 - cuda-version=12.0
-- cudf==23.12.*
+- cudf==24.2.*
 - cupy>=12.0.0
 - cxx-compiler
 - cython>=3.0.0
@@ -25,13 +25,13 @@ dependencies:
 - numcodecs <0.12.0
 - numpy>=1.21
 - numpydoc
-- nvcomp==3.0.4
+- nvcomp==3.0.5
 - packaging
 - pre-commit
 - pytest
 - pytest-cov
 - python>=3.9,<3.11
-- scikit-build>=0.13.1
+- scikit-build-core>=0.7.0
 - sphinx
 - sphinx-click
 - sphinx_rtd_theme
