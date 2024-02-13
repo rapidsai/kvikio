@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -91,16 +91,6 @@ target_include_directories(
 
 target_link_libraries(kvikio INTERFACE Threads::Threads)
 target_link_libraries(kvikio INTERFACE CUDA::toolkit)
-if(cuFile_FOUND)
-  target_link_libraries(kvikio INTERFACE cufile::cuFile_interface)
-  target_compile_definitions(kvikio INTERFACE KVIKIO_CUFILE_FOUND)
-  if(cuFile_BATCH_API_FOUND)
-    target_compile_definitions(kvikio INTERFACE KVIKIO_CUFILE_BATCH_API_FOUND)
-  endif()
-  if(cuFile_STREAM_API_FOUND)
-    target_compile_definitions(kvikio INTERFACE KVIKIO_CUFILE_STREAM_API_FOUND)
-  endif()
-endif()
 target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
@@ -145,6 +135,46 @@ rapids_export(
   DOCUMENTATION doc_string
 )
 
+set(build_code_string
+    [=[
+
+# Find cuFile and determine which features are supported
+find_package(cuFile)
+if(NOT cuFile_FOUND)
+  message(WARNING "KvikIO: Building KvikIO without cuFile")
+else()
+  file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
+  string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
+  if(cuFileBatchIOSetUp_location EQUAL "-1")
+    set(cuFile_BATCH_API_FOUND FALSE)
+  else()
+    set(cuFile_BATCH_API_FOUND TRUE)
+  endif()
+  message(STATUS "KvikIO: Found cuFile's Batch API: ${cuFile_BATCH_API_FOUND}")
+  string(FIND "${CUFILE_H_STR}" "cuFileReadAsync" cuFileReadAsync_location)
+  if(cuFileReadAsync_location EQUAL "-1")
+    set(cuFile_STREAM_API_FOUND FALSE)
+  else()
+    set(cuFile_STREAM_API_FOUND TRUE)
+  endif()
+  message(STATUS "KvikIO: Found cuFile's Stream API: ${cuFile_STREAM_API_FOUND}")
+endif()
+
+# Enable supported cuFile features in KvikIO
+if(cuFile_FOUND)
+  target_link_libraries(kvikio::kvikio INTERFACE cufile::cuFile_interface)
+  target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_FOUND)
+  if(cuFile_BATCH_API_FOUND)
+    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_BATCH_API_FOUND)
+  endif()
+  if(cuFile_STREAM_API_FOUND)
+    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_STREAM_API_FOUND)
+  endif()
+endif()
+
+]=]
+)
+
 # build export targets
 rapids_export(
   BUILD kvikio
@@ -152,4 +182,5 @@ rapids_export(
   GLOBAL_TARGETS kvikio
   NAMESPACE kvikio::
   DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK build_code_string
 )
