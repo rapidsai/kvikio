@@ -134,7 +134,7 @@ if(NOT already_set_kvikio)
   set_property(DIRECTORY PROPERTY kvikio_already_set_defines "ON")
 
   # Find cuFile and determine which features are supported
-  find_package(cuFile)
+  find_package(cuFile QUIET)
   if(NOT cuFile_FOUND)
     message(WARNING "KvikIO: Building KvikIO without cuFile")
   else()
