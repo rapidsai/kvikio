@@ -1,3 +1,24 @@
+# kvikio 24.02.00 (12 Feb 2024)
+
+## 🚨 Breaking Changes
+
+- Switch to scikit-build-core ([#325](https://github.com/rapidsai/kvikio/pull/325)) [@vyasr](https://github.com/vyasr)
+
+## 🐛 Bug Fixes
+
+- Exclude tests from builds ([#336](https://github.com/rapidsai/kvikio/pull/336)) [@vyasr](https://github.com/vyasr)
+- Update build.sh ([#332](https://github.com/rapidsai/kvikio/pull/332)) [@madsbk](https://github.com/madsbk)
+
+## 🛠️ Improvements
+
+- Remove usages of rapids-env-update ([#329](https://github.com/rapidsai/kvikio/pull/329)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- refactor CUDA versions in dependencies.yaml ([#327](https://github.com/rapidsai/kvikio/pull/327)) [@jameslamb](https://github.com/jameslamb)
+- Switch to scikit-build-core ([#325](https://github.com/rapidsai/kvikio/pull/325)) [@vyasr](https://github.com/vyasr)
+- Update nvcomp ([#324](https://github.com/rapidsai/kvikio/pull/324)) [@vyasr](https://github.com/vyasr)
+- Add timer to basic_io example ([#321](https://github.com/rapidsai/kvikio/pull/321)) [@yncxcw](https://github.com/yncxcw)
+- Forward-merge branch-23.12 to branch-24.02 ([#318](https://github.com/rapidsai/kvikio/pull/318)) [@bdice](https://github.com/bdice)
+- Re-enable devcontainer CI. ([#285](https://github.com/rapidsai/kvikio/pull/285)) [@trxcllnt](https://github.com/trxcllnt)
+
 # kvikio 23.12.00 (6 Dec 2023)
 
 ## 🚨 Breaking Changes
