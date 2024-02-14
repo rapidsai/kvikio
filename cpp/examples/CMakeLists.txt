@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -19,6 +19,18 @@ add_executable(BASIC_IO_TEST basic_io.cpp)
 set_target_properties(BASIC_IO_TEST PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
 target_include_directories(BASIC_IO_TEST PRIVATE ../include ${cuFile_INCLUDE_DIRS})
 target_link_libraries(BASIC_IO_TEST PRIVATE kvikio CUDA::cudart)
+
+# Enable supported cuFile features in KvikIO examples
+if(cuFile_FOUND)
+  target_link_libraries(BASIC_IO_TEST PRIVATE cufile::cuFile_interface)
+  target_compile_definitions(BASIC_IO_TEST PRIVATE KVIKIO_CUFILE_FOUND)
+  if(cuFile_BATCH_API_FOUND)
+    target_compile_definitions(BASIC_IO_TEST PRIVATE KVIKIO_CUFILE_BATCH_API_FOUND)
+  endif()
+  if(cuFile_STREAM_API_FOUND)
+    target_compile_definitions(BASIC_IO_TEST PRIVATE KVIKIO_CUFILE_STREAM_API_FOUND)
+  endif()
+endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
