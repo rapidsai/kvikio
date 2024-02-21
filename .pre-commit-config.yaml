@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -13,22 +13,18 @@ repos:
         args: ["--config-root=python/", "--resolve-all-configs"]
         files: python/.*
         types_or: [python, cython, pyi]
-      - id: isort
-        args: ["--config-root=legate/", "--resolve-all-configs"]
-        files: legate/.*
-        types_or: [python, cython, pyi]
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
       - id: black
-        files: (python|legate)/.*
+        files: python/.*
         args: ["--config", "python/pyproject.toml"]
   - repo: https://github.com/PyCQA/flake8
     rev: 6.0.0
     hooks:
       - id: flake8
         args: ["--config=.flake8"]
-        files: (python|legate)/.*$
+        files: python/.*$
         types: [file]
         types_or: [python, cython]
         additional_dependencies: ["flake8-force"]

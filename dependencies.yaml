@@ -7,7 +7,6 @@ files:
       arch: [x86_64]
     includes:
       - build
-      - build_legate_wheel
       - checks
       - cuda
       - cuda_version
@@ -17,7 +16,6 @@ files:
       - py_version
       - run
       - test_python
-      - test_python_legate
   test_cpp:
     output: none
     includes:
@@ -62,31 +60,6 @@ files:
       key: test
     includes:
       - test_python
-  legate_py_build:
-    output: pyproject
-    pyproject_dir: legate
-    extras:
-      table: build-system
-    includes:
-      - build
-      - build_legate_wheel
-  legate_py_run:
-    output: pyproject
-    pyproject_dir: legate
-    extras:
-      table: project
-    includes:
-      - depends_on_cupy
-      - run
-  legate_py_optional_test:
-    output: pyproject
-    pyproject_dir: legate
-    extras:
-      table: project.optional-dependencies
-      key: test
-    includes:
-      - test_python
-      - test_python_legate
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -137,12 +110,6 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
-  build_legate_wheel:
-    common:
-      - output_types: [requirements, pyproject]
-        packages:
-          - setuptools
-          - wheel
   checks:
     common:
       - output_types: [conda, requirements]
@@ -294,12 +261,6 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
-  test_python_legate:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - *dask
-          - distributed>=2022.05.2
   notebooks:
     common:
       - output_types: conda
