@@ -17,4 +17,4 @@ cmake_version:
   - ">=3.26.4"
 
 nvcomp_version:
-  - "=3.0.5"
+  - "=3.0.6"
