@@ -12,7 +12,6 @@ files:
       - cuda
       - cuda_version
       - docs
-      - notebooks
       - py_version
       - run
       - test_python
@@ -283,8 +282,3 @@ dependencies:
         packages:
           - *dask
           - distributed>=2022.05.2
-  notebooks:
-    common:
-      - output_types: conda
-        packages:
-          - cudf==24.2.*
