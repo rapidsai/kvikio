@@ -60,8 +60,10 @@ jobs:
       run_script: "ci/build_docs.sh"
   devcontainer:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-24.04
+    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@fix/devcontainer-json-location
     with:
+      arch: '["amd64"]'
+      cuda: '["12.2"]'
       build_command: |
         sccache -z;
         build-all --verbose;
