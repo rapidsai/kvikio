@@ -12,7 +12,6 @@ files:
       - cuda_version
       - depends_on_cupy
       - docs
-      - notebooks
       - py_version
       - run
       - test_python
@@ -147,7 +146,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - nvcomp==3.0.5
+          - nvcomp==3.0.6
     specific:
       - output_types: conda
         matrices:
@@ -261,8 +260,9 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
-  notebooks:
+  test_python_legate:
     common:
-      - output_types: conda
+      - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==24.4.*
+          - *dask
+          - distributed>=2022.05.2
