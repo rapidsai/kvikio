@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -32,12 +32,9 @@ rapids-mamba-retry install \
 rapids-logger "Check GPU usage"
 nvidia-smi
 
-EXITCODE=0
-trap "EXITCODE=1" ERR
-set +e
-
-# Run BASIC_IO_TEST
-"$CONDA_PREFIX"/bin/tests/libkvikio/BASIC_IO_TEST
+# Support invoking test_cpp.sh outside the script directory
+"$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/run_ctests.sh \
+ && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}

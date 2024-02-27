@@ -1,7 +1,10 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
+
+# Support invoking test_python.sh outside the script directory
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 . /opt/conda/etc/profile.d/conda.sh
 
@@ -36,21 +39,14 @@ rapids-mamba-retry install \
 rapids-logger "Check GPU usage"
 nvidia-smi
 
-EXITCODE=0
-trap "EXITCODE=1" ERR
-set +e
-
 rapids-logger "pytest kvikio"
-pushd python/
-pytest \
-  --cache-clear \
+./ci/run_pytests.sh \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-kvikio.xml" \
-  --verbose \
   --cov-config=.coveragerc \
   --cov=kvikio \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/kvikio-coverage.xml" \
   --cov-report=term \
-  tests
+ && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
