@@ -232,13 +232,17 @@ dependencies:
             packages:
               - python=3.10
           - matrix:
+              py: "3.11"
             packages:
-              - python>=3.9,<3.11
+              - python=3.11
+          - matrix:
+            packages:
+              - python>=3.9,<3.12
   run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.21
+          - numpy>=1.23
           - zarr
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs <0.12.0

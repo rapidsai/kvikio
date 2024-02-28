@@ -21,7 +21,7 @@ dependencies:
 - libcufile=1.4.0.31
 - ninja
 - numcodecs <0.12.0
-- numpy>=1.21
+- numpy>=1.23
 - numpydoc
 - nvcc_linux-64=11.8
 - nvcomp==3.0.6
@@ -29,7 +29,7 @@ dependencies:
 - pre-commit
 - pytest
 - pytest-cov
-- python>=3.9,<3.11
+- python>=3.9,<3.12
 - scikit-build-core>=0.7.0
 - sphinx
 - sphinx-click
