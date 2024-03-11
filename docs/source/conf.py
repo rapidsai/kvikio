@@ -17,16 +17,21 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from packaging.version import Version
+
+import kvikio
+
 # -- Project information -----------------------------------------------------
 
 project = "kvikio"
 copyright = "2023, NVIDIA"
 author = "NVIDIA"
 
+KVIKIO_VERSION = Version(kvikio.__version__)
 # The short X.Y version.
-version = '24.04'
+version = f"{KVIKIO_VERSION.major:02}.{KVIKIO_VERSION.minor:02}"
 # The full version, including alpha/beta/rc tags
-release = '24.04.00'
+release = f"{KVIKIO_VERSION.major:02}.{KVIKIO_VERSION.minor:02}.{KVIKIO_VERSION.micro:02}"
 
 
 # -- General configuration ---------------------------------------------------

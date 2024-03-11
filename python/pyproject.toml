@@ -12,7 +12,7 @@ requires = [
 
 [project]
 name = "kvikio"
-version = "24.04.00"
+dynamic = ["version"]
 description = "KvikIO - GPUDirect Storage"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -117,3 +117,8 @@ ninja.make-fallback = true
 sdist.exclude = ["*tests*"]
 sdist.reproducible = true
 wheel.packages = ["kvikio"]
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "kvikio/VERSION"
+regex = "(?P<value>.*)"

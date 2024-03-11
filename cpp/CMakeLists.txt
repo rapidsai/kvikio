@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(cmake/fetch_rapids.cmake)
+include(cmake/rapids_config.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-export)
@@ -22,7 +22,7 @@ include(rapids-find)
 
 project(
   KvikIO
-  VERSION 24.04.00
+  VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX
 )
 

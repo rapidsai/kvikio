@@ -4,7 +4,7 @@
 from ._lib import libkvikio  # type: ignore
 from .cufile import CuFile  # noqa: F401
 
-__version__ = "24.04.00"
+from ._version import __version__
 
 
 def memory_register(buf) -> None:
