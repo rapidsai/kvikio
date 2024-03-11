@@ -1,10 +1,9 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 from ._lib import libkvikio  # type: ignore
+from ._version import __version__  # noqa: F401
 from .cufile import CuFile  # noqa: F401
-
-from ._version import __version__
 
 
 def memory_register(buf) -> None:
