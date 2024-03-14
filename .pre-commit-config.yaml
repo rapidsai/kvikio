@@ -51,12 +51,6 @@ repos:
         args: ["-fallback-style=none", "-style=file", "-i"]
   - repo: local
     hooks:
-      - id: copyright-check
-        name: copyright-check
-        entry: python ./ci/checks/copyright.py --git-modified-only --update-current-year
-        language: python
-        pass_filenames: false
-        additional_dependencies: [gitpython]
       - id: cmake-format
         name: cmake-format
         entry: ./cpp/scripts/run-cmake-format.sh cmake-format
@@ -92,6 +86,15 @@ repos:
     hooks:
       - id: rapids-dependency-file-generator
         args: ["--clean"]
+  - repo: https://github.com/rapidsai/pre-commit-hooks
+    rev: v0.0.1
+    hooks:
+      - id: verify-copyright
+        files: |
+          (?x)
+              [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
+              CMakeLists[.]txt$|
+              meta[.]yaml$
 
 default_language_version:
       python: python3
