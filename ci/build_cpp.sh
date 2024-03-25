@@ -14,6 +14,7 @@ export CMAKE_GENERATOR=Ninja
 rapids-print-env
 
 rapids-logger "Begin cpp build"
+conda config --set path_conflict prevent
 
 rapids-conda-retry mambabuild conda/recipes/libkvikio
 
