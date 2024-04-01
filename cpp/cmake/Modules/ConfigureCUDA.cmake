@@ -13,35 +13,35 @@
 # =============================================================================
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-  list(APPEND CUDF_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
+  list(APPEND KVIKIO_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
 endif()
 
-list(APPEND CUDF_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
+list(APPEND KVIKIO_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 
 # set warnings as errors
-list(APPEND CUDF_CUDA_FLAGS -Werror=cross-execution-space-call)
-list(APPEND CUDF_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
+list(APPEND KVIKIO_CUDA_FLAGS -Werror=cross-execution-space-call)
+list(APPEND KVIKIO_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
 
 if(DISABLE_DEPRECATION_WARNING)
-  list(APPEND CUDF_CXX_FLAGS -Wno-deprecated-declarations)
-  list(APPEND CUDF_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
+  list(APPEND KVIKIO_CXX_FLAGS -Wno-deprecated-declarations)
+  list(APPEND KVIKIO_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
 endif()
 
 # make sure we produce smallest binary size
-list(APPEND CUDF_CUDA_FLAGS -Xfatbin=-compress-all)
+list(APPEND KVIKIO_CUDA_FLAGS -Xfatbin=-compress-all)
 if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA" AND
    CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.4.0)
-  list(APPEND CUDF_CUDA_FLAGS -Xfatbin=-compress-algo=5)
+  list(APPEND KVIKIO_CUDA_FLAGS -Xfatbin=-compress-algo=5)
 endif()
 
 # Option to enable line info in CUDA device compilation to allow introspection when profiling /
 # memchecking
 if(CUDA_ENABLE_LINEINFO)
-  list(APPEND CUDF_CUDA_FLAGS -lineinfo)
+  list(APPEND KVIKIO_CUDA_FLAGS -lineinfo)
 endif()
 
 # Debug options
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   message(VERBOSE "CUDF: Building with debugging flags")
-  list(APPEND CUDF_CUDA_FLAGS -Xcompiler=-rdynamic)
+  list(APPEND KVIKIO_CUDA_FLAGS -Xcompiler=-rdynamic)
 endif()
