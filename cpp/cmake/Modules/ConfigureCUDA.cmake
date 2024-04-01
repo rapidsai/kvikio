@@ -13,7 +13,9 @@
 # =============================================================================
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-  list(APPEND KVIKIO_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
+  list(APPEND KVIKIO_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas
+       -Wno-error=deprecated-declarations
+  )
 endif()
 
 list(APPEND KVIKIO_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
@@ -29,8 +31,9 @@ endif()
 
 # make sure we produce smallest binary size
 list(APPEND KVIKIO_CUDA_FLAGS -Xfatbin=-compress-all)
-if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA" AND
-   CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.4.0)
+if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA" AND CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL
+                                                12.4.0
+)
   list(APPEND KVIKIO_CUDA_FLAGS -Xfatbin=-compress-algo=5)
 endif()
 
