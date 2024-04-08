@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 from __future__ import annotations
@@ -1092,7 +1092,7 @@ class nvCompBatchAlgorithmDeflate(nvCompBatchAlgorithm):
             <size_t*>to_ptr(comp_chunk_sizes),
             self.options,
             to_stream(stream),
-            )
+        )
 
     def _get_decomp_temp_size(
         self,
@@ -1150,7 +1150,7 @@ class nvCompBatchAlgorithmDeflate(nvCompBatchAlgorithm):
             <void* const*>to_ptr(uncomp_chunks),
             <nvcompStatus_t*>to_ptr(statuses),
             to_stream(stream),
-            )
+        )
 
     def __repr__(self):
         return f"{self.__class__.__name__}(algo={self.options['algo']})"
