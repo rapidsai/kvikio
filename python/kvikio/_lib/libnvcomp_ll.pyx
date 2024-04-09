@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 from __future__ import annotations
@@ -1017,11 +1017,151 @@ class nvCompBatchAlgorithmSnappy(nvCompBatchAlgorithm):
         return f"{self.__class__.__name__}()"
 
 
+#
+# Deflate algorithm.
+#
+from kvikio._lib.nvcomp_ll_cxx_api cimport (
+    nvcompBatchedDeflateCompressAsync,
+    nvcompBatchedDeflateCompressGetMaxOutputChunkSize,
+    nvcompBatchedDeflateCompressGetTempSize,
+    nvcompBatchedDeflateDecompressAsync,
+    nvcompBatchedDeflateDecompressGetTempSize,
+    nvcompBatchedDeflateGetDecompressSizeAsync,
+    nvcompBatchedDeflateOpts_t,
+)
+
+
+class nvCompBatchAlgorithmDeflate(nvCompBatchAlgorithm):
+    """Deflate algorithm implementation."""
+
+    algo_id: str = "deflate"
+
+    options: nvcompBatchedDeflateOpts_t
+
+    def __init__(self, algo: int = 0):
+        self.options = nvcompBatchedDeflateOpts_t(algo)
+
+    def _get_comp_temp_size(
+        self,
+        size_t batch_size,
+        size_t max_uncompressed_chunk_bytes,
+    ) -> (nvcompStatus_t, size_t):
+        cdef size_t temp_bytes = 0
+
+        err = nvcompBatchedDeflateCompressGetTempSize(
+            batch_size,
+            max_uncompressed_chunk_bytes,
+            self.options,
+            &temp_bytes
+        )
+
+        return (err, temp_bytes)
+
+    def _get_comp_chunk_size(self, size_t max_uncompressed_chunk_bytes):
+        cdef size_t max_compressed_bytes = 0
+
+        err = nvcompBatchedDeflateCompressGetMaxOutputChunkSize(
+            max_uncompressed_chunk_bytes,
+            self.options,
+            &max_compressed_bytes
+        )
+
+        return (err, max_compressed_bytes)
+
+    def _compress(
+        self,
+        uncomp_chunks,
+        uncomp_chunk_sizes,
+        size_t max_uncomp_chunk_bytes,
+        size_t batch_size,
+        temp_buf,
+        comp_chunks,
+        comp_chunk_sizes,
+        stream
+    ):
+        # Cast buffer pointers that have Python int type to appropriate C types
+        # suitable for passing to nvCOMP API.
+        return nvcompBatchedDeflateCompressAsync(
+            <const void* const*>to_ptr(uncomp_chunks),
+            <const size_t*>to_ptr(uncomp_chunk_sizes),
+            max_uncomp_chunk_bytes,
+            batch_size,
+            <void*>to_ptr(temp_buf),
+            <size_t>temp_buf.nbytes,
+            <void* const*>to_ptr(comp_chunks),
+            <size_t*>to_ptr(comp_chunk_sizes),
+            self.options,
+            to_stream(stream),
+        )
+
+    def _get_decomp_temp_size(
+        self,
+        size_t num_chunks,
+        size_t max_uncompressed_chunk_bytes,
+    ):
+        cdef size_t temp_bytes = 0
+
+        err = nvcompBatchedDeflateDecompressGetTempSize(
+            num_chunks,
+            max_uncompressed_chunk_bytes,
+            &temp_bytes
+        )
+
+        return (err, temp_bytes)
+
+    def _get_decomp_size(
+        self,
+        comp_chunks,
+        comp_chunk_sizes,
+        size_t batch_size,
+        uncomp_chunk_sizes,
+        stream,
+    ):
+        return nvcompBatchedDeflateGetDecompressSizeAsync(
+            <const void* const*>to_ptr(comp_chunks),
+            <const size_t*>to_ptr(comp_chunk_sizes),
+            <size_t*>to_ptr(uncomp_chunk_sizes),
+            batch_size,
+            to_stream(stream),
+        )
+
+    def _decompress(
+        self,
+        comp_chunks,
+        comp_chunk_sizes,
+        size_t batch_size,
+        temp_buf,
+        uncomp_chunks,
+        uncomp_chunk_sizes,
+        actual_uncomp_chunk_sizes,
+        statuses,
+        stream,
+    ):
+        # Cast buffer pointers that have Python int type to appropriate C types
+        # suitable for passing to nvCOMP API.
+        return nvcompBatchedDeflateDecompressAsync(
+            <const void* const*>to_ptr(comp_chunks),
+            <const size_t*>to_ptr(comp_chunk_sizes),
+            <const size_t*>to_ptr(uncomp_chunk_sizes),
+            <size_t*>to_ptr(actual_uncomp_chunk_sizes),
+            batch_size,
+            <void* const>to_ptr(temp_buf),
+            <size_t>temp_buf.nbytes,
+            <void* const*>to_ptr(uncomp_chunks),
+            <nvcompStatus_t*>to_ptr(statuses),
+            to_stream(stream),
+        )
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(algo={self.options['algo']})"
+
+
 SUPPORTED_ALGORITHMS = {
     a.algo_id: a for a in [
         nvCompBatchAlgorithmLZ4,
         nvCompBatchAlgorithmGdeflate,
         nvCompBatchAlgorithmZstd,
         nvCompBatchAlgorithmSnappy,
+        nvCompBatchAlgorithmDeflate,
     ]
 }
