@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 #
 # Configuration file for the Sphinx documentation builder.
@@ -17,16 +17,21 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from packaging.version import Version
+
+import kvikio
+
 # -- Project information -----------------------------------------------------
 
 project = "kvikio"
 copyright = "2023, NVIDIA"
 author = "NVIDIA"
 
+KVIKIO_VERSION = Version(kvikio.__version__)
 # The short X.Y version.
-version = '24.02'
+version = f"{KVIKIO_VERSION.major:02}.{KVIKIO_VERSION.minor:02}"
 # The full version, including alpha/beta/rc tags
-release = '24.02.01'
+release = f"{KVIKIO_VERSION.major:02}.{KVIKIO_VERSION.minor:02}.{KVIKIO_VERSION.micro:02}"
 
 
 # -- General configuration ---------------------------------------------------

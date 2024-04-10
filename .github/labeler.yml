@@ -7,9 +7,6 @@ KvikIO (Python):
 libkvikio:
   - 'cpp/**'
 
-legate:
-  - 'legate/**'
-
 CMake:
   - '**/CMakeLists.txt'
   - '**/cmake/**'

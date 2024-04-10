@@ -3,19 +3,18 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.0"]
+      cuda: ["11.8", "12.2"]
       arch: [x86_64]
     includes:
       - build
-      - build_legate_wheel
       - checks
       - cuda
       - cuda_version
+      - depends_on_cupy
       - docs
       - py_version
       - run
       - test_python
-      - test_python_legate
   test_cpp:
     output: none
     includes:
@@ -50,6 +49,7 @@ files:
     extras:
       table: project
     includes:
+      - depends_on_cupy
       - run
   py_optional_test:
     output: pyproject
@@ -59,30 +59,6 @@ files:
       key: test
     includes:
       - test_python
-  legate_py_build:
-    output: pyproject
-    pyproject_dir: legate
-    extras:
-      table: build-system
-    includes:
-      - build
-      - build_legate_wheel
-  legate_py_run:
-    output: pyproject
-    pyproject_dir: legate
-    extras:
-      table: project
-    includes:
-      - run
-  legate_py_optional_test:
-    output: pyproject
-    pyproject_dir: legate
-    extras:
-      table: project.optional-dependencies
-      key: test
-    includes:
-      - test_python
-      - test_python_legate
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -133,12 +109,6 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
-  build_legate_wheel:
-    common:
-      - output_types: [requirements, pyproject]
-        packages:
-          - setuptools
-          - wheel
   checks:
     common:
       - output_types: [conda, requirements]
@@ -168,6 +138,10 @@ dependencies:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+          - matrix:
+              cuda: "12.2"
+            packages:
+              - cuda-version=12.2
   cuda:
     common:
       - output_types: conda
@@ -186,16 +160,17 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
+              arch: aarch64
+            packages:
+          - matrix:
               cuda: "12.*"
               arch: x86_64
             packages:
-              - libcufile
               - libcufile-dev
           - matrix:
               cuda: "11.8"
               arch: x86_64
             packages:
-              # libcufile package version reference: https://anaconda.org/nvidia/libcufile/files
               - libcufile=1.4.0.31
               - libcufile-dev=1.4.0.31
           - matrix:
@@ -218,6 +193,21 @@ dependencies:
               # so 11.2 uses 11.4 packages (the oldest available).
               - *libcufile_114
               - *libcufile_dev114
+  depends_on_cupy:
+    common:
+      - output_types: conda
+        packages:
+          - cupy>=12.0.0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - cupy-cuda12x>=12.0.0
+          - matrix: {cuda: "11.*"}
+            packages: &cupy_packages_cu11
+              - cupy-cuda11x>=12.0.0
+          - {matrix: null, packages: *cupy_packages_cu11}
   docs:
     common:
       - output_types: [conda, requirements]
@@ -242,23 +232,21 @@ dependencies:
             packages:
               - python=3.10
           - matrix:
+              py: "3.11"
             packages:
-              - python>=3.9,<3.11
+              - python=3.11
+          - matrix:
+            packages:
+              - python>=3.9,<3.12
   run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.21
+          - numpy>=1.23,<2.0a0
           - zarr
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs <0.12.0
           - packaging
-      - output_types: conda
-        packages:
-          - cupy>=12.0.0
-      - output_types: [requirements, pyproject]
-        packages:
-          - cupy-cuda11x>=12.0.0
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -270,7 +258,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
-              cuda: "12.0"
+              cuda: "12.*"
             packages:
               - cuda-python>=12.0,<13.0a0
           - matrix: # All CUDA 11 versions

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
 {% set py_version = environ['CONDA_PY'] %}
@@ -38,6 +38,8 @@ build:
   ignore_run_exports_from:
     {% if cuda_major == "11" %}
     - {{ compiler('cuda11') }}
+    {% else %}
+    - {{ compiler('cuda') }}
     {% endif %}
 
 requirements:
@@ -67,7 +69,7 @@ requirements:
     - libkvikio ={{ version }}
   run:
     - python
-    - numpy >=1.20
+    - numpy >=1.23,<2.0a0
     - cupy >=12.0.0
     - zarr
     # See https://github.com/zarr-developers/numcodecs/pull/475

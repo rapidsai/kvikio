@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -14,9 +14,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-set(kvikio_version 24.02.01)
-
-include(../cpp/cmake/fetch_rapids.cmake)
+include(../cpp/cmake/rapids_config.cmake)
 include(rapids-cpm)
 rapids_cpm_init()
 include(rapids-cuda)
@@ -24,7 +22,7 @@ rapids_cuda_init_architectures(kvikio-python)
 
 project(
   kvikio-python
-  VERSION ${kvikio_version}
+  VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX CUDA
 )
 
@@ -36,7 +34,7 @@ option(FIND_KVIKIO_CPP
 include(../cpp/cmake/Modules/FindcuFile.cmake)
 
 if(FIND_KVIKIO_CPP)
-  find_package(KvikIO ${kvikio_version})
+  find_package(KvikIO "${RAPIDS_VERSION}")
 else()
   set(KvikIO_FOUND OFF)
 endif()
