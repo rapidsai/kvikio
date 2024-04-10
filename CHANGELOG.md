@@ -1,3 +1,34 @@
+# kvikio 24.04.00 (10 Apr 2024)
+
+## 🚨 Breaking Changes
+
+- remove legate ([#345](https://github.com/rapidsai/kvikio/pull/345)) [@madsbk](https://github.com/madsbk)
+
+## 🐛 Bug Fixes
+
+- Update pre-commit-hooks to v0.0.3 ([#354](https://github.com/rapidsai/kvikio/pull/354)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Defer cuFile feature checks until finding kvikio package ([#342](https://github.com/rapidsai/kvikio/pull/342)) [@bdice](https://github.com/bdice)
+- handle more RAPIDS version formats in update-version.sh ([#331](https://github.com/rapidsai/kvikio/pull/331)) [@jameslamb](https://github.com/jameslamb)
+
+## 🚀 New Features
+
+- Support CUDA 12.2 ([#328](https://github.com/rapidsai/kvikio/pull/328)) [@jameslamb](https://github.com/jameslamb)
+
+## 🛠️ Improvements
+
+- doc: cuda toolkit 12.0 =&gt; 12.2 ([#360](https://github.com/rapidsai/kvikio/pull/360)) [@madsbk](https://github.com/madsbk)
+- Use `conda env create --yes` instead of `--force` ([#357](https://github.com/rapidsai/kvikio/pull/357)) [@bdice](https://github.com/bdice)
+- Prevent path conflict in builds ([#356](https://github.com/rapidsai/kvikio/pull/356)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Add upper bound to prevent usage of NumPy 2 ([#353](https://github.com/rapidsai/kvikio/pull/353)) [@bdice](https://github.com/bdice)
+- Replace local copyright check with pre-commit-hooks verify-copyright ([#352](https://github.com/rapidsai/kvikio/pull/352)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Remove hard-coding of RAPIDS version where possible ([#351](https://github.com/rapidsai/kvikio/pull/351)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Add support for Python 3.11, require NumPy 1.23+ ([#350](https://github.com/rapidsai/kvikio/pull/350)) [@jameslamb](https://github.com/jameslamb)
+- remove legate ([#345](https://github.com/rapidsai/kvikio/pull/345)) [@madsbk](https://github.com/madsbk)
+- Update devcontainers to CUDA Toolkit 12.2 ([#344](https://github.com/rapidsai/kvikio/pull/344)) [@trxcllnt](https://github.com/trxcllnt)
+- target branch-24.04 for GitHub Actions workflows ([#343](https://github.com/rapidsai/kvikio/pull/343)) [@jameslamb](https://github.com/jameslamb)
+- Add environment-agnostic scripts for running ctests and pytests ([#338](https://github.com/rapidsai/kvikio/pull/338)) [@trxcllnt](https://github.com/trxcllnt)
+- Update ops-bot.yaml ([#335](https://github.com/rapidsai/kvikio/pull/335)) [@AyodeAwe](https://github.com/AyodeAwe)
+
 # kvikio 24.02.00 (12 Feb 2024)
 
 ## 🚨 Breaking Changes
