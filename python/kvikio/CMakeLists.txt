@@ -26,18 +26,11 @@ project(
   LANGUAGES CXX CUDA
 )
 
-option(FIND_KVIKIO_CPP
-       "Search for existing KVIKIO C++ installations before defaulting to local files" OFF
-)
 
 # TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
 include(../cpp/cmake/Modules/FindcuFile.cmake)
 
-if(FIND_KVIKIO_CPP)
-  find_package(KvikIO "${RAPIDS_VERSION}")
-else()
-  set(KvikIO_FOUND OFF)
-endif()
+find_package(KvikIO "${RAPIDS_VERSION}")
 
 find_package(CUDAToolkit REQUIRED)
 

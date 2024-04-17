@@ -38,19 +38,31 @@ files:
       - py_version
   py_build:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: build-system
     includes:
       - build
   py_run:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: project
     includes:
       - depends_on_cupy
       - run
+  py_wheel_cpp:
+    output: pyproject/libkvikio
+    extras:
+      table: project
+    includes:
+      - build
+  py_wheel_python:
+    output: pyproject/kvikio
+    extras:
+      table: project
+    includes:
+      - build
   py_optional_test:
     output: pyproject
     pyproject_dir: python
@@ -208,6 +220,11 @@ dependencies:
             packages: &cupy_packages_cu11
               - cupy-cuda11x>=12.0.0
           - {matrix: null, packages: *cupy_packages_cu11}
+  wheel_lib_dep:
+    common:
+      - output_types: pyproject
+        packages:
+          - libkvikio==24.6.*
   docs:
     common:
       - output_types: [conda, requirements]
