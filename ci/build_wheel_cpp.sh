@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-package_name="kvikio"
+package_name="libkvikio"
 package_dir="python/libkvikio"
 
 source rapids-configure-sccache
