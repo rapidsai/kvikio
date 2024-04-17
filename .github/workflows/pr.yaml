@@ -19,6 +19,7 @@ jobs:
       - conda-python-tests
       - docs-build
       - devcontainer
+      - wheel-build-python
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.06
   checks:
@@ -68,3 +69,9 @@ jobs:
         sccache -z;
         build-all --verbose;
         sccache -s;
+  wheel-build-python:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.06
+    with:
+      build_type: pull-request
+      script: ci/build_wheel_python.sh
