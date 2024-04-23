@@ -14,4 +14,3 @@
 # limitations under the License.
 
 from libkvikio._version import __git_commit__, __version__
-from libkvikio.load import load_library
