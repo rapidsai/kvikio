@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -158,6 +158,7 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
  * @param devPtr_offset Byte offset to the start of the device pointer.
+ * @param stream CUDA stream in which to enqueue the operation.
  * @return Number of bytes read or written.
  */
 template <bool IsReadOperation>
@@ -165,7 +166,8 @@ std::size_t posix_device_io(int fd,
                             const void* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
-                            std::size_t devPtr_offset)
+                            std::size_t devPtr_offset,
+                            CUstream stream)
 {
   auto alloc              = manager.get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
@@ -178,9 +180,12 @@ std::size_t posix_device_io(int fd,
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (IsReadOperation) {
       nbytes_got = posix_host_io<true>(fd, alloc.get(), nbytes_requested, cur_file_offset, true);
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoD(devPtr, alloc.get(), nbytes_got));
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
+      CUDA_DRIVER_TRY(
+        cudaAPI::instance().MemcpyDtoHAsync(alloc.get(), devPtr, nbytes_requested, stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       posix_host_io<false>(fd, alloc.get(), nbytes_requested, cur_file_offset, false);
     }
     cur_file_offset += nbytes_got;
@@ -241,15 +246,17 @@ inline std::size_t posix_host_write(
  * @param size Size in bytes to read.
  * @param file_offset Offset in the file to read from.
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
+ * @param stream CUDA stream in which to enqueue the operation.
  * @return Size of bytes that were successfully read.
  */
 inline std::size_t posix_device_read(int fd,
                                      const void* devPtr_base,
                                      std::size_t size,
                                      std::size_t file_offset,
-                                     std::size_t devPtr_offset)
+                                     std::size_t devPtr_offset,
+                                     CUstream stream)
 {
-  return detail::posix_device_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
+  return detail::posix_device_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset, stream);
 }
 
 /**
@@ -263,15 +270,17 @@ inline std::size_t posix_device_read(int fd,
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
+ * @param stream CUDA stream in which to enqueue the operation.
  * @return Size of bytes that were successfully written.
  */
 inline std::size_t posix_device_write(int fd,
                                       const void* devPtr_base,
                                       std::size_t size,
                                       std::size_t file_offset,
-                                      std::size_t devPtr_offset)
+                                      std::size_t devPtr_offset,
+                                      CUstream stream)
 {
-  return detail::posix_device_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
+  return detail::posix_device_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset, stream);
 }
 
 }  // namespace kvikio

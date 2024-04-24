@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,8 +33,8 @@ class cudaAPI {
   decltype(cuInit)* Init{nullptr};
   decltype(cuMemHostAlloc)* MemHostAlloc{nullptr};
   decltype(cuMemFreeHost)* MemFreeHost{nullptr};
-  decltype(cuMemcpyHtoD)* MemcpyHtoD{nullptr};
-  decltype(cuMemcpyDtoH)* MemcpyDtoH{nullptr};
+  decltype(cuMemcpyHtoDAsync)* MemcpyHtoDAsync{nullptr};
+  decltype(cuMemcpyDtoHAsync)* MemcpyDtoHAsync{nullptr};
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};
   decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};
   decltype(cuCtxPushCurrent)* CtxPushCurrent{nullptr};
@@ -58,8 +58,8 @@ class cudaAPI {
     // the name of the symbol through cude.h.
     get_symbol(MemHostAlloc, lib, KVIKIO_STRINGIFY(cuMemHostAlloc));
     get_symbol(MemFreeHost, lib, KVIKIO_STRINGIFY(cuMemFreeHost));
-    get_symbol(MemcpyHtoD, lib, KVIKIO_STRINGIFY(cuMemcpyHtoD));
-    get_symbol(MemcpyDtoH, lib, KVIKIO_STRINGIFY(cuMemcpyDtoH));
+    get_symbol(MemcpyHtoDAsync, lib, KVIKIO_STRINGIFY(cuMemcpyHtoDAsync));
+    get_symbol(MemcpyDtoHAsync, lib, KVIKIO_STRINGIFY(cuMemcpyDtoHAsync));
     get_symbol(PointerGetAttribute, lib, KVIKIO_STRINGIFY(cuPointerGetAttribute));
     get_symbol(PointerGetAttributes, lib, KVIKIO_STRINGIFY(cuPointerGetAttributes));
     get_symbol(CtxPushCurrent, lib, KVIKIO_STRINGIFY(cuCtxPushCurrent));
