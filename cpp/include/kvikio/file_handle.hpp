@@ -548,10 +548,14 @@ class FileHandle {
       return;
     }
 #endif
-
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    *bytes_read_p =
-      static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    if (_compat_mode) {
+      *bytes_read_p = static_cast<ssize_t>(posix_device_read(
+        _fd_direct_off, devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p, stream));
+    } else {
+      *bytes_read_p =
+        static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    }
   }
 
   /**
@@ -641,10 +645,14 @@ class FileHandle {
       return;
     }
 #endif
-
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    *bytes_written_p =
-      static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    if (_compat_mode) {
+      *bytes_written_p = static_cast<ssize_t>(posix_device_write(
+        _fd_direct_off, devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p, stream));
+    } else {
+      *bytes_written_p =
+        static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    }
   }
 
   /**
