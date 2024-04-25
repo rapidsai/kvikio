@@ -44,21 +44,16 @@ class cuFileAPI {
   decltype(cuFileDriverSetPollMode)* DriverSetPollMode{nullptr};
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
-
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
   decltype(cuFileBatchIOSetUp)* BatchIOSetUp{nullptr};
   decltype(cuFileBatchIOSubmit)* BatchIOSubmit{nullptr};
   decltype(cuFileBatchIOGetStatus)* BatchIOGetStatus{nullptr};
   decltype(cuFileBatchIOCancel)* BatchIOCancel{nullptr};
   decltype(cuFileBatchIODestroy)* BatchIODestroy{nullptr};
-#endif
-
-#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
   decltype(cuFileReadAsync)* ReadAsync{nullptr};
   decltype(cuFileWriteAsync)* WriteAsync{nullptr};
   decltype(cuFileStreamRegister)* StreamRegister{nullptr};
   decltype(cuFileStreamDeregister)* StreamDeregister{nullptr};
-#endif
+
   bool stream_available = false;
 
  private:

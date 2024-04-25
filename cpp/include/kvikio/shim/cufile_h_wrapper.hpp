@@ -66,6 +66,15 @@ CUfileError_t cuFileDriverGetProperties(...);
 CUfileError_t cuFileDriverSetPollMode(...);
 CUfileError_t cuFileDriverSetMaxCacheSize(...);
 CUfileError_t cuFileDriverSetMaxPinnedMemSize(...);
+CUfileError_t cuFileBatchIOSetUp(...);
+CUfileError_t cuFileBatchIOSubmit(...);
+CUfileError_t cuFileBatchIOGetStatus(...);
+CUfileError_t cuFileBatchIOCancel(...);
+CUfileError_t cuFileBatchIODestroy(...);
+CUfileError_t cuFileReadAsync(...);
+CUfileError_t cuFileWriteAsync(...);
+CUfileError_t cuFileStreamRegister(...);
+CUfileError_t cuFileStreamDeregister(...);
 
 #endif
 

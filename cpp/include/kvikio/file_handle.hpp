@@ -526,14 +526,11 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
     if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
       CUFILE_TRY(cuFileAPI::instance().ReadAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
       return;
     }
-#endif
-
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     *bytes_read_p =
       static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
@@ -619,14 +616,11 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
     if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
       CUFILE_TRY(cuFileAPI::instance().WriteAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
       return;
     }
-#endif
-
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     *bytes_written_p =
       static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
