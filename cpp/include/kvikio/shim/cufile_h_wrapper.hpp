@@ -28,6 +28,10 @@
 #ifdef KVIKIO_CUFILE_FOUND
 #include <cufile.h>
 #else
+
+// If cuFile isn't defined, we define some of the data types here.
+// Notice, this doesn't need to be ABI compatible with the cufile definitions.
+
 using CUfileHandle_t = void*;
 using CUfileOpError  = int;
 #define CUFILE_ERRSTR(x)          ("KvikIO not compiled with cuFile.h")
@@ -66,15 +70,6 @@ CUfileError_t cuFileDriverGetProperties(...);
 CUfileError_t cuFileDriverSetPollMode(...);
 CUfileError_t cuFileDriverSetMaxCacheSize(...);
 CUfileError_t cuFileDriverSetMaxPinnedMemSize(...);
-CUfileError_t cuFileBatchIOSetUp(...);
-CUfileError_t cuFileBatchIOSubmit(...);
-CUfileError_t cuFileBatchIOGetStatus(...);
-CUfileError_t cuFileBatchIOCancel(...);
-CUfileError_t cuFileBatchIODestroy(...);
-CUfileError_t cuFileReadAsync(...);
-CUfileError_t cuFileWriteAsync(...);
-CUfileError_t cuFileStreamRegister(...);
-CUfileError_t cuFileStreamDeregister(...);
 
 #endif
 
@@ -99,4 +94,18 @@ typedef struct CUfileIOEvents {
   size_t ret;            /* -ve error or amount of I/O done. */
 } CUfileIOEvents_t;
 
+CUfileError_t cuFileBatchIOSetUp(...);
+CUfileError_t cuFileBatchIOSubmit(...);
+CUfileError_t cuFileBatchIOGetStatus(...);
+CUfileError_t cuFileBatchIOCancel(...);
+CUfileError_t cuFileBatchIODestroy(...);
+#endif
+
+// If the Stream API isn't defined, we define some of the data types here.
+// Notice, this doesn't need to be ABI compatible with the cufile definitions.
+#ifndef KVIKIO_CUFILE_STREAM_API_FOUND
+CUfileError_t cuFileReadAsync(...);
+CUfileError_t cuFileWriteAsync(...);
+CUfileError_t cuFileStreamRegister(...);
+CUfileError_t cuFileStreamDeregister(...);
 #endif
