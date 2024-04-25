@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,14 +169,13 @@ class FileHandle {
       _compat_mode = true;  // Fall back to compat mode if we cannot open the file with O_DIRECT
     }
 
-    if (_compat_mode) { return; }
-#ifdef KVIKIO_CUFILE_FOUND
-    CUfileDescr_t desc{};  // It is important to set to zero!
-    desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-    desc.handle.fd = _fd_direct_on;
-    CUFILE_TRY(cuFileAPI::instance().HandleRegister(&_handle, &desc));
-#endif
+    if (!_compat_mode) {
+      CUfileDescr_t desc{};  // It is important to set to zero!
+      desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+      desc.handle.fd = _fd_direct_on;
+      CUFILE_TRY(cuFileAPI::instance().HandleRegister(&_handle, &desc));
+    }
   }
 
   /**
@@ -214,11 +213,7 @@ class FileHandle {
   {
     if (closed()) { return; }
 
-    if (!_compat_mode) {
-#ifdef KVIKIO_CUFILE_FOUND
-      cuFileAPI::instance().HandleDeregister(_handle);
-#endif
-    }
+    if (!_compat_mode) { cuFileAPI::instance().HandleDeregister(_handle); }
     ::close(_fd_direct_off);
     if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
     _fd_direct_on  = -1;
@@ -310,7 +305,6 @@ class FileHandle {
     if (_compat_mode) {
       return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
-#ifdef KVIKIO_CUFILE_FOUND
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -321,9 +315,6 @@ class FileHandle {
                             KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
     }
     return ret;
-#else
-    throw CUfileException("KvikIO not compiled with cuFile.h");
-#endif
   }
 
   /**
@@ -360,7 +351,6 @@ class FileHandle {
     if (_compat_mode) {
       return posix_device_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
-#ifdef KVIKIO_CUFILE_FOUND
     ssize_t ret = cuFileAPI::instance().Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -371,9 +361,6 @@ class FileHandle {
                             KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
     }
     return ret;
-#else
-    throw CUfileException("KvikIO not compiled with cuFile.h");
-#endif
   }
 
   /**

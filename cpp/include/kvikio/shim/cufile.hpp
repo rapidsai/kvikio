@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@
 #include <kvikio/shim/utils.hpp>
 
 namespace kvikio {
-
-#ifdef KVIKIO_CUFILE_FOUND
 
 /**
  * @brief Shim layer of the cuFile C-API
@@ -64,6 +62,7 @@ class cuFileAPI {
   bool stream_available = false;
 
  private:
+#ifdef KVIKIO_CUFILE_FOUND
   cuFileAPI()
   {
     // CUDA versions before CUDA 11.7.1 did not ship libcufile.so.0, so this is
@@ -128,10 +127,16 @@ class cuFileAPI {
                 << std::endl;
     }
   }
+#else
+  cuFileAPI() { throw std::runtime_error("KvikIO not compiled with cuFile.h"); }
+  ~cuFileAPI() = default;
+#endif
 
  public:
-  cuFileAPI(cuFileAPI const&)      = delete;
-  void operator=(cuFileAPI const&) = delete;
+  cuFileAPI(cuFileAPI const&)       = delete;
+  void operator=(cuFileAPI const&)  = delete;
+  cuFileAPI(cuFileAPI const&&)      = delete;
+  void operator=(cuFileAPI const&&) = delete;
 
   static cuFileAPI& instance()
   {
@@ -139,8 +144,6 @@ class cuFileAPI {
     return _instance;
   }
 };
-
-#endif
 
 /**
  * @brief Check if the cuFile library is available
