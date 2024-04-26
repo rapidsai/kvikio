@@ -44,13 +44,13 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 rapids_cpm_init()
 
 rapids_find_package(
-  CUDAToolkit REQUIRED
+  Threads REQUIRED
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
 
 rapids_find_package(
-  Threads REQUIRED
+  CUDAToolkit
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
@@ -84,13 +84,20 @@ endif()
 add_library(kvikio INTERFACE)
 add_library(kvikio::kvikio ALIAS kvikio)
 
+# Enable CUDA in KvikIO
+if(CUDAToolkit_FOUND)
+  target_link_libraries(kvikio INTERFACE CUDA::toolkit)
+  target_compile_definitions(kvikio INTERFACE KVIKIO_CUDA_FOUND)
+else()
+  message(WARNING "Building KvikIO without CUDA")
+endif()
+
 target_include_directories(
   kvikio INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                    "$<INSTALL_INTERFACE:include>"
 )
 
 target_link_libraries(kvikio INTERFACE Threads::Threads)
-target_link_libraries(kvikio INTERFACE CUDA::toolkit)
 target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
 target_compile_features(kvikio INTERFACE cxx_std_17)
 

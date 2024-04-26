@@ -15,8 +15,9 @@
  */
 #pragma once
 
-#include <cuda.h>
 #include <sys/types.h>
+
+#include <kvikio/shim/cuda_h_wrapper.hpp>
 
 /**
  * In order to support compilation when `cufile.h` isn't available, we
