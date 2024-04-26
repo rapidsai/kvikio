@@ -93,14 +93,18 @@ class AllocRetain {
     }
   }
 
+  static AllocRetain& instance()
+  {
+    static AllocRetain _instance;
+    return _instance;
+  }
+
   AllocRetain(const AllocRetain&)            = delete;
   AllocRetain& operator=(AllocRetain const&) = delete;
   AllocRetain(AllocRetain&& o)               = delete;
   AllocRetain& operator=(AllocRetain&& o)    = delete;
   ~AllocRetain() noexcept                    = default;
 };
-
-inline AllocRetain manager;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 /**
  * @brief Read or write host memory to or from disk using POSIX
@@ -169,7 +173,7 @@ std::size_t posix_device_io(int fd,
                             std::size_t devPtr_offset,
                             CUstream stream)
 {
-  auto alloc              = manager.get();
+  auto alloc              = AllocRetain::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t byte_remaining    = convert_size2off(size);
