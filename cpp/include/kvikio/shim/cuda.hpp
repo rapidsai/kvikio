@@ -47,6 +47,8 @@ class cudaAPI {
   decltype(cuDevicePrimaryCtxRetain)* DevicePrimaryCtxRetain{nullptr};
   decltype(cuDevicePrimaryCtxRelease)* DevicePrimaryCtxRelease{nullptr};
   decltype(cuStreamSynchronize)* StreamSynchronize{nullptr};
+  decltype(cuStreamCreate)* StreamCreate{nullptr};
+  decltype(cuStreamDestroy)* StreamDestroy{nullptr};
 
  private:
   cudaAPI()
@@ -72,6 +74,8 @@ class cudaAPI {
     get_symbol(DevicePrimaryCtxRetain, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRetain));
     get_symbol(DevicePrimaryCtxRelease, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRelease));
     get_symbol(StreamSynchronize, lib, KVIKIO_STRINGIFY(cuStreamSynchronize));
+    get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
+    get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
   }
 
  public:

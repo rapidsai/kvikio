@@ -18,8 +18,10 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>
+#include <map>
 #include <mutex>
 #include <stack>
+#include <thread>
 
 #include <cstring>
 #include <kvikio/error.hpp>
@@ -33,7 +35,60 @@ inline constexpr std::size_t posix_bounce_buffer_size = 2 << 23;  // 16 MiB
 namespace detail {
 
 /**
- * @brief Class to retain host memory allocations
+ * @brief Singleton class to retrieve a CUDA stream for device-host copying
+ *
+ * Call `AllocRetain::get` to get the CUDA stream assigned to the current
+ * CUDA context and thread.
+ */
+class StreamsByThread {
+ private:
+  std::map<std::pair<CUcontext, std::thread::id>, CUstream> _streams;
+
+ public:
+  StreamsByThread() = default;
+  ~StreamsByThread() noexcept
+  {
+    for (auto& [_, stream] : _streams) {
+      try {
+        CUDA_DRIVER_TRY(cudaAPI::instance().StreamDestroy(stream));
+      } catch (const CUfileException& e) {
+        std::cerr << e.what() << std::endl;
+      }
+    }
+  }
+
+  static CUstream get(CUcontext ctx, std::thread::id thd_id)
+  {
+    static StreamsByThread _instance;
+
+    // It no current context, we return the null/default stream
+    if (ctx == nullptr) { return nullptr; }
+    auto key = std::make_pair(ctx, thd_id);
+
+    // Create new stream if `ctx` doesn't have one.
+    if (_instance._streams.find(key) == _instance._streams.end()) {
+      CUstream stream{};
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
+      _instance._streams[key] = stream;
+    }
+    return _instance._streams.at(key);
+  }
+
+  static CUstream get()
+  {
+    CUcontext ctx{nullptr};
+    CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
+    return get(ctx, std::this_thread::get_id());
+  }
+
+  StreamsByThread(const StreamsByThread&)            = delete;
+  StreamsByThread& operator=(StreamsByThread const&) = delete;
+  StreamsByThread(StreamsByThread&& o)               = delete;
+  StreamsByThread& operator=(StreamsByThread&& o)    = delete;
+};
+
+/**
+ * @brief Singleton class to retain host memory allocations
  *
  * Call `AllocRetain::get` to get an allocation that will be retained when it
  * goes out of scope (RAII). The size of all allocations are `posix_bounce_buffer_size`.
@@ -178,6 +233,9 @@ std::size_t posix_device_io(int fd,
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t byte_remaining    = convert_size2off(size);
   const off_t chunk_size2 = convert_size2off(posix_bounce_buffer_size);
+
+  // Get a stream if none were given by the caller
+  if (stream == nullptr) { stream = StreamsByThread::get(); }
 
   while (byte_remaining > 0) {
     const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
