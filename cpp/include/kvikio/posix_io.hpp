@@ -37,7 +37,7 @@ namespace detail {
 /**
  * @brief Singleton class to retrieve a CUDA stream for device-host copying
  *
- * Call `AllocRetain::get` to get the CUDA stream assigned to the current
+ * Call `StreamsByThread::get` to get the CUDA stream assigned to the current
  * CUDA context and thread.
  */
 class StreamsByThread {
@@ -217,7 +217,6 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
  * @param devPtr_offset Byte offset to the start of the device pointer.
- * @param stream CUDA stream in which to enqueue the operation.
  * @return Number of bytes read or written.
  */
 template <bool IsReadOperation>
@@ -225,8 +224,7 @@ std::size_t posix_device_io(int fd,
                             const void* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
-                            std::size_t devPtr_offset,
-                            CUstream stream)
+                            std::size_t devPtr_offset)
 {
   auto alloc              = AllocRetain::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
@@ -234,8 +232,8 @@ std::size_t posix_device_io(int fd,
   off_t byte_remaining    = convert_size2off(size);
   const off_t chunk_size2 = convert_size2off(posix_bounce_buffer_size);
 
-  // Get a stream if none were given by the caller
-  if (stream == nullptr) { stream = StreamsByThread::get(); }
+  // Get a stream for the current CUDA context and thread
+  CUstream stream = StreamsByThread::get();
 
   while (byte_remaining > 0) {
     const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
@@ -308,17 +306,15 @@ inline std::size_t posix_host_write(
  * @param size Size in bytes to read.
  * @param file_offset Offset in the file to read from.
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
- * @param stream CUDA stream in which to enqueue the operation.
  * @return Size of bytes that were successfully read.
  */
 inline std::size_t posix_device_read(int fd,
                                      const void* devPtr_base,
                                      std::size_t size,
                                      std::size_t file_offset,
-                                     std::size_t devPtr_offset,
-                                     CUstream stream)
+                                     std::size_t devPtr_offset)
 {
-  return detail::posix_device_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset, stream);
+  return detail::posix_device_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
 /**
@@ -332,17 +328,15 @@ inline std::size_t posix_device_read(int fd,
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
- * @param stream CUDA stream in which to enqueue the operation.
  * @return Size of bytes that were successfully written.
  */
 inline std::size_t posix_device_write(int fd,
                                       const void* devPtr_base,
                                       std::size_t size,
                                       std::size_t file_offset,
-                                      std::size_t devPtr_offset,
-                                      CUstream stream)
+                                      std::size_t devPtr_offset)
 {
-  return detail::posix_device_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset, stream);
+  return detail::posix_device_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
 }  // namespace kvikio

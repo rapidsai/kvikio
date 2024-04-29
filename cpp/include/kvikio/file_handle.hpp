@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -308,8 +308,7 @@ class FileHandle {
                    std::size_t devPtr_offset)
   {
     if (_compat_mode) {
-      return posix_device_read(
-        _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, nullptr);
+      return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_FOUND
     ssize_t ret = cuFileAPI::instance().Read(
@@ -359,8 +358,7 @@ class FileHandle {
     _nbytes = 0;  // Invalidate the computed file size
 
     if (_compat_mode) {
-      return posix_device_write(
-        _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, nullptr);
+      return posix_device_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
 #ifdef KVIKIO_CUFILE_FOUND
     ssize_t ret = cuFileAPI::instance().Write(
@@ -422,7 +420,7 @@ class FileHandle {
     if (size < gds_threshold) {
       auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
         PushAndPopContext c(ctx);
-        return posix_device_read(_fd_direct_off, buf, size, file_offset, 0, nullptr);
+        return posix_device_read(_fd_direct_off, buf, size, file_offset, 0);
       };
       return std::async(std::launch::deferred, task);
     }
@@ -483,7 +481,7 @@ class FileHandle {
     if (size < gds_threshold) {
       auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
         PushAndPopContext c(ctx);
-        return posix_device_write(_fd_direct_off, buf, size, file_offset, 0, nullptr);
+        return posix_device_write(_fd_direct_off, buf, size, file_offset, 0);
       };
       return std::async(std::launch::deferred, task);
     }
@@ -548,14 +546,10 @@ class FileHandle {
       return;
     }
 #endif
+
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    if (_compat_mode) {
-      *bytes_read_p = static_cast<ssize_t>(posix_device_read(
-        _fd_direct_off, devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p, stream));
-    } else {
-      *bytes_read_p =
-        static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-    }
+    *bytes_read_p =
+      static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   }
 
   /**
@@ -645,14 +639,10 @@ class FileHandle {
       return;
     }
 #endif
+
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    if (_compat_mode) {
-      *bytes_written_p = static_cast<ssize_t>(posix_device_write(
-        _fd_direct_off, devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p, stream));
-    } else {
-      *bytes_written_p =
-        static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-    }
+    *bytes_written_p =
+      static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   }
 
   /**
