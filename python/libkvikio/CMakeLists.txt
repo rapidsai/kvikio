@@ -19,7 +19,8 @@ include(../../rapids_config.cmake)
 project(
   libkvikio-python
   VERSION "${RAPIDS_VERSION}"
-  LANGUAGES CXX)
+  LANGUAGES CXX
+)
 
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)

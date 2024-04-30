@@ -26,7 +26,6 @@ project(
   LANGUAGES CXX CUDA
 )
 
-
 # TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
 include(../cpp/cmake/Modules/FindcuFile.cmake)
 
