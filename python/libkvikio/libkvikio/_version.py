@@ -18,4 +18,3 @@ __version__ = (
     importlib.resources.files("libkvikio").joinpath("VERSION").read_text().strip()
 )
 __git_commit__ = ""
-

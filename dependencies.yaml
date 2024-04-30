@@ -52,20 +52,22 @@ files:
       - depends_on_cupy
       - run
   py_wheel_cpp:
-    output: pyproject/libkvikio
+    output: pyproject
+    pyproject_dir: python/kvikio
     extras:
       table: project
     includes:
       - build
   py_wheel_python:
-    output: pyproject/kvikio
+    output: pyproject
+    pyproject_dir: python/kvikio
     extras:
       table: project
     includes:
       - build
   py_optional_test:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: project.optional-dependencies
       key: test
