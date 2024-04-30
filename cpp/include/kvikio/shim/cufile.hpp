@@ -123,8 +123,7 @@ class cuFileAPI {
     }
   }
 #else
-  cuFileAPI() { throw std::runtime_error("KvikIO not compiled with cuFile.h"); }
-  ~cuFileAPI() = default;
+  cuFileAPI() { throw std::runtime_error(CUFILE_ERRSTR(0)); }
 #endif
 
  public:

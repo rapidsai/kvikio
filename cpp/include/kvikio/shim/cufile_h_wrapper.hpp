@@ -57,7 +57,7 @@ struct CUfileDescr_t {
   } handle;
 };
 
-const char* cufileop_status_error(...) { return "KvikIO not compiled with cuFile.h"; };
+static inline const char* cufileop_status_error(CUfileOpError err) { return CUFILE_ERRSTR(err); };
 CUfileError_t cuFileHandleRegister(...);
 CUfileError_t cuFileHandleDeregister(...);
 ssize_t cuFileRead(...);
