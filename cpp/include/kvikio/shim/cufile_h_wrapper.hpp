@@ -74,7 +74,9 @@ CUfileError_t cuFileDriverSetMaxPinnedMemSize(...);
 #endif
 
 // If the Batch API isn't defined, we define some of the data types here.
-// Notice, this doesn't need to be ABI compatible with the cufile definitions.
+// Notice, this doesn't need to be ABI compatible with the cufile definitions and
+// the lack of definitions is not a problem because the linker will never look for
+// these symbols because the "real" function calls are made through the shim instance.
 #ifndef KVIKIO_CUFILE_BATCH_API_FOUND
 typedef enum CUfileOpcode { CUFILE_READ = 0, CUFILE_WRITE } CUfileOpcode_t;
 
@@ -102,7 +104,6 @@ CUfileError_t cuFileBatchIODestroy(...);
 #endif
 
 // If the Stream API isn't defined, we define some of the data types here.
-// Notice, this doesn't need to be ABI compatible with the cufile definitions.
 #ifndef KVIKIO_CUFILE_STREAM_API_FOUND
 CUfileError_t cuFileReadAsync(...);
 CUfileError_t cuFileWriteAsync(...);
