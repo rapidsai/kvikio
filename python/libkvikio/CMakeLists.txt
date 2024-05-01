@@ -26,6 +26,4 @@ set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 set(CUDA_STATIC_RUNTIME ON)
 
-set(CMAKE_FIND_DEBUG_MODE ON)
-
 add_subdirectory(../../cpp kvikio-cpp)
