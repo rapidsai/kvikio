@@ -18,7 +18,7 @@ include(../../cpp/cmake/rapids_config.cmake)
 include(rapids-cpm)
 rapids_cpm_init()
 include(rapids-cuda)
-rapids_cuda_init_architectures(kvikio-python)
+rapids_cuda_init_architectures(libkvikio-python)
 
 # TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
 include(../../cpp/cmake/Modules/FindcuFile.cmake)
