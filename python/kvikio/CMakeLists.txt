@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(../cpp/cmake/rapids_config.cmake)
+include(../../cpp/cmake/rapids_config.cmake)
 include(rapids-cpm)
 rapids_cpm_init()
 include(rapids-cuda)
@@ -25,9 +25,6 @@ project(
   VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX CUDA
 )
-
-# TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
-include(../cpp/cmake/Modules/FindcuFile.cmake)
 
 find_package(KvikIO "${RAPIDS_VERSION}")
 
