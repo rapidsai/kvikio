@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,6 @@ inline void buffer_register(const void* devPtr_base,
                             const std::vector<int>& errors_to_ignore = std::vector<int>())
 {
   if (defaults::compat_mode()) { return; }
-#ifdef KVIKIO_CUFILE_FOUND
   CUfileError_t status = cuFileAPI::instance().BufRegister(devPtr_base, size, flags);
   if (status.err != CU_FILE_SUCCESS) {
     // Check if `status.err` is in `errors_to_ignore`
@@ -59,7 +58,6 @@ inline void buffer_register(const void* devPtr_base,
       CUFILE_TRY(status);
     }
   }
-#endif
 }
 
 /**
@@ -70,9 +68,7 @@ inline void buffer_register(const void* devPtr_base,
 inline void buffer_deregister(const void* devPtr_base)
 {
   if (defaults::compat_mode()) { return; }
-#ifdef KVIKIO_CUFILE_FOUND
   CUFILE_TRY(cuFileAPI::instance().BufDeregister(devPtr_base));
-#endif
 }
 
 /**
