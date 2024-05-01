@@ -66,7 +66,12 @@ jobs:
     with:
       arch: '["amd64"]'
       cuda: '["12.2"]'
+      # HACK: the yq and rapids-generate-script here is a stopgap until both of these PRs are merged:
+      #    - https://github.com/rapidsai/kvikio/pull/369
+      #    - https://github.com/rapidsai/devcontainers/pull/283
       build_command: |
+        sudo yq -i '.repos[2].python[0].sub_dir = "python/kvikio"' /opt/rapids-build-utils/manifest.yaml;
+        rapids-generate-scripts;
         sccache -z;
         build-all --verbose;
         sccache -s;
