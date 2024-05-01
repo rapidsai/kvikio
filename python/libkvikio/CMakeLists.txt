@@ -21,7 +21,7 @@ include(rapids-cuda)
 rapids_cuda_init_architectures(kvikio-python)
 
 # TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
-include(../cpp/cmake/Modules/FindcuFile.cmake)
+include(../../cpp/cmake/Modules/FindcuFile.cmake)
 
 project(
   libkvikio-python
