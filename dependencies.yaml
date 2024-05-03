@@ -135,9 +135,11 @@ dependencies:
       - output_types: conda
         packages:
           - scikit-build-core>=0.7.0
+          - wheel
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
+          - wheel
   build-py-wrapper:
     common:
       - output_types: [conda, requirements, pyproject]
