@@ -32,6 +32,7 @@ fi
 
 cd "${package_dir}"
 
+python -m pip install -y wheel
 python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check # --find-links "${librmm_wheelhouse}"
 python -m wheel tags --platform any dist/* --remove
 

@@ -135,11 +135,9 @@ dependencies:
       - output_types: conda
         packages:
           - scikit-build-core>=0.7.0
-          - wheel
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
-          - wheel
   build-py-wrapper:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -283,7 +281,7 @@ dependencies:
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs <0.12.0
           - packaging
-      - output_types: [requirements, pyproject]
+      - output_types: [pyproject]
         packages:
           - libkvikio==24.6.*
   test_python:
