@@ -21,6 +21,7 @@ jobs:
       - devcontainer
       - wheel-cpp-build
       - wheel-python-build
+      - wheel-python-tests
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.06
   checks:
