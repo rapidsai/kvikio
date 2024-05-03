@@ -53,7 +53,7 @@ files:
       - run
   py_wheel_cpp:
     output: pyproject
-    pyproject_dir: python/kvikio
+    pyproject_dir: python/libkvikio
     extras:
       table: project
     includes:

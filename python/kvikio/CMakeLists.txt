@@ -26,7 +26,7 @@ project(
   LANGUAGES CXX CUDA
 )
 
-find_package(KvikIO "${RAPIDS_VERSION}")
+find_package(KvikIO "${RAPIDS_VERSION}" REQUIRED)
 
 find_package(CUDAToolkit REQUIRED)
 
