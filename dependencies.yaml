@@ -65,6 +65,7 @@ files:
       table: project
     includes:
       - build
+      - wheel_lib_dep
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
