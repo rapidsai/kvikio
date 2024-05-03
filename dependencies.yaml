@@ -6,7 +6,10 @@ files:
       cuda: ["11.8", "12.2"]
       arch: [x86_64]
     includes:
-      - build
+      - build-universal
+      - build-cpp
+      - build-py
+      - build-py-wrapper
       - checks
       - cuda
       - cuda_version
@@ -42,7 +45,10 @@ files:
     extras:
       table: build-system
     includes:
-      - build
+      - build-universal
+      - build-cpp
+      - build-py
+      - build-py-wrapper
   py_run:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -57,16 +63,18 @@ files:
     extras:
       table: project
     includes:
-      - build
-      - scikit-build
+      - build-universal
+      - build-py
   py_wheel_python:
     output: pyproject
     pyproject_dir: python/kvikio
     extras:
       table: project
     includes:
-      - build
-      - scikit-build
+      - build-universal
+      - build-cpp
+      - build-py
+      - build-py-wrapper
       - wheel_lib_dep
   py_optional_test:
     output: pyproject
@@ -82,13 +90,14 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
-  build:
+  build-universal:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cmake>=3.26.4
-          - cython>=3.0.0
           - ninja
+  build-cpp:
+    common:
       - output_types: conda
         packages:
           - c-compiler
@@ -122,7 +131,7 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
-  scikit-build:
+  build-py:
     common:
       - output_types: conda
         packages:
@@ -130,6 +139,11 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
+  build-py-wrapper:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - cython>=3.0.0
   checks:
     common:
       - output_types: [conda, requirements]
