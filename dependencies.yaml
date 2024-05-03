@@ -58,6 +58,7 @@ files:
       table: project
     includes:
       - build
+      - scikit-build
   py_wheel_python:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -65,6 +66,7 @@ files:
       table: project
     includes:
       - build
+      - scikit-build
       - wheel_lib_dep
   py_optional_test:
     output: pyproject
@@ -91,10 +93,6 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - scikit-build-core>=0.7.0
-      - output_types: [requirements, pyproject]
-        packages:
-          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: conda
         matrices:
@@ -124,6 +122,14 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
+  scikit-build:
+    common:
+      - output_types: conda
+        packages:
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
   checks:
     common:
       - output_types: [conda, requirements]
