@@ -75,6 +75,7 @@ files:
       - build-cpp
       - build-py
       - build-py-wrapper
+      - build-use-libkvikio-wheel
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -138,6 +139,11 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
+  build-use-libkvikio-wheel:
+    common:
+      - output_types: [pyproject]
+        packages:
+          - libkvikio==24.6.*
   build-py-wrapper:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -281,9 +287,6 @@ dependencies:
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs <0.12.0
           - packaging
-      - output_types: [pyproject]
-        packages:
-          - libkvikio==24.6.*
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
