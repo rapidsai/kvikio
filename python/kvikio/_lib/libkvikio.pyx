@@ -12,7 +12,7 @@ from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport FileHandle, future, is_future_done
+from .kvikio_cxx_api cimport FileHandle, future, is_future_done, cudaStream_t
 
 
 cdef class IOFuture:
@@ -164,6 +164,31 @@ cdef class CuFile:
             file_offset,
             dev_offset,
         )
+
+    def read_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int, st: uintptr_t) -> int:
+        stream = <cudaStream_t>st
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
+        # TODO: return StreamFuture
+        return self._handle.read_async(
+            <void*>info.first,
+            info.second,
+            file_offset,
+            dev_offset,
+            stream,
+        ).check_bytes_done()
+    
+    def write_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int, st: uintptr_t) -> int:
+        stream = <cudaStream_t>st
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
+        # TODO: return StreamFuture
+        return self._handle.write_async(
+            <void*>info.first,
+            info.second,
+            file_offset,
+            dev_offset,
+            stream,
+        ).check_bytes_done()
+        
 
 
 cdef class DriverProperties:

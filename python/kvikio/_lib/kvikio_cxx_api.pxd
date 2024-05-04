@@ -4,6 +4,12 @@
 # distutils: language = c++
 # cython: language_level=3
 
+cdef extern from "driver_types.h":
+    # Adapted from https://github.com/andersbll/cudarray/blob/a2cffbb1434db9a7e6ed83211300d23d47630d2e/cudarray/wrap/cudart.pxd#L16
+    ctypedef struct CUstream_st:
+        pass
+    ctypedef CUstream_st *cudaStream_t
+
 from posix cimport fcntl
 
 from libcpp cimport bool
@@ -17,6 +23,10 @@ cdef extern from "<future>" namespace "std" nogil:
         future() except +
         T get() except +
 
+cdef extern from "<kvikio/stream.hpp>" namespace "kvikio" nogil:
+    cdef cppclass StreamFuture:
+        StreamFuture() except +
+        size_t check_bytes_done() except +
 
 cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
     bool is_future_done[T](const T& future) except +
@@ -96,4 +106,18 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t size,
             size_t file_offset,
             size_t devPtr_offset
+        ) except +
+        StreamFuture read_async(
+            void* devPtr_base,
+            size_t size,
+            size_t file_offset,
+            size_t devPtr_offset,
+            cudaStream_t stream
+        ) except +
+        StreamFuture write_async(
+            void* devPtr_base,
+            size_t size,
+            size_t file_offset,
+            size_t devPtr_offset,
+            cudaStream_t stream
         ) except +

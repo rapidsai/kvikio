@@ -260,8 +260,78 @@ class CuFile:
         """
         return self.pwrite(buf, size, file_offset, task_size).get()
 
+    def read_async(
+        self,
+        buf,
+        stream,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        dev_offset: int = 0,
+    ) -> int:
+        """Reads specified bytes from the file into the device memory asynchronously
+
+        This is a low-level version of `.read` that doesn't use threads and
+        does not support host memory.
+
+        Parameters
+        ----------
+        buf: buffer-like or array-like
+            Device buffer to read into.
+        size: int, optional
+            Size in bytes to read.
+        file_offset: int, optional
+            Offset in the file to read from.
+        stream: cuda.Stream, optional
+            CUDA stream to perform the read operation asynchronously.
+
+        Returns
+        -------
+        int
+            The size of bytes that were successfully read.
+        """
+        return self._handle.read_async(
+            buf, size, file_offset, dev_offset, stream
+        )
+
+    def write_async(
+        self,
+        buf,
+        stream,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        dev_offset: int = 0,
+    ) -> int:
+        """Writes specified bytes from the device memory into the file asynchronously
+
+        This is a low-level version of `.write` that doesn't use threads and
+        does not support host memory.
+
+        Parameters
+        ----------
+        buf: buffer-like or array-like
+            Device buffer to write to.
+        size: int, optional
+            Size in bytes to write.
+        file_offset: int, optional
+            Offset in the file to write from.
+        stream: cuda.Stream, optional
+            CUDA stream to perform the write operation asynchronously.
+
+        Returns
+        -------
+        int
+            The size of bytes that were successfully written.
+        """
+        return self._handle.write_async(
+            buf, size, file_offset, dev_offset, stream
+        )
+
     def raw_read(
-        self, buf, size: Optional[int] = None, file_offset: int = 0, dev_offset: int = 0
+        self,
+        buf,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        dev_offset: int = 0,
     ) -> int:
         """Reads specified bytes from the file into the device memory
 
@@ -297,7 +367,11 @@ class CuFile:
         return self._handle.read(buf, size, file_offset, dev_offset)
 
     def raw_write(
-        self, buf, size: Optional[int] = None, file_offset: int = 0, dev_offset: int = 0
+        self,
+        buf,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        dev_offset: int = 0,
     ) -> int:
         """Writes specified bytes from the device memory into the file
 
