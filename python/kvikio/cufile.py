@@ -1,10 +1,27 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import pathlib
 from typing import Optional, Union
 
 from ._lib import libkvikio  # type: ignore
+
+
+class PyStreamFuture:
+    """Future for CuFile async IO
+
+    This class shouldn't be used directly, instead non-blocking async IO operations
+    such as `CuFile.read_async` and `CuFile.write_async` returns an instance of this
+    class. Use `.check_bytes_done()` to check the number of bytes that were read or
+    written successfully."""
+
+    __slots__ = "_handle"
+
+    def __init__(self, handle):
+        self._handle = handle
+
+    def check_bytes_done(self) -> int:
+        return self._handle.check_bytes_done()
 
 
 class IOFuture:
@@ -267,7 +284,7 @@ class CuFile:
         size: Optional[int] = None,
         file_offset: int = 0,
         dev_offset: int = 0,
-    ) -> int:
+    ) -> PyStreamFuture:
         """Reads specified bytes from the file into the device memory asynchronously
 
         This is a low-level version of `.read` that doesn't use threads and
@@ -289,9 +306,7 @@ class CuFile:
         int
             The size of bytes that were successfully read.
         """
-        return self._handle.read_async(
-            buf, size, file_offset, dev_offset, stream
-        )
+        return self._handle.read_async(buf, size, file_offset, dev_offset, stream)
 
     def write_async(
         self,
@@ -300,7 +315,7 @@ class CuFile:
         size: Optional[int] = None,
         file_offset: int = 0,
         dev_offset: int = 0,
-    ) -> int:
+    ) -> PyStreamFuture:
         """Writes specified bytes from the device memory into the file asynchronously
 
         This is a low-level version of `.write` that doesn't use threads and
@@ -322,9 +337,7 @@ class CuFile:
         int
             The size of bytes that were successfully written.
         """
-        return self._handle.write_async(
-            buf, size, file_offset, dev_offset, stream
-        )
+        return self._handle.write_async(buf, size, file_offset, dev_offset, stream)
 
     def raw_read(
         self,

@@ -1,12 +1,14 @@
+# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
+# See file LICENSE for terms.
+
 import os
+
 import cupy
 import pytest
 import torch
 
 import kvikio
 import kvikio.defaults
-
-import torch
 
 
 def check_bit_flags(x: int, y: int) -> bool:
@@ -31,13 +33,11 @@ def test_read_write(tmp_path, gds_threshold, size, nthreads, tasksize):
             f = kvikio.CuFile(filename, "w")
             assert not f.closed
             assert check_bit_flags(f.open_flags(), os.O_WRONLY)
-            assert f.write_async(a, stream_ptr) == a.nbytes
+            assert f.write_async(a, stream_ptr).check_bytes_done() == a.nbytes
 
             # Try to read file opened in write-only mode
-            with pytest.raises(
-                RuntimeError, match="unsupported file open flags"
-            ):
-                f.read_async(a, stream_ptr)
+            with pytest.raises(RuntimeError, match="unsupported file open flags"):
+                f.read_async(a, stream_ptr).check_bytes_done()
 
             # Close file
             f.close()
@@ -47,5 +47,5 @@ def test_read_write(tmp_path, gds_threshold, size, nthreads, tasksize):
             b = cupy.empty_like(a)
             f = kvikio.CuFile(filename, "r")
             assert check_bit_flags(f.open_flags(), os.O_RDONLY)
-            assert f.read_async(b, stream_ptr) == b.nbytes
+            assert f.read_async(b, stream_ptr).check_bytes_done() == b.nbytes
             assert all(a == b)

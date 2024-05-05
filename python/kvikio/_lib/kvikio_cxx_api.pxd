@@ -1,11 +1,10 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
 # cython: language_level=3
 
 cdef extern from "driver_types.h":
-    # Adapted from https://github.com/andersbll/cudarray/blob/a2cffbb1434db9a7e6ed83211300d23d47630d2e/cudarray/wrap/cudart.pxd#L16
     ctypedef struct CUstream_st:
         pass
     ctypedef CUstream_st *cudaStream_t
@@ -23,10 +22,13 @@ cdef extern from "<future>" namespace "std" nogil:
         future() except +
         T get() except +
 
+
 cdef extern from "<kvikio/stream.hpp>" namespace "kvikio" nogil:
     cdef cppclass StreamFuture:
         StreamFuture() except +
+        StreamFuture(StreamFuture&&) except +
         size_t check_bytes_done() except +
+
 
 cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
     bool is_future_done[T](const T& future) except +

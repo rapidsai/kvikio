@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -12,7 +12,28 @@ from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport FileHandle, future, is_future_done, cudaStream_t
+from .kvikio_cxx_api cimport (
+    FileHandle,
+    StreamFuture,
+    cudaStream_t,
+    future,
+    is_future_done,
+)
+
+
+cdef class PyStreamFuture:
+    """Wrap a C++ StreamFuture in a Python object"""
+    cdef StreamFuture _handle
+
+    def check_bytes_done(self) -> int:
+        return self._handle.check_bytes_done()
+
+
+cdef PyStreamFuture _wrap_stream_future(StreamFuture &fut):
+    """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
+    ret = PyStreamFuture()
+    ret._handle = move(fut)
+    return ret
 
 
 cdef class IOFuture:
@@ -165,30 +186,31 @@ cdef class CuFile:
             dev_offset,
         )
 
-    def read_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int, st: uintptr_t) -> int:
+    def read_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
+                   st: uintptr_t) -> PyStreamFuture:
         stream = <cudaStream_t>st
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
         # TODO: return StreamFuture
-        return self._handle.read_async(
+        return _wrap_stream_future(self._handle.read_async(
             <void*>info.first,
             info.second,
             file_offset,
             dev_offset,
             stream,
-        ).check_bytes_done()
-    
-    def write_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int, st: uintptr_t) -> int:
+        ))
+
+    def write_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
+                    st: uintptr_t) -> PyStreamFuture:
         stream = <cudaStream_t>st
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
         # TODO: return StreamFuture
-        return self._handle.write_async(
+        return _wrap_stream_future(self._handle.write_async(
             <void*>info.first,
             info.second,
             file_offset,
             dev_offset,
             stream,
-        ).check_bytes_done()
-        
+        ))
 
 
 cdef class DriverProperties:
