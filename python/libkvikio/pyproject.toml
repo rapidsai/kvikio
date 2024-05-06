@@ -102,6 +102,7 @@ ninja.make-fallback = true
 sdist.exclude = ["*tests*"]
 sdist.reproducible = true
 wheel.packages = ["libkvikio"]
+wheel.py-api = "py3"
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
