@@ -24,9 +24,11 @@ sed -i "s/name = \"${package_name}\"/name = \"${package_name}${PACKAGE_CUDA_SUFF
 echo "${version}" > VERSION
 sed -i "/^__git_commit__/ s/= .*/= \"${commit}\"/g" "${package_dir}/${package_name}/_version.py"
 
-if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
-    sed -i "s/cuda-python[<=>\.,0-9a]*/cuda-python>=12.0,<13.0a0/g" ${pyproject_file}
+alpha_spec=''
+if ! rapids-is-release-build; then
+    alpha_spec=',>=0.0.0a0'
 fi
+sed -r -i "s/libkvikio==(.*)\"/libkvikio${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
 
 CPP_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libkvikio_dist)
 
