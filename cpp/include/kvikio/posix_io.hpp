@@ -61,11 +61,11 @@ class StreamsByThread {
   {
     static StreamsByThread _instance;
 
-    // It no current context, we return the null/default stream
+    // If no current context, we return the null/default stream
     if (ctx == nullptr) { return nullptr; }
     auto key = std::make_pair(ctx, thd_id);
 
-    // Create new stream if `ctx` doesn't have one.
+    // Create a new stream if `ctx` doesn't have one.
     if (_instance._streams.find(key) == _instance._streams.end()) {
       CUstream stream{};
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
