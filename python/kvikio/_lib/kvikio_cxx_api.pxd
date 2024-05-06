@@ -4,17 +4,16 @@
 # distutils: language = c++
 # cython: language_level=3
 
-cdef extern from "driver_types.h":
-    ctypedef struct CUstream_st:
-        pass
-    ctypedef CUstream_st *cudaStream_t
-
 from posix cimport fcntl
 
 from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.utility cimport pair
 from libcpp.vector cimport vector
+
+
+cdef extern from "cuda.h":
+    ctypedef void* CUstream
 
 
 cdef extern from "<future>" namespace "std" nogil:
@@ -114,12 +113,12 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t size,
             size_t file_offset,
             size_t devPtr_offset,
-            cudaStream_t stream
+            CUstream stream
         ) except +
         StreamFuture write_async(
             void* devPtr_base,
             size_t size,
             size_t file_offset,
             size_t devPtr_offset,
-            cudaStream_t stream
+            CUstream stream
         ) except +

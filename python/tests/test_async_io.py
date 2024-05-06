@@ -5,7 +5,6 @@ import os
 
 import cupy
 import pytest
-import torch
 
 import kvikio
 import kvikio.defaults
@@ -23,8 +22,7 @@ def test_read_write(tmp_path, gds_threshold, size, nthreads, tasksize):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
-    stream = torch.cuda.stream(torch.cuda.Stream())
-    stream_ptr = stream.stream.cuda_stream
+    stream = cupy.cuda.Stream()
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
@@ -33,11 +31,11 @@ def test_read_write(tmp_path, gds_threshold, size, nthreads, tasksize):
             f = kvikio.CuFile(filename, "w")
             assert not f.closed
             assert check_bit_flags(f.open_flags(), os.O_WRONLY)
-            assert f.write_async(a, stream_ptr).check_bytes_done() == a.nbytes
+            assert f.raw_write_async(a, stream.ptr).check_bytes_done() == a.nbytes
 
             # Try to read file opened in write-only mode
             with pytest.raises(RuntimeError, match="unsupported file open flags"):
-                f.read_async(a, stream_ptr).check_bytes_done()
+                f.raw_read_async(a, stream.ptr).check_bytes_done()
 
             # Close file
             f.close()
@@ -47,5 +45,5 @@ def test_read_write(tmp_path, gds_threshold, size, nthreads, tasksize):
             b = cupy.empty_like(a)
             f = kvikio.CuFile(filename, "r")
             assert check_bit_flags(f.open_flags(), os.O_RDONLY)
-            assert f.read_async(b, stream_ptr).check_bytes_done() == b.nbytes
+            assert f.raw_read_async(b, stream.ptr).check_bytes_done() == b.nbytes
             assert all(a == b)

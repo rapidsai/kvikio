@@ -12,16 +12,10 @@ from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport (
-    FileHandle,
-    StreamFuture,
-    cudaStream_t,
-    future,
-    is_future_done,
-)
+from .kvikio_cxx_api cimport CUstream, FileHandle, StreamFuture, future, is_future_done
 
 
-cdef class PyStreamFuture:
+cdef class IOFutureStream:
     """Wrap a C++ StreamFuture in a Python object"""
     cdef StreamFuture _handle
 
@@ -29,9 +23,9 @@ cdef class PyStreamFuture:
         return self._handle.check_bytes_done()
 
 
-cdef PyStreamFuture _wrap_stream_future(StreamFuture &fut):
+cdef IOFutureStream _wrap_stream_future(StreamFuture &fut):
     """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
-    ret = PyStreamFuture()
+    ret = IOFutureStream()
     ret._handle = move(fut)
     return ret
 
@@ -187,8 +181,8 @@ cdef class CuFile:
         )
 
     def read_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
-                   st: uintptr_t) -> PyStreamFuture:
-        stream = <cudaStream_t>st
+                   st: uintptr_t) -> IOFutureStream:
+        stream = <CUstream>st
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
         # TODO: return StreamFuture
         return _wrap_stream_future(self._handle.read_async(
@@ -200,8 +194,8 @@ cdef class CuFile:
         ))
 
     def write_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
-                    st: uintptr_t) -> PyStreamFuture:
-        stream = <cudaStream_t>st
+                    st: uintptr_t) -> IOFutureStream:
+        stream = <CUstream>st
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
         # TODO: return StreamFuture
         return _wrap_stream_future(self._handle.write_async(

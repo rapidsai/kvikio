@@ -7,13 +7,16 @@ from typing import Optional, Union
 from ._lib import libkvikio  # type: ignore
 
 
-class PyStreamFuture:
+class IOFutureStream:
     """Future for CuFile async IO
 
     This class shouldn't be used directly, instead non-blocking async IO operations
-    such as `CuFile.read_async` and `CuFile.write_async` returns an instance of this
-    class. Use `.check_bytes_done()` to check the number of bytes that were read or
-    written successfully."""
+    such as `CuFile.raw_read_async` and `CuFile.raw_write_async` returns an instance
+    of this class.
+
+    The instance must be kept alive alive until all data has been read from disk. One
+    way to do this, is by calling `StreamFuture.check_bytes_done()`, which will
+    synchronize the associated stream and return the number of bytes read."""
 
     __slots__ = "_handle"
 
@@ -277,14 +280,14 @@ class CuFile:
         """
         return self.pwrite(buf, size, file_offset, task_size).get()
 
-    def read_async(
+    def raw_read_async(
         self,
         buf,
         stream,
         size: Optional[int] = None,
         file_offset: int = 0,
         dev_offset: int = 0,
-    ) -> PyStreamFuture:
+    ) -> IOFutureStream:
         """Reads specified bytes from the file into the device memory asynchronously
 
         This is a low-level version of `.read` that doesn't use threads and
@@ -308,14 +311,14 @@ class CuFile:
         """
         return self._handle.read_async(buf, size, file_offset, dev_offset, stream)
 
-    def write_async(
+    def raw_write_async(
         self,
         buf,
         stream,
         size: Optional[int] = None,
         file_offset: int = 0,
         dev_offset: int = 0,
-    ) -> PyStreamFuture:
+    ) -> IOFutureStream:
         """Writes specified bytes from the device memory into the file asynchronously
 
         This is a low-level version of `.write` that doesn't use threads and
