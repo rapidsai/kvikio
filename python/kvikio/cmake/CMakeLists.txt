@@ -13,4 +13,4 @@
 # =============================================================================
 
 include(thirdparty/get_nvcomp.cmake)
-include(thirdpart/WheelHelpers.cmake)
+include(thirdparty/WheelHelpers.cmake)
