@@ -16,7 +16,8 @@ class IOFutureStream:
 
     The instance must be kept alive alive until all data has been read from disk. One
     way to do this, is by calling `StreamFuture.check_bytes_done()`, which will
-    synchronize the associated stream and return the number of bytes read."""
+    synchronize the associated stream and return the number of bytes read.
+    """
 
     __slots__ = "_handle"
 
@@ -297,18 +298,21 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
+        stream: cuda.Stream
+            CUDA stream to perform the read operation asynchronously.
         size: int, optional
             Size in bytes to read.
         file_offset: int, optional
             Offset in the file to read from.
-        stream: cuda.Stream, optional
-            CUDA stream to perform the read operation asynchronously.
 
         Returns
         -------
-        IOFuture
+        IOFutureStream
             Future that when executed ".check_bytes_done()" returns the size of bytes
-            that were successfully read.
+            that were successfully read. The instance must be kept alive alive until
+            all data has been read from disk. One way to do this, is by calling
+            `StreamFuture.check_bytes_done()`, which will synchronize the associated
+            stream and return the number of bytes read.
         """
         return self._handle.read_async(buf, size, file_offset, dev_offset, stream)
 
@@ -329,18 +333,21 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
+        stream: cuda.Stream
+            CUDA stream to perform the write operation asynchronously.
         size: int, optional
             Size in bytes to write.
         file_offset: int, optional
             Offset in the file to write from.
-        stream: cuda.Stream, optional
-            CUDA stream to perform the write operation asynchronously.
 
         Returns
         -------
-        IOFuture
+        IOFutureStream
             Future that when executed ".check_bytes_done()" returns the size of bytes
-            that were successfully written.
+            that were successfully written. The instance must be kept alive alive until
+            all data has been written to disk. One way to do this, is by calling
+            `StreamFuture.check_bytes_done()`, which will synchronize the associated
+            stream and return the number of bytes written.
         """
         return self._handle.write_async(buf, size, file_offset, dev_offset, stream)
 
