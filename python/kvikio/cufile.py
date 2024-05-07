@@ -311,7 +311,7 @@ class CuFile:
             Future that when executed ".check_bytes_done()" returns the size of bytes
             that were successfully read. The instance must be kept alive alive until
             all data has been read from disk. One way to do this, is by calling
-            `StreamFuture.check_bytes_done()`, which will synchronize the associated
+            `IOFutureStream.check_bytes_done()`, which will synchronize the associated
             stream and return the number of bytes read.
         """
         return self._handle.read_async(buf, size, file_offset, dev_offset, stream)
@@ -346,7 +346,7 @@ class CuFile:
             Future that when executed ".check_bytes_done()" returns the size of bytes
             that were successfully written. The instance must be kept alive alive until
             all data has been written to disk. One way to do this, is by calling
-            `StreamFuture.check_bytes_done()`, which will synchronize the associated
+            `IOFutureStream.check_bytes_done()`, which will synchronize the associated
             stream and return the number of bytes written.
         """
         return self._handle.write_async(buf, size, file_offset, dev_offset, stream)
