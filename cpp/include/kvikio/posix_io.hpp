@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,10 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>
+#include <map>
 #include <mutex>
 #include <stack>
+#include <thread>
 
 #include <cstring>
 #include <kvikio/error.hpp>
@@ -33,7 +35,60 @@ inline constexpr std::size_t posix_bounce_buffer_size = 2 << 23;  // 16 MiB
 namespace detail {
 
 /**
- * @brief Class to retain host memory allocations
+ * @brief Singleton class to retrieve a CUDA stream for device-host copying
+ *
+ * Call `StreamsByThread::get` to get the CUDA stream assigned to the current
+ * CUDA context and thread.
+ */
+class StreamsByThread {
+ private:
+  std::map<std::pair<CUcontext, std::thread::id>, CUstream> _streams;
+
+ public:
+  StreamsByThread() = default;
+  ~StreamsByThread() noexcept
+  {
+    for (auto& [_, stream] : _streams) {
+      try {
+        CUDA_DRIVER_TRY(cudaAPI::instance().StreamDestroy(stream));
+      } catch (const CUfileException& e) {
+        std::cerr << e.what() << std::endl;
+      }
+    }
+  }
+
+  static CUstream get(CUcontext ctx, std::thread::id thd_id)
+  {
+    static StreamsByThread _instance;
+
+    // If no current context, we return the null/default stream
+    if (ctx == nullptr) { return nullptr; }
+    auto key = std::make_pair(ctx, thd_id);
+
+    // Create a new stream if `ctx` doesn't have one.
+    if (_instance._streams.find(key) == _instance._streams.end()) {
+      CUstream stream{};
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
+      _instance._streams[key] = stream;
+    }
+    return _instance._streams.at(key);
+  }
+
+  static CUstream get()
+  {
+    CUcontext ctx{nullptr};
+    CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
+    return get(ctx, std::this_thread::get_id());
+  }
+
+  StreamsByThread(const StreamsByThread&)            = delete;
+  StreamsByThread& operator=(StreamsByThread const&) = delete;
+  StreamsByThread(StreamsByThread&& o)               = delete;
+  StreamsByThread& operator=(StreamsByThread&& o)    = delete;
+};
+
+/**
+ * @brief Singleton class to retain host memory allocations
  *
  * Call `AllocRetain::get` to get an allocation that will be retained when it
  * goes out of scope (RAII). The size of all allocations are `posix_bounce_buffer_size`.
@@ -93,14 +148,18 @@ class AllocRetain {
     }
   }
 
+  static AllocRetain& instance()
+  {
+    static AllocRetain _instance;
+    return _instance;
+  }
+
   AllocRetain(const AllocRetain&)            = delete;
   AllocRetain& operator=(AllocRetain const&) = delete;
   AllocRetain(AllocRetain&& o)               = delete;
   AllocRetain& operator=(AllocRetain&& o)    = delete;
   ~AllocRetain() noexcept                    = default;
 };
-
-inline AllocRetain manager;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 /**
  * @brief Read or write host memory to or from disk using POSIX
@@ -167,20 +226,26 @@ std::size_t posix_device_io(int fd,
                             std::size_t file_offset,
                             std::size_t devPtr_offset)
 {
-  auto alloc              = manager.get();
+  auto alloc              = AllocRetain::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t byte_remaining    = convert_size2off(size);
   const off_t chunk_size2 = convert_size2off(posix_bounce_buffer_size);
+
+  // Get a stream for the current CUDA context and thread
+  CUstream stream = StreamsByThread::get();
 
   while (byte_remaining > 0) {
     const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (IsReadOperation) {
       nbytes_got = posix_host_io<true>(fd, alloc.get(), nbytes_requested, cur_file_offset, true);
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoD(devPtr, alloc.get(), nbytes_got));
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoH(alloc.get(), devPtr, nbytes_requested));
+      CUDA_DRIVER_TRY(
+        cudaAPI::instance().MemcpyDtoHAsync(alloc.get(), devPtr, nbytes_requested, stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       posix_host_io<false>(fd, alloc.get(), nbytes_requested, cur_file_offset, false);
     }
     cur_file_offset += nbytes_got;
