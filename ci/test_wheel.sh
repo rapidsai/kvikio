@@ -10,4 +10,4 @@ RAPIDS_PY_WHEEL_NAME="kvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-fr
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install "kvikio-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find-links "${WHEELHOUSE}"
 
-python -m pytest ./python/kvikio/kvikio/tests
+python -m pytest ./python/kvikio/tests
