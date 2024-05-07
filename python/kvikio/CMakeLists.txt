@@ -38,8 +38,8 @@ add_subdirectory(cmake)
 # It would be better to factor nvcomp out into its own wheel. Until that is available, we vendor it
 # here.
 install_aliased_imported_targets(
-  TARGETS kvikio-python nvcomp::nvcomp nvcomp::nvcomp_gdeflate nvcomp::nvcomp_bitcomp DESTINATION
-  ${cython_lib_dir}
+  TARGETS kvikio nvcomp::nvcomp nvcomp::nvcomp_gdeflate nvcomp::nvcomp_bitcomp DESTINATION
+  ${cython_lib_dir}/_lib
 )
 
 add_subdirectory(kvikio/_lib)
