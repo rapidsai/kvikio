@@ -96,4 +96,4 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-24.06
     with:
       build_type: pull-request
-      script: ci/run_pytests.sh
+      script: ci/test_wheel.sh
