@@ -28,12 +28,10 @@ if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
     sed -i "s/cuda-python[<=>\.,0-9a]*/cuda-python>=12.0,<13.0a0/g" ${pyproject_file}
 fi
 
-# librmm_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact rmm 1529 cpp)
-
 cd "${package_dir}"
 
 python -m pip install wheel
-python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check # --find-links "${librmm_wheelhouse}"
+python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 python -m wheel tags --platform any dist/* --remove
 
 RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp dist
