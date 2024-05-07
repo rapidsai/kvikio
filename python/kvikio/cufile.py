@@ -309,7 +309,7 @@ class CuFile:
         -------
         IOFutureStream
             Future that when executed ".check_bytes_done()" returns the size of bytes
-            that were successfully read. The instance must be kept alive alive until
+            that were successfully read. The instance must be kept alive until
             all data has been read from disk. One way to do this, is by calling
             `IOFutureStream.check_bytes_done()`, which will synchronize the associated
             stream and return the number of bytes read.
@@ -344,7 +344,7 @@ class CuFile:
         -------
         IOFutureStream
             Future that when executed ".check_bytes_done()" returns the size of bytes
-            that were successfully written. The instance must be kept alive alive until
+            that were successfully written. The instance must be kept alive until
             all data has been written to disk. One way to do this, is by calling
             `IOFutureStream.check_bytes_done()`, which will synchronize the associated
             stream and return the number of bytes written.
