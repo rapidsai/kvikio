@@ -184,7 +184,6 @@ cdef class CuFile:
                    st: uintptr_t) -> IOFutureStream:
         stream = <CUstream>st
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
-        # TODO: return StreamFuture
         return _wrap_stream_future(self._handle.read_async(
             <void*>info.first,
             info.second,
@@ -197,7 +196,6 @@ cdef class CuFile:
                     st: uintptr_t) -> IOFutureStream:
         stream = <CUstream>st
         cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
-        # TODO: return StreamFuture
         return _wrap_stream_future(self._handle.write_async(
             <void*>info.first,
             info.second,

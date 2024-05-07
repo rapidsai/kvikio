@@ -290,7 +290,7 @@ class CuFile:
     ) -> IOFutureStream:
         """Reads specified bytes from the file into the device memory asynchronously
 
-        This is a low-level version of `.read` that doesn't use threads and
+        This is an async version of `.raw_read` that doesn't use threads and
         does not support host memory.
 
         Parameters
@@ -306,8 +306,9 @@ class CuFile:
 
         Returns
         -------
-        int
-            The size of bytes that were successfully read.
+        IOFuture
+            Future that when executed ".check_bytes_done()" returns the size of bytes
+            that were successfully read.
         """
         return self._handle.read_async(buf, size, file_offset, dev_offset, stream)
 
@@ -321,7 +322,7 @@ class CuFile:
     ) -> IOFutureStream:
         """Writes specified bytes from the device memory into the file asynchronously
 
-        This is a low-level version of `.write` that doesn't use threads and
+        This is an async version of `.raw_write` that doesn't use threads and
         does not support host memory.
 
         Parameters
@@ -337,8 +338,9 @@ class CuFile:
 
         Returns
         -------
-        int
-            The size of bytes that were successfully written.
+        IOFuture
+            Future that when executed ".check_bytes_done()" returns the size of bytes
+            that were successfully written.
         """
         return self._handle.write_async(buf, size, file_offset, dev_offset, stream)
 
