@@ -29,6 +29,7 @@ project(
 find_package(KvikIO "${RAPIDS_VERSION}" REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
+set(cython_lib_dir kvikio)
 include(rapids-cython-core)
 rapids_cython_init()
 
