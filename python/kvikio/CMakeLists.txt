@@ -30,6 +30,13 @@ find_package(KvikIO "${RAPIDS_VERSION}" REQUIRED)
 
 find_package(CUDAToolkit REQUIRED)
 
+# It would be better to factor nvcomp out into its own wheel. Until that is available, we vendor it here.
+include(cmake/Modules/WheelHelpers.cmake)
+install_aliased_imported_targets(
+  TARGETS kvikio nvcomp::nvcomp nvcomp::nvcomp_gdeflate nvcomp::nvcomp_bitcomp
+  DESTINATION ${cython_lib_dir}
+)
+
 if(NOT KvikIO_FOUND)
   add_subdirectory(../cpp kvikio-cpp)
   set(cython_lib_dir kvikio)
