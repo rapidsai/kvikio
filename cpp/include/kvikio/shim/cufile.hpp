@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@
 
 namespace kvikio {
 
-#ifdef KVIKIO_CUFILE_FOUND
-
 /**
  * @brief Shim layer of the cuFile C-API
  *
@@ -46,24 +44,20 @@ class cuFileAPI {
   decltype(cuFileDriverSetPollMode)* DriverSetPollMode{nullptr};
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
   decltype(cuFileDriverSetMaxPinnedMemSize)* DriverSetMaxPinnedMemSize{nullptr};
-
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
   decltype(cuFileBatchIOSetUp)* BatchIOSetUp{nullptr};
   decltype(cuFileBatchIOSubmit)* BatchIOSubmit{nullptr};
   decltype(cuFileBatchIOGetStatus)* BatchIOGetStatus{nullptr};
   decltype(cuFileBatchIOCancel)* BatchIOCancel{nullptr};
   decltype(cuFileBatchIODestroy)* BatchIODestroy{nullptr};
-#endif
-
-#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
   decltype(cuFileReadAsync)* ReadAsync{nullptr};
   decltype(cuFileWriteAsync)* WriteAsync{nullptr};
   decltype(cuFileStreamRegister)* StreamRegister{nullptr};
   decltype(cuFileStreamDeregister)* StreamDeregister{nullptr};
-#endif
+
   bool stream_available = false;
 
  private:
+#ifdef KVIKIO_CUFILE_FOUND
   cuFileAPI()
   {
     // CUDA versions before CUDA 11.7.1 did not ship libcufile.so.0, so this is
@@ -128,10 +122,15 @@ class cuFileAPI {
                 << std::endl;
     }
   }
+#else
+  cuFileAPI() { throw std::runtime_error(CUFILE_ERRSTR(0)); }
+#endif
 
  public:
-  cuFileAPI(cuFileAPI const&)      = delete;
-  void operator=(cuFileAPI const&) = delete;
+  cuFileAPI(cuFileAPI const&)       = delete;
+  void operator=(cuFileAPI const&)  = delete;
+  cuFileAPI(cuFileAPI const&&)      = delete;
+  void operator=(cuFileAPI const&&) = delete;
 
   static cuFileAPI& instance()
   {
@@ -139,8 +138,6 @@ class cuFileAPI {
     return _instance;
   }
 };
-
-#endif
 
 /**
  * @brief Check if the cuFile library is available

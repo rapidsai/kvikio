@@ -54,7 +54,7 @@ requirements:
     {% else %}
     - {{ compiler('cuda') }}
     {% endif %}
-    - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - {{ stdlib("c") }}
   host:
     - python
     - setuptools
