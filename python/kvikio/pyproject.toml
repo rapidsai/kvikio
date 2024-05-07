@@ -123,3 +123,9 @@ wheel.packages = ["kvikio"]
 provider = "scikit_build_core.metadata.regex"
 input = "kvikio/VERSION"
 regex = "(?P<value>.*)"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "ignore:Jitify is performing a one-time only warm-up to populate the persistent cache",
+]
