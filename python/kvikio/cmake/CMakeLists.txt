@@ -12,33 +12,5 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
-
-include(../../cpp/cmake/rapids_config.cmake)
-include(rapids-cpm)
-rapids_cpm_init()
-include(rapids-cuda)
-rapids_cuda_init_architectures(kvikio-python)
-
-project(
-  kvikio-python
-  VERSION "${RAPIDS_VERSION}"
-  LANGUAGES CXX CUDA
-)
-
-find_package(KvikIO "${RAPIDS_VERSION}" REQUIRED)
-find_package(CUDAToolkit REQUIRED)
-
-include(rapids-cython-core)
-rapids_cython_init()
-
-add_subdirectory(cmake)
-
-# It would be better to factor nvcomp out into its own wheel. Until that is available, we vendor it
-# here.
-install_aliased_imported_targets(
-  TARGETS kvikio-python nvcomp::nvcomp nvcomp::nvcomp_gdeflate nvcomp::nvcomp_bitcomp DESTINATION
-  ${cython_lib_dir}
-)
-
-add_subdirectory(kvikio/_lib)
+include(thirdparty/get_nvcomp.cmake)
+include(thirdpart/WheelHelpers.cmake)
