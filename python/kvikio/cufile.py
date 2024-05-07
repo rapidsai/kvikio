@@ -1,10 +1,31 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import pathlib
 from typing import Optional, Union
 
 from ._lib import libkvikio  # type: ignore
+
+
+class IOFutureStream:
+    """Future for CuFile async IO
+
+    This class shouldn't be used directly, instead non-blocking async IO operations
+    such as `CuFile.raw_read_async` and `CuFile.raw_write_async` returns an instance
+    of this class.
+
+    The instance must be kept alive alive until all data has been read from disk. One
+    way to do this, is by calling `StreamFuture.check_bytes_done()`, which will
+    synchronize the associated stream and return the number of bytes read.
+    """
+
+    __slots__ = "_handle"
+
+    def __init__(self, handle):
+        self._handle = handle
+
+    def check_bytes_done(self) -> int:
+        return self._handle.check_bytes_done()
 
 
 class IOFuture:
@@ -260,8 +281,82 @@ class CuFile:
         """
         return self.pwrite(buf, size, file_offset, task_size).get()
 
+    def raw_read_async(
+        self,
+        buf,
+        stream,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        dev_offset: int = 0,
+    ) -> IOFutureStream:
+        """Reads specified bytes from the file into the device memory asynchronously
+
+        This is an async version of `.raw_read` that doesn't use threads and
+        does not support host memory.
+
+        Parameters
+        ----------
+        buf: buffer-like or array-like
+            Device buffer to read into.
+        stream: cuda.Stream
+            CUDA stream to perform the read operation asynchronously.
+        size: int, optional
+            Size in bytes to read.
+        file_offset: int, optional
+            Offset in the file to read from.
+
+        Returns
+        -------
+        IOFutureStream
+            Future that when executed ".check_bytes_done()" returns the size of bytes
+            that were successfully read. The instance must be kept alive until
+            all data has been read from disk. One way to do this, is by calling
+            `IOFutureStream.check_bytes_done()`, which will synchronize the associated
+            stream and return the number of bytes read.
+        """
+        return self._handle.read_async(buf, size, file_offset, dev_offset, stream)
+
+    def raw_write_async(
+        self,
+        buf,
+        stream,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        dev_offset: int = 0,
+    ) -> IOFutureStream:
+        """Writes specified bytes from the device memory into the file asynchronously
+
+        This is an async version of `.raw_write` that doesn't use threads and
+        does not support host memory.
+
+        Parameters
+        ----------
+        buf: buffer-like or array-like
+            Device buffer to write to.
+        stream: cuda.Stream
+            CUDA stream to perform the write operation asynchronously.
+        size: int, optional
+            Size in bytes to write.
+        file_offset: int, optional
+            Offset in the file to write from.
+
+        Returns
+        -------
+        IOFutureStream
+            Future that when executed ".check_bytes_done()" returns the size of bytes
+            that were successfully written. The instance must be kept alive until
+            all data has been written to disk. One way to do this, is by calling
+            `IOFutureStream.check_bytes_done()`, which will synchronize the associated
+            stream and return the number of bytes written.
+        """
+        return self._handle.write_async(buf, size, file_offset, dev_offset, stream)
+
     def raw_read(
-        self, buf, size: Optional[int] = None, file_offset: int = 0, dev_offset: int = 0
+        self,
+        buf,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        dev_offset: int = 0,
     ) -> int:
         """Reads specified bytes from the file into the device memory
 
@@ -297,7 +392,11 @@ class CuFile:
         return self._handle.read(buf, size, file_offset, dev_offset)
 
     def raw_write(
-        self, buf, size: Optional[int] = None, file_offset: int = 0, dev_offset: int = 0
+        self,
+        buf,
+        size: Optional[int] = None,
+        file_offset: int = 0,
+        dev_offset: int = 0,
     ) -> int:
         """Writes specified bytes from the device memory into the file
 
