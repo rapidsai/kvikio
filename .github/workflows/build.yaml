@@ -95,7 +95,7 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      package-name: kvikio
+      package-name: libkvikio
       package-type: cpp
   wheel-publish-python:
     needs: wheel-build-python
