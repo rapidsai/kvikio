@@ -26,6 +26,16 @@ project(
   LANGUAGES CXX
 )
 
+# Check if kvikio is already available. If so, it's the user's responsibility to ensure that the CMake
+# package is also available at build time of the Python kvikio package.
+find_package(kvikio "${RAPIDS_VERSION}")
+
+if(kvikio_FOUND)
+  return()
+endif()
+
+unset(kvikio_FOUND)
+
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 set(CUDA_STATIC_RUNTIME ON)
