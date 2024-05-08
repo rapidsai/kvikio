@@ -26,8 +26,8 @@ project(
   LANGUAGES CXX
 )
 
-# Check if kvikio is already available. If so, it's the user's responsibility to ensure that the CMake
-# package is also available at build time of the Python kvikio package.
+# Check if kvikio is already available. If so, it's the user's responsibility to ensure that the
+# CMake package is also available at build time of the Python kvikio package.
 find_package(kvikio "${RAPIDS_VERSION}")
 
 if(kvikio_FOUND)
