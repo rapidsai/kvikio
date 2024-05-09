@@ -78,7 +78,7 @@ class cudaAPI {
     get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
   }
 #else
-  cudaAPI() { throw std::runtime_error("KvikIO not compiled with cuFile.h"); }
+  cudaAPI() { throw std::runtime_error("KvikIO not compiled with CUDA support"); }
 #endif
 
  public:
