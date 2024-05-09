@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -12,10 +12,21 @@ from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 
 
+cdef extern from "cuda.h":
+    ctypedef void* CUstream
+
+
 cdef extern from "<future>" namespace "std" nogil:
     cdef cppclass future[T]:
         future() except +
         T get() except +
+
+
+cdef extern from "<kvikio/stream.hpp>" namespace "kvikio" nogil:
+    cdef cppclass StreamFuture:
+        StreamFuture() except +
+        StreamFuture(StreamFuture&&) except +
+        size_t check_bytes_done() except +
 
 
 cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
@@ -96,4 +107,18 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t size,
             size_t file_offset,
             size_t devPtr_offset
+        ) except +
+        StreamFuture read_async(
+            void* devPtr_base,
+            size_t size,
+            size_t file_offset,
+            size_t devPtr_offset,
+            CUstream stream
+        ) except +
+        StreamFuture write_async(
+            void* devPtr_base,
+            size_t size,
+            size_t file_offset,
+            size_t devPtr_offset,
+            CUstream stream
         ) except +

@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -12,7 +12,22 @@ from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport FileHandle, future, is_future_done
+from .kvikio_cxx_api cimport CUstream, FileHandle, StreamFuture, future, is_future_done
+
+
+cdef class IOFutureStream:
+    """Wrap a C++ StreamFuture in a Python object"""
+    cdef StreamFuture _handle
+
+    def check_bytes_done(self) -> int:
+        return self._handle.check_bytes_done()
+
+
+cdef IOFutureStream _wrap_stream_future(StreamFuture &fut):
+    """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
+    ret = IOFutureStream()
+    ret._handle = move(fut)
+    return ret
 
 
 cdef class IOFuture:
@@ -164,6 +179,30 @@ cdef class CuFile:
             file_offset,
             dev_offset,
         )
+
+    def read_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
+                   st: uintptr_t) -> IOFutureStream:
+        stream = <CUstream>st
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
+        return _wrap_stream_future(self._handle.read_async(
+            <void*>info.first,
+            info.second,
+            file_offset,
+            dev_offset,
+            stream,
+        ))
+
+    def write_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
+                    st: uintptr_t) -> IOFutureStream:
+        stream = <CUstream>st
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, False)
+        return _wrap_stream_future(self._handle.write_async(
+            <void*>info.first,
+            info.second,
+            file_offset,
+            dev_offset,
+            stream,
+        ))
 
 
 cdef class DriverProperties:
