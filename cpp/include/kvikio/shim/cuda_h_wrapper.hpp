@@ -42,12 +42,13 @@ using CUstream    = void*;
 #define CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL 0
 #define CU_POINTER_ATTRIBUTE_DEVICE_POINTER 0
 #define CU_MEMHOSTREGISTER_PORTABLE         0
+#define CU_STREAM_DEFAULT                   0
 
 CUresult cuInit(...);
 CUresult cuMemHostAlloc(...);
 CUresult cuMemFreeHost(...);
-CUresult cuMemcpyHtoD(...);
-CUresult cuMemcpyDtoH(...);
+CUresult cuMemcpyHtoDAsync(...);
+CUresult cuMemcpyDtoHAsync(...);
 CUresult cuPointerGetAttribute(...);
 CUresult cuPointerGetAttributes(...);
 CUresult cuCtxPushCurrent(...);
@@ -59,6 +60,8 @@ CUresult cuGetErrorString(...);
 CUresult cuDeviceGet(...);
 CUresult cuDevicePrimaryCtxRetain(...);
 CUresult cuDevicePrimaryCtxRelease(...);
+CUresult cuStreamCreate(...);
+CUresult cuStreamDestroy(...);
 CUresult cuStreamSynchronize(...);
 
 #endif
