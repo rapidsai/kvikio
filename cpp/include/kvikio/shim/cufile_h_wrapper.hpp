@@ -29,11 +29,14 @@
 #include <cufile.h>
 #else
 
-// If cuFile isn't defined, we define some of the data types here.
-// Notice, this doesn't need to be ABI compatible with the cufile definitions.
+KVIKIO_CUFILE_FOUND is not defined,
+  error !
 
-using CUfileHandle_t = void*;
-using CUfileOpError  = int;
+  // If cuFile isn't defined, we define some of the data types here.
+  // Notice, this doesn't need to be ABI compatible with the cufile definitions.
+
+  using CUfileHandle_t = void *;
+using CUfileOpError    = int;
 #define CUFILE_ERRSTR(x)          ("KvikIO not compiled with cuFile.h")
 #define CU_FILE_SUCCESS           0
 #define CU_FILE_CUDA_DRIVER_ERROR 1
