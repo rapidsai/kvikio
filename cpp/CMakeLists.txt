@@ -84,6 +84,30 @@ endif()
 add_library(kvikio INTERFACE)
 add_library(kvikio::kvikio ALIAS kvikio)
 
+# Enable supported cuFile features in KvikIO
+#
+# While the code block below (in the value of final_code_string) sets this information when KvikIO
+# is imported from a kvikio-config.cmake file, this code block is intended to be used by projects
+# that include KvikIO's source directory in their own CMake build.
+#
+# Normally we would just set the below without using $<BUILD_LOCAL_INTERFACE:...>, and without the
+# final_code_string, but in this case we want to conditionally set these things at import time, not
+# export time, since KvikIO is a header-only library that can adapt to different build environments.
+if(cuFile_FOUND)
+  target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:cufile::cuFile_interface>)
+  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_FOUND>)
+  if(cuFile_BATCH_API_FOUND)
+    target_compile_definitions(
+      kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_BATCH_API_FOUND>
+    )
+  endif()
+  if(cuFile_STREAM_API_FOUND)
+    target_compile_definitions(
+      kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_STREAM_API_FOUND>
+    )
+  endif()
+endif()
+
 target_include_directories(
   kvikio INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                    "$<INSTALL_INTERFACE:include>"
