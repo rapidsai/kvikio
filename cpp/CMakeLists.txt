@@ -84,6 +84,18 @@ endif()
 add_library(kvikio INTERFACE)
 add_library(kvikio::kvikio ALIAS kvikio)
 
+# Enable supported cuFile features in KvikIO
+if(cuFile_FOUND)
+  target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:cufile::cuFile_interface>)
+  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_FOUND>)
+  if(cuFile_BATCH_API_FOUND)
+    target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_BATCH_API_FOUND>)
+  endif()
+  if(cuFile_STREAM_API_FOUND)
+    target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_STREAM_API_FOUND>)
+  endif()
+endif()
+
 target_include_directories(
   kvikio INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                    "$<INSTALL_INTERFACE:include>"
