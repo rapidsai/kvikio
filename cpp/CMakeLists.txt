@@ -85,7 +85,7 @@ add_library(kvikio INTERFACE)
 add_library(kvikio::kvikio ALIAS kvikio)
 
 # Enable supported cuFile features in KvikIO
-if(FALSE)
+if(cuFile_FOUND)
   target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:cufile::cuFile_interface>)
   target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_FOUND>)
   if(cuFile_BATCH_API_FOUND)
