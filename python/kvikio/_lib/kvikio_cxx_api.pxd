@@ -34,11 +34,6 @@ cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
 
 
 cdef extern from "<kvikio/driver.hpp>" namespace "kvikio" nogil:
-    """
-    #ifndef KVIKIO_CUFILE_FOUND
-    #error "cuFile not found!"
-    #endif
-    """
     cdef cppclass DriverProperties:
         DriverProperties() except +
         bool is_gds_available() except +
