@@ -131,7 +131,6 @@ set(final_code_string
     [=[
 get_property(already_set_kvikio DIRECTORY PROPERTY kvikio_already_set_defines SET)
 if(NOT already_set_kvikio)
-  message(FATAL_ERROR "kvikio not set")
   set_property(DIRECTORY PROPERTY kvikio_already_set_defines "ON")
 
   # Find cuFile and determine which features are supported
@@ -167,8 +166,6 @@ if(NOT already_set_kvikio)
       target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_STREAM_API_FOUND)
     endif()
   endif()
-else()
-  message(FATAL_ERROR "kvikio already set")
 endif()
 ]=]
 )
