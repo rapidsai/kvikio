@@ -26,25 +26,6 @@
 
 using namespace std;
 
-class Timer {
- public:
-  Timer() : start(std::chrono::high_resolution_clock::now()) {}
-
-  ~Timer()
-  {
-    auto end = std::chrono::high_resolution_clock::now();
-    auto start_ms =
-      std::chrono::time_point_cast<std::chrono::microseconds>(start).time_since_epoch().count();
-    auto end_ms =
-      std::chrono::time_point_cast<std::chrono::microseconds>(end).time_since_epoch().count();
-
-    cout << "(" << end_ms - start_ms << " us)" << endl;
-  }
-
- private:
-  std::chrono::time_point<std::chrono::high_resolution_clock> start;
-};
-
 void check(bool condition)
 {
   if (!condition) {
@@ -84,8 +65,6 @@ int main()
   check(kvikio::is_host_memory(a.data()) == true);
 
   {
-    cout << endl;
-    Timer timer;
     kvikio::FileHandle file1("/tmp/test-file1", "w");
     kvikio::FileHandle file2("/tmp/test-file2", "w");
     std::future<std::size_t> fut1 = file1.pwrite(a.data(), SIZE);
@@ -97,8 +76,6 @@ int main()
     cout << "Write: " << written << endl;
   }
   {
-    std::cout << std::endl;
-    Timer timer;
     kvikio::FileHandle file1("/tmp/test-file1", "r");
     kvikio::FileHandle file2("/tmp/test-file2", "r");
     std::future<std::size_t> fut1 = file1.pread(b.data(), SIZE);
