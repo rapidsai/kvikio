@@ -153,5 +153,5 @@ if (( NUMARGS == 0 )) || hasArg kvikio; then
     echo "building kvikio..."
     cd ${REPODIR}/python
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_LIBRARY_PATH=${LIBKVIKIO_BUILD_DIR};${EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps .
+        python -m pip install --no-build-isolation --no-deps -v ${VERBOSE_FLAG} .
 fi
