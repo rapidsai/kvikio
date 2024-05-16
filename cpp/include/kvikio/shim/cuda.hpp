@@ -93,9 +93,9 @@ class cudaAPI {
 };
 
 /**
- * @brief Check if the cuFile library is available
+ * @brief Check if the CUDA library is available
  *
- * Notice, this doesn't check if the runtime environment supports cuFile.
+ * Notice, this doesn't check if the runtime environment supports CUDA.
  *
  * @return The boolean answer
  */
