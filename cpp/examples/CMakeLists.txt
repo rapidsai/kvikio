@@ -20,18 +20,6 @@ if(CUDAToolkit_FOUND)
   target_include_directories(BASIC_IO_TEST PRIVATE ../include ${cuFile_INCLUDE_DIRS})
   target_link_libraries(BASIC_IO_TEST PRIVATE kvikio CUDA::cudart)
 
-  # Enable supported cuFile features in KvikIO examples
-  if(cuFile_FOUND)
-    target_link_libraries(BASIC_IO_TEST PRIVATE cufile::cuFile_interface)
-    target_compile_definitions(BASIC_IO_TEST PRIVATE KVIKIO_CUFILE_FOUND)
-    if(cuFile_BATCH_API_FOUND)
-      target_compile_definitions(BASIC_IO_TEST PRIVATE KVIKIO_CUFILE_BATCH_API_FOUND)
-    endif()
-    if(cuFile_STREAM_API_FOUND)
-      target_compile_definitions(BASIC_IO_TEST PRIVATE KVIKIO_CUFILE_STREAM_API_FOUND)
-    endif()
-  endif()
-
   if(CMAKE_COMPILER_IS_GNUCXX)
     set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
     target_compile_options(BASIC_IO_TEST PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
