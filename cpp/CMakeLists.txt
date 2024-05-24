@@ -84,23 +84,24 @@ endif()
 add_library(kvikio INTERFACE)
 add_library(kvikio::kvikio ALIAS kvikio)
 
+# We enable CUDA and cuFile both here and in the FINAL_CODE_BLOCK export block. While the code block
+# below (in FINAL_CODE_BLOCK) sets this information when KvikIO is imported from a
+# kvikio-config.cmake file, this code block is intended to be used by projects that include KvikIO's
+# source directory in their own CMake build.
+#
+# Normally we would just set the below without using $<BUILD_LOCAL_INTERFACE:...>, and without the
+# final_code_string, but in this case we want to conditionally set these things at import time, not
+# export time, since KvikIO is a header-only library that can adapt to different build environments.
+
 # Enable CUDA in KvikIO
 if(CUDAToolkit_FOUND)
-  target_link_libraries(kvikio INTERFACE CUDA::toolkit)
-  target_compile_definitions(kvikio INTERFACE KVIKIO_CUDA_FOUND)
+  target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::toolkit>)
+  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUDA_FOUND>)
 else()
   message(WARNING "Building KvikIO without CUDA")
 endif()
 
 # Enable supported cuFile features in KvikIO
-#
-# While the code block below (in the value of final_code_string) sets this information when KvikIO
-# is imported from a kvikio-config.cmake file, this code block is intended to be used by projects
-# that include KvikIO's source directory in their own CMake build.
-#
-# Normally we would just set the below without using $<BUILD_LOCAL_INTERFACE:...>, and without the
-# final_code_string, but in this case we want to conditionally set these things at import time, not
-# export time, since KvikIO is a header-only library that can adapt to different build environments.
 if(cuFile_FOUND)
   target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:cufile::cuFile_interface>)
   target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_FOUND>)
@@ -163,6 +164,14 @@ set(final_code_string
 get_property(already_set_kvikio DIRECTORY PROPERTY kvikio_already_set_defines SET)
 if(NOT already_set_kvikio)
   set_property(DIRECTORY PROPERTY kvikio_already_set_defines "ON")
+
+  find_package(CUDAToolkit QUIET)
+  if(CUDAToolkit_FOUND)
+    target_link_libraries(kvikio::kvikio INTERFACE CUDA::toolkit)
+    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUDA_FOUND)
+  else()
+    message(WARNING "Building KvikIO without CUDA")
+  endif()
 
   # Find cuFile and determine which features are supported
   find_package(cuFile QUIET)
