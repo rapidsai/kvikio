@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ inline constexpr std::size_t page_size = 4096;
  * @param ptr Memory pointer to query
  * @return The boolean answer
  */
+#ifdef KVIKIO_CUDA_FOUND
 inline bool is_host_memory(const void* ptr)
 {
   CUpointer_attribute attrs[1] = {
@@ -80,6 +81,9 @@ inline bool is_host_memory(const void* ptr)
   // does it to support `cudaMemoryTypeUnregistered`.
   return memtype == 0 || memtype == CU_MEMORYTYPE_HOST;
 }
+#else
+constexpr bool is_host_memory(const void* ptr) { return true; }
+#endif
 
 /**
  * @brief Return the device owning the pointer
