@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <cuda.h>
 #include <sys/types.h>
 
 /**
