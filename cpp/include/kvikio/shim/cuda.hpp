@@ -15,8 +15,7 @@
  */
 #pragma once
 
-#include <cuda.h>
-
+#include <kvikio/shim/cuda_h_wrapper.hpp>
 #include <kvikio/shim/utils.hpp>
 
 namespace kvikio {
@@ -51,6 +50,7 @@ class cudaAPI {
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
 
  private:
+#ifdef KVIKIO_CUDA_FOUND
   cudaAPI()
   {
     void* lib = load_library("libcuda.so.1");
@@ -77,6 +77,9 @@ class cudaAPI {
     get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
     get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
   }
+#else
+  cudaAPI() { throw std::runtime_error("KvikIO not compiled with CUDA support"); }
+#endif
 
  public:
   cudaAPI(cudaAPI const&)        = delete;
@@ -88,5 +91,26 @@ class cudaAPI {
     return _instance;
   }
 };
+
+/**
+ * @brief Check if the CUDA library is available
+ *
+ * Notice, this doesn't check if the runtime environment supports CUDA.
+ *
+ * @return The boolean answer
+ */
+#ifdef KVIKIO_CUDA_FOUND
+inline bool is_cuda_available()
+{
+  try {
+    cudaAPI::instance();
+  } catch (const std::runtime_error&) {
+    return false;
+  }
+  return true;
+}
+#else
+constexpr bool is_cuda_available() { return false; }
+#endif
 
 }  // namespace kvikio
