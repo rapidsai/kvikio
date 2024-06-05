@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import itertools as it
@@ -19,8 +19,9 @@ LZ4_ALGO = "LZ4"
 GDEFLATE_ALGO = "Gdeflate"
 SNAPPY_ALGO = "snappy"
 ZSTD_ALGO = "zstd"
+DEFLATE_ALGO = "deflate"
 
-SUPPORTED_CODECS = [LZ4_ALGO, GDEFLATE_ALGO, SNAPPY_ALGO, ZSTD_ALGO]
+SUPPORTED_CODECS = [LZ4_ALGO, GDEFLATE_ALGO, SNAPPY_ALGO, ZSTD_ALGO, DEFLATE_ALGO]
 
 
 def _get_codec(algo: str, **kwargs):

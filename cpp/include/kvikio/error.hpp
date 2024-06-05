@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,6 @@ struct CUfileException : public std::runtime_error {
 #define CUDA_DRIVER_TRY_1(_call) CUDA_DRIVER_TRY_2(_call, kvikio::CUfileException)
 #endif
 
-#ifdef KVIKIO_CUFILE_FOUND
 #ifndef CUFILE_TRY
 #define CUFILE_TRY(...)                                         \
   GET_CUFILE_TRY_MACRO(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
@@ -77,7 +76,6 @@ struct CUfileException : public std::runtime_error {
   } while (0)
 #define CUFILE_TRY_1(_call) CUFILE_TRY_2(_call, kvikio::CUfileException)
 #endif
-#endif
 
 #ifndef CUFILE_CHECK_STREAM_IO
 #define CUFILE_CHECK_STREAM_IO(...)                                  \
@@ -85,7 +83,6 @@ struct CUfileException : public std::runtime_error {
     __VA_ARGS__, CUFILE_CHECK_STREAM_IO_2, CUFILE_CHECK_STREAM_IO_1) \
   (__VA_ARGS__)
 #define GET_CUFILE_CHECK_STREAM_IO_MACRO(_1, _2, NAME, ...) NAME
-#ifdef KVIKIO_CUFILE_FOUND
 #define CUFILE_CHECK_STREAM_IO_2(_nbytes_done, _exception_type)                            \
   do {                                                                                     \
     auto const _nbytes = *(_nbytes_done);                                                  \
@@ -94,12 +91,6 @@ struct CUfileException : public std::runtime_error {
                              KVIKIO_STRINGIFY(__LINE__) + ": " + std::to_string(_nbytes)}; \
     }                                                                                      \
   } while (0)
-#else
-// if cufile isn't available, we don't do anything in the body
-#define CUFILE_CHECK_STREAM_IO_2(_nbytes_done, _exception_type) \
-  do {                                                          \
-  } while (0)
-#endif
 #define CUFILE_CHECK_STREAM_IO_1(_call) CUFILE_CHECK_STREAM_IO_2(_call, kvikio::CUfileException)
 #endif
 
