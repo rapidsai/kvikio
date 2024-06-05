@@ -1,3 +1,20 @@
+# kvikio 24.06.00 (5 Jun 2024)
+
+## 🐛 Bug Fixes
+
+- Fix conda recipe for kvikio ([#381](https://github.com/rapidsai/kvikio/pull/381)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Move cuFile linking to kvikio target ([#379](https://github.com/rapidsai/kvikio/pull/379)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+
+## 🛠️ Improvements
+
+- Initial Python Interface for cufile Async IO ([#376](https://github.com/rapidsai/kvikio/pull/376)) [@K-Wu](https://github.com/K-Wu)
+- Enable Warnings as errors for Python tests ([#375](https://github.com/rapidsai/kvikio/pull/375)) [@mroeschke](https://github.com/mroeschke)
+- POSIX IO: use async memcpy ([#374](https://github.com/rapidsai/kvikio/pull/374)) [@madsbk](https://github.com/madsbk)
+- No-CUDA build ([#373](https://github.com/rapidsai/kvikio/pull/373)) [@madsbk](https://github.com/madsbk)
+- Refactor: move cufile header checks to the shim layer ([#372](https://github.com/rapidsai/kvikio/pull/372)) [@madsbk](https://github.com/madsbk)
+- Migrate to `{{ stdlib(&quot;c&quot;) }}` ([#371](https://github.com/rapidsai/kvikio/pull/371)) [@hcho3](https://github.com/hcho3)
+- Add deflate codec ([#364](https://github.com/rapidsai/kvikio/pull/364)) [@ap--](https://github.com/ap--)
+
 # kvikio 24.04.00 (10 Apr 2024)
 
 ## 🚨 Breaking Changes
