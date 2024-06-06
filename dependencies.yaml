@@ -143,7 +143,7 @@ dependencies:
     common:
       - output_types: [pyproject]
         packages:
-          - libkvikio==24.6.*
+          - libkvikio==24.8.*
   build-py-wrapper:
     common:
       - output_types: [conda, requirements, pyproject]
