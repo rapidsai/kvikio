@@ -12,7 +12,7 @@ requires = [
 [project]
 name = "libkvikio"
 dynamic = ["version"]
-description = "KvikIO - GPUDirect Storage"
+description = "KvikIO - GPUDirect Storage (C++)"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
     { name = "NVIDIA Corporation" },
