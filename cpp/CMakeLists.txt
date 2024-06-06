@@ -96,11 +96,14 @@ add_library(kvikio::kvikio ALIAS kvikio)
 # Enable CUDA in KvikIO
 if(CUDAToolkit_FOUND)
   if(CUDA_STATIC_RUNTIME)
-    target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::cudart_static>
-      $<BUILD_LOCAL_INTERFACE:CUDA::cuFile_static>)
+    target_link_libraries(
+      kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::cudart_static>
+                       $<BUILD_LOCAL_INTERFACE:CUDA::cuFile_static>
+    )
   else()
-    target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::cudart>
-      $<BUILD_LOCAL_INTERFACE:CUDA::cuFile>)
+    target_link_libraries(
+      kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::cudart> $<BUILD_LOCAL_INTERFACE:CUDA::cuFile>
+    )
   endif()
   target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUDA_FOUND>)
 else()
