@@ -68,7 +68,7 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-cpp:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.06
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.08
     with:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: ${{ inputs.build_type || 'branch' }}
@@ -79,7 +79,7 @@ jobs:
   wheel-build-python:
     needs: wheel-build-cpp
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.06
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -89,7 +89,7 @@ jobs:
   wheel-publish-cpp:
     needs: wheel-build-cpp
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.06
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -100,7 +100,7 @@ jobs:
   wheel-publish-python:
     needs: wheel-build-python
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.06
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
