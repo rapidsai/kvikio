@@ -67,9 +67,6 @@ jobs:
     with:
       arch: '["amd64"]'
       cuda: '["12.2"]'
-      # HACK: the yq and rapids-generate-script here is a stopgap until both of these PRs are merged:
-      #    - https://github.com/rapidsai/kvikio/pull/369
-      #    - https://github.com/rapidsai/devcontainers/pull/283
       build_command: |
         sccache -z;
         build-all --verbose;
