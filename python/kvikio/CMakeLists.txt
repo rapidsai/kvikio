@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(../cpp/cmake/rapids_config.cmake)
+include(../../cpp/cmake/rapids_config.cmake)
 include(rapids-cpm)
 rapids_cpm_init()
 include(rapids-cuda)
@@ -31,7 +31,7 @@ option(FIND_KVIKIO_CPP
 )
 
 # TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
-include(../cpp/cmake/Modules/FindcuFile.cmake)
+include(../../cpp/cmake/Modules/FindcuFile.cmake)
 
 if(FIND_KVIKIO_CPP)
   find_package(KvikIO "${RAPIDS_VERSION}")
@@ -42,7 +42,7 @@ endif()
 find_package(CUDAToolkit REQUIRED)
 
 if(NOT KvikIO_FOUND)
-  add_subdirectory(../cpp kvikio-cpp)
+  add_subdirectory(../../cpp kvikio-cpp)
   set(cython_lib_dir kvikio)
   install(TARGETS kvikio DESTINATION ${cython_lib_dir})
 endif()
