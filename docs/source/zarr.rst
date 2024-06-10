@@ -11,5 +11,5 @@ The following is an example of how to use the convenience function :py:meth:`kvi
 to create a new Zarr array and how open an existing Zarr array.
 
 
-.. literalinclude:: ../../python/examples/zarr_cupy_nvcomp.py
+.. literalinclude:: ../../python/kvikio/examples/zarr_cupy_nvcomp.py
     :language: python

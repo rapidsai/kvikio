@@ -18,7 +18,7 @@ repos:
     hooks:
       - id: black
         files: python/.*
-        args: ["--config", "python/pyproject.toml"]
+        args: ["--config", "python/kvikio/pyproject.toml"]
   - repo: https://github.com/PyCQA/flake8
     rev: 6.0.0
     hooks:
@@ -37,11 +37,11 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-cachetools]
-        args: ["--config-file=python/pyproject.toml",
-                "python/kvikio",
-                "python/tests",
-                "python/examples",
-                "python/benchmarks"]
+        args: ["--config-file=python/kvikio/pyproject.toml",
+                "python/kvikio/kvikio",
+                "python/kvikio/tests",
+                "python/kvikio/examples",
+                "python/kvikio/benchmarks"]
         pass_filenames: false
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v16.0.6

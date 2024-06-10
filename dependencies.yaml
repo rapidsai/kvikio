@@ -39,14 +39,14 @@ files:
       - py_version
   py_build:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: build-system
     includes:
       - rapids_build_skbuild
   py_rapids_build:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: tool.rapids-build-backend
       key: requires
@@ -54,7 +54,7 @@ files:
       - build
   py_run:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: project
     includes:
@@ -62,7 +62,7 @@ files:
       - run
   py_optional_test:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: project.optional-dependencies
       key: test
