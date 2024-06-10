@@ -13,6 +13,7 @@ files:
       - depends_on_cupy
       - docs
       - py_version
+      - rapids_build_skbuild
       - run
       - test_python
   test_cpp:
@@ -41,6 +42,14 @@ files:
     pyproject_dir: python/kvikio
     extras:
       table: build-system
+    includes:
+      - rapids_build_skbuild
+  py_rapids_build:
+    output: pyproject
+    pyproject_dir: python/kvikio
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
     includes:
       - build
   py_run:
@@ -76,10 +85,6 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - scikit-build-core>=0.7.0
-      - output_types: [requirements, pyproject]
-        packages:
-          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: conda
         matrices:
@@ -238,6 +243,17 @@ dependencies:
           - matrix:
             packages:
               - python>=3.9,<3.12
+  rapids_build_skbuild:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+      - output_types: conda
+        packages:
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
   run:
     common:
       - output_types: [conda, requirements, pyproject]
