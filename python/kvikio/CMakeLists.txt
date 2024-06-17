@@ -41,9 +41,10 @@ endif()
 
 find_package(CUDAToolkit REQUIRED)
 
+set(cython_lib_dir kvikio)
+
 if(NOT KvikIO_FOUND)
   add_subdirectory(../../cpp kvikio-cpp)
-  set(cython_lib_dir kvikio)
   install(TARGETS kvikio DESTINATION ${cython_lib_dir})
 endif()
 
