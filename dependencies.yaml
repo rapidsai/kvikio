@@ -47,18 +47,6 @@ files:
       table: build-system
     includes:
       - rapids_build_skbuild
-  py_rapids_build:
-    output: pyproject
-    pyproject_dir: python/kvikio
-    extras:
-      table: tool.rapids-build-backend
-      key: requires
-    includes:
-      - build-universal
-      - build-cpp
-      - build-py
-      - build-py-wrapper
-      - rapids_build_skbuild
   py_run:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -79,13 +67,15 @@ files:
     output: pyproject
     pyproject_dir: python/kvikio
     extras:
-      table: build-system
+      table: tool.rapids-build-backend
+      key: requires
     includes:
       - build-universal
       - build-cpp
       - build-py
       - build-py-wrapper
       - build-use-libkvikio-wheel
+      - rapids_build_skbuild
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
