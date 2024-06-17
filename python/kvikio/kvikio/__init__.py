@@ -2,7 +2,7 @@
 # See file LICENSE for terms.
 
 from ._lib import libkvikio  # type: ignore
-from ._version import __version__  # noqa: F401
+from ._version import __git_commit__, __version__  # noqa: F401
 from .cufile import CuFile  # noqa: F401
 
 
