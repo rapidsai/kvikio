@@ -59,10 +59,12 @@ files:
     output: pyproject
     pyproject_dir: python/libkvikio
     extras:
-      table: build-system
+      table: tool.rapids-build-backend
+      key: requires
     includes:
       - build-universal
       - build-py
+      - rapids_build_skbuild
   py_wheel_python:
     output: pyproject
     pyproject_dir: python/kvikio
