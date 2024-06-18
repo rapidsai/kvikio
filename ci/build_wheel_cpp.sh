@@ -21,7 +21,7 @@ pyproject_file="${package_dir}/pyproject.toml"
 
 cd "${package_dir}"
 
-python -m pip install wheel
+python -m pip install wheel rapids-build-backend
 python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 python -m wheel tags --platform any dist/* --remove
 
