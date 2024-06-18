@@ -71,7 +71,6 @@ files:
     includes:
       - build-universal
       - build-py
-      - rapids_build_skbuild
   py_wheel_python:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -84,7 +83,6 @@ files:
       - build-py
       - build-py-wrapper
       - build-use-libkvikio-wheel
-      - rapids_build_skbuild
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
