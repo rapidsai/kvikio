@@ -9,12 +9,9 @@ package_dir="python/kvikio"
 source rapids-configure-sccache
 source rapids-date-string
 
-version=$(rapids-generate-version)
-commit=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-pyproject_file="${package_dir}/pyproject.toml"
 
 rapids-generate-version > ./VERSION
 

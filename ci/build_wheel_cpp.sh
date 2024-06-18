@@ -11,7 +11,6 @@ source rapids-date-string
 
 rapids-generate-version > ./VERSION
 
-pyproject_file="${package_dir}/pyproject.toml"
 
 cd "${package_dir}"
 
