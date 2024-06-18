@@ -12,4 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from libkvikio._version import __git_commit__, __version__  # noqa: F401
+from libkvikio._version import __git_commit__, __version__
+
+__all__ = [__git_commit__, __version__]

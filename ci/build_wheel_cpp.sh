@@ -11,7 +11,6 @@ source rapids-date-string
 
 rapids-generate-version > ./VERSION
 
-
 cd "${package_dir}"
 
 python -m pip install wheel

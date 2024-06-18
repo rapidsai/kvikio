@@ -8,7 +8,6 @@ files:
     includes:
       - build-universal
       - build-cpp
-      - build-py
       - build-py-wrapper
       - checks
       - cuda
@@ -70,7 +69,6 @@ files:
       key: requires
     includes:
       - build-universal
-      - build-py
   py_wheel_python:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -80,7 +78,6 @@ files:
     includes:
       - build-universal
       - build-cpp
-      - build-py
       - build-py-wrapper
       - build-use-libkvikio-wheel
   py_optional_test:
@@ -138,18 +135,10 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
-  build-py:
-    common:
-      - output_types: conda
-        packages:
-          - scikit-build-core>=0.7.0
-      - output_types: [requirements, pyproject]
-        packages:
-          - scikit-build-core[pyproject]>=0.7.0
   build-use-libkvikio-wheel:
     common:
       - output_types: conda
-        packages:
+        packages: &libkvikio_packages
           - libkvikio==24.8.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
@@ -158,9 +147,9 @@ dependencies:
             packages:
               - libkvikio-cu12==24.8.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
-            packages: &libkvikio_packages_cu11
+            packages:
               - libkvikio-cu11==24.8.*,>=0.0.0a0
-          - {matrix: null, packages: *libkvikio_packages_cu11}
+          - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
       - output_types: [conda, requirements, pyproject]
