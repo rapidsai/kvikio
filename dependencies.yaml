@@ -47,6 +47,13 @@ files:
       table: build-system
     includes:
       - rapids_build_skbuild
+  py_build_cpp_wheel:
+    output: pyproject
+    pyproject_dir: python/libkvikio
+    extras:
+      table: build-system
+    includes:
+      - rapids_build_skbuild
   py_run:
     output: pyproject
     pyproject_dir: python/kvikio
