@@ -16,9 +16,9 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../../cpp/cmake/rapids_config.cmake)
 include(rapids-cpm)
-rapids_cpm_init()
 include(rapids-cuda)
 rapids_cuda_init_architectures(libkvikio-python)
+rapids_cpm_init()
 
 project(
   libkvikio-python

@@ -14,6 +14,10 @@ rapids-generate-version > ./VERSION
 cd "${package_dir}"
 
 python -m pip install wheel
+# libkvikio is a header-only C++ library with no Python code, so
+# it is entirely platform-agnostic. We cannot use auditwheel for
+# retagging since it has no extension modules, so we use `wheel`
+# directly instead.
 python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 python -m wheel tags --platform any dist/* --remove
 
