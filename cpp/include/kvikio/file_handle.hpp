@@ -29,6 +29,7 @@
 #include <utility>
 
 #include <kvikio/buffer.hpp>
+#include <kvikio/cufile_config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
@@ -520,7 +521,9 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+    // When checking for availability, we also check if cuFile's config file exist. This is because
+    // even when the stream API is available, it doesn't work if no config file exist.
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode && !config_path().empty()) {
       CUFILE_TRY(cuFileAPI::instance().ReadAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
       return;
@@ -610,7 +613,9 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+    // When checking for availability, we also check if cuFile's config file exist. This is because
+    // even when the stream API is available, it doesn't work if no config file exist.
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode && !config_path().empty()) {
       CUFILE_TRY(cuFileAPI::instance().WriteAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
       return;
