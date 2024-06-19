@@ -19,6 +19,9 @@ jobs:
       - conda-python-tests
       - docs-build
       - devcontainer
+      - wheel-cpp-build
+      - wheel-python-build
+      - wheel-python-tests
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.08
   checks:
@@ -68,3 +71,24 @@ jobs:
         sccache -z;
         build-all --verbose;
         sccache -s;
+  wheel-cpp-build:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.08
+    with:
+      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      build_type: pull-request
+      script: ci/build_wheel_cpp.sh
+  wheel-python-build:
+    needs: wheel-cpp-build
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.08
+    with:
+      build_type: pull-request
+      script: ci/build_wheel_python.sh
+  wheel-python-tests:
+    needs: wheel-python-build
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-24.08
+    with:
+      build_type: pull-request
+      script: ci/test_wheel.sh

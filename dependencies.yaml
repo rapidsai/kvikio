@@ -6,7 +6,9 @@ files:
       cuda: ["11.8", "12.2"]
       arch: [x86_64]
     includes:
-      - build
+      - build-universal
+      - build-cpp
+      - build-py-wrapper
       - checks
       - cuda
       - cuda_version
@@ -44,14 +46,13 @@ files:
       table: build-system
     includes:
       - rapids_build_skbuild
-  py_rapids_build:
+  py_build_cpp_wheel:
     output: pyproject
-    pyproject_dir: python/kvikio
+    pyproject_dir: python/libkvikio
     extras:
-      table: tool.rapids-build-backend
-      key: requires
+      table: build-system
     includes:
-      - build
+      - rapids_build_skbuild
   py_run:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -60,6 +61,25 @@ files:
     includes:
       - depends_on_cupy
       - run
+  py_wheel_cpp:
+    output: pyproject
+    pyproject_dir: python/libkvikio
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes:
+      - build-universal
+  py_wheel_python:
+    output: pyproject
+    pyproject_dir: python/kvikio
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes:
+      - build-universal
+      - build-cpp
+      - build-py-wrapper
+      - build-use-libkvikio-wheel
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -74,13 +94,14 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
-  build:
+  build-universal:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cmake>=3.26.4
-          - cython>=3.0.0
           - ninja
+  build-cpp:
+    common:
       - output_types: conda
         packages:
           - c-compiler
@@ -114,6 +135,26 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
+  build-use-libkvikio-wheel:
+    common:
+      - output_types: conda
+        packages: &libkvikio_packages
+          - libkvikio==24.8.*,>=0.0.0a0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - libkvikio-cu12==24.8.*,>=0.0.0a0
+          - matrix: {cuda: "11.*"}
+            packages:
+              - libkvikio-cu11==24.8.*,>=0.0.0a0
+          - {matrix: null, packages: *libkvikio_packages}
+  build-py-wrapper:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - cython>=3.0.0
   checks:
     common:
       - output_types: [conda, requirements]

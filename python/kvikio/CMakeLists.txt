@@ -41,9 +41,10 @@ endif()
 
 find_package(CUDAToolkit REQUIRED)
 
+set(cython_lib_dir kvikio)
+
 if(NOT KvikIO_FOUND)
   add_subdirectory(../../cpp kvikio-cpp)
-  set(cython_lib_dir kvikio)
   install(TARGETS kvikio DESTINATION ${cython_lib_dir})
 endif()
 
@@ -51,4 +52,12 @@ include(rapids-cython-core)
 rapids_cython_init()
 
 add_subdirectory(cmake)
+
+# It would be better to factor nvcomp out into its own wheel. Until that is available, we vendor it
+# here.
+install_aliased_imported_targets(
+  TARGETS nvcomp::nvcomp nvcomp::nvcomp_gdeflate nvcomp::nvcomp_bitcomp DESTINATION
+  ${cython_lib_dir}/_lib
+)
+
 add_subdirectory(kvikio/_lib)
