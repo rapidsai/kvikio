@@ -307,13 +307,7 @@ class FileHandle {
     }
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
-    if (ret == -1) {
-      throw std::system_error(errno, std::generic_category(), "Unable to read file");
-    }
-    if (ret < -1) {
-      throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
-    }
+    CUFILE_CHECK_BYTES_DONE(ret);
     return ret;
   }
 
