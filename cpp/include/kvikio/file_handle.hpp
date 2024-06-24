@@ -302,6 +302,7 @@ class FileHandle {
                    std::size_t file_offset,
                    std::size_t devPtr_offset)
   {
+    KVIKIO_NVTX_FUNC_RANGE("FileHandle::read()", size);
     if (_compat_mode) {
       return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -346,6 +347,7 @@ class FileHandle {
                     std::size_t file_offset,
                     std::size_t devPtr_offset)
   {
+    KVIKIO_NVTX_FUNC_RANGE("FileHandle::write()", size);
     _nbytes = 0;  // Invalidate the computed file size
 
     if (_compat_mode) {
