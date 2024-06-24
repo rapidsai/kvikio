@@ -128,8 +128,7 @@ target_include_directories(
                    "$<INSTALL_INTERFACE:include>"
 )
 
-target_link_libraries(kvikio INTERFACE Threads::Threads)
-target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
+target_link_libraries(kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp)
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
 # optionally build examples
