@@ -80,6 +80,8 @@ else()
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
 endif()
 
+include(cmake/thirdparty/get_nvtx.cmake)
+
 # library targets
 add_library(kvikio INTERFACE)
 add_library(kvikio::kvikio ALIAS kvikio)
