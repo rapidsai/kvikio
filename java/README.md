@@ -18,3 +18,27 @@ The resulting .so file must be in your JVM library path. If it is not already pl
 
 Examples
 An example for how to use the Java KvikIO bindings can be found in src/main/java/bindings/kvikio/example . Note: This example has a dependency on JCuda so ensure that when running the example the JCuda shared library files are on the JVM library path along with the libCuFileJNI.so file.
+
+Specific instructions to run the example from a terminal:
+Compile class files
+cd kvikio/java/src/main/java/bindings/kvikio/cufile
+javac \*.java
+
+Retrieve Jcuda jar files
+cd kvikio/java/
+mkdir lib
+cd lib
+wget https://repo1.maven.org/maven2/org/jcuda/jcuda/12.0.0/jcuda-12.0.0.jar
+wget https://repo1.maven.org/maven2/org/jcuda/jcuda-natives/12.0.0/jcuda-natives-12.0.0.jar
+
+Compile shared library
+cd kvikio/java/lib
+/usr/local/cuda/bin/nvcc -shared -o libCuFileJNI.so -I/usr/local/cuda/include/ -I/usr/lib/jvm/java-21-openjdk-amd64/include/ -I/usr/lib/jvm/java-21-openjdk-amd64/include/linux ../src/main/native/src/CuFileJni.cpp --compiler-options "-fPIC" -lcufile
+
+Compile example file
+cd kvikio/java/src/main/java 
+javac -cp .:../../../lib/jcuda-12.0.0.jar:../../../lib/jcuda-natives-12.0.0.jar bindings/kvikio/example/Main.java
+
+Run example
+cd kvikio/java/src/main/java 
+java -cp .:../../../lib/jcuda-12.0.0.jar:../../../lib/jcuda-natives-12.0.0.jar -Djava.library.path=../../../lib/ bindings.kvikio.example.main
