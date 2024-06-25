@@ -1,6 +1,5 @@
 package bindings.kvikio.example;
 
-import bindings.kvikio.cufile.CuFile;
 import bindings.kvikio.cufile.CuFileReadHandle;
 import bindings.kvikio.cufile.CuFileWriteHandle;
 
@@ -12,9 +11,7 @@ import java.util.Arrays;
 import jcuda.NativePointerObject;
 import jcuda.Pointer;
 import jcuda.Sizeof;
-import jcuda.driver.*;
 import jcuda.runtime.JCuda;
-import jcuda.runtime.cudaDeviceProp;
 
 class main {
     public static void main(String []args)

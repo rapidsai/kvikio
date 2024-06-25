@@ -35,6 +35,9 @@ Compile shared library
 cd kvikio/java/lib
 /usr/local/cuda/bin/nvcc -shared -o libCuFileJNI.so -I/usr/local/cuda/include/ -I/usr/lib/jvm/java-21-openjdk-amd64/include/ -I/usr/lib/jvm/java-21-openjdk-amd64/include/linux ../src/main/native/src/CuFileJni.cpp --compiler-options "-fPIC" -lcufile
 
+Setup a test file target NOTE: your mount directory may differ from /mnt/nvme, so update this command appropriately as well as example/Main.java to point to the correct file path.
+touch /mnt/nvme/java\_test
+
 Compile example file
 cd kvikio/java/src/main/java 
 javac -cp .:../../../lib/jcuda-12.0.0.jar:../../../lib/jcuda-natives-12.0.0.jar bindings/kvikio/example/Main.java
@@ -42,3 +45,4 @@ javac -cp .:../../../lib/jcuda-12.0.0.jar:../../../lib/jcuda-natives-12.0.0.jar 
 Run example
 cd kvikio/java/src/main/java 
 java -cp .:../../../lib/jcuda-12.0.0.jar:../../../lib/jcuda-natives-12.0.0.jar -Djava.library.path=../../../lib/ bindings.kvikio.example.main
+

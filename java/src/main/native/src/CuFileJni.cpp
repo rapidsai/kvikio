@@ -51,7 +51,7 @@ class cufile_file {
   /**
    * @brief Factory method to create a file wrapper for reading.
    *
-   * @param path Absolute path of the file to read from.
+   * @param path Absolute path of the file to read from. This file must exist.
    * @return std::unique_ptr<cufile_file> for reading.
    */
   static auto make_reader(char const* path)
@@ -67,7 +67,7 @@ class cufile_file {
   /**
    * @brief Factory method to create a file wrapper for writing.
    *
-   * @param path Absolute path of the file to write to.
+   * @param path Absolute path of the file to write to. This creates the file if it does not already exist..
    * @return std::unique_ptr<cufile_file> for writing.
    */
   static auto make_writer(char const* path)
@@ -109,8 +109,6 @@ class cufile_file {
 
       }
     }
-
-    //TODO check size of buffer vs bytes written?
   }
 
   void write(void* buffer, std::size_t size, std::size_t file_offset, std::size_t buffer_offset)
@@ -124,7 +122,6 @@ class cufile_file {
 
       }
     }
-    //TODO check size of buffer vs bytes written?
   }
 
  private:
