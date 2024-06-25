@@ -189,7 +189,7 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
       const std::string name = IsReadOperation ? "pread" : "pwrite";
       if (errno == EBADF) {
         throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
-                              KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
+                              KVIKIO_STRINGIFY(__LINE__) + ": Operation not permitted"};
       }
       throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
                             KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};

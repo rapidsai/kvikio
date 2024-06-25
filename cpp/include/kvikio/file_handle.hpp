@@ -29,6 +29,7 @@
 #include <utility>
 
 #include <kvikio/buffer.hpp>
+#include <kvikio/cufile_config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
@@ -308,13 +309,7 @@ class FileHandle {
     KVIKIO_NVTX_FUNC_RANGE("cufileRead()", size);
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
-    if (ret == -1) {
-      throw std::system_error(errno, std::generic_category(), "Unable to read file");
-    }
-    if (ret < -1) {
-      throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
-    }
+    CUFILE_CHECK_BYTES_DONE(ret);
     return ret;
   }
 
@@ -528,7 +523,9 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+    // When checking for availability, we also check if cuFile's config file exist. This is because
+    // even when the stream API is available, it doesn't work if no config file exist.
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode && !config_path().empty()) {
       CUFILE_TRY(cuFileAPI::instance().ReadAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
       return;
@@ -618,7 +615,9 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+    // When checking for availability, we also check if cuFile's config file exist. This is because
+    // even when the stream API is available, it doesn't work if no config file exist.
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode && !config_path().empty()) {
       CUFILE_TRY(cuFileAPI::instance().WriteAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
       return;
