@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -36,7 +36,7 @@ def test_read_write(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
             assert f.write(a) == a.nbytes
 
             # Try to read file opened in write-only mode
-            with pytest.raises(RuntimeError, match="unsupported file open flags"):
+            with pytest.raises(RuntimeError, match="Operation not permitted"):
                 f.read(a)
 
             # Close file

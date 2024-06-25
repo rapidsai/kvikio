@@ -30,7 +30,7 @@ def test_read_write(tmp_path, size):
     assert f.raw_write_async(a, stream.ptr).check_bytes_done() == a.nbytes
 
     # Try to read file opened in write-only mode
-    with pytest.raises(RuntimeError, match="unsupported file open flags"):
+    with pytest.raises(RuntimeError, match="Operation not permitted"):
         # The exception is raised when we call the raw_read_async API.
         future_stream = f.raw_read_async(a, stream.ptr)
         future_stream.check_bytes_done()
