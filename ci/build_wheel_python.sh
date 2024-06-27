@@ -17,7 +17,7 @@ CPP_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapid
 
 cd "${package_dir}"
 
-# ensure 'kvikio wheel builds always use the 'libkvikio' just built in the same CI run
+# ensure 'kvikio' wheel builds always use the 'libkvikio' just built in the same CI run
 #
 # using env variable PIP_CONSTRAINT is necessary to ensure the constraints
 # are used when creating the isolated build environment
