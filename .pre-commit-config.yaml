@@ -81,13 +81,8 @@ repos:
           (?x)^(
             ^CHANGELOG.md$
           )
-  - repo: https://github.com/rapidsai/dependency-file-generator
-    rev: v1.13.11
-    hooks:
-      - id: rapids-dependency-file-generator
-        args: ["--clean"]
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v0.0.3
+    rev: v0.2.0
     hooks:
       - id: verify-copyright
         files: |
@@ -95,6 +90,12 @@ repos:
               [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
               CMakeLists[.]txt$|
               meta[.]yaml$
+      - id: verify-alpha-spec
+  - repo: https://github.com/rapidsai/dependency-file-generator
+    rev: v1.13.11
+    hooks:
+      - id: rapids-dependency-file-generator
+        args: ["--clean"]
 
 default_language_version:
       python: python3
