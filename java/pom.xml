@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project  xmlns="http://maven.apache.org/POM/4.0.0" 
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>bindings.kvikio</groupId>
+  <artifactId>cufile</artifactId>
+  <version>24.08.0-SNAPSHOT</version>
+
+  <name>cufile</name>
+  <description>
+      This project provides java bindings for the GPUDirect Storage cufile library, enabling the GPU to load and
+      save large amounts of data to and from persistent storage. This is still a work in progress so some APIs may change.
+  </description>
+  <url>http://ai.rapids</url>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.jcuda</groupId>
+      <artifactId>jcuda</artifactId>
+      <version>12.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jcuda</groupId>
+      <artifactId>jcuda-natives</artifactId>
+      <version>12.0.0</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.1.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-exec-plugin</artifactId>
+          <version>1.6.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.8.0</version>
+          <configuration>
+                <source>21</source>
+                <target>21</target>
+            </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>native-maven-plugin</artifactId>
+          <version>0.7.11</version>
+            <executions>
+                <execution>
+                    <id>default-cli</id>
+                    <goals>
+                        <goal>compile</goal>
+                        <goal>link</goal>
+                    </goals>
+                    <configuration>
+                        <compilerArgs>
+                            <arg>-I/usr/local/cuda/include/</arg>
+                            <arg>-I/usr/lib/jvm/java-21-openjdk-amd64/include/</arg>
+                            <arg>-I/usr/lib/jvm/java-21-openjdk-amd64/include/linux</arg>
+                            <arg>-lcufile</arg>
+                            <arg>-fPIC</arg>
+                        </compilerArgs>
+                        <linkerArgs>
+                            <arg>-shared</arg>
+                            <arg>-o</arg>
+                            <arg>libCuFileJNI.so</arg>
+                        </linkerArgs>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.0.0</version>
+            <executions>
+                <execution>
+                    <id>compile-native-code</id>
+                    <phase>generate-sources</phase>
+                    <goals>
+                        <goal>run</goal>
+                    </goals>
+                    <configuration>
+                        <target>
+                            <exec executable="/usr/local/cuda/bin/nvcc">
+                                <arg value="-shared"/>
+                                <arg value="-o"/>
+                                <arg value="${project.build.directory}/libCuFileJNI.so"/>
+                                <arg value="-I/usr/local/cuda/include/"/>
+                                <arg value="-I/usr/lib/jvm/java-21-openjdk-amd64/include/"/>
+                                <arg value="-I/usr/lib/jvm/java-21-openjdk-amd64/include/linux"/>
+                                <arg value="src/main/native/cuda/CuFileJni.cpp"/>
+                                <arg value="--compiler-options"/>
+                                <arg value="-fPIC"/>
+                                <arg value="-lcufile"/>
+                            </exec>
+                        </target>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+        <plugin>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>2.22.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>2.5.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>2.8.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.7.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>3.0.0</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>
