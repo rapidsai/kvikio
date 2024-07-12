@@ -23,6 +23,22 @@ The resulting .so file must be in your JVM library path when running upstream Ja
 ## Examples
 An example for how to use the Java KvikIO bindings can be found in src/main/java/bindings/kvikio/example . Note: This example has a dependency on JCuda so ensure that when running the example the JCuda shared library files are on the JVM library path along with the libCuFileJNI.so file.
 
+### Specific instructions to run the example using Maven
+
+#### Compile the shared library and Java files with Maven
+
+    cd kvikio/java/
+    mvn clean install
+
+#### Setup a test file target NOTE: your mount directory may differ from /mnt/nvme, so update this command appropriately as well as example/Main.java to point to the correct file path.
+
+    touch /mnt/nvme/java_test
+
+#### Run example
+    
+    cd kvikio/java/
+    java -cp target/cufile-24.08.0-SNAPSHOT.jar:$HOME/.m2/repository/org/jcuda/jcuda/12.0.0/jcuda-12.0.0.jar:$HOME/.m2/repository/org/jcuda/jcuda-natives/12.0.0/jcuda-natives-12.0.0.jar -Djava.library.path=./target bindings.kvikio.example.Main
+
 ### Specific instructions to run the example from a terminal
 
 #### Compile class files

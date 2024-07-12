@@ -12,7 +12,7 @@ import jcuda.Pointer;
 import jcuda.Sizeof;
 import jcuda.runtime.JCuda;
 
-class main {
+public class Main {
     public static void main(String []args)
     {
         // Allocate CUDA device memory

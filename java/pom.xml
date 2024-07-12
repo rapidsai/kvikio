@@ -39,16 +39,15 @@
     <pluginManagement>
       <plugins>
         <plugin>
-          <artifactId>maven-clean-plugin</artifactId>
-          <version>3.1.0</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-resources-plugin</artifactId>
-          <version>3.0.2</version>
-        </plugin>
-        <plugin>
           <artifactId>maven-exec-plugin</artifactId>
           <version>1.6.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.1.0</version>
+          <configuration>
+            <createDirs>true</createDirs>
+          </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -57,64 +56,6 @@
                 <source>21</source>
                 <target>21</target>
             </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>native-maven-plugin</artifactId>
-          <version>0.7.11</version>
-            <executions>
-                <execution>
-                    <id>default-cli</id>
-                    <goals>
-                        <goal>compile</goal>
-                        <goal>link</goal>
-                    </goals>
-                    <configuration>
-                        <compilerArgs>
-                            <arg>-I/usr/local/cuda/include/</arg>
-                            <arg>-I/usr/lib/jvm/java-21-openjdk-amd64/include/</arg>
-                            <arg>-I/usr/lib/jvm/java-21-openjdk-amd64/include/linux</arg>
-                            <arg>-lcufile</arg>
-                            <arg>-fPIC</arg>
-                        </compilerArgs>
-                        <linkerArgs>
-                            <arg>-shared</arg>
-                            <arg>-o</arg>
-                            <arg>libCuFileJNI.so</arg>
-                        </linkerArgs>
-                    </configuration>
-                </execution>
-            </executions>
-        </plugin>
-        <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-antrun-plugin</artifactId>
-            <version>3.0.0</version>
-            <executions>
-                <execution>
-                    <id>compile-native-code</id>
-                    <phase>generate-sources</phase>
-                    <goals>
-                        <goal>run</goal>
-                    </goals>
-                    <configuration>
-                        <target>
-                            <exec executable="/usr/local/cuda/bin/nvcc">
-                                <arg value="-shared"/>
-                                <arg value="-o"/>
-                                <arg value="${project.build.directory}/libCuFileJNI.so"/>
-                                <arg value="-I/usr/local/cuda/include/"/>
-                                <arg value="-I/usr/lib/jvm/java-21-openjdk-amd64/include/"/>
-                                <arg value="-I/usr/lib/jvm/java-21-openjdk-amd64/include/linux"/>
-                                <arg value="src/main/native/cuda/CuFileJni.cpp"/>
-                                <arg value="--compiler-options"/>
-                                <arg value="-fPIC"/>
-                                <arg value="-lcufile"/>
-                            </exec>
-                        </target>
-                    </configuration>
-                </execution>
-            </executions>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
@@ -142,5 +83,37 @@
         </plugin>
       </plugins>
     </pluginManagement>
+    <plugins>
+      <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.0.0</version>
+        <executions>
+          <execution>
+            <id>compile-native-code</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <!-- Compile native code using nvcc -->
+                <exec executable="/usr/local/cuda/bin/nvcc">
+                  <arg value="-shared"/>
+                  <arg value="-o"/>
+                  <arg value="${project.build.directory}/libCuFileJNI.so"/>
+                  <arg value="-I/usr/local/cuda/include/"/>
+                  <arg value="-I/usr/lib/jvm/java-21-openjdk-amd64/include/"/>
+                  <arg value="-I/usr/lib/jvm/java-21-openjdk-amd64/include/linux"/>
+                  <arg value="${project.basedir}/src/main/native/src/CuFileJni.cpp"/>
+                  <arg value="--compiler-options"/>
+                  <arg value="-fPIC"/>
+                  <arg value="-lcufile"/>
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 </project>
