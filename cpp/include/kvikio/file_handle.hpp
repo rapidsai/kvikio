@@ -66,7 +66,13 @@ inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
     default: throw std::invalid_argument("Unknown file open flag");
   }
   file_flags |= O_CLOEXEC;
-  if (o_direct) { file_flags |= O_DIRECT; }
+  if (o_direct) {
+#ifdef O_DIRECT
+    file_flags |= O_DIRECT;
+#else
+    throw std::invalid_argument("'O_DIRECT' flag unsupported on this platform");
+#endif
+  }
   return file_flags;
 }
 
