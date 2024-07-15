@@ -67,10 +67,14 @@ inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
   }
   file_flags |= O_CLOEXEC;
   if (o_direct) {
-#ifdef O_DIRECT
+#if defined(O_DIRECT)
+    // On Linux, use `O_DIRECT`
     file_flags |= O_DIRECT;
+#elif defined(FILE_FLAG_NO_BUFFERING)
+    // On Windows, use `FILE_FLAG_NO_BUFFERING`
+    file_flags |= FILE_FLAG_NO_BUFFERING;
 #else
-    throw std::invalid_argument("'O_DIRECT' flag unsupported on this platform");
+    throw std::invalid_argument("'o_direct' flag unsupported on this platform");
 #endif
   }
   return file_flags;
@@ -90,7 +94,22 @@ inline int open_fd(const std::string& file_path,
                    mode_t mode)
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-  int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
+  int fd = -1;
+  if (o_direct) {
+#if defined(O_DIRECT) || defined(FILE_FLAG_NO_BUFFERING)
+    // On Linux, use `O_DIRECT`
+    // On Windows, use `FILE_FLAG_NO_BUFFERING`
+    fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, true), mode);
+#elif defined(F_NOCACHE)
+    // On macOS, pass `F_NOCACHE` to `fcntl` after opening file
+    fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, false), mode);
+    if (fd != -1) { fcntl(fd, F_NOCACHE, 1); }
+#else
+    throw std::invalid_argument("'o_direct' unsupported on this platform");
+#endif
+  } else {
+    fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, false), mode);
+  }
   if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
   return fd;
 }
