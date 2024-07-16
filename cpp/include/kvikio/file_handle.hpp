@@ -70,9 +70,6 @@ inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
 #if defined(O_DIRECT)
     // On Linux, use `O_DIRECT`
     file_flags |= O_DIRECT;
-#elif defined(FILE_FLAG_NO_BUFFERING)
-    // On Windows, use `FILE_FLAG_NO_BUFFERING`
-    file_flags |= FILE_FLAG_NO_BUFFERING;
 #else
     throw std::invalid_argument("'o_direct' flag unsupported on this platform");
 #endif
@@ -96,9 +93,8 @@ inline int open_fd(const std::string& file_path,
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int fd = -1;
   if (o_direct) {
-#if defined(O_DIRECT) || defined(FILE_FLAG_NO_BUFFERING)
+#if defined(O_DIRECT)
     // On Linux, use `O_DIRECT`
-    // On Windows, use `FILE_FLAG_NO_BUFFERING`
     fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, true), mode);
 #elif defined(F_NOCACHE)
     // On macOS, pass `F_NOCACHE` to `fcntl` after opening file
