@@ -4,7 +4,7 @@ files:
     output: conda
     matrix:
       cuda: ["11.8", "12.2"]
-      arch: [x86_64]
+      arch: [aarch64, x86_64]
     includes:
       - build-universal
       - build-cpp
@@ -207,12 +207,18 @@ dependencies:
         matrices:
           - matrix:
               arch: aarch64
-            packages:
-          - matrix:
               cuda: "12.*"
-              arch: x86_64
             packages:
               - libcufile-dev
+          - matrix:
+              arch: x86_64
+              cuda: "12.*"
+            packages:
+              - libcufile-dev
+          - matrix:
+              arch: aarch64
+              cuda: "11.*"
+            packages:
           - matrix:
               cuda: "11.8"
               arch: x86_64
