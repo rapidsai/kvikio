@@ -206,12 +206,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              arch: aarch64
-              cuda: "12.*"
-            packages:
-              - libcufile-dev
-          - matrix:
-              arch: x86_64
               cuda: "12.*"
             packages:
               - libcufile-dev
