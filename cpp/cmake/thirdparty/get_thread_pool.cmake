@@ -12,8 +12,8 @@
 # the License.
 # =============================================================================
 
-# Need to call rapids_cpm_bs_thread_pool to get support for an installed version of thread-pool and to support
-# installing it ourselves
+# Need to call rapids_cpm_bs_thread_pool to get support for an installed version of thread-pool and
+# to support installing it ourselves
 function(find_and_configure_thread_pool)
   include(${rapids-cmake-dir}/cpm/bs_thread_pool.cmake)
 
