@@ -129,7 +129,7 @@ target_include_directories(
                    "$<INSTALL_INTERFACE:include>"
 )
 target_link_libraries(
-  kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp BS_thread_pool
+  kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp BS::thread_pool
 )
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
