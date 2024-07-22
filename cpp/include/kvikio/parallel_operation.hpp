@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,18 @@
 
 namespace kvikio {
 
+namespace detail {
+
+template <typename F, typename T>
+std::future<std::size_t> submit_task(
+  F op, T buf, std::size_t size, std::size_t file_offset, std::size_t devPtr_offset)
+{
+  return defaults::thread_pool().submit_task(
+    [&] { return op(buf, size, file_offset, devPtr_offset); });
+}
+
+}  // namespace detail
+
 /**
  * @brief Apply read or write operation in parallel.
  *
@@ -52,7 +64,7 @@ std::future<std::size_t> parallel_io(F op,
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
-    return defaults::thread_pool().submit(op, buf, size, file_offset, devPtr_offset);
+    return detail::submit_task(op, buf, size, file_offset, devPtr_offset);
   }
 
   // We know an upper bound of the total number of tasks
@@ -61,16 +73,14 @@ std::future<std::size_t> parallel_io(F op,
 
   // 1) Submit `task_size` sized tasks
   while (size >= task_size) {
-    tasks.push_back(defaults::thread_pool().submit(op, buf, task_size, file_offset, devPtr_offset));
+    tasks.push_back(detail::submit_task(op, buf, task_size, file_offset, devPtr_offset));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
   }
 
   // 2) Submit a task for the remainder
-  if (size > 0) {
-    tasks.push_back(defaults::thread_pool().submit(op, buf, size, file_offset, devPtr_offset));
-  }
+  if (size > 0) { tasks.push_back(detail::submit_task(op, buf, size, file_offset, devPtr_offset)); }
 
   // Finally, we sum the result of all tasks.
   auto gather_tasks = [](std::vector<std::future<std::size_t>>&& tasks) -> std::size_t {
