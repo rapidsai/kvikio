@@ -164,10 +164,12 @@ class FileHandle {
       _initialized{true},
       _compat_mode{compat_mode}
   {
-    try {
-      _fd_direct_on = detail::open_fd(file_path, flags, true, mode);
-    } catch (const std::system_error&) {
-      _compat_mode = true;  // Fall back to compat mode if we cannot open the file with O_DIRECT
+    if (!_compat_mode) {
+      try {
+        _fd_direct_on = detail::open_fd(file_path, flags, true, mode);
+      } catch (const std::system_error&) {
+        _compat_mode = true;  // Fall back to compat mode if we cannot open the file with O_DIRECT
+      }
     }
 
     if (!_compat_mode) {
