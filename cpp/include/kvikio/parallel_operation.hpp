@@ -35,7 +35,7 @@ std::future<std::size_t> submit_task(
   F op, T buf, std::size_t size, std::size_t file_offset, std::size_t devPtr_offset)
 {
   return defaults::thread_pool().submit_task(
-    [&] { return op(buf, size, file_offset, devPtr_offset); });
+    [=] { return op(buf, size, file_offset, devPtr_offset); });
 }
 
 }  // namespace detail
