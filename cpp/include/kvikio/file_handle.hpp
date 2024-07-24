@@ -25,6 +25,7 @@
 #include <iostream>
 #include <numeric>
 #include <optional>
+#include <stdexcept>
 #include <system_error>
 #include <utility>
 
@@ -68,7 +69,6 @@ inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
   file_flags |= O_CLOEXEC;
   if (o_direct) {
 #if defined(O_DIRECT)
-    // On Linux, use `O_DIRECT`
     file_flags |= O_DIRECT;
 #else
     throw std::invalid_argument("'o_direct' flag unsupported on this platform");
@@ -91,21 +91,7 @@ inline int open_fd(const std::string& file_path,
                    mode_t mode)
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-  int fd = -1;
-  if (o_direct) {
-#if defined(O_DIRECT)
-    // On Linux, use `O_DIRECT`
-    fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, true), mode);
-#elif defined(F_NOCACHE)
-    // On macOS, pass `F_NOCACHE` to `fcntl` after opening file
-    fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, false), mode);
-    if (fd != -1) { fcntl(fd, F_NOCACHE, 1); }
-#else
-    throw std::invalid_argument("'o_direct' unsupported on this platform");
-#endif
-  } else {
-    fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, false), mode);
-  }
+  int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
   if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
   return fd;
 }
@@ -188,7 +174,9 @@ class FileHandle {
     try {
       _fd_direct_on = detail::open_fd(file_path, flags, true, mode);
     } catch (const std::system_error&) {
-      _compat_mode = true;  // Fall back to compat mode if we cannot open the file with O_DIRECT
+      _compat_mode = true;
+    } catch (const std::invalid_argument&) {
+      _compat_mode = true;
     }
 
     if (!_compat_mode) {
