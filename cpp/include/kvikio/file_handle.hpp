@@ -48,6 +48,9 @@ namespace detail {
  * @param flags The flags
  * @param o_direct Append O_DIRECT to the open flags
  * @return oflags
+ *
+ * @throw std::invalid_argument if the specified flags are not supported.
+ * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
  */
 inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
 {
