@@ -71,7 +71,7 @@ inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
   }
   file_flags |= O_CLOEXEC;
   if (o_direct) {
-#if defined(O_DIRECTT)
+#if defined(O_DIRECT)
     file_flags |= O_DIRECT;
 #else
     throw std::invalid_argument("'o_direct' flag unsupported on this platform");
