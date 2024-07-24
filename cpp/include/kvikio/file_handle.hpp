@@ -164,12 +164,18 @@ class FileHandle {
       _initialized{true},
       _compat_mode{compat_mode}
   {
+    if (!_compat_mode) {
+      return;  // Nothing to do in compatibility mode
+    }
+
+    // Try to open the file with the O_DIRECT flag. Fall back to compatibility mode, if it fails.
     try {
       _fd_direct_on = detail::open_fd(file_path, flags, true, mode);
     } catch (const std::system_error&) {
-      _compat_mode = true;  // Fall back to compat mode if we cannot open the file with O_DIRECT
+      _compat_mode = true;
     }
 
+    // Create a cuFile handle, if not in compatibility mode
     if (!_compat_mode) {
       CUfileDescr_t desc{};  // It is important to set to zero!
       desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
