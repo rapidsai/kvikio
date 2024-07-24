@@ -47,3 +47,6 @@ find .devcontainer/ -type f -name devcontainer.json -print0 | while IFS= read -r
     sed_runner "s@rapidsai/devcontainers/features/rapids-build-utils:[0-9.]*@rapidsai/devcontainers/features/rapids-build-utils:${NEXT_SHORT_TAG_PEP440}@" "${filename}"
     sed_runner "s@rapids-\${localWorkspaceFolderBasename}-[0-9.]*@rapids-\${localWorkspaceFolderBasename}-${NEXT_SHORT_TAG}@g" "${filename}"
 done
+
+# The example of a downstream project
+sed_runner "s/find_and_configure_kvikio(.*)/find_and_configure_kvikio(\"${NEXT_SHORT_TAG}\")/g" "cpp/examples/downstream/cmake/get_kvikio.cmake"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 #include <map>
 #include <optional>
 #include <tuple>
+
+#include <nvtx3/nvtx3.hpp>
 
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
@@ -61,6 +63,7 @@ inline constexpr std::size_t page_size = 4096;
  * @param ptr Memory pointer to query
  * @return The boolean answer
  */
+#ifdef KVIKIO_CUDA_FOUND
 inline bool is_host_memory(const void* ptr)
 {
   CUpointer_attribute attrs[1] = {
@@ -80,6 +83,9 @@ inline bool is_host_memory(const void* ptr)
   // does it to support `cudaMemoryTypeUnregistered`.
   return memtype == 0 || memtype == CU_MEMORYTYPE_HOST;
 }
+#else
+constexpr bool is_host_memory(const void* ptr) { return true; }
+#endif
 
 /**
  * @brief Return the device owning the pointer
@@ -259,5 +265,48 @@ inline bool is_future_done(const T& future)
 {
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
+
+/**
+ * @brief Tag type for libkvikio's NVTX domain.
+ */
+struct libkvikio_domain {
+  static constexpr char const* name{"libkvikio"};
+};
+
+// Macro overloads of KVIKIO_NVTX_FUNC_RANGE
+#define KVIKIO_NVTX_FUNC_RANGE_1() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
+#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                    \
+  nvtx3::scoped_range_in<libkvikio_domain> _kvikio_nvtx_range \
+  {                                                           \
+    nvtx3::event_attributes                                   \
+    {                                                         \
+      msg, nvtx3::payload { val }                             \
+    }                                                         \
+  }
+#define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
+
+/**
+ * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain
+ * from the lifetime of a function.
+ *
+ * Takes two arguments (message, payload) or no arguments, in which case the name
+ * of the immediately enclosing function returned by `__func__` is used.
+ *
+ * Example:
+ * ```
+ * void some_function1(){
+ *    KVIKIO_NVTX_FUNC_RANGE("my function", 42);
+ *    ...
+ * }
+ * void some_function2(){
+ *    KVIKIO_NVTX_FUNC_RANGE();  // The name `some_function2` is used
+ *    ...
+ * }
+ * ```
+ */
+#define KVIKIO_NVTX_FUNC_RANGE(...)                                  \
+  GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(                                  \
+    __VA_ARGS__, KVIKIO_NVTX_FUNC_RANGE_2, KVIKIO_NVTX_FUNC_RANGE_1) \
+  (__VA_ARGS__)
 
 }  // namespace kvikio

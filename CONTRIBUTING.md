@@ -39,7 +39,6 @@ The Python packages depends on the following packages:
 
 * Cython
 * Pip
-* Setuptools
 
 For testing:
 * pytest

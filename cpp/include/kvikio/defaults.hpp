@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@
 #include <string>
 #include <utility>
 
+#include <BS_thread_pool.hpp>
+
 #include <kvikio/shim/cufile.hpp>
-#include <kvikio/thread_pool.hpp>
 
 namespace kvikio {
 namespace detail {
@@ -78,7 +79,7 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
  */
 class defaults {
  private:
-  kvikio::third_party::thread_pool _thread_pool{get_num_threads_from_env()};
+  BS::thread_pool _thread_pool{get_num_threads_from_env()};
   bool _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
@@ -166,10 +167,7 @@ class defaults {
    *
    * @return The the default thread pool instance.
    */
-  [[nodiscard]] static kvikio::third_party::thread_pool& thread_pool()
-  {
-    return instance()->_thread_pool;
-  }
+  [[nodiscard]] static BS::thread_pool& thread_pool() { return instance()->_thread_pool; }
 
   /**
    * @brief Get the number of threads in the default thread pool.

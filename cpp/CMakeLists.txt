@@ -44,13 +44,13 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 rapids_cpm_init()
 
 rapids_find_package(
-  CUDAToolkit REQUIRED
+  Threads REQUIRED
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
 
 rapids_find_package(
-  Threads REQUIRED
+  CUDAToolkit
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
@@ -80,18 +80,57 @@ else()
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
 endif()
 
+include(cmake/thirdparty/get_nvtx.cmake)
+include(cmake/thirdparty/get_thread_pool.cmake)
+
 # library targets
 add_library(kvikio INTERFACE)
 add_library(kvikio::kvikio ALIAS kvikio)
+
+# We enable CUDA and cuFile both here and in the FINAL_CODE_BLOCK export block. While the code block
+# below (in FINAL_CODE_BLOCK) sets this information when KvikIO is imported from a
+# kvikio-config.cmake file, this code block is intended to be used by projects that include KvikIO's
+# source directory in their own CMake build.
+#
+# Normally we would just set the below without using $<BUILD_LOCAL_INTERFACE:...>, and without the
+# final_code_string, but in this case we want to conditionally set these things at import time, not
+# export time, since KvikIO is a header-only library that can adapt to different build environments.
+
+# Enable CUDA in KvikIO
+if(CUDAToolkit_FOUND)
+  if(CUDA_STATIC_RUNTIME)
+    target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::cudart_static>)
+  else()
+    target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::cudart>)
+  endif()
+  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUDA_FOUND>)
+else()
+  message(WARNING "Building KvikIO without CUDA")
+endif()
+
+# Enable supported cuFile features in KvikIO
+if(cuFile_FOUND)
+  target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:cufile::cuFile_interface>)
+  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_FOUND>)
+  if(cuFile_BATCH_API_FOUND)
+    target_compile_definitions(
+      kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_BATCH_API_FOUND>
+    )
+  endif()
+  if(cuFile_STREAM_API_FOUND)
+    target_compile_definitions(
+      kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_STREAM_API_FOUND>
+    )
+  endif()
+endif()
 
 target_include_directories(
   kvikio INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                    "$<INSTALL_INTERFACE:include>"
 )
-
-target_link_libraries(kvikio INTERFACE Threads::Threads)
-target_link_libraries(kvikio INTERFACE CUDA::toolkit)
-target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
+target_link_libraries(
+  kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp BS::thread_pool
+)
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
 # optionally build examples
@@ -132,6 +171,18 @@ set(final_code_string
 get_property(already_set_kvikio DIRECTORY PROPERTY kvikio_already_set_defines SET)
 if(NOT already_set_kvikio)
   set_property(DIRECTORY PROPERTY kvikio_already_set_defines "ON")
+
+  find_package(CUDAToolkit QUIET)
+  if(CUDAToolkit_FOUND)
+    if(CUDA_STATIC_RUNTIME)
+      target_link_libraries(kvikio::kvikio INTERFACE CUDA::cudart_static)
+    else()
+      target_link_libraries(kvikio::kvikio INTERFACE CUDA::cudart)
+    endif()
+    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUDA_FOUND)
+  else()
+    message(WARNING "Building KvikIO without CUDA")
+  endif()
 
   # Find cuFile and determine which features are supported
   find_package(cuFile QUIET)
@@ -179,7 +230,6 @@ rapids_export(
   FINAL_CODE_BLOCK final_code_string
 )
 
-# build export targets
 rapids_export(
   BUILD kvikio
   EXPORT_SET kvikio-exports

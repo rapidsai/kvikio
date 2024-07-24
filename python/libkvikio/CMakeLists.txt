@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -14,41 +14,30 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(../cpp/cmake/rapids_config.cmake)
+include(../../cpp/cmake/rapids_config.cmake)
 include(rapids-cpm)
-rapids_cpm_init()
 include(rapids-cuda)
-rapids_cuda_init_architectures(kvikio-python)
+rapids_cuda_init_architectures(libkvikio-python)
+rapids_cpm_init()
 
 project(
-  kvikio-python
+  libkvikio-python
   VERSION "${RAPIDS_VERSION}"
-  LANGUAGES CXX CUDA
+  LANGUAGES CXX
 )
 
-option(FIND_KVIKIO_CPP
-       "Search for existing KVIKIO C++ installations before defaulting to local files" OFF
-)
+# Check if kvikio is already available. If so, it's the user's responsibility to ensure that the
+# CMake package is also available at build time of the Python kvikio package.
+find_package(kvikio "${RAPIDS_VERSION}")
 
-# TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
-include(../cpp/cmake/Modules/FindcuFile.cmake)
-
-if(FIND_KVIKIO_CPP)
-  find_package(KvikIO "${RAPIDS_VERSION}")
-else()
-  set(KvikIO_FOUND OFF)
+if(kvikio_FOUND)
+  return()
 endif()
 
-find_package(CUDAToolkit REQUIRED)
+unset(kvikio_FOUND)
 
-if(NOT KvikIO_FOUND)
-  add_subdirectory(../cpp kvikio-cpp)
-  set(cython_lib_dir kvikio)
-  install(TARGETS kvikio DESTINATION ${cython_lib_dir})
-endif()
+set(KvikIO_BUILD_EXAMPLES OFF)
+set(KvikIO_BUILD_TESTS OFF)
+set(CUDA_STATIC_RUNTIME ON)
 
-include(rapids-cython-core)
-rapids_cython_init()
-
-add_subdirectory(cmake)
-add_subdirectory(kvikio/_lib)
+add_subdirectory(../../cpp kvikio-cpp)

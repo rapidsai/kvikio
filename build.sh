@@ -117,6 +117,11 @@ if hasArg -n; then
     INSTALL_TARGET=""
 fi
 
+# Append `-DFIND_KVIKIO_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_KVIKIO_CPP"* ]]; then
+    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_KVIKIO_CPP=ON"
+fi
+
 # If clean given, run it prior to any other steps
 if hasArg clean; then
     # If the dirs to clean are mounted dirs in a container, the
@@ -146,7 +151,7 @@ fi
 # Build and install the kvikio Python package
 if (( NUMARGS == 0 )) || hasArg kvikio; then
     echo "building kvikio..."
-    cd ${REPODIR}/python
+    cd ${REPODIR}/python/kvikio
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_LIBRARY_PATH=${LIBKVIKIO_BUILD_DIR};${EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps .
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
 fi

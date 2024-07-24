@@ -15,8 +15,9 @@
  */
 #pragma once
 
-#include <cuda.h>
 #include <sys/types.h>
+
+#include <kvikio/shim/cuda_h_wrapper.hpp>
 
 /**
  * In order to support compilation when `cufile.h` isn't available, we
@@ -35,6 +36,7 @@
 using CUfileHandle_t = void*;
 using CUfileOpError  = int;
 #define CUFILE_ERRSTR(x)          ("KvikIO not compiled with cuFile.h")
+#define CUFILEOP_BASE_ERR         5000
 #define CU_FILE_SUCCESS           0
 #define CU_FILE_CUDA_DRIVER_ERROR 1
 

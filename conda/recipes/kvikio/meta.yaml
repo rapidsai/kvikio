@@ -32,9 +32,6 @@ build:
     - SCCACHE_S3_KEY_PREFIX=kvikio-linux64 # [linux64]
     - SCCACHE_S3_USE_SSL
     - SCCACHE_S3_NO_CREDENTIALS
-  script:
-    - cd python
-    - python -m pip install . -vv
   ignore_run_exports_from:
     {% if cuda_major == "11" %}
     - {{ compiler('cuda11') }}
@@ -57,7 +54,6 @@ requirements:
     - {{ stdlib("c") }}
   host:
     - python
-    - setuptools
     - pip
     - cython >=3.0.0
     {% if cuda_major == "11" %}
@@ -65,6 +61,7 @@ requirements:
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - nvcomp {{ nvcomp_version }}
+    - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - scikit-build-core >=0.7.0
     - libkvikio ={{ version }}
   run:
