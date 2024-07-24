@@ -149,18 +149,10 @@ dependencies:
             packages:
               - libkvikio-cu12==24.8.*,>=0.0.0a0
           - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "false"
-            packages: *libkvikio_packages
-          - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
               - libkvikio-cu11==24.8.*,>=0.0.0a0
-          - matrix:
-              cuda: "11.*"
-              cuda_suffixed: "false"
-            packages: *libkvikio_packages
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
