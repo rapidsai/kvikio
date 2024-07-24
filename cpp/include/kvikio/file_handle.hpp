@@ -25,6 +25,7 @@
 #include <iostream>
 #include <numeric>
 #include <optional>
+#include <stdexcept>
 #include <system_error>
 #include <utility>
 
@@ -47,6 +48,9 @@ namespace detail {
  * @param flags The flags
  * @param o_direct Append O_DIRECT to the open flags
  * @return oflags
+ *
+ * @throw std::invalid_argument if the specified flags are not supported.
+ * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
  */
 inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
 {
@@ -66,7 +70,13 @@ inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
     default: throw std::invalid_argument("Unknown file open flag");
   }
   file_flags |= O_CLOEXEC;
-  if (o_direct) { file_flags |= O_DIRECT; }
+  if (o_direct) {
+#if defined(O_DIRECTT)
+    file_flags |= O_DIRECT;
+#else
+    throw std::invalid_argument("'o_direct' flag unsupported on this platform");
+#endif
+  }
   return file_flags;
 }
 
@@ -172,6 +182,8 @@ class FileHandle {
     try {
       _fd_direct_on = detail::open_fd(file_path, flags, true, mode);
     } catch (const std::system_error&) {
+      _compat_mode = true;
+    } catch (const std::invalid_argument&) {
       _compat_mode = true;
     }
 
