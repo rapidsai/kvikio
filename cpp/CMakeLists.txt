@@ -80,6 +80,9 @@ else()
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
 endif()
 
+include(cmake/thirdparty/get_nvtx.cmake)
+include(cmake/thirdparty/get_thread_pool.cmake)
+
 # library targets
 add_library(kvikio INTERFACE)
 add_library(kvikio::kvikio ALIAS kvikio)
@@ -125,9 +128,9 @@ target_include_directories(
   kvikio INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                    "$<INSTALL_INTERFACE:include>"
 )
-
-target_link_libraries(kvikio INTERFACE Threads::Threads)
-target_link_libraries(kvikio INTERFACE ${CMAKE_DL_LIBS})
+target_link_libraries(
+  kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp BS::thread_pool
+)
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
 # optionally build examples

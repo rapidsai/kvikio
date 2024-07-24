@@ -23,13 +23,13 @@ In order to open a file, use KvikIO's filehandle :py:meth:`kvikio.cufile.CuFile`
 
   # Use contexmanager
   c = cupy.empty_like(a)
-  with kvikio.CuFile(path, "r") as f:
+  with kvikio.CuFile("test-file", "r") as f:
       f.read(c)
   assert all(a == c)
 
   # Non-blocking read
   d = cupy.empty_like(a)
-  with kvikio.CuFile(path, "r") as f:
+  with kvikio.CuFile("test-file", "r") as f:
       future1 = f.pread(d[:50])
       future2 = f.pread(d[50:], file_offset=d[:50].nbytes)
       future1.get()  # Wait for first read

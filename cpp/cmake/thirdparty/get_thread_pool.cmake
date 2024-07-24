@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,22 +12,14 @@
 # the License.
 # =============================================================================
 
-# Use CPM to fetch KvikIO, which makes `kvikio::kvikio` available for `target_link_libraries`
-function(find_and_configure_kvikio MIN_VERSION)
+# Need to call rapids_cpm_bs_thread_pool to get support for an installed version of thread-pool and
+# to support installing it ourselves
+function(find_and_configure_thread_pool)
+  include(${rapids-cmake-dir}/cpm/bs_thread_pool.cmake)
 
-  CPMFindPackage(
-    NAME KvikIO
-    VERSION ${MIN_VERSION}
-            GIT_REPOSITORY
-            https://github.com/rapidsai/kvikio.git
-    GIT_TAG branch-${MIN_VERSION}
-    GIT_SHALLOW
-      TRUE
-      SOURCE_SUBDIR
-      cpp
-    OPTIONS "KvikIO_BUILD_EXAMPLES OFF"
-  )
+  # Find or install thread-pool
+  rapids_cpm_bs_thread_pool(BUILD_EXPORT_SET kvikio-exports INSTALL_EXPORT_SET kvikio-exports)
 
 endfunction()
 
-find_and_configure_kvikio("24.10")
+find_and_configure_thread_pool()

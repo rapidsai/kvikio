@@ -14,4 +14,4 @@
 
 from libkvikio._version import __git_commit__, __version__
 
-__all__ = [__git_commit__, __version__]
+__all__ = ["__git_commit__", "__version__"]
