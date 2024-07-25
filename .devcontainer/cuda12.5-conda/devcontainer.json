@@ -11,7 +11,7 @@
   "runArgs": [
     "--rm",
     "--name",
-    "${localEnv:USER:anon}-rapids-${localWorkspaceFolderBasename}-24.08-cuda12.5-conda"
+    "${localEnv:USER:anon}-rapids-${localWorkspaceFolderBasename}-24.10-cuda12.5-conda"
   ],
   "hostRequirements": {"gpu": "optional"},
   "features": {
