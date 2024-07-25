@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import argparse
@@ -8,7 +8,6 @@ import os.path
 import pathlib
 import shutil
 import statistics
-import subprocess
 import tempfile
 from time import perf_counter as clock
 from typing import ContextManager, Union
@@ -22,6 +21,7 @@ from dask.utils import format_bytes, parse_bytes
 import kvikio
 import kvikio.defaults
 import kvikio.zarr
+from kvikio.benchmarks.utils import drop_vm_cache
 
 if not kvikio.zarr.supported:
     raise RuntimeError(f"requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}")
@@ -30,11 +30,6 @@ compressors = {
     "none": (None, None),
     "lz4": (numcodecs.blosc.Blosc(cname="lz4"), kvikio.zarr.LZ4()),
 }
-
-
-def drop_vm_cache(args):
-    if args.drop_vm_cache:
-        subprocess.check_output(["sudo /sbin/sysctl vm.drop_caches=3"], shell=True)
 
 
 def create_src_data(args):
