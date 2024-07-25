@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pytest
 
-benchmarks_path = Path(os.path.realpath(__file__)).parent / ".." / "benchmarks"
-
+benchmarks_path = (
+    Path(os.path.realpath(__file__)).parent.parent / "kvikio" / "benchmarks"
+)
 pytest.importorskip("cupy")
 pytest.importorskip("dask")
 
