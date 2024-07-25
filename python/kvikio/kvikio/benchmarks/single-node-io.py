@@ -1,10 +1,8 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import argparse
 import contextlib
-import os
-import os.path
 import pathlib
 import shutil
 import statistics
@@ -17,6 +15,7 @@ from dask.utils import format_bytes, parse_bytes
 
 import kvikio
 import kvikio.defaults
+from kvikio.benchmarks.utils import pprint_sys_info
 
 
 def get_zarr_compressors() -> Dict[str, Any]:
@@ -260,53 +259,10 @@ def main(args):
     cupy.arange(10)  # Make sure CUDA is initialized
 
     kvikio.defaults.num_threads_reset(args.nthreads)
-    props = kvikio.DriverProperties()
-    try:
-        import pynvml.smi
-
-        nvsmi = pynvml.smi.nvidia_smi.getInstance()
-    except ImportError:
-        gpu_name = "Unknown (install pynvml)"
-        mem_total = gpu_name
-        bar1_total = gpu_name
-    else:
-        info = nvsmi.DeviceQuery()["gpu"][0]
-        gpu_name = f"{info['product_name']} (dev #0)"
-        mem_total = format_bytes(
-            parse_bytes(
-                str(info["fb_memory_usage"]["total"]) + info["fb_memory_usage"]["unit"]
-            )
-        )
-        bar1_total = format_bytes(
-            parse_bytes(
-                str(info["bar1_memory_usage"]["total"])
-                + info["bar1_memory_usage"]["unit"]
-            )
-        )
-    gds_version = "N/A (Compatibility Mode)"
-    if props.is_gds_available:
-        gds_version = f"v{props.major_version}.{props.minor_version}"
-    gds_config_json_path = os.path.realpath(
-        os.getenv("CUFILE_ENV_PATH_JSON", "/etc/cufile.json")
-    )
 
     print("Roundtrip benchmark")
     print("----------------------------------")
-    if kvikio.defaults.compat_mode():
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("   WARNING - KvikIO compat mode   ")
-        print("      libcufile.so not used       ")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    elif not props.is_gds_available:
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("   WARNING - cuFile compat mode   ")
-        print("         GDS not enabled          ")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    print(f"GPU               | {gpu_name}")
-    print(f"GPU Memory Total  | {mem_total}")
-    print(f"BAR1 Memory Total | {bar1_total}")
-    print(f"GDS driver        | {gds_version}")
-    print(f"GDS config.json   | {gds_config_json_path}")
+    pprint_sys_info()
     print("----------------------------------")
     print(f"nbytes            | {args.nbytes} bytes ({format_bytes(args.nbytes)})")
     print(f"4K aligned        | {args.nbytes % 4096 == 0}")

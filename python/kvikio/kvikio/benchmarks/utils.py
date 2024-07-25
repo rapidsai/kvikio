@@ -2,7 +2,14 @@
 # See file LICENSE for terms.
 
 import argparse
+import os
+import os.path
 import subprocess
+
+from dask.utils import format_bytes
+
+import kvikio
+import kvikio.defaults
 
 
 def drop_vm_cache(args: argparse.Namespace) -> None:
@@ -19,3 +26,42 @@ def drop_vm_cache(args: argparse.Namespace) -> None:
         subprocess.check_output(["sudo /sbin/sysctl vm.drop_caches=3"], shell=True)
 
 
+def pprint_sys_info() -> None:
+    """Pretty print system information"""
+
+    props = kvikio.DriverProperties()
+    try:
+        import pynvml
+
+        pynvml.nvmlInit()
+        dev = pynvml.nvmlDeviceGetHandleByIndex(0)
+    except ImportError:
+        gpu_name = "Unknown (install nvidia-ml-py)"
+        mem_total = gpu_name
+        bar1_total = gpu_name
+    else:
+        gpu_name = f"{pynvml.nvmlDeviceGetName(dev)} (dev #0)"
+        mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
+        bar1_total = format_bytes(pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total)
+    gds_version = "N/A (Compatibility Mode)"
+    if props.is_gds_available:
+        gds_version = f"v{props.major_version}.{props.minor_version}"
+    gds_config_json_path = os.path.realpath(
+        os.getenv("CUFILE_ENV_PATH_JSON", "/etc/cufile.json")
+    )
+
+    if kvikio.defaults.compat_mode():
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("   WARNING - KvikIO compat mode   ")
+        print("      libcufile.so not used       ")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    elif not props.is_gds_available:
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("   WARNING - cuFile compat mode   ")
+        print("         GDS not enabled          ")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print(f"GPU               | {gpu_name}")
+    print(f"GPU Memory Total  | {mem_total}")
+    print(f"BAR1 Memory Total | {bar1_total}")
+    print(f"GDS driver        | {gds_version}")
+    print(f"GDS config.json   | {gds_config_json_path}")
