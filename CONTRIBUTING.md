@@ -23,60 +23,6 @@ More information can be found at: [Contributor Code of Conduct](https://docs.rap
 
 ## Code contributions
 
-### Requirements
-
-To install users should have a working Linux machine with CUDA Toolkit
-installed (v11.4+) and a working compiler toolchain (C++17 and cmake).
-
-#### C++
-
-The C++ bindings are header-only and depends on CUDA Driver and Runtime API.
-In order to build and run the example code, CMake is required.
-
-#### Python
-
-The Python packages depends on the following packages:
-
-* Cython
-* Pip
-
-For testing:
-* pytest
-* cupy
-
-### Build KvikIO from source
-
-#### C++
-To build the C++ example, go to the `cpp` subdiretory and run:
-```
-mkdir build
-cd build
-cmake ..
-make
-```
-Then run the example:
-```
-./examples/basic_io
-```
-
-#### Python
-
-To build and install the extension, go to the `python` subdiretory and run:
-```
-python -m pip install .
-```
-One might have to define `CUDA_HOME` to the path to the CUDA installation.
-
-In order to test the installation, run the following:
-```
-pytest tests/
-```
-
-And to test performance, run the following:
-```
-python benchmarks/single-node-io.py
-```
-
 ### Code Formatting
 
 #### Using pre-commit hooks
