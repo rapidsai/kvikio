@@ -58,7 +58,7 @@ def test_single_node_io(run_cmd, tmp_path, api):
     ],
 )
 def test_zarr_io(run_cmd, tmp_path, api):
-    """Test benchmarks/single-node-io.py"""
+    """Test benchmarks/zarr-io.py"""
 
     kz = pytest.importorskip("kvikio.zarr")
     if not kz.supported:
