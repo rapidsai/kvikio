@@ -48,3 +48,33 @@ def test_single_node_io(run_cmd, tmp_path, api):
         cwd=benchmarks_path,
     )
     assert retcode == 0
+
+
+@pytest.mark.parametrize(
+    "api",
+    [
+        "kvikio",
+        "posix",
+    ],
+)
+def test_zarr_io(run_cmd, tmp_path, api):
+    """Test benchmarks/single-node-io.py"""
+
+    kz = pytest.importorskip("kvikio.zarr")
+    if not kz.supported:
+        pytest.skip(f"requires Zarr >={kz.MINIMUM_ZARR_VERSION}")
+
+    retcode = run_cmd(
+        cmd=[
+            sys.executable or "python",
+            "zarr-io.py",
+            "-n",
+            "1MiB",
+            "-d",
+            str(tmp_path),
+            "--api",
+            api,
+        ],
+        cwd=benchmarks_path,
+    )
+    assert retcode == 0
