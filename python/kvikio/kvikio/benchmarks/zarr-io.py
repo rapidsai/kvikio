@@ -46,7 +46,8 @@ def run_kvikio(args):
     src = create_src_data(args)
 
     # Write
-    drop_vm_cache(args)
+    if args.drop_vm_cache:
+        drop_vm_cache()
     t0 = clock()
     z = zarr.create(
         shape=(args.nelem,),
@@ -61,7 +62,8 @@ def run_kvikio(args):
     write_time = clock() - t0
 
     # Read
-    drop_vm_cache(args)
+    if args.drop_vm_cache:
+        drop_vm_cache()
     t0 = clock()
     res = z[:]
     read_time = clock() - t0
@@ -80,7 +82,8 @@ def run_posix(args):
     src = create_src_data(args)
 
     # Write
-    drop_vm_cache(args)
+    if args.drop_vm_cache:
+        drop_vm_cache()
     t0 = clock()
     z = zarr.create(
         shape=(args.nelem,),
@@ -95,7 +98,8 @@ def run_posix(args):
     write_time = clock() - t0
 
     # Read
-    drop_vm_cache(args)
+    if args.drop_vm_cache:
+        drop_vm_cache()
     t0 = clock()
     res = cupy.asarray(z[:])
     read_time = clock() - t0

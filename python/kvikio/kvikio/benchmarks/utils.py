@@ -1,7 +1,6 @@
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import argparse
 import os
 import os.path
 import subprocess
@@ -12,18 +11,12 @@ import kvikio
 import kvikio.defaults
 
 
-def drop_vm_cache(args: argparse.Namespace) -> None:
+def drop_vm_cache() -> None:
     """Tells the Linux kernel to drop the page, inode, and dentry caches
 
     See <https://linux-mm.org/Drop_Caches>
-
-    Parameters
-    ----------
-    args
-        The parsed command line arguments.
     """
-    if args.drop_vm_cache:
-        subprocess.check_output(["sudo /sbin/sysctl vm.drop_caches=3"], shell=True)
+    subprocess.check_output(["sudo /sbin/sysctl vm.drop_caches=3"], shell=True)
 
 
 def pprint_sys_info() -> None:
