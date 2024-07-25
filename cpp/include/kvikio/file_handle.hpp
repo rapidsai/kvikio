@@ -174,7 +174,7 @@ class FileHandle {
       _initialized{true},
       _compat_mode{compat_mode}
   {
-    if (!_compat_mode) {
+    if (_compat_mode) {
       return;  // Nothing to do in compatibility mode
     }
 
