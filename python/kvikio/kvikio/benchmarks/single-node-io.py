@@ -15,7 +15,7 @@ from dask.utils import format_bytes, parse_bytes
 
 import kvikio
 import kvikio.defaults
-from kvikio.benchmarks.utils import pprint_sys_info
+from kvikio.benchmarks.utils import parse_directory, pprint_sys_info
 
 
 def get_zarr_compressors() -> Dict[str, Any]:
@@ -301,16 +301,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
-    def parse_directory(x):
-        if x is None:
-            return x
-        else:
-            p = pathlib.Path(x)
-            if not p.is_dir():
-                raise argparse.ArgumentTypeError("Must be a directory")
-            return p
-
     parser = argparse.ArgumentParser(description="Roundtrip benchmark")
     parser.add_argument(
         "-n",

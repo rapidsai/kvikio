@@ -1,8 +1,12 @@
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+from __future__ import annotations
+
+import argparse
 import os
 import os.path
+import pathlib
 import subprocess
 
 from dask.utils import format_bytes
@@ -58,3 +62,27 @@ def pprint_sys_info() -> None:
     print(f"BAR1 Memory Total | {bar1_total}")
     print(f"GDS driver        | {gds_version}")
     print(f"GDS config.json   | {gds_config_json_path}")
+
+
+def parse_directory(x: str | None) -> pathlib.Path | None:
+    """Given an argparse argument, return a dir path.
+
+    None are passed through untouched.
+    Raise argparse.ArgumentTypeError if `x` isn't a directory (or None).
+
+    Parameters
+    ----------
+    x
+        argparse argument
+
+    Returns
+    -------
+    The directory path or None
+    """
+    if x is None:
+        return x
+    else:
+        p = pathlib.Path(x)
+        if not p.is_dir():
+            raise argparse.ArgumentTypeError("Must be a directory")
+        return p

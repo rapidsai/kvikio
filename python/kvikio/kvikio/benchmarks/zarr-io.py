@@ -21,7 +21,7 @@ from dask.utils import format_bytes, parse_bytes
 import kvikio
 import kvikio.defaults
 import kvikio.zarr
-from kvikio.benchmarks.utils import drop_vm_cache, pprint_sys_info
+from kvikio.benchmarks.utils import drop_vm_cache, parse_directory, pprint_sys_info
 
 if not kvikio.zarr.supported:
     raise RuntimeError(f"requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}")
@@ -167,16 +167,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
-    def parse_directory(x):
-        if x is None:
-            return x
-        else:
-            p = pathlib.Path(x)
-            if not p.is_dir():
-                raise argparse.ArgumentTypeError("Must be a directory")
-            return p
-
     parser = argparse.ArgumentParser(description="Roundtrip benchmark")
     parser.add_argument(
         "-n",
