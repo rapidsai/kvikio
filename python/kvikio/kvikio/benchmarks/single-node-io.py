@@ -336,10 +336,10 @@ if __name__ == "__main__":
         help="Number of runs per API (default: %(default)s).",
     )
     parser.add_argument(
-        "--no-pre-register-buffer",
+        "--pre-register-buffer",
         action="store_true",
         default=False,
-        help="Disable pre-register of device buffer",
+        help="Enable pre-register of device buffer",
     )
     parser.add_argument(
         "-t",
@@ -369,7 +369,6 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    args.pre_register_buffer = args.no_pre_register_buffer is False
     if "all" in args.api:
         args.api = tuple(API.keys())
 
