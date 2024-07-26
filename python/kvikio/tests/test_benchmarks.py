@@ -27,7 +27,7 @@ pytest.importorskip("dask")
     ],
 )
 def test_single_node_io(run_cmd, tmp_path, api):
-    """Test benchmarks/single-node-io.py"""
+    """Test benchmarks/single_node_io.py"""
 
     if "zarr" in api:
         kz = pytest.importorskip("kvikio.zarr")
@@ -37,7 +37,7 @@ def test_single_node_io(run_cmd, tmp_path, api):
     retcode = run_cmd(
         cmd=[
             sys.executable or "python",
-            "single-node-io.py",
+            "single_node_io.py",
             "-n",
             "1MiB",
             "-d",
@@ -58,7 +58,7 @@ def test_single_node_io(run_cmd, tmp_path, api):
     ],
 )
 def test_zarr_io(run_cmd, tmp_path, api):
-    """Test benchmarks/zarr-io.py"""
+    """Test benchmarks/zarr_io.py"""
 
     kz = pytest.importorskip("kvikio.zarr")
     if not kz.supported:
@@ -67,7 +67,7 @@ def test_zarr_io(run_cmd, tmp_path, api):
     retcode = run_cmd(
         cmd=[
             sys.executable or "python",
-            "zarr-io.py",
+            "zarr_io.py",
             "-n",
             "1MiB",
             "-d",

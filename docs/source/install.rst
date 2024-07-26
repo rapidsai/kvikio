@@ -68,4 +68,4 @@ And to test performance, run the following:
 
 .. code-block::
 
-  python python/kvikio/kvikio/benchmarks/single-node-io.py
+  python python/kvikio/kvikio/benchmarks/single_node_io.py
