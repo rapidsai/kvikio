@@ -144,7 +144,7 @@ class FileHandle {
   bool _initialized{false};
   bool _compat_mode{false};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
-  CUfileHandle_t _handle{};
+  CUfileHandle_t _handle{nullptr};
 
  public:
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
@@ -208,7 +208,7 @@ class FileHandle {
       _initialized{std::exchange(o._initialized, false)},
       _compat_mode{std::exchange(o._compat_mode, false)},
       _nbytes{std::exchange(o._nbytes, 0)},
-      _handle{std::exchange(o._handle, CUfileHandle_t{})}
+      _handle{std::exchange(o._handle, CUfileHandle_t{nullptr})}
   {
   }
   FileHandle& operator=(FileHandle&& o) noexcept
@@ -218,7 +218,7 @@ class FileHandle {
     _initialized   = std::exchange(o._initialized, false);
     _compat_mode   = std::exchange(o._compat_mode, false);
     _nbytes        = std::exchange(o._nbytes, 0);
-    _handle        = std::exchange(o._handle, CUfileHandle_t{});
+    _handle        = std::exchange(o._handle, CUfileHandle_t{nullptr});
     return *this;
   }
   ~FileHandle() noexcept { close(); }
@@ -232,8 +232,8 @@ class FileHandle {
   {
     if (closed()) { return; }
 
-    if (!_compat_mode) { cuFileAPI::instance().HandleDeregister(_handle); }
-    ::close(_fd_direct_off);
+    if (_handle != nullptr) { cuFileAPI::instance().HandleDeregister(_handle); }
+    if (_fd_direct_off != -1) { ::close(_fd_direct_off); }
     if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
     _fd_direct_on  = -1;
     _fd_direct_off = -1;
