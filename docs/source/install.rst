@@ -61,11 +61,11 @@ In order to test the installation, run the following:
 
 .. code-block::
 
-  pytest tests/
+  pytest python/kvikio/tests/
 
 
 And to test performance, run the following:
 
 .. code-block::
 
-  python benchmarks/single-node-io.py
+  python python/kvikio/kvikio/benchmarks/single_node_io.py
