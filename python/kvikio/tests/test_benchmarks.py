@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pytest
 
-benchmarks_path = Path(os.path.realpath(__file__)).parent / ".." / "benchmarks"
-
+benchmarks_path = (
+    Path(os.path.realpath(__file__)).parent.parent / "kvikio" / "benchmarks"
+)
 pytest.importorskip("cupy")
 pytest.importorskip("dask")
 
@@ -26,7 +27,7 @@ pytest.importorskip("dask")
     ],
 )
 def test_single_node_io(run_cmd, tmp_path, api):
-    """Test benchmarks/single-node-io.py"""
+    """Test benchmarks/single_node_io.py"""
 
     if "zarr" in api:
         kz = pytest.importorskip("kvikio.zarr")
@@ -36,7 +37,37 @@ def test_single_node_io(run_cmd, tmp_path, api):
     retcode = run_cmd(
         cmd=[
             sys.executable or "python",
-            "single-node-io.py",
+            "single_node_io.py",
+            "-n",
+            "1MiB",
+            "-d",
+            str(tmp_path),
+            "--api",
+            api,
+        ],
+        cwd=benchmarks_path,
+    )
+    assert retcode == 0
+
+
+@pytest.mark.parametrize(
+    "api",
+    [
+        "kvikio",
+        "posix",
+    ],
+)
+def test_zarr_io(run_cmd, tmp_path, api):
+    """Test benchmarks/zarr_io.py"""
+
+    kz = pytest.importorskip("kvikio.zarr")
+    if not kz.supported:
+        pytest.skip(f"requires Zarr >={kz.MINIMUM_ZARR_VERSION}")
+
+    retcode = run_cmd(
+        cmd=[
+            sys.executable or "python",
+            "zarr_io.py",
             "-n",
             "1MiB",
             "-d",
