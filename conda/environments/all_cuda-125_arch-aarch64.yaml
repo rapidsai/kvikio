@@ -6,6 +6,8 @@ channels:
 - conda-forge
 - nvidia
 dependencies:
+- aws-sdk-cpp
+- boto3>=1.21.21
 - c-compiler
 - cmake>=3.26.4,!=3.30.0
 - cuda-nvcc
@@ -18,6 +20,7 @@ dependencies:
 - doxygen=1.9.1
 - gcc_linux-aarch64=11.*
 - libcufile-dev
+- moto>=4.0.8
 - ninja
 - numcodecs <0.12.0
 - numpy>=1.23,<2.0a0

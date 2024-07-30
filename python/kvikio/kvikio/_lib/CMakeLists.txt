@@ -17,8 +17,15 @@ set(cython_modules arr.pyx buffer.pyx defaults.pyx driver_properties.pyx file_ha
                    libnvcomp.pyx libnvcomp_ll.pyx
 )
 
+if(AWSSDK_FOUND)
+  message(STATUS "Building remote_handle.pyx (aws-cpp-sdk-s3 found)")
+  list(APPEND cython_modules remote_handle.pyx)
+else()
+  message(WARNING "Skipping remote_handle.pyx (aws-cpp-sdk-s3 not found)")
+endif()
+
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
-  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
+  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp ${AWSSDK_LINK_LIBRARIES}
 )

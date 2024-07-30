@@ -106,6 +106,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+          - aws-sdk-cpp
     specific:
       - output_types: conda
         matrices:
@@ -319,6 +320,8 @@ dependencies:
           - &dask dask>=2022.05.2
           - pytest
           - pytest-cov
+          - boto3>=1.21.21
+          - moto>=4.0.8
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -329,9 +332,3 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
-  test_python_legate:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - *dask
-          - distributed>=2022.05.2

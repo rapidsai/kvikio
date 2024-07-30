@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+import kvikio
+
 benchmarks_path = (
     Path(os.path.realpath(__file__)).parent.parent / "kvikio" / "benchmarks"
 )
@@ -72,6 +74,50 @@ def test_zarr_io(run_cmd, tmp_path, api):
             "1MiB",
             "-d",
             str(tmp_path),
+            "--api",
+            api,
+        ],
+        cwd=benchmarks_path,
+    )
+    assert retcode == 0
+
+
+@pytest.mark.parametrize(
+    "api",
+    [
+        "cupy-kvikio",
+        "numpy-kvikio",
+        "cudf-kvikio",
+        "cudf-fsspec",
+    ],
+)
+def test_aws_s3_io(run_cmd, api):
+    """Test benchmarks/aws_s3_io.py"""
+
+    if not kvikio.is_remote_file_available():
+        pytest.skip(
+            "cannot test remote IO, please build KvikIO with with AWS S3 support",
+            allow_module_level=True,
+        )
+    pytest.importorskip("boto3")
+    pytest.importorskip("moto")
+    if "cudf" in api:
+        pytest.importorskip("cudf")
+
+    if api == "cudf-kvikio":
+        pytest.skip(
+            "Enable when <https://github.com/rapidsai/cudf/pull/16499> has been merged"
+        )
+
+    retcode = run_cmd(
+        cmd=[
+            sys.executable or "python",
+            "aws_s3_io.py",
+            "--use-bundled-server",
+            "-n",
+            "1000",
+            "-t",
+            "4",
             "--api",
             api,
         ],

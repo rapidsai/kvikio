@@ -4,6 +4,7 @@
 from kvikio._lib import buffer, driver_properties  # type: ignore
 from kvikio._version import __git_commit__, __version__
 from kvikio.cufile import CuFile
+from kvikio.remote_file import RemoteFile, is_remote_file_available
 
 
 def memory_register(buf) -> None:
@@ -18,4 +19,10 @@ def memory_deregister(buf) -> None:
 DriverProperties = driver_properties.DriverProperties
 
 
-__all__ = ["__git_commit__", "__version__", "CuFile"]
+__all__ = [
+    "__git_commit__",
+    "__version__",
+    "CuFile",
+    "RemoteFile",
+    "is_remote_file_available",
+]

@@ -52,6 +52,7 @@ requirements:
     - {{ compiler('cuda') }}
     {% endif %}
     - {{ stdlib("c") }}
+    - aws-sdk-cpp
   host:
     - python
     - pip
@@ -64,11 +65,13 @@ requirements:
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - scikit-build-core >=0.10.0
     - libkvikio ={{ version }}
+    - aws-sdk-cpp
   run:
     - python
     - numpy >=1.23,<2.0a0
     - cupy >=12.0.0
     - zarr
+    - aws-sdk-cpp
     # See https://github.com/zarr-developers/numcodecs/pull/475
     - numcodecs <0.12.0
     - packaging

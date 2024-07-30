@@ -56,6 +56,12 @@ rapids_find_package(
 )
 
 rapids_find_package(
+  AWSSDK COMPONENTS s3
+  BUILD_EXPORT_SET kvikio-exports
+  INSTALL_EXPORT_SET kvikio-exports
+)
+
+rapids_find_package(
   cuFile
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
@@ -130,6 +136,7 @@ target_include_directories(
 )
 target_link_libraries(
   kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp BS::thread_pool
+                   ${AWSSDK_LINK_LIBRARIES}
 )
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
