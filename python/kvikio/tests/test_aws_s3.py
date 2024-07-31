@@ -7,7 +7,6 @@ import socket
 import time
 from contextlib import contextmanager
 
-import numpy as np
 import pytest
 
 import kvikio
@@ -92,28 +91,33 @@ def s3_context(s3_base, bucket, files=None):
                 pass
 
 
-def test_read(s3_base):
+def test_read(s3_base, xp):
     bucket_name = "test_read"
     object_name = "a1"
-    a = np.arange(1000)
+    a = xp.arange(1000)
     with s3_context(s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}):
         with kvikio.RemoteFile(bucket_name, object_name) as f:
             assert f.nbytes() == a.nbytes
-            b = np.empty_like(a)
+            b = xp.empty_like(a)
             assert f.read(buf=b) == a.nbytes
-            assert all(a == b)
+            xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize(
     "start,end",
-    [(0, 10 * 4096), (1, int(1.3 * 4096)), (int(2.1 * 4096), int(5.6 * 4096))],
+    [
+        (0, 10 * 4096),
+        (1, int(1.3 * 4096)),
+        (int(2.1 * 4096), int(5.6 * 4096)),
+        (42, int(2**23)),
+    ],
 )
-def test_read_with_file_offset(s3_base, start, end):
+def test_read_with_file_offset(s3_base, xp, start, end):
     bucket_name = "test_read"
     object_name = "a1"
-    a = np.arange(10 * 4096, dtype=np.int64)  # 10 page-sizes
+    a = xp.arange(end, dtype=xp.int64)
     with s3_context(s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}):
         with kvikio.RemoteFile(bucket_name, object_name) as f:
-            b = np.zeros(shape=(end - start,), dtype=np.int64)
+            b = xp.zeros(shape=(end - start,), dtype=xp.int64)
             assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
-            assert all(a[start:end] == b)
+            xp.testing.assert_array_equal(a[start:end], b)

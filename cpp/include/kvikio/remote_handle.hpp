@@ -26,6 +26,9 @@
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/HeadObjectRequest.h>
 
+#include <kvikio/posix_io.hpp>
+#include <kvikio/utils.hpp>
+
 namespace kvikio {
 namespace detail {
 
@@ -122,13 +125,10 @@ class RemoteHandle {
    */
   [[nodiscard]] inline std::size_t nbytes() const { return _nbytes; }
 
-  std::size_t read(void* buf,
-                   std::size_t size,
-                   std::size_t file_offset = 0,
-                   std::size_t task_size   = defaults::task_size())
+  std::size_t read_to_host(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
-    std::cout << "RemoteHandle::read() - buf: " << buf << ", size: " << size
-              << ", file_offset: " << file_offset << ", task_size: " << task_size << std::endl;
+    std::cout << "RemoteHandle::read_to_host() - buf: " << buf << ", size: " << size
+              << ", file_offset: " << file_offset << std::endl;
 
     Aws::S3::Model::GetObjectRequest req;
     req.SetBucket(_bucket_name.c_str());
@@ -154,6 +154,30 @@ class RemoteHandle {
     }
     outcome.GetResult().GetBody().read(static_cast<char*>(buf), size);
     return n;
+  }
+
+  std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0)
+  {
+    if (is_host_memory(buf)) { return read_to_host(buf, size, file_offset); }
+
+    auto alloc         = detail::AllocRetain::instance().get();  // Host memory allocation
+    CUdeviceptr devPtr = convert_void2deviceptr(buf);
+    CUstream stream    = detail::StreamsByThread::get();
+
+    std::size_t cur_file_offset = convert_size2off(file_offset);
+    std::size_t byte_remaining  = convert_size2off(size);
+
+    while (byte_remaining > 0) {
+      const std::size_t nbytes_requested = std::min(posix_bounce_buffer_size, byte_remaining);
+      std::size_t nbytes_got             = nbytes_requested;
+      nbytes_got = read_to_host(alloc.get(), nbytes_requested, cur_file_offset);
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      cur_file_offset += nbytes_got;
+      devPtr += nbytes_got;
+      byte_remaining -= nbytes_got;
+    }
+    return size;
   }
 };
 
