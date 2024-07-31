@@ -106,6 +106,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+          - aws-sdk-cpp  # TODO: make optional?
     specific:
       - output_types: conda
         matrices:
