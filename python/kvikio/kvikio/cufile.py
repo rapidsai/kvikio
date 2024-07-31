@@ -430,3 +430,22 @@ class CuFile:
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self._handle.write(buf, size, file_offset, dev_offset)
+
+
+class RemoteFile:
+    """File handle for GPUDirect Storage (GDS)"""
+
+    def __init__(self, bucket_name: str, object_name: str):
+        self._handle = libkvikio.RemoteFile(bucket_name, object_name)
+
+    def __enter__(self) -> "RemoteFile":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        pass
+
+    def nbytes(self) -> int:
+        return self._handle.nbytes()
+
+    def read(self, buf, size: Optional[int] = None, file_offset: int = 0) -> int:
+        return self._handle.read(buf, size, file_offset)

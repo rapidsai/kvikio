@@ -12,7 +12,14 @@ from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport CUstream, FileHandle, StreamFuture, future, is_future_done
+from .kvikio_cxx_api cimport (
+    CUstream,
+    FileHandle,
+    RemoteHandle,
+    StreamFuture,
+    future,
+    is_future_done,
+)
 
 
 cdef class IOFutureStream:
@@ -262,3 +269,27 @@ cdef class DriverProperties:
     @max_pinned_memory_size.setter
     def max_pinned_memory_size(self, size_in_kb: int) -> None:
         self._handle.set_max_pinned_memory_size(size_in_kb)
+
+
+cdef class RemoteFile:
+    """ Remote file handle"""
+    cdef RemoteHandle _handle
+
+    def __init__(self, bucket_name: str, object_name: str):
+        self._handle = move(
+            RemoteHandle(
+                str.encode(str(bucket_name)),
+                str.encode(str(object_name))
+            )
+        )
+
+    def nbytes(self) -> int:
+        return self._handle.nbytes()
+
+    def read(self, buf, size: Optional[int], file_offset: int) -> int:
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, True)
+        return self._handle.read(
+            <void*>info.first,
+            info.second,
+            file_offset,
+        )
