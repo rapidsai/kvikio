@@ -25,7 +25,6 @@ cdef extern from "<future>" namespace "std" nogil:
 cdef extern from "<kvikio/stream.hpp>" namespace "kvikio" nogil:
     cdef cppclass StreamFuture:
         StreamFuture() except +
-        StreamFuture(StreamFuture&&) except +
         size_t check_bytes_done() except +
 
 
