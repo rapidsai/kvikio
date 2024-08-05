@@ -93,6 +93,19 @@ inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::s
   return outcome.GetResult().GetContentLength();
 }
 
+inline std::pair<std::string, std::string> parse_s3_path(const std::string& path)
+{
+  if (path.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
+  if (path.size() < 5 || path.substr(0, 5) != "s3://") {
+    throw std::invalid_argument("The remote path must start with the S3 scheme (\"s3://\").");
+  }
+  std::string p = path.substr(5);
+  if (p.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
+  size_t pos = p.find_first_of('/');
+  if (pos == 0) { throw std::invalid_argument("The remote path does not contain a bucket name."); }
+  return std::make_pair(p.substr(0, pos), (pos == std::string::npos) ? "" : p.substr(pos + 1));
+}
+
 }  // namespace detail
 
 /**
@@ -116,6 +129,18 @@ class RemoteHandle {
   {
     std::cout << "RemoteHandle() - bucket_name: " << _bucket_name
               << ", object_name: " << _object_name << ", nbytes: " << _nbytes << std::endl;
+  }
+
+  RemoteHandle(const std::string& remote_path)
+  {
+    auto [bucket_name, object_name] = detail::parse_s3_path(remote_path);
+    _bucket_name                    = std::move(bucket_name);
+    _object_name                    = std::move(object_name);
+    _nbytes                         = detail::get_s3_file_size(_bucket_name, _object_name);
+
+    std::cout << "RemoteHandle() - remote_path: " << remote_path
+              << ", bucket_name: " << _bucket_name << ", object_name: " << _object_name
+              << ", nbytes: " << _nbytes << std::endl;
   }
 
   /**
@@ -178,6 +203,13 @@ class RemoteHandle {
       byte_remaining -= nbytes_got;
     }
     return size;
+  }
+
+  std::future<std::size_t> pread(void* buf, std::size_t size, std::size_t file_offset = 0)
+  {
+    // Notice, by passing `this`, `std::async`, binds `RemoteHandle::read` to `this`
+    // automatically.
+    return std::async(std::launch::deferred, &RemoteHandle::read, this, buf, size, file_offset);
   }
 };
 
