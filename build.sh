@@ -18,14 +18,15 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libkvikio kvikio -v -g -n -s --ptds -h"
-HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [-s] [--ptds] [--cmake-args=\"<args>\"] [-h]
+VALIDARGS="clean libkvikio kvikio -v -g -n --pydevelop -h"
+HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
    libkvikio                   - build and install the libkvikio C++ code
    kvikio                      - build and install the kvikio Python package
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
+   --pydevelop                 - Install Python packages in editable mode
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h                          - print this text
    default action (no args) is to build and install 'libkvikio' and 'kvikio' targets
@@ -39,6 +40,8 @@ VERBOSE_FLAG=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 RAN_CMAKE=0
+PYTHON_ARGS_FOR_INSTALL="-m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true"
+
 
 # Set defaults for vars that may not have been defined externally
 # If INSTALL_PREFIX is not set, check PREFIX, then check
@@ -116,6 +119,9 @@ fi
 if hasArg -n; then
     INSTALL_TARGET=""
 fi
+if hasArg --pydevelop; then
+    PYTHON_ARGS_FOR_INSTALL="${PYTHON_ARGS_FOR_INSTALL} -e"
+fi
 
 # Append `-DFIND_KVIKIO_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
 if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_KVIKIO_CPP"* ]]; then
@@ -153,5 +159,5 @@ if (( NUMARGS == 0 )) || hasArg kvikio; then
     echo "building kvikio..."
     cd ${REPODIR}/python/kvikio
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_LIBRARY_PATH=${LIBKVIKIO_BUILD_DIR};${EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
+        python ${PYTHON_ARGS_FOR_INSTALL} .
 fi
