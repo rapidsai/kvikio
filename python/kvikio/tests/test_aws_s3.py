@@ -121,3 +121,8 @@ def test_read_with_file_offset(s3_base, xp, start, end):
             b = xp.zeros(shape=(end - start,), dtype=xp.int64)
             assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
             xp.testing.assert_array_equal(a[start:end], b)
+
+        with kvikio.RemoteFile.from_url(f"s3://{bucket_name}/{object_name}") as f:
+            b = xp.zeros(shape=(end - start,), dtype=xp.int64)
+            assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
+            xp.testing.assert_array_equal(a[start:end], b)

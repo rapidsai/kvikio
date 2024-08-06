@@ -4,6 +4,8 @@
 import pathlib
 from typing import Optional, Union
 
+from typing_extensions import Self
+
 from ._lib import libkvikio  # type: ignore
 
 
@@ -436,7 +438,15 @@ class RemoteFile:
     """File handle for GPUDirect Storage (GDS)"""
 
     def __init__(self, bucket_name: str, object_name: str):
-        self._handle = libkvikio.RemoteFile(bucket_name, object_name)
+        self._handle = libkvikio.RemoteFile.from_bucket_and_object(
+            bucket_name, object_name
+        )
+
+    @classmethod
+    def from_url(cls, url: str) -> Self:
+        ret = object.__new__(cls)
+        ret._handle = libkvikio.RemoteFile.from_url(url)
+        return ret
 
     def __enter__(self) -> "RemoteFile":
         return self

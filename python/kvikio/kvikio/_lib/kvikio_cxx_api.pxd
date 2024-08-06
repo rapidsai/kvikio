@@ -130,6 +130,9 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
             string bucket_name,
             string object_name,
         ) except +
+        RemoteHandle(
+            string remote_path,
+        ) except +
         int nbytes()
         size_t read(
             void* buf,

@@ -7,6 +7,8 @@
 import pathlib
 from typing import Optional
 
+from typing_extensions import Self
+
 from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move, pair
 
@@ -275,13 +277,20 @@ cdef class RemoteFile:
     """ Remote file handle"""
     cdef RemoteHandle _handle
 
-    def __init__(self, bucket_name: str, object_name: str):
-        self._handle = move(
-            RemoteHandle(
-                str.encode(str(bucket_name)),
-                str.encode(str(object_name))
-            )
+    @classmethod
+    def from_bucket_and_object(cls, bucket_name: str, object_name: str) -> Self:
+        cdef RemoteFile ret = RemoteFile()
+        ret._handle = RemoteHandle(
+            str.encode(str(bucket_name)),
+            str.encode(str(object_name)),
         )
+        return ret
+
+    @classmethod
+    def from_url(cls, url: str) -> Self:
+        cdef RemoteFile ret = RemoteFile()
+        ret._handle = RemoteHandle(str.encode(str(url)))
+        return ret
 
     def nbytes(self) -> int:
         return self._handle.nbytes()
