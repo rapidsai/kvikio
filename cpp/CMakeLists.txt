@@ -55,7 +55,7 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 
-# TODO: make optional merge PR merge
+# TODO: make optional before PR merge
 rapids_find_package(
   AWSSDK REQUIRED COMPONENTS s3
   BUILD_EXPORT_SET kvikio-exports
