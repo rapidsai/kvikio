@@ -77,9 +77,28 @@ def run_numpy_like(args, xp):
         yield run()
 
 
+def run_cudf(args):
+    import cudf
+
+    # Upload data to S3 server
+    data = cupy.arange(args.nelem, dtype=args.dtype)
+    df = cudf.DataFrame({"a": data})
+    df.to_parquet(f"s3://{args.bucket}/data1")
+
+    def run() -> float:
+        t0 = time.perf_counter()
+        cudf.read_parquet(f"s3://{args.bucket}/data1", use_kvikio_s3=True)
+        t1 = time.perf_counter()
+        return t1 - t0
+
+    for _ in range(args.nruns):
+        yield run()
+
+
 API = {
     "cupy": partial(run_numpy_like, xp=cupy),
     "numpy": partial(run_numpy_like, xp=numpy),
+    "cudf": run_cudf,
 }
 
 
