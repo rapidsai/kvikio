@@ -8,6 +8,7 @@ import os
 import socket
 import statistics
 import time
+from functools import partial
 from typing import ContextManager
 from urllib.parse import urlparse
 
@@ -53,10 +54,10 @@ def local_s3_server(server_address):
     p.kill()
 
 
-def run_cupy(args):
+def run_numpy_like(args, xp):
     # Upload data to S3 server
     data = numpy.arange(args.nelem, dtype=args.dtype)
-    recv = cupy.empty_like(data)
+    recv = xp.empty_like(data)
 
     client = boto3.client("s3", endpoint_url=args.server_address)
     client.create_bucket(Bucket=args.bucket, ACL="public-read-write")
@@ -69,7 +70,7 @@ def run_cupy(args):
             res = f.read(recv)
         t1 = time.perf_counter()
         assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
-        cupy.testing.assert_array_equal(data, recv)
+        xp.testing.assert_array_equal(data, recv)
         return t1 - t0
 
     for _ in range(args.nruns):
@@ -77,7 +78,8 @@ def run_cupy(args):
 
 
 API = {
-    "cupy": run_cupy,
+    "cupy": partial(run_numpy_like, xp=cupy),
+    "numpy": partial(run_numpy_like, xp=numpy),
 }
 
 
