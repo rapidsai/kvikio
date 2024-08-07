@@ -22,6 +22,7 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
+#include <aws/core/utils/threading/Executor.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/HeadObjectRequest.h>
@@ -32,6 +33,33 @@
 
 namespace kvikio {
 namespace detail {
+
+/**
+ * An executor that does not spawn any thread, instead, tasks are executed in the current thread
+ */
+class SameThreadExecutor : public Aws::Utils::Threading::Executor {
+ public:
+  virtual ~SameThreadExecutor() { SameThreadExecutor::WaitUntilStopped(); }
+  void WaitUntilStopped() override
+  {
+    while (!m_tasks.empty()) {
+      auto task = std::move(m_tasks.front());
+      m_tasks.pop_front();
+      assert(task);
+      if (task) { task(); }
+    }
+  }
+
+ protected:
+  bool SubmitToThread(std::function<void()>&& task) override
+  {
+    m_tasks.push_back(std::move(task));
+    return true;
+  }
+
+  using TaskFunc = std::function<void()>;
+  Aws::List<TaskFunc> m_tasks;
+};
 
 class S3Context {
  public:
@@ -92,6 +120,7 @@ class S3Context {
   }
 
   Aws::S3::S3Client _client;
+  SameThreadExecutor _executor;
 };
 
 inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::string& object_name)
