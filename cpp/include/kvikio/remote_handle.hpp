@@ -178,6 +178,9 @@ class RemoteHandle {
   {
     if (is_host_memory(buf)) { return read_to_host(buf, size, file_offset); }
 
+    CUcontext ctx = get_context_from_pointer(buf);
+    PushAndPopContext c(ctx);
+
     auto alloc         = detail::AllocRetain::instance().get();  // Host memory allocation
     CUdeviceptr devPtr = convert_void2deviceptr(buf);
     CUstream stream    = detail::StreamsByThread::get();
