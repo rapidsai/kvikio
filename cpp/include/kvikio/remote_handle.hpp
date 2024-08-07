@@ -34,10 +34,8 @@ namespace detail {
 
 inline Aws::S3::S3Client _get_s3_client()  // TODO: spilt into a InitAPI and a S3Client function
 {
-  std::cout << "_get_s3_client()" << std::endl;
   Aws::SDKOptions options;
-  // Optionally change the log level for debugging.
-  //   options.loggingOptions.logLevel = Utils::Logging::LogLevel::Debug;
+  // options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Error;
   Aws::InitAPI(options);  // Should only be called once.
 
   Aws::Client::ClientConfiguration clientConfig;
@@ -46,25 +44,22 @@ inline Aws::S3::S3Client _get_s3_client()  // TODO: spilt into a InitAPI and a S
 
   const char* endpointOverride = getenv("AWS_ENDPOINT_URL");
   if (endpointOverride != nullptr) { clientConfig.endpointOverride = endpointOverride; }
-  std::cout << "endpointOverride: " << endpointOverride << std::endl;
 
   // You don't normally have to test that you are authenticated. But the S3 service permits
   // anonymous requests, thus the s3Client will return "success" and 0 buckets even if you are
   // unauthenticated, which can be confusing to a new user.
   auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>("alloc-tag");
   auto creds    = provider->GetAWSCredentials();
-  if (creds.IsEmpty()) { std::cerr << "Failed authentication" << std::endl; }
+  if (creds.IsEmpty()) {
+    std::cerr << "Failed authentication to " << endpointOverride << std::endl;
+  }
 
-  auto ret     = Aws::S3::S3Client(clientConfig);
+  auto ret = Aws::S3::S3Client(clientConfig);
+
+  // Try to use the connection
   auto outcome = ret.ListBuckets();
-
   if (!outcome.IsSuccess()) {
     std::cerr << "Failed with error: " << outcome.GetError() << std::endl;
-  } else {
-    std::cout << "Found " << outcome.GetResult().GetBuckets().size() << " buckets\n";
-    for (auto& bucket : outcome.GetResult().GetBuckets()) {
-      std::cout << bucket.GetName() << std::endl;
-    }
   }
 
   // TODO: call Aws::ShutdownAPI(options) on exit?
@@ -73,7 +68,6 @@ inline Aws::S3::S3Client _get_s3_client()  // TODO: spilt into a InitAPI and a S
 
 inline const Aws::S3::S3Client& get_s3_client()
 {
-  std::cout << "get_s3_client()" << std::endl;
   static Aws::S3::S3Client ret = _get_s3_client();
   return ret;
 }
@@ -84,7 +78,6 @@ inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::s
   req.SetBucket(bucket_name.c_str());
   req.SetKey(object_name.c_str());
   Aws::S3::Model::HeadObjectOutcome outcome = get_s3_client().HeadObject(req);
-
   if (!outcome.IsSuccess()) {
     const Aws::S3::S3Error& err = outcome.GetError();
     throw std::invalid_argument("get_s3_file_size(): " + err.GetExceptionName() + ": " +

@@ -7,6 +7,7 @@ import multiprocessing
 import os
 import socket
 import statistics
+import sys
 import time
 from functools import partial
 from typing import ContextManager
@@ -33,6 +34,8 @@ def get_local_port() -> int:
 def start_s3_server(server_address, lifetime=3600):
     from moto.server import ThreadedMotoServer
 
+    # Silence the activity info from ThreadedMotoServer
+    sys.stderr = open("/dev/null", "w")
     url = urlparse(server_address)
     server = ThreadedMotoServer(ip_address=url.hostname, port=url.port)
     server.start()
