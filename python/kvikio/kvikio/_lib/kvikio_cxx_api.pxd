@@ -139,3 +139,8 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
             size_t size,
             size_t file_offset
         ) except +
+        future[size_t] pread(
+            void* buf,
+            size_t size,
+            size_t file_offset
+        ) except +

@@ -26,6 +26,7 @@
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/HeadObjectRequest.h>
 
+#include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
 
@@ -203,9 +204,14 @@ class RemoteHandle {
 
   std::future<std::size_t> pread(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
-    // Notice, by passing `this`, `std::async`, binds `RemoteHandle::read` to `this`
-    // automatically.
-    return std::async(std::launch::deferred, &RemoteHandle::read, this, buf, size, file_offset);
+    std::cout << "RemoteHandle::pread()" << std::endl;
+    auto task = [this](void* devPtr_base,
+                       std::size_t size,
+                       std::size_t file_offset,
+                       std::size_t devPtr_offset) -> std::size_t {
+      return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
+    };
+    return parallel_io(task, buf, size, file_offset, posix_bounce_buffer_size, 0);
   }
 };
 

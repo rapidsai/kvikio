@@ -302,3 +302,13 @@ cdef class RemoteFile:
             info.second,
             file_offset,
         )
+
+    def pread(self, buf, size: Optional[int], file_offset: int) -> IOFuture:
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, True)
+        return _wrap_io_future(
+            self._handle.pread(
+                <void*>info.first,
+                info.second,
+                file_offset,
+            )
+        )

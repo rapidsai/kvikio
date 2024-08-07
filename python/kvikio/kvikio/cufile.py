@@ -435,7 +435,7 @@ class CuFile:
 
 
 class RemoteFile:
-    """File handle for GPUDirect Storage (GDS)"""
+    """File handle for Remote files"""
 
     def __init__(self, bucket_name: str, object_name: str):
         self._handle = libkvikio.RemoteFile.from_bucket_and_object(
@@ -457,5 +457,8 @@ class RemoteFile:
     def nbytes(self) -> int:
         return self._handle.nbytes()
 
+    def pread(self, buf, size: Optional[int] = None, file_offset: int = 0) -> IOFuture:
+        return IOFuture(self._handle.pread(buf, size, file_offset))
+
     def read(self, buf, size: Optional[int] = None, file_offset: int = 0) -> int:
-        return self._handle.read(buf, size, file_offset)
+        return self.pread(buf, size, file_offset).get()
