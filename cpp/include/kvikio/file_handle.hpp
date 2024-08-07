@@ -25,10 +25,12 @@
 #include <iostream>
 #include <numeric>
 #include <optional>
+#include <stdexcept>
 #include <system_error>
 #include <utility>
 
 #include <kvikio/buffer.hpp>
+#include <kvikio/cufile_config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
@@ -46,6 +48,9 @@ namespace detail {
  * @param flags The flags
  * @param o_direct Append O_DIRECT to the open flags
  * @return oflags
+ *
+ * @throw std::invalid_argument if the specified flags are not supported.
+ * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
  */
 inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
 {
@@ -65,7 +70,13 @@ inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
     default: throw std::invalid_argument("Unknown file open flag");
   }
   file_flags |= O_CLOEXEC;
-  if (o_direct) { file_flags |= O_DIRECT; }
+  if (o_direct) {
+#if defined(O_DIRECT)
+    file_flags |= O_DIRECT;
+#else
+    throw std::invalid_argument("'o_direct' flag unsupported on this platform");
+#endif
+  }
   return file_flags;
 }
 
@@ -163,12 +174,20 @@ class FileHandle {
       _initialized{true},
       _compat_mode{compat_mode}
   {
+    if (_compat_mode) {
+      return;  // Nothing to do in compatibility mode
+    }
+
+    // Try to open the file with the O_DIRECT flag. Fall back to compatibility mode, if it fails.
     try {
       _fd_direct_on = detail::open_fd(file_path, flags, true, mode);
     } catch (const std::system_error&) {
-      _compat_mode = true;  // Fall back to compat mode if we cannot open the file with O_DIRECT
+      _compat_mode = true;
+    } catch (const std::invalid_argument&) {
+      _compat_mode = true;
     }
 
+    // Create a cuFile handle, if not in compatibility mode
     if (!_compat_mode) {
       CUfileDescr_t desc{};  // It is important to set to zero!
       desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
@@ -305,15 +324,10 @@ class FileHandle {
     if (_compat_mode) {
       return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
+    KVIKIO_NVTX_FUNC_RANGE("cufileRead()", size);
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
-    if (ret == -1) {
-      throw std::system_error(errno, std::generic_category(), "Unable to read file");
-    }
-    if (ret < -1) {
-      throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
-    }
+    CUFILE_CHECK_BYTES_DONE(ret);
     return ret;
   }
 
@@ -351,6 +365,7 @@ class FileHandle {
     if (_compat_mode) {
       return posix_device_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
+    KVIKIO_NVTX_FUNC_RANGE("cufileWrite()", size);
     ssize_t ret = cuFileAPI::instance().Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -526,7 +541,9 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+    // When checking for availability, we also check if cuFile's config file exist. This is because
+    // even when the stream API is available, it doesn't work if no config file exist.
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode && !config_path().empty()) {
       CUFILE_TRY(cuFileAPI::instance().ReadAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
       return;
@@ -616,7 +633,9 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-    if (kvikio::is_batch_and_stream_available() && !_compat_mode) {
+    // When checking for availability, we also check if cuFile's config file exist. This is because
+    // even when the stream API is available, it doesn't work if no config file exist.
+    if (kvikio::is_batch_and_stream_available() && !_compat_mode && !config_path().empty()) {
       CUFILE_TRY(cuFileAPI::instance().WriteAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
       return;

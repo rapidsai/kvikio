@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,4 +12,14 @@
 # the License.
 # =============================================================================
 
-include(thirdparty/get_nvcomp.cmake)
+# Need to call rapids_cpm_bs_thread_pool to get support for an installed version of thread-pool and
+# to support installing it ourselves
+function(find_and_configure_thread_pool)
+  include(${rapids-cmake-dir}/cpm/bs_thread_pool.cmake)
+
+  # Find or install thread-pool
+  rapids_cpm_bs_thread_pool(BUILD_EXPORT_SET kvikio-exports INSTALL_EXPORT_SET kvikio-exports)
+
+endfunction()
+
+find_and_configure_thread_pool()

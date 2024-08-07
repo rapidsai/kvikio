@@ -17,8 +17,8 @@ Install the **stable release** from the ``rapidsai`` channel like:
   mamba install -c rapidsai -c conda-forge kvikio
   # Create new environment (CUDA 11.8)
   mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.11 cuda-version=11.8 kvikio
-  # Create new environment (CUDA 12.2)
-  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.11 cuda-version=12.2 kvikio
+  # Create new environment (CUDA 12.5)
+  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.11 cuda-version=12.5 kvikio
 
 Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 
@@ -28,8 +28,8 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
   mamba install -c rapidsai-nightly -c conda-forge kvikio
   # Create new environment (CUDA 11.8)
   mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.11 cuda-version=11.8 kvikio
-  # Create new environment (CUDA 12.2)
-  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.11 cuda-version=12.2 kvikio
+  # Create new environment (CUDA 12.5)
+  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.11 cuda-version=12.5 kvikio
 
 
 .. note::
@@ -45,8 +45,8 @@ In order to setup a development environment run:
 
   # CUDA 11.8
   mamba env create --name kvikio-dev --file conda/environments/all_cuda-118_arch-x86_64.yaml
-  # CUDA 12.2
-  mamba env create --name kvikio-dev --file conda/environments/all_cuda-122_arch-x86_64.yaml
+  # CUDA 12.5
+  mamba env create --name kvikio-dev --file conda/environments/all_cuda-125_arch-x86_64.yaml
 
 To build and install the extension run:
 
@@ -61,11 +61,11 @@ In order to test the installation, run the following:
 
 .. code-block::
 
-  pytest tests/
+  pytest python/kvikio/tests/
 
 
 And to test performance, run the following:
 
 .. code-block::
 
-  python benchmarks/single-node-io.py
+  python python/kvikio/kvikio/benchmarks/single_node_io.py

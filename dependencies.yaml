@@ -3,16 +3,19 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.2"]
-      arch: [x86_64]
+      cuda: ["11.8", "12.5"]
+      arch: [aarch64, x86_64]
     includes:
-      - build
+      - build-universal
+      - build-cpp
+      - build-py-wrapper
       - checks
       - cuda
       - cuda_version
       - depends_on_cupy
       - docs
       - py_version
+      - rapids_build_skbuild
       - run
       - test_python
   test_cpp:
@@ -38,22 +41,48 @@ files:
       - py_version
   py_build:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: build-system
     includes:
-      - build
+      - rapids_build_skbuild
+  py_build_cpp_wheel:
+    output: pyproject
+    pyproject_dir: python/libkvikio
+    extras:
+      table: build-system
+    includes:
+      - rapids_build_skbuild
   py_run:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: project
     includes:
       - depends_on_cupy
       - run
+  py_wheel_cpp:
+    output: pyproject
+    pyproject_dir: python/libkvikio
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes:
+      - build-universal
+  py_wheel_python:
+    output: pyproject
+    pyproject_dir: python/kvikio
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes:
+      - build-universal
+      - build-cpp
+      - build-py-wrapper
+      - build-use-libkvikio-wheel
   py_optional_test:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/kvikio
     extras:
       table: project.optional-dependencies
       key: test
@@ -65,21 +94,18 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
-  build:
+  build-universal:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cmake>=3.26.4
-          - cython>=3.0.0
+          - cmake>=3.26.4,!=3.30.0
           - ninja
+  build-cpp:
+    common:
       - output_types: conda
         packages:
           - c-compiler
           - cxx-compiler
-          - scikit-build-core>=0.7.0
-      - output_types: [requirements, pyproject]
-        packages:
-          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: conda
         matrices:
@@ -109,6 +135,30 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
+  build-use-libkvikio-wheel:
+    common:
+      - output_types: conda
+        packages: &libkvikio_packages
+          - libkvikio==24.8.*
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - libkvikio-cu12==24.8.*
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
+            packages:
+              - libkvikio-cu11==24.8.*
+          - {matrix: null, packages: *libkvikio_packages}
+  build-py-wrapper:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - cython>=3.0.0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -142,6 +192,10 @@ dependencies:
               cuda: "12.2"
             packages:
               - cuda-version=12.2
+          - matrix:
+              cuda: "12.5"
+            packages:
+              - cuda-version=12.5
   cuda:
     common:
       - output_types: conda
@@ -160,13 +214,13 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              arch: aarch64
-            packages:
-          - matrix:
               cuda: "12.*"
-              arch: x86_64
             packages:
               - libcufile-dev
+          - matrix:
+              arch: aarch64
+              cuda: "11.*"
+            packages:
           - matrix:
               cuda: "11.8"
               arch: x86_64
@@ -238,6 +292,17 @@ dependencies:
           - matrix:
             packages:
               - python>=3.9,<3.12
+  rapids_build_skbuild:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+      - output_types: conda
+        packages:
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
   run:
     common:
       - output_types: [conda, requirements, pyproject]

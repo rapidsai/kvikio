@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cstring>
 #include <exception>
 #include <system_error>
 
@@ -61,37 +62,41 @@ struct CUfileException : public std::runtime_error {
   GET_CUFILE_TRY_MACRO(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
   (__VA_ARGS__)
 #define GET_CUFILE_TRY_MACRO(_1, _2, NAME, ...) NAME
-#define CUFILE_TRY_2(_call, _exception_type)                                     \
-  do {                                                                           \
-    CUfileError_t const error = (_call);                                         \
-    if (error.err != CU_FILE_SUCCESS) {                                          \
-      if (error.err == CU_FILE_CUDA_DRIVER_ERROR) {                              \
-        CUresult const cuda_error = error.cu_err;                                \
-        CUDA_DRIVER_TRY(cuda_error);                                             \
-      }                                                                          \
-      throw(_exception_type){std::string{"cuFile error at: "} + __FILE__ + ":" + \
-                             KVIKIO_STRINGIFY(__LINE__) + ": " +                 \
-                             cufileop_status_error(error.err)};                  \
-    }                                                                            \
+#define CUFILE_TRY_2(_call, _exception_type)                                             \
+  do {                                                                                   \
+    CUfileError_t const error = (_call);                                                 \
+    if (error.err != CU_FILE_SUCCESS) {                                                  \
+      if (error.err == CU_FILE_CUDA_DRIVER_ERROR) {                                      \
+        CUresult const cuda_error = error.cu_err;                                        \
+        CUDA_DRIVER_TRY(cuda_error);                                                     \
+      }                                                                                  \
+      throw(_exception_type){std::string{"cuFile error at: "} + __FILE__ + ":" +         \
+                             KVIKIO_STRINGIFY(__LINE__) + ": " +                         \
+                             cufileop_status_error((CUfileOpError)std::abs(error.err))}; \
+    }                                                                                    \
   } while (0)
 #define CUFILE_TRY_1(_call) CUFILE_TRY_2(_call, kvikio::CUfileException)
 #endif
 
-#ifndef CUFILE_CHECK_STREAM_IO
-#define CUFILE_CHECK_STREAM_IO(...)                                  \
-  GET_CUFILE_CHECK_STREAM_IO_MACRO(                                  \
-    __VA_ARGS__, CUFILE_CHECK_STREAM_IO_2, CUFILE_CHECK_STREAM_IO_1) \
+#ifndef CUFILE_CHECK_BYTES_DONE
+#define CUFILE_CHECK_BYTES_DONE(...)                                   \
+  GET_CUFILE_CHECK_BYTES_DONE_MACRO(                                   \
+    __VA_ARGS__, CUFILE_CHECK_BYTES_DONE_2, CUFILE_CHECK_BYTES_DONE_1) \
   (__VA_ARGS__)
-#define GET_CUFILE_CHECK_STREAM_IO_MACRO(_1, _2, NAME, ...) NAME
-#define CUFILE_CHECK_STREAM_IO_2(_nbytes_done, _exception_type)                            \
-  do {                                                                                     \
-    auto const _nbytes = *(_nbytes_done);                                                  \
-    if (_nbytes < 0) {                                                                     \
-      throw(_exception_type){std::string{"cuFile error at: "} + __FILE__ + ":" +           \
-                             KVIKIO_STRINGIFY(__LINE__) + ": " + std::to_string(_nbytes)}; \
-    }                                                                                      \
+#define GET_CUFILE_CHECK_BYTES_DONE_MACRO(_1, _2, NAME, ...) NAME
+#define CUFILE_CHECK_BYTES_DONE_2(_nbytes_done, _exception_type)                  \
+  do {                                                                            \
+    auto const _nbytes = (_nbytes_done);                                          \
+    if (_nbytes < 0) {                                                            \
+      auto const err = std::abs(_nbytes);                                         \
+      auto const msg = (err > CUFILEOP_BASE_ERR)                                  \
+                         ? std::string(cufileop_status_error((CUfileOpError)err)) \
+                         : std::string(std::strerror(err));                       \
+      throw(_exception_type){std::string{"cuFile error at: "} + __FILE__ + ":" +  \
+                             KVIKIO_STRINGIFY(__LINE__) + ": " + msg};            \
+    }                                                                             \
   } while (0)
-#define CUFILE_CHECK_STREAM_IO_1(_call) CUFILE_CHECK_STREAM_IO_2(_call, kvikio::CUfileException)
+#define CUFILE_CHECK_BYTES_DONE_1(_call) CUFILE_CHECK_BYTES_DONE_2(_call, kvikio::CUfileException)
 #endif
 
 }  // namespace kvikio

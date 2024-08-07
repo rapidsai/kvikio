@@ -189,7 +189,7 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
       const std::string name = IsReadOperation ? "pread" : "pwrite";
       if (errno == EBADF) {
         throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
-                              KVIKIO_STRINGIFY(__LINE__) + ": unsupported file open flags"};
+                              KVIKIO_STRINGIFY(__LINE__) + ": Operation not permitted"};
       }
       throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
                             KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
@@ -273,6 +273,7 @@ std::size_t posix_device_io(int fd,
 inline std::size_t posix_host_read(
   int fd, void* buf, std::size_t size, std::size_t file_offset, bool partial)
 {
+  KVIKIO_NVTX_FUNC_RANGE("posix_host_read()", size);
   return detail::posix_host_io<true>(fd, buf, size, convert_size2off(file_offset), partial);
 }
 
@@ -292,6 +293,7 @@ inline std::size_t posix_host_read(
 inline std::size_t posix_host_write(
   int fd, const void* buf, std::size_t size, std::size_t file_offset, bool partial)
 {
+  KVIKIO_NVTX_FUNC_RANGE("posix_host_write()", size);
   return detail::posix_host_io<false>(fd, buf, size, convert_size2off(file_offset), partial);
 }
 
@@ -314,6 +316,7 @@ inline std::size_t posix_device_read(int fd,
                                      std::size_t file_offset,
                                      std::size_t devPtr_offset)
 {
+  KVIKIO_NVTX_FUNC_RANGE("posix_device_read()", size);
   return detail::posix_device_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
@@ -336,6 +339,7 @@ inline std::size_t posix_device_write(int fd,
                                       std::size_t file_offset,
                                       std::size_t devPtr_offset)
 {
+  KVIKIO_NVTX_FUNC_RANGE("posix_device_write()", size);
   return detail::posix_device_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
