@@ -80,7 +80,7 @@ def run_numpy_like(args, xp):
         yield run()
 
 
-def run_cudf(args):
+def run_cudf(args, use_kvikio_s3):
     import cudf
 
     # Upload data to S3 server
@@ -90,7 +90,7 @@ def run_cudf(args):
 
     def run() -> float:
         t0 = time.perf_counter()
-        cudf.read_parquet(f"s3://{args.bucket}/data1", use_kvikio_s3=True)
+        cudf.read_parquet(f"s3://{args.bucket}/data1", use_kvikio_s3=use_kvikio_s3)
         t1 = time.perf_counter()
         return t1 - t0
 
@@ -99,9 +99,10 @@ def run_cudf(args):
 
 
 API = {
-    "cupy": partial(run_numpy_like, xp=cupy),
-    "numpy": partial(run_numpy_like, xp=numpy),
-    "cudf": run_cudf,
+    "cupy-kvikio": partial(run_numpy_like, xp=cupy),
+    "numpy-kvikio": partial(run_numpy_like, xp=numpy),
+    "cudf-kvikio": partial(run_cudf, use_kvikio_s3=True),
+    "cudf-fsspec": partial(run_cudf, use_kvikio_s3=False),
 }
 
 
@@ -111,13 +112,13 @@ def main(args):
 
     kvikio.defaults.num_threads_reset(args.nthreads)
     print("Roundtrip benchmark")
-    print("----------------------------------")
-    print(f"nelem         | {args.nelem} ({format_bytes(args.nbytes)})")
-    print(f"dtype         | {args.dtype}")
-    print(f"nthreads      | {args.nthreads}")
-    print(f"nruns         | {args.nruns}")
-    print(f"server        | {args.server_address}")
-    print("==================================")
+    print("-------------------------------------")
+    print(f"nelem       | {args.nelem} ({format_bytes(args.nbytes)})")
+    print(f"dtype       | {args.dtype}")
+    print(f"nthreads    | {args.nthreads}")
+    print(f"nruns       | {args.nruns}")
+    print(f"server      | {args.server_address}")
+    print("=====================================")
 
     # Run each benchmark using the requested APIs
     for api in args.api:
@@ -128,7 +129,7 @@ def main(args):
         def pprint_api_res(name, samples):
             samples = [args.nbytes / s for s in samples]  # Convert to throughput
             mean = statistics.mean(samples) if len(samples) > 1 else samples[0]
-            ret = f"{api}-{name}".ljust(14)
+            ret = f"{api}-{name}".ljust(18)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
             if len(samples) > 1:
                 stdev = statistics.stdev(samples) / mean * 100
