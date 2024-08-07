@@ -33,64 +33,73 @@
 namespace kvikio {
 namespace detail {
 
-inline void ensure_aws_s3_api_is_initalized()
-{
-  static bool not_initalized{true};
-  if (not_initalized) {
-    std::cout << "ensure_aws_s3_api_initalized INIT" << std::endl;
-    not_initalized = true;
+class AwsS3Client {
+ public:
+  AwsS3Client() : _client{AwsS3Client::create_aws_s3_client()} {}
 
-    Aws::SDKOptions options;
-    // options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Error;
-    Aws::InitAPI(options);  // Should only be called once.
-  }
-  return;
-}
+  const Aws::S3::S3Client& get() { return _client; }
 
-inline Aws::S3::S3Client _get_s3_client()
-{
-  ensure_aws_s3_api_is_initalized();
-
-  Aws::Client::ClientConfiguration clientConfig;
-  // Optional: Set to the AWS Region (overrides config file).
-  // clientConfig.region = "us-east-1";
-
-  const char* endpointOverride = getenv("AWS_ENDPOINT_URL");
-  if (endpointOverride != nullptr) { clientConfig.endpointOverride = endpointOverride; }
-
-  // You don't normally have to test that you are authenticated. But the S3 service permits
-  // anonymous requests, thus the s3Client will return "success" and 0 buckets even if you are
-  // unauthenticated, which can be confusing to a new user.
-  auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>("alloc-tag");
-  auto creds    = provider->GetAWSCredentials();
-  if (creds.IsEmpty()) {
-    std::cerr << "Failed authentication to " << endpointOverride << std::endl;
+  static AwsS3Client& default_client()
+  {
+    static AwsS3Client _default_client;
+    return _default_client;
   }
 
-  auto ret = Aws::S3::S3Client(clientConfig);
+  AwsS3Client(AwsS3Client const&)    = delete;
+  void operator=(AwsS3Client const&) = delete;
 
-  // Try to use the connection
-  auto outcome = ret.ListBuckets();
-  if (!outcome.IsSuccess()) {
-    std::cerr << "Failed with error: " << outcome.GetError() << std::endl;
+ private:
+  static void ensure_aws_s3_api_init()
+  {
+    static bool not_initalized{true};
+    if (not_initalized) {
+      std::cout << "ensure_aws_s3_api_initalized INIT" << std::endl;
+      not_initalized = false;
+
+      Aws::SDKOptions options;
+      // options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Error;
+      Aws::InitAPI(options);  // Should only be called once.
+    }
   }
 
-  // TODO: call Aws::ShutdownAPI(options) on exit?
-  return ret;
-}
+  static Aws::S3::S3Client create_aws_s3_client()
+  {
+    AwsS3Client::ensure_aws_s3_api_init();
 
-inline const Aws::S3::S3Client& get_s3_client()
-{
-  static Aws::S3::S3Client ret = _get_s3_client();
-  return ret;
-}
+    Aws::Client::ClientConfiguration clientConfig;
+    // Optional: Set to the AWS Region (overrides config file).
+    // clientConfig.region = "us-east-1";
+
+    const char* endpointOverride = getenv("AWS_ENDPOINT_URL");
+    if (endpointOverride != nullptr) { clientConfig.endpointOverride = endpointOverride; }
+
+    // You don't normally have to test that you are authenticated. But the S3 service permits
+    // anonymous requests, thus the s3Client will return "success" even if you are
+    // unauthenticated, which can be confusing to a new user.
+    auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>("alloc-tag");
+    auto creds    = provider->GetAWSCredentials();
+    if (creds.IsEmpty()) {
+      throw std::runtime_error(std::string("Failed authentication to ") + endpointOverride);
+    }
+    Aws::S3::S3Client ret = Aws::S3::S3Client(clientConfig);
+
+    // Try the connection
+    auto outcome = ret.ListBuckets();
+    if (!outcome.IsSuccess()) {
+      throw std::runtime_error(std::string("S3 error: ") + outcome.GetError().GetMessage());
+    }
+    return ret;
+  }
+
+  Aws::S3::S3Client _client;
+};
 
 inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::string& object_name)
 {
   Aws::S3::Model::HeadObjectRequest req;
   req.SetBucket(bucket_name.c_str());
   req.SetKey(object_name.c_str());
-  Aws::S3::Model::HeadObjectOutcome outcome = get_s3_client().HeadObject(req);
+  Aws::S3::Model::HeadObjectOutcome outcome = AwsS3Client::default_client().get().HeadObject(req);
   if (!outcome.IsSuccess()) {
     const Aws::S3::S3Error& err = outcome.GetError();
     throw std::invalid_argument("get_s3_file_size(): " + err.GetExceptionName() + ": " +
@@ -161,6 +170,7 @@ class RemoteHandle {
     std::cout << "RemoteHandle::read_to_host() - buf: " << buf << ", size: " << size
               << ", file_offset: " << file_offset << std::endl;
 
+    detail::AwsS3Client& default_client = detail::AwsS3Client::default_client();
     Aws::S3::Model::GetObjectRequest req;
     req.SetBucket(_bucket_name.c_str());
     req.SetKey(_object_name.c_str());
@@ -173,7 +183,7 @@ class RemoteHandle {
     req.SetResponseStreamFactory(
       []() { return Aws::New<Aws::StringStream>("KvikIOAllocationTag"); });
 
-    Aws::S3::Model::GetObjectOutcome outcome = detail::get_s3_client().GetObject(req);
+    Aws::S3::Model::GetObjectOutcome outcome = default_client.get().GetObject(req);
     if (!outcome.IsSuccess()) {
       const Aws::S3::S3Error& err = outcome.GetError();
       throw std::runtime_error(err.GetExceptionName() + ": " + err.GetMessage());
