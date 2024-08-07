@@ -35,7 +35,7 @@ namespace detail {
 
 class S3Context {
  public:
-  S3Context() : _client{S3Context::create_aws_s3_client()} {}
+  S3Context() : _client{S3Context::create_client()} {}
 
   const Aws::S3::S3Client& get() { return _client; }
 
@@ -62,7 +62,7 @@ class S3Context {
     }
   }
 
-  static Aws::S3::S3Client create_aws_s3_client()
+  static Aws::S3::S3Client create_client()
   {
     S3Context::ensure_aws_s3_api_init();
 
