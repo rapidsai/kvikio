@@ -33,20 +33,20 @@
 namespace kvikio {
 namespace detail {
 
-class AwsS3Client {
+class S3Context {
  public:
-  AwsS3Client() : _client{AwsS3Client::create_aws_s3_client()} {}
+  S3Context() : _client{S3Context::create_aws_s3_client()} {}
 
   const Aws::S3::S3Client& get() { return _client; }
 
-  static AwsS3Client& default_client()
+  static S3Context& default_client()
   {
-    static AwsS3Client _default_client;
+    static S3Context _default_client;
     return _default_client;
   }
 
-  AwsS3Client(AwsS3Client const&)    = delete;
-  void operator=(AwsS3Client const&) = delete;
+  S3Context(S3Context const&)      = delete;
+  void operator=(S3Context const&) = delete;
 
  private:
   static void ensure_aws_s3_api_init()
@@ -64,7 +64,7 @@ class AwsS3Client {
 
   static Aws::S3::S3Client create_aws_s3_client()
   {
-    AwsS3Client::ensure_aws_s3_api_init();
+    S3Context::ensure_aws_s3_api_init();
 
     Aws::Client::ClientConfiguration clientConfig;
     // Optional: Set to the AWS Region (overrides config file).
@@ -99,7 +99,7 @@ inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::s
   Aws::S3::Model::HeadObjectRequest req;
   req.SetBucket(bucket_name.c_str());
   req.SetKey(object_name.c_str());
-  Aws::S3::Model::HeadObjectOutcome outcome = AwsS3Client::default_client().get().HeadObject(req);
+  Aws::S3::Model::HeadObjectOutcome outcome = S3Context::default_client().get().HeadObject(req);
   if (!outcome.IsSuccess()) {
     const Aws::S3::S3Error& err = outcome.GetError();
     throw std::invalid_argument("get_s3_file_size(): " + err.GetExceptionName() + ": " +
@@ -170,7 +170,7 @@ class RemoteHandle {
     std::cout << "RemoteHandle::read_to_host() - buf: " << buf << ", size: " << size
               << ", file_offset: " << file_offset << std::endl;
 
-    detail::AwsS3Client& default_client = detail::AwsS3Client::default_client();
+    detail::S3Context& default_client = detail::S3Context::default_client();
     Aws::S3::Model::GetObjectRequest req;
     req.SetBucket(_bucket_name.c_str());
     req.SetKey(_object_name.c_str());
