@@ -33,11 +33,23 @@
 namespace kvikio {
 namespace detail {
 
-inline Aws::S3::S3Client _get_s3_client()  // TODO: spilt into a InitAPI and a S3Client function
+inline void ensure_aws_s3_api_is_initalized()
 {
-  Aws::SDKOptions options;
-  // options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Error;
-  Aws::InitAPI(options);  // Should only be called once.
+  static bool not_initalized{true};
+  if (not_initalized) {
+    std::cout << "ensure_aws_s3_api_initalized INIT" << std::endl;
+    not_initalized = true;
+
+    Aws::SDKOptions options;
+    // options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Error;
+    Aws::InitAPI(options);  // Should only be called once.
+  }
+  return;
+}
+
+inline Aws::S3::S3Client _get_s3_client()
+{
+  ensure_aws_s3_api_is_initalized();
 
   Aws::Client::ClientConfiguration clientConfig;
   // Optional: Set to the AWS Region (overrides config file).
