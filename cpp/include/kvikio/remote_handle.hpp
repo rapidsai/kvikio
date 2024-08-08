@@ -39,6 +39,17 @@ namespace kvikio {
 namespace detail {
 
 /**
+ * Stream implementation of a fixed size buffer
+ */
+class BufferAsStream : public Aws::IOStream {
+ public:
+  using Base = Aws::IOStream;
+  explicit BufferAsStream(std::streambuf* buf) : Base(buf) {}
+
+  ~BufferAsStream() override = default;
+};
+
+/**
  * An executor that does not spawn any thread, instead, tasks are executed in the current thread
  */
 class SameThreadExecutor : public Aws::Utils::Threading::Executor {
@@ -227,10 +238,13 @@ class RemoteHandle {
       "bytes=" + std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
     req.SetRange(byte_range.c_str());
 
-    // TODO: use a custom factory that writes directly to `buf`
-    //       see <https://github.com/apache/arrow/pull/7098>
-    req.SetResponseStreamFactory(
-      []() { return Aws::New<Aws::StringStream>("KvikIOAllocationTag"); });
+    // The local variable 'streamBuffer' is captured by reference in a lambda.
+    // It must persist until all downloading by the 'transfer_manager' is complete.
+    Aws::Utils::Stream::PreallocatedStreamBuf streamBuffer(static_cast<unsigned char*>(buf), size);
+    req.SetResponseStreamFactory([&]() {  // Define a lambda expression for the callback method
+                                          // parameter to stream back the data.
+      return Aws::New<detail::BufferAsStream>("TestTag", &streamBuffer);
+    });
 
     Aws::S3::Model::GetObjectOutcome outcome = default_context.client().GetObject(req);
     if (!outcome.IsSuccess()) {
@@ -242,7 +256,6 @@ class RemoteHandle {
       throw std::runtime_error("S3 read of " + std::to_string(size) + " bytes failed, received " +
                                std::to_string(n) + " bytes");
     }
-    outcome.GetResult().GetBody().read(static_cast<char*>(buf), size);
     return n;
   }
 
