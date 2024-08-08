@@ -17,6 +17,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 
@@ -63,9 +64,9 @@ class SameThreadExecutor : public Aws::Utils::Threading::Executor {
 
 class S3Context {
  public:
-  S3Context() : _client{S3Context::create_client()} {}
+  S3Context() : _client{std::make_shared<Aws::S3::S3Client>(S3Context::create_client())} {}
 
-  const Aws::S3::S3Client& get() { return _client; }
+  const Aws::S3::S3Client& get() { return *_client; }
 
   static S3Context& default_client()
   {
@@ -119,7 +120,7 @@ class S3Context {
     return ret;
   }
 
-  Aws::S3::S3Client _client;
+  std::shared_ptr<Aws::S3::S3Client> _client;
   SameThreadExecutor _executor;
 };
 
