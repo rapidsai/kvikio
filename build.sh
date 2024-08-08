@@ -40,7 +40,7 @@ VERBOSE_FLAG=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 RAN_CMAKE=0
-PYTHON_ARGS_FOR_INSTALL="-m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true"
+PYTHON_ARGS_FOR_INSTALL="--no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true"
 
 
 # Set defaults for vars that may not have been defined externally
@@ -159,5 +159,5 @@ if (( NUMARGS == 0 )) || hasArg kvikio; then
     echo "building kvikio..."
     cd ${REPODIR}/python/kvikio
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_LIBRARY_PATH=${LIBKVIKIO_BUILD_DIR};${EXTRA_CMAKE_ARGS}" \
-        python ${PYTHON_ARGS_FOR_INSTALL} .
+        python -m pip install ${PYTHON_ARGS_FOR_INSTALL} .
 fi
