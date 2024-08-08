@@ -52,6 +52,7 @@ class BufferAsStream : public Aws::IOStream {
 /**
  * An executor that does not spawn any thread, instead, tasks are executed in the current thread
  */
+// TODO: remove
 class SameThreadExecutor : public Aws::Utils::Threading::Executor {
  public:
   virtual ~SameThreadExecutor() { SameThreadExecutor::WaitUntilStopped(); }
@@ -149,13 +150,14 @@ class S3Context {
     return Aws::Transfer::TransferManager::Create(transfer_config);
   }
 
-  SameThreadExecutor _executor;
+  SameThreadExecutor _executor;  // TODO: remove
   std::shared_ptr<Aws::S3::S3Client> _client;
-  std::shared_ptr<Aws::Transfer::TransferManager> _transfer_manager;
+  std::shared_ptr<Aws::Transfer::TransferManager> _transfer_manager;  // TODO: remove
 };
 
 inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::string& object_name)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   Aws::S3::Model::HeadObjectRequest req;
   req.SetBucket(bucket_name.c_str());
   req.SetKey(object_name.c_str());
@@ -227,6 +229,7 @@ class RemoteHandle {
 
   std::size_t read_to_host(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
+    KVIKIO_NVTX_FUNC_RANGE("AWS S3 receive", size);
     std::cout << "RemoteHandle::read_to_host() - buf: " << buf << ", size: " << size
               << ", file_offset: " << file_offset << std::endl;
 
@@ -261,6 +264,7 @@ class RemoteHandle {
 
   std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
+    KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::read()", size);
     if (is_host_memory(buf)) { return read_to_host(buf, size, file_offset); }
 
     CUcontext ctx = get_context_from_pointer(buf);
@@ -288,6 +292,7 @@ class RemoteHandle {
 
   std::future<std::size_t> pread(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
+    KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::pread()", size);
     std::cout << "RemoteHandle::pread()" << std::endl;
     auto task = [this](void* devPtr_base,
                        std::size_t size,
