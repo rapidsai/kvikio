@@ -94,7 +94,7 @@ def s3_context(s3_base, bucket, files=None):
 def test_read(s3_base, xp):
     bucket_name = "test_read"
     object_name = "a1"
-    a = xp.arange(1000)
+    a = xp.arange(10_000_000)
     with s3_context(s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}):
         with kvikio.RemoteFile(bucket_name, object_name) as f:
             assert f.nbytes() == a.nbytes
