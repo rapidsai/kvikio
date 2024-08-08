@@ -84,7 +84,7 @@ def run_cudf(args, use_kvikio_s3):
     import cudf
 
     # Upload data to S3 server
-    data = cupy.arange(args.nelem, dtype=args.dtype)
+    data = cupy.random.rand(args.nelem).astype(args.dtype)
     df = cudf.DataFrame({"a": data})
     df.to_parquet(f"s3://{args.bucket}/data1")
 
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dtype",
         metavar="DATATYPE",
-        default="uint8",
+        default="float32",
         type=numpy.dtype,
         help="The data type of each element (default: %(default)s).",
     )
