@@ -57,7 +57,7 @@ rapids_find_package(
 
 # TODO: make optional before PR merge
 rapids_find_package(
-  AWSSDK REQUIRED COMPONENTS s3
+  AWSSDK REQUIRED COMPONENTS s3 transfer
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )

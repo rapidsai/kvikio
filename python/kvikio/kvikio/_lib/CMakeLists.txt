@@ -15,13 +15,6 @@
 # Set the list of Cython files to build
 set(cython_modules arr.pyx libnvcomp.pyx libnvcomp_ll.pyx libkvikio.pyx)
 
-# TODO: make optional before PR merge
-rapids_find_package(
-  AWSSDK REQUIRED COMPONENTS s3
-  BUILD_EXPORT_SET kvikio-exports
-  INSTALL_EXPORT_SET kvikio-exports
-)
-
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
