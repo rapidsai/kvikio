@@ -73,12 +73,13 @@ class S3Context {
   {
   }
 
-  const Aws::S3::S3Client& get() { return *_client; }
+  Aws::S3::S3Client& client() { return *_client; }
+  Aws::Transfer::TransferManager& transfer_manager() { return *_transfer_manager; }
 
-  static S3Context& default_client()
+  static S3Context& default_context()
   {
-    static S3Context _default_client;
-    return _default_client;
+    static S3Context _default_context;
+    return _default_context;
   }
 
   S3Context(S3Context const&)      = delete;
@@ -147,7 +148,7 @@ inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::s
   Aws::S3::Model::HeadObjectRequest req;
   req.SetBucket(bucket_name.c_str());
   req.SetKey(object_name.c_str());
-  Aws::S3::Model::HeadObjectOutcome outcome = S3Context::default_client().get().HeadObject(req);
+  Aws::S3::Model::HeadObjectOutcome outcome = S3Context::default_context().client().HeadObject(req);
   if (!outcome.IsSuccess()) {
     const Aws::S3::S3Error& err = outcome.GetError();
     throw std::invalid_argument("get_s3_file_size(): " + err.GetExceptionName() + ": " +
@@ -218,7 +219,7 @@ class RemoteHandle {
     std::cout << "RemoteHandle::read_to_host() - buf: " << buf << ", size: " << size
               << ", file_offset: " << file_offset << std::endl;
 
-    detail::S3Context& default_client = detail::S3Context::default_client();
+    auto& default_context = detail::S3Context::default_context();
     Aws::S3::Model::GetObjectRequest req;
     req.SetBucket(_bucket_name.c_str());
     req.SetKey(_object_name.c_str());
@@ -231,7 +232,7 @@ class RemoteHandle {
     req.SetResponseStreamFactory(
       []() { return Aws::New<Aws::StringStream>("KvikIOAllocationTag"); });
 
-    Aws::S3::Model::GetObjectOutcome outcome = default_client.get().GetObject(req);
+    Aws::S3::Model::GetObjectOutcome outcome = default_context.client().GetObject(req);
     if (!outcome.IsSuccess()) {
       const Aws::S3::S3Error& err = outcome.GetError();
       throw std::runtime_error(err.GetExceptionName() + ": " + err.GetMessage());
