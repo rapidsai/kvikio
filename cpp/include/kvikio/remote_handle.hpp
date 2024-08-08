@@ -23,10 +23,13 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
+#include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/core/utils/threading/Executor.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/HeadObjectRequest.h>
+#include <aws/transfer/TransferHandle.h>
+#include <aws/transfer/TransferManager.h>
 
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
@@ -64,7 +67,11 @@ class SameThreadExecutor : public Aws::Utils::Threading::Executor {
 
 class S3Context {
  public:
-  S3Context() : _client{std::make_shared<Aws::S3::S3Client>(S3Context::create_client())} {}
+  S3Context()
+    : _client{S3Context::create_client()},
+      _transfer_manager{S3Context::create_transfer_manager(_client, &_executor)}
+  {
+  }
 
   const Aws::S3::S3Client& get() { return *_client; }
 
@@ -91,7 +98,7 @@ class S3Context {
     }
   }
 
-  static Aws::S3::S3Client create_client()
+  static std::shared_ptr<Aws::S3::S3Client> create_client()
   {
     S3Context::ensure_aws_s3_api_init();
 
@@ -110,18 +117,29 @@ class S3Context {
     if (creds.IsEmpty()) {
       throw std::runtime_error(std::string("Failed authentication to ") + endpointOverride);
     }
-    Aws::S3::S3Client ret = Aws::S3::S3Client(clientConfig);
+    auto ret = std::make_shared<Aws::S3::S3Client>(Aws::S3::S3Client(clientConfig));
 
     // Try the connection
-    auto outcome = ret.ListBuckets();
+    auto outcome = ret->ListBuckets();
     if (!outcome.IsSuccess()) {
       throw std::runtime_error(std::string("S3 error: ") + outcome.GetError().GetMessage());
     }
     return ret;
   }
 
-  std::shared_ptr<Aws::S3::S3Client> _client;
+  static std::shared_ptr<Aws::Transfer::TransferManager> create_transfer_manager(
+    std::shared_ptr<Aws::S3::S3Client> client, Aws::Utils::Threading::Executor* executor)
+  {
+    Aws::Transfer::TransferManagerConfiguration transfer_config(executor);
+    transfer_config.s3Client                  = client;
+    transfer_config.bufferSize                = posix_bounce_buffer_size;
+    transfer_config.transferBufferMaxHeapSize = posix_bounce_buffer_size * 2;
+    return Aws::Transfer::TransferManager::Create(transfer_config);
+  }
+
   SameThreadExecutor _executor;
+  std::shared_ptr<Aws::S3::S3Client> _client;
+  std::shared_ptr<Aws::Transfer::TransferManager> _transfer_manager;
 };
 
 inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::string& object_name)
