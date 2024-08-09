@@ -31,30 +31,48 @@ def get_local_port() -> int:
     return port
 
 
-def start_s3_server(server_address, lifetime=3600):
+def start_s3_server(lifetime=3600):
     from moto.server import ThreadedMotoServer
 
     # Silence the activity info from ThreadedMotoServer
     sys.stderr = open("/dev/null", "w")
-    url = urlparse(server_address)
+    url = urlparse(os.environ["AWS_ENDPOINT_URL"])
     server = ThreadedMotoServer(ip_address=url.hostname, port=url.port)
     server.start()
     time.sleep(lifetime)
 
 
 @contextlib.contextmanager
-def local_s3_server(server_address):
+def local_s3_server():
     # Use fake aws credentials
     os.environ["AWS_ACCESS_KEY_ID"] = "foobar_key"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "foobar_secret"
-    os.environ["AWS_SECURITY_TOKEN"] = "foobar_security_token"
-    os.environ["AWS_SESSION_TOKEN"] = "foobar_session_token"
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-    os.environ["AWS_ENDPOINT_URL"] = server_address
-    p = multiprocessing.Process(target=start_s3_server, args=(server_address,))
+    p = multiprocessing.Process(target=start_s3_server)
     p.start()
     yield
     p.kill()
+
+
+def create_client_and_bucket():
+    client = boto3.client("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL", None))
+    try:
+        client.create_bucket(Bucket=args.bucket, ACL="public-read-write")
+    except (
+        client.exceptions.BucketAlreadyOwnedByYou,
+        client.exceptions.BucketAlreadyExists,
+    ):
+        pass
+    except Exception:
+        print(
+            "Problem accessing the S3 server? using wrong credentials? Try setting "
+            "AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and/or AWS_ENDPOINT_URL. "
+            "Alternatively, use the bundled server `--use-bundled-server`\n",
+            file=sys.stderr,
+            flush=True,
+        )
+        raise
+    return client
 
 
 def run_numpy_like(args, xp):
@@ -62,9 +80,7 @@ def run_numpy_like(args, xp):
     data = numpy.arange(args.nelem, dtype=args.dtype)
     recv = xp.empty_like(data)
 
-    client = boto3.client("s3", endpoint_url=args.server_address)
-    client.create_bucket(Bucket=args.bucket, ACL="public-read-write")
-
+    client = create_client_and_bucket()
     client.put_object(Bucket=args.bucket, Key="data1", Body=bytes(data))
 
     def run() -> float:
@@ -84,6 +100,7 @@ def run_cudf(args, use_kvikio_s3):
     import cudf
 
     # Upload data to S3 server
+    create_client_and_bucket()
     data = cupy.random.rand(args.nelem).astype(args.dtype)
     df = cudf.DataFrame({"a": data})
     df.to_parquet(f"s3://{args.bucket}/data1")
@@ -112,13 +129,18 @@ def main(args):
 
     kvikio.defaults.num_threads_reset(args.nthreads)
     print("Roundtrip benchmark")
-    print("-------------------------------------")
+    print("--------------------------------------")
     print(f"nelem       | {args.nelem} ({format_bytes(args.nbytes)})")
     print(f"dtype       | {args.dtype}")
     print(f"nthreads    | {args.nthreads}")
     print(f"nruns       | {args.nruns}")
-    print(f"server      | {args.server_address}")
-    print("=====================================")
+    print(f"server      | {os.getenv('AWS_ENDPOINT_URL', 'http://*.amazonaws.com')}")
+    if args.use_bundled_server:
+        print("--------------------------------------")
+        print("Using the bundled local server is slow")
+        print("and can be misleading. Consider using")
+        print("a local MinIO or officel S3 server.")
+    print("======================================")
 
     # Run each benchmark using the requested APIs
     for api in args.api:
@@ -176,14 +198,9 @@ if __name__ == "__main__":
         help="Number of threads to use (default: %(default)s).",
     )
     parser.add_argument(
-        "--server-address",
-        metavar="ADDRESS",
-        default="LOCAL",
-        type=str,
-        help=(
-            "Address of the S3 server e.g. http://127.0.0.1:4200. "
-            "By default, a local server is launched and used."
-        ),
+        "--use-bundled-server",
+        action="store_true",
+        help="Launch and use a local slow S3 server (ThreadedMotoServer).",
     )
     parser.add_argument(
         "--bucket",
@@ -195,21 +212,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--api",
         metavar="API",
-        default=("cupy",),
+        default=list(API.keys())[0],  # defaults to the first API
         nargs="+",
         choices=tuple(API.keys()) + ("all",),
-        help="List of APIs to use {%(choices)s}",
+        help="List of APIs to use {%(choices)s} (default: %(default)s).",
     )
     args = parser.parse_args()
     args.nbytes = args.nelem * args.dtype.itemsize
     if "all" in args.api:
         args.api = tuple(API.keys())
 
-    assert args.server_address == "LOCAL"  # TODO: support non-local servers
-
     ctx: ContextManager = contextlib.nullcontext()
-    if args.server_address == "LOCAL":
-        args.server_address = f"http://127.0.0.1:{get_local_port()}"
-        ctx = local_s3_server(args.server_address)
+    if args.use_bundled_server:
+        os.environ["AWS_ENDPOINT_URL"] = f"http://127.0.0.1:{get_local_port()}"
+        ctx = local_s3_server()
     with ctx:
         main(args)

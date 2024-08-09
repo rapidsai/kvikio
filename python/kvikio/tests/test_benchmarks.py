@@ -78,3 +78,41 @@ def test_zarr_io(run_cmd, tmp_path, api):
         cwd=benchmarks_path,
     )
     assert retcode == 0
+
+
+@pytest.mark.parametrize(
+    "api",
+    [
+        "cupy-kvikio",
+        "numpy-kvikio",
+        "cudf-kvikio",
+        "cudf-fsspec",
+    ],
+)
+def test_aws_s3_io(run_cmd, api):
+    """Test benchmarks/aws_s3_io.py"""
+
+    pytest.importorskip("boto3")
+    if "cudf" in api:
+        pytest.importorskip("cudf")
+
+    if api == "cudf-kvikio":
+        pytest.skip(
+            "Enable when <https://github.com/rapidsai/cudf/pull/16499> has been merged"
+        )
+
+    retcode = run_cmd(
+        cmd=[
+            sys.executable or "python",
+            "aws_s3_io.py",
+            "--use-bundled-server",
+            "-n",
+            "1000",
+            "-t",
+            "4",
+            "--api",
+            api,
+        ],
+        cwd=benchmarks_path,
+    )
+    assert retcode == 0
