@@ -11,26 +11,11 @@ from libcpp.string cimport string
 from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 
+from kvikio._lib.future cimport StreamFuture, future
+
 
 cdef extern from "cuda.h":
     ctypedef void* CUstream
-
-
-cdef extern from "<future>" namespace "std" nogil:
-    cdef cppclass future[T]:
-        future() except +
-        T get() except +
-
-
-cdef extern from "<kvikio/stream.hpp>" namespace "kvikio" nogil:
-    cdef cppclass StreamFuture:
-        StreamFuture() except +
-        StreamFuture(StreamFuture&&) except +
-        size_t check_bytes_done() except +
-
-
-cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
-    bool is_future_done[T](const T& future) except +
 
 
 cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:

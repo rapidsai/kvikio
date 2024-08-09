@@ -10,45 +10,16 @@ from typing import Optional
 from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move, pair
 
+from kvikio._lib.future cimport (
+    IOFuture,
+    IOFutureStream,
+    _wrap_io_future,
+    _wrap_stream_future,
+)
+
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport CUstream, FileHandle, StreamFuture, future, is_future_done
-
-
-cdef class IOFutureStream:
-    """Wrap a C++ StreamFuture in a Python object"""
-    cdef StreamFuture _handle
-
-    def check_bytes_done(self) -> int:
-        return self._handle.check_bytes_done()
-
-
-cdef IOFutureStream _wrap_stream_future(StreamFuture &fut):
-    """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
-    ret = IOFutureStream()
-    ret._handle = move(fut)
-    return ret
-
-
-cdef class IOFuture:
-    """C++ future for CuFile reads and writes"""
-    cdef future[size_t] _handle
-
-    def get(self) -> int:
-        cdef size_t ret
-        with nogil:
-            ret = self._handle.get()
-        return ret
-
-    def done(self) -> bool:
-        return is_future_done(self._handle)
-
-
-cdef IOFuture _wrap_io_future(future[size_t] &fut):
-    """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
-    ret = IOFuture()
-    ret._handle = move(fut)
-    return ret
+from .kvikio_cxx_api cimport CUstream, FileHandle
 
 
 def memory_register(buf) -> None:
