@@ -8,7 +8,6 @@ from posix cimport fcntl
 
 from libcpp cimport bool
 from libcpp.string cimport string
-from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 
 from kvikio._lib.future cimport cpp_StreamFuture, future
@@ -16,17 +15,6 @@ from kvikio._lib.future cimport cpp_StreamFuture, future
 
 cdef extern from "cuda.h":
     ctypedef void* CUstream
-
-
-cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio::defaults" nogil:
-    bool compat_mode() except +
-    void compat_mode_reset(bool enable) except +
-    unsigned int thread_pool_nthreads() except +
-    void thread_pool_nthreads_reset(unsigned int nthreads) except +
-    size_t task_size() except +
-    void task_size_reset(size_t nbytes) except +
-    size_t gds_threshold() except +
-    void gds_threshold_reset(size_t nbytes) except +
 
 
 cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:

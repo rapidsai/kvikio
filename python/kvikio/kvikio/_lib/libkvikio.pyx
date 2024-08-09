@@ -16,42 +16,10 @@ from kvikio._lib.future cimport (
     _wrap_io_future,
     _wrap_stream_future,
 )
+from kvikio._lib import defaults
+from kvikio._lib.arr cimport Array
 
-from . cimport kvikio_cxx_api
-from .arr cimport Array
 from .kvikio_cxx_api cimport CUstream, FileHandle
-
-
-def compat_mode() -> bool:
-    return kvikio_cxx_api.compat_mode()
-
-
-def compat_mode_reset(enable: bool) -> None:
-    kvikio_cxx_api.compat_mode_reset(enable)
-
-
-def thread_pool_nthreads() -> int:
-    return kvikio_cxx_api.thread_pool_nthreads()
-
-
-def thread_pool_nthreads_reset(nthreads: int) -> None:
-    kvikio_cxx_api.thread_pool_nthreads_reset(nthreads)
-
-
-def task_size() -> int:
-    return kvikio_cxx_api.task_size()
-
-
-def task_size_reset(nbytes: int) -> None:
-    kvikio_cxx_api.task_size_reset(nbytes)
-
-
-def gds_threshold() -> int:
-    return kvikio_cxx_api.gds_threshold()
-
-
-def gds_threshold_reset(nbytes: int) -> None:
-    kvikio_cxx_api.gds_threshold_reset(nbytes)
 
 
 cdef pair[uintptr_t, size_t] _parse_buffer(buf, size, bint accept_host_buffer) except *:
@@ -104,7 +72,7 @@ cdef class CuFile:
                 <void*>info.first,
                 info.second,
                 file_offset,
-                task_size if task_size else kvikio_cxx_api.task_size()
+                task_size if task_size else defaults.task_size()
             )
         )
 
@@ -115,7 +83,7 @@ cdef class CuFile:
                 <void*>info.first,
                 info.second,
                 file_offset,
-                task_size if task_size else kvikio_cxx_api.task_size()
+                task_size if task_size else defaults.task_size()
             )
         )
 
