@@ -18,11 +18,6 @@ cdef extern from "cuda.h":
     ctypedef void* CUstream
 
 
-cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
-    void memory_register(const void* devPtr) except +
-    void memory_deregister(const void* devPtr) except +
-
-
 cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio::defaults" nogil:
     bool compat_mode() except +
     void compat_mode_reset(bool enable) except +

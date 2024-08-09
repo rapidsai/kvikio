@@ -22,20 +22,6 @@ from .arr cimport Array
 from .kvikio_cxx_api cimport CUstream, FileHandle
 
 
-def memory_register(buf) -> None:
-    if not isinstance(buf, Array):
-        buf = Array(buf)
-    cdef Array arr = buf
-    kvikio_cxx_api.memory_register(<void*>arr.ptr)
-
-
-def memory_deregister(buf) -> None:
-    if not isinstance(buf, Array):
-        buf = Array(buf)
-    cdef Array arr = buf
-    kvikio_cxx_api.memory_deregister(<void*>arr.ptr)
-
-
 def compat_mode() -> bool:
     return kvikio_cxx_api.compat_mode()
 

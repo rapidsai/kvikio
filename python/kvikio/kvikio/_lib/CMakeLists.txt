@@ -13,7 +13,9 @@
 # =============================================================================
 
 # Set the list of Cython files to build file(GLOB SOURCES "*.pyx")
-set(SOURCES arr.pyx libnvcomp.pyx libnvcomp_ll.pyx libkvikio.pyx driver_properties.pyx future.pyx)
+set(SOURCES arr.pyx libnvcomp.pyx libnvcomp_ll.pyx libkvikio.pyx driver_properties.pyx future.pyx
+            buffer.pyx
+)
 
 rapids_cython_create_modules(
   CXX
