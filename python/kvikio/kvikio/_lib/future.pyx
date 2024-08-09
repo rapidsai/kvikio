@@ -18,7 +18,7 @@ cdef class IOFutureStream:
         return self._handle.check_bytes_done()
 
 
-cdef IOFutureStream _wrap_stream_future(StreamFuture &fut):
+cdef IOFutureStream _wrap_stream_future(cpp_StreamFuture &fut):
     """Wrap a C++ future (of a `size_t`) in a `IOFuture` instance"""
     ret = IOFutureStream()
     ret._handle = move(fut)

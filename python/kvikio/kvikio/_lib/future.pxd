@@ -11,16 +11,16 @@ cdef extern from "<future>" namespace "std" nogil:
         T get() except +
 
 
-cdef extern from "<kvikio/stream.hpp>" namespace "kvikio" nogil:
-    cdef cppclass StreamFuture:
-        StreamFuture() except +
+cdef extern from "<kvikio/stream.hpp>" nogil:
+    cdef cppclass cpp_StreamFuture "kvikio::StreamFuture":
+        cpp_StreamFuture() except +
         size_t check_bytes_done() except +
 
 
 cdef class IOFutureStream:
-    cdef StreamFuture _handle
+    cdef cpp_StreamFuture _handle
 
-cdef IOFutureStream _wrap_stream_future(StreamFuture &fut)
+cdef IOFutureStream _wrap_stream_future(cpp_StreamFuture &fut)
 
 cdef class IOFuture:
     cdef future[size_t] _handle

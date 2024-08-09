@@ -11,7 +11,7 @@ from libcpp.string cimport string
 from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 
-from kvikio._lib.future cimport StreamFuture, future
+from kvikio._lib.future cimport cpp_StreamFuture, future
 
 
 cdef extern from "cuda.h":
@@ -75,14 +75,14 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t file_offset,
             size_t devPtr_offset
         ) except +
-        StreamFuture read_async(
+        cpp_StreamFuture read_async(
             void* devPtr_base,
             size_t size,
             size_t file_offset,
             size_t devPtr_offset,
             CUstream stream
         ) except +
-        StreamFuture write_async(
+        cpp_StreamFuture write_async(
             void* devPtr_base,
             size_t size,
             size_t file_offset,
