@@ -33,24 +33,6 @@ cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
     bool is_future_done[T](const T& future) except +
 
 
-cdef extern from "<kvikio/driver.hpp>" namespace "kvikio" nogil:
-    cdef cppclass DriverProperties:
-        DriverProperties() except +
-        bool is_gds_available() except +
-        unsigned int get_nvfs_major_version() except +
-        unsigned int get_nvfs_minor_version() except +
-        bool get_nvfs_allow_compat_mode() except +
-        bool get_nvfs_poll_mode() except +
-        size_t get_nvfs_poll_thresh_size() except +
-        void set_nvfs_poll_mode(bool enable) except +
-        void set_nvfs_poll_thresh_size(size_t size_in_kb) except +
-        size_t get_max_device_cache_size() except +
-        void set_max_device_cache_size(size_t size_in_kb) except +
-        size_t get_per_buffer_cache_size() except +
-        size_t get_max_pinned_memory_size() except +
-        void set_max_pinned_memory_size(size_t size_in_kb) except +
-
-
 cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
     void memory_register(const void* devPtr) except +
     void memory_deregister(const void* devPtr) except +
