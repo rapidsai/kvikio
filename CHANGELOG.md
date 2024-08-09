@@ -1,3 +1,36 @@
+# kvikio 24.08.00 (7 Aug 2024)
+
+## 🐛 Bug Fixes
+
+- fix compat_mode check typo ([#421](https://github.com/rapidsai/kvikio/pull/421)) [@madsbk](https://github.com/madsbk)
+- Fix `O_DIRECT` in `defined` ([#416](https://github.com/rapidsai/kvikio/pull/416)) [@jakirkham](https://github.com/jakirkham)
+- cufile-wrapper: include the cuda-wrapper ([#413](https://github.com/rapidsai/kvikio/pull/413)) [@madsbk](https://github.com/madsbk)
+- Rename `.devcontainer`s for CUDA 12.5 ([#406](https://github.com/rapidsai/kvikio/pull/406)) [@jakirkham](https://github.com/jakirkham)
+- Use `#ifdef` to guard `O_DIRECT` usage ([#404](https://github.com/rapidsai/kvikio/pull/404)) [@jakirkham](https://github.com/jakirkham)
+- Properly quote items in __all__ ([#399](https://github.com/rapidsai/kvikio/pull/399)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+
+## 🛠️ Improvements
+
+- Benchmarks clean up ([#424](https://github.com/rapidsai/kvikio/pull/424)) [@madsbk](https://github.com/madsbk)
+- split up CUDA-suffixed dependencies in dependencies.yaml ([#411](https://github.com/rapidsai/kvikio/pull/411)) [@jameslamb](https://github.com/jameslamb)
+- Don&#39;t open with `O_DIRECT` when in compat mode ([#410](https://github.com/rapidsai/kvikio/pull/410)) [@madsbk](https://github.com/madsbk)
+- Fetch and use BS thread_pool ([#408](https://github.com/rapidsai/kvikio/pull/408)) [@madsbk](https://github.com/madsbk)
+- Use workflow branch 24.08 again ([#407](https://github.com/rapidsai/kvikio/pull/407)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Enable cuFile on ARM ([#405](https://github.com/rapidsai/kvikio/pull/405)) [@jakirkham](https://github.com/jakirkham)
+- Build and test with CUDA 12.5.1 ([#401](https://github.com/rapidsai/kvikio/pull/401)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- skip CMake 3.30.0 ([#400](https://github.com/rapidsai/kvikio/pull/400)) [@jameslamb](https://github.com/jameslamb)
+- Use verify-alpha-spec hook ([#398](https://github.com/rapidsai/kvikio/pull/398)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Avoid --find-links in wheel jobs ([#397](https://github.com/rapidsai/kvikio/pull/397)) [@jameslamb](https://github.com/jameslamb)
+- Adding NVTX annotations ([#395](https://github.com/rapidsai/kvikio/pull/395)) [@madsbk](https://github.com/madsbk)
+- Clean up error handling ([#394](https://github.com/rapidsai/kvikio/pull/394)) [@madsbk](https://github.com/madsbk)
+- Move content of the Python pkg to subdirectory python/kvikio/ ([#392](https://github.com/rapidsai/kvikio/pull/392)) [@hcho3](https://github.com/hcho3)
+- Adopt CI/packaging codeowners ([#391](https://github.com/rapidsai/kvikio/pull/391)) [@bdice](https://github.com/bdice)
+- Remove text builds of documentation ([#390](https://github.com/rapidsai/kvikio/pull/390)) [@vyasr](https://github.com/vyasr)
+- use rapids-build-backend ([#389](https://github.com/rapidsai/kvikio/pull/389)) [@jameslamb](https://github.com/jameslamb)
+- remove unnecessary &#39;setuptools&#39; dependency ([#385](https://github.com/rapidsai/kvikio/pull/385)) [@jameslamb](https://github.com/jameslamb)
+- add --rm and --name to devcontainer run args ([#370](https://github.com/rapidsai/kvikio/pull/370)) [@trxcllnt](https://github.com/trxcllnt)
+- add wheel output ([#369](https://github.com/rapidsai/kvikio/pull/369)) [@msarahan](https://github.com/msarahan)
+
 # kvikio 24.06.00 (5 Jun 2024)
 
 ## 🐛 Bug Fixes
