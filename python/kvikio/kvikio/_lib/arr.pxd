@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -6,6 +6,7 @@
 
 
 from libc.stdint cimport uintptr_t
+from libcpp.utility cimport pair
 
 
 cdef class Array:
@@ -25,3 +26,8 @@ cdef class Array:
     cpdef bint _f_contiguous(self)
     cpdef bint _contiguous(self)
     cpdef Py_ssize_t _nbytes(self)
+
+
+cdef pair[uintptr_t, size_t] parse_buffer_argument(
+    buf, size, bint accept_host_buffer
+) except *

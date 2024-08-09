@@ -1,10 +1,10 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 
 import contextlib
 
-from ._lib import libkvikio  # type: ignore
+import kvikio._lib.defaults
 
 
 def compat_mode() -> bool:
@@ -28,7 +28,7 @@ def compat_mode() -> bool:
     bool
         Whether KvikIO is running in compatibility mode or not.
     """
-    return libkvikio.compat_mode()
+    return kvikio._lib.defaults.compat_mode()
 
 
 def compat_mode_reset(enable: bool) -> None:
@@ -41,7 +41,7 @@ def compat_mode_reset(enable: bool) -> None:
     enable : bool
         Set to True to enable and False to disable compatibility mode
     """
-    libkvikio.compat_mode_reset(enable)
+    kvikio._lib.defaults.compat_mode_reset(enable)
 
 
 @contextlib.contextmanager
@@ -73,7 +73,7 @@ def get_num_threads() -> int:
     nthreads: int
         The number of threads in the current thread pool.
     """
-    return libkvikio.thread_pool_nthreads()
+    return kvikio._lib.defaults.thread_pool_nthreads()
 
 
 def num_threads_reset(nthreads: int) -> None:
@@ -92,7 +92,7 @@ def num_threads_reset(nthreads: int) -> None:
         the `KVIKIO_NTHREADS` environment variable. If not set, the default value
         is 1.
     """
-    libkvikio.thread_pool_nthreads_reset(nthreads)
+    kvikio._lib.defaults.thread_pool_nthreads_reset(nthreads)
 
 
 @contextlib.contextmanager
@@ -124,7 +124,7 @@ def task_size() -> int:
     nbytes: int
         The default task size in bytes.
     """
-    return libkvikio.task_size()
+    return kvikio._lib.defaults.task_size()
 
 
 def task_size_reset(nbytes: int) -> None:
@@ -135,7 +135,7 @@ def task_size_reset(nbytes: int) -> None:
     nbytes : int
         The default task size in bytes.
     """
-    libkvikio.task_size_reset(nbytes)
+    kvikio._lib.defaults.task_size_reset(nbytes)
 
 
 @contextlib.contextmanager
@@ -171,7 +171,7 @@ def gds_threshold() -> int:
     nbytes : int
         The default GDS threshold size in bytes.
     """
-    return libkvikio.gds_threshold()
+    return kvikio._lib.defaults.gds_threshold()
 
 
 def gds_threshold_reset(nbytes: int) -> None:
@@ -182,7 +182,7 @@ def gds_threshold_reset(nbytes: int) -> None:
     nbytes : int
         The default GDS threshold size in bytes.
     """
-    libkvikio.gds_threshold_reset(nbytes)
+    kvikio._lib.defaults.gds_threshold_reset(nbytes)
 
 
 @contextlib.contextmanager
