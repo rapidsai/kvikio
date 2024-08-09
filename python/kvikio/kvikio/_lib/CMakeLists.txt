@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -18,5 +18,5 @@ set(cython_modules arr.pyx libnvcomp.pyx libnvcomp_ll.pyx libkvikio.pyx)
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
-  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
+  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp ${AWSSDK_LINK_LIBRARIES}
 )

@@ -106,6 +106,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+          - aws-sdk-cpp  # TODO: make optional?
     specific:
       - output_types: conda
         matrices:
@@ -201,6 +202,7 @@ dependencies:
       - output_types: conda
         packages:
           - nvcomp==3.0.6
+          - aws-sdk-cpp
     specific:
       - output_types: conda
         matrices:
@@ -217,6 +219,7 @@ dependencies:
               cuda: "12.*"
             packages:
               - libcufile-dev
+              - aws-sdk-cpp
           - matrix:
               arch: aarch64
               cuda: "11.*"

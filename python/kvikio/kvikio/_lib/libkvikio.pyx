@@ -7,12 +7,21 @@
 import pathlib
 from typing import Optional
 
+from typing_extensions import Self
+
 from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move, pair
 
 from . cimport kvikio_cxx_api
 from .arr cimport Array
-from .kvikio_cxx_api cimport CUstream, FileHandle, StreamFuture, future, is_future_done
+from .kvikio_cxx_api cimport (
+    CUstream,
+    FileHandle,
+    RemoteHandle,
+    StreamFuture,
+    future,
+    is_future_done,
+)
 
 
 cdef class IOFutureStream:
@@ -262,3 +271,44 @@ cdef class DriverProperties:
     @max_pinned_memory_size.setter
     def max_pinned_memory_size(self, size_in_kb: int) -> None:
         self._handle.set_max_pinned_memory_size(size_in_kb)
+
+
+cdef class RemoteFile:
+    """ Remote file handle"""
+    cdef RemoteHandle _handle
+
+    @classmethod
+    def from_bucket_and_object(cls, bucket_name: str, object_name: str) -> Self:
+        cdef RemoteFile ret = RemoteFile()
+        ret._handle = RemoteHandle(
+            str.encode(str(bucket_name)),
+            str.encode(str(object_name)),
+        )
+        return ret
+
+    @classmethod
+    def from_url(cls, url: str) -> Self:
+        cdef RemoteFile ret = RemoteFile()
+        ret._handle = RemoteHandle(str.encode(str(url)))
+        return ret
+
+    def nbytes(self) -> int:
+        return self._handle.nbytes()
+
+    def read(self, buf, size: Optional[int], file_offset: int) -> int:
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, True)
+        return self._handle.read(
+            <void*>info.first,
+            info.second,
+            file_offset,
+        )
+
+    def pread(self, buf, size: Optional[int], file_offset: int) -> IOFuture:
+        cdef pair[uintptr_t, size_t] info = _parse_buffer(buf, size, True)
+        return _wrap_io_future(
+            self._handle.pread(
+                <void*>info.first,
+                info.second,
+                file_offset,
+            )
+        )

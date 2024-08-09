@@ -25,7 +25,6 @@ cdef extern from "<future>" namespace "std" nogil:
 cdef extern from "<kvikio/stream.hpp>" namespace "kvikio" nogil:
     cdef cppclass StreamFuture:
         StreamFuture() except +
-        StreamFuture(StreamFuture&&) except +
         size_t check_bytes_done() except +
 
 
@@ -121,4 +120,27 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t file_offset,
             size_t devPtr_offset,
             CUstream stream
+        ) except +
+
+
+cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
+    cdef cppclass RemoteHandle:
+        RemoteHandle() except +
+        RemoteHandle(
+            string bucket_name,
+            string object_name,
+        ) except +
+        RemoteHandle(
+            string remote_path,
+        ) except +
+        int nbytes()
+        size_t read(
+            void* buf,
+            size_t size,
+            size_t file_offset
+        ) except +
+        future[size_t] pread(
+            void* buf,
+            size_t size,
+            size_t file_offset
         ) except +

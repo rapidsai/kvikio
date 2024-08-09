@@ -52,6 +52,7 @@ requirements:
     {% else %}
     - libcufile-dev  # [linux]
     {% endif %}
+    - aws-sdk-cpp
 
 outputs:
   - name: libkvikio
@@ -72,6 +73,7 @@ outputs:
     requirements:
       build:
         - cmake {{ cmake_version }}
+        - aws-sdk-cpp
       host:
         - cuda-version ={{ cuda_version }}
       run:

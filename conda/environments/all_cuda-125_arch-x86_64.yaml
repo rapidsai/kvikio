@@ -6,6 +6,7 @@ channels:
 - conda-forge
 - nvidia
 dependencies:
+- aws-sdk-cpp
 - c-compiler
 - cmake>=3.26.4,!=3.30.0
 - cuda-nvcc

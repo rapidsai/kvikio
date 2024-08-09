@@ -40,7 +40,7 @@ VERBOSE_FLAG=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 RAN_CMAKE=0
-PYTHON_ARGS_FOR_INSTALL="--no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true"
+PYTHON_ARGS_FOR_INSTALL="-v --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true"
 
 
 # Set defaults for vars that may not have been defined externally

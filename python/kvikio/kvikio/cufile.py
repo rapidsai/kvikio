@@ -4,6 +4,8 @@
 import pathlib
 from typing import Optional, Union
 
+from typing_extensions import Self
+
 from ._lib import libkvikio  # type: ignore
 
 
@@ -430,3 +432,33 @@ class CuFile:
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self._handle.write(buf, size, file_offset, dev_offset)
+
+
+class RemoteFile:
+    """File handle for Remote files"""
+
+    def __init__(self, bucket_name: str, object_name: str):
+        self._handle = libkvikio.RemoteFile.from_bucket_and_object(
+            bucket_name, object_name
+        )
+
+    @classmethod
+    def from_url(cls, url: str) -> Self:
+        ret = object.__new__(cls)
+        ret._handle = libkvikio.RemoteFile.from_url(url)
+        return ret
+
+    def __enter__(self) -> "RemoteFile":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        pass
+
+    def nbytes(self) -> int:
+        return self._handle.nbytes()
+
+    def pread(self, buf, size: Optional[int] = None, file_offset: int = 0) -> IOFuture:
+        return IOFuture(self._handle.pread(buf, size, file_offset))
+
+    def read(self, buf, size: Optional[int] = None, file_offset: int = 0) -> int:
+        return self.pread(buf, size, file_offset).get()
