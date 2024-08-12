@@ -9,6 +9,7 @@ from typing import Optional
 
 from posix cimport fcntl
 
+from cuda.ccuda cimport CUstream
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.string cimport string
@@ -25,10 +26,6 @@ from kvikio._lib.future cimport (
 )
 
 from kvikio._lib import defaults
-
-
-cdef extern from "cuda.h":
-    ctypedef void* CUstream
 
 
 cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:

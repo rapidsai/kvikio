@@ -326,6 +326,9 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-python>=12.0,<13.0a0
+              # cuda-python's cython bindings requires cudaProfiler.h,
+              # which is found in cuda-profiler-api.
+              - cuda-profiler-api>=12.0,<13.0a0
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
