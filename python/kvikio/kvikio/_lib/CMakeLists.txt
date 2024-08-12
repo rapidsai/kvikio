@@ -13,8 +13,8 @@
 # =============================================================================
 
 # Set the list of Cython files to build, one .so per file
-set(cython_modules arr.pyx libnvcomp.pyx libnvcomp_ll.pyx file_handle.pyx driver_properties.pyx
-                   future.pyx buffer.pyx defaults.pyx
+set(cython_modules arr.pyx buffer.pyx defaults.pyx driver_properties.pyx file_handle.pyx future.pyx
+                   libnvcomp.pyx libnvcomp_ll.pyx
 )
 
 rapids_cython_create_modules(
