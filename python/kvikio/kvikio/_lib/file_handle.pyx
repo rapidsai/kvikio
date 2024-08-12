@@ -89,7 +89,7 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
 
 
 cdef class CuFile:
-    """ File handle for GPUDirect Storage (GDS) """
+    """File handle for GPUDirect Storage (GDS)"""
     cdef FileHandle _handle
 
     def __init__(self, file_path, flags="r"):
