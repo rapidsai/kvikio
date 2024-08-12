@@ -2,8 +2,8 @@
 # See file LICENSE for terms.
 
 from kvikio._lib import buffer, driver_properties  # type: ignore
-from kvikio._version import __git_commit__, __version__  # noqa: F401
-from kvikio.cufile import CuFile  # noqa: F401
+from kvikio._version import __git_commit__, __version__
+from kvikio.cufile import CuFile
 
 
 def memory_register(buf) -> None:
@@ -16,3 +16,6 @@ def memory_deregister(buf) -> None:
 
 # TODO: Wrap nicely, maybe as a dataclass?
 DriverProperties = driver_properties.DriverProperties
+
+
+__all__ = ["__git_commit__", "__version__", "CuFile"]
