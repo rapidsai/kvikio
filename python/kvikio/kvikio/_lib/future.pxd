@@ -5,6 +5,8 @@
 # cython: language_level=3
 
 
+# Cython doesn't have bindings to std::future, so we make them ourself.
+# See <https://github.com/cython/cython/issues/6336>
 cdef extern from "<future>" namespace "std" nogil:
     cdef cppclass future[T]:
         future() except +
