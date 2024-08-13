@@ -109,6 +109,8 @@ def test_aws_s3_io(run_cmd, api):
             sys.executable or "python",
             "aws_s3_io.py",
             "--use-bundled-server",
+            "--bundled-server-lifetime",
+            "30",
             "-n",
             "1000",
             "-t",

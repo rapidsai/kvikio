@@ -31,7 +31,7 @@ def get_local_port() -> int:
     return port
 
 
-def start_s3_server(lifetime=3600):
+def start_s3_server(lifetime: int):
     from moto.server import ThreadedMotoServer
 
     # Silence the activity info from ThreadedMotoServer
@@ -43,12 +43,12 @@ def start_s3_server(lifetime=3600):
 
 
 @contextlib.contextmanager
-def local_s3_server():
+def local_s3_server(lifetime: int):
     # Use fake aws credentials
     os.environ["AWS_ACCESS_KEY_ID"] = "foobar_key"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "foobar_secret"
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-    p = multiprocessing.Process(target=start_s3_server)
+    p = multiprocessing.Process(target=start_s3_server, args=(lifetime,))
     p.start()
     yield
     p.kill()
@@ -205,6 +205,13 @@ if __name__ == "__main__":
         help="Launch and use a local slow S3 server (ThreadedMotoServer).",
     )
     parser.add_argument(
+        "--bundled-server-lifetime",
+        metavar="SECONDS",
+        default=3600,
+        type=int,
+        help="Maximum lifetime of the bundled server (default: %(default)s).",
+    )
+    parser.add_argument(
         "--bucket",
         metavar="NAME",
         default="kvikio-s3-benchmark",
@@ -227,6 +234,6 @@ if __name__ == "__main__":
     ctx: ContextManager = contextlib.nullcontext()
     if args.use_bundled_server:
         os.environ["AWS_ENDPOINT_URL"] = f"http://127.0.0.1:{get_local_port()}"
-        ctx = local_s3_server()
+        ctx = local_s3_server(args.bundled_server_lifetime)
     with ctx:
         main(args)
