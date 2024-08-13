@@ -48,7 +48,7 @@ def test_read_write(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
             f = kvikio.CuFile(filename, "r")
             assert check_bit_flags(f.open_flags(), os.O_RDONLY)
             assert f.read(b) == b.nbytes
-            assert all(a == b)
+            xp.testing.assert_array_equal(a, b)
 
 
 def test_file_handle_context(tmp_path):
@@ -61,7 +61,7 @@ def test_file_handle_context(tmp_path):
         assert check_bit_flags(f.open_flags(), os.O_RDWR)
         assert f.write(a) == a.nbytes
         assert f.read(b) == b.nbytes
-        assert all(a == b)
+        cupy.testing.assert_array_equal(a, b)
     assert f.closed
 
 
@@ -109,7 +109,7 @@ def test_write_to_files_in_chunks(tmp_path, xp, gds_threshold):
     b = xp.empty_like(a)
     f = kvikio.CuFile(filename, "r")
     assert f.read(b) == b.nbytes
-    assert all(a == b)
+    xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize("nthreads", [1, 3, 16])
@@ -131,7 +131,7 @@ def test_read_write_slices(tmp_path, xp, gds_threshold, nthreads, tasksize, star
                 assert f.write(a[start:end]) == a[start:end].nbytes
             with kvikio.CuFile(filename, "r") as f:
                 assert f.read(b[start:end]) == b[start:end].nbytes
-            assert all(a == b)
+            xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
@@ -188,7 +188,7 @@ def test_no_current_cuda_context(tmp_path, xp, gds_threshold):
         with with_no_cuda_context():
             f.write(a)
         f.read(b)
-    assert all(a == b)
+    xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.skipif(
