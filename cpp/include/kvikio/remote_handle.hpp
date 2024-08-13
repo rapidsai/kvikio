@@ -256,11 +256,10 @@ class RemoteHandle {
       throw std::runtime_error("S3 read of " + std::to_string(size) + " bytes failed, received " +
                                std::to_string(n) + " bytes");
     }
-    auto t1 = std::chrono::high_resolution_clock::now();
-    float duration =
-      size / (std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000000.0);
+    auto t1   = std::chrono::high_resolution_clock::now();
+    float dur = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000000.0;
     std::cout << "RemoteHandle::read_to_host() - buf: " << buf << ", size: " << size
-              << ", file_offset: " << file_offset << ", bw: " << duration / (2 << 20) << " MiB/s"
+              << ", file_offset: " << file_offset << ", bw: " << size / dur / (2 << 20) << " MiB/s"
               << std::endl;
     return n;
   }
