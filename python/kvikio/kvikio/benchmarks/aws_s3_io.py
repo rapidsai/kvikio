@@ -96,8 +96,10 @@ def run_numpy_like(args, xp):
         yield run()
 
 
-def run_cudf(args, use_kvikio_s3):
+def run_cudf(args, use_kvikio_s3: bool):
     import cudf
+
+    cudf.set_option("native_s3_io", use_kvikio_s3)
 
     # Upload data to S3 server
     create_client_and_bucket()
@@ -107,7 +109,7 @@ def run_cudf(args, use_kvikio_s3):
 
     def run() -> float:
         t0 = time.perf_counter()
-        cudf.read_parquet(f"s3://{args.bucket}/data1", use_kvikio_s3=use_kvikio_s3)
+        cudf.read_parquet(f"s3://{args.bucket}/data1")
         t1 = time.perf_counter()
         return t1 - t0
 
