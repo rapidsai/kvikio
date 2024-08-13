@@ -177,7 +177,7 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
 }  // namespace detail
 
 /**
- * @brief Handle of remote file (only AWS S3 is the supported).
+ * @brief Handle of remote file (currently, only AWS S3 is supported).
  *
  * Please make sure that AWS credentials have been configure on the system.
  * A common way to do this, is to define the set the environment variables:
