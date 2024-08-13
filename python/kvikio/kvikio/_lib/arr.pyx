@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # cython: language_level=3
@@ -294,3 +294,24 @@ cpdef asarray(obj):
         return obj
     else:
         return Array(obj)
+
+
+cdef pair[uintptr_t, size_t] parse_buffer_argument(
+    buf, size, bint accept_host_buffer
+) except *:
+    """Parse `buf` and `size` argument and return a pointer and nbytes"""
+    if not isinstance(buf, Array):
+        buf = Array(buf)
+    cdef Array arr = buf
+    if not arr._contiguous():
+        raise ValueError("Array must be contiguous")
+    if not accept_host_buffer and not arr.cuda:
+        raise ValueError("Non-CUDA buffers not supported")
+    cdef size_t nbytes
+    if size is None:
+        nbytes = arr.nbytes
+    elif size > arr.nbytes:
+        raise ValueError("Size is greater than the size of the buffer")
+    else:
+        nbytes = size
+    return pair[uintptr_t, size_t](arr.ptr, nbytes)
