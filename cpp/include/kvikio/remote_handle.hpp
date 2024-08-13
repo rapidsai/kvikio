@@ -105,29 +105,18 @@ class S3Context {
   {
     S3Context::ensure_aws_s3_api_init();
 
+    // Read AWS_ENDPOINT_URL to overwrite endpoint
     Aws::Client::ClientConfiguration clientConfig;
-    // Optional: Set to the AWS Region (overrides config file).
-    // clientConfig.region = "us-east-1";
+    const char* ep = getenv("AWS_ENDPOINT_URL");
+    if (ep != nullptr) { clientConfig.endpointOverride = ep; }
 
-    const char* endpointOverride = getenv("AWS_ENDPOINT_URL");
-    if (endpointOverride != nullptr) { clientConfig.endpointOverride = endpointOverride; }
-
-    // You don't normally have to test that you are authenticated. But the S3 service permits
-    // anonymous requests, thus the s3Client will return "success" even if you are
-    // unauthenticated, which can be confusing to a new user.
-    auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>("alloc-tag");
+    // We check authentication here to trigger an early exception.
+    auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>("check-creds");
     auto creds    = provider->GetAWSCredentials();
     if (creds.IsEmpty()) {
-      throw std::runtime_error(std::string("Failed authentication to ") + endpointOverride);
+      throw std::runtime_error(std::string("Failed authentication to ") + ep);
     }
-    auto ret = std::make_shared<Aws::S3::S3Client>(Aws::S3::S3Client(clientConfig));
-
-    // Try the connection
-    auto outcome = ret->ListBuckets();
-    if (!outcome.IsSuccess()) {
-      throw std::runtime_error(std::string("S3 error: ") + outcome.GetError().GetMessage());
-    }
-    return ret;
+    return std::make_shared<Aws::S3::S3Client>(Aws::S3::S3Client(clientConfig));
   }
 
   std::shared_ptr<Aws::S3::S3Client> _client;
