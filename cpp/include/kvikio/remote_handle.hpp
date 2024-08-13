@@ -33,7 +33,6 @@
 #include <kvikio/utils.hpp>
 
 #include <chrono>
-using namespace std::chrono;
 
 namespace kvikio {
 namespace detail {
@@ -49,27 +48,46 @@ class BufferAsStream : public Aws::IOStream {
   ~BufferAsStream() override = default;
 };
 
+/**
+ * @brief S3 context, which initialize and maintains the S3 API and client.
+ */
 class S3Context {
  public:
   S3Context() : _client{S3Context::create_client()} {}
 
+  /**
+   * @brief Get a reference to the S3 client
+   *
+   * @return S3 client
+   */
   Aws::S3::S3Client& client() { return *_client; }
 
+  /**
+   * @brief Get the default context, which is created on first call
+   *
+   * @return The default S3 context
+   */
   static S3Context& default_context()
   {
     static S3Context _default_context;
     return _default_context;
   }
 
+  // No copy semantic
   S3Context(S3Context const&)      = delete;
   void operator=(S3Context const&) = delete;
 
  private:
+  /**
+   * @brief Initialize the S3 API (idempotent)
+   *
+   * This private function is called as part of `S3Context` creation and it makes sure to only call
+   * `Aws::InitAPI()` once.
+   */
   static void ensure_aws_s3_api_init()
   {
     static bool not_initalized{true};
     if (not_initalized) {
-      std::cout << "ensure_aws_s3_api_initalized INIT" << std::endl;
       not_initalized = false;
 
       Aws::SDKOptions options;
@@ -78,6 +96,11 @@ class S3Context {
     }
   }
 
+  /**
+   * @brief Create a new S3 client
+   *
+   * @return The new client
+   */
   static std::shared_ptr<Aws::S3::S3Client> create_client()
   {
     S3Context::ensure_aws_s3_api_init();
@@ -110,6 +133,13 @@ class S3Context {
   std::shared_ptr<Aws::S3::S3Client> _client;
 };
 
+/**
+ * @brief Get the size of a S3 file
+ *
+ * @param bucket_name The bucket name.
+ * @param object_name The object name.
+ * @return Size of the file in bytes.
+ */
 inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::string& object_name)
 {
   KVIKIO_NVTX_FUNC_RANGE();
@@ -125,6 +155,12 @@ inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::s
   return outcome.GetResult().GetContentLength();
 }
 
+/**
+ * @brief Given a file path like "s3://<bucket>/<object>", return the name of the bucket and object.
+ *
+ * @param path S3 file path.
+ * @return Pair of strings: [bucket-name, object-name].
+ */
 inline std::pair<std::string, std::string> parse_s3_path(const std::string& path)
 {
   if (path.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
@@ -141,7 +177,7 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
 }  // namespace detail
 
 /**
- * @brief Handle of
+ * @brief Handle of remote file.
  *
  * At the moment, only AWS S3 is the supported
  */
@@ -152,40 +188,56 @@ class RemoteHandle {
   std::size_t _nbytes{};
 
  public:
+  // Use of a default constructed instance is undefined behavior.
   RemoteHandle() noexcept = default;
 
+  /**
+   * @brief Construct from a bucket and object name.
+   *
+   * @param bucket_name Name of the bucket.
+   * @param object_name Name of the object.
+   */
   RemoteHandle(std::string bucket_name, std::string object_name)
     : _bucket_name(std::move(bucket_name)),
       _object_name(std::move(object_name)),
       _nbytes(detail::get_s3_file_size(_bucket_name, _object_name))
   {
-    std::cout << "RemoteHandle() - bucket_name: " << _bucket_name
-              << ", object_name: " << _object_name << ", nbytes: " << _nbytes << std::endl;
   }
 
+  /**
+   * @brief Construct from a remote path such as "s3://<bucket>/<object>".
+   *
+   * @param remote_path Remote file path.
+   */
   RemoteHandle(const std::string& remote_path)
   {
     auto [bucket_name, object_name] = detail::parse_s3_path(remote_path);
     _bucket_name                    = std::move(bucket_name);
     _object_name                    = std::move(object_name);
     _nbytes                         = detail::get_s3_file_size(_bucket_name, _object_name);
-
-    std::cout << "RemoteHandle() - remote_path: " << remote_path
-              << ", bucket_name: " << _bucket_name << ", object_name: " << _object_name
-              << ", nbytes: " << _nbytes << std::endl;
   }
 
   /**
-   * @brief Get the file size
+   * @brief Get the file size.
    *
-   * @return The number of bytes
+   * Note, this is very fast, no communication needed.
+   *
+   * @return The number of bytes.
    */
   [[nodiscard]] inline std::size_t nbytes() const { return _nbytes; }
 
+  /**
+   * @brief Read from remote source into host memory.
+   *
+   * @param buf Pointer to host memory.
+   * @param size Number of bytes to read.
+   * @param file_offset File offset in bytes.
+   * @return Number of bytes read.
+   */
   std::size_t read_to_host(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
     KVIKIO_NVTX_FUNC_RANGE("AWS S3 receive", size);
-    auto t0 = high_resolution_clock::now();
+    auto t0 = std::chrono::high_resolution_clock::now();
 
     auto& default_context = detail::S3Context::default_context();
     Aws::S3::Model::GetObjectRequest req;
@@ -210,15 +262,23 @@ class RemoteHandle {
       throw std::runtime_error("S3 read of " + std::to_string(size) + " bytes failed, received " +
                                std::to_string(n) + " bytes");
     }
-    auto t1        = high_resolution_clock::now();
-    float duration = size / (duration_cast<microseconds>(t1 - t0).count() / 1000000.0);
-
+    auto t1 = std::chrono::high_resolution_clock::now();
+    float duration =
+      size / (std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000000.0);
     std::cout << "RemoteHandle::read_to_host() - buf: " << buf << ", size: " << size
               << ", file_offset: " << file_offset << ", bw: " << duration / (2 << 20) << " MiB/s"
               << std::endl;
     return n;
   }
 
+  /**
+   * @brief Read from remote source into buffer (host or device memory).
+   *
+   * @param buf Pointer to host or device memory.
+   * @param size Number of bytes to read.
+   * @param file_offset File offset in bytes.
+   * @return Number of bytes read, which is `size` always.
+   */
   std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
     KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::read()", size);
@@ -247,10 +307,20 @@ class RemoteHandle {
     return size;
   }
 
+  /**
+   * @brief Read from remote source into buffer (host or device memory) in parallel.
+   *
+   * Contrary to `FileHandle::pread()`, a task size of 16 MiB is used always.
+   * See `kvikio::posix_bounce_buffer_size`.
+   *
+   * @param buf Pointer to host or device memory.
+   * @param size Number of bytes to read.
+   * @param file_offset File offset in bytes.
+   * @return Number of bytes read, which is `size` always.
+   */
   std::future<std::size_t> pread(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
     KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::pread()", size);
-    std::cout << "RemoteHandle::pread()" << std::endl;
     auto task = [this](void* devPtr_base,
                        std::size_t size,
                        std::size_t file_offset,

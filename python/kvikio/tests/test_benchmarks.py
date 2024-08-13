@@ -104,11 +104,6 @@ def test_aws_s3_io(run_cmd, api):
     if "cudf" in api:
         pytest.importorskip("cudf")
 
-    if api == "cudf-kvikio":
-        pytest.skip(
-            "Enable when <https://github.com/rapidsai/cudf/pull/16499> has been merged"
-        )
-
     retcode = run_cmd(
         cmd=[
             sys.executable or "python",
