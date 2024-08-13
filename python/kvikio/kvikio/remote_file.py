@@ -118,8 +118,7 @@ class RemoteFile:
 
         Returns
         -------
-        IOFuture
-            Future that on completion returns the size of bytes that were successfully
-            read.
+        Future that on completion returns the size of bytes that were successfully
+        read.
         """
         return IOFuture(self._handle.pread(buf, size, file_offset))
