@@ -286,7 +286,7 @@ class FileHandle {
    *
    * @return The number of bytes
    */
-  [[nodiscard]] inline std::size_t nbytes() const
+  [[nodiscard]] std::size_t nbytes() const
   {
     if (closed()) { return 0; }
     if (_nbytes == 0) { _nbytes = detail::get_file_size(_fd_direct_off); }

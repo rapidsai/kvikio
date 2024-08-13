@@ -229,7 +229,7 @@ class RemoteHandle {
    *
    * @return The number of bytes.
    */
-  [[nodiscard]] inline std::size_t nbytes() const { return _nbytes; }
+  [[nodiscard]] std::size_t nbytes() const { return _nbytes; }
 
   /**
    * @brief Read from remote source into host memory.

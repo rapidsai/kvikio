@@ -59,8 +59,8 @@ def ensure_safe_environment_variables():
 def start_s3_server(ip_address, port):
     server = ThreadedMotoServer(ip_address=ip_address, port=port)
     server.start()
-    time.sleep(120)
-    print("ThreadedMotoServer shutting down because of timeout (120s)")
+    time.sleep(180)
+    print("ThreadedMotoServer shutting down because of timeout (180s)")
 
 
 @pytest.fixture(scope="session")
