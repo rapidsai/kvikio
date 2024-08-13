@@ -38,7 +38,7 @@ namespace kvikio {
 namespace detail {
 
 /**
- * Stream implementation of a fixed size buffer
+ * Stream implementation of a fixed size buffer.
  */
 class BufferAsStream : public Aws::IOStream {
  public:
@@ -56,16 +56,16 @@ class S3Context {
   S3Context() : _client{S3Context::create_client()} {}
 
   /**
-   * @brief Get a reference to the S3 client
+   * @brief Get a reference to the S3 client.
    *
-   * @return S3 client
+   * @return S3 client.
    */
   Aws::S3::S3Client& client() { return *_client; }
 
   /**
-   * @brief Get the default context, which is created on first call
+   * @brief Get the default context, which is created on first call.
    *
-   * @return The default S3 context
+   * @return The default S3 context.
    */
   static S3Context& default_context()
   {
@@ -177,9 +177,14 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
 }  // namespace detail
 
 /**
- * @brief Handle of remote file.
+ * @brief Handle of remote file (only AWS S3 is the supported).
  *
- * At the moment, only AWS S3 is the supported
+ * Please make sure that AWS credentials have been configure on the system.
+ * A common way to do this, is to define the set the environment variables:
+ * `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+ *
+ * Other relevant options are `AWS_DEFAULT_REGION` and `AWS_ENDPOINT_URL`, see
+ * <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>.
  */
 class RemoteHandle {
  private:
