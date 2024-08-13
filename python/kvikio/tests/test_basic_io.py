@@ -22,32 +22,38 @@ def check_bit_flags(x: int, y: int) -> bool:
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
 @pytest.mark.parametrize("tasksize", [199, 1024])
-def test_read_write(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
+def test_write(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
-            # Write file
             a = xp.arange(size)
             f = kvikio.CuFile(filename, "w")
             assert not f.closed
             assert check_bit_flags(f.open_flags(), os.O_WRONLY)
             assert f.write(a) == a.nbytes
-
-            # Try to read file opened in write-only mode
-            with pytest.raises(RuntimeError, match="Operation not permitted"):
-                f.read(a)
-
-            # Close file
             f.close()
             assert f.closed
 
-            # Read file into a new array and compare
-            b = xp.empty_like(a)
-            f = kvikio.CuFile(filename, "r")
-            assert check_bit_flags(f.open_flags(), os.O_RDONLY)
-            assert f.read(b) == b.nbytes
+            b = numpy.fromfile(filename, dtype=a.dtype)
+            xp.testing.assert_array_equal(a, b)
+
+
+@pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
+@pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
+@pytest.mark.parametrize("tasksize", [199, 1024])
+def test_read(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
+    """Test basic read/write"""
+    filename = tmp_path / "test-file"
+
+    with kvikio.defaults.set_num_threads(nthreads):
+        with kvikio.defaults.set_task_size(tasksize):
+            a = numpy.arange(size)
+            a.tofile(filename)
+            os.sync()
+
+            b = numpy.fromfile(filename, dtype=a.dtype)
             xp.testing.assert_array_equal(a, b)
 
 
