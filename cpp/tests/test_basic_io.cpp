@@ -14,10 +14,18 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include <cstdio>
 
-int main(int argc, char** argv)
+#include <kvikio/file_handle.hpp>
+
+#include "utils.hpp"
+
+using namespace kvikio::test;
+
+TEST(BasicIO, Write)
 {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+  TempDir tmp_dir{};
+  auto filepath = tmp_dir.path() / "test";
+
+  kvikio::FileHandle f(filepath, "w");
 }
