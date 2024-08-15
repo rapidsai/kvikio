@@ -53,7 +53,10 @@ def test_read(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
             a.tofile(filename)
             os.sync()
 
-            b = numpy.fromfile(filename, dtype=a.dtype)
+            b = xp.empty_like(a)
+            f = kvikio.CuFile(filename, "r")
+            assert check_bit_flags(f.open_flags(), os.O_RDONLY)
+            assert f.read(b) == b.nbytes
             xp.testing.assert_array_equal(a, b)
 
 
