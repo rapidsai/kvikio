@@ -85,7 +85,6 @@ def test_no_file_error(tmp_path):
 def test_incorrect_open_mode_error(tmp_path, xp):
     """Test incorrect mode errors"""
     filename = tmp_path / "test-file"
-
     a = numpy.arange(10)
     a.tofile(filename)
     os.sync()
