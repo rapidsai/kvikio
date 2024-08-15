@@ -74,6 +74,31 @@ def test_file_handle_context(tmp_path):
     assert f.closed
 
 
+def test_no_file_error(tmp_path):
+    """Test "No such file" error"""
+
+    filename = tmp_path / "test-file"
+    with pytest.raises(RuntimeError, match="Unable to open file: No such file"):
+        kvikio.CuFile(filename, "r")
+
+
+def test_incorrect_open_mode_error(tmp_path, xp):
+    """Test incorrect mode errors"""
+    filename = tmp_path / "test-file"
+
+    a = numpy.arange(10)
+    a.tofile(filename)
+    os.sync()
+
+    with kvikio.CuFile(filename, "r") as f:
+        with pytest.raises(RuntimeError, match="Operation not permitted"):
+            f.write(xp.arange(10))
+
+    with kvikio.CuFile(filename, "w") as f:
+        with pytest.raises(RuntimeError, match="Operation not permitted"):
+            f.read(xp.arange(10))
+
+
 @pytest.mark.skipif(
     kvikio.defaults.compat_mode(),
     reason="cannot test `set_compat_mode` when already running in compatibility mode",
