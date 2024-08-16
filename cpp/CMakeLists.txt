@@ -64,7 +64,11 @@ rapids_find_package(
 )
 
 if(AWSSDK_FOUND)
-  get_property(_lib_type TARGET aws-cpp-sdk-s3 PROPERTY TYPE)
+  get_property(
+    _lib_type
+    TARGET aws-cpp-sdk-s3
+    PROPERTY TYPE
+  )
   if(_lib_type STREQUAL "STATIC_LIBRARY")
     rapids_find_package(
       ZLIB
