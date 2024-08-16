@@ -27,5 +27,5 @@ endif()
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
-  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp ${AWSSDK_LINK_LIBRARIES}
+  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
 )

@@ -63,6 +63,17 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 
+if(AWSSDK_FOUND)
+  get_property(_lib_type TARGET aws-cpp-sdk-s3 PROPERTY TYPE)
+  if(_lib_type STREQUAL "STATIC_LIBRARY")
+    rapids_find_package(
+      ZLIB
+      BUILD_EXPORT_SET kvikio-exports
+      INSTALL_EXPORT_SET kvikio-exports
+    )
+  endif()
+endif()
+
 rapids_find_package(
   cuFile
   BUILD_EXPORT_SET kvikio-exports
@@ -138,8 +149,10 @@ target_include_directories(
 )
 target_link_libraries(
   kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp BS::thread_pool
-                   ${AWSSDK_LINK_LIBRARIES}
 )
+if(AWSSDK_FOUND)
+  target_link_libraries(kvikio INTERFACE aws-cpp-sdk-s3)
+endif()
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
 # optionally build examples
