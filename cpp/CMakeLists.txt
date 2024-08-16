@@ -55,6 +55,8 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 
+# If AWSSDK isn't found, the Cython module remote_handle.pyx isn't built and C++ users shouldn't
+# include <kvikio/remote_handle.hpp>
 rapids_find_package(
   AWSSDK COMPONENTS s3
   BUILD_EXPORT_SET kvikio-exports
