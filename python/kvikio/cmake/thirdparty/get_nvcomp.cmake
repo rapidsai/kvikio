@@ -18,9 +18,7 @@ set(KVIKIO_USE_PROPRIETARY_BINARY ON)
 function(find_and_configure_nvcomp)
 
   include(${rapids-cmake-dir}/cpm/nvcomp.cmake)
-  rapids_cpm_nvcomp(
-    USE_PROPRIETARY_BINARY ${KVIKIO_USE_PROPRIETARY_BINARY}
-  )
+  rapids_cpm_nvcomp(USE_PROPRIETARY_BINARY ${KVIKIO_USE_PROPRIETARY_BINARY})
 
   # Per-thread default stream
   if(TARGET nvcomp AND PER_THREAD_DEFAULT_STREAM)
