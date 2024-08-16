@@ -34,7 +34,7 @@ option(FIND_KVIKIO_CPP
 include(../../cpp/cmake/Modules/FindcuFile.cmake)
 
 if(FIND_KVIKIO_CPP)
-  find_package(KvikIO "${RAPIDS_VERSION}")
+  find_package(KvikIO REQUIRED "${RAPIDS_VERSION}")
 else()
   set(KvikIO_FOUND OFF)
 endif()
