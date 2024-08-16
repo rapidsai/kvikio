@@ -326,6 +326,7 @@ dependencies:
           - moto[server]>=4.0.8
       - output_types: conda
         packages:
+          - cudf==24.10.*,>=0.0.0a0
           - moto>=4.0.8
     specific:
       - output_types: [conda, requirements, pyproject]
@@ -337,3 +338,16 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cudf-cu12==24.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+            packages:
+              - cudf-cu11==24.10.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - cudf==24.10.*,>=0.0.0a0
