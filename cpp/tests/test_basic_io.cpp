@@ -25,7 +25,7 @@ TEST(BasicIO, write_read)
   TempDir tmp_dir{false};
   auto filepath = tmp_dir.path() / "test";
 
-  auto dev_a = DevBuffer::arange(1024);
+  auto dev_a = DevBuffer::arange(100);
   auto dev_b = DevBuffer::zero_like(dev_a);
 
   {
