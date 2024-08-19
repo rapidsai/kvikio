@@ -22,33 +22,42 @@ def check_bit_flags(x: int, y: int) -> bool:
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
 @pytest.mark.parametrize("tasksize", [199, 1024])
-def test_read_write(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
+def test_write(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
-            # Write file
             a = xp.arange(size)
             f = kvikio.CuFile(filename, "w")
             assert not f.closed
             assert check_bit_flags(f.open_flags(), os.O_WRONLY)
             assert f.write(a) == a.nbytes
-
-            # Try to read file opened in write-only mode
-            with pytest.raises(RuntimeError, match="Operation not permitted"):
-                f.read(a)
-
-            # Close file
             f.close()
             assert f.closed
 
-            # Read file into a new array and compare
+            b = numpy.fromfile(filename, dtype=a.dtype)
+            xp.testing.assert_array_equal(a, b)
+
+
+@pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
+@pytest.mark.parametrize("nthreads", [1, 3, 4, 16])
+@pytest.mark.parametrize("tasksize", [199, 1024])
+def test_read(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
+    """Test basic read/write"""
+    filename = tmp_path / "test-file"
+
+    with kvikio.defaults.set_num_threads(nthreads):
+        with kvikio.defaults.set_task_size(tasksize):
+            a = numpy.arange(size)
+            a.tofile(filename)
+            os.sync()
+
             b = xp.empty_like(a)
             f = kvikio.CuFile(filename, "r")
             assert check_bit_flags(f.open_flags(), os.O_RDONLY)
             assert f.read(b) == b.nbytes
-            assert all(a == b)
+            xp.testing.assert_array_equal(a, b)
 
 
 def test_file_handle_context(tmp_path):
@@ -61,8 +70,32 @@ def test_file_handle_context(tmp_path):
         assert check_bit_flags(f.open_flags(), os.O_RDWR)
         assert f.write(a) == a.nbytes
         assert f.read(b) == b.nbytes
-        assert all(a == b)
+        cupy.testing.assert_array_equal(a, b)
     assert f.closed
+
+
+def test_no_file_error(tmp_path):
+    """Test "No such file" error"""
+
+    filename = tmp_path / "test-file"
+    with pytest.raises(RuntimeError, match="Unable to open file: No such file"):
+        kvikio.CuFile(filename, "r")
+
+
+def test_incorrect_open_mode_error(tmp_path, xp):
+    """Test incorrect mode errors"""
+    filename = tmp_path / "test-file"
+    a = numpy.arange(10)
+    a.tofile(filename)
+    os.sync()
+
+    with kvikio.CuFile(filename, "r") as f:
+        with pytest.raises(RuntimeError, match="Operation not permitted"):
+            f.write(xp.arange(10))
+
+    with kvikio.CuFile(filename, "w") as f:
+        with pytest.raises(RuntimeError, match="Operation not permitted"):
+            f.read(xp.arange(10))
 
 
 @pytest.mark.skipif(
@@ -109,7 +142,7 @@ def test_write_to_files_in_chunks(tmp_path, xp, gds_threshold):
     b = xp.empty_like(a)
     f = kvikio.CuFile(filename, "r")
     assert f.read(b) == b.nbytes
-    assert all(a == b)
+    xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize("nthreads", [1, 3, 16])
@@ -131,7 +164,7 @@ def test_read_write_slices(tmp_path, xp, gds_threshold, nthreads, tasksize, star
                 assert f.write(a[start:end]) == a[start:end].nbytes
             with kvikio.CuFile(filename, "r") as f:
                 assert f.read(b[start:end]) == b[start:end].nbytes
-            assert all(a == b)
+            xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
@@ -188,7 +221,7 @@ def test_no_current_cuda_context(tmp_path, xp, gds_threshold):
         with with_no_cuda_context():
             f.write(a)
         f.read(b)
-    assert all(a == b)
+    xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.skipif(
