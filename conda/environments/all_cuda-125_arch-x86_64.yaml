@@ -20,7 +20,7 @@ dependencies:
 - libcufile-dev
 - ninja
 - numcodecs <0.12.0
-- numpy>=1.23,<2.0a0
+- numpy>=1.23,<3
 - numpydoc
 - nvcomp==3.0.6
 - packaging
