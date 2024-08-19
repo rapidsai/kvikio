@@ -104,39 +104,34 @@ class TempDir {
 
 class DevBuffer {
  public:
-  DevBuffer(std::size_t nbytes) : nbytes{nbytes} { KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes)); }
-  DevBuffer(const std::vector<std::int8_t>& host_buffer) : DevBuffer{host_buffer.size()}
+  DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(std::int64_t)}
+  {
+    KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes));
+  }
+  DevBuffer(const std::vector<std::int64_t>& host_buffer) : DevBuffer{host_buffer.size()}
   {
     KVIKIO_CHECK_CUDA(cudaMemcpy(ptr, host_buffer.data(), nbytes, cudaMemcpyHostToDevice));
   }
 
   ~DevBuffer() noexcept { cudaFree(ptr); }
 
-  static DevBuffer arange(std::size_t nbytes, std::int64_t start = 0)
+  [[nodiscard]] static DevBuffer arange(std::size_t nelem, std::int64_t start = 0)
   {
-    std::vector<std::int8_t> host_buffer(nbytes);
+    std::vector<std::int64_t> host_buffer(nelem);
     std::iota(host_buffer.begin(), host_buffer.end(), start);
-
     return DevBuffer{host_buffer};
   }
 
-  static DevBuffer zero_like(const DevBuffer& prototype)
+  [[nodiscard]] static DevBuffer zero_like(const DevBuffer& prototype)
   {
-    DevBuffer ret{prototype.nbytes};
+    DevBuffer ret{prototype.nelem};
     KVIKIO_CHECK_CUDA(cudaMemset(ret.ptr, 0, ret.nbytes));
     return ret;
   }
 
-  DevBuffer copy() const
+  [[nodiscard]] std::vector<std::int64_t> to_vector() const
   {
-    DevBuffer ret{nbytes};
-    KVIKIO_CHECK_CUDA(cudaMemcpy(ret.ptr, this->ptr, nbytes, cudaMemcpyDefault));
-    return ret;
-  }
-
-  std::vector<std::int8_t> to_vector() const
-  {
-    std::vector<std::int8_t> ret(nbytes);
+    std::vector<std::int64_t> ret(nelem);
     KVIKIO_CHECK_CUDA(cudaMemcpy(ret.data(), this->ptr, nbytes, cudaMemcpyDeviceToHost));
     return ret;
   }
@@ -150,6 +145,7 @@ class DevBuffer {
     std::cout << ")" << std::endl;
   }
 
+  const std::size_t nelem;
   const std::size_t nbytes;
   void* ptr{nullptr};
 };
@@ -159,7 +155,7 @@ void expect_equal(const DevBuffer& a, const DevBuffer& b)
   EXPECT_EQ(a.nbytes, b.nbytes);
   auto a_vec = a.to_vector();
   auto b_vec = b.to_vector();
-  for (std::size_t i = 0; i < a.nbytes; ++i) {
+  for (std::size_t i = 0; i < a.nelem; ++i) {
     EXPECT_EQ(a_vec[i], b_vec[i]) << "Mismatch at index #" << i;
   }
 }
