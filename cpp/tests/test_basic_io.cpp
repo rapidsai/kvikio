@@ -14,18 +14,30 @@
  * limitations under the License.
  */
 
-#include <cstdio>
-
 #include <kvikio/file_handle.hpp>
 
 #include "utils.hpp"
 
 using namespace kvikio::test;
 
-TEST(BasicIO, Write)
+TEST(BasicIO, write_read)
 {
-  TempDir tmp_dir{};
+  TempDir tmp_dir{false};
   auto filepath = tmp_dir.path() / "test";
 
-  kvikio::FileHandle f(filepath, "w");
+  auto dev_a = DevBuffer::arange(1024);
+  auto dev_b = DevBuffer::zero_like(dev_a);
+
+  {
+    kvikio::FileHandle f(filepath, "w");
+    auto nbytes = f.write(dev_a.ptr, dev_a.nbytes, 0, 0);
+    EXPECT_EQ(nbytes, dev_a.nbytes);
+  }
+
+  {
+    kvikio::FileHandle f(filepath, "r");
+    auto nbytes = f.read(dev_b.ptr, dev_b.nbytes, 0, 0);
+    EXPECT_EQ(nbytes, dev_b.nbytes);
+    expect_equal(dev_a, dev_b);
+  }
 }
