@@ -32,8 +32,6 @@
 #include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
 
-#include <chrono>
-
 namespace kvikio {
 namespace detail {
 
@@ -231,7 +229,6 @@ class RemoteHandle {
   std::size_t read_to_host(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
     KVIKIO_NVTX_FUNC_RANGE("AWS S3 receive", size);
-    auto t0 = std::chrono::high_resolution_clock::now();
 
     auto& default_context = detail::S3Context::default_context();
     Aws::S3::Model::GetObjectRequest req;
@@ -256,11 +253,6 @@ class RemoteHandle {
       throw std::runtime_error("S3 read of " + std::to_string(size) + " bytes failed, received " +
                                std::to_string(n) + " bytes");
     }
-    auto t1   = std::chrono::high_resolution_clock::now();
-    float dur = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000000.0;
-    std::cout << "RemoteHandle::read_to_host() - buf: " << buf << ", size: " << size
-              << ", file_offset: " << file_offset << ", bw: " << size / dur / (2 << 20) << " MiB/s"
-              << std::endl;
     return n;
   }
 
