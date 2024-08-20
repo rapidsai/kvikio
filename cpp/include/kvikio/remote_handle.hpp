@@ -47,6 +47,27 @@ class BufferAsStream : public Aws::IOStream {
 };
 
 /**
+ * @brief Given a file path like "s3://<bucket>/<object>", return the name of the bucket and object.
+ *
+ * @param path S3 file path.
+ * @return Pair of strings: [bucket-name, object-name].
+ */
+inline std::pair<std::string, std::string> parse_s3_path(const std::string& path)
+{
+  if (path.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
+  if (path.size() < 5 || path.substr(0, 5) != "s3://") {
+    throw std::invalid_argument("The remote path must start with the S3 scheme (\"s3://\").");
+  }
+  std::string p = path.substr(5);
+  if (p.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
+  size_t pos = p.find_first_of('/');
+  if (pos == 0) { throw std::invalid_argument("The remote path does not contain a bucket name."); }
+  return std::make_pair(p.substr(0, pos), (pos == std::string::npos) ? "" : p.substr(pos + 1));
+}
+
+}  // namespace detail
+
+/**
  * @brief S3 context, which initializes and maintains the S3 API and client.
  */
 class S3Context {
@@ -142,27 +163,6 @@ class S3Context {
 };
 
 /**
- * @brief Given a file path like "s3://<bucket>/<object>", return the name of the bucket and object.
- *
- * @param path S3 file path.
- * @return Pair of strings: [bucket-name, object-name].
- */
-inline std::pair<std::string, std::string> parse_s3_path(const std::string& path)
-{
-  if (path.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
-  if (path.size() < 5 || path.substr(0, 5) != "s3://") {
-    throw std::invalid_argument("The remote path must start with the S3 scheme (\"s3://\").");
-  }
-  std::string p = path.substr(5);
-  if (p.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
-  size_t pos = p.find_first_of('/');
-  if (pos == 0) { throw std::invalid_argument("The remote path does not contain a bucket name."); }
-  return std::make_pair(p.substr(0, pos), (pos == std::string::npos) ? "" : p.substr(pos + 1));
-}
-
-}  // namespace detail
-
-/**
  * @brief Handle of remote file (currently, only AWS S3 is supported).
  *
  * Please make sure that AWS credentials have been configure on the system.
@@ -191,7 +191,7 @@ class RemoteHandle {
   RemoteHandle(std::string bucket_name, std::string object_name)
     : _bucket_name(std::move(bucket_name)),
       _object_name(std::move(object_name)),
-      _nbytes(detail::S3Context::default_context().get_file_size(_bucket_name, _object_name))
+      _nbytes(S3Context::default_context().get_file_size(_bucket_name, _object_name))
   {
   }
 
@@ -205,7 +205,7 @@ class RemoteHandle {
     auto [bucket_name, object_name] = detail::parse_s3_path(remote_path);
     _bucket_name                    = std::move(bucket_name);
     _object_name                    = std::move(object_name);
-    _nbytes = detail::S3Context::default_context().get_file_size(_bucket_name, _object_name);
+    _nbytes = S3Context::default_context().get_file_size(_bucket_name, _object_name);
   }
 
   /**
@@ -229,7 +229,7 @@ class RemoteHandle {
   {
     KVIKIO_NVTX_FUNC_RANGE("AWS S3 receive", size);
 
-    auto& default_context = detail::S3Context::default_context();
+    auto& default_context = S3Context::default_context();
     Aws::S3::Model::GetObjectRequest req;
     req.SetBucket(_bucket_name.c_str());
     req.SetKey(_object_name.c_str());
