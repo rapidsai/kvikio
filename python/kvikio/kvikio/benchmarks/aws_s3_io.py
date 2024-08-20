@@ -141,7 +141,7 @@ def main(args):
         print("--------------------------------------")
         print("Using the bundled local server is slow")
         print("and can be misleading. Consider using")
-        print("a local MinIO or officel S3 server.")
+        print("a local MinIO or official S3 server.")
     print("======================================")
 
     # Run each benchmark using the requested APIs

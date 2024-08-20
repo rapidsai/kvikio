@@ -14,11 +14,10 @@ import kvikio
 # TODO: remove before PR merge. Trigger CI error if the remote module wasn't built
 import kvikio._lib.remote_handle  # isort: skip
 
-if not kvikio.is_remote_file_available():
-    pytest.skip(
-        "cannot test remote IO, please build KvikIO with with AWS S3 support",
-        allow_module_level=True,
-    )
+pytestmark = pytest.mark.skipif(
+    not kvikio.is_remote_file_available(), 
+    reason="cannot test remote IO, please build KvikIO with with AWS S3 support",
+)
 
 # Notice, we import boto and moto after the `is_remote_file_available` check.
 import boto3

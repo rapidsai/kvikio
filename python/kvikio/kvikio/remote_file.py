@@ -30,7 +30,7 @@ def _get_remote_remote_file_class():
 class RemoteFile:
     """File handle of a remote file (currently, only AWS S3 is supported).
 
-    Please make sure that AWS credentials have been configure on the system.
+    Please make sure that AWS credentials have been configured on the system.
     A common way to do this, is to set the environment variables:
     `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
 
