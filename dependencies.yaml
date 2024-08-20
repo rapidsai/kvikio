@@ -307,7 +307,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.23,<3
+          - numpy>=1.23,<3.0a0
           - zarr
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs <0.12.0
