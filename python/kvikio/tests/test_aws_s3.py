@@ -15,14 +15,14 @@ import kvikio
 import kvikio._lib.remote_handle  # isort: skip
 
 pytestmark = pytest.mark.skipif(
-    not kvikio.is_remote_file_available(), 
+    not kvikio.is_remote_file_available(),
     reason="cannot test remote IO, please build KvikIO with with AWS S3 support",
 )
 
 # Notice, we import boto and moto after the `is_remote_file_available` check.
-import boto3
-import moto
-import moto.server
+import boto3  # noqa: E402
+import moto  # noqa: E402
+import moto.server  # noqa: E402
 
 
 @pytest.fixture(scope="session")
