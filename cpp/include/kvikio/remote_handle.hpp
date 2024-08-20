@@ -47,7 +47,7 @@ class BufferAsStream : public Aws::IOStream {
 };
 
 /**
- * @brief S3 context, which initialize and maintains the S3 API and client.
+ * @brief S3 context, which initializes and maintains the S3 API and client.
  */
 class S3Context {
  public:
@@ -105,7 +105,7 @@ class S3Context {
 
     // Read AWS_ENDPOINT_URL to overwrite endpoint
     Aws::Client::ClientConfiguration clientConfig;
-    const char* ep = getenv("AWS_ENDPOINT_URL");
+    const char* ep = std::getenv("AWS_ENDPOINT_URL");
     if (ep != nullptr) { clientConfig.endpointOverride = ep; }
 
     // We check authentication here to trigger an early exception.
@@ -280,8 +280,7 @@ class RemoteHandle {
 
     while (byte_remaining > 0) {
       const std::size_t nbytes_requested = std::min(posix_bounce_buffer_size, byte_remaining);
-      std::size_t nbytes_got             = nbytes_requested;
-      nbytes_got = read_to_host(alloc.get(), nbytes_requested, cur_file_offset);
+      std::size_t nbytes_got             = read_to_host(alloc.get(), nbytes_requested, cur_file_offset);
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       cur_file_offset += nbytes_got;
