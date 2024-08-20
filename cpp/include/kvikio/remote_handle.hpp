@@ -58,7 +58,7 @@ class S3Context {
    *
    * @return S3 client.
    */
-  Aws::S3::S3Client& client() { return *_client; }
+  Aws::S3::S3Client& client() { return _client; }
 
   /**
    * @brief Get the default context, which is created on first call.
@@ -99,7 +99,7 @@ class S3Context {
    *
    * @return The new client
    */
-  static std::shared_ptr<Aws::S3::S3Client> create_client()
+  static Aws::S3::S3Client create_client()
   {
     S3Context::ensure_aws_s3_api_init();
 
@@ -113,10 +113,10 @@ class S3Context {
     if (provider.GetAWSCredentials().IsEmpty()) {
       throw std::runtime_error(std::string("Failed authentication to ") + ep);
     }
-    return std::make_shared<Aws::S3::S3Client>(Aws::S3::S3Client(clientConfig));
+    return Aws::S3::S3Client(Aws::S3::S3Client(clientConfig));
   }
 
-  std::shared_ptr<Aws::S3::S3Client> _client;
+  Aws::S3::S3Client _client;
 };
 
 /**
