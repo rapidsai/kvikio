@@ -109,9 +109,8 @@ class S3Context {
     if (ep != nullptr) { clientConfig.endpointOverride = ep; }
 
     // We check authentication here to trigger an early exception.
-    auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>("check-creds");
-    auto creds    = provider->GetAWSCredentials();
-    if (creds.IsEmpty()) {
+    Aws::Auth::DefaultAWSCredentialsProviderChain provider;
+    if (provider.GetAWSCredentials().IsEmpty()) {
       throw std::runtime_error(std::string("Failed authentication to ") + ep);
     }
     return std::make_shared<Aws::S3::S3Client>(Aws::S3::S3Client(clientConfig));
