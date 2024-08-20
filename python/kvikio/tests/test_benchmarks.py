@@ -96,11 +96,13 @@ def test_aws_s3_io(run_cmd, api):
 
     if not kvikio.is_remote_file_available():
         pytest.skip(
-            "cannot test remote IO, please build KvikIO with with AWS S3 support",
-            allow_module_level=True,
+            "cannot test remote IO, please build KvikIO with with AWS S3 support"
         )
-    pytest.importorskip("boto3")
-    pytest.importorskip("moto")
+    # Fail early if benchmark dependencies isn't available
+    import boto3  # noqa: F401
+    import moto  # noqa: F401
+
+    # TODO: change to import once https://github.com/rapidsai/cudf/pull/16499 is merged
     if "cudf" in api:
         pytest.importorskip("cudf")
 

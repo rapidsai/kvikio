@@ -14,16 +14,16 @@ import kvikio
 # TODO: remove before PR merge. Trigger CI error if the remote module wasn't built
 import kvikio._lib.remote_handle  # isort: skip
 
-moto = pytest.importorskip("moto", minversion="3.1.6")
-boto3 = pytest.importorskip("boto3")
-
 if not kvikio.is_remote_file_available():
     pytest.skip(
         "cannot test remote IO, please build KvikIO with with AWS S3 support",
         allow_module_level=True,
     )
 
-ThreadedMotoServer = pytest.importorskip("moto.server").ThreadedMotoServer
+# Notice, we import boto and moto after the `is_remote_file_available` check.
+import boto3
+import moto
+import moto.server
 
 
 @pytest.fixture(scope="session")
@@ -57,7 +57,7 @@ def ensure_safe_environment_variables():
 
 
 def start_s3_server(ip_address, port):
-    server = ThreadedMotoServer(ip_address=ip_address, port=port)
+    server = moto.server.ThreadedMotoServer(ip_address=ip_address, port=port)
     server.start()
     time.sleep(180)
     print("ThreadedMotoServer shutting down because of timeout (180s)")
