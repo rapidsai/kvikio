@@ -75,6 +75,28 @@ class S3Context {
   S3Context(S3Context const&)      = delete;
   void operator=(S3Context const&) = delete;
 
+  /**
+   * @brief Get the size of a S3 file
+   *
+   * @param bucket_name The bucket name.
+   * @param object_name The object name.
+   * @return Size of the file in bytes.
+   */
+  std::size_t get_file_size(const std::string& bucket_name, const std::string& object_name)
+  {
+    KVIKIO_NVTX_FUNC_RANGE();
+    Aws::S3::Model::HeadObjectRequest req;
+    req.SetBucket(bucket_name.c_str());
+    req.SetKey(object_name.c_str());
+    Aws::S3::Model::HeadObjectOutcome outcome = client().HeadObject(req);
+    if (!outcome.IsSuccess()) {
+      const Aws::S3::S3Error& err = outcome.GetError();
+      throw std::invalid_argument("get_file_size(): " + err.GetExceptionName() + ": " +
+                                  err.GetMessage());
+    }
+    return outcome.GetResult().GetContentLength();
+  }
+
  private:
   /**
    * @brief Initialize the S3 API (idempotent)
@@ -118,28 +140,6 @@ class S3Context {
 
   Aws::S3::S3Client _client;
 };
-
-/**
- * @brief Get the size of a S3 file
- *
- * @param bucket_name The bucket name.
- * @param object_name The object name.
- * @return Size of the file in bytes.
- */
-inline std::size_t get_s3_file_size(const std::string& bucket_name, const std::string& object_name)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  Aws::S3::Model::HeadObjectRequest req;
-  req.SetBucket(bucket_name.c_str());
-  req.SetKey(object_name.c_str());
-  Aws::S3::Model::HeadObjectOutcome outcome = S3Context::default_context().client().HeadObject(req);
-  if (!outcome.IsSuccess()) {
-    const Aws::S3::S3Error& err = outcome.GetError();
-    throw std::invalid_argument("get_s3_file_size(): " + err.GetExceptionName() + ": " +
-                                err.GetMessage());
-  }
-  return outcome.GetResult().GetContentLength();
-}
 
 /**
  * @brief Given a file path like "s3://<bucket>/<object>", return the name of the bucket and object.
@@ -191,7 +191,7 @@ class RemoteHandle {
   RemoteHandle(std::string bucket_name, std::string object_name)
     : _bucket_name(std::move(bucket_name)),
       _object_name(std::move(object_name)),
-      _nbytes(detail::get_s3_file_size(_bucket_name, _object_name))
+      _nbytes(detail::S3Context::default_context().get_file_size(_bucket_name, _object_name))
   {
   }
 
@@ -205,7 +205,7 @@ class RemoteHandle {
     auto [bucket_name, object_name] = detail::parse_s3_path(remote_path);
     _bucket_name                    = std::move(bucket_name);
     _object_name                    = std::move(object_name);
-    _nbytes                         = detail::get_s3_file_size(_bucket_name, _object_name);
+    _nbytes = detail::S3Context::default_context().get_file_size(_bucket_name, _object_name);
   }
 
   /**
