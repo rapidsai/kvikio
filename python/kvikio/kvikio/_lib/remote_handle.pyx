@@ -14,14 +14,14 @@ from kvikio._lib.arr cimport parse_buffer_argument
 from kvikio._lib.future cimport IOFuture, _wrap_io_future, future
 
 
-cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
-    cdef cppclass RemoteHandle:
-        RemoteHandle() except +
-        RemoteHandle(
+cdef extern from "<kvikio/remote_handle.hpp>" nogil:
+    cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
+        cpp_RemoteHandle() except +
+        cpp_RemoteHandle(
             string bucket_name,
             string object_name,
         ) except +
-        RemoteHandle(
+        cpp_RemoteHandle(
             string remote_path,
         ) except +
         int nbytes()
@@ -39,12 +39,12 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
 
 cdef class RemoteFile:
     """ Remote file handle"""
-    cdef RemoteHandle _handle
+    cdef cpp_RemoteHandle _handle
 
     @classmethod
     def from_bucket_and_object(cls, bucket_name: str, object_name: str):
         cdef RemoteFile ret = RemoteFile()
-        ret._handle = RemoteHandle(
+        ret._handle = cpp_RemoteHandle(
             str.encode(str(bucket_name)),
             str.encode(str(object_name)),
         )
@@ -53,7 +53,7 @@ cdef class RemoteFile:
     @classmethod
     def from_url(cls, url: str):
         cdef RemoteFile ret = RemoteFile()
-        ret._handle = RemoteHandle(str.encode(str(url)))
+        ret._handle = cpp_RemoteHandle(str.encode(str(url)))
         return ret
 
     def nbytes(self) -> int:
