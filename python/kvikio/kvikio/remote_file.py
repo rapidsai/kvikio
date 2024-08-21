@@ -9,6 +9,7 @@ from kvikio.cufile import IOFuture
 
 
 def is_remote_file_available() -> bool:
+    """Check if the remote module is available"""
     try:
         import kvikio._lib.remote_handle  # noqa: F401
     except ImportError:
@@ -17,14 +18,15 @@ def is_remote_file_available() -> bool:
         return True
 
 
-def _get_remote_remote_file_class():
+def _get_remote_module():
+    """Get the remote module or raise an error"""
     if not is_remote_file_available():
         raise RuntimeError(
             "RemoteFile not available, please build KvikIO with AWS S3 support"
         )
     import kvikio._lib.remote_handle
 
-    return kvikio._lib.remote_handle.RemoteFile
+    return kvikio._lib.remote_handle
 
 
 class RemoteFile:
@@ -48,7 +50,7 @@ class RemoteFile:
         object_name
             Name of the object.
         """
-        self._handle = _get_remote_remote_file_class().from_bucket_and_object(
+        self._handle = _get_remote_module().RemoteFile.from_bucket_and_object(
             bucket_name, object_name
         )
 
@@ -66,7 +68,7 @@ class RemoteFile:
         A newly opened remote file
         """
         ret = object.__new__(cls)
-        ret._handle = _get_remote_remote_file_class().from_url(url)
+        ret._handle = _get_remote_module().RemoteFile.from_url(url)
         return ret
 
     def __enter__(self) -> RemoteFile:
