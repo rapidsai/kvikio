@@ -245,7 +245,9 @@ class RemoteHandle {
       "bytes=" + std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
     req.SetRange(byte_range.c_str());
 
-    // To write directly to `buf`, we register a "factory" that wraps a buffer as a output stream.
+    // To write directly to `buf`, we register a "factory" that wraps a buffer as an output stream.
+    // Notice, the AWS SDK will handle the freeing of the returned `detail::BufferAsStream`:
+    // <https://github.com/aws/aws-sdk-cpp/blob/main/src/aws-cpp-sdk-core/source/utils/stream/ResponseStream.cpp#L78>
     Aws::Utils::Stream::PreallocatedStreamBuf buf_stream(static_cast<unsigned char*>(buf), size);
     req.SetResponseStreamFactory(
       [&]() { return Aws::New<detail::BufferAsStream>("BufferAsStream", &buf_stream); });
