@@ -68,7 +68,16 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
 }  // namespace detail
 
 /**
- * @brief S3 context, which initializes and maintains the S3 API and client.
+ * @brief S3 context, which initializes and maintains the S3 SDK and client.
+ *
+ * Because S3Context calls `Aws::InitAPI()` and `Aws::ShutdownAPI`, this class inherit some
+ * limitations from the SDK.
+ *  - The SDK for C++ and its dependencies use C++ static objects, and the order of static object
+ *    destruction is not determined by the C++ standard. To avoid memory issues caused by the
+ *    nondeterministic order of static variable destruction, do not wrap `S3Context` in another
+ *    static object.
+ *  - Please construct and destruct `S3Context` from the same thread (use a dedicated thread if
+ *    necessary). This avoids problems in initializing the dependent Common RunTime C libraries.
  */
 class S3Context {
  private:
@@ -81,8 +90,10 @@ class S3Context {
    */
   static Aws::S3::S3Client create_client()
   {
+    // Notice, the S3 SDK allows multiple calls to `Aws::InitAPI`, see:
+    // <https://github.com/aws/aws-sdk-cpp/blob/main/src/aws-cpp-sdk-core/source/Aws.cpp#L32>
     Aws::SDKOptions options;
-    Aws::InitAPI(options);  // Should only be called once.
+    Aws::InitAPI(options);
 
     // Read AWS_ENDPOINT_URL to overwrite endpoint
     Aws::Client::ClientConfiguration clientConfig;
@@ -98,9 +109,16 @@ class S3Context {
   }
 
  public:
-  S3Context() : _client{S3Context::create_client()}
+  S3Context() : _client{S3Context::create_client()} {}
+
+  ~S3Context() noexcept
   {
-    std::cout << "S3Context - name: " << _client.GetServiceName() << std::endl;
+    try {
+      Aws::SDKOptions options;
+      Aws::ShutdownAPI(options);
+    } catch (const std::exception& e) {
+      std::cerr << "~S3Context(): " << e.what() << std::endl;
+    }
   }
 
   /**
