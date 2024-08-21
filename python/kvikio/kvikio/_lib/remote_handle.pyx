@@ -50,7 +50,6 @@ cdef class S3Context:
         self._handle = make_shared[cpp_S3Context]()
 
 cdef class RemoteFile:
-    """ Remote file handle"""
     cdef cpp_RemoteHandle _handle
 
     @classmethod

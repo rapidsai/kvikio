@@ -30,6 +30,8 @@ def _get_remote_module():
 
 
 class S3Context:
+    """S3 context, which initializes and maintains the S3 SDK and client."""
+
     def __init__(self):
         self._handle = _get_remote_module().S3Context()
 
@@ -50,6 +52,8 @@ class RemoteFile:
 
         Parameters
         ----------
+        context
+            The S3 context used for the connection to the remove server.
         bucket_name
             Name of the bucket.
         object_name
@@ -65,6 +69,8 @@ class RemoteFile:
 
         Parameters
         ----------
+        context
+            The S3 context used for the connection to the remove server.
         url
             URL to the remote file.
 
