@@ -115,6 +115,8 @@ if hasArg -v; then
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
+    export SKBUILD_INSTALL_STRIP=false
+    export SKBUILD_CMAKE_BUILD_TYPE=""Debug""
 fi
 if hasArg -n; then
     INSTALL_TARGET=""
