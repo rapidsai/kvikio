@@ -71,8 +71,37 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
  * @brief S3 context, which initializes and maintains the S3 API and client.
  */
 class S3Context {
+ private:
+  Aws::S3::S3Client _client;
+
+  /**
+   * @brief Create a new S3 client
+   *
+   * @return The new client
+   */
+  static Aws::S3::S3Client create_client()
+  {
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);  // Should only be called once.
+
+    // Read AWS_ENDPOINT_URL to overwrite endpoint
+    Aws::Client::ClientConfiguration clientConfig;
+    const char* ep = std::getenv("AWS_ENDPOINT_URL");
+    if (ep != nullptr) { clientConfig.endpointOverride = ep; }
+
+    // We check authentication here to trigger an early exception.
+    Aws::Auth::DefaultAWSCredentialsProviderChain provider;
+    if (provider.GetAWSCredentials().IsEmpty()) {
+      throw std::runtime_error(std::string("Failed authentication to ") + ep);
+    }
+    return Aws::S3::S3Client(Aws::S3::S3Client(clientConfig));
+  }
+
  public:
-  S3Context() : _client{S3Context::create_client()} {}
+  S3Context() : _client{S3Context::create_client()}
+  {
+    std::cout << "S3Context - name: " << _client.GetServiceName() << std::endl;
+  }
 
   /**
    * @brief Get a reference to the S3 client.
@@ -80,17 +109,6 @@ class S3Context {
    * @return S3 client.
    */
   Aws::S3::S3Client& client() { return _client; }
-
-  /**
-   * @brief Get the default context, which is created on first call.
-   *
-   * @return The default S3 context.
-   */
-  static S3Context& default_context()
-  {
-    static S3Context _default_context;
-    return _default_context;
-  }
 
   // No copy semantic
   S3Context(S3Context const&)      = delete;
@@ -117,49 +135,6 @@ class S3Context {
     }
     return outcome.GetResult().GetContentLength();
   }
-
- private:
-  /**
-   * @brief Initialize the S3 API (idempotent)
-   *
-   * This private function is called as part of `S3Context` creation and it makes sure to only call
-   * `Aws::InitAPI()` once.
-   */
-  static void ensure_aws_s3_api_init()
-  {
-    static bool not_initalized{true};
-    if (not_initalized) {
-      not_initalized = false;
-
-      Aws::SDKOptions options;
-      // options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Error;
-      Aws::InitAPI(options);  // Should only be called once.
-    }
-  }
-
-  /**
-   * @brief Create a new S3 client
-   *
-   * @return The new client
-   */
-  static Aws::S3::S3Client create_client()
-  {
-    S3Context::ensure_aws_s3_api_init();
-
-    // Read AWS_ENDPOINT_URL to overwrite endpoint
-    Aws::Client::ClientConfiguration clientConfig;
-    const char* ep = std::getenv("AWS_ENDPOINT_URL");
-    if (ep != nullptr) { clientConfig.endpointOverride = ep; }
-
-    // We check authentication here to trigger an early exception.
-    Aws::Auth::DefaultAWSCredentialsProviderChain provider;
-    if (provider.GetAWSCredentials().IsEmpty()) {
-      throw std::runtime_error(std::string("Failed authentication to ") + ep);
-    }
-    return Aws::S3::S3Client(Aws::S3::S3Client(clientConfig));
-  }
-
-  Aws::S3::S3Client _client;
 };
 
 /**
@@ -177,6 +152,7 @@ class RemoteHandle {
   std::string _bucket_name{};
   std::string _object_name{};
   std::size_t _nbytes{};
+  std::shared_ptr<S3Context> _context;
 
  public:
   // Use of a default constructed instance is undefined behavior.
@@ -188,11 +164,13 @@ class RemoteHandle {
    * @param bucket_name Name of the bucket.
    * @param object_name Name of the object.
    */
-  RemoteHandle(std::string bucket_name, std::string object_name)
-    : _bucket_name(std::move(bucket_name)),
-      _object_name(std::move(object_name)),
-      _nbytes(S3Context::default_context().get_file_size(_bucket_name, _object_name))
+  RemoteHandle(std::shared_ptr<S3Context> context, std::string bucket_name, std::string object_name)
   {
+    if (!context) { throw std::invalid_argument("context cannot be null"); }
+    _context     = std::move(context);
+    _bucket_name = std::move(bucket_name);
+    _object_name = std::move(object_name);
+    _nbytes      = _context->get_file_size(_bucket_name, _object_name);
   }
 
   /**
@@ -200,12 +178,14 @@ class RemoteHandle {
    *
    * @param remote_path Remote file path.
    */
-  RemoteHandle(const std::string& remote_path)
+  RemoteHandle(std::shared_ptr<S3Context> context, const std::string& remote_path)
   {
+    if (!context) { throw std::invalid_argument("context cannot be null"); }
+    _context                        = std::move(context);
     auto [bucket_name, object_name] = detail::parse_s3_path(remote_path);
     _bucket_name                    = std::move(bucket_name);
     _object_name                    = std::move(object_name);
-    _nbytes = S3Context::default_context().get_file_size(_bucket_name, _object_name);
+    _nbytes                         = _context->get_file_size(_bucket_name, _object_name);
   }
 
   /**
@@ -229,7 +209,6 @@ class RemoteHandle {
   {
     KVIKIO_NVTX_FUNC_RANGE("AWS S3 receive", size);
 
-    auto& default_context = S3Context::default_context();
     Aws::S3::Model::GetObjectRequest req;
     req.SetBucket(_bucket_name.c_str());
     req.SetKey(_object_name.c_str());
@@ -242,7 +221,7 @@ class RemoteHandle {
     req.SetResponseStreamFactory(
       [&]() { return Aws::New<detail::BufferAsStream>("BufferAsStream", &buf_stream); });
 
-    Aws::S3::Model::GetObjectOutcome outcome = default_context.client().GetObject(req);
+    Aws::S3::Model::GetObjectOutcome outcome = _context->client().GetObject(req);
     if (!outcome.IsSuccess()) {
       const Aws::S3::S3Error& err = outcome.GetError();
       throw std::runtime_error(err.GetExceptionName() + ": " + err.GetMessage());

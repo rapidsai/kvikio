@@ -91,7 +91,7 @@ def s3_context(s3_base, bucket, files=None):
         client.create_bucket(Bucket=bucket, ACL="public-read-write")
         for f, data in files.items():
             client.put_object(Bucket=bucket, Key=f, Body=data)
-        yield
+        yield kvikio.S3Context()
         for f, data in files.items():
             try:
                 client.delete_object(Bucket=bucket, Key=f)
@@ -103,8 +103,10 @@ def test_read(s3_base, xp):
     bucket_name = "test_read"
     object_name = "a1"
     a = xp.arange(10_000_000)
-    with s3_context(s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}):
-        with kvikio.RemoteFile(bucket_name, object_name) as f:
+    with s3_context(
+        s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}
+    ) as ctx:
+        with kvikio.RemoteFile(ctx, bucket_name, object_name) as f:
             assert f.nbytes() == a.nbytes
             b = xp.empty_like(a)
             assert f.read(buf=b) == a.nbytes
@@ -124,13 +126,15 @@ def test_read_with_file_offset(s3_base, xp, start, end):
     bucket_name = "test_read"
     object_name = "a1"
     a = xp.arange(end, dtype=xp.int64)
-    with s3_context(s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}):
-        with kvikio.RemoteFile(bucket_name, object_name) as f:
+    with s3_context(
+        s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}
+    ) as ctx:
+        with kvikio.RemoteFile(ctx, bucket_name, object_name) as f:
             b = xp.zeros(shape=(end - start,), dtype=xp.int64)
             assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
             xp.testing.assert_array_equal(a[start:end], b)
 
-        with kvikio.RemoteFile.from_url(f"s3://{bucket_name}/{object_name}") as f:
+        with kvikio.RemoteFile.from_url(ctx, f"s3://{bucket_name}/{object_name}") as f:
             b = xp.zeros(shape=(end - start,), dtype=xp.int64)
             assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
             xp.testing.assert_array_equal(a[start:end], b)

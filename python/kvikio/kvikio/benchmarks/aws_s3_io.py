@@ -82,10 +82,13 @@ def run_numpy_like(args, xp):
 
     client = create_client_and_bucket()
     client.put_object(Bucket=args.bucket, Key="data1", Body=bytes(data))
+    context = kvikio.S3Context()
 
     def run() -> float:
         t0 = time.perf_counter()
-        with kvikio.RemoteFile(bucket_name=args.bucket, object_name="data1") as f:
+        with kvikio.RemoteFile(
+            context=context, bucket_name=args.bucket, object_name="data1"
+        ) as f:
             res = f.read(recv)
         t1 = time.perf_counter()
         assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"

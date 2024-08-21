@@ -29,6 +29,11 @@ def _get_remote_module():
     return kvikio._lib.remote_handle
 
 
+class S3Context:
+    def __init__(self):
+        self._handle = _get_remote_module().S3Context()
+
+
 class RemoteFile:
     """File handle of a remote file (currently, only AWS S3 is supported).
 
@@ -40,7 +45,7 @@ class RemoteFile:
     <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>.
     """
 
-    def __init__(self, bucket_name: str, object_name: str):
+    def __init__(self, context: S3Context, bucket_name: str, object_name: str):
         """Open a remote file given a bucket and object name.
 
         Parameters
@@ -51,11 +56,11 @@ class RemoteFile:
             Name of the object.
         """
         self._handle = _get_remote_module().RemoteFile.from_bucket_and_object(
-            bucket_name, object_name
+            context._handle, bucket_name, object_name
         )
 
     @classmethod
-    def from_url(cls, url: str) -> RemoteFile:
+    def from_url(cls, context: S3Context, url: str) -> RemoteFile:
         """Open a remote file given an url such as "s3://<bucket>/<object>".
 
         Parameters
@@ -68,7 +73,7 @@ class RemoteFile:
         A newly opened remote file
         """
         ret = object.__new__(cls)
-        ret._handle = _get_remote_module().RemoteFile.from_url(url)
+        ret._handle = _get_remote_module().RemoteFile.from_url(context._handle, url)
         return ret
 
     def __enter__(self) -> RemoteFile:
