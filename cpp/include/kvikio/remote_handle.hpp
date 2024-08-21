@@ -20,6 +20,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
@@ -177,33 +178,43 @@ class RemoteHandle {
   RemoteHandle() noexcept = default;
 
   /**
+   * @brief Construct from a bucket and object name pair.
+   *
+   * @param context The S3 context used for the connection to the remove server.
+   * @param bucket_and_object_name Name pair <bucket, object>.
+   */
+  RemoteHandle(std::shared_ptr<S3Context> context,
+               std::pair<std::string, std::string> bucket_and_object_name)
+  {
+    if (!context) { throw std::invalid_argument("RemoteHandle(): context cannot be null"); }
+    _context     = std::move(context);
+    _bucket_name = std::move(bucket_and_object_name.first);
+    _object_name = std::move(bucket_and_object_name.second);
+    _nbytes      = _context->get_file_size(_bucket_name, _object_name);
+  }
+
+  /**
    * @brief Construct from a bucket and object name.
    *
+   * @param context The S3 context used for the connection to the remove server.
    * @param bucket_name Name of the bucket.
    * @param object_name Name of the object.
    */
   RemoteHandle(std::shared_ptr<S3Context> context, std::string bucket_name, std::string object_name)
+    : RemoteHandle(std::move(context),
+                   std::make_pair(std::move(bucket_name), std::move(object_name)))
   {
-    if (!context) { throw std::invalid_argument("context cannot be null"); }
-    _context     = std::move(context);
-    _bucket_name = std::move(bucket_name);
-    _object_name = std::move(object_name);
-    _nbytes      = _context->get_file_size(_bucket_name, _object_name);
   }
 
   /**
    * @brief Construct from a remote path such as "s3://<bucket>/<object>".
    *
+   * @param context The S3 context used for the connection to the remove server.
    * @param remote_path Remote file path.
    */
   RemoteHandle(std::shared_ptr<S3Context> context, const std::string& remote_path)
+    : RemoteHandle(std::move(context), detail::parse_s3_path(remote_path))
   {
-    if (!context) { throw std::invalid_argument("context cannot be null"); }
-    _context                        = std::move(context);
-    auto [bucket_name, object_name] = detail::parse_s3_path(remote_path);
-    _bucket_name                    = std::move(bucket_name);
-    _object_name                    = std::move(object_name);
-    _nbytes                         = _context->get_file_size(_bucket_name, _object_name);
   }
 
   /**
