@@ -15,7 +15,7 @@ def main():
     b = cupy.empty_like(a)
 
     # In this example, we launch and use a local S3 server with the
-    # following available address:
+    # following address:
     endpoint_url = f"http://127.0.0.1:{get_local_port()}"
 
     # In order use a local server instead of an official Amazon S3 server,
@@ -35,8 +35,7 @@ def main():
         # Using the context, we can open "data" as if it was a regular CuFile
         with kvikio.RemoteFile(context, "my-bucket", "data") as f:
             f.read(b)
-        print(a)
-        print(b)
+        assert all(a == b)
 
 
 if __name__ == "__main__":
