@@ -156,6 +156,7 @@ target_link_libraries(
 )
 if(AWSSDK_FOUND)
   target_link_libraries(kvikio INTERFACE aws-cpp-sdk-s3)
+  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_AWS_SDK_FOUND>)
 endif()
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
@@ -242,6 +243,11 @@ if(NOT already_set_kvikio)
     if(cuFile_STREAM_API_FOUND)
       target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_STREAM_API_FOUND)
     endif()
+  endif()
+
+  find_package(AWSSDK COMPONENTS s3 QUIET)
+  if(AWSSDK_FOUND)
+    target_compile_definitions(kvikio::kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_AWS_SDK_FOUND>)
   endif()
 endif()
 ]=]

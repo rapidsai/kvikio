@@ -33,6 +33,10 @@
 #include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
 
+#ifndef KVIKIO_AWS_SDK_FOUND
+#error "cannot include <kvikio/remote_handle.hpp>, configuration did not find AWS SDK"
+#endif
+
 namespace kvikio {
 namespace detail {
 
