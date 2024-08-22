@@ -68,7 +68,7 @@ requirements:
     - aws-sdk-cpp
   run:
     - python
-    - numpy >=1.23,<2.0a0
+    - numpy >=1.23,<3.0a0
     - cupy >=12.0.0
     - zarr
     - aws-sdk-cpp
