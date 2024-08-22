@@ -34,10 +34,9 @@ class S3Context:
         """S3 context, which initializes and maintains the S3 SDK and client.
 
         The S3Context calls `Aws::InitAPI()` and `Aws::ShutdownAPI`, which inherit
-        some limitations from the SDK:
-        - Please construct and destruct `S3Context` from the same thread (use a
-          dedicated thread if necessary). This avoids problems in initializing
-          the dependent Common RunTime C libraries.
+        some limitations from the SDK: please construct and destruct `S3Context`
+        from the same thread (use a dedicated thread if necessary). This avoids
+        problems in initializing the dependent Common RunTime C libraries.
 
         Please make sure that AWS credentials have been configured on the system.
         A common way to do this, is to set the environment variables:
@@ -51,6 +50,7 @@ class S3Context:
         endpoint_override
             If not empty, the address of the S3 server. Takes precedences over the
             `AWS_ENDPOINT_URL` environment variable.
+
         """
         self._handle = _get_remote_module().S3Context(endpoint_override)
 
