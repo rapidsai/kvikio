@@ -121,7 +121,7 @@ class S3Context {
   {
     // NB: `Aws::InitAPI` has to be called before everything in the SDK beside `Aws::SDKOptions`,
     // even before config structs like `Aws::Client::ClientConfiguration`.
-    // Notice, we may call `Aws::InitAPI`, which is allowed see:
+    // Notice, we may call `Aws::InitAPI` multiple times, which is allowed see:
     // <https://github.com/aws/aws-sdk-cpp/blob/main/src/aws-cpp-sdk-core/source/Aws.cpp#L32>
     Aws::SDKOptions options;
     Aws::InitAPI(options);
