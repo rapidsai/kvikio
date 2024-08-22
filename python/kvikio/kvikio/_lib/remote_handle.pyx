@@ -6,8 +6,9 @@
 
 from typing import Optional
 
+from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
-from libcpp.memory cimport make_shared, shared_ptr
+from libcpp.memory cimport make_shared, make_unique, shared_ptr, unique_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport pair
 
@@ -22,7 +23,6 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
         cpp_S3Context(string endpoint_override) except +
 
     cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
-        cpp_RemoteHandle() except +
         cpp_RemoteHandle(
             shared_ptr[cpp_S3Context] context,
             string bucket_name,
@@ -55,7 +55,7 @@ cdef class S3Context:
         self._handle = make_shared[cpp_S3Context](s)
 
 cdef class RemoteFile:
-    cdef cpp_RemoteHandle _handle
+    cdef unique_ptr[cpp_RemoteHandle] _handle
 
     @classmethod
     def from_bucket_and_object(
@@ -65,25 +65,24 @@ cdef class RemoteFile:
         object_name: str
     ):
         cdef RemoteFile ret = RemoteFile()
-        ret._handle = cpp_RemoteHandle(
-            context._handle,
-            str.encode(str(bucket_name)),
-            str.encode(str(object_name)),
-        )
+        cdef string b = str.encode(str(bucket_name))
+        cdef string o = str.encode(str(object_name))
+        ret._handle = make_unique[cpp_RemoteHandle](context._handle, b, o)
         return ret
 
     @classmethod
     def from_url(cls, S3Context context, url: str):
         cdef RemoteFile ret = RemoteFile()
-        ret._handle = cpp_RemoteHandle(context._handle, str.encode(str(url)))
+        cdef string u = str.encode(str(url))
+        ret._handle = make_unique[cpp_RemoteHandle](context._handle, u)
         return ret
 
     def nbytes(self) -> int:
-        return self._handle.nbytes()
+        return deref(self._handle).nbytes()
 
     def read(self, buf, size: Optional[int], file_offset: int) -> int:
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
-        return self._handle.read(
+        return deref(self._handle).read(
             <void*>info.first,
             info.second,
             file_offset,
@@ -92,7 +91,7 @@ cdef class RemoteFile:
     def pread(self, buf, size: Optional[int], file_offset: int) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
         return _wrap_io_future(
-            self._handle.pread(
+            deref(self._handle).pread(
                 <void*>info.first,
                 info.second,
                 file_offset,

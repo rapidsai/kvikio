@@ -202,9 +202,6 @@ class RemoteHandle {
   std::shared_ptr<S3Context> _context;
 
  public:
-  // Use of a default constructed instance is undefined behavior.
-  RemoteHandle() noexcept = default;
-
   /**
    * @brief Construct from a bucket and object name pair.
    *
