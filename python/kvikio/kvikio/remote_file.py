@@ -30,22 +30,33 @@ def _get_remote_module():
 
 
 class S3Context:
-    """S3 context, which initializes and maintains the S3 SDK and client."""
+    def __init__(self, endpoint_override: Optional[str] = None):
+        """S3 context, which initializes and maintains the S3 SDK and client.
 
-    def __init__(self):
-        self._handle = _get_remote_module().S3Context()
+        The S3Context calls `Aws::InitAPI()` and `Aws::ShutdownAPI`, which inherit
+        some limitations from the SDK:
+        - Please construct and destruct `S3Context` from the same thread (use a
+          dedicated thread if necessary). This avoids problems in initializing
+          the dependent Common RunTime C libraries.
+
+        Please make sure that AWS credentials have been configured on the system.
+        A common way to do this, is to set the environment variables:
+        `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+
+        Other relevant options are `AWS_DEFAULT_REGION` and `AWS_ENDPOINT_URL`, see
+        <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>.
+
+        Parameters
+        ----------
+        endpoint_override
+            If not empty, the address of the S3 server. Takes precedences over the
+            `AWS_ENDPOINT_URL` environment variable.
+        """
+        self._handle = _get_remote_module().S3Context(endpoint_override)
 
 
 class RemoteFile:
-    """File handle of a remote file (currently, only AWS S3 is supported).
-
-    Please make sure that AWS credentials have been configured on the system.
-    A common way to do this, is to set the environment variables:
-    `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-
-    Other relevant options are `AWS_DEFAULT_REGION` and `AWS_ENDPOINT_URL`, see
-    <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>.
-    """
+    """File handle of a remote file (currently, only AWS S3 is supported)."""
 
     def __init__(self, context: S3Context, bucket_name: str, object_name: str):
         """Open a remote file given a bucket and object name.

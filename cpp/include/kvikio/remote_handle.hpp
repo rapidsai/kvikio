@@ -71,8 +71,8 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
 /**
  * @brief S3 context, which initializes and maintains the S3 SDK and client.
  *
- * Because S3Context calls `Aws::InitAPI()` and `Aws::ShutdownAPI`, this class inherit some
- * limitations from the SDK.
+ * If not given an existing S3 client, S3Context calls `Aws::InitAPI()` and `Aws::ShutdownAPI`,
+ * which inherit some limitations from the SDK.
  *  - The SDK for C++ and its dependencies use C++ static objects, and the order of static object
  *    destruction is not determined by the C++ standard. To avoid memory issues caused by the
  *    nondeterministic order of static variable destruction, do not wrap `S3Context` in another
@@ -82,43 +82,76 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
  */
 class S3Context {
  private:
-  Aws::S3::S3Client _client;
+  // We use a shared point since constructing a default `Aws::S3::S3Client` before calling
+  // `Aws::InitAPI` is illegal.
+  std::shared_ptr<Aws::S3::S3Client> _client;
+  // Only call `Aws::ShutdownAPI`, if `Aws::InitAPI` was called on construction.
+  const bool _shutdown_s3_api;
+
+ public:
+  /**
+   * @brief Create a context given an existing S3 client
+   *
+   * The S3 SDK isn't initialized.
+   *
+   * @param client The S3 client
+   */
+  S3Context(std::shared_ptr<Aws::S3::S3Client> client)
+    : _client{std::move(client)}, _shutdown_s3_api{false}
+  {
+    if (!_client) { throw std::invalid_argument("S3Context(): S3 client cannot be null"); }
+  }
 
   /**
-   * @brief Create a new S3 client
+   * @brief Create a new context with a newly created S3 client.
    *
-   * @return The new client
+   * The S3 SDK is automatically initialized on construction and shutdown on destruction.
+   *
+   * The new S3 client use the default `Aws::Client::ClientConfiguration`, thus please make sure
+   * that AWS credentials have been configure on the system. A common way to do this, is to set the
+   * environment variables: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+   *
+   * Other relevant options are `AWS_DEFAULT_REGION` and `AWS_ENDPOINT_URL`, see
+   * <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>.
+   *
+   * @param endpoint_override If not empty, the address of the S3 server. Takes precedences
+   * over the `AWS_ENDPOINT_URL` environment variable.
    */
-  static Aws::S3::S3Client create_client()
+  S3Context(const std::string& endpoint_override = "") : _shutdown_s3_api{true}
   {
-    // Notice, the S3 SDK allows multiple calls to `Aws::InitAPI`, see:
+    // NB: `Aws::InitAPI` has to be called before everything in the SDK beside `Aws::SDKOptions`,
+    // even before config structs like `Aws::Client::ClientConfiguration`.
+    // Notice, we may call `Aws::InitAPI`, which is allowed see:
     // <https://github.com/aws/aws-sdk-cpp/blob/main/src/aws-cpp-sdk-core/source/Aws.cpp#L32>
     Aws::SDKOptions options;
     Aws::InitAPI(options);
 
-    // Read AWS_ENDPOINT_URL to overwrite endpoint
-    Aws::Client::ClientConfiguration clientConfig;
+    // Create a client config where `endpoint_override` takes precedences over `AWS_ENDPOINT_URL`
+    Aws::Client::ClientConfiguration config;
     const char* ep = std::getenv("AWS_ENDPOINT_URL");
-    if (ep != nullptr) { clientConfig.endpointOverride = ep; }
+    if (!endpoint_override.empty()) {
+      config.endpointOverride = endpoint_override;
+    } else if (ep != nullptr && !std::string(ep).empty()) {
+      config.endpointOverride = ep;
+    }
 
     // We check authentication here to trigger an early exception.
     Aws::Auth::DefaultAWSCredentialsProviderChain provider;
     if (provider.GetAWSCredentials().IsEmpty()) {
-      throw std::runtime_error(std::string("Failed authentication to ") + ep);
+      throw std::runtime_error("failed authentication to S3 server");
     }
-    return Aws::S3::S3Client(Aws::S3::S3Client(clientConfig));
+    _client = std::make_shared<Aws::S3::S3Client>(config);
   }
-
- public:
-  S3Context() : _client{S3Context::create_client()} {}
 
   ~S3Context() noexcept
   {
-    try {
-      Aws::SDKOptions options;
-      Aws::ShutdownAPI(options);
-    } catch (const std::exception& e) {
-      std::cerr << "~S3Context(): " << e.what() << std::endl;
+    if (_shutdown_s3_api) {
+      try {
+        Aws::SDKOptions options;
+        Aws::ShutdownAPI(options);
+      } catch (const std::exception& e) {
+        std::cerr << "~S3Context(): " << e.what() << std::endl;
+      }
     }
   }
 
@@ -127,11 +160,13 @@ class S3Context {
    *
    * @return S3 client.
    */
-  Aws::S3::S3Client& client() { return _client; }
+  Aws::S3::S3Client& client() { return *_client; }
 
-  // No copy semantic
-  S3Context(S3Context const&)      = delete;
-  void operator=(S3Context const&) = delete;
+  // No copy and move semantic
+  S3Context(S3Context const&)       = delete;
+  void operator=(S3Context const&)  = delete;
+  S3Context(S3Context const&&)      = delete;
+  void operator=(S3Context const&&) = delete;
 
   /**
    * @brief Get the size of a S3 file
@@ -158,13 +193,6 @@ class S3Context {
 
 /**
  * @brief Handle of remote file (currently, only AWS S3 is supported).
- *
- * Please make sure that AWS credentials have been configure on the system.
- * A common way to do this, is to set the environment variables:
- * `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
- *
- * Other relevant options are `AWS_DEFAULT_REGION` and `AWS_ENDPOINT_URL`, see
- * <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>.
  */
 class RemoteHandle {
  private:

@@ -74,11 +74,10 @@ def s3_base(endpoint_ip, endpoint_port):
         os.environ["AWS_SECURITY_TOKEN"] = "foobar_security_token"
         os.environ["AWS_SESSION_TOKEN"] = "foobar_session_token"
         os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-        os.environ["AWS_ENDPOINT_URL"] = f"http://{endpoint_ip}:{endpoint_port}"
 
         p = mp.Process(target=start_s3_server, args=(endpoint_ip, endpoint_port))
         p.start()
-        yield os.environ["AWS_ENDPOINT_URL"]
+        yield f"http://{endpoint_ip}:{endpoint_port}"
         p.kill()
 
 
@@ -91,7 +90,7 @@ def s3_context(s3_base, bucket, files=None):
         client.create_bucket(Bucket=bucket, ACL="public-read-write")
         for f, data in files.items():
             client.put_object(Bucket=bucket, Key=f, Body=data)
-        yield kvikio.S3Context()
+        yield kvikio.S3Context(s3_base)
         for f, data in files.items():
             try:
                 client.delete_object(Bucket=bucket, Key=f)

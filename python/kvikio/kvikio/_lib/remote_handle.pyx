@@ -19,6 +19,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
 
     cdef cppclass cpp_S3Context "kvikio::S3Context":
         cpp_S3Context() except +
+        cpp_S3Context(string endpoint_override) except +
 
     cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
         cpp_RemoteHandle() except +
@@ -46,8 +47,12 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
 cdef class S3Context:
     cdef shared_ptr[cpp_S3Context] _handle
 
-    def __init__(self):
-        self._handle = make_shared[cpp_S3Context]()
+    def __init__(self, endpoint_override: Optional[str]):
+        if endpoint_override is None:
+            self._handle = make_shared[cpp_S3Context]()
+            return
+        cdef string s = str.encode(str(endpoint_override))
+        self._handle = make_shared[cpp_S3Context](s)
 
 cdef class RemoteFile:
     cdef cpp_RemoteHandle _handle
