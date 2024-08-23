@@ -54,6 +54,8 @@ class BufferAsStream : public Aws::IOStream {
 /**
  * @brief Given a file path like "s3://<bucket>/<object>", return the name of the bucket and object.
  *
+ * @throws std::invalid_argument if file path is ill-formed or is missing the bucket or object name.
+ *
  * @param path S3 file path.
  * @return Pair of strings: [bucket-name, object-name].
  */
@@ -93,7 +95,7 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
  */
 class S3Context {
  private:
-  // We use a shared point since constructing a default `Aws::S3::S3Client` before calling
+  // We use a shared pointer since constructing a default `Aws::S3::S3Client` before calling
   // `Aws::InitAPI` is illegal.
   std::shared_ptr<Aws::S3::S3Client> _client;
   // Only call `Aws::ShutdownAPI`, if `Aws::InitAPI` was called on construction.
@@ -124,6 +126,8 @@ class S3Context {
    *
    * Other relevant options are `AWS_DEFAULT_REGION` and `AWS_ENDPOINT_URL`, see
    * <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>.
+   *
+   * @throws std::runtime_error if failed authentication to the S3 server.
    *
    * @param endpoint_override If not empty, the address of the S3 server. Takes precedences
    * over the `AWS_ENDPOINT_URL` environment variable.
@@ -171,7 +175,7 @@ class S3Context {
    *
    * @return S3 client.
    */
-  Aws::S3::S3Client& client() { return *_client; }
+  Aws::S3::S3Client const& client() const { return *_client; }
 
   // No copy and move semantic
   S3Context(S3Context const&)       = delete;
@@ -186,7 +190,7 @@ class S3Context {
    * @param object_name The object name.
    * @return Size of the file in bytes.
    */
-  std::size_t get_file_size(const std::string& bucket_name, const std::string& object_name)
+  std::size_t get_file_size(const std::string& bucket_name, const std::string& object_name) const
   {
     KVIKIO_NVTX_FUNC_RANGE();
     Aws::S3::Model::HeadObjectRequest req;
