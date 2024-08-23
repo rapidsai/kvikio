@@ -22,7 +22,7 @@ VALIDARGS="clean libkvikio kvikio -v -g -n --pydevelop -h"
 HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
    libkvikio                   - build and install the libkvikio C++ code
-   kvikio                      - build and install the kvikio Python package
+   kvikio                      - build and install the kvikio Python package (requires libkvikio)
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
@@ -152,7 +152,7 @@ if (( NUMARGS == 0 )) || hasArg libkvikio; then
     cmake --build "${LIBKVIKIO_BUILD_DIR}" -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         echo "installing libkvikio..."
-        cmake --build "${LIBKVIKIO_BUILD_DIR}" --target install -v ${VERBOSE_FLAG}
+        cmake --build "${LIBKVIKIO_BUILD_DIR}" --target install ${VERBOSE_FLAG}
     fi
 fi
 

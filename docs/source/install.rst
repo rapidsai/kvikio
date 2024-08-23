@@ -39,7 +39,7 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 Build from source
 -----------------
 
-In order to setup a development environment run:
+In order to setup a development environment, we recommend Conda:
 
 .. code-block::
 
@@ -48,11 +48,11 @@ In order to setup a development environment run:
   # CUDA 12.5
   mamba env create --name kvikio-dev --file conda/environments/all_cuda-125_arch-x86_64.yaml
 
-To build and install the extension run:
+The Python library depend on the C++ library, thus we build and install both:
 
 .. code-block::
 
-  ./build.sh kvikio
+  ./build.sh libkvikio kvikio
 
 
 One might have to define ``CUDA_HOME`` to the path to the CUDA installation.
