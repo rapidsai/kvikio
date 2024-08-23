@@ -127,10 +127,10 @@ class S3Context {
    * Other relevant options are `AWS_DEFAULT_REGION` and `AWS_ENDPOINT_URL`, see
    * <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>.
    *
-   * @throws std::runtime_error if failed authentication to the S3 server.
+   * @throws std::runtime_error If failing to authenticate to the S3 server.
    *
-   * @param endpoint_override If not empty, the address of the S3 server. Takes precedences
-   * over the `AWS_ENDPOINT_URL` environment variable.
+   * @param endpoint_override If not empty, the address of the S3 server. This takes precedences
+   * over the AWS system configuration including the `AWS_ENDPOINT_URL` environment variable.
    */
   S3Context(std::string const& endpoint_override = "") : _shutdown_s3_api{true}
   {
