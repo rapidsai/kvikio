@@ -122,7 +122,7 @@ def test_read(s3_base, xp):
     ],
 )
 def test_read_with_file_offset(s3_base, xp, start, end):
-    bucket_name = "test_read"
+    bucket_name = "test_read_with_file_offset"
     object_name = "a1"
     a = xp.arange(end, dtype=xp.int64)
     with s3_context(
@@ -137,3 +137,25 @@ def test_read_with_file_offset(s3_base, xp, start, end):
             b = xp.zeros(shape=(end - start,), dtype=xp.int64)
             assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
             xp.testing.assert_array_equal(a[start:end], b)
+
+
+def test_remote_path_error(s3_base):
+    bucket_name = "test_remote_path_error"
+    with s3_context(s3_base=s3_base, bucket=bucket_name) as ctx:
+        with pytest.raises(ValueError, match="No response body"):
+            kvikio.RemoteFile.from_url(ctx, "s3://unknown-bucket/unknown-object")
+
+        with pytest.raises(ValueError, match="No response body"):
+            kvikio.RemoteFile.from_url(ctx, f"s3://{bucket_name}/unknown-object")
+
+        with pytest.raises(ValueError, match="path must start with the S3 scheme"):
+            kvikio.RemoteFile.from_url(ctx, f"s3:/{bucket_name}/")
+
+        with pytest.raises(ValueError, match="path does not contain a bucket name"):
+            kvikio.RemoteFile.from_url(ctx, "s3:///unknown-object")
+
+        with pytest.raises(ValueError, match="path does not contain an object name"):
+            kvikio.RemoteFile.from_url(ctx, f"s3://{bucket_name}/")
+
+        with pytest.raises(ValueError, match="path does not contain an object name"):
+            kvikio.RemoteFile.from_url(ctx, f"s3://{bucket_name}")

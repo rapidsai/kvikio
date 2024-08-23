@@ -65,9 +65,16 @@ inline std::pair<std::string, std::string> parse_s3_path(const std::string& path
   }
   std::string p = path.substr(5);
   if (p.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
-  size_t pos = p.find_first_of('/');
-  if (pos == 0) { throw std::invalid_argument("The remote path does not contain a bucket name."); }
-  return std::make_pair(p.substr(0, pos), (pos == std::string::npos) ? "" : p.substr(pos + 1));
+  size_t pos              = p.find_first_of('/');
+  std::string bucket_name = p.substr(0, pos);
+  if (bucket_name.empty()) {
+    throw std::invalid_argument("The remote path does not contain a bucket name.");
+  }
+  std::string object_name = (pos == std::string::npos) ? "" : p.substr(pos + 1);
+  if (object_name.empty()) {
+    throw std::invalid_argument("The remote path does not contain an object name.");
+  }
+  return std::make_pair(std::move(bucket_name), std::move(object_name));
 }
 
 }  // namespace detail
