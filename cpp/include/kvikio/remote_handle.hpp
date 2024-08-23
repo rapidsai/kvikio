@@ -15,6 +15,10 @@
  */
 #pragma once
 
+#ifndef KVIKIO_AWS_SDK_FOUND
+#error "cannot include <kvikio/remote_handle.hpp>, configuration did not find AWS SDK"
+#endif
+
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -22,20 +26,16 @@
 #include <string>
 #include <utility>
 
+#include <kvikio/parallel_operation.hpp>
+#include <kvikio/posix_io.hpp>
+#include <kvikio/utils.hpp>
+
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/HeadObjectRequest.h>
-
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
-#include <kvikio/utils.hpp>
-
-#ifndef KVIKIO_AWS_SDK_FOUND
-#error "cannot include <kvikio/remote_handle.hpp>, configuration did not find AWS SDK"
-#endif
 
 namespace kvikio {
 namespace detail {
