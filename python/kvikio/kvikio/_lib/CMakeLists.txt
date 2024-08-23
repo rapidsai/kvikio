@@ -21,7 +21,7 @@ if(AWSSDK_FOUND)
   message(STATUS "Building remote_handle.pyx (aws-cpp-sdk-s3 found)")
   list(APPEND cython_modules remote_handle.pyx)
 else()
-  message(WARNING "Skipping remote_handle.pyx (aws-cpp-sdk-s3 not found)")
+  message(WARNING "Skipping remote_handle.pyx (aws-cpp-sdk-s3 not found or disabled)")
 endif()
 
 rapids_cython_create_modules(
