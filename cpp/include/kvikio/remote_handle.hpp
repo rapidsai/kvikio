@@ -220,7 +220,7 @@ class RemoteHandle {
   /**
    * @brief Construct from a bucket and object name pair.
    *
-   * @param context The S3 context used for the connection to the remove server.
+   * @param context The S3 context used for the connection to the remote server.
    * @param bucket_and_object_name Name pair <bucket, object>.
    */
   RemoteHandle(std::shared_ptr<S3Context> context,
@@ -236,7 +236,7 @@ class RemoteHandle {
   /**
    * @brief Construct from a bucket and object name.
    *
-   * @param context The S3 context used for the connection to the remove server.
+   * @param context The S3 context used for the connection to the remote server.
    * @param bucket_name Name of the bucket.
    * @param object_name Name of the object.
    */
@@ -249,7 +249,7 @@ class RemoteHandle {
   /**
    * @brief Construct from a remote path such as "s3://<bucket>/<object>".
    *
-   * @param context The S3 context used for the connection to the remove server.
+   * @param context The S3 context used for the connection to the remote server.
    * @param remote_path Remote file path.
    */
   RemoteHandle(std::shared_ptr<S3Context> context, std::string const& remote_path)
