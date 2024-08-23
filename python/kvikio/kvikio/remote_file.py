@@ -48,9 +48,9 @@ class S3Context:
         Parameters
         ----------
         endpoint_override
-            If not empty, the address of the S3 server. Takes precedences over the
-            `AWS_ENDPOINT_URL` environment variable.
-
+            If not empty, the address of the S3 server. This takes precedences over
+            the AWS system configuration including the `AWS_ENDPOINT_URL` environment
+            variable.
         """
         self._handle = _get_remote_module().S3Context(endpoint_override)
 
