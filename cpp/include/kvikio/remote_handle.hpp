@@ -59,7 +59,7 @@ class BufferAsStream : public Aws::IOStream {
  * @param path S3 file path.
  * @return Pair of strings: [bucket-name, object-name].
  */
-inline std::pair<std::string, std::string> parse_s3_path(const std::string& path)
+inline std::pair<std::string, std::string> parse_s3_path(std::string const& path)
 {
   if (path.empty()) { throw std::invalid_argument("The remote path cannot be an empty string."); }
   if (path.size() < 5 || path.substr(0, 5) != "s3://") {
@@ -99,7 +99,7 @@ class S3Context {
   // `Aws::InitAPI` is illegal.
   std::shared_ptr<Aws::S3::S3Client> _client;
   // Only call `Aws::ShutdownAPI`, if `Aws::InitAPI` was called on construction.
-  const bool _shutdown_s3_api;
+  bool const _shutdown_s3_api;
 
  public:
   /**
@@ -132,7 +132,7 @@ class S3Context {
    * @param endpoint_override If not empty, the address of the S3 server. Takes precedences
    * over the `AWS_ENDPOINT_URL` environment variable.
    */
-  S3Context(const std::string& endpoint_override = "") : _shutdown_s3_api{true}
+  S3Context(std::string const& endpoint_override = "") : _shutdown_s3_api{true}
   {
     // NB: `Aws::InitAPI` has to be called before everything in the SDK beside `Aws::SDKOptions`,
     // even before config structs like `Aws::Client::ClientConfiguration`.
@@ -143,7 +143,7 @@ class S3Context {
 
     // Create a client config where `endpoint_override` takes precedences over `AWS_ENDPOINT_URL`
     Aws::Client::ClientConfiguration config;
-    const char* ep = std::getenv("AWS_ENDPOINT_URL");
+    char const* ep = std::getenv("AWS_ENDPOINT_URL");
     if (!endpoint_override.empty()) {
       config.endpointOverride = endpoint_override;
     } else if (ep != nullptr && !std::string(ep).empty()) {
@@ -164,7 +164,7 @@ class S3Context {
       try {
         Aws::SDKOptions options;
         Aws::ShutdownAPI(options);
-      } catch (const std::exception& e) {
+      } catch (std::exception const& e) {
         std::cerr << "~S3Context(): " << e.what() << std::endl;
       }
     }
@@ -190,7 +190,7 @@ class S3Context {
    * @param object_name The object name.
    * @return Size of the file in bytes.
    */
-  std::size_t get_file_size(const std::string& bucket_name, const std::string& object_name) const
+  std::size_t get_file_size(std::string const& bucket_name, std::string const& object_name) const
   {
     KVIKIO_NVTX_FUNC_RANGE();
     Aws::S3::Model::HeadObjectRequest req;
@@ -198,7 +198,7 @@ class S3Context {
     req.SetKey(object_name.c_str());
     Aws::S3::Model::HeadObjectOutcome outcome = client().HeadObject(req);
     if (!outcome.IsSuccess()) {
-      const Aws::S3::S3Error& err = outcome.GetError();
+      Aws::S3::S3Error const& err = outcome.GetError();
       throw std::invalid_argument("get_file_size(): " + err.GetExceptionName() + ": " +
                                   err.GetMessage());
     }
@@ -252,7 +252,7 @@ class RemoteHandle {
    * @param context The S3 context used for the connection to the remove server.
    * @param remote_path Remote file path.
    */
-  RemoteHandle(std::shared_ptr<S3Context> context, const std::string& remote_path)
+  RemoteHandle(std::shared_ptr<S3Context> context, std::string const& remote_path)
     : RemoteHandle(std::move(context), detail::parse_s3_path(remote_path))
   {
   }
@@ -281,7 +281,7 @@ class RemoteHandle {
     Aws::S3::Model::GetObjectRequest req;
     req.SetBucket(_bucket_name.c_str());
     req.SetKey(_object_name.c_str());
-    const std::string byte_range =
+    std::string const byte_range =
       "bytes=" + std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
     req.SetRange(byte_range.c_str());
 
@@ -294,10 +294,10 @@ class RemoteHandle {
 
     Aws::S3::Model::GetObjectOutcome outcome = _context->client().GetObject(req);
     if (!outcome.IsSuccess()) {
-      const Aws::S3::S3Error& err = outcome.GetError();
+      Aws::S3::S3Error const& err = outcome.GetError();
       throw std::runtime_error(err.GetExceptionName() + ": " + err.GetMessage());
     }
-    const std::size_t n = outcome.GetResult().GetContentLength();
+    std::size_t const n = outcome.GetResult().GetContentLength();
     if (n != size) {
       throw std::runtime_error("S3 read of " + std::to_string(size) + " bytes failed, received " +
                                std::to_string(n) + " bytes");
@@ -329,7 +329,7 @@ class RemoteHandle {
     std::size_t byte_remaining  = convert_size2off(size);
 
     while (byte_remaining > 0) {
-      const std::size_t nbytes_requested = std::min(posix_bounce_buffer_size, byte_remaining);
+      std::size_t const nbytes_requested = std::min(posix_bounce_buffer_size, byte_remaining);
       std::size_t nbytes_got = read_to_host(alloc.get(), nbytes_requested, cur_file_offset);
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
