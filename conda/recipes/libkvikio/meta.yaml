@@ -43,7 +43,7 @@ requirements:
     {% endif %}
     - ninja
     - {{ stdlib("c") }}
-    - aws-sdk-cpp
+    - aws-sdk-cpp>=1.11.267
   host:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
@@ -53,7 +53,7 @@ requirements:
     {% else %}
     - libcufile-dev  # [linux]
     {% endif %}
-    - aws-sdk-cpp
+    - aws-sdk-cpp>=1.11.267
 
 outputs:
   - name: libkvikio
@@ -74,10 +74,10 @@ outputs:
     requirements:
       build:
         - cmake {{ cmake_version }}
-        - aws-sdk-cpp
+        - aws-sdk-cpp>=1.11.267
       host:
         - cuda-version ={{ cuda_version }}
-        - aws-sdk-cpp
+        - aws-sdk-cpp>=1.11.267
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -87,7 +87,7 @@ outputs:
         {% else %}
         - libcufile-dev  # [linux]
         {% endif %}
-        - aws-sdk-cpp
+        - aws-sdk-cpp>=1.11.267
     test:
         commands:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
@@ -111,7 +111,7 @@ outputs:
         - cuda-cudart-dev
         - libcufile-dev  # [linux]
         {% endif %}
-        - aws-sdk-cpp
+        - aws-sdk-cpp>=1.11.267
     requirements:
       build:
         - cmake {{ cmake_version }}
@@ -124,7 +124,7 @@ outputs:
         - cuda-cudart-dev
         - libcufile-dev  # [linux]
         {% endif %}
-        - aws-sdk-cpp
+        - aws-sdk-cpp>=1.11.267
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -134,7 +134,7 @@ outputs:
         - cuda-cudart
         - libcufile  # [linux]
         {% endif %}
-        - aws-sdk-cpp
+        - aws-sdk-cpp>=1.11.267
     about:
       home: https://rapids.ai
       license: Apache-2.0

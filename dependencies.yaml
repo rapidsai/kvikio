@@ -106,7 +106,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - aws-sdk-cpp
+          - aws-sdk-cpp>=1.11.267  # Need <https://github.com/aws/aws-sdk-cpp/pull/2710>
     specific:
       - output_types: conda
         matrices:

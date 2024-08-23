@@ -135,9 +135,8 @@ class S3Context {
   S3Context(std::string const& endpoint_override = "") : _shutdown_s3_api{true}
   {
     // NB: `Aws::InitAPI` has to be called before everything in the SDK beside `Aws::SDKOptions`,
-    // even before config structs like `Aws::Client::ClientConfiguration`.
-    // Notice, we may call `Aws::InitAPI` multiple times, which is allowed see:
-    // <https://github.com/aws/aws-sdk-cpp/blob/main/src/aws-cpp-sdk-core/source/Aws.cpp#L32>
+    // even before config structs like `Aws::Client::ClientConfiguration`. However, we are now
+    // allowed to call `Aws::InitAPI` multiple times: <https://github.com/aws/aws-sdk-cpp/pull/2710>
     Aws::SDKOptions options;
     Aws::InitAPI(options);
 
