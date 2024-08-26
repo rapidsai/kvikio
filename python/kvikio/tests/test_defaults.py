@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 
@@ -42,3 +42,14 @@ def test_task_size():
         kvikio.defaults.task_size_reset(4)
         assert kvikio.defaults.task_size() == 4
     assert before == kvikio.defaults.task_size()
+
+
+def test_gds_threshold():
+    """Test changing `gds_threshold`"""
+
+    before = kvikio.defaults.gds_threshold()
+    with kvikio.defaults.set_gds_threshold(3):
+        assert kvikio.defaults.gds_threshold() == 3
+        kvikio.defaults.gds_threshold_reset(4)
+        assert kvikio.defaults.gds_threshold() == 4
+    assert before == kvikio.defaults.gds_threshold()

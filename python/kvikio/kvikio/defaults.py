@@ -163,8 +163,8 @@ def gds_threshold() -> int:
     backend directly.
 
     Set the default value using `gds_threshold_reset()` or by setting the
-    `KVIKIO_TASK_SIZE` environment variable. If not set, the default value
-    is 1 MiB.
+    `KVIKIO_GDS_THRESHOLD` environment variable. If not set, the default
+    value is 1 MiB.
 
     Return
     ------
