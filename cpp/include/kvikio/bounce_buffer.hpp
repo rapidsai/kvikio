@@ -60,8 +60,15 @@ class AllocRetain {
     std::size_t size() noexcept { return _size; }
   };
 
-  AllocRetain()           = default;
-  ~AllocRetain() noexcept = default;
+  AllocRetain() = default;
+  ~AllocRetain() noexcept
+  {
+    try {
+      clear();
+    } catch (const CUfileException& e) {
+      std::cerr << "~AllocRetain(): " << e.what() << std::endl;
+    }
+  }
 
   void clear()
   {
