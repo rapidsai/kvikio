@@ -53,3 +53,14 @@ def test_gds_threshold():
         kvikio.defaults.gds_threshold_reset(4)
         assert kvikio.defaults.gds_threshold() == 4
     assert before == kvikio.defaults.gds_threshold()
+
+
+def test_bounce_buffer_size():
+    """Test changing `bounce_buffer_size`"""
+
+    before = kvikio.defaults.bounce_buffer_size()
+    with kvikio.defaults.set_bounce_buffer_size(3):
+        assert kvikio.defaults.bounce_buffer_size() == 3
+        kvikio.defaults.bounce_buffer_size_reset(4)
+        assert kvikio.defaults.bounce_buffer_size() == 4
+    assert before == kvikio.defaults.bounce_buffer_size()

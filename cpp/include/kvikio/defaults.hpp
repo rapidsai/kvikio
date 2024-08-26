@@ -239,19 +239,19 @@ class defaults {
   static void gds_threshold_reset(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
 
   /**
-   * @brief Get the default size of the bounce buffer used to stage data in host memory.
+   * @brief Get the size of the bounce buffer used to stage data in host memory.
    *
-   * Set the default value using `kvikio::default::bounce_buffer_size_reset()` or by setting the
-   * `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the default value is 16 MiB.
+   * Set the value using `kvikio::default::bounce_buffer_size_reset()` or by setting the
+   * `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the value is 16 MiB.
    *
-   * @return The default bounce buffer size in bytes.
+   * @return The bounce buffer size in bytes.
    */
   [[nodiscard]] static std::size_t bounce_buffer_size() { return instance()->_bounce_buffer_size; }
 
   /**
-   * @brief Reset the default size of the bounce buffer used to stage data in host memory.
+   * @brief Reset the size of the bounce buffer used to stage data in host memory.
    *
-   * @param nbytes The default bounce buffer size in bytes.
+   * @param nbytes The bounce buffer size in bytes.
    */
   static void bounce_buffer_size_reset(std::size_t nbytes)
   {

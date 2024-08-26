@@ -200,3 +200,46 @@ def set_gds_threshold(nbytes: int):
         yield
     finally:
         gds_threshold_reset(old_value)
+
+
+def bounce_buffer_size() -> int:
+    """Get the size of the bounce buffer used to stage data in host memory.
+
+    Set the value using `bounce_buffer_size_reset()` or by setting the
+    `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the
+    value is 16 MiB.
+
+    Return
+    ------
+    nbytes : int
+        The bounce buffer size in bytes.
+    """
+    return kvikio._lib.defaults.bounce_buffer_size()
+
+
+def bounce_buffer_size_reset(nbytes: int) -> None:
+    """Reset the size of the bounce buffer used to stage data in host memory.
+
+    Parameters
+    ----------
+    nbytes : int
+        The bounce buffer size in bytes.
+    """
+    kvikio._lib.defaults.bounce_buffer_size_reset(nbytes)
+
+
+@contextlib.contextmanager
+def set_bounce_buffer_size(nbytes: int):
+    """Context for resetting the the size of the bounce buffer.
+
+    Parameters
+    ----------
+    nbytes : int
+        The bounce buffer size in bytes.
+    """
+    old_value = bounce_buffer_size()
+    try:
+        bounce_buffer_size_reset(nbytes)
+        yield
+    finally:
+        bounce_buffer_size_reset(old_value)
