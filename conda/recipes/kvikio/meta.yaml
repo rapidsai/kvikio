@@ -52,7 +52,6 @@ requirements:
     - {{ compiler('cuda') }}
     {% endif %}
     - {{ stdlib("c") }}
-    - aws-sdk-cpp>=1.11.267
   host:
     - python
     - pip

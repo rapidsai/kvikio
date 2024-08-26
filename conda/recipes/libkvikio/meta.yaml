@@ -43,7 +43,6 @@ requirements:
     {% endif %}
     - ninja
     - {{ stdlib("c") }}
-    - aws-sdk-cpp>=1.11.267
   host:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
@@ -74,10 +73,8 @@ outputs:
     requirements:
       build:
         - cmake {{ cmake_version }}
-        - aws-sdk-cpp>=1.11.267
       host:
         - cuda-version ={{ cuda_version }}
-        - aws-sdk-cpp>=1.11.267
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
