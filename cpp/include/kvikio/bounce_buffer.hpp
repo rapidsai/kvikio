@@ -18,20 +18,23 @@
 #include <mutex>
 #include <stack>
 
-namespace kvikio {
+#include <kvikio/defaults.hpp>
 
-inline constexpr std::size_t _posix_bounce_buffer_size = 2 << 23;  // 16 MiB
+namespace kvikio {
 
 /**
  * @brief Singleton class to retain host memory allocations
  *
  * Call `AllocRetain::get` to get an allocation that will be retained when it
- * goes out of scope (RAII). The size of all allocations are `posix_bounce_buffer_size`.
+ * goes out of scope (RAII). The size of all retained allocations are the same.
  */
 class AllocRetain {
  private:
-  std::stack<void*> _free_allocs;
-  std::mutex _mutex;
+  std::mutex _mutex{};
+  // Stack of free allocations
+  std::stack<void*> _free_allocs{};
+  // The size of each allocation in `_free_allocs`
+  std::size_t _size{defaults::bounce_buffer_size()};
 
  public:
   /**
@@ -41,53 +44,67 @@ class AllocRetain {
    private:
     AllocRetain* _manager;
     void* _alloc;
-    std::size_t _size;
+    const std::size_t _size;
 
    public:
-    Alloc(AllocRetain* manager, void* alloc)
-      : _manager(manager), _alloc{alloc}, _size{_posix_bounce_buffer_size}
+    Alloc(AllocRetain* manager, void* alloc, std::size_t size)
+      : _manager(manager), _alloc{alloc}, _size{size}
     {
     }
     Alloc(const Alloc&)            = delete;
     Alloc& operator=(Alloc const&) = delete;
     Alloc(Alloc&& o)               = delete;
     Alloc& operator=(Alloc&& o)    = delete;
-    ~Alloc() noexcept { _manager->put(_alloc); }
+    ~Alloc() noexcept { _manager->put(_alloc, _size); }
     void* get() noexcept { return _alloc; }
     std::size_t size() noexcept { return _size; }
   };
 
-  AllocRetain() = default;
+  AllocRetain()           = default;
+  ~AllocRetain() noexcept = default;
+
+  void clear()
+  {
+    while (!_free_allocs.empty()) {
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
+      _free_allocs.pop();
+    }
+  }
+
   [[nodiscard]] Alloc get()
   {
     const std::lock_guard lock(_mutex);
+    if (_size != defaults::bounce_buffer_size()) {
+      clear();  // the desired allocation size has changed.
+    }
+
     // Check if we have an allocation available
     if (!_free_allocs.empty()) {
       void* ret = _free_allocs.top();
       _free_allocs.pop();
-      return Alloc(this, ret);
+      return Alloc(this, ret, _size);
     }
 
     // If no available allocation, allocate and register a new one
     void* alloc{};
     // Allocate page-locked host memory
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(
-      &alloc, _posix_bounce_buffer_size, CU_MEMHOSTREGISTER_PORTABLE));
-    return Alloc(this, alloc);
+    CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, _size, CU_MEMHOSTREGISTER_PORTABLE));
+    return Alloc(this, alloc, _size);
   }
 
-  void put(void* alloc)
+  void put(void* alloc, std::size_t size)
   {
     const std::lock_guard lock(_mutex);
-    _free_allocs.push(alloc);
-  }
+    if (_size != defaults::bounce_buffer_size()) {
+      clear();  // the desired allocation size has changed.
+    }
 
-  void clear()
-  {
-    const std::lock_guard lock(_mutex);
-    while (!_free_allocs.empty()) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
-      _free_allocs.pop();
+    // If the size of `alloc` matches the sizes of the retained allocations,
+    // it is added to the set of free allocation otherwise it is freed.
+    if (size == _size) {
+      _free_allocs.push(alloc);
+    } else {
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(alloc));
     }
   }
 
@@ -101,7 +118,6 @@ class AllocRetain {
   AllocRetain& operator=(AllocRetain const&) = delete;
   AllocRetain(AllocRetain&& o)               = delete;
   AllocRetain& operator=(AllocRetain&& o)    = delete;
-  ~AllocRetain() noexcept                    = default;
 };
 
 }  // namespace kvikio

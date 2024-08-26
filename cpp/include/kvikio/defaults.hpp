@@ -83,6 +83,7 @@ class defaults {
   bool _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
+  std::size_t _bounce_buffer_size;
 
   static unsigned int get_num_threads_from_env()
   {
@@ -118,6 +119,14 @@ class defaults {
         throw std::invalid_argument("KVIKIO_GDS_THRESHOLD has to be a positive integer");
       }
       _gds_threshold = env;
+    }
+    // Determine the default value of `bounce_buffer_size`
+    {
+      const ssize_t env = detail::getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
+      if (env <= 0) {
+        throw std::invalid_argument("KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer");
+      }
+      _bounce_buffer_size = env;
     }
   }
 
@@ -228,6 +237,26 @@ class defaults {
    * @param nbytes The default GDS threshold size in bytes.
    */
   static void gds_threshold_reset(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
+
+  /**
+   * @brief Get the default size of the bounce buffer used to stage data in host memory.
+   *
+   * Set the default value using `kvikio::default::bounce_buffer_size_reset()` or by setting the
+   * `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the default value is 16 MiB.
+   *
+   * @return The default bounce buffer size in bytes.
+   */
+  [[nodiscard]] static std::size_t bounce_buffer_size() { return instance()->_bounce_buffer_size; }
+
+  /**
+   * @brief Reset the default size of the bounce buffer used to stage data in host memory.
+   *
+   * @param nbytes The default bounce buffer size in bytes.
+   */
+  static void bounce_buffer_size_reset(std::size_t nbytes)
+  {
+    instance()->_bounce_buffer_size = nbytes;
+  }
 };
 
 }  // namespace kvikio
