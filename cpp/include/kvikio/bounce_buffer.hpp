@@ -70,6 +70,11 @@ class AllocRetain {
     }
   }
 
+  /**
+   * @brief Free all retained allocations
+   *
+   * NB: The `_mutex` must be taken prior to calling this function, if not called from the dtor.
+   */
   void clear()
   {
     while (!_free_allocs.empty()) {
@@ -78,12 +83,24 @@ class AllocRetain {
     }
   }
 
+  /**
+   * @brief Ensure the size of the retained allocations match `defaults::bounce_buffer_size()`
+   *
+   * NB: `_mutex` must be taken prior to calling this function.
+   */
+  void ensure_alloc_size()
+  {
+    const auto bounce_buffer_size = defaults::bounce_buffer_size();
+    if (_size != bounce_buffer_size) {
+      _size = bounce_buffer_size;
+      clear();  // the desired allocation size has changed.
+    }
+  }
+
   [[nodiscard]] Alloc get()
   {
     const std::lock_guard lock(_mutex);
-    if (_size != defaults::bounce_buffer_size()) {
-      clear();  // the desired allocation size has changed.
-    }
+    ensure_alloc_size();
 
     // Check if we have an allocation available
     if (!_free_allocs.empty()) {
@@ -102,9 +119,7 @@ class AllocRetain {
   void put(void* alloc, std::size_t size)
   {
     const std::lock_guard lock(_mutex);
-    if (_size != defaults::bounce_buffer_size()) {
-      clear();  // the desired allocation size has changed.
-    }
+    ensure_alloc_size();
 
     // If the size of `alloc` matches the sizes of the retained allocations,
     // it is added to the set of free allocation otherwise it is freed.
