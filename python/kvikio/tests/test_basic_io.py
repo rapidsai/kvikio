@@ -256,3 +256,20 @@ def test_multiple_gpus(tmp_path, xp, gds_threshold):
                 with cupy.cuda.Device(0):
                     assert f.read(a1) == a1.nbytes
             assert bytes(a0) == bytes(a1)
+
+
+@pytest.mark.parametrize("size", [1, 10, 100, 1000])
+@pytest.mark.parametrize("tasksize", [1, 10, 100, 1000])
+@pytest.mark.parametrize("buffer_size", [1, 10, 100, 1000])
+def test_different_bounce_buffer_sizes(tmp_path, size, tasksize, buffer_size):
+    """Test different bounce buffer sizes"""
+    filename = tmp_path / "test-file"
+    with kvikio.defaults.set_compat_mode(True), kvikio.defaults.set_num_threads(10):
+        with kvikio.defaults.set_task_size(tasksize):
+            with kvikio.defaults.set_bounce_buffer_size(buffer_size):
+                with kvikio.CuFile(filename, "w+") as f:
+                    a = cupy.arange(size)
+                    b = cupy.empty_like(a)
+                    f.write(a)
+                    assert f.read(b) == b.nbytes
+                    cupy.testing.assert_array_equal(a, b)
