@@ -320,7 +320,7 @@ class RemoteHandle {
     CUcontext ctx = get_context_from_pointer(buf);
     PushAndPopContext c(ctx);
 
-    auto alloc         = detail::AllocRetain::instance().get();  // Host memory allocation
+    auto alloc         = AllocRetain::instance().get();  // Host memory allocation
     CUdeviceptr devPtr = convert_void2deviceptr(buf);
     CUstream stream    = detail::StreamsByThread::get();
 
@@ -328,7 +328,7 @@ class RemoteHandle {
     std::size_t byte_remaining  = convert_size2off(size);
 
     while (byte_remaining > 0) {
-      std::size_t const nbytes_requested = std::min(posix_bounce_buffer_size, byte_remaining);
+      std::size_t const nbytes_requested = std::min(alloc.size(), byte_remaining);
       std::size_t nbytes_got = read_to_host(alloc.get(), nbytes_requested, cur_file_offset);
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
@@ -342,15 +342,19 @@ class RemoteHandle {
   /**
    * @brief Read from remote source into buffer (host or device memory) in parallel.
    *
-   * Contrary to `FileHandle::pread()`, a task size of 16 MiB is used always.
-   * See `kvikio::posix_bounce_buffer_size`.
+   * This API is a parallel async version of `.read()` that partition the operation
+   * into tasks of size `task_size` for execution in the default thread pool.
    *
    * @param buf Pointer to host or device memory.
    * @param size Number of bytes to read.
    * @param file_offset File offset in bytes.
+   * @param task_size Size of each task in bytes.
    * @return Number of bytes read, which is `size` always.
    */
-  std::future<std::size_t> pread(void* buf, std::size_t size, std::size_t file_offset = 0)
+  std::future<std::size_t> pread(void* buf,
+                                 std::size_t size,
+                                 std::size_t file_offset = 0,
+                                 std::size_t task_size   = defaults::task_size())
   {
     KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::pread()", size);
     auto task = [this](void* devPtr_base,
@@ -359,7 +363,7 @@ class RemoteHandle {
                        std::size_t devPtr_offset) -> std::size_t {
       return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
     };
-    return parallel_io(task, buf, size, file_offset, posix_bounce_buffer_size, 0);
+    return parallel_io(task, buf, size, file_offset, task_size, 0);
   }
 };
 

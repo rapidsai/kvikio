@@ -10,6 +10,7 @@ from contextlib import contextmanager
 import pytest
 
 import kvikio
+import kvikio.defaults
 
 # TODO: remove before PR merge. Trigger CI error if the remote module wasn't built
 import kvikio._lib.remote_handle  # isort: skip
@@ -98,18 +99,25 @@ def s3_context(s3_base, bucket, files=None):
                 pass
 
 
-def test_read(s3_base, xp):
+@pytest.mark.parametrize("size", [10, 100, 1000])
+@pytest.mark.parametrize("nthreads", [1, 3])
+@pytest.mark.parametrize("tasksize", [99, 999])
+@pytest.mark.parametrize("buffer_size", [101, 1001])
+def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
     bucket_name = "test_read"
     object_name = "a1"
-    a = xp.arange(10_000_000)
+    a = xp.arange(size)
     with s3_context(
         s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}
     ) as ctx:
-        with kvikio.RemoteFile(ctx, bucket_name, object_name) as f:
-            assert f.nbytes() == a.nbytes
-            b = xp.empty_like(a)
-            assert f.read(buf=b) == a.nbytes
-            xp.testing.assert_array_equal(a, b)
+        with kvikio.defaults.set_num_threads(nthreads):
+            with kvikio.defaults.set_task_size(tasksize):
+                with kvikio.defaults.set_bounce_buffer_size(buffer_size):
+                    with kvikio.RemoteFile(ctx, bucket_name, object_name) as f:
+                        assert f.nbytes() == a.nbytes
+                        b = xp.empty_like(a)
+                        assert f.read(buf=b) == a.nbytes
+                        xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize(
@@ -118,7 +126,7 @@ def test_read(s3_base, xp):
         (0, 10 * 4096),
         (1, int(1.3 * 4096)),
         (int(2.1 * 4096), int(5.6 * 4096)),
-        (42, int(2**23)),
+        (42, int(2**20)),
     ],
 )
 def test_read_with_file_offset(s3_base, xp, start, end):
