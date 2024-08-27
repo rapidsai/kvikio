@@ -19,18 +19,14 @@
 #include <cstddef>
 #include <cstdlib>
 #include <map>
-#include <mutex>
-#include <stack>
 #include <thread>
 
-#include <cstring>
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-
-inline constexpr std::size_t posix_bounce_buffer_size = 2 << 23;  // 16 MiB
 
 namespace detail {
 
@@ -85,80 +81,6 @@ class StreamsByThread {
   StreamsByThread& operator=(StreamsByThread const&) = delete;
   StreamsByThread(StreamsByThread&& o)               = delete;
   StreamsByThread& operator=(StreamsByThread&& o)    = delete;
-};
-
-/**
- * @brief Singleton class to retain host memory allocations
- *
- * Call `AllocRetain::get` to get an allocation that will be retained when it
- * goes out of scope (RAII). The size of all allocations are `posix_bounce_buffer_size`.
- */
-class AllocRetain {
- private:
-  std::stack<void*> _free_allocs;
-  std::mutex _mutex;
-
- public:
-  class Alloc {
-   private:
-    AllocRetain* _manager;
-    void* _alloc;
-
-   public:
-    Alloc(AllocRetain* manager, void* alloc) : _manager(manager), _alloc{alloc} {}
-    Alloc(const Alloc&)            = delete;
-    Alloc& operator=(Alloc const&) = delete;
-    Alloc(Alloc&& o)               = delete;
-    Alloc& operator=(Alloc&& o)    = delete;
-    ~Alloc() noexcept { _manager->put(_alloc); }
-    void* get() noexcept { return _alloc; }
-  };
-
-  AllocRetain() = default;
-  [[nodiscard]] Alloc get()
-  {
-    const std::lock_guard lock(_mutex);
-    // Check if we have an allocation available
-    if (!_free_allocs.empty()) {
-      void* ret = _free_allocs.top();
-      _free_allocs.pop();
-      return Alloc(this, ret);
-    }
-
-    // If no available allocation, allocate and register a new one
-    void* alloc{};
-    // Allocate page-locked host memory
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(
-      &alloc, posix_bounce_buffer_size, CU_MEMHOSTREGISTER_PORTABLE));
-    return Alloc(this, alloc);
-  }
-
-  void put(void* alloc)
-  {
-    const std::lock_guard lock(_mutex);
-    _free_allocs.push(alloc);
-  }
-
-  void clear()
-  {
-    const std::lock_guard lock(_mutex);
-    while (!_free_allocs.empty()) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
-      _free_allocs.pop();
-    }
-  }
-
-  static AllocRetain& instance()
-  {
-    static AllocRetain _instance;
-    return _instance;
-  }
-
-  AllocRetain(const AllocRetain&)            = delete;
-  AllocRetain& operator=(AllocRetain const&) = delete;
-  AllocRetain(AllocRetain&& o)               = delete;
-  AllocRetain& operator=(AllocRetain&& o)    = delete;
-  ~AllocRetain() noexcept                    = default;
 };
 
 /**
@@ -230,7 +152,7 @@ std::size_t posix_device_io(int fd,
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t byte_remaining    = convert_size2off(size);
-  const off_t chunk_size2 = convert_size2off(posix_bounce_buffer_size);
+  const off_t chunk_size2 = convert_size2off(alloc.size());
 
   // Get a stream for the current CUDA context and thread
   CUstream stream = StreamsByThread::get();
