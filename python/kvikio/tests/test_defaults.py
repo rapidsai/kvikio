@@ -32,6 +32,11 @@ def test_num_threads():
         assert kvikio.defaults.get_num_threads() == 4
     assert before == kvikio.defaults.get_num_threads()
 
+    with pytest.raises(ValueError, match="positive integer greater than zero"):
+        kvikio.defaults.num_threads_reset(0)
+    with pytest.raises(OverflowError, match="negative value"):
+        kvikio.defaults.num_threads_reset(-1)
+
 
 def test_task_size():
     """Test changing `task_size`"""
@@ -42,6 +47,11 @@ def test_task_size():
         kvikio.defaults.task_size_reset(4)
         assert kvikio.defaults.task_size() == 4
     assert before == kvikio.defaults.task_size()
+
+    with pytest.raises(ValueError, match="positive integer greater than zero"):
+        kvikio.defaults.task_size_reset(0)
+    with pytest.raises(OverflowError, match="negative value"):
+        kvikio.defaults.task_size_reset(-1)
 
 
 def test_gds_threshold():
@@ -54,6 +64,9 @@ def test_gds_threshold():
         assert kvikio.defaults.gds_threshold() == 4
     assert before == kvikio.defaults.gds_threshold()
 
+    with pytest.raises(OverflowError, match="negative value"):
+        kvikio.defaults.gds_threshold_reset(-1)
+
 
 def test_bounce_buffer_size():
     """Test changing `bounce_buffer_size`"""
@@ -64,3 +77,8 @@ def test_bounce_buffer_size():
         kvikio.defaults.bounce_buffer_size_reset(4)
         assert kvikio.defaults.bounce_buffer_size() == 4
     assert before == kvikio.defaults.bounce_buffer_size()
+
+    with pytest.raises(ValueError, match="positive integer greater than zero"):
+        kvikio.defaults.bounce_buffer_size_reset(0)
+    with pytest.raises(OverflowError, match="negative value"):
+        kvikio.defaults.bounce_buffer_size_reset(-1)
