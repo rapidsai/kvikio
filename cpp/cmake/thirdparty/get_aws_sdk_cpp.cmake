@@ -18,8 +18,7 @@ function(find_and_configure_aws_sdk_cpp)
 
   rapids_cpm_find(
     AWSSDK 1.11.393
-    GLOBAL_TARGETS aws-cpp-sdk-s3
-    COMPONENTS S3
+    GLOBAL_TARGETS aws-cpp-sdk-s3 COMPONENTS S3
     BUILD_EXPORT_SET kvikio-exports
     INSTALL_EXPORT_SET kvikio-exports
     CPM_ARGS
