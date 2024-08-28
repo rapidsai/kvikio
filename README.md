@@ -16,7 +16,7 @@ The C++ library is header-only making it easy to include in [existing projects](
 * Concurrent reads and writes using an internal thread pool.
 * Non-blocking API.
 * Read/write to both host and device memory seamlessly.
-* Provides remote read from AWS S3 storage seamlessly.
+* Provides compile-time optional remote read from AWS S3 storage seamlessly, using the [AWS SDK](https://docs.aws.amazon.com/sdkref/latest/guide/overview.html).
 * Provides Python bindings to [nvCOMP](https://github.com/NVIDIA/nvcomp).
 
 

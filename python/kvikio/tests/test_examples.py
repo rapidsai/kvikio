@@ -30,13 +30,13 @@ def test_zarr_cupy_nvcomp(tmp_path, monkeypatch):
     import_module("zarr_cupy_nvcomp").main(tmp_path / "test-file")
 
 
+@pytest.mark.skipif(
+    not kvikio.is_remote_file_available(), 
+    reason="KvikIO not built with AWS S3 support",
+)
 def test_aws_s3(monkeypatch):
     """Test examples/aws_s3.py"""
 
-    if not kvikio.is_remote_file_available():
-        pytest.skip(
-            "cannot test remote IO, please build KvikIO with with AWS S3 support"
-        )
     # Fail early if dependencies isn't available
     import boto3  # noqa: F401
     import moto  # noqa: F401
