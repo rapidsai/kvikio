@@ -160,7 +160,14 @@ class S3Context {
   ~S3Context() noexcept
   {
     if (_shutdown_s3_api) {
-        _client = nullptr;
+      // Since we created the S3 client and we only provide const reference access,
+      // we should be the only reference.
+      if (_client.use_count() != 1) {
+        std::cerr << "~S3Context(): S3 client has multiple owners, cannot shutdown the AWS API"
+                  << std::endl;
+        return;
+      }
+      _client = nullptr;  // Close the client before shutting down the API
       try {
         Aws::SDKOptions options;
         Aws::ShutdownAPI(options);

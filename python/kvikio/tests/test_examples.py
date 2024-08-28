@@ -31,7 +31,7 @@ def test_zarr_cupy_nvcomp(tmp_path, monkeypatch):
 
 
 @pytest.mark.skipif(
-    not kvikio.is_remote_file_available(), 
+    not kvikio.is_remote_file_available(),
     reason="KvikIO not built with AWS S3 support",
 )
 def test_aws_s3(monkeypatch):
