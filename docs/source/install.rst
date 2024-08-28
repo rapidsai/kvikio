@@ -48,7 +48,7 @@ In order to setup a development environment, we recommend Conda:
   # CUDA 12.5
   mamba env create --name kvikio-dev --file conda/environments/all_cuda-125_arch-x86_64.yaml
 
-The Python library depend on the C++ library, thus we build and install both:
+The Python library depends on the C++ library, thus we build and install both:
 
 .. code-block::
 
