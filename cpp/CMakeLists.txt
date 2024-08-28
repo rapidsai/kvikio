@@ -59,14 +59,10 @@ rapids_find_package(
 # If AWSSDK isn't found, the Cython module remote_handle.pyx isn't built and C++ users shouldn't
 # include <kvikio/remote_handle.hpp>
 if(KvikIO_AWSSDK_SUPPORT)
-  rapids_find_package(
-    AWSSDK REQUIRED COMPONENTS s3
-    BUILD_EXPORT_SET kvikio-exports
-    INSTALL_EXPORT_SET kvikio-exports
-  )
+  include(cmake/thirdparty/get_aws_sdk_cpp.cmake)
 endif()
 
-if(AWSSDK_FOUND)
+if(TARGET aws-cpp-sdk-s3)
   get_property(
     _lib_type
     TARGET aws-cpp-sdk-s3

@@ -1,0 +1,26 @@
+From 7b24166a73e422e65b725ffcb0acd20ab493fac0 Mon Sep 17 00:00:00 2001
+From: Kyle Edwards <kyedwards@nvidia.com>
+Date: Wed, 28 Aug 2024 15:32:07 -0400
+Subject: [PATCH] Don't set CMP0077 to OLD
+
+---
+ CMakeLists.txt | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c17ff8a07b1..b30bc81b6df 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -13,10 +13,6 @@ if (LEGACY_BUILD)
+             "update the build flags as mentioned in README.md and set -DLEGACY_BUILD=OFF. "
+             "The legacy support will be removed at 1.12.0 release.")
+
+-    if (POLICY CMP0077)
+-        cmake_policy(SET CMP0077 OLD) # CMP0077: option() honors normal variables. Introduced in 3.13
+-    endif ()
+-
+     get_filename_component(AWS_NATIVE_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+
+     # Cmake invocation variables:
+--
+2.34.1
