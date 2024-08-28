@@ -61,17 +61,16 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci-conda:latest"
       run_script: "ci/build_docs.sh"
-  # TODO: uncomment when https://github.com/rapidsai/kvikio/issues/446 has been fixed.
-  # devcontainer:
-  #   secrets: inherit
-  #   uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-24.10
-  #   with:
-  #     arch: '["amd64"]'
-  #     cuda: '["12.5"]'
-  #     build_command: |
-  #       sccache -z;
-  #       build-all --verbose;
-  #       sccache -s;
+  devcontainer:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-24.10
+    with:
+      arch: '["amd64"]'
+      cuda: '["12.5"]'
+      build_command: |
+        sccache -z;
+        build-all --verbose;
+        sccache -s;
   wheel-cpp-build:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.10
