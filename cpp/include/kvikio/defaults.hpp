@@ -83,11 +83,14 @@ class defaults {
   bool _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
+  std::size_t _bounce_buffer_size;
 
   static unsigned int get_num_threads_from_env()
   {
     const int ret = detail::getenv_or("KVIKIO_NTHREADS", 1);
-    if (ret <= 0) { throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer"); }
+    if (ret <= 0) {
+      throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer greater than zero");
+    }
     return ret;
   }
 
@@ -107,17 +110,27 @@ class defaults {
     {
       const ssize_t env = detail::getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
       if (env <= 0) {
-        throw std::invalid_argument("KVIKIO_TASK_SIZE has to be a positive integer");
+        throw std::invalid_argument(
+          "KVIKIO_TASK_SIZE has to be a positive integer greater than zero");
       }
       _task_size = env;
     }
     // Determine the default value of `gds_threshold`
     {
       const ssize_t env = detail::getenv_or("KVIKIO_GDS_THRESHOLD", 1024 * 1024);
-      if (env <= 0) {
+      if (env < 0) {
         throw std::invalid_argument("KVIKIO_GDS_THRESHOLD has to be a positive integer");
       }
       _gds_threshold = env;
+    }
+    // Determine the default value of `bounce_buffer_size`
+    {
+      const ssize_t env = detail::getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
+      if (env <= 0) {
+        throw std::invalid_argument(
+          "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer greater than zero");
+      }
+      _bounce_buffer_size = env;
     }
   }
 
@@ -191,7 +204,13 @@ class defaults {
    *
    * @param nthreads The number of threads to use.
    */
-  static void thread_pool_nthreads_reset(unsigned int nthreads) { thread_pool().reset(nthreads); }
+  static void thread_pool_nthreads_reset(unsigned int nthreads)
+  {
+    if (nthreads == 0) {
+      throw std::invalid_argument("number of threads must be a positive integer greater than zero");
+    }
+    thread_pool().reset(nthreads);
+  }
 
   /**
    * @brief Get the default task size used for parallel IO operations.
@@ -208,7 +227,13 @@ class defaults {
    *
    * @param nbytes The default task size in bytes.
    */
-  static void task_size_reset(std::size_t nbytes) { instance()->_task_size = nbytes; }
+  static void task_size_reset(std::size_t nbytes)
+  {
+    if (nbytes == 0) {
+      throw std::invalid_argument("task size must be a positive integer greater than zero");
+    }
+    instance()->_task_size = nbytes;
+  }
 
   /**
    * @brief Get the default GDS threshold, which is the minimum size to use GDS (in bytes).
@@ -228,6 +253,30 @@ class defaults {
    * @param nbytes The default GDS threshold size in bytes.
    */
   static void gds_threshold_reset(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
+
+  /**
+   * @brief Get the size of the bounce buffer used to stage data in host memory.
+   *
+   * Set the value using `kvikio::default::bounce_buffer_size_reset()` or by setting the
+   * `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the value is 16 MiB.
+   *
+   * @return The bounce buffer size in bytes.
+   */
+  [[nodiscard]] static std::size_t bounce_buffer_size() { return instance()->_bounce_buffer_size; }
+
+  /**
+   * @brief Reset the size of the bounce buffer used to stage data in host memory.
+   *
+   * @param nbytes The bounce buffer size in bytes.
+   */
+  static void bounce_buffer_size_reset(std::size_t nbytes)
+  {
+    if (nbytes == 0) {
+      throw std::invalid_argument(
+        "size of the bounce buffer must be a positive integer greater than zero");
+    }
+    instance()->_bounce_buffer_size = nbytes;
+  }
 };
 
 }  // namespace kvikio
