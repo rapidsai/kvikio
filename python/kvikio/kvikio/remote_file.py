@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import functools
 from typing import Optional
 
 from kvikio.cufile import IOFuture
 
 
+@functools.cache
 def is_remote_file_available() -> bool:
     """Check if the remote module is available"""
     try:
@@ -18,6 +20,7 @@ def is_remote_file_available() -> bool:
         return True
 
 
+@functools.cache
 def _get_remote_module():
     """Get the remote module or raise an error"""
     if not is_remote_file_available():

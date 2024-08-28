@@ -2,7 +2,6 @@
 # See file LICENSE for terms.
 
 import multiprocessing as mp
-import os
 import socket
 import time
 from contextlib import contextmanager
@@ -41,21 +40,6 @@ def endpoint_port():
     return port
 
 
-@contextmanager
-def ensure_safe_environment_variables():
-    """
-    Get a context manager to safely set environment variables
-    All changes will be undone on close, hence environment variables set
-    within this contextmanager will neither persist nor change global state.
-    """
-    saved_environ = dict(os.environ)
-    try:
-        yield
-    finally:
-        os.environ.clear()
-        os.environ.update(saved_environ)
-
-
 def start_s3_server(ip_address, port):
     server = moto.server.ThreadedMotoServer(ip_address=ip_address, port=port)
     server.start()
@@ -65,16 +49,14 @@ def start_s3_server(ip_address, port):
 
 @pytest.fixture(scope="session")
 def s3_base(endpoint_ip, endpoint_port):
-    """
-    Fixture to set up moto server in separate process
-    """
-    with ensure_safe_environment_variables():
+    """Fixture to set up moto server in separate process"""
+    with pytest.MonkeyPatch.context() as monkeypatch:
         # Use fake aws credentials
-        os.environ["AWS_ACCESS_KEY_ID"] = "foobar_key"
-        os.environ["AWS_SECRET_ACCESS_KEY"] = "foobar_secret"
-        os.environ["AWS_SECURITY_TOKEN"] = "foobar_security_token"
-        os.environ["AWS_SESSION_TOKEN"] = "foobar_session_token"
-        os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "foobar_key")
+        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "foobar_secret")
+        monkeypatch.setenv("AWS_SECURITY_TOKEN", "foobar_security_token")
+        monkeypatch.setenv("AWS_SESSION_TOKEN", "foobar_session_token")
+        monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
 
         p = mp.Process(target=start_s3_server, args=(endpoint_ip, endpoint_port))
         p.start()
@@ -86,17 +68,16 @@ def s3_base(endpoint_ip, endpoint_port):
 def s3_context(s3_base, bucket, files=None):
     if files is None:
         files = {}
-    with ensure_safe_environment_variables():
-        client = boto3.client("s3", endpoint_url=s3_base)
-        client.create_bucket(Bucket=bucket, ACL="public-read-write")
-        for f, data in files.items():
-            client.put_object(Bucket=bucket, Key=f, Body=data)
-        yield kvikio.S3Context(s3_base)
-        for f, data in files.items():
-            try:
-                client.delete_object(Bucket=bucket, Key=f)
-            except Exception:
-                pass
+    client = boto3.client("s3", endpoint_url=s3_base)
+    client.create_bucket(Bucket=bucket, ACL="public-read-write")
+    for f, data in files.items():
+        client.put_object(Bucket=bucket, Key=f, Body=data)
+    yield kvikio.S3Context(s3_base)
+    for f, data in files.items():
+        try:
+            client.delete_object(Bucket=bucket, Key=f)
+        except Exception:
+            pass
 
 
 @pytest.mark.parametrize("size", [10, 100, 1000])
