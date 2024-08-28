@@ -32,6 +32,9 @@ def get_local_port() -> int:
 
 
 def start_s3_server(lifetime: int):
+    """Start a server and run it for `lifetime` minutes.
+    NB: to stop before `lifetime`, kill the process/thread running this function.
+    """
     from moto.server import ThreadedMotoServer
 
     # Silence the activity info from ThreadedMotoServer
@@ -44,6 +47,7 @@ def start_s3_server(lifetime: int):
 
 @contextlib.contextmanager
 def local_s3_server(lifetime: int):
+    """Start a server and run it for `lifetime` minutes or kill it on context exit"""
     # Use fake aws credentials
     os.environ["AWS_ACCESS_KEY_ID"] = "foobar_key"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "foobar_secret"
@@ -155,7 +159,7 @@ def main(args):
 
         def pprint_api_res(name, samples):
             samples = [args.nbytes / s for s in samples]  # Convert to throughput
-            mean = statistics.mean(samples) if len(samples) > 1 else samples[0]
+            mean = statistics.harmonic_mean(samples) if len(samples) > 1 else samples[0]
             ret = f"{api}-{name}".ljust(18)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
             if len(samples) > 1:
