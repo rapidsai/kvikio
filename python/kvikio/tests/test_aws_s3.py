@@ -43,8 +43,8 @@ def endpoint_port():
 def start_s3_server(ip_address, port):
     server = moto.server.ThreadedMotoServer(ip_address=ip_address, port=port)
     server.start()
-    time.sleep(180)
-    print("ThreadedMotoServer shutting down because of timeout (180s)")
+    time.sleep(600)
+    print("ThreadedMotoServer shutting down because of timeout (10min)")
 
 
 @pytest.fixture(scope="session")
