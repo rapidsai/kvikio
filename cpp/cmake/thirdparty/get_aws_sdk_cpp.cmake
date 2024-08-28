@@ -25,7 +25,15 @@ function(find_and_configure_aws_sdk_cpp)
     CPM_ARGS
     GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
     GIT_TAG 1.11.393
-    PATCH_COMMAND ${CMAKE_COMMAND} -E env GIT_COMMITTER_NAME=rapids-cmake GIT_COMMITTER_EMAIL=rapids.cmake@rapids.ai git am ${CMAKE_CURRENT_LIST_DIR}/patches/aws-sdk-cpp/0001-Don-t-set-CMP0077-to-OLD.patch
+    PATCH_COMMAND
+      ${CMAKE_COMMAND}
+      -E
+      env
+      GIT_COMMITTER_NAME=rapids-cmake
+      GIT_COMMITTER_EMAIL=rapids.cmake@rapids.ai
+      git
+      am
+      ${CMAKE_CURRENT_LIST_DIR}/patches/aws-sdk-cpp/0001-Don-t-set-CMP0077-to-OLD.patch
     OPTIONS "BUILD_ONLY s3" "BUILD_SHARED_LIBS OFF" "ENABLE_TESTING OFF" "ENABLE_UNITY_BUILD ON"
   )
 endfunction()
