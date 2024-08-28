@@ -82,7 +82,7 @@ inline std::pair<std::string, std::string> parse_s3_path(std::string const& path
 }  // namespace detail
 
 /**
- * @brief S3 context, which initializes and maintains the S3 SDK and client.
+ * @brief S3 context that initializes and maintains the S3 SDK and client.
  *
  * If not given an existing S3 client, S3Context calls `Aws::InitAPI()` and `Aws::ShutdownAPI`,
  * which inherit some limitations from the SDK.
@@ -121,7 +121,7 @@ class S3Context {
    * The S3 SDK is automatically initialized on construction and shutdown on destruction.
    *
    * The new S3 client use the default `Aws::Client::ClientConfiguration`, thus please make sure
-   * that AWS credentials have been configure on the system. A common way to do this, is to set the
+   * that AWS credentials have been configured on the system. A common way to do this, is to set the
    * environment variables: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
    *
    * Other relevant options are `AWS_DEFAULT_REGION` and `AWS_ENDPOINT_URL`, see
@@ -160,6 +160,7 @@ class S3Context {
   ~S3Context() noexcept
   {
     if (_shutdown_s3_api) {
+        _client = nullptr;
       try {
         Aws::SDKOptions options;
         Aws::ShutdownAPI(options);
