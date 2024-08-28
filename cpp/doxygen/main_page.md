@@ -85,14 +85,28 @@ Set the environment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibilit
   - when running in Windows Subsystem for Linux (WSL).
   - when `/run/udev` isn't readable, which typically happens when running inside a docker image not launched with `--volume /run/udev:/run/udev:ro`.
 
+This setting can also be controlled by `defaults::compat_mode()` and `defaults::compat_mode_reset()`.
+
+
 #### Thread Pool (KVIKIO_NTHREADS)
 KvikIO can use multiple threads for IO automatically. Set the environment variable `KVIKIO_NTHREADS` to the number of threads in the thread pool. If not set, the default value is 1.
+
+This setting can also be controlled by `defaults::thread_pool_nthreads()` and `defaults::thread_pool_nthreads_reset()`.
 
 #### Task Size (KVIKIO_TASK_SIZE)
 KvikIO splits parallel IO operations into multiple tasks. Set the environment variable `KVIKIO_TASK_SIZE` to the maximum task size (in bytes). If not set, the default value is 4194304 (4 MiB).
 
+This setting can also be controlled by `defaults::task_size()` and `defaults::task_size_reset()`.
+
 #### GDS Threshold (KVIKIO_GDS_THRESHOLD)
 In order to improve performance of small IO, `.pread()` and `.pwrite()` implement a shortcut that circumvent the threadpool and use the POSIX backend directly. Set the environment variable `KVIKIO_GDS_THRESHOLD` to the minimum size (in bytes) to use GDS. If not set, the default value is 1048576 (1 MiB).
+
+This setting can also be controlled by `defaults::gds_threshold()` and `defaults::gds_threshold_reset()`.
+
+#### Size of the Bounce Buffer (KVIKIO_GDS_THRESHOLD)
+KvikIO might have to use an intermediate host buffer when copying between file and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to size (in bytes) of this "bounce" buffer. If not set, the default value is 16777216 (16 MiB).
+
+This setting can also be controlled by `defaults::bounce_buffer_size()` and `defaults::bounce_buffer_size_reset()`.
 
 
 ## Example
