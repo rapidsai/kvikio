@@ -16,6 +16,7 @@
 function(find_and_configure_aws_sdk_cpp)
   include(${rapids-cmake-dir}/cpm/find.cmake)
 
+  set(CPM_USE_LOCAL_PACKAGES ON)
   set(CMAKE_FIND_DEBUG_MODE ON)
   rapids_cpm_find(
     AWSSDK 1.11.267
