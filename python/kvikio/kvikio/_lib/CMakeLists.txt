@@ -17,7 +17,7 @@ set(cython_modules arr.pyx buffer.pyx defaults.pyx driver_properties.pyx file_ha
                    libnvcomp.pyx libnvcomp_ll.pyx
 )
 
-if(AWSSDK_FOUND)
+if(TARGET aws-cpp-sdk-s3)
   message(STATUS "Building remote_handle.pyx (aws-cpp-sdk-s3 found)")
   list(APPEND cython_modules remote_handle.pyx)
 else()
