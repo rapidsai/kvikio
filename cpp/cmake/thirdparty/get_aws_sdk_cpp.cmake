@@ -35,8 +35,9 @@ function(find_and_configure_aws_sdk_cpp)
       GIT_COMMITTER_EMAIL=rapids.cmake@rapids.ai
       git
       am
+      --no-gpg-sign
       ${CMAKE_CURRENT_LIST_DIR}/patches/aws-sdk-cpp/0001-Don-t-set-CMP0077-to-OLD.patch
-    OPTIONS "BUILD_ONLY s3" "BUILD_SHARED_LIBS OFF" "ENABLE_TESTING OFF" "ENABLE_UNITY_BUILD ON"
+    OPTIONS "BUILD_ONLY s3" "BUILD_SHARED_LIBS OFF" "ENABLE_TESTING OFF" "ENABLE_UNITY_BUILD ON" "NO_HTTP_CLIENT ON"
   )
 endfunction()
 
