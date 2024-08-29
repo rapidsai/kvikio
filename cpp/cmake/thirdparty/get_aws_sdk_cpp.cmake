@@ -16,6 +16,7 @@
 function(find_and_configure_aws_sdk_cpp)
   include(${rapids-cmake-dir}/cpm/find.cmake)
 
+  set(CMAKE_FIND_DEBUG_MODE ON)
   rapids_cpm_find(
     AWSSDK 1.11.267
     GLOBAL_TARGETS aws-cpp-sdk-s3 COMPONENTS S3
@@ -35,6 +36,7 @@ function(find_and_configure_aws_sdk_cpp)
       ${CMAKE_CURRENT_LIST_DIR}/patches/aws-sdk-cpp/0001-Don-t-set-CMP0077-to-OLD.patch
     OPTIONS "BUILD_ONLY s3" "BUILD_SHARED_LIBS OFF" "ENABLE_TESTING OFF" "ENABLE_UNITY_BUILD ON"
   )
+  set(CMAKE_FIND_DEBUG_MODE)
 endfunction()
 
 find_and_configure_aws_sdk_cpp()
