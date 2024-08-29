@@ -357,6 +357,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedLZ4CompressGetTempSize,
     nvcompBatchedLZ4DecompressAsync,
     nvcompBatchedLZ4DecompressGetTempSize,
+    nvcompBatchedLZ4DefaultOpts,
     nvcompBatchedLZ4GetDecompressSizeAsync,
     nvcompBatchedLZ4Opts_t,
 )
@@ -371,20 +372,26 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
 
     HEADER_SIZE_BYTES: size_t = sizeof(uint32_t)
 
-    def __init__(self, data_type: int = 0, has_header: bool = True):
+    def __init__(self, data_type: int = None, has_header: bool = True):
         """Initialize the codec.
 
         Parameters
         ----------
-        data_type: int
-            Source data type.
+        data_type: int or None
+            Source data type. If None, uses nvcomp default options.
         has_header: bool
             Whether the compressed data has a header.
             This enables data compatibility between numcodecs LZ4 codec,
             which has the header and nvCOMP LZ4 codec which does not
             require the header.
         """
-        self.options = nvcompBatchedLZ4Opts_t(data_type)
+        if data_type is None:
+            self.options = nvcompBatchedLZ4DefaultOpts
+        elif isinstance(data_type, int):
+            self.options = nvcompBatchedLZ4Opts_t(data_type)
+        else:
+            raise ValueError("Invalid value for data_type: {data_type}")
+
         self.has_header = has_header
 
         # Note on LZ4 header structure: numcodecs LZ4 codec prepends
@@ -621,6 +628,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedGdeflateCompressGetTempSize,
     nvcompBatchedGdeflateDecompressAsync,
     nvcompBatchedGdeflateDecompressGetTempSize,
+    nvcompBatchedGdeflateDefaultOpts,
     nvcompBatchedGdeflateGetDecompressSizeAsync,
     nvcompBatchedGdeflateOpts_t,
 )
@@ -633,8 +641,13 @@ class nvCompBatchAlgorithmGdeflate(nvCompBatchAlgorithm):
 
     options: nvcompBatchedGdeflateOpts_t
 
-    def __init__(self, algo: int = 0):
-        self.options = nvcompBatchedGdeflateOpts_t(algo)
+    def __init__(self, algo: int = None):
+        if algo is None:
+            self.options = nvcompBatchedGdeflateDefaultOpts
+        elif isinstance(algo, int):
+            self.options = nvcompBatchedGdeflateOpts_t(algo)
+        else:
+            raise ValueError("Invalid value for algo: {algo}")
 
     def _get_comp_temp_size(
         self,
@@ -756,6 +769,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedZstdCompressGetTempSize,
     nvcompBatchedZstdDecompressAsync,
     nvcompBatchedZstdDecompressGetTempSize,
+    nvcompBatchedZstdDefaultOpts,
     nvcompBatchedZstdGetDecompressSizeAsync,
     nvcompBatchedZstdOpts_t,
 )
@@ -769,7 +783,7 @@ class nvCompBatchAlgorithmZstd(nvCompBatchAlgorithm):
     options: nvcompBatchedZstdOpts_t
 
     def __init__(self):
-        self.options = nvcompBatchedZstdOpts_t(0)
+        self.options = nvcompBatchedZstdDefaultOpts
 
     def _get_comp_temp_size(
         self,
@@ -891,6 +905,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedSnappyCompressGetTempSize,
     nvcompBatchedSnappyDecompressAsync,
     nvcompBatchedSnappyDecompressGetTempSize,
+    nvcompBatchedSnappyDefaultOpts,
     nvcompBatchedSnappyGetDecompressSizeAsync,
     nvcompBatchedSnappyOpts_t,
 )
@@ -904,7 +919,7 @@ class nvCompBatchAlgorithmSnappy(nvCompBatchAlgorithm):
     options: nvcompBatchedSnappyOpts_t
 
     def __init__(self):
-        self.options = nvcompBatchedSnappyOpts_t(0)
+        self.options = nvcompBatchedSnappyDefaultOpts
 
     def _get_comp_temp_size(
         self,
@@ -1026,6 +1041,7 @@ from kvikio._lib.nvcomp_ll_cxx_api cimport (
     nvcompBatchedDeflateCompressGetTempSize,
     nvcompBatchedDeflateDecompressAsync,
     nvcompBatchedDeflateDecompressGetTempSize,
+    nvcompBatchedDeflateDefaultOpts,
     nvcompBatchedDeflateGetDecompressSizeAsync,
     nvcompBatchedDeflateOpts_t,
 )
@@ -1038,14 +1054,19 @@ class nvCompBatchAlgorithmDeflate(nvCompBatchAlgorithm):
 
     options: nvcompBatchedDeflateOpts_t
 
-    def __init__(self, algo: int = 0):
-        self.options = nvcompBatchedDeflateOpts_t(algo)
+    def __init__(self, algo: int = None):
+        if algo is None:
+            self.options = nvcompBatchedDeflateDefaultOpts
+        elif isinstance(algo, int):
+            self.options = nvcompBatchedDeflateOpts_t(algo)
+        else:
+            raise ValueError("Invalid value for algo: {algo}")
 
     def _get_comp_temp_size(
         self,
         size_t batch_size,
         size_t max_uncompressed_chunk_bytes,
-    ) -> (nvcompStatus_t, size_t):
+    ) -> tuple[nvcompStatus_t, size_t]:
         cdef size_t temp_bytes = 0
 
         err = nvcompBatchedDeflateCompressGetTempSize(
