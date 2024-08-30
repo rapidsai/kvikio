@@ -32,7 +32,7 @@ HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [--cmake-args=\"<args>\"] [
    default action (no args) is to build and install 'libkvikio' and 'kvikio' targets
 "
 LIBKVIKIO_BUILD_DIR=${LIBKVIKIO_BUILD_DIR:=${REPODIR}/cpp/build}
-KVIKIO_BUILD_DIR="${REPODIR}/python/build ${REPODIR}/python/_skbuild"
+KVIKIO_BUILD_DIR="${REPODIR}/python/kvikio/build/"
 BUILD_DIRS="${LIBKVIKIO_BUILD_DIR} ${KVIKIO_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
