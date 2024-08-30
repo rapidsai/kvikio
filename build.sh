@@ -111,12 +111,14 @@ fi
 # Process flags
 if hasArg -v; then
     VERBOSE_FLAG=-v
+    export SKBUILD_BUILD_VERBOSE=true
+    export SKBUILD_LOGGING_LEVEL=INFO
     set -x
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
     export SKBUILD_INSTALL_STRIP=false
-    export SKBUILD_CMAKE_BUILD_TYPE=""Debug""
+    export SKBUILD_CMAKE_BUILD_TYPE=Debug
 fi
 if hasArg -n; then
     INSTALL_TARGET=""
