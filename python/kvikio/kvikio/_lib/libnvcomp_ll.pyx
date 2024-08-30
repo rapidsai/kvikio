@@ -390,7 +390,7 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
         elif isinstance(data_type, int):
             self.options = nvcompBatchedLZ4Opts_t(data_type)
         else:
-            raise ValueError("Invalid value for data_type: {data_type}")
+            raise ValueError(f"Invalid value for data_type: {data_type}")
 
         self.has_header = has_header
 
