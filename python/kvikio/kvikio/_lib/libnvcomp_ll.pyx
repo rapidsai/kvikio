@@ -647,7 +647,7 @@ class nvCompBatchAlgorithmGdeflate(nvCompBatchAlgorithm):
         elif isinstance(algo, int):
             self.options = nvcompBatchedGdeflateOpts_t(algo)
         else:
-            raise ValueError("Invalid value for algo: {algo}")
+            raise ValueError(f"Invalid value for algo: {algo}")
 
     def _get_comp_temp_size(
         self,
@@ -1060,7 +1060,7 @@ class nvCompBatchAlgorithmDeflate(nvCompBatchAlgorithm):
         elif isinstance(algo, int):
             self.options = nvcompBatchedDeflateOpts_t(algo)
         else:
-            raise ValueError("Invalid value for algo: {algo}")
+            raise ValueError(f"Invalid value for algo: {algo}")
 
     def _get_comp_temp_size(
         self,
