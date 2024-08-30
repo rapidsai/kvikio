@@ -22,7 +22,7 @@ VALIDARGS="clean libkvikio kvikio -v -g -n --pydevelop --no-s3 -h"
 HELP="$0 [clean] [libkvikio] [kvikio] [--no-s3] [-v] [-g] [-n] [--pydevelop] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
    libkvikio                   - build and install the libkvikio C++ code
-   kvikio                      - build and install the kvikio Python package
+   kvikio                      - build and install the kvikio Python package (requires libkvikio)
    --no-s3                     - build with no AWS S3 support
    -v                          - verbose build mode
    -g                          - build for debug
@@ -33,7 +33,7 @@ HELP="$0 [clean] [libkvikio] [kvikio] [--no-s3] [-v] [-g] [-n] [--pydevelop] [--
    default action (no args) is to build and install 'libkvikio' and 'kvikio' targets
 "
 LIBKVIKIO_BUILD_DIR=${LIBKVIKIO_BUILD_DIR:=${REPODIR}/cpp/build}
-KVIKIO_BUILD_DIR="${REPODIR}/python/build ${REPODIR}/python/_skbuild"
+KVIKIO_BUILD_DIR="${REPODIR}/python/kvikio/build/"
 BUILD_DIRS="${LIBKVIKIO_BUILD_DIR} ${KVIKIO_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
@@ -117,10 +117,14 @@ if hasArg --no-s3; then
 fi
 if hasArg -v; then
     VERBOSE_FLAG=-v
+    export SKBUILD_BUILD_VERBOSE=true
+    export SKBUILD_LOGGING_LEVEL=INFO
     set -x
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
+    export SKBUILD_INSTALL_STRIP=false
+    export SKBUILD_CMAKE_BUILD_TYPE=Debug
 fi
 if hasArg -n; then
     INSTALL_TARGET=""
