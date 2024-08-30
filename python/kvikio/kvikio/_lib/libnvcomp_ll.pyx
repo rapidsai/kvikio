@@ -387,10 +387,8 @@ class nvCompBatchAlgorithmLZ4(nvCompBatchAlgorithm):
         """
         if data_type is None:
             self.options = nvcompBatchedLZ4DefaultOpts
-        elif isinstance(data_type, int):
-            self.options = nvcompBatchedLZ4Opts_t(data_type)
         else:
-            raise ValueError(f"Invalid value for data_type: {data_type}")
+            self.options = nvcompBatchedLZ4Opts_t(data_type)
 
         self.has_header = has_header
 
@@ -644,10 +642,8 @@ class nvCompBatchAlgorithmGdeflate(nvCompBatchAlgorithm):
     def __init__(self, algo: int = None):
         if algo is None:
             self.options = nvcompBatchedGdeflateDefaultOpts
-        elif isinstance(algo, int):
-            self.options = nvcompBatchedGdeflateOpts_t(algo)
         else:
-            raise ValueError(f"Invalid value for algo: {algo}")
+            self.options = nvcompBatchedGdeflateOpts_t(algo)
 
     def _get_comp_temp_size(
         self,
@@ -1057,10 +1053,8 @@ class nvCompBatchAlgorithmDeflate(nvCompBatchAlgorithm):
     def __init__(self, algo: int = None):
         if algo is None:
             self.options = nvcompBatchedDeflateDefaultOpts
-        elif isinstance(algo, int):
-            self.options = nvcompBatchedDeflateOpts_t(algo)
         else:
-            raise ValueError(f"Invalid value for algo: {algo}")
+            self.options = nvcompBatchedDeflateOpts_t(algo)
 
     def _get_comp_temp_size(
         self,
