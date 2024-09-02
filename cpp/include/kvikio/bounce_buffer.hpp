@@ -70,7 +70,7 @@ class AllocRetain {
   /**
    * @brief Free all retained allocations
    *
-   * NB: The `_mutex` must be taken prior to calling this function, if not called from the dtor.
+   * NB: The `_mutex` must be taken prior to calling this function.
    *
    * @return The number of bytes cleared
    */
@@ -85,7 +85,7 @@ class AllocRetain {
   }
 
   /**
-   * @brief Ensure the size of the retained allocations match `defaults::bounce_buffer_size()`
+   * @brief Ensure the sizes of the retained allocations match `defaults::bounce_buffer_size()`
    *
    * NB: `_mutex` must be taken prior to calling this function.
    */

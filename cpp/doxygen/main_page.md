@@ -99,12 +99,12 @@ KvikIO splits parallel IO operations into multiple tasks. Set the environment va
 This setting can also be controlled by `defaults::task_size()` and `defaults::task_size_reset()`.
 
 #### GDS Threshold (KVIKIO_GDS_THRESHOLD)
-In order to improve performance of small IO, `.pread()` and `.pwrite()` implement a shortcut that circumvent the threadpool and use the POSIX backend directly. Set the environment variable `KVIKIO_GDS_THRESHOLD` to the minimum size (in bytes) to use GDS. If not set, the default value is 1048576 (1 MiB).
+To improve performance of small IO requests, `.pread()` and `.pwrite()` implement a shortcut that circumvents the threadpool and uses the POSIX backend directly. Set the environment variable `KVIKIO_GDS_THRESHOLD` to the minimum size (in bytes) to use GDS. If not set, the default value is 1048576 (1 MiB).
 
 This setting can also be controlled by `defaults::gds_threshold()` and `defaults::gds_threshold_reset()`.
 
 #### Size of the Bounce Buffer (KVIKIO_GDS_THRESHOLD)
-KvikIO might have to use an intermediate host buffer when copying between file and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to size (in bytes) of this "bounce" buffer. If not set, the default value is 16777216 (16 MiB).
+KvikIO might have to use an intermediate host buffer when copying between files and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to the size (in bytes) of this "bounce" buffer. If not set, the default value is 16777216 (16 MiB).
 
 This setting can also be controlled by `defaults::bounce_buffer_size()` and `defaults::bounce_buffer_size_reset()`.
 

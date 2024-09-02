@@ -5,11 +5,11 @@ from kvikio._lib import buffer  # type: ignore
 
 
 def memory_register(buf) -> None:
-    """Register a device memory allocation to cuFile.
+    """Register a device memory allocation with cuFile.
 
     Warning
     -------
-    This API is intended for usecases where the memory is used as streaming
+    This API is intended for usecases where the memory is used as a streaming
     buffer that is reused across multiple cuFile IO operations.
 
     Parameters
