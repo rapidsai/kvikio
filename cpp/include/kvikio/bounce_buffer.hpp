@@ -76,12 +76,12 @@ class AllocRetain {
    */
   std::size_t _clear()
   {
-    std::size_t num_allocs = 0;
+    std::size_t ret = _free_allocs.size() * _size;
     while (!_free_allocs.empty()) {
       CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
       _free_allocs.pop();
     }
-    return num_allocs * _size;
+    return ret;
   }
 
   /**

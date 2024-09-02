@@ -8,7 +8,7 @@
 from kvikio._lib.arr cimport Array
 
 
-cdef extern from "<kvikio/buffer.hpp>" namespace "kvikio" nogil:
+cdef extern from "<kvikio/buffer.hpp>" nogil:
     void cpp_memory_register "kvikio::memory_register"(const void* devPtr) except +
     void cpp_memory_deregister "kvikio::memory_deregister"(const void* devPtr) except +
 
@@ -25,3 +25,11 @@ def memory_deregister(buf) -> None:
         buf = Array(buf)
     cdef Array arr = buf
     cpp_memory_deregister(<void*>arr.ptr)
+
+
+cdef extern from "<kvikio/bounce_buffer.hpp>" nogil:
+    size_t cpp_alloc_retain_clear "kvikio::AllocRetain::instance().clear"() except +
+
+
+def bounce_buffer_clear() -> int:
+    return cpp_alloc_retain_clear()

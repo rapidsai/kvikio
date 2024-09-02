@@ -8,6 +8,7 @@ from contextlib import contextmanager
 import pytest
 
 import kvikio
+import kvikio.buffer
 import kvikio.defaults
 
 cupy = pytest.importorskip("cupy")
@@ -273,3 +274,18 @@ def test_different_bounce_buffer_sizes(tmp_path, size, tasksize, buffer_size):
                     f.write(a)
                     assert f.read(b) == b.nbytes
                     cupy.testing.assert_array_equal(a, b)
+
+
+def test_bounce_buffer_clear(tmp_path):
+    """Test clearing the bounce buffer"""
+    filename = tmp_path / "test-file"
+    with kvikio.defaults.set_compat_mode(True), kvikio.defaults.set_num_threads(1):
+        with kvikio.CuFile(filename, "w") as f:
+            with kvikio.defaults.set_bounce_buffer_size(1024):
+                f.write(cupy.arange(10))  # populate the bounce buffer
+                assert kvikio.buffer.bounce_buffer_clear() == 1024
+                f.write(cupy.arange(10))  # populate the bounce buffer
+            with kvikio.defaults.set_bounce_buffer_size(2048):
+                with kvikio.CuFile(filename, "w") as f:
+                    f.write(cupy.arange(10))  # populate the bounce buffer
+        assert kvikio.buffer.bounce_buffer_clear() == 2048

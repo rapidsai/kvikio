@@ -29,3 +29,7 @@ def memory_deregister(buf) -> None:
         Device buffer to deregister .
     """
     buffer.memory_deregister(buf)
+
+
+def bounce_buffer_clear() -> int:
+    return buffer.bounce_buffer_clear()
