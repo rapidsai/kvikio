@@ -104,7 +104,7 @@ To improve performance of small IO requests, `.pread()` and `.pwrite()` implemen
 This setting can also be controlled by `defaults::gds_threshold()` and `defaults::gds_threshold_reset()`.
 
 #### Size of the Bounce Buffer (KVIKIO_GDS_THRESHOLD)
-KvikIO might have to use an intermediate host buffer when copying between files and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to the size (in bytes) of this "bounce" buffer. If not set, the default value is 16777216 (16 MiB).
+KvikIO might have to use intermediate host buffers (one per thread) when copying between files and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to the size (in bytes) of these "bounce" buffers. If not set, the default value is 16777216 (16 MiB).
 
 This setting can also be controlled by `defaults::bounce_buffer_size()` and `defaults::bounce_buffer_size_reset()`.
 
