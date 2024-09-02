@@ -23,8 +23,8 @@ def compat_mode() -> bool:
     - when `/run/udev` isn't readable, which typically happens when running inside
     a docker image not launched with `--volume /run/udev:/run/udev:ro`
 
-    Return
-    ------
+    Returns
+    -------
     bool
         Whether KvikIO is running in compatibility mode or not.
     """
@@ -68,8 +68,8 @@ def get_num_threads() -> int:
     Set the default value using `num_threads_reset()` or by setting the
     `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
 
-    Return
-    ------
+    Returns
+    -------
     nthreads: int
         The number of threads in the current thread pool.
     """
@@ -119,8 +119,8 @@ def task_size() -> int:
     the `KVIKIO_TASK_SIZE` environment variable. If not set,
     the default value is 4 MiB.
 
-    Return
-    ------
+    Returns
+    -------
     nbytes: int
         The default task size in bytes.
     """
@@ -166,8 +166,8 @@ def gds_threshold() -> int:
     `KVIKIO_GDS_THRESHOLD` environment variable. If not set, the default
     value is 1 MiB.
 
-    Return
-    ------
+    Returns
+    -------
     nbytes : int
         The default GDS threshold size in bytes.
     """
