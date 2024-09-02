@@ -31,5 +31,5 @@ cdef extern from "<kvikio/bounce_buffer.hpp>" nogil:
     size_t cpp_alloc_retain_clear "kvikio::AllocRetain::instance().clear"() except +
 
 
-def bounce_buffer_clear() -> int:
+def bounce_buffer_free() -> int:
     return cpp_alloc_retain_clear()

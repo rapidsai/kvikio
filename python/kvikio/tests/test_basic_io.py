@@ -276,20 +276,20 @@ def test_different_bounce_buffer_sizes(tmp_path, size, tasksize, buffer_size):
                     cupy.testing.assert_array_equal(a, b)
 
 
-def test_bounce_buffer_clear(tmp_path):
-    """Test clearing the bounce buffer"""
+def test_bounce_buffer_free(tmp_path):
+    """Test freeing the bounce buffer allocations"""
     filename = tmp_path / "test-file"
-    kvikio.buffer.bounce_buffer_clear()
+    kvikio.buffer.bounce_buffer_free()
     with kvikio.defaults.set_compat_mode(True), kvikio.defaults.set_num_threads(1):
         with kvikio.CuFile(filename, "w") as f:
             with kvikio.defaults.set_bounce_buffer_size(1024):
                 # Notice, since the bounce buffer size is only checked when the buffer
                 # is used, we populate the bounce buffer in between we clear it.
                 f.write(cupy.arange(10))
-                assert kvikio.buffer.bounce_buffer_clear() == 1024
-                assert kvikio.buffer.bounce_buffer_clear() == 0
+                assert kvikio.buffer.bounce_buffer_free() == 1024
+                assert kvikio.buffer.bounce_buffer_free() == 0
                 f.write(cupy.arange(10))
             with kvikio.defaults.set_bounce_buffer_size(2048):
                 f.write(cupy.arange(10))
-                assert kvikio.buffer.bounce_buffer_clear() == 2048
-                assert kvikio.buffer.bounce_buffer_clear() == 0
+                assert kvikio.buffer.bounce_buffer_free() == 2048
+                assert kvikio.buffer.bounce_buffer_free() == 0

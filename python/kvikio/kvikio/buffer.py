@@ -31,5 +31,11 @@ def memory_deregister(buf) -> None:
     buffer.memory_deregister(buf)
 
 
-def bounce_buffer_clear() -> int:
-    return buffer.bounce_buffer_clear()
+def bounce_buffer_free() -> int:
+    """Free the host allocations used as bounce buffers.
+
+    Returns
+    -------
+    Number of bytes freed.
+    """
+    return buffer.bounce_buffer_free()
