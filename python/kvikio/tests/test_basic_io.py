@@ -279,13 +279,17 @@ def test_different_bounce_buffer_sizes(tmp_path, size, tasksize, buffer_size):
 def test_bounce_buffer_clear(tmp_path):
     """Test clearing the bounce buffer"""
     filename = tmp_path / "test-file"
+    kvikio.buffer.bounce_buffer_clear()
     with kvikio.defaults.set_compat_mode(True), kvikio.defaults.set_num_threads(1):
         with kvikio.CuFile(filename, "w") as f:
             with kvikio.defaults.set_bounce_buffer_size(1024):
-                f.write(cupy.arange(10))  # populate the bounce buffer
+                # Notice, since the bounce buffer size is only checked when the buffer
+                # is used, we populate the bounce buffer in between we clear it.
+                f.write(cupy.arange(10))
                 assert kvikio.buffer.bounce_buffer_clear() == 1024
-                f.write(cupy.arange(10))  # populate the bounce buffer
+                assert kvikio.buffer.bounce_buffer_clear() == 0
+                f.write(cupy.arange(10))
             with kvikio.defaults.set_bounce_buffer_size(2048):
-                with kvikio.CuFile(filename, "w") as f:
-                    f.write(cupy.arange(10))  # populate the bounce buffer
-        assert kvikio.buffer.bounce_buffer_clear() == 2048
+                f.write(cupy.arange(10))
+                assert kvikio.buffer.bounce_buffer_clear() == 2048
+                assert kvikio.buffer.bounce_buffer_clear() == 0
