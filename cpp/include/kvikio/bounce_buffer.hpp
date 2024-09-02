@@ -36,7 +36,6 @@ class AllocRetain {
   // The size of each allocation in `_free_allocs`
   std::size_t _size{defaults::bounce_buffer_size()};
 
- public:
   /**
    * @brief An host memory allocation
    */
@@ -72,13 +71,17 @@ class AllocRetain {
    * @brief Free all retained allocations
    *
    * NB: The `_mutex` must be taken prior to calling this function, if not called from the dtor.
+   *
+   * @return The number of bytes cleared
    */
-  void clear()
+  std::size_t _clear()
   {
+    std::size_t num_allocs = 0;
     while (!_free_allocs.empty()) {
       CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
       _free_allocs.pop();
     }
+    return num_allocs * _size;
   }
 
   /**
@@ -86,19 +89,20 @@ class AllocRetain {
    *
    * NB: `_mutex` must be taken prior to calling this function.
    */
-  void ensure_alloc_size()
+  void _ensure_alloc_size()
   {
     auto const bounce_buffer_size = defaults::bounce_buffer_size();
     if (_size != bounce_buffer_size) {
+      _clear();
       _size = bounce_buffer_size;
-      clear();  // the desired allocation size has changed.
     }
   }
 
+ public:
   [[nodiscard]] Alloc get()
   {
     std::lock_guard const lock(_mutex);
-    ensure_alloc_size();
+    _ensure_alloc_size();
 
     // Check if we have an allocation available
     if (!_free_allocs.empty()) {
@@ -117,7 +121,7 @@ class AllocRetain {
   void put(void* alloc, std::size_t size)
   {
     std::lock_guard const lock(_mutex);
-    ensure_alloc_size();
+    _ensure_alloc_size();
 
     // If the size of `alloc` matches the sizes of the retained allocations,
     // it is added to the set of free allocation otherwise it is freed.
@@ -126,6 +130,17 @@ class AllocRetain {
     } else {
       CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(alloc));
     }
+  }
+
+  /**
+   * @brief Free all retained allocations
+   *
+   * @return The number of bytes cleared
+   */
+  std::size_t clear()
+  {
+    std::lock_guard const lock(_mutex);
+    return _clear();
   }
 
   static AllocRetain& instance()
