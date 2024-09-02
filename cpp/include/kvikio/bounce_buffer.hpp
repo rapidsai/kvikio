@@ -61,14 +61,12 @@ class AllocRetain {
   };
 
   AllocRetain() = default;
-  ~AllocRetain() noexcept
-  {
-    try {
-      clear();
-    } catch (CUfileException const& e) {
-      std::cerr << "~AllocRetain(): " << e.what() << std::endl;
-    }
-  }
+
+  // Notice, we do not clear the allocations at destruction thus the allocations are
+  // leak at exit. We do this because `AllocRetain::instance()` stores the allocations
+  // in a static stack that are destructed below main, which is not allowed in CUDA:
+  // <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
+  ~AllocRetain() noexcept = default;
 
   /**
    * @brief Free all retained allocations
