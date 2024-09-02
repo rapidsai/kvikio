@@ -44,14 +44,14 @@ class AllocRetain {
    private:
     AllocRetain* _manager;
     void* _alloc;
-    const std::size_t _size;
+    std::size_t const _size;
 
    public:
     Alloc(AllocRetain* manager, void* alloc, std::size_t size)
       : _manager(manager), _alloc{alloc}, _size{size}
     {
     }
-    Alloc(const Alloc&)            = delete;
+    Alloc(Alloc const&)            = delete;
     Alloc& operator=(Alloc const&) = delete;
     Alloc(Alloc&& o)               = delete;
     Alloc& operator=(Alloc&& o)    = delete;
@@ -65,11 +65,16 @@ class AllocRetain {
   {
     try {
       clear();
-    } catch (const CUfileException& e) {
+    } catch (CUfileException const& e) {
       std::cerr << "~AllocRetain(): " << e.what() << std::endl;
     }
   }
 
+  /**
+   * @brief Free all retained allocations
+   *
+   * NB: The `_mutex` must be taken prior to calling this function, if not called from the dtor.
+   */
   void clear()
   {
     while (!_free_allocs.empty()) {
@@ -78,12 +83,24 @@ class AllocRetain {
     }
   }
 
-  [[nodiscard]] Alloc get()
+  /**
+   * @brief Ensure the size of the retained allocations match `defaults::bounce_buffer_size()`
+   *
+   * NB: `_mutex` must be taken prior to calling this function.
+   */
+  void ensure_alloc_size()
   {
-    const std::lock_guard lock(_mutex);
-    if (_size != defaults::bounce_buffer_size()) {
+    auto const bounce_buffer_size = defaults::bounce_buffer_size();
+    if (_size != bounce_buffer_size) {
+      _size = bounce_buffer_size;
       clear();  // the desired allocation size has changed.
     }
+  }
+
+  [[nodiscard]] Alloc get()
+  {
+    std::lock_guard const lock(_mutex);
+    ensure_alloc_size();
 
     // Check if we have an allocation available
     if (!_free_allocs.empty()) {
@@ -101,10 +118,8 @@ class AllocRetain {
 
   void put(void* alloc, std::size_t size)
   {
-    const std::lock_guard lock(_mutex);
-    if (_size != defaults::bounce_buffer_size()) {
-      clear();  // the desired allocation size has changed.
-    }
+    std::lock_guard const lock(_mutex);
+    ensure_alloc_size();
 
     // If the size of `alloc` matches the sizes of the retained allocations,
     // it is added to the set of free allocation otherwise it is freed.
@@ -121,7 +136,7 @@ class AllocRetain {
     return _instance;
   }
 
-  AllocRetain(const AllocRetain&)            = delete;
+  AllocRetain(AllocRetain const&)            = delete;
   AllocRetain& operator=(AllocRetain const&) = delete;
   AllocRetain(AllocRetain&& o)               = delete;
   AllocRetain& operator=(AllocRetain&& o)    = delete;
