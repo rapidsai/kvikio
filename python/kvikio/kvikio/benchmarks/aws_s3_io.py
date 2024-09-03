@@ -103,10 +103,10 @@ def run_numpy_like(args, xp):
         yield run()
 
 
-def run_cudf(args, use_kvikio_s3: bool):
+def run_cudf(args, libcudf_s3_io: bool):
     import cudf
 
-    cudf.set_option("native_s3_io", use_kvikio_s3)
+    cudf.set_option("libcudf_s3_io", libcudf_s3_io)
 
     # Upload data to S3 server
     create_client_and_bucket()
@@ -127,8 +127,8 @@ def run_cudf(args, use_kvikio_s3: bool):
 API = {
     "cupy-kvikio": partial(run_numpy_like, xp=cupy),
     "numpy-kvikio": partial(run_numpy_like, xp=numpy),
-    "cudf-kvikio": partial(run_cudf, use_kvikio_s3=True),
-    "cudf-fsspec": partial(run_cudf, use_kvikio_s3=False),
+    "cudf-kvikio": partial(run_cudf, libcudf_s3_io=True),
+    "cudf-fsspec": partial(run_cudf, libcudf_s3_io=False),
 }
 
 

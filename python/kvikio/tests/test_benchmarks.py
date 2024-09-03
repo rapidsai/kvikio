@@ -82,6 +82,21 @@ def test_zarr_io(run_cmd, tmp_path, api):
     assert retcode == 0
 
 
+def skipif_libcudf_s3_io_option_is_not_available() -> None:
+    """Call pytest.skip() if cudf or its "libcudf_s3_io" option isn't available
+
+    See <https://github.com/rapidsai/cudf/pull/16499>
+    """
+    cudf = pytest.importorskip("cudf")
+    try:
+        cudf.get_option("libcudf_s3_io")
+    except KeyError:
+        pytest.skip(
+            """cudf doesn't has the "libcudf_s3_io" option, """
+            "see <https://github.com/rapidsai/cudf/pull/16499>"
+        )
+
+
 @pytest.mark.parametrize(
     "api",
     [
@@ -102,9 +117,8 @@ def test_aws_s3_io(run_cmd, api):
     import boto3  # noqa: F401
     import moto  # noqa: F401
 
-    # TODO: change to import once https://github.com/rapidsai/cudf/pull/16499 is merged
     if "cudf" in api:
-        pytest.importorskip("cudf")
+        skipif_libcudf_s3_io_option_is_not_available()
 
     retcode = run_cmd(
         cmd=[
