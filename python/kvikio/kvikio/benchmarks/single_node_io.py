@@ -14,6 +14,7 @@ import cupy
 from dask.utils import format_bytes, parse_bytes
 
 import kvikio
+import kvikio.buffer
 import kvikio.defaults
 from kvikio.benchmarks.utils import parse_directory, pprint_sys_info
 
@@ -38,7 +39,7 @@ def run_cufile(args):
     file_path = args.dir / "kvikio-single-file"
     data = create_data(args.nbytes)
     if args.pre_register_buffer:
-        kvikio.memory_register(data)
+        kvikio.buffer.memory_register(data)
 
     # Write
     f = kvikio.CuFile(file_path, flags="w")
@@ -57,7 +58,7 @@ def run_cufile(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     if args.pre_register_buffer:
-        kvikio.memory_deregister(data)
+        kvikio.buffer.memory_deregister(data)
 
     return read_time, write_time
 
@@ -73,7 +74,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     arrays = [create_data(chunksize) for _ in range(args.nthreads)]
     if args.pre_register_buffer:
         for array in arrays:
-            kvikio.memory_register(array)
+            kvikio.buffer.memory_register(array)
 
     # Write
     files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
@@ -95,7 +96,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
 
     if args.pre_register_buffer:
         for array in arrays:
-            kvikio.memory_deregister(array)
+            kvikio.buffer.memory_deregister(array)
 
     return read_time, write_time
 
@@ -108,7 +109,7 @@ def run_cufile_multiple_files(args):
     file_path = str(args.dir / "cufile-p-%03d")
     data = create_data(args.nbytes)
     if args.pre_register_buffer:
-        kvikio.memory_register(data)
+        kvikio.buffer.memory_register(data)
 
     # Write
     files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
@@ -133,7 +134,7 @@ def run_cufile_multiple_files(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     if args.pre_register_buffer:
-        kvikio.memory_deregister(data)
+        kvikio.buffer.memory_deregister(data)
 
     return read_time, write_time
 
@@ -149,7 +150,7 @@ def run_cufile_multiple_arrays(args):
     arrays = [create_data(chunksize) for _ in range(args.nthreads)]
     if args.pre_register_buffer:
         for array in arrays:
-            kvikio.memory_register(array)
+            kvikio.buffer.memory_register(array)
 
     # Write
     f = kvikio.CuFile(file_path, flags="w")
@@ -174,7 +175,7 @@ def run_cufile_multiple_arrays(args):
 
     if args.pre_register_buffer:
         for array in arrays:
-            kvikio.memory_deregister(array)
+            kvikio.buffer.memory_deregister(array)
 
     return read_time, write_time
 
