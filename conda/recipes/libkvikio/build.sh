@@ -1,4 +1,4 @@
 #!/bin/bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
-./build.sh -n libkvikio
+./build.sh -v -n libkvikio
