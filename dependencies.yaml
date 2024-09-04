@@ -143,10 +143,14 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - libkvikio-cu12==24.10.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - libkvikio-cu11==24.10.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
@@ -274,10 +278,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.9"
-            packages:
-              - python=3.9
-          - matrix:
               py: "3.10"
             packages:
               - python=3.10
@@ -287,7 +287,7 @@ dependencies:
               - python=3.11
           - matrix:
             packages:
-              - python>=3.9,<3.12
+              - python>=3.10,<3.12
   rapids_build_skbuild:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -295,15 +295,15 @@ dependencies:
           - rapids-build-backend>=0.3.0,<0.4.0.dev0
       - output_types: conda
         packages:
-          - scikit-build-core>=0.7.0
+          - scikit-build-core>=0.10.0
       - output_types: [requirements, pyproject]
         packages:
-          - scikit-build-core[pyproject]>=0.7.0
+          - scikit-build-core[pyproject]>=0.10.0
   run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.23,<2.0a0
+          - numpy>=1.23,<3.0a0
           - zarr
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs <0.12.0

@@ -1,10 +1,8 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import argparse
 import contextlib
-import os
-import os.path
 import pathlib
 import shutil
 import statistics
@@ -16,7 +14,9 @@ import cupy
 from dask.utils import format_bytes, parse_bytes
 
 import kvikio
+import kvikio.buffer
 import kvikio.defaults
+from kvikio.benchmarks.utils import parse_directory, pprint_sys_info
 
 
 def get_zarr_compressors() -> Dict[str, Any]:
@@ -39,7 +39,7 @@ def run_cufile(args):
     file_path = args.dir / "kvikio-single-file"
     data = create_data(args.nbytes)
     if args.pre_register_buffer:
-        kvikio.memory_register(data)
+        kvikio.buffer.memory_register(data)
 
     # Write
     f = kvikio.CuFile(file_path, flags="w")
@@ -58,7 +58,7 @@ def run_cufile(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     if args.pre_register_buffer:
-        kvikio.memory_deregister(data)
+        kvikio.buffer.memory_deregister(data)
 
     return read_time, write_time
 
@@ -74,7 +74,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     arrays = [create_data(chunksize) for _ in range(args.nthreads)]
     if args.pre_register_buffer:
         for array in arrays:
-            kvikio.memory_register(array)
+            kvikio.buffer.memory_register(array)
 
     # Write
     files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
@@ -96,7 +96,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
 
     if args.pre_register_buffer:
         for array in arrays:
-            kvikio.memory_deregister(array)
+            kvikio.buffer.memory_deregister(array)
 
     return read_time, write_time
 
@@ -109,7 +109,7 @@ def run_cufile_multiple_files(args):
     file_path = str(args.dir / "cufile-p-%03d")
     data = create_data(args.nbytes)
     if args.pre_register_buffer:
-        kvikio.memory_register(data)
+        kvikio.buffer.memory_register(data)
 
     # Write
     files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
@@ -134,7 +134,7 @@ def run_cufile_multiple_files(args):
     assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
 
     if args.pre_register_buffer:
-        kvikio.memory_deregister(data)
+        kvikio.buffer.memory_deregister(data)
 
     return read_time, write_time
 
@@ -150,7 +150,7 @@ def run_cufile_multiple_arrays(args):
     arrays = [create_data(chunksize) for _ in range(args.nthreads)]
     if args.pre_register_buffer:
         for array in arrays:
-            kvikio.memory_register(array)
+            kvikio.buffer.memory_register(array)
 
     # Write
     f = kvikio.CuFile(file_path, flags="w")
@@ -175,7 +175,7 @@ def run_cufile_multiple_arrays(args):
 
     if args.pre_register_buffer:
         for array in arrays:
-            kvikio.memory_deregister(array)
+            kvikio.buffer.memory_deregister(array)
 
     return read_time, write_time
 
@@ -260,53 +260,10 @@ def main(args):
     cupy.arange(10)  # Make sure CUDA is initialized
 
     kvikio.defaults.num_threads_reset(args.nthreads)
-    props = kvikio.DriverProperties()
-    try:
-        import pynvml.smi
-
-        nvsmi = pynvml.smi.nvidia_smi.getInstance()
-    except ImportError:
-        gpu_name = "Unknown (install pynvml)"
-        mem_total = gpu_name
-        bar1_total = gpu_name
-    else:
-        info = nvsmi.DeviceQuery()["gpu"][0]
-        gpu_name = f"{info['product_name']} (dev #0)"
-        mem_total = format_bytes(
-            parse_bytes(
-                str(info["fb_memory_usage"]["total"]) + info["fb_memory_usage"]["unit"]
-            )
-        )
-        bar1_total = format_bytes(
-            parse_bytes(
-                str(info["bar1_memory_usage"]["total"])
-                + info["bar1_memory_usage"]["unit"]
-            )
-        )
-    gds_version = "N/A (Compatibility Mode)"
-    if props.is_gds_available:
-        gds_version = f"v{props.major_version}.{props.minor_version}"
-    gds_config_json_path = os.path.realpath(
-        os.getenv("CUFILE_ENV_PATH_JSON", "/etc/cufile.json")
-    )
 
     print("Roundtrip benchmark")
     print("----------------------------------")
-    if kvikio.defaults.compat_mode():
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("   WARNING - KvikIO compat mode   ")
-        print("      libcufile.so not used       ")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    elif not props.is_gds_available:
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("   WARNING - cuFile compat mode   ")
-        print("         GDS not enabled          ")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    print(f"GPU               | {gpu_name}")
-    print(f"GPU Memory Total  | {mem_total}")
-    print(f"BAR1 Memory Total | {bar1_total}")
-    print(f"GDS driver        | {gds_version}")
-    print(f"GDS config.json   | {gds_config_json_path}")
+    pprint_sys_info()
     print("----------------------------------")
     print(f"nbytes            | {args.nbytes} bytes ({format_bytes(args.nbytes)})")
     print(f"4K aligned        | {args.nbytes % 4096 == 0}")
@@ -345,16 +302,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
-    def parse_directory(x):
-        if x is None:
-            return x
-        else:
-            p = pathlib.Path(x)
-            if not p.is_dir():
-                raise argparse.ArgumentTypeError("Must be a directory")
-            return p
-
     parser = argparse.ArgumentParser(description="Roundtrip benchmark")
     parser.add_argument(
         "-n",
@@ -380,10 +327,10 @@ if __name__ == "__main__":
         help="Number of runs per API (default: %(default)s).",
     )
     parser.add_argument(
-        "--no-pre-register-buffer",
+        "--pre-register-buffer",
         action="store_true",
         default=False,
-        help="Disable pre-register of device buffer",
+        help="Enable pre-register of device buffer",
     )
     parser.add_argument(
         "-t",
@@ -413,7 +360,6 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    args.pre_register_buffer = args.no_pre_register_buffer is False
     if "all" in args.api:
         args.api = tuple(API.keys())
 

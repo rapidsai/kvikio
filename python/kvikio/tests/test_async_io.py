@@ -54,5 +54,5 @@ def test_read_write(tmp_path, size):
         == future_stream3.check_bytes_done()
         == b.nbytes
     )
-    assert all(a == b)
-    assert all(a == c)
+    cupy.testing.assert_array_equal(a, b)
+    cupy.testing.assert_array_equal(a, c)

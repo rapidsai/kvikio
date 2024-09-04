@@ -18,20 +18,21 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libkvikio kvikio -v -g -n -s --ptds -h"
-HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [-s] [--ptds] [--cmake-args=\"<args>\"] [-h]
+VALIDARGS="clean libkvikio kvikio -v -g -n --pydevelop -h"
+HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
    libkvikio                   - build and install the libkvikio C++ code
-   kvikio                      - build and install the kvikio Python package
+   kvikio                      - build and install the kvikio Python package (requires libkvikio)
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
+   --pydevelop                 - Install Python packages in editable mode
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h                          - print this text
    default action (no args) is to build and install 'libkvikio' and 'kvikio' targets
 "
 LIBKVIKIO_BUILD_DIR=${LIBKVIKIO_BUILD_DIR:=${REPODIR}/cpp/build}
-KVIKIO_BUILD_DIR="${REPODIR}/python/build ${REPODIR}/python/_skbuild"
+KVIKIO_BUILD_DIR="${REPODIR}/python/kvikio/build/"
 BUILD_DIRS="${LIBKVIKIO_BUILD_DIR} ${KVIKIO_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
@@ -39,6 +40,8 @@ VERBOSE_FLAG=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 RAN_CMAKE=0
+PYTHON_ARGS_FOR_INSTALL="-v --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true"
+
 
 # Set defaults for vars that may not have been defined externally
 # If INSTALL_PREFIX is not set, check PREFIX, then check
@@ -108,13 +111,20 @@ fi
 # Process flags
 if hasArg -v; then
     VERBOSE_FLAG=-v
+    export SKBUILD_BUILD_VERBOSE=true
+    export SKBUILD_LOGGING_LEVEL=INFO
     set -x
 fi
 if hasArg -g; then
     BUILD_TYPE=Debug
+    export SKBUILD_INSTALL_STRIP=false
+    export SKBUILD_CMAKE_BUILD_TYPE=Debug
 fi
 if hasArg -n; then
     INSTALL_TARGET=""
+fi
+if hasArg --pydevelop; then
+    PYTHON_ARGS_FOR_INSTALL="${PYTHON_ARGS_FOR_INSTALL} -e"
 fi
 
 # Append `-DFIND_KVIKIO_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
@@ -144,7 +154,7 @@ if (( NUMARGS == 0 )) || hasArg libkvikio; then
     cmake --build "${LIBKVIKIO_BUILD_DIR}" -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         echo "installing libkvikio..."
-        cmake --build "${LIBKVIKIO_BUILD_DIR}" --target install -v ${VERBOSE_FLAG}
+        cmake --build "${LIBKVIKIO_BUILD_DIR}" --target install ${VERBOSE_FLAG}
     fi
 fi
 
@@ -153,5 +163,5 @@ if (( NUMARGS == 0 )) || hasArg kvikio; then
     echo "building kvikio..."
     cd ${REPODIR}/python/kvikio
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_LIBRARY_PATH=${LIBKVIKIO_BUILD_DIR};${EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
+        python -m pip install ${PYTHON_ARGS_FOR_INSTALL} .
 fi
