@@ -55,32 +55,36 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 
-rapids_find_package(
-  cuFile
-  BUILD_EXPORT_SET kvikio-exports
-  INSTALL_EXPORT_SET kvikio-exports
-)
-if(NOT cuFile_FOUND)
-  message(WARNING "Building KvikIO without cuFile")
-else()
-  file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
-  string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
-  if(cuFileBatchIOSetUp_location EQUAL "-1")
-    set(cuFile_BATCH_API_FOUND FALSE)
+if(CUDAToolkit_FOUND)
+  rapids_find_package(
+    cuFile
+    BUILD_EXPORT_SET kvikio-exports
+    INSTALL_EXPORT_SET kvikio-exports
+  )
+  if(NOT cuFile_FOUND)
+    message(WARNING "Building KvikIO without cuFile")
   else()
-    set(cuFile_BATCH_API_FOUND TRUE)
+    file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
+    string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
+    if(cuFileBatchIOSetUp_location EQUAL "-1")
+      set(cuFile_BATCH_API_FOUND FALSE)
+    else()
+      set(cuFile_BATCH_API_FOUND TRUE)
+    endif()
+    message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
+    string(FIND "${CUFILE_H_STR}" "cuFileReadAsync" cuFileReadAsync_location)
+    if(cuFileReadAsync_location EQUAL "-1")
+      set(cuFile_STREAM_API_FOUND FALSE)
+    else()
+      set(cuFile_STREAM_API_FOUND TRUE)
+    endif()
+    message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
   endif()
-  message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
-  string(FIND "${CUFILE_H_STR}" "cuFileReadAsync" cuFileReadAsync_location)
-  if(cuFileReadAsync_location EQUAL "-1")
-    set(cuFile_STREAM_API_FOUND FALSE)
-  else()
-    set(cuFile_STREAM_API_FOUND TRUE)
-  endif()
-  message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
+
+  include(cmake/thirdparty/get_nvtx.cmake)
+  set(NVTX3_LIBRARIES "nvtx3::nvtx3-cpp")
 endif()
 
-include(cmake/thirdparty/get_nvtx.cmake)
 include(cmake/thirdparty/get_thread_pool.cmake)
 
 # library targets
@@ -129,7 +133,7 @@ target_include_directories(
                    "$<INSTALL_INTERFACE:include>"
 )
 target_link_libraries(
-  kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp BS::thread_pool
+  kvikio INTERFACE Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} ${NVTX3_LIBRARIES}
 )
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
