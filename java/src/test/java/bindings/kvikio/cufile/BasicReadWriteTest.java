@@ -34,9 +34,6 @@ public class BasicReadWriteTest {
     @Test
     public void testReadBackWrite()
     {
-        String libraryPath = System.getProperty("java.library.path");
-        System.out.println("Java library path: " + libraryPath);
-        
         // Allocate CUDA device memory
         int numInts = 4;
         Pointer pointer = new Pointer();
