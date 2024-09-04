@@ -30,3 +30,11 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+  java-tests:
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-java-tests.yaml@branch-24.10
+    with:
+      build_type: nightly
+      branch: ${{ inputs.branch }}
+      date: ${{ inputs.date }}
+      sha: ${{ inputs.sha }}
