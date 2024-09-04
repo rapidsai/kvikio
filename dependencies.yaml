@@ -88,6 +88,11 @@ files:
       key: test
     includes:
       - test_python
+  test_java:
+    output: none
+    includes:
+      - cuda
+      - test_java
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -331,3 +336,9 @@ dependencies:
         packages:
           - *dask
           - distributed>=2022.05.2
+  test_java:
+    common:
+      - output_types: conda
+        packages:
+          - maven
+          - openjdk=8.*

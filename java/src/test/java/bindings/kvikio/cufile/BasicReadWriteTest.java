@@ -14,13 +14,9 @@
  * limitations under the License.
  */
 
- package bindings.kvikio.example;
+package bindings.kvikio.cufile;
 
-import bindings.kvikio.cufile.CuFileReadHandle;
-import bindings.kvikio.cufile.CuFileWriteHandle;
-
-import static jcuda.runtime.cudaMemcpyKind.cudaMemcpyDeviceToHost;
-import static jcuda.runtime.cudaMemcpyKind.cudaMemcpyHostToDevice;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
@@ -28,22 +24,30 @@ import jcuda.Pointer;
 import jcuda.Sizeof;
 import jcuda.runtime.JCuda;
 
-public class Main {
-    public static void main(String []args)
+import static jcuda.runtime.cudaMemcpyKind.cudaMemcpyDeviceToHost;
+import static jcuda.runtime.cudaMemcpyKind.cudaMemcpyHostToDevice;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class BasicReadWriteTest {
+
+    @Test
+    public void testReadBackWrite()
     {
+        String libraryPath = System.getProperty("java.library.path");
+        System.out.println("Java library path: " + libraryPath);
+        
         // Allocate CUDA device memory
         int numInts = 4;
         Pointer pointer = new Pointer();
         JCuda.cudaMalloc(pointer, numInts*Sizeof.INT);
 
-        // Build host arrays, print them out
-        int hostData[] = new int[numInts];
-        int hostDataFilled[] = new int[numInts];
+        // Build host arrays
+        int[] hostData = new int[numInts];
+        int[] hostDataFilled = new int[numInts];
         for (int i = 0; i < numInts; ++i) {
             hostDataFilled[i]=i;
         }
-        System.out.println(Arrays.toString(hostData));
-        System.out.println(Arrays.toString(hostDataFilled));
 
         // Obtain pointer value for allocated CUDA device memory
         long pointerAddress = getPointerAddress(pointer);
@@ -62,10 +66,9 @@ public class Main {
         f.read(pointerAddress,numInts*Sizeof.INT,0,0);
         f.close();
 
-        // Copy data back to host and confirm what was written was read
+        // Copy data back to host and confirm what was written was read back
         JCuda.cudaMemcpy(Pointer.to(hostData), pointer, numInts*Sizeof.INT, cudaMemcpyDeviceToHost);
-        System.out.println(Arrays.toString(hostDataFilled));
-        System.out.println(Arrays.toString(hostData));
+        assertArrayEquals(hostData,hostDataFilled);
         JCuda.cudaFree(pointer);
     }
 
