@@ -62,7 +62,9 @@ if(CUDAToolkit_FOUND)
     INSTALL_EXPORT_SET kvikio-exports
   )
   if(NOT cuFile_FOUND)
-    message(WARNING "Building KvikIO without cuFile")
+    message(
+      WARNING "Cannot find cuFile - KvikIO will still work but won't use GPUDirect Storage (GDS)"
+    )
   else()
     file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
     string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
@@ -82,7 +84,6 @@ if(CUDAToolkit_FOUND)
   endif()
 
   include(cmake/thirdparty/get_nvtx.cmake)
-  set(NVTX3_LIBRARIES "nvtx3::nvtx3-cpp")
 endif()
 
 include(cmake/thirdparty/get_thread_pool.cmake)
@@ -133,7 +134,8 @@ target_include_directories(
                    "$<INSTALL_INTERFACE:include>"
 )
 target_link_libraries(
-  kvikio INTERFACE Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
+  kvikio INTERFACE Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS}
+                   $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
 )
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
