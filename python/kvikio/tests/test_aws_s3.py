@@ -4,6 +4,7 @@
 import multiprocessing as mp
 import socket
 import time
+import warnings
 from contextlib import contextmanager
 
 import pytest
@@ -68,16 +69,20 @@ def s3_base(endpoint_ip, endpoint_port):
 def s3_context(s3_base, bucket, files=None):
     if files is None:
         files = {}
-    client = boto3.client("s3", endpoint_url=s3_base)
-    client.create_bucket(Bucket=bucket, ACL="public-read-write")
-    for f, data in files.items():
-        client.put_object(Bucket=bucket, Key=f, Body=data)
-    yield kvikio.S3Context(s3_base)
-    for f, data in files.items():
-        try:
-            client.delete_object(Bucket=bucket, Key=f)
-        except Exception:
-            pass
+    with warnings.catch_warnings():
+        # boto3 calls `datetime.datetime.utcnow()`, which is deprecated
+        # in Python v3.12.
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        client = boto3.client("s3", endpoint_url=s3_base)
+        client.create_bucket(Bucket=bucket, ACL="public-read-write")
+        for f, data in files.items():
+            client.put_object(Bucket=bucket, Key=f, Body=data)
+        yield kvikio.S3Context(s3_base)
+        for f, data in files.items():
+            try:
+                client.delete_object(Bucket=bucket, Key=f)
+            except Exception:
+                pass
 
 
 @pytest.mark.parametrize("size", [10, 100, 1000])
