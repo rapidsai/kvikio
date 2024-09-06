@@ -12,9 +12,6 @@ import pytest
 import kvikio
 import kvikio.defaults
 
-# TODO: remove before PR merge. Trigger CI error if the remote module wasn't built
-import kvikio._lib.remote_handle  # isort: skip
-
 pytestmark = pytest.mark.skipif(
     not kvikio.is_remote_file_available(),
     reason="cannot test remote IO, please build KvikIO with with AWS S3 support",
