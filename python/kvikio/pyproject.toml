@@ -140,4 +140,5 @@ regex = "(?P<value>.*)"
 filterwarnings = [
     "error",
     "ignore:Jitify is performing a one-time only warm-up to populate the persistent cache",
+    "ignore::DeprecationWarning:botocore.*",
 ]
