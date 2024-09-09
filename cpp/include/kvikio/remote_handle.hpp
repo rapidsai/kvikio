@@ -129,7 +129,7 @@ class S3Context {
    *
    * @throws std::runtime_error If failing to authenticate to the S3 server.
    *
-   * @param endpoint_override If not empty, the address of the S3 server. This takes precedences
+   * @param endpoint_override If not empty, the address of the S3 server. This takes precedence
    * over the AWS system configuration including the `AWS_ENDPOINT_URL` environment variable.
    */
   S3Context(std::string const& endpoint_override = "") : _shutdown_s3_api{true}
@@ -140,7 +140,7 @@ class S3Context {
     Aws::SDKOptions options;
     Aws::InitAPI(options);
 
-    // Create a client config where `endpoint_override` takes precedences over `AWS_ENDPOINT_URL`
+    // Create a client config where `endpoint_override` takes precedence over `AWS_ENDPOINT_URL`
     Aws::Client::ClientConfiguration config;
     char const* ep = std::getenv("AWS_ENDPOINT_URL");
     if (!endpoint_override.empty()) {
@@ -318,7 +318,7 @@ class RemoteHandle {
    * @param buf Pointer to host or device memory.
    * @param size Number of bytes to read.
    * @param file_offset File offset in bytes.
-   * @return Number of bytes read, which is `size` always.
+   * @return Number of bytes read, which is always `size`.
    */
   std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0)
   {

@@ -92,7 +92,7 @@ def skipif_libcudf_s3_io_option_is_not_available() -> None:
         cudf.get_option("libcudf_s3_io")
     except KeyError:
         pytest.skip(
-            """cudf doesn't has the "libcudf_s3_io" option, """
+            "cudf doesn't have the 'libcudf_s3_io' option, "
             "see <https://github.com/rapidsai/cudf/pull/16499>"
         )
 
@@ -113,7 +113,7 @@ def test_aws_s3_io(run_cmd, api):
         pytest.skip(
             "cannot test remote IO, please build KvikIO with with AWS S3 support"
         )
-    # Fail early if benchmark dependencies isn't available
+    # Fail early if benchmark dependencies aren't available
     import boto3  # noqa: F401
     import moto  # noqa: F401
 

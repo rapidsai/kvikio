@@ -38,7 +38,7 @@ def start_s3_server(lifetime: int):
     from moto.server import ThreadedMotoServer
 
     # Silence the activity info from ThreadedMotoServer
-    sys.stderr = open("/dev/null", "w")
+    sys.stderr = open(os.devnull, "w")
     url = urlparse(os.environ["AWS_ENDPOINT_URL"])
     server = ThreadedMotoServer(ip_address=url.hostname, port=url.port)
     server.start()

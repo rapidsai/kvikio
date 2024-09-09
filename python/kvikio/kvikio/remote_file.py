@@ -67,7 +67,7 @@ class RemoteFile:
         Parameters
         ----------
         context
-            The S3 context used for the connection to the remove server.
+            The S3 context used for the connection to the remote server.
         bucket_name
             Name of the bucket.
         object_name
@@ -84,7 +84,7 @@ class RemoteFile:
         Parameters
         ----------
         context
-            The S3 context used for the connection to the remove server.
+            The S3 context used for the connection to the remote server.
         url
             URL to the remote file.
 
@@ -118,7 +118,7 @@ class RemoteFile:
 
         Parameters
         ----------
-        buf: buffer-like or array-like
+        buf : buffer-like or array-like
             Device or host buffer to read into.
         size
             Size in bytes to read.
@@ -136,7 +136,7 @@ class RemoteFile:
 
         Parameters
         ----------
-        buf: buffer-like or array-like
+        buf : buffer-like or array-like
             Device or host buffer to read into.
         size
             Size in bytes to read.
