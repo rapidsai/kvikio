@@ -42,16 +42,7 @@ class StreamsByThread {
 
  public:
   StreamsByThread() = default;
-  ~StreamsByThread() noexcept
-  {
-    for (auto& [_, stream] : _streams) {
-      try {
-        CUDA_DRIVER_TRY(cudaAPI::instance().StreamDestroy(stream));
-      } catch (const CUfileException& e) {
-        std::cerr << e.what() << std::endl;
-      }
-    }
-  }
+  ~StreamsByThread() = default;
 
   static CUstream get(CUcontext ctx, std::thread::id thd_id)
   {
