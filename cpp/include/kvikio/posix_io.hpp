@@ -41,7 +41,7 @@ class StreamsByThread {
   std::map<std::pair<CUcontext, std::thread::id>, CUstream> _streams;
 
  public:
-  StreamsByThread() = default;
+  StreamsByThread()  = default;
   ~StreamsByThread() = default;
 
   static CUstream get(CUcontext ctx, std::thread::id thd_id)
