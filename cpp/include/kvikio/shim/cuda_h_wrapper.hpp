@@ -63,5 +63,7 @@ CUresult cuDevicePrimaryCtxRelease(...);
 CUresult cuStreamCreate(...);
 CUresult cuStreamDestroy(...);
 CUresult cuStreamSynchronize(...);
+CUresult cuCtxGetDevice(...);
+CUresult cuDevicePrimaryCtxGetState(...);
 
 #endif

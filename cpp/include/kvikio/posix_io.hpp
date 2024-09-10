@@ -30,6 +30,37 @@ namespace kvikio {
 
 namespace detail {
 
+class cuda_context_checker {
+ public:
+  static bool is_primary_context_active() noexcept
+  {
+    try {
+      CUcontext current_ctx{};
+      CUdevice device_handle{};
+
+      CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&current_ctx));
+      if (current_ctx == nullptr) {
+        int device_idx{0};
+        CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&device_handle, device_idx));
+      } else {
+        CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetDevice(&device_handle));
+      }
+
+      // Whether the current context, if it exists, is a primary or user-created context,
+      // here we use the primary context to determine if cudaDeviceReset() has been called.
+      [[maybe_unused]] unsigned int flags{};
+      int active_state{};
+      CUDA_DRIVER_TRY(
+        cudaAPI::instance().DevicePrimaryCtxGetState(device_handle, &flags, &active_state));
+
+      return static_cast<bool>(active_state);
+    } catch (const CUfileException& e) {
+      std::cerr << e.what() << std::endl;
+    }
+    return false;
+  }
+};
+
 /**
  * @brief Singleton class to retrieve a CUDA stream for device-host copying
  *
@@ -44,11 +75,13 @@ class StreamsByThread {
   StreamsByThread() = default;
   ~StreamsByThread() noexcept
   {
-    for (auto& [_, stream] : _streams) {
-      try {
-        CUDA_DRIVER_TRY(cudaAPI::instance().StreamDestroy(stream));
-      } catch (const CUfileException& e) {
-        std::cerr << e.what() << std::endl;
+    if (cuda_context_checker::is_primary_context_active()) {
+      for (auto& [_, stream] : _streams) {
+        try {
+          CUDA_DRIVER_TRY(cudaAPI::instance().StreamDestroy(stream));
+        } catch (const CUfileException& e) {
+          std::cerr << e.what() << std::endl;
+        }
       }
     }
   }

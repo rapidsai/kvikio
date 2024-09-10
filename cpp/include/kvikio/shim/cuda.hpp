@@ -48,6 +48,8 @@ class cudaAPI {
   decltype(cuStreamSynchronize)* StreamSynchronize{nullptr};
   decltype(cuStreamCreate)* StreamCreate{nullptr};
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
+  decltype(cuCtxGetDevice)* CtxGetDevice{nullptr};
+  decltype(cuDevicePrimaryCtxGetState)* DevicePrimaryCtxGetState{nullptr};
 
  private:
 #ifdef KVIKIO_CUDA_FOUND
@@ -76,6 +78,8 @@ class cudaAPI {
     get_symbol(StreamSynchronize, lib, KVIKIO_STRINGIFY(cuStreamSynchronize));
     get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
     get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
+    get_symbol(CtxGetDevice, lib, KVIKIO_STRINGIFY(cuCtxGetDevice));
+    get_symbol(DevicePrimaryCtxGetState, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxGetState));
   }
 #else
   cudaAPI() { throw std::runtime_error("KvikIO not compiled with CUDA support"); }
