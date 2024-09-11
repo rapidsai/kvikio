@@ -41,7 +41,12 @@ class StreamsByThread {
   std::map<std::pair<CUcontext, std::thread::id>, CUstream> _streams;
 
  public:
-  StreamsByThread()  = default;
+  StreamsByThread() = default;
+
+  // Here we intentionally do not destroy in the destructor the CUDA resources
+  // (e.g. CUstream) with static storage duration, but instead let them leak
+  // on program termination. This is to prevent undefined behavior in CUDA. See
+  // <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
   ~StreamsByThread() = default;
 
   static CUstream get(CUcontext ctx, std::thread::id thd_id)
