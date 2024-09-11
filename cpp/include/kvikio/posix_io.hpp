@@ -47,6 +47,8 @@ class StreamsByThread {
   // (e.g. CUstream) with static storage duration, but instead let them leak
   // on program termination. This is to prevent undefined behavior in CUDA. See
   // <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
+  // This also prevents crash (segmentation fault) if clients call
+  // cuDevicePrimaryCtxReset() or cudaDeviceReset() before program termination.
   ~StreamsByThread() = default;
 
   static CUstream get(CUcontext ctx, std::thread::id thd_id)
