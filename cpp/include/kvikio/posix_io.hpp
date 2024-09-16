@@ -42,16 +42,14 @@ class StreamsByThread {
 
  public:
   StreamsByThread() = default;
-  ~StreamsByThread() noexcept
-  {
-    for (auto& [_, stream] : _streams) {
-      try {
-        CUDA_DRIVER_TRY(cudaAPI::instance().StreamDestroy(stream));
-      } catch (const CUfileException& e) {
-        std::cerr << e.what() << std::endl;
-      }
-    }
-  }
+
+  // Here we intentionally do not destroy in the destructor the CUDA resources
+  // (e.g. CUstream) with static storage duration, but instead let them leak
+  // on program termination. This is to prevent undefined behavior in CUDA. See
+  // <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
+  // This also prevents crash (segmentation fault) if clients call
+  // cuDevicePrimaryCtxReset() or cudaDeviceReset() before program termination.
+  ~StreamsByThread() = default;
 
   static CUstream get(CUcontext ctx, std::thread::id thd_id)
   {

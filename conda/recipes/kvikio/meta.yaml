@@ -78,8 +78,6 @@ requirements:
     {% endif %}
 
 test:
-  requires:
-    - pytest
   imports:
     - kvikio
 
