@@ -42,7 +42,7 @@ namespace kvikio::test {
  * Example:                                                                          \
  * ```c++                                                                            \
  *                                                                                   \
- * // Throws rmm::cuda_error if `cudaMalloc` fails                                   \
+ * // Throws std::runtime_error if `cudaMalloc` fails                                \
  * KVIKIO_CHECK_CUDA(cudaMalloc(&p, 100));                                           \
  *                                                                                   \
  * // Throws std::runtime_error if `cudaMalloc` fails                                \
@@ -67,6 +67,9 @@ namespace kvikio::test {
   } while (0)
 #define KVIKIO_CHECK_CUDA_1(_call) KVIKIO_CHECK_CUDA_2(_call, std::runtime_error)
 
+/**
+ * @brief Help class to create a temporary directory.
+ */
 class TempDir {
  public:
   TempDir(const bool cleanup = true) : _cleanup{cleanup}
@@ -153,6 +156,9 @@ class DevBuffer {
   }
 };
 
+/**
+ * @brief Check that two buffers are equal
+ */
 inline void expect_equal(const DevBuffer& a, const DevBuffer& b)
 {
   EXPECT_EQ(a.nbytes, b.nbytes);
