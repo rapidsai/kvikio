@@ -25,6 +25,7 @@
 #include <kvikio/driver.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
+#include <kvikio/remote_handle.hpp>
 
 using namespace std;
 
@@ -290,5 +291,8 @@ int main()
     res = f_handle.read_async(c_dev, SIZE, 0, 0, stream);
     check(res.check_bytes_done() == SIZE);
     cout << "File async read: " << res.check_bytes_done() << endl;
+  }
+  {
+    kvikio::RemoteHandle("hej", 42);
   }
 }
