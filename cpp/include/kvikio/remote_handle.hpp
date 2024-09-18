@@ -19,6 +19,7 @@
 #error "cannot include <kvikio/remote_handle.hpp>, configuration did not find libcurl"
 #endif
 
+#include <cstring>
 #include <sstream>
 #include <stack>
 #include <stdexcept>
@@ -28,6 +29,9 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/parallel_operation.hpp>
+#include <kvikio/posix_io.hpp>
+#include <kvikio/utils.hpp>
 
 namespace kvikio {
 namespace detail {
@@ -152,6 +156,17 @@ class CurlHandle {
       throw std::runtime_error(ss.str());
     }
   }
+  template <typename INFO, typename VALUE>
+  void getinfo(INFO info, VALUE value)
+  {
+    CURLcode err = curl_easy_getinfo(handle(), info, value);
+    if (err != CURLE_OK) {
+      std::stringstream ss;
+      ss << "curl_easy_getinfo() error near " << _source_file << ":" << _source_line;
+      ss << "(" << curl_easy_strerror(err) << ")";
+      throw std::runtime_error(ss.str());
+    }
+  }
 };
 
 #define create_curl_handle()  \
@@ -168,12 +183,70 @@ inline std::size_t get_file_size(std::string url)
   curl.perform();
 
   curl_off_t cl;
-  curl_easy_getinfo(curl.handle(), CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
-
-  std::cout << "get_file_size(" << url << "): " << sizeof(curl_off_t) << std::endl;
-
+  curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
   return cl;
 }
+
+struct CallbackContext {
+  char* buf;
+  std::size_t size;
+  std::size_t offset;
+};
+
+inline std::size_t callback_host_memory(char* data,
+                                        std::size_t size,
+                                        std::size_t nmemb,
+                                        void* context)
+{
+  auto ctx           = reinterpret_cast<CallbackContext*>(context);
+  std::size_t nbytes = size * nmemb;
+  if (ctx->size < ctx->offset + nbytes) {
+    std::cout << "callback_host_memory() - FAILED: " << ((void*)data)
+              << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
+              << ", nbytes: " << nbytes << std::endl;
+    return CURL_WRITEFUNC_ERROR;
+  }
+
+  // std::cout << "callback_host_memory() - data: " << ((void*)data)
+  //           << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
+  //           << ", nbytes: " << nbytes << std::endl;
+
+  std::memcpy(ctx->buf + ctx->offset, data, nbytes);
+  ctx->offset += nbytes;
+  return nbytes;
+}
+
+inline std::size_t callback_device_memory(char* data,
+                                          std::size_t size,
+                                          std::size_t nmemb,
+                                          void* context)
+{
+  auto ctx           = reinterpret_cast<CallbackContext*>(context);
+  std::size_t nbytes = size * nmemb;
+  if (ctx->size < ctx->offset + nbytes) {
+    std::cout << "callback_device_memory() - FAILED: " << ((void*)data)
+              << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
+              << ", nbytes: " << nbytes << std::endl;
+
+    return CURL_WRITEFUNC_ERROR;
+  }
+
+  CUcontext cuda_ctx = get_context_from_pointer(ctx->buf);
+  PushAndPopContext c(cuda_ctx);
+  CUstream stream = detail::StreamsByThread::get();
+
+  // std::cout << "callback_device_memory() - data: " << ((void*)data)
+  //           << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
+  //           << ", nbytes: " << nbytes << std::endl;
+
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+    convert_void2deviceptr(ctx->buf + ctx->offset), data, nbytes, stream));
+  CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+
+  ctx->offset += nbytes;
+  return nbytes;
+}
+
 }  // namespace detail
 
 /**
@@ -187,8 +260,7 @@ class RemoteHandle {
  public:
   RemoteHandle(std::string url, std::size_t nbytes) : _url(std::move(url)), _nbytes{nbytes}
   {
-    auto curl = create_curl_handle();
-    std::cout << "RemoteHandle() - nbytes: " << _nbytes << std::endl;
+    std::cout << "RemoteHandle(" << _url << ") - nbytes: " << _nbytes << std::endl;
   }
 
   RemoteHandle(std::string const& url) : RemoteHandle(url, detail::get_file_size(url)) {}
@@ -206,6 +278,67 @@ class RemoteHandle {
    * @return The number of bytes.
    */
   [[nodiscard]] std::size_t nbytes() const noexcept { return _nbytes; }
+
+  /**
+   * @brief Read from remote source into buffer (host or device memory).
+   *
+   * @param buf Pointer to host or device memory.
+   * @param size Number of bytes to read.
+   * @param file_offset File offset in bytes.
+   * @return Number of bytes read, which is always `size`.
+   */
+  std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0)
+  {
+    KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::read()", size);
+
+    auto curl = create_curl_handle();
+
+    curl.setopt(CURLOPT_URL, _url.c_str());
+    curl.setopt(CURLOPT_FAILONERROR, 1L);
+
+    std::string const byte_range =
+      std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
+    curl.setopt(CURLOPT_RANGE, byte_range.c_str());
+
+    if (is_host_memory(buf)) {
+      curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_host_memory);
+    } else {
+      curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_device_memory);
+    }
+    detail::CallbackContext ctx{.buf = reinterpret_cast<char*>(buf), .size = size, .offset = 0};
+    curl.setopt(CURLOPT_WRITEDATA, &ctx);
+
+    // std::cout << "read() - buf: " << buf << ", byte_range: " << byte_range << std::endl;
+    curl.perform();
+    return size;
+  }
+
+  /**
+   * @brief Read from remote source into buffer (host or device memory) in parallel.
+   *
+   * This API is a parallel async version of `.read()` that partition the operation
+   * into tasks of size `task_size` for execution in the default thread pool.
+   *
+   * @param buf Pointer to host or device memory.
+   * @param size Number of bytes to read.
+   * @param file_offset File offset in bytes.
+   * @param task_size Size of each task in bytes.
+   * @return Number of bytes read, which is `size` always.
+   */
+  std::future<std::size_t> pread(void* buf,
+                                 std::size_t size,
+                                 std::size_t file_offset = 0,
+                                 std::size_t task_size   = defaults::task_size())
+  {
+    KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::pread()", size);
+    auto task = [this](void* devPtr_base,
+                       std::size_t size,
+                       std::size_t file_offset,
+                       std::size_t devPtr_offset) -> std::size_t {
+      return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
+    };
+    return parallel_io(task, buf, size, file_offset, task_size, 0);
+  }
 };
 
 }  // namespace kvikio

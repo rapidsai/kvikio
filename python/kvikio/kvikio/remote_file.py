@@ -62,39 +62,39 @@ class RemoteFile:
         """
         return self._handle.nbytes()
 
-    # def read(self, buf, size: Optional[int] = None, file_offset: int = 0) -> int:
-    #     """Read from remote source into buffer (host or device memory) in parallel.
+    def read(self, buf, size: Optional[int] = None, file_offset: int = 0) -> int:
+        """Read from remote source into buffer (host or device memory) in parallel.
 
-    #     Parameters
-    #     ----------
-    #     buf : buffer-like or array-like
-    #         Device or host buffer to read into.
-    #     size
-    #         Size in bytes to read.
-    #     file_offset
-    #         Offset in the file to read from.
+        Parameters
+        ----------
+        buf : buffer-like or array-like
+            Device or host buffer to read into.
+        size
+            Size in bytes to read.
+        file_offset
+            Offset in the file to read from.
 
-    #     Returns
-    #     -------
-    #     The size of bytes that were successfully read.
-    #     """
-    #     return self.pread(buf, size, file_offset).get()
+        Returns
+        -------
+        The size of bytes that were successfully read.
+        """
+        return self.pread(buf, size, file_offset).get()
 
-    # def pread(self, buf, size: Optional[int] = None, file_offset: int = 0) -> IOFuture:
-    #     """Read from remote source into buffer (host or device memory) in parallel.
+    def pread(self, buf, size: Optional[int] = None, file_offset: int = 0) -> IOFuture:
+        """Read from remote source into buffer (host or device memory) in parallel.
 
-    #     Parameters
-    #     ----------
-    #     buf : buffer-like or array-like
-    #         Device or host buffer to read into.
-    #     size
-    #         Size in bytes to read.
-    #     file_offset
-    #         Offset in the file to read from.
+        Parameters
+        ----------
+        buf : buffer-like or array-like
+            Device or host buffer to read into.
+        size
+            Size in bytes to read.
+        file_offset
+            Offset in the file to read from.
 
-    #     Returns
-    #     -------
-    #     Future that on completion returns the size of bytes that were successfully
-    #     read.
-    #     """
-    #     return IOFuture(self._handle.pread(buf, size, file_offset))
+        Returns
+        -------
+        Future that on completion returns the size of bytes that were successfully
+        read.
+        """
+        return IOFuture(self._handle.pread(buf, size, file_offset))
