@@ -292,7 +292,4 @@ int main()
     check(res.check_bytes_done() == SIZE);
     cout << "File async read: " << res.check_bytes_done() << endl;
   }
-  {
-    kvikio::RemoteHandle("hej", 42);
-  }
 }
