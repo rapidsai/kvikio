@@ -30,11 +30,15 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-  java-tests:
+  conda-java-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-java-tests.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@python-3.12
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      node_type: "gpu-v100-latest-1"
+      arch: "amd64"
+      container_image: "rapidsai/ci-conda:latest"
+      run_script: "ci/test_java.sh"
