@@ -6,7 +6,7 @@ import functools
 import multiprocessing as mp
 import threading
 import time
-from http.server import ThreadingHTTPServer
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import numpy as np
 import pytest
@@ -21,9 +21,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def start_http_server(queue: mp.Queue, tmpdir: str):
+def start_http_server(queue: mp.Queue, tmpdir: str, range_support: bool = True):
+    handler = RangeRequestHandler if range_support else SimpleHTTPRequestHandler
     httpd = ThreadingHTTPServer(
-        ("127.0.0.1", 0), functools.partial(RangeRequestHandler, directory=tmpdir)
+        ("127.0.0.1", 0), functools.partial(handler, directory=tmpdir)
     )
     thread = threading.Thread(target=httpd.serve_forever)
     thread.start()
@@ -32,7 +33,7 @@ def start_http_server(queue: mp.Queue, tmpdir: str):
     print("ThreadingHTTPServer shutting down because of timeout (60sec)")
 
 
-@pytest.fixture  # (scope="session")
+@pytest.fixture
 def http_server(tmpdir):
     """Fixture to set up http server in separate process"""
     queue = mp.Queue()
