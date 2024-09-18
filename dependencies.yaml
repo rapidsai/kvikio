@@ -106,6 +106,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+          - libcurl>=7.75.0  # Need <https://curl.se/libcurl/c/CURLOPT_AWS_SIGV4.html>
     specific:
       - output_types: conda
         matrices:

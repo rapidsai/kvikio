@@ -19,6 +19,7 @@ dependencies:
 - gcc_linux-64=11.*
 - libcufile-dev=1.4.0.31
 - libcufile=1.4.0.31
+- libcurl>=7.75.0
 - ninja
 - numcodecs !=0.12.0
 - numpy>=1.23,<3.0a0

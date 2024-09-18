@@ -17,6 +17,7 @@ dependencies:
 - dask>=2022.05.2
 - doxygen=1.9.1
 - gcc_linux-aarch64=11.*
+- libcurl>=7.75.0
 - ninja
 - numcodecs !=0.12.0
 - numpy>=1.23,<3.0a0
