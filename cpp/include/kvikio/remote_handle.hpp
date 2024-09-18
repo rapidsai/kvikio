@@ -184,6 +184,10 @@ inline std::size_t get_file_size(std::string url)
 
   curl_off_t cl;
   curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
+  if (cl < 0) {
+    throw std::runtime_error("cannot get size of " + url +
+                             ", content-length not provided by the server");
+  }
   return cl;
 }
 
