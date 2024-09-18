@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
- package bindings.kvikio.cufile;
-
+package bindings.kvikio.cufile;
 
 final class CuFileDriver implements AutoCloseable {
     private final long pointer;
@@ -27,7 +26,6 @@ final class CuFileDriver implements AutoCloseable {
     public void close() {
         destroy(pointer);
     }
-
 
     private static native long create();
 

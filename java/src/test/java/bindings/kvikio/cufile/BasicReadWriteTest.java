@@ -32,57 +32,53 @@ import static org.junit.jupiter.api.Assertions.*;
 public class BasicReadWriteTest {
 
     @Test
-    public void testReadBackWrite()
-    {
+    public void testReadBackWrite() {
         // Allocate CUDA device memory
         int numInts = 4;
         Pointer pointer = new Pointer();
-        JCuda.cudaMalloc(pointer, numInts*Sizeof.INT);
+        JCuda.cudaMalloc(pointer, numInts * Sizeof.INT);
 
         // Build host arrays
         int[] hostData = new int[numInts];
         int[] hostDataFilled = new int[numInts];
         for (int i = 0; i < numInts; ++i) {
-            hostDataFilled[i]=i;
+            hostDataFilled[i] = i;
         }
 
         // Obtain pointer value for allocated CUDA device memory
         long pointerAddress = getPointerAddress(pointer);
 
         // Copy filled data array to GPU and write to file
-        JCuda.cudaMemcpy(pointer,Pointer.to(hostDataFilled),numInts*Sizeof.INT,cudaMemcpyHostToDevice);
+        JCuda.cudaMemcpy(pointer, Pointer.to(hostDataFilled), numInts * Sizeof.INT, cudaMemcpyHostToDevice);
         CuFileWriteHandle fw = new CuFileWriteHandle("/mnt/nvme/java_test");
-        fw.write(pointerAddress, numInts*Sizeof.INT,0,0);
+        fw.write(pointerAddress, numInts * Sizeof.INT, 0, 0);
         fw.close();
 
         // Clear data stored in GPU
-        JCuda.cudaMemcpy(pointer,Pointer.to(hostData),numInts*Sizeof.INT,cudaMemcpyHostToDevice);
+        JCuda.cudaMemcpy(pointer, Pointer.to(hostData), numInts * Sizeof.INT, cudaMemcpyHostToDevice);
 
         // Read data back into GPU
         CuFileReadHandle f = new CuFileReadHandle("/mnt/nvme/java_test");
-        f.read(pointerAddress,numInts*Sizeof.INT,0,0);
+        f.read(pointerAddress, numInts * Sizeof.INT, 0, 0);
         f.close();
 
         // Copy data back to host and confirm what was written was read back
-        JCuda.cudaMemcpy(Pointer.to(hostData), pointer, numInts*Sizeof.INT, cudaMemcpyDeviceToHost);
-        assertArrayEquals(hostData,hostDataFilled);
+        JCuda.cudaMemcpy(Pointer.to(hostData), pointer, numInts * Sizeof.INT, cudaMemcpyDeviceToHost);
+        assertArrayEquals(hostData, hostDataFilled);
         JCuda.cudaFree(pointer);
     }
 
-    private static long getPointerAddress(Pointer p)
-    {
+    private static long getPointerAddress(Pointer p) {
         // WORKAROUND until a method like CUdeviceptr#getAddress exists
-        class PointerWithAddress extends Pointer
-        {
-            PointerWithAddress(Pointer other)
-            {
+        class PointerWithAddress extends Pointer {
+            PointerWithAddress(Pointer other) {
                 super(other);
             }
-            long getAddress()
-            {
+
+            long getAddress() {
                 return getNativePointer() + getByteOffset();
             }
         }
         return new PointerWithAddress(p).getAddress();
     }
-};
+}

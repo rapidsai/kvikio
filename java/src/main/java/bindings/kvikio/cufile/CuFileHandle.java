@@ -14,26 +14,26 @@
  * limitations under the License.
  */
 
- package bindings.kvikio.cufile;
+package bindings.kvikio.cufile;
 
 abstract class CuFileHandle implements AutoCloseable {
     private final long pointer;
 
     static {
-      CuFile.initialize();
+        CuFile.initialize();
     }
 
     protected CuFileHandle(long pointer) {
-      this.pointer = pointer;
+        this.pointer = pointer;
     }
 
     public void close() {
-      destroy(pointer);
+        destroy(pointer);
     }
 
     protected long getPointer() {
-      return this.pointer;
+        return this.pointer;
     }
 
     private static native void destroy(long pointer);
-  }
+}
