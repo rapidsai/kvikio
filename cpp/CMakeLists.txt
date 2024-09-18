@@ -50,11 +50,13 @@ rapids_find_package(
   INSTALL_EXPORT_SET kvikio-exports
 )
 
-rapids_find_package(
-  CURL REQUIRED
-  BUILD_EXPORT_SET kvikio-exports
-  INSTALL_EXPORT_SET kvikio-exports
-)
+if(KvikIO_REMOTE_SUPPORT)
+  rapids_find_package(
+    CURL REQUIRED
+    BUILD_EXPORT_SET kvikio-exports
+    INSTALL_EXPORT_SET kvikio-exports
+  )
+endif()
 
 rapids_find_package(
   CUDAToolkit
