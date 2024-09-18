@@ -295,6 +295,13 @@ class RemoteHandle {
   {
     KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::read()", size);
 
+    if (file_offset + size > _nbytes) {
+      std::stringstream ss;
+      ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
+         << " bytes file (" << _url << ")";
+      throw std::invalid_argument(ss.str());
+    }
+
     auto curl = create_curl_handle();
 
     curl.setopt(CURLOPT_URL, _url.c_str());

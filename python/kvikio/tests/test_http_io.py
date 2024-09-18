@@ -63,7 +63,7 @@ def test_read(http_server, tmpdir, xp, size, nthreads, tasksize):
             with kvikio.RemoteFile(f"{http_server}/a") as f:
                 assert f.nbytes() == a.nbytes
                 b = xp.empty_like(a)
-                assert f.read(buf=b) == a.nbytes
+                assert f.read(b) == a.nbytes
                 xp.testing.assert_array_equal(a, b)
 
 
@@ -76,5 +76,21 @@ def test_large_read(http_server, tmpdir, xp, nthreads):
         with kvikio.RemoteFile(f"{http_server}/a") as f:
             assert f.nbytes() == a.nbytes
             b = xp.empty_like(a)
-            assert f.read(buf=b) == a.nbytes
+            assert f.read(b) == a.nbytes
             xp.testing.assert_array_equal(a, b)
+
+
+def test_error_too_small_file(http_server, tmpdir, xp):
+    a = xp.arange(10, dtype="uint8")
+    b = xp.empty(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+    with kvikio.RemoteFile(f"{http_server}/a") as f:
+        assert f.nbytes() == a.nbytes
+        with pytest.raises(
+            ValueError, match=r"cannot read 0\+100 bytes into a 10 bytes file"
+        ):
+            f.read(b)
+        with pytest.raises(
+            ValueError, match=r"cannot read 100\+5 bytes into a 10 bytes file"
+        ):
+            f.read(b, size=5, file_offset=100)
