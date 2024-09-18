@@ -106,6 +106,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+          - aws-sdk-cpp>=1.11.267  # Need <https://github.com/aws/aws-sdk-cpp/pull/2710>
     specific:
       - output_types: conda
         matrices:
@@ -319,6 +320,15 @@ dependencies:
           - &dask dask>=2022.05.2
           - pytest
           - pytest-cov
+          - boto3>=1.21.21
+      - output_types: [requirements, pyproject]
+        packages:
+          - moto[server]>=4.0.8
+      - output_types: conda
+        packages:
+          # TODO: Uncomment once https://github.com/rapidsai/cudf/pull/16499 is merged
+          #- cudf==24.10.*,>=0.0.0a0
+          - moto>=4.0.8
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -329,9 +339,19 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
-  test_python_legate:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - *dask
-          - distributed>=2022.05.2
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              # TODO: Uncomment once https://github.com/rapidsai/cudf/pull/16499 is merged
+              #- cudf-cu12==24.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+            packages:
+              # TODO: Uncomment once https://github.com/rapidsai/cudf/pull/16499 is merged
+              #- cudf-cu11==24.10.*,>=0.0.0a0
+          - matrix:
+            packages:
+              # TODO: Uncomment once https://github.com/rapidsai/cudf/pull/16499 is merged
+              #- cudf==24.10.*,>=0.0.0a0

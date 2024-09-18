@@ -37,6 +37,7 @@ rapids_cmake_build_type(Release)
 
 # build options
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
+option(KvikIO_AWSSDK_SUPPORT "Configure CMake to build with AWS S3 support" ON)
 
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
@@ -54,6 +55,27 @@ rapids_find_package(
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
+
+# If AWSSDK isn't found, the Cython module remote_handle.pyx isn't built and C++ users shouldn't
+# include <kvikio/remote_handle.hpp>
+if(KvikIO_AWSSDK_SUPPORT)
+  include(cmake/thirdparty/get_aws_sdk_cpp.cmake)
+endif()
+
+if(TARGET aws-cpp-sdk-s3)
+  get_property(
+    _lib_type
+    TARGET aws-cpp-sdk-s3
+    PROPERTY TYPE
+  )
+  if(_lib_type STREQUAL "STATIC_LIBRARY")
+    rapids_find_package(
+      ZLIB
+      BUILD_EXPORT_SET kvikio-exports
+      INSTALL_EXPORT_SET kvikio-exports
+    )
+  endif()
+endif()
 
 rapids_find_package(
   cuFile
@@ -131,6 +153,10 @@ target_include_directories(
 target_link_libraries(
   kvikio INTERFACE Threads::Threads ${CMAKE_DL_LIBS} nvtx3::nvtx3-cpp BS::thread_pool
 )
+if(TARGET aws-cpp-sdk-s3)
+  target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:aws-cpp-sdk-s3>)
+  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_AWS_SDK_FOUND>)
+endif()
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
 # optionally build examples
@@ -216,6 +242,14 @@ if(NOT already_set_kvikio)
     if(cuFile_STREAM_API_FOUND)
       target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_STREAM_API_FOUND)
     endif()
+  endif()
+
+  if(KvikIO_AWSSDK_SUPPORT)
+    find_package(AWSSDK COMPONENTS s3 QUIET)
+  endif()
+  if(TARGET aws-cpp-sdk-s3)
+    target_link_libraries(kvikio::kvikio INTERFACE aws-cpp-sdk-s3)
+    target_compile_definitions(kvikio::kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_AWS_SDK_FOUND>)
   endif()
 endif()
 ]=]

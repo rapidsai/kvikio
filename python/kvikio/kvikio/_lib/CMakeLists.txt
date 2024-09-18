@@ -17,8 +17,16 @@ set(cython_modules arr.pyx buffer.pyx defaults.pyx driver_properties.pyx file_ha
                    libnvcomp.pyx libnvcomp_ll.pyx
 )
 
+if(TARGET aws-cpp-sdk-core AND TARGET aws-cpp-sdk-s3)
+  message(STATUS "Building remote_handle.pyx (aws-cpp-sdk-s3 found)")
+  list(APPEND cython_modules remote_handle.pyx)
+  set(aws_cpp_sdk_core_dep aws-cpp-sdk-core)
+else()
+  message(WARNING "Skipping remote_handle.pyx (aws-cpp-sdk-s3 not found or disabled)")
+endif()
+
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
-  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
+  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp ${aws_cpp_sdk_core_dep}
 )

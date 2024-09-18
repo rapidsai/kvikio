@@ -18,15 +18,16 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libkvikio kvikio -v -g -n --pydevelop -h"
-HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [--cmake-args=\"<args>\"] [-h]
+VALIDARGS="clean libkvikio kvikio -v -g -n --pydevelop --no-s3 -h"
+HELP="$0 [clean] [libkvikio] [kvikio] [--no-s3] [-v] [-g] [-n] [--pydevelop] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
    libkvikio                   - build and install the libkvikio C++ code
    kvikio                      - build and install the kvikio Python package (requires libkvikio)
+   --no-s3                     - build with no AWS S3 support
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
-   --pydevelop                 - Install Python packages in editable mode
+   --pydevelop                 - install Python packages in editable mode
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h                          - print this text
    default action (no args) is to build and install 'libkvikio' and 'kvikio' targets
@@ -36,6 +37,7 @@ KVIKIO_BUILD_DIR="${REPODIR}/python/kvikio/build/"
 BUILD_DIRS="${LIBKVIKIO_BUILD_DIR} ${KVIKIO_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
+ENABLE_S3_SUPPORT="-DKvikIO_AWSSDK_SUPPORT=ON"
 VERBOSE_FLAG=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
@@ -86,6 +88,7 @@ function ensureCMakeRan {
         cmake -B "${LIBKVIKIO_BUILD_DIR}" -S . \
               -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
               -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+              ${ENABLE_S3_SUPPORT} \
               ${EXTRA_CMAKE_ARGS}
         RAN_CMAKE=1
     fi
@@ -109,6 +112,9 @@ if (( ${NUMARGS} != 0 )); then
 fi
 
 # Process flags
+if hasArg --no-s3; then
+    ENABLE_S3_SUPPORT="-DKvikIO_AWSSDK_SUPPORT=OFF"
+fi
 if hasArg -v; then
     VERBOSE_FLAG=-v
     export SKBUILD_BUILD_VERBOSE=true

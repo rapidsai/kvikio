@@ -150,7 +150,7 @@ def main(args):
             ws.append(args.nbytes / write)
 
         def pprint_api_res(name, samples):
-            mean = statistics.mean(samples) if len(samples) > 1 else samples[0]
+            mean = statistics.harmonic_mean(samples) if len(samples) > 1 else samples[0]
             ret = f"{api} {name}".ljust(18)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
             if len(samples) > 1:

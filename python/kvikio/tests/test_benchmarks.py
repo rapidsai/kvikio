@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+import kvikio
+
 benchmarks_path = (
     Path(os.path.realpath(__file__)).parent.parent / "kvikio" / "benchmarks"
 )
@@ -72,6 +74,63 @@ def test_zarr_io(run_cmd, tmp_path, api):
             "1MiB",
             "-d",
             str(tmp_path),
+            "--api",
+            api,
+        ],
+        cwd=benchmarks_path,
+    )
+    assert retcode == 0
+
+
+def skipif_libcudf_s3_io_option_is_not_available() -> None:
+    """Call pytest.skip() if cudf or its "libcudf_s3_io" option isn't available
+
+    See <https://github.com/rapidsai/cudf/pull/16499>
+    """
+    cudf = pytest.importorskip("cudf")
+    try:
+        cudf.get_option("libcudf_s3_io")
+    except KeyError:
+        pytest.skip(
+            "cudf doesn't have the 'libcudf_s3_io' option, "
+            "see <https://github.com/rapidsai/cudf/pull/16499>"
+        )
+
+
+@pytest.mark.parametrize(
+    "api",
+    [
+        "cupy-kvikio",
+        "numpy-kvikio",
+        "cudf-kvikio",
+        "cudf-fsspec",
+    ],
+)
+def test_aws_s3_io(run_cmd, api):
+    """Test benchmarks/aws_s3_io.py"""
+
+    if not kvikio.is_remote_file_available():
+        pytest.skip(
+            "cannot test remote IO, please build KvikIO with with AWS S3 support"
+        )
+    # Fail early if benchmark dependencies aren't available
+    import boto3  # noqa: F401
+    import moto  # noqa: F401
+
+    if "cudf" in api:
+        skipif_libcudf_s3_io_option_is_not_available()
+
+    retcode = run_cmd(
+        cmd=[
+            sys.executable or "python",
+            "aws_s3_io.py",
+            "--use-bundled-server",
+            "--bundled-server-lifetime",
+            "30",
+            "-n",
+            "1000",
+            "-t",
+            "4",
             "--api",
             api,
         ],

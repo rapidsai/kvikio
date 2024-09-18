@@ -23,6 +23,7 @@ Contents
    install
    quickstart
    zarr
+   remote_file
    runtime_settings
    api
    genindex
