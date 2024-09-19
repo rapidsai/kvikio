@@ -202,6 +202,7 @@ inline std::size_t get_file_size(std::string url)
 
   curl.setopt(CURLOPT_URL, url.c_str());
   curl.setopt(CURLOPT_NOBODY, 1L);
+  curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
   curl.perform();
 
   curl_off_t cl;
