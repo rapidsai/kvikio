@@ -52,6 +52,7 @@ namespace detail {
  */
 class LibCurl {
  private:
+  std::mutex _mutex{};
   std::stack<CURL*> _free_curl_handles{};
 
   LibCurl()
@@ -81,8 +82,6 @@ class LibCurl {
   LibCurl& operator=(LibCurl&& o)    = delete;
 
  public:
-  void put(CURL* handle) { _free_curl_handles.push(handle); }
-
   static LibCurl& instance()
   {
     static LibCurl _instance;
@@ -92,16 +91,27 @@ class LibCurl {
   CURL* get()
   {
     // Check if we have a handle available.
-    if (!_free_curl_handles.empty()) {
-      CURL* ret = _free_curl_handles.top();
-      _free_curl_handles.pop();
-      curl_easy_reset(ret);
-      return ret;
+    CURL* ret = nullptr;
+    {
+      std::lock_guard const lock(_mutex);
+      if (!_free_curl_handles.empty()) {
+        ret = _free_curl_handles.top();
+        _free_curl_handles.pop();
+      }
     }
     // If not, we create a new handle.
-    CURL* ret = curl_easy_init();
-    if (ret == nullptr) { throw std::runtime_error("libcurl: call to curl_easy_init() failed"); }
+    if (ret == nullptr) {
+      ret = curl_easy_init();
+      if (ret == nullptr) { throw std::runtime_error("libcurl: call to curl_easy_init() failed"); }
+    }
+    curl_easy_reset(ret);
     return ret;
+  }
+
+  void put(CURL* handle)
+  {
+    std::lock_guard const lock(_mutex);
+    _free_curl_handles.push(handle);
   }
 };
 
@@ -142,7 +152,17 @@ class CurlHandle {
   }
   void perform()
   {
+    // Need CURLOPT_NOSIGNAL to support threading, see
+    // <https://curl.se/libcurl/c/CURLOPT_NOSIGNAL.html>
+    setopt(CURLOPT_NOSIGNAL, 1L);
+
+    // We always set CURLOPT_ERRORBUFFER to get better error messages.
     setopt(CURLOPT_ERRORBUFFER, _errbuf);
+
+    // Make curl_easy_perform() fail when receiving HTTP code errors.
+    setopt(CURLOPT_FAILONERROR, 1L);
+
+    // Perform and check for errors.
     CURLcode err = curl_easy_perform(handle());
     if (err != CURLE_OK) {
       std::string msg(_errbuf);
@@ -156,6 +176,7 @@ class CurlHandle {
       throw std::runtime_error(ss.str());
     }
   }
+
   template <typename INFO, typename VALUE>
   void getinfo(INFO info, VALUE value)
   {
@@ -179,7 +200,6 @@ inline std::size_t get_file_size(std::string url)
 
   curl.setopt(CURLOPT_URL, url.c_str());
   curl.setopt(CURLOPT_NOBODY, 1L);
-  curl.setopt(CURLOPT_FAILONERROR, 1L);
   curl.perform();
 
   curl_off_t cl;
@@ -305,7 +325,6 @@ class RemoteHandle {
     auto curl = create_curl_handle();
 
     curl.setopt(CURLOPT_URL, _url.c_str());
-    curl.setopt(CURLOPT_FAILONERROR, 1L);
 
     std::string const byte_range =
       std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
