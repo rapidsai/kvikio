@@ -52,7 +52,7 @@ requirements:
     {% else %}
     - libcufile-dev  # [linux]
     {% endif %}
-    - libcurl>=7.75.0
+    - libcurl>=7.87.0
 
 outputs:
   - name: libkvikio
