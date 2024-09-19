@@ -174,6 +174,7 @@ class CurlHandle {
         ss << "(" << msg << ")";
       }
       if (err == CURLE_WRITE_ERROR) { ss << "[maybe the server doesn't support file ranges?]"; }
+      std::cout << "perform() - error: " << ss.str() << std::endl;
       throw std::runtime_error(ss.str());
     }
   }
