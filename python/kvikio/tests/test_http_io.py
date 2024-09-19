@@ -108,10 +108,10 @@ def test_no_range_support(http_server, tmpdir, xp):
     with kvikio.RemoteFile(f"{http_server}/a") as f:
         assert f.nbytes() == a.nbytes
         with pytest.raises(
-            RuntimeError, match="maybe the server doesn't support file ranges?"
+            OverflowError, match="maybe the server doesn't support file ranges?"
         ):
             f.read(b, size=10, file_offset=0)
         with pytest.raises(
-            RuntimeError, match="maybe the server doesn't support file ranges?"
+            OverflowError, match="maybe the server doesn't support file ranges?"
         ):
             f.read(b, size=10, file_offset=10)

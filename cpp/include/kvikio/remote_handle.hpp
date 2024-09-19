@@ -162,7 +162,7 @@ class CurlHandle {
     // Make curl_easy_perform() fail when receiving HTTP code errors.
     setopt(CURLOPT_FAILONERROR, 1L);
 
-    // Perform and check for errors.
+    // Perform the curl operation and check for errors.
     CURLcode err = curl_easy_perform(handle());
     if (err != CURLE_OK) {
       std::string msg(_errbuf);
@@ -173,8 +173,6 @@ class CurlHandle {
       } else {
         ss << "(" << msg << ")";
       }
-      if (err == CURLE_WRITE_ERROR) { ss << "[maybe the server doesn't support file ranges?]"; }
-      std::cout << "perform() - error: " << ss.str() << std::endl;
       throw std::runtime_error(ss.str());
     }
   }
@@ -218,6 +216,7 @@ struct CallbackContext {
   char* buf;
   std::size_t size;
   std::size_t offset;
+  bool overflow_error;
 };
 
 inline std::size_t callback_host_memory(char* data,
@@ -227,7 +226,10 @@ inline std::size_t callback_host_memory(char* data,
 {
   auto ctx           = reinterpret_cast<CallbackContext*>(context);
   std::size_t nbytes = size * nmemb;
-  if (ctx->size < ctx->offset + nbytes) { return CURL_WRITEFUNC_ERROR; }
+  if (ctx->size < ctx->offset + nbytes) {
+    ctx->overflow_error = true;
+    return CURL_WRITEFUNC_ERROR;
+  }
 
   // std::cout << "callback_host_memory() - data: " << ((void*)data)
   //           << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
@@ -245,7 +247,10 @@ inline std::size_t callback_device_memory(char* data,
 {
   auto ctx           = reinterpret_cast<CallbackContext*>(context);
   std::size_t nbytes = size * nmemb;
-  if (ctx->size < ctx->offset + nbytes) { return CURL_WRITEFUNC_ERROR; }
+  if (ctx->size < ctx->offset + nbytes) {
+    ctx->overflow_error = true;
+    return CURL_WRITEFUNC_ERROR;
+  }
 
   CUcontext cuda_ctx = get_context_from_pointer(ctx->buf);
   PushAndPopContext c(cuda_ctx);
@@ -327,11 +332,21 @@ class RemoteHandle {
     } else {
       curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_device_memory);
     }
-    detail::CallbackContext ctx{.buf = reinterpret_cast<char*>(buf), .size = size, .offset = 0};
+    detail::CallbackContext ctx{
+      .buf = reinterpret_cast<char*>(buf), .size = size, .offset = 0, .overflow_error = false};
     curl.setopt(CURLOPT_WRITEDATA, &ctx);
 
     // std::cout << "read() - buf: " << buf << ", byte_range: " << byte_range << std::endl;
-    curl.perform();
+    try {
+      curl.perform();
+    } catch (std::runtime_error const& e) {
+      if (ctx.overflow_error) {
+        std::stringstream ss;
+        ss << "maybe the server doesn't support file ranges? [" << e.what() << "]";
+        throw std::overflow_error(ss.str());
+      }
+      throw;
+    }
     return size;
   }
 
