@@ -21,7 +21,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def start_http_server(queue: mp.Queue, tmpdir: str, range_support: bool = True):
+def start_http_server(queue: mp.Queue, tmpdir: str, range_support: bool):
     handler = RangeRequestHandler if range_support else SimpleHTTPRequestHandler
     httpd = ThreadingHTTPServer(
         ("127.0.0.1", 0), functools.partial(handler, directory=tmpdir)
@@ -34,10 +34,14 @@ def start_http_server(queue: mp.Queue, tmpdir: str, range_support: bool = True):
 
 
 @pytest.fixture
-def http_server(tmpdir):
+def http_server(request, tmpdir):
     """Fixture to set up http server in separate process"""
+    range_support = True
+    if hasattr(request, "param"):
+        range_support = request.param.get("range_support", True)
+
     queue = mp.Queue()
-    p = mp.Process(target=start_http_server, args=(queue, str(tmpdir)))
+    p = mp.Process(target=start_http_server, args=(queue, str(tmpdir), range_support))
     p.start()
     ip, port = queue.get()
     yield f"http://{ip}:{port}"
@@ -94,3 +98,20 @@ def test_error_too_small_file(http_server, tmpdir, xp):
             ValueError, match=r"cannot read 100\+5 bytes into a 10 bytes file"
         ):
             f.read(b, size=5, file_offset=100)
+
+
+@pytest.mark.parametrize("http_server", [{"range_support": False}], indirect=True)
+def test_no_range_support(http_server, tmpdir, xp):
+    a = xp.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+    b = xp.empty_like(a)
+    with kvikio.RemoteFile(f"{http_server}/a") as f:
+        assert f.nbytes() == a.nbytes
+        with pytest.raises(
+            RuntimeError, match="maybe the server doesn't support file ranges?"
+        ):
+            f.read(b, size=10, file_offset=0)
+        with pytest.raises(
+            RuntimeError, match="maybe the server doesn't support file ranges?"
+        ):
+            f.read(b, size=10, file_offset=10)

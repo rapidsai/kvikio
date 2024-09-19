@@ -173,6 +173,7 @@ class CurlHandle {
       } else {
         ss << "(" << msg << ")";
       }
+      if (err == CURLE_WRITE_ERROR) { ss << "[maybe the server doesn't support file ranges?]"; }
       throw std::runtime_error(ss.str());
     }
   }
@@ -224,12 +225,7 @@ inline std::size_t callback_host_memory(char* data,
 {
   auto ctx           = reinterpret_cast<CallbackContext*>(context);
   std::size_t nbytes = size * nmemb;
-  if (ctx->size < ctx->offset + nbytes) {
-    std::cout << "callback_host_memory() - FAILED: " << ((void*)data)
-              << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
-              << ", nbytes: " << nbytes << std::endl;
-    return CURL_WRITEFUNC_ERROR;
-  }
+  if (ctx->size < ctx->offset + nbytes) { return CURL_WRITEFUNC_ERROR; }
 
   // std::cout << "callback_host_memory() - data: " << ((void*)data)
   //           << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
@@ -247,13 +243,7 @@ inline std::size_t callback_device_memory(char* data,
 {
   auto ctx           = reinterpret_cast<CallbackContext*>(context);
   std::size_t nbytes = size * nmemb;
-  if (ctx->size < ctx->offset + nbytes) {
-    std::cout << "callback_device_memory() - FAILED: " << ((void*)data)
-              << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
-              << ", nbytes: " << nbytes << std::endl;
-
-    return CURL_WRITEFUNC_ERROR;
-  }
+  if (ctx->size < ctx->offset + nbytes) { return CURL_WRITEFUNC_ERROR; }
 
   CUcontext cuda_ctx = get_context_from_pointer(ctx->buf);
   PushAndPopContext c(cuda_ctx);
