@@ -20,6 +20,7 @@
 #endif
 
 #include <cstring>
+#include <memory>
 #include <sstream>
 #include <stack>
 #include <stdexcept>
@@ -194,24 +195,6 @@ class CurlHandle {
   kvikio::detail::CurlHandle( \
     kvikio::detail::LibCurl::instance().get(), __FILE__, KVIKIO_STRINGIFY(__LINE__))
 
-inline std::size_t get_file_size(std::string url)
-{
-  auto curl = create_curl_handle();
-
-  curl.setopt(CURLOPT_URL, url.c_str());
-  curl.setopt(CURLOPT_NOBODY, 1L);
-  curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-  curl.perform();
-
-  curl_off_t cl;
-  curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
-  if (cl < 0) {
-    throw std::runtime_error("cannot get size of " + url +
-                             ", content-length not provided by the server");
-  }
-  return cl;
-}
-
 struct CallbackContext {
   char* buf;
   std::size_t size;
@@ -271,20 +254,65 @@ inline std::size_t callback_device_memory(char* data,
 }  // namespace detail
 
 /**
+ * @brief
+ */
+class RemoteEndpoint {
+ public:
+  RemoteEndpoint() {}
+  virtual void setopt(detail::CurlHandle& curl) = 0;
+  virtual std::string str()                     = 0;
+};
+
+/**
+ * @brief
+ */
+class HttpEndpoint : public RemoteEndpoint {
+ private:
+  std::string _url;
+
+ public:
+  HttpEndpoint() = default;
+  HttpEndpoint(std::string url) : _url{std::move(url)} {}
+  void setopt(detail::CurlHandle& curl) override { curl.setopt(CURLOPT_URL, _url.c_str()); }
+  std::string str() override { return _url; }
+};
+
+/**
  * @brief Handle of remote file.
  */
 class RemoteHandle {
  private:
-  std::string _url;
+  std::unique_ptr<RemoteEndpoint> _endpoint;
   std::size_t _nbytes;
 
  public:
-  RemoteHandle(std::string url, std::size_t nbytes) : _url(std::move(url)), _nbytes{nbytes}
+  RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
+    : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
   {
-    std::cout << "RemoteHandle(" << _url << ") - nbytes: " << _nbytes << std::endl;
+    std::cout << "RemoteHandle1() - endpoint: " << _endpoint->str() << ", nbytes: " << _nbytes
+              << std::endl;
   }
+  RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
+  {
+    auto curl = create_curl_handle();
 
-  RemoteHandle(std::string const& url) : RemoteHandle(url, detail::get_file_size(url)) {}
+    endpoint->setopt(curl);
+    curl.setopt(CURLOPT_NOBODY, 1L);
+    curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
+    curl.perform();
+    curl_off_t cl;
+    curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
+    if (cl < 0) {
+      throw std::runtime_error("cannot get size of " + endpoint->str() +
+                               ", content-length not provided by the server");
+    }
+
+    _nbytes   = cl;
+    _endpoint = std::move(endpoint);
+
+    std::cout << "RemoteHandle2() - endpoint: " << _endpoint->str() << ", nbytes: " << _nbytes
+              << std::endl;
+  }
 
   RemoteHandle(RemoteHandle const&)            = delete;
   RemoteHandle& operator=(RemoteHandle const&) = delete;
@@ -315,13 +343,12 @@ class RemoteHandle {
     if (file_offset + size > _nbytes) {
       std::stringstream ss;
       ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
-         << " bytes file (" << _url << ")";
+         << " bytes file (" << _endpoint->str() << ")";
       throw std::invalid_argument(ss.str());
     }
 
     auto curl = create_curl_handle();
-
-    curl.setopt(CURLOPT_URL, _url.c_str());
+    _endpoint->setopt(curl);
 
     std::string const byte_range =
       std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);

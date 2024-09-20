@@ -25,7 +25,6 @@
 #include <kvikio/driver.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
-#include <kvikio/remote_handle.hpp>
 
 using namespace std;
 

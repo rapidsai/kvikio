@@ -17,9 +17,12 @@ from kvikio._lib.future cimport IOFuture, _wrap_io_future, future
 
 
 cdef extern from "<kvikio/remote_handle.hpp>" nogil:
+    cdef cppclass cpp_HttpEndpoint "kvikio::HttpEndpoint":
+        cpp_HttpEndpoint(string url) except +
+
     cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
-        cpp_RemoteHandle(string url, size_t nbytes) except +
-        cpp_RemoteHandle(string url) except +
+        cpp_RemoteHandle(cpp_HttpEndpoint endpoint, size_t nbytes) except +
+        cpp_RemoteHandle(cpp_HttpEndpoint endpoint) except +
         int nbytes() except +
         size_t read(
             void* buf,
@@ -40,10 +43,14 @@ cdef class RemoteFile:
         cdef RemoteFile ret = RemoteFile()
         cdef string u = str.encode(str(url))
         if nbytes is None:
-            ret._handle = make_unique[cpp_RemoteHandle](u)
+            ret._handle = make_unique[cpp_RemoteHandle](
+                make_unique[cpp_HttpEndpoint](u)
+            )
             return ret
         cdef size_t n = nbytes
-        ret._handle = make_unique[cpp_RemoteHandle](u, n)
+        ret._handle = make_unique[cpp_RemoteHandle](
+            make_unique[cpp_HttpEndpoint](u), n
+        )
         return ret
 
     def nbytes(self) -> int:
