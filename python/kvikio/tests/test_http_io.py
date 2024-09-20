@@ -51,7 +51,7 @@ def http_server(request, tmpdir):
 def test_file_size(http_server, tmpdir):
     a = np.arange(100)
     a.tofile(tmpdir / "a")
-    with kvikio.RemoteFile(f"{http_server}/a") as f:
+    with kvikio.RemoteFile.from_http_url(f"{http_server}/a") as f:
         assert f.nbytes() == a.nbytes
 
 
@@ -64,7 +64,7 @@ def test_read(http_server, tmpdir, xp, size, nthreads, tasksize):
 
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.defaults.set_task_size(tasksize):
-            with kvikio.RemoteFile(f"{http_server}/a") as f:
+            with kvikio.RemoteFile.from_http_url(f"{http_server}/a") as f:
                 assert f.nbytes() == a.nbytes
                 b = xp.empty_like(a)
                 assert f.read(b) == a.nbytes
@@ -77,7 +77,7 @@ def test_large_read(http_server, tmpdir, xp, nthreads):
     a.tofile(tmpdir / "a")
 
     with kvikio.defaults.set_num_threads(nthreads):
-        with kvikio.RemoteFile(f"{http_server}/a") as f:
+        with kvikio.RemoteFile.from_http_url(f"{http_server}/a") as f:
             assert f.nbytes() == a.nbytes
             b = xp.empty_like(a)
             assert f.read(b) == a.nbytes
@@ -88,7 +88,7 @@ def test_error_too_small_file(http_server, tmpdir, xp):
     a = xp.arange(10, dtype="uint8")
     b = xp.empty(100, dtype="uint8")
     a.tofile(tmpdir / "a")
-    with kvikio.RemoteFile(f"{http_server}/a") as f:
+    with kvikio.RemoteFile.from_http_url(f"{http_server}/a") as f:
         assert f.nbytes() == a.nbytes
         with pytest.raises(
             ValueError, match=r"cannot read 0\+100 bytes into a 10 bytes file"
@@ -105,7 +105,7 @@ def test_no_range_support(http_server, tmpdir, xp):
     a = xp.arange(100, dtype="uint8")
     a.tofile(tmpdir / "a")
     b = xp.empty_like(a)
-    with kvikio.RemoteFile(f"{http_server}/a") as f:
+    with kvikio.RemoteFile.from_http_url(f"{http_server}/a") as f:
         assert f.nbytes() == a.nbytes
         with pytest.raises(
             OverflowError, match="maybe the server doesn't support file ranges?"

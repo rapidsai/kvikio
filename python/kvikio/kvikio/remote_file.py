@@ -33,17 +33,39 @@ def _get_remote_module():
 
 
 class RemoteFile:
-    """File handle of a remote file (currently, only AWS S3 is supported)."""
+    """File handle of a remote file."""
 
-    def __init__(self, url: str, nbytes: Optional[int] = None):
-        """Open a remote file given a bucket and object name.
+    def __init__(self, handle):
+        """Create a remote file from a Cython handle.
+
+        This constructor should not be called directly instead use a
+        factory method like `RemoteFile.from_http_url()`
+
+        Parameters
+        ----------
+        handle : kvikio._lib.remote_handle.RemoteFile
+            The Cython handle
+        """
+        assert isinstance(handle, _get_remote_module().RemoteFile)
+        self._handle = handle
+
+    @classmethod
+    def from_http_url(
+        cls,
+        url: str,
+        nbytes: Optional[int] = None,
+    ) -> RemoteFile:
+        """Open a http file.
 
         Parameters
         ----------
         url
             URL to the remote file.
+        nbytes
+            The size of the file. If None, KvikIO will ask the server
+            for the file size.
         """
-        self._handle = _get_remote_module().RemoteFile.from_url(url, nbytes)
+        return RemoteFile(_get_remote_module().RemoteFile.from_url(url, nbytes))
 
     def __enter__(self) -> RemoteFile:
         return self
