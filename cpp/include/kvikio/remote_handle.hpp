@@ -137,7 +137,7 @@ class LibCurl {
 };
 
 /**
- * @brief A wrapper of a curl easy handle pointer `CURL*`.
+ * @brief A wrapper of a curl easy handle pointer.
  */
 class CurlHandle {
  private:
@@ -152,6 +152,15 @@ class CurlHandle {
       _source_file(std::move(source_file)),
       _source_line(std::move(source_line))
   {
+    // Need CURLOPT_NOSIGNAL to support threading, see
+    // <https://curl.se/libcurl/c/CURLOPT_NOSIGNAL.html>
+    setopt(CURLOPT_NOSIGNAL, 1L);
+
+    // We always set CURLOPT_ERRORBUFFER to get better error messages.
+    setopt(CURLOPT_ERRORBUFFER, _errbuf);
+
+    // Make curl_easy_perform() fail when receiving HTTP code errors.
+    setopt(CURLOPT_FAILONERROR, 1L);
   }
   ~CurlHandle() noexcept { detail::LibCurl::instance().retain_handle(std::move(_handle)); }
 
@@ -175,16 +184,6 @@ class CurlHandle {
   }
   void perform()
   {
-    // Need CURLOPT_NOSIGNAL to support threading, see
-    // <https://curl.se/libcurl/c/CURLOPT_NOSIGNAL.html>
-    setopt(CURLOPT_NOSIGNAL, 1L);
-
-    // We always set CURLOPT_ERRORBUFFER to get better error messages.
-    setopt(CURLOPT_ERRORBUFFER, _errbuf);
-
-    // Make curl_easy_perform() fail when receiving HTTP code errors.
-    setopt(CURLOPT_FAILONERROR, 1L);
-
     // Perform the curl operation and check for errors.
     CURLcode err = curl_easy_perform(handle());
     if (err != CURLE_OK) {
@@ -311,8 +310,6 @@ class RemoteHandle {
   RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
     : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
   {
-    std::cout << "RemoteHandle1() - endpoint: " << _endpoint->str() << ", nbytes: " << _nbytes
-              << std::endl;
   }
   RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   {
@@ -331,9 +328,6 @@ class RemoteHandle {
 
     _nbytes   = cl;
     _endpoint = std::move(endpoint);
-
-    std::cout << "RemoteHandle2() - endpoint: " << _endpoint->str() << ", nbytes: " << _nbytes
-              << std::endl;
   }
 
   RemoteHandle(RemoteHandle const&)            = delete;
