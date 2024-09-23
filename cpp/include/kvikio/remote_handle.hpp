@@ -22,9 +22,9 @@
 #include <cstring>
 #include <memory>
 #include <sstream>
-#include <stack>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <curl/curl.h>
 
@@ -54,7 +54,7 @@ namespace detail {
 class LibCurl {
  private:
   std::mutex _mutex{};
-  std::stack<CURL*> _free_curl_handles{};
+  std::vector<CURL*> _free_curl_handles{};
 
   LibCurl()
   {
@@ -70,10 +70,10 @@ class LibCurl {
   ~LibCurl() noexcept
   {
     // clean up all retained easy handles
-    while (!_free_curl_handles.empty()) {
-      curl_easy_cleanup(_free_curl_handles.top());
-      _free_curl_handles.pop();
+    for (auto h : _free_curl_handles) {
+      curl_easy_cleanup(h);
     }
+    _free_curl_handles.clear();
     curl_global_cleanup();
   }
 
@@ -96,8 +96,8 @@ class LibCurl {
     {
       std::lock_guard const lock(_mutex);
       if (!_free_curl_handles.empty()) {
-        ret = _free_curl_handles.top();
-        _free_curl_handles.pop();
+        ret = _free_curl_handles.back();
+        _free_curl_handles.pop_back();
       }
     }
     // If not, we create a new handle.
@@ -112,7 +112,7 @@ class LibCurl {
   void put(CURL* handle)
   {
     std::lock_guard const lock(_mutex);
-    _free_curl_handles.push(handle);
+    _free_curl_handles.push_back(handle);
   }
 };
 
