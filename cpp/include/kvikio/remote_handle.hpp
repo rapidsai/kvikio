@@ -19,7 +19,9 @@
 #error "cannot include <kvikio/remote_handle.hpp>, configuration did not find libcurl"
 #endif
 
+#include <cstddef>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -52,9 +54,14 @@ namespace detail {
  * that time and it could cause a deadlock.)
  */
 class LibCurl {
+ public:
+  // We hold an unique pointer to the raw curl handle and sets `curl_easy_cleanup` as its Deleter.
+  using UniqueHandlePtr = std::unique_ptr<CURL, std::function<void(CURL*)>>;
+
  private:
   std::mutex _mutex{};
-  std::vector<CURL*> _free_curl_handles{};
+  // Curl handles free to be used.
+  std::vector<UniqueHandlePtr> _free_curl_handles{};
 
   LibCurl()
   {
@@ -69,10 +76,6 @@ class LibCurl {
   }
   ~LibCurl() noexcept
   {
-    // clean up all retained easy handles
-    for (auto h : _free_curl_handles) {
-      curl_easy_cleanup(h);
-    }
     _free_curl_handles.clear();
     curl_global_cleanup();
   }
@@ -89,30 +92,41 @@ class LibCurl {
     return _instance;
   }
 
-  CURL* get()
+  /**
+   * @brief Return a free curl handle if available
+   */
+  UniqueHandlePtr get_free_handle()
   {
-    // Check if we have a handle available.
-    CURL* ret = nullptr;
-    {
-      std::lock_guard const lock(_mutex);
-      if (!_free_curl_handles.empty()) {
-        ret = _free_curl_handles.back();
-        _free_curl_handles.pop_back();
-      }
+    UniqueHandlePtr ret;
+    std::lock_guard const lock(_mutex);
+    if (!_free_curl_handles.empty()) {
+      ret = std::move(_free_curl_handles.back());
+      _free_curl_handles.pop_back();
     }
-    // If not, we create a new handle.
-    if (ret == nullptr) {
-      ret = curl_easy_init();
-      if (ret == nullptr) { throw std::runtime_error("libcurl: call to curl_easy_init() failed"); }
-    }
-    curl_easy_reset(ret);
     return ret;
   }
 
-  void put(CURL* handle)
+  UniqueHandlePtr get()
+  {
+    // Check if we have a free handle available.
+    UniqueHandlePtr ret = get_free_handle();
+    if (ret) {
+      curl_easy_reset(ret.get());
+    } else {
+      // If not, we create a new handle.
+      CURL* raw_handle = curl_easy_init();
+      if (raw_handle == nullptr) {
+        throw std::runtime_error("libcurl: call to curl_easy_init() failed");
+      }
+      ret = UniqueHandlePtr(raw_handle, curl_easy_cleanup);
+    }
+    return ret;
+  }
+
+  void put(UniqueHandlePtr handle)
   {
     std::lock_guard const lock(_mutex);
-    _free_curl_handles.push_back(handle);
+    _free_curl_handles.push_back(std::move(handle));
   }
 };
 
@@ -122,23 +136,25 @@ class LibCurl {
 class CurlHandle {
  private:
   char _errbuf[CURL_ERROR_SIZE];
-  CURL* _handle;
+  LibCurl::UniqueHandlePtr _handle;
   std::string _source_file;
   std::string _source_line;
 
  public:
-  CurlHandle(CURL* handle, std::string source_file, std::string source_line)
-    : _handle{handle}, _source_file(std::move(source_file)), _source_line(std::move(source_line))
+  CurlHandle(LibCurl::UniqueHandlePtr handle, std::string source_file, std::string source_line)
+    : _handle{std::move(handle)},
+      _source_file(std::move(source_file)),
+      _source_line(std::move(source_line))
   {
   }
-  ~CurlHandle() noexcept { detail::LibCurl::instance().put(_handle); }
+  ~CurlHandle() noexcept { detail::LibCurl::instance().put(std::move(_handle)); }
 
   CurlHandle(CurlHandle const&)            = delete;
   CurlHandle& operator=(CurlHandle const&) = delete;
   CurlHandle(CurlHandle&& o)               = delete;
   CurlHandle& operator=(CurlHandle&& o)    = delete;
 
-  CURL* handle() noexcept { return _handle; }
+  CURL* handle() noexcept { return _handle.get(); }
 
   template <typename VAL>
   void setopt(CURLoption option, VAL value)
