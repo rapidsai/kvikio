@@ -140,8 +140,8 @@ class CurlHandle {
 
   CURL* handle() noexcept { return _handle; }
 
-  template <typename OPT, typename VAL>
-  void setopt(OPT option, VAL value)
+  template <typename VAL>
+  void setopt(CURLoption option, VAL value)
   {
     CURLcode err = curl_easy_setopt(handle(), option, value);
     if (err != CURLE_OK) {
