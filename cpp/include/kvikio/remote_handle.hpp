@@ -266,6 +266,7 @@ inline std::size_t callback_device_memory(char* data,
 
   CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
     convert_void2deviceptr(ctx->buf + ctx->offset), data, nbytes, stream));
+  // We have to sync since curl moght overwrite or free `data`.
   CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
 
   ctx->offset += nbytes;
