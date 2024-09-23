@@ -93,7 +93,7 @@ class LibCurl {
   }
 
   /**
-   * @brief Return a free curl handle if available
+   * @brief Returns a free curl handle if available.
    */
   UniqueHandlePtr get_free_handle()
   {
@@ -106,7 +106,10 @@ class LibCurl {
     return ret;
   }
 
-  UniqueHandlePtr get()
+  /**
+   * @brief Returns a curl handle, create a new handle if none is available.
+   */
+  UniqueHandlePtr get_handle()
   {
     // Check if we have a free handle available.
     UniqueHandlePtr ret = get_free_handle();
@@ -123,7 +126,10 @@ class LibCurl {
     return ret;
   }
 
-  void put(UniqueHandlePtr handle)
+  /**
+   * @brief Retain a curl handle for later use.
+   */
+  void retain_handle(UniqueHandlePtr handle)
   {
     std::lock_guard const lock(_mutex);
     _free_curl_handles.push_back(std::move(handle));
@@ -147,7 +153,7 @@ class CurlHandle {
       _source_line(std::move(source_line))
   {
   }
-  ~CurlHandle() noexcept { detail::LibCurl::instance().put(std::move(_handle)); }
+  ~CurlHandle() noexcept { detail::LibCurl::instance().retain_handle(std::move(_handle)); }
 
   CurlHandle(CurlHandle const&)            = delete;
   CurlHandle& operator=(CurlHandle const&) = delete;
@@ -209,7 +215,7 @@ class CurlHandle {
 
 #define create_curl_handle()  \
   kvikio::detail::CurlHandle( \
-    kvikio::detail::LibCurl::instance().get(), __FILE__, KVIKIO_STRINGIFY(__LINE__))
+    kvikio::detail::LibCurl::instance().get_handle(), __FILE__, KVIKIO_STRINGIFY(__LINE__))
 
 struct CallbackContext {
   char* buf;
