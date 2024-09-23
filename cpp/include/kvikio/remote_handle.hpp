@@ -380,7 +380,7 @@ class RemoteHandle {
   /**
    * @brief Read from remote source into buffer (host or device memory) in parallel.
    *
-   * This API is a parallel async version of `.read()` that partition the operation
+   * This API is a parallel async version of `.read()` that partitions the operation
    * into tasks of size `task_size` for execution in the default thread pool.
    *
    * @param buf Pointer to host or device memory.
