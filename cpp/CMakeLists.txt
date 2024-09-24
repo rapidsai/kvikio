@@ -146,11 +146,7 @@ if(KvikIO_BUILD_EXAMPLES)
 endif()
 
 if(KvikIO_BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-  include(${rapids-cmake-dir}/cpm/gtest.cmake)
-  rapids_cpm_gtest(BUILD_STATIC)
-  include(CTest) # calls enable_testing()
-
-  add_subdirectory(tests)
+  include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
 include(CPack)
