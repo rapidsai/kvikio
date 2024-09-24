@@ -150,7 +150,7 @@ class DevBuffer {
   {
     std::cout << "DevBuffer(";
     for (auto item : to_vector()) {
-      std::cout << (int64_t)item << ", ";
+      std::cout << static_cast<int64_t>(item) << ", ";
     }
     std::cout << ")" << std::endl;
   }
@@ -165,7 +165,7 @@ inline void expect_equal(const DevBuffer& a, const DevBuffer& b)
   auto a_vec = a.to_vector();
   auto b_vec = b.to_vector();
   for (std::size_t i = 0; i < a.nelem; ++i) {
-    EXPECT_EQ(a_vec[i], b_vec[i]) << "Mismatch at index #" << i;
+    EXPECT_EQ(a_vec[i], b_vec[i]) << "Mismatch at index " << i;
   }
 }
 
