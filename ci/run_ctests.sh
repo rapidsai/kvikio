@@ -7,8 +7,15 @@ set -euo pipefail
 cd "${INSTALL_PREFIX:-${CONDA_PREFIX:-/usr}}/bin/tests/libkvikio/"
 
 # Run basic tests
-./BASIC_IO_TEST
-./BASIC_NO_CUDA_TEST
+rapids-logger "Run BASIC_IO_EXAMPLE"
+./BASIC_IO_EXAMPLE
+rapids-logger "Run BASIC_NO_CUDA_EXAMPLE"
+./BASIC_NO_CUDA_EXAMPLE
 
 # Run gtests
-ctest --no-tests=error --output-on-failure "$@"
+rapids-logger "Run gtests"
+./cpp_tests
+# TODO: how to use ctest instead of executing the test directly?
+# The following line fails with a "ctest doesn't exist" in CI.
+# Do we need to install ctest in the CI images?
+# ctest --no-tests=error --output-on-failure "$@"

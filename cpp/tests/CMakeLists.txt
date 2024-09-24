@@ -18,7 +18,6 @@
 enable_testing()
 
 include(rapids-test)
-# NB: calling `rapids_test_init()` to have CTest manage GPU resource doesn't work
 
 file(GLOB SOURCES "*.cpp")
 add_executable(cpp_tests ${SOURCES})

@@ -42,7 +42,7 @@ namespace kvikio::test {
  * Example:                                                                          \
  * ```c++                                                                            \
  *                                                                                   \
- * // Throws rmm::cuda_error if `cudaMalloc` fails                                   \
+ * // Throws std::runtime_error if `cudaMalloc` fails                                \
  * KVIKIO_CHECK_CUDA(cudaMalloc(&p, 100));                                           \
  *                                                                                   \
  * // Throws std::runtime_error if `cudaMalloc` fails                                \
@@ -67,7 +67,13 @@ namespace kvikio::test {
   } while (0)
 #define KVIKIO_CHECK_CUDA_1(_call) KVIKIO_CHECK_CUDA_2(_call, std::runtime_error)
 
-class TempDir {
+<<<<<<< HEAD
+=======
+  /**
+   * @brief Help class to create a temporary directory.
+   */
+>>>>>>> 5c18c1bacac4d84630526ebecc1033410f6da4c9
+  class TempDir {
  public:
   TempDir(const bool cleanup = true) : _cleanup{cleanup}
   {
@@ -102,8 +108,20 @@ class TempDir {
   std::filesystem::path _dir_path{};
 };
 
+<<<<<<< HEAD
 class DevBuffer {
  public:
+=======
+/**
+ * @brief Help class for creating and comparing buffers.
+ */
+class DevBuffer {
+ public:
+  const std::size_t nelem;
+  const std::size_t nbytes;
+  void* ptr{nullptr};
+
+>>>>>>> 5c18c1bacac4d84630526ebecc1033410f6da4c9
   DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(std::int64_t)}
   {
     KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes));
@@ -144,6 +162,7 @@ class DevBuffer {
     }
     std::cout << ")" << std::endl;
   }
+<<<<<<< HEAD
 
   const std::size_t nelem;
   const std::size_t nbytes;
@@ -151,6 +170,14 @@ class DevBuffer {
 };
 
 void expect_equal(const DevBuffer& a, const DevBuffer& b)
+=======
+};
+
+/**
+ * @brief Check that two buffers are equal
+ */
+inline void expect_equal(const DevBuffer& a, const DevBuffer& b)
+>>>>>>> 5c18c1bacac4d84630526ebecc1033410f6da4c9
 {
   EXPECT_EQ(a.nbytes, b.nbytes);
   auto a_vec = a.to_vector();
