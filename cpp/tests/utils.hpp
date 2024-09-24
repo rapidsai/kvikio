@@ -67,17 +67,14 @@ namespace kvikio::test {
   } while (0)
 #define KVIKIO_CHECK_CUDA_1(_call) KVIKIO_CHECK_CUDA_2(_call, std::runtime_error)
 
-<<<<<<< HEAD
-=======
-  /**
-   * @brief Help class to create a temporary directory.
-   */
->>>>>>> 5c18c1bacac4d84630526ebecc1033410f6da4c9
-  class TempDir {
+/**
+ * @brief Help class to create a temporary directory.
+ */
+class TempDir {
  public:
   TempDir(const bool cleanup = true) : _cleanup{cleanup}
   {
-    std::string tpl{std::filesystem::temp_directory_path() / "legate-dataframe.XXXXXX"};
+    std::string tpl{std::filesystem::temp_directory_path() / "kvikio.XXXXXX"};
     if (mkdtemp(tpl.data()) == nullptr) {
       throw std::runtime_error("TempDir: cannot make tmpdir: " + tpl);
     }
