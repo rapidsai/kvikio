@@ -98,7 +98,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cmake>=3.26.4,!=3.30.0
+          - &cmake_ver cmake>=3.26.4,!=3.30.0
           - ninja
   build-cpp:
     common:
@@ -312,6 +312,11 @@ dependencies:
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs !=0.12.0
           - packaging
+  test_cpp:
+    common:
+      - output_types: conda
+        packages:
+          - *cmake_ver
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
