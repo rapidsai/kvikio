@@ -2,35 +2,17 @@
 # See file LICENSE for terms.
 
 
-import functools
-import multiprocessing as mp
-import threading
-import time
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-
 import numpy as np
 import pytest
-from RangeHTTPServer import RangeRequestHandler
 
 import kvikio
 import kvikio.defaults
+from kvikio.utils import LocalHttpServer
 
 pytestmark = pytest.mark.skipif(
     not kvikio.is_remote_file_available(),
     reason="cannot test remote IO, please build KvikIO with libcurl",
 )
-
-
-def start_http_server(queue: mp.Queue, tmpdir: str, range_support: bool):
-    handler = RangeRequestHandler if range_support else SimpleHTTPRequestHandler
-    httpd = ThreadingHTTPServer(
-        ("127.0.0.1", 0), functools.partial(handler, directory=tmpdir)
-    )
-    thread = threading.Thread(target=httpd.serve_forever)
-    thread.start()
-    queue.put(httpd.server_address)
-    time.sleep(60)
-    print("ThreadingHTTPServer shutting down because of timeout (60sec)")
 
 
 @pytest.fixture
@@ -40,12 +22,8 @@ def http_server(request, tmpdir):
     if hasattr(request, "param"):
         range_support = request.param.get("range_support", True)
 
-    queue = mp.Queue()
-    p = mp.Process(target=start_http_server, args=(queue, str(tmpdir), range_support))
-    p.start()
-    ip, port = queue.get()
-    yield f"http://{ip}:{port}"
-    p.kill()
+    with LocalHttpServer(tmpdir, range_support, max_lifetime=60) as server:
+        yield server.url
 
 
 def test_file_size(http_server, tmpdir):
