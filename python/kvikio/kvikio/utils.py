@@ -3,6 +3,7 @@
 
 import functools
 import multiprocessing
+import pathlib
 import threading
 import time
 
@@ -36,7 +37,9 @@ class LocalHttpServer:
             f"ThreadingHTTPServer shutting down because of timeout ({max_lifetime}sec)"
         )
 
-    def __init__(self, root_path: str, range_support: bool, max_lifetime: int) -> None:
+    def __init__(
+        self, root_path: str | pathlib.Path, range_support: bool, max_lifetime: int
+    ) -> None:
         self.root_path = root_path
         self.range_support = range_support
         self.max_lifetime = max_lifetime
