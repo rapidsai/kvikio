@@ -105,10 +105,6 @@ class TempDir {
   std::filesystem::path _dir_path{};
 };
 
-<<<<<<< HEAD
-class DevBuffer {
- public:
-=======
 /**
  * @brief Help class for creating and comparing buffers.
  */
@@ -118,7 +114,6 @@ class DevBuffer {
   const std::size_t nbytes;
   void* ptr{nullptr};
 
->>>>>>> 5c18c1bacac4d84630526ebecc1033410f6da4c9
   DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(std::int64_t)}
   {
     KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes));
@@ -159,22 +154,12 @@ class DevBuffer {
     }
     std::cout << ")" << std::endl;
   }
-<<<<<<< HEAD
-
-  const std::size_t nelem;
-  const std::size_t nbytes;
-  void* ptr{nullptr};
-};
-
-void expect_equal(const DevBuffer& a, const DevBuffer& b)
-=======
 };
 
 /**
  * @brief Check that two buffers are equal
  */
 inline void expect_equal(const DevBuffer& a, const DevBuffer& b)
->>>>>>> 5c18c1bacac4d84630526ebecc1033410f6da4c9
 {
   EXPECT_EQ(a.nbytes, b.nbytes);
   auto a_vec = a.to_vector();

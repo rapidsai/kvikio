@@ -147,6 +147,13 @@ endif()
 
 if(KvikIO_BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   include(cmake/thirdparty/get_gtest.cmake)
+
+  # include CTest module -- automatically calls enable_testing()
+  include(CTest)
+
+  # Always print verbose output when tests fail if run using `make test`.
+  list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
+  add_subdirectory(tests)
 endif()
 
 include(CPack)
