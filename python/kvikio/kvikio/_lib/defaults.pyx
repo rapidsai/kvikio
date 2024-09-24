@@ -20,6 +20,9 @@ cdef extern from "<kvikio/defaults.hpp>" nogil:
     size_t cpp_gds_threshold "kvikio::defaults::gds_threshold"() except +
     void cpp_gds_threshold_reset \
         "kvikio::defaults::gds_threshold_reset"(size_t nbytes) except +
+    size_t cpp_bounce_buffer_size "kvikio::defaults::bounce_buffer_size"() except +
+    void cpp_bounce_buffer_size_reset \
+        "kvikio::defaults::bounce_buffer_size_reset"(size_t nbytes) except +
 
 
 def compat_mode() -> bool:
@@ -52,3 +55,11 @@ def gds_threshold() -> int:
 
 def gds_threshold_reset(nbytes: int) -> None:
     cpp_gds_threshold_reset(nbytes)
+
+
+def bounce_buffer_size() -> int:
+    return cpp_bounce_buffer_size()
+
+
+def bounce_buffer_size_reset(nbytes: int) -> None:
+    cpp_bounce_buffer_size_reset(nbytes)

@@ -16,9 +16,9 @@ Install the **stable release** from the ``rapidsai`` channel like:
   # Install in existing environment
   mamba install -c rapidsai -c conda-forge kvikio
   # Create new environment (CUDA 11.8)
-  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.11 cuda-version=11.8 kvikio
+  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.12 cuda-version=11.8 kvikio
   # Create new environment (CUDA 12.5)
-  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.11 cuda-version=12.5 kvikio
+  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.12 cuda-version=12.5 kvikio
 
 Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 
@@ -27,9 +27,9 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
   # Install in existing environment
   mamba install -c rapidsai-nightly -c conda-forge kvikio
   # Create new environment (CUDA 11.8)
-  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.11 cuda-version=11.8 kvikio
+  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.12 cuda-version=11.8 kvikio
   # Create new environment (CUDA 12.5)
-  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.11 cuda-version=12.5 kvikio
+  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.12 cuda-version=12.5 kvikio
 
 
 .. note::
@@ -39,7 +39,7 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 Build from source
 -----------------
 
-In order to setup a development environment run:
+In order to setup a development environment, we recommend Conda:
 
 .. code-block::
 
@@ -48,11 +48,11 @@ In order to setup a development environment run:
   # CUDA 12.5
   mamba env create --name kvikio-dev --file conda/environments/all_cuda-125_arch-x86_64.yaml
 
-To build and install the extension run:
+The Python library depends on the C++ library, thus we build and install both:
 
 .. code-block::
 
-  ./build.sh kvikio
+  ./build.sh libkvikio kvikio
 
 
 One might have to define ``CUDA_HOME`` to the path to the CUDA installation.

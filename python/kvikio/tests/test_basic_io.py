@@ -8,6 +8,7 @@ from contextlib import contextmanager
 import pytest
 
 import kvikio
+import kvikio.buffer
 import kvikio.defaults
 
 cupy = pytest.importorskip("cupy")
@@ -256,3 +257,39 @@ def test_multiple_gpus(tmp_path, xp, gds_threshold):
                 with cupy.cuda.Device(0):
                     assert f.read(a1) == a1.nbytes
             assert bytes(a0) == bytes(a1)
+
+
+@pytest.mark.parametrize("size", [1, 10, 100, 1000])
+@pytest.mark.parametrize("tasksize", [1, 10, 100, 1000])
+@pytest.mark.parametrize("buffer_size", [1, 10, 100, 1000])
+def test_different_bounce_buffer_sizes(tmp_path, size, tasksize, buffer_size):
+    """Test different bounce buffer sizes"""
+    filename = tmp_path / "test-file"
+    with kvikio.defaults.set_compat_mode(True), kvikio.defaults.set_num_threads(10):
+        with kvikio.defaults.set_task_size(tasksize):
+            with kvikio.defaults.set_bounce_buffer_size(buffer_size):
+                with kvikio.CuFile(filename, "w+") as f:
+                    a = cupy.arange(size)
+                    b = cupy.empty_like(a)
+                    f.write(a)
+                    assert f.read(b) == b.nbytes
+                    cupy.testing.assert_array_equal(a, b)
+
+
+def test_bounce_buffer_free(tmp_path):
+    """Test freeing the bounce buffer allocations"""
+    filename = tmp_path / "test-file"
+    kvikio.buffer.bounce_buffer_free()
+    with kvikio.defaults.set_compat_mode(True), kvikio.defaults.set_num_threads(1):
+        with kvikio.CuFile(filename, "w") as f:
+            with kvikio.defaults.set_bounce_buffer_size(1024):
+                # Notice, since the bounce buffer size is only checked when the buffer
+                # is used, we populate the bounce buffer in between we clear it.
+                f.write(cupy.arange(10))
+                assert kvikio.buffer.bounce_buffer_free() == 1024
+                assert kvikio.buffer.bounce_buffer_free() == 0
+                f.write(cupy.arange(10))
+            with kvikio.defaults.set_bounce_buffer_size(2048):
+                f.write(cupy.arange(10))
+                assert kvikio.buffer.bounce_buffer_free() == 2048
+                assert kvikio.buffer.bounce_buffer_free() == 0

@@ -200,7 +200,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - nvcomp==3.0.6
+          - nvcomp==4.0.1
     specific:
       - output_types: conda
         matrices:
@@ -278,10 +278,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.9"
-            packages:
-              - python=3.9
-          - matrix:
               py: "3.10"
             packages:
               - python=3.10
@@ -290,8 +286,12 @@ dependencies:
             packages:
               - python=3.11
           - matrix:
+              py: "3.12"
             packages:
-              - python>=3.9,<3.12
+              - python=3.12
+          - matrix:
+            packages:
+              - python>=3.10,<3.13
   rapids_build_skbuild:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -307,10 +307,10 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.23,<2.0a0
+          - numpy>=1.23,<3.0a0
           - zarr
           # See https://github.com/zarr-developers/numcodecs/pull/475
-          - numcodecs <0.12.0
+          - numcodecs !=0.12.0
           - packaging
   test_python:
     common:
