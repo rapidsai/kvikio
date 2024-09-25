@@ -18,6 +18,7 @@
 enable_testing()
 
 include(rapids-test)
+rapids_test_init()
 
 file(GLOB SOURCES "*.cpp")
 add_executable(cpp_tests ${SOURCES})
@@ -35,6 +36,7 @@ target_link_libraries(cpp_tests PRIVATE kvikio::kvikio GTest::gmock GTest::gtest
 rapids_test_add(
   NAME cpp_tests
   COMMAND cpp_tests
+  GPUS 1
   INSTALL_COMPONENT_SET testing
 )
 
