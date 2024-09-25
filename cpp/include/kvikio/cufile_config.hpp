@@ -19,6 +19,8 @@
 #include <filesystem>
 #include <string>
 
+#include <kvikio/utils.hpp>
+
 namespace kvikio {
 namespace detail {
 
@@ -39,7 +41,7 @@ namespace detail {
  *
  * @return The filepath to the cufile.json file or the empty string if it isn't found.
  */
-[[nodiscard]] inline const std::string& config_path()
+[[nodiscard]] KVIKIO_EXPORT inline const std::string& config_path()
 {
   static const std::string ret = detail::lookup_config_path();
   return ret;
