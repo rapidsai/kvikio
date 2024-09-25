@@ -28,6 +28,20 @@
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 
+// Macros used for defining symbol visibility, only GLIBC is supported.
+// Since KvikIO is header-only, we rely on the linker to disambiguate inline functions
+// that have (or return) static references. To do this, the relevant function must have
+// `__attribute__((visibility("default")))`. If not, then if KvikIO is used in two
+// different DSOs, the function will appear twice, and there will be two static objects.
+// See <https://github.com/rapidsai/kvikio/issues/442>.
+#if (defined(__GNUC__) && !defined(__MINGW32__) && !defined(__MINGW64__))
+#define KVIKIO_EXPORT __attribute__((visibility("default")))
+#define KVIKIO_HIDDEN __attribute__((visibility("hidden")))
+#else
+#define KVIKIO_EXPORT
+#define KVIKIO_HIDDEN
+#endif
+
 namespace kvikio {
 
 // cuFile defines a page size to 4 KiB
@@ -136,7 +150,7 @@ class CudaPrimaryContext {
  * @param ordinal Device ordinal - an integer between 0 and the number of CUDA devices
  * @return Primary CUDA context
  */
-[[nodiscard]] inline CUcontext get_primary_cuda_context(int ordinal)
+[[nodiscard]] KVIKIO_EXPORT inline CUcontext get_primary_cuda_context(int ordinal)
 {
   static std::map<int, CudaPrimaryContext> _primary_contexts;
   _primary_contexts.try_emplace(ordinal, ordinal);
