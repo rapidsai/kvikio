@@ -17,11 +17,13 @@ files:
       - py_version
       - rapids_build_skbuild
       - run
+      - test_cpp
       - test_python
   test_cpp:
     output: none
     includes:
       - cuda_version
+      - test_cpp
   test_python:
     output: none
     includes:
