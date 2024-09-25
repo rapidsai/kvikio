@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -26,3 +26,10 @@ def test_zarr_cupy_nvcomp(tmp_path, monkeypatch):
 
     monkeypatch.syspath_prepend(str(examples_path))
     import_module("zarr_cupy_nvcomp").main(tmp_path / "test-file")
+
+
+def test_http_io(tmp_path, monkeypatch):
+    """Test examples/http_io.py"""
+
+    monkeypatch.syspath_prepend(str(examples_path))
+    import_module("http_io").main(tmp_path)

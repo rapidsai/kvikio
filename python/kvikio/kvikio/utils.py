@@ -38,7 +38,10 @@ class LocalHttpServer:
         )
 
     def __init__(
-        self, root_path: str | pathlib.Path, range_support: bool, max_lifetime: int
+        self,
+        root_path: str | pathlib.Path,
+        range_support: bool = True,
+        max_lifetime: int = 120,
     ) -> None:
         self.root_path = root_path
         self.range_support = range_support
