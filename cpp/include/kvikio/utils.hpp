@@ -153,6 +153,9 @@ class CudaPrimaryContext {
 [[nodiscard]] KVIKIO_EXPORT inline CUcontext get_primary_cuda_context(int ordinal)
 {
   static std::map<int, CudaPrimaryContext> _primary_contexts;
+  static std::mutex _mutex;
+  std::lock_guard const lock(_mutex);
+
   _primary_contexts.try_emplace(ordinal, ordinal);
   return _primary_contexts.at(ordinal).ctx;
 }
