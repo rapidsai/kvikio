@@ -42,7 +42,8 @@ namespace detail {
 /**
  * @brief Singleton class to initialize and cleanup the global state of libcurl
  *
- * https://curl.se/libcurl/c/libcurl.html
+ * Notice, libcurl allows the use of a singleton class:
+ *
  * In a C++ module, it is common to deal with the global constant situation by defining a special
  * class that represents the global constant environment of the module. A program always has exactly
  * one object of the class, in static storage. That way, the program automatically calls the
@@ -52,6 +53,8 @@ namespace detail {
  * to think about it. (Caveat: If you are initializing libcurl from a Windows DLL you should not
  * initialize it from DllMain or a static initializer because Windows holds the loader lock during
  * that time and it could cause a deadlock.)
+ *
+ * Source <https://curl.se/libcurl/c/libcurl.html>.
  */
 class LibCurl {
  public:
@@ -79,11 +82,6 @@ class LibCurl {
     _free_curl_handles.clear();
     curl_global_cleanup();
   }
-
-  LibCurl(LibCurl const&)            = delete;
-  LibCurl& operator=(LibCurl const&) = delete;
-  LibCurl(LibCurl&& o)               = delete;
-  LibCurl& operator=(LibCurl&& o)    = delete;
 
  public:
   static LibCurl& instance()
@@ -137,7 +135,10 @@ class LibCurl {
 };
 
 /**
- * @brief A wrapper of a curl easy handle pointer.
+ * @brief Representation of a curl easy handle pointer and its operations.
+ *
+ * An instance is given a `LibCurl::UniqueHandlePtr` on creation, which is
+ * later retailed on destruction.
  */
 class CurlHandle {
  private:
@@ -147,6 +148,15 @@ class CurlHandle {
   std::string _source_line;
 
  public:
+  /**
+   * @brief Construct a new curl handle.
+   *
+   * Typically, do not use this directly instead use the `create_curl_handle()` macro.
+   *
+   * @param handle An unused curl easy handle pointer, which is retailed on destruction.
+   * @param source_file Path of source file of the caller (for error messages).
+   * @param source_line Line of source file of the caller (for error messages).
+   */
   CurlHandle(LibCurl::UniqueHandlePtr handle, std::string source_file, std::string source_line)
     : _handle{std::move(handle)},
       _source_file(std::move(source_file)),
@@ -164,13 +174,27 @@ class CurlHandle {
   }
   ~CurlHandle() noexcept { detail::LibCurl::instance().retain_handle(std::move(_handle)); }
 
+  /**
+   * @brief CurlHandle support is not movable or copyable.
+   */
   CurlHandle(CurlHandle const&)            = delete;
   CurlHandle& operator=(CurlHandle const&) = delete;
   CurlHandle(CurlHandle&& o)               = delete;
   CurlHandle& operator=(CurlHandle&& o)    = delete;
 
+  /**
+   * @brief Get the underlying curl easy handle pointer.
+   */
   CURL* handle() noexcept { return _handle.get(); }
 
+  /**
+   * @brief Set option for the curl handle.
+   *
+   * See <https://curl.se/libcurl/c/curl_easy_setopt.html> for available options.
+   *
+   * @tparam VAL The type of the value.
+   * @param option The curl option to set.
+   */
   template <typename VAL>
   void setopt(CURLoption option, VAL value)
   {
@@ -182,6 +206,12 @@ class CurlHandle {
       throw std::runtime_error(ss.str());
     }
   }
+
+  /**
+   * @brief Perform a blocking network transfer using previously set options.
+   *
+   * See <https://curl.se/libcurl/c/curl_easy_perform.html>.
+   */
   void perform()
   {
     // Perform the curl operation and check for errors.
@@ -199,10 +229,18 @@ class CurlHandle {
     }
   }
 
-  template <typename INFO, typename VALUE>
-  void getinfo(INFO info, VALUE value)
+  /**
+   * @brief Extract information from a curl handle.
+   *
+   * See <https://curl.se/libcurl/c/curl_easy_getinfo.html> for available options.
+   *
+   * @tparam OUTPUT The type of the output.
+   * @param output The output, which is used as-is: `curl_easy_getinfo(..., output)`.
+   */
+  template <typename OUTPUT>
+  void getinfo(CURLINFO info, OUTPUT output)
   {
-    CURLcode err = curl_easy_getinfo(handle(), info, value);
+    CURLcode err = curl_easy_getinfo(handle(), info, output);
     if (err != CURLE_OK) {
       std::stringstream ss;
       ss << "curl_easy_getinfo() error near " << _source_file << ":" << _source_line;
@@ -212,6 +250,11 @@ class CurlHandle {
   }
 };
 
+/**
+ * @brief Create a new curl handle.
+ *
+ * @returns A `kvikio::detail::CurlHandle` instance ready to be used.
+ */
 #define create_curl_handle()  \
   kvikio::detail::CurlHandle( \
     kvikio::detail::LibCurl::instance().get_handle(), __FILE__, KVIKIO_STRINGIFY(__LINE__))
@@ -234,11 +277,6 @@ inline std::size_t callback_host_memory(char* data,
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-
-  // std::cout << "callback_host_memory() - data: " << ((void*)data)
-  //           << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
-  //           << ", nbytes: " << nbytes << std::endl;
-
   std::memcpy(ctx->buf + ctx->offset, data, nbytes);
   ctx->offset += nbytes;
   return nbytes;
@@ -259,11 +297,6 @@ inline std::size_t callback_device_memory(char* data,
   CUcontext cuda_ctx = get_context_from_pointer(ctx->buf);
   PushAndPopContext c(cuda_ctx);
   CUstream stream = detail::StreamsByThread::get();
-
-  // std::cout << "callback_device_memory() - data: " << ((void*)data)
-  //           << ", ctx->buf: " << (void*)ctx->buf << ", offset: " << ctx->offset
-  //           << ", nbytes: " << nbytes << std::endl;
-
   CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
     convert_void2deviceptr(ctx->buf + ctx->offset), data, nbytes, stream));
   // We have to sync since curl moght overwrite or free `data`.
@@ -380,7 +413,6 @@ class RemoteHandle {
       .buf = reinterpret_cast<char*>(buf), .size = size, .offset = 0, .overflow_error = false};
     curl.setopt(CURLOPT_WRITEDATA, &ctx);
 
-    // std::cout << "read() - buf: " << buf << ", byte_range: " << byte_range << std::endl;
     try {
       curl.perform();
     } catch (std::runtime_error const& e) {
