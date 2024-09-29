@@ -77,8 +77,10 @@ inline constexpr std::size_t page_size = 4096;
 template <typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
 [[nodiscard]] std::int64_t convert_to_64bit(T value)
 {
-  if (value >= std::numeric_limits<std::int64_t>::max()) {
-    throw std::overflow_error("convert_to_64bit(x): x too large to fit std::int64_t");
+  if constexpr (std::numeric_limits<T>::max() > std::numeric_limits<std::int64_t>::max()) {
+    if (value > std::numeric_limits<std::int64_t>::max()) {
+      throw std::overflow_error("convert_to_64bit(x): x too large to fit std::int64_t");
+    }
   }
   return std::int64_t(value);
 }
