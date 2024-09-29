@@ -7,11 +7,8 @@ set -euo pipefail
 cd "${INSTALL_PREFIX:-${CONDA_PREFIX:-/usr}}/bin/tests/libkvikio/"
 
 # Run basic tests
-rapids-logger "Run BASIC_IO_EXAMPLE"
 ./BASIC_IO_EXAMPLE
-rapids-logger "Run BASIC_NO_CUDA_EXAMPLE"
 ./BASIC_NO_CUDA_EXAMPLE
 
 # Run gtests
-rapids-logger "Run gtests"
 ctest --no-tests=error --output-on-failure "$@"
