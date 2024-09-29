@@ -25,7 +25,8 @@ def _get_remote_module():
     """Get the remote module or raise an error"""
     if not is_remote_file_available():
         raise RuntimeError(
-            "RemoteFile not available, please build KvikIO with AWS S3 support"
+            "RemoteFile not available, please build KvikIO "
+            "with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
         )
     import kvikio._lib.remote_handle
 

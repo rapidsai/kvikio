@@ -94,7 +94,8 @@ def test_http_io(run_cmd, tmp_path, api):
 
     if not kvikio.is_remote_file_available():
         pytest.skip(
-            "cannot test remote IO, please build KvikIO with with AWS S3 support"
+            "RemoteFile not available, please build KvikIO "
+            "with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
         )
     retcode = run_cmd(
         cmd=[

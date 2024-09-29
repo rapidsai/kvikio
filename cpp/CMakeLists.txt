@@ -51,11 +51,7 @@ rapids_find_package(
 )
 
 if(KvikIO_REMOTE_SUPPORT)
-  rapids_find_package(
-    CURL 7.87.0 REQUIRED
-    BUILD_EXPORT_SET kvikio-exports
-    INSTALL_EXPORT_SET kvikio-exports
-  )
+  include(cmake/thirdparty/get_libcurl.cmake)
 endif()
 
 rapids_find_package(
