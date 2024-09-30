@@ -291,6 +291,14 @@ cdef inline Py_ssize_t _nbytes(Py_ssize_t itemsize,
 
 
 cpdef Array asarray(obj):
+    """Coerce other objects to ``Array``. No-op for existing ``Array``s.
+
+    Args:
+        obj: Object exposing the Python buffer protocol or ``__cuda_array_interface__``
+
+    Returns:
+        Array: An instance of the ``Array`` class
+    """
     if isinstance(obj, Array):
         return <Array>obj
     else:
