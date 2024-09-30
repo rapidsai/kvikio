@@ -89,7 +89,7 @@ def test_zarr_io(run_cmd, tmp_path, api):
         "numpy-kvikio",
     ],
 )
-def test_http_io(run_cmd, tmp_path, api):
+def test_http_io(run_cmd, api):
     """Test benchmarks/http_io.py"""
 
     if not kvikio.is_remote_file_available():
