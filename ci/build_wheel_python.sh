@@ -28,6 +28,6 @@ SKBUILD_CMAKE_ARGS="-DUSE_CUDA_NVCOMP_WHEEL=ON" \
     python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p final_dist
-python -m auditwheel repair -w final_dist dist/*
+python -m auditwheel repair -w final_dist --exclude libnvcomp.so.4 dist/*
 
 RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 final_dist
