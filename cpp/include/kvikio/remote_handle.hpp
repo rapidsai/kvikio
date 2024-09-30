@@ -309,17 +309,34 @@ inline std::size_t callback_device_memory(char* data,
 }  // namespace detail
 
 /**
- * @brief
+ * @brief Abstract base class for remote endpoints.
+ *
+ * In this context, an endpoint refers to a remote file using a specify communication protocol.
+ *
+ * Each communication protocol, such as HTTP or S3, needs to implement this ABC and implement
+ * their own ctor that takes communication protocol specific arguments.
  */
 class RemoteEndpoint {
  public:
-  RemoteEndpoint() {}
+  /**
+   * @brief Set needed connection options on a curl handle.
+   *
+   * Subsequently, a call to `curl.perform()` should connect to the endpoint.
+   *
+   * @param curl The curl handle.
+   */
   virtual void setopt(detail::CurlHandle& curl) = 0;
-  virtual std::string str()                     = 0;
+
+  /**
+   * @brief Get a description of this remote point instance.
+   *
+   * @returns A string description.
+   */
+  virtual std::string str() = 0;
 };
 
 /**
- * @brief
+ * @brief A remote endpoint using http.
  */
 class HttpEndpoint : public RemoteEndpoint {
  private:
@@ -341,10 +358,24 @@ class RemoteHandle {
   std::size_t _nbytes;
 
  public:
+  /**
+   * @brief Create a new remote handle from an endpoint and a file size.
+   *
+   * @param endpoint Remote endpoint used for subsequently IO.
+   * @param nbytes The size of the remote file (in bytes).
+   */
   RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
     : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
   {
   }
+
+  /**
+   * @brief Create a new remote handle from an endpoint (infers the file size).
+   *
+   * The file size is received from the remote server using `endpoint`.
+   *
+   * @param endpoint Remote endpoint used for subsequently IO.
+   */
   RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   {
     auto curl = create_curl_handle();
@@ -364,10 +395,11 @@ class RemoteHandle {
     _endpoint = std::move(endpoint);
   }
 
+  // A remote handle is moveable but not copyable.
+  RemoteHandle(RemoteHandle&& o)               = default;
+  RemoteHandle& operator=(RemoteHandle&& o)    = default;
   RemoteHandle(RemoteHandle const&)            = delete;
   RemoteHandle& operator=(RemoteHandle const&) = delete;
-  RemoteHandle(RemoteHandle&& o)               = delete;
-  RemoteHandle& operator=(RemoteHandle&& o)    = delete;
 
   /**
    * @brief Get the file size.
