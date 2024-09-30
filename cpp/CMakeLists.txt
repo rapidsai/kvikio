@@ -37,6 +37,7 @@ rapids_cmake_build_type(Release)
 
 # build options
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
+option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
@@ -144,10 +145,14 @@ if(KvikIO_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-# optionally build tests
 if(KvikIO_BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   include(cmake/thirdparty/get_gtest.cmake)
-  include(CTest) # calls enable_testing()
+
+  # include CTest module -- automatically calls enable_testing()
+  include(CTest)
+
+  # Always print verbose output when tests fail if run using `make test`.
+  list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
   add_subdirectory(tests)
 endif()
 
