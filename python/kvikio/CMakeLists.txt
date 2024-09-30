@@ -26,6 +26,8 @@ project(
   LANGUAGES CXX CUDA
 )
 
+option(USE_CUDA_NVCOMP_WHEEL "Use the CUDA nvcomp wheel instead of the system library" OFF)
+
 # TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
 include(../../cpp/cmake/Modules/FindcuFile.cmake)
 
