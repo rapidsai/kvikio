@@ -21,7 +21,9 @@
 #include <iostream>
 #include <map>
 #include <optional>
+#include <stdexcept>
 #include <tuple>
+#include <type_traits>
 
 #include <nvtx3/nvtx3.hpp>
 
@@ -67,6 +69,29 @@ inline constexpr std::size_t page_size = 4096;
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   return reinterpret_cast<CUdeviceptr>(devPtr);
+}
+
+/**
+ * @brief Help function to convert value to 64 bit signed integer
+ */
+template <typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
+[[nodiscard]] std::int64_t convert_to_64bit(T value)
+{
+  if constexpr (std::numeric_limits<T>::max() > std::numeric_limits<std::int64_t>::max()) {
+    if (value > std::numeric_limits<std::int64_t>::max()) {
+      throw std::overflow_error("convert_to_64bit(x): x too large to fit std::int64_t");
+    }
+  }
+  return std::int64_t(value);
+}
+
+/**
+ * @brief Help function to convert value to 64 bit float
+ */
+template <typename T, std::enable_if_t<std::is_floating_point_v<T>>* = nullptr>
+[[nodiscard]] double convert_to_64bit(T value)
+{
+  return double(value);
 }
 
 /**
@@ -280,7 +305,7 @@ struct libkvikio_domain {
   {                                                           \
     nvtx3::event_attributes                                   \
     {                                                         \
-      msg, nvtx3::payload { val }                             \
+      msg, nvtx3::payload { convert_to_64bit(val) }           \
     }                                                         \
   }
 #define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
