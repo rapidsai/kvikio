@@ -21,7 +21,10 @@ if(TARGET CURL::libcurl)
   message(STATUS "Building remote_handle.pyx (libcurl found)")
   list(APPEND cython_modules remote_handle.pyx)
 else()
-  message(WARNING "Skipping remote_handle.pyx (libcurl not found or disabled)")
+  message(
+    WARNING
+      "Skipping remote_handle.pyx (please set KvikIO_REMOTE_SUPPORT=ON for remote file support)"
+  )
 endif()
 
 rapids_cython_create_modules(

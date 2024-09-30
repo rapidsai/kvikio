@@ -6,6 +6,7 @@ import multiprocessing
 import pathlib
 import threading
 import time
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
 class LocalHttpServer:
@@ -18,8 +19,6 @@ class LocalHttpServer:
         range_support: bool,
         max_lifetime: int,
     ):
-        from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-
         if range_support:
             from RangeHTTPServer import RangeRequestHandler
 
