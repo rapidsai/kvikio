@@ -14,8 +14,6 @@
 
 set(TEST_INSTALL_PATH bin/tests/libkvikio)
 
-# Example: basic_io
-
 if(CUDAToolkit_FOUND)
   add_executable(BASIC_IO_TEST basic_io.cpp)
   set_target_properties(BASIC_IO_TEST PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
@@ -36,8 +34,6 @@ if(CUDAToolkit_FOUND)
 else()
   message(STATUS "Cannot build the basic_io example when CUDA is not found")
 endif()
-
-# Example: basic_no_cuda
 
 add_executable(BASIC_NO_CUDA_TEST basic_no_cuda.cpp)
 set_target_properties(BASIC_NO_CUDA_TEST PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
