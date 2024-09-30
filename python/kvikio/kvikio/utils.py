@@ -42,6 +42,24 @@ class LocalHttpServer:
         range_support: bool = True,
         max_lifetime: int = 120,
     ) -> None:
+        """Create a context that starts a local http server.
+
+        Example
+        -------
+        >>> with LocalHttpServer(root_path="/my/server/") as server:
+        ...     with kvikio.RemoteFile.from_http_url(f"{server.url}/myfile") as f:
+        ...         f.read(...)
+
+        Parameters
+        ----------
+        root_path
+            Path to the directory the server will serve.
+        range_support
+            Whether to support the ranges, required by `RemoteFile.from_http_url()`.
+            Depend on the `RangeHTTPServer` module (`pip install rangehttpserver`).
+        max_lifetime
+            Maximum lifetime of the server (in seconds).
+        """
         self.root_path = root_path
         self.range_support = range_support
         self.max_lifetime = max_lifetime
