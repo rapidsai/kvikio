@@ -17,11 +17,13 @@ files:
       - py_version
       - rapids_build_skbuild
       - run
+      - test_cpp
       - test_python
   test_cpp:
     output: none
     includes:
       - cuda_version
+      - test_cpp
   test_python:
     output: none
     includes:
@@ -98,7 +100,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cmake>=3.26.4,!=3.30.0
+          - &cmake_ver cmake>=3.26.4,!=3.30.0
           - ninja
   build-cpp:
     common:
@@ -312,6 +314,11 @@ dependencies:
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs !=0.12.0
           - packaging
+  test_cpp:
+    common:
+      - output_types: conda
+        packages:
+          - *cmake_ver
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -329,9 +336,3 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
-  test_python_legate:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - *dask
-          - distributed>=2022.05.2
