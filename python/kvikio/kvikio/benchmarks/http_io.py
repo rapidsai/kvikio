@@ -38,8 +38,8 @@ def run_numpy_like(args, xp):
 
 
 API = {
-    "cupy-kvikio": partial(run_numpy_like, xp=cupy),
-    "numpy-kvikio": partial(run_numpy_like, xp=numpy),
+    "cupy": partial(run_numpy_like, xp=cupy),
+    "numpy": partial(run_numpy_like, xp=numpy),
 }
 
 

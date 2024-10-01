@@ -333,6 +333,8 @@ class RemoteEndpoint {
    * @returns A string description.
    */
   virtual std::string str() = 0;
+
+  virtual ~RemoteEndpoint() = default;
 };
 
 /**
@@ -343,7 +345,6 @@ class HttpEndpoint : public RemoteEndpoint {
   std::string _url;
 
  public:
-  HttpEndpoint() = default;
   HttpEndpoint(std::string url) : _url{std::move(url)} {}
   void setopt(detail::CurlHandle& curl) override { curl.setopt(CURLOPT_URL, _url.c_str()); }
   std::string str() override { return _url; }
