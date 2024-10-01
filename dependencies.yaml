@@ -93,6 +93,9 @@ files:
   test_java:
     output: none
     includes:
+      - build-universal
+      - build-cpp
+      - cuda_version
       - cuda
       - test_java
 channels:

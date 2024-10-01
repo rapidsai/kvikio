@@ -37,7 +37,7 @@ An example for how to use the Java KvikIO bindings can be found in src/main/java
 #### Run example
 
     cd kvikio/java/
-    java -cp target/cufile-24.10.0-SNAPSHOT.jar:$HOME/.m2/repository/org/jcuda/jcuda/12.0.0/jcuda-12.0.0.jar:$HOME/.m2/repository/org/jcuda/jcuda-natives/12.0.0/jcuda-natives-12.0.0.jar -Djava.library.path=./target bindings.kvikio.example.Main
+    java -cp target/cufile-24.12.0-SNAPSHOT.jar:$HOME/.m2/repository/org/jcuda/jcuda/12.0.0/jcuda-12.0.0.jar:$HOME/.m2/repository/org/jcuda/jcuda-natives/12.0.0/jcuda-natives-12.0.0.jar -Djava.library.path=./target bindings.kvikio.example.Main
 
 ### Specific instructions to run the example from a terminal
 

@@ -44,7 +44,7 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
   upload-conda:
-    needs: [cpp-build, python-build, java-build]
+    needs: [cpp-build, python-build]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@branch-24.12
     with:
