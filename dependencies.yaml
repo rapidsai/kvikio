@@ -17,11 +17,13 @@ files:
       - py_version
       - rapids_build_skbuild
       - run
+      - test_cpp
       - test_python
   test_cpp:
     output: none
     includes:
       - cuda_version
+      - test_cpp
   test_python:
     output: none
     includes:
@@ -103,7 +105,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cmake>=3.26.4,!=3.30.0
+          - &cmake_ver cmake>=3.26.4,!=3.30.0
           - ninja
   build-cpp:
     common:
@@ -144,7 +146,7 @@ dependencies:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==24.10.*,>=0.0.0a0
+          - libkvikio==24.12.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -152,12 +154,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==24.10.*,>=0.0.0a0
+              - libkvikio-cu12==24.12.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu11==24.10.*,>=0.0.0a0
+              - libkvikio-cu11==24.12.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
@@ -317,6 +319,11 @@ dependencies:
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs !=0.12.0
           - packaging
+  test_cpp:
+    common:
+      - output_types: conda
+        packages:
+          - *cmake_ver
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]

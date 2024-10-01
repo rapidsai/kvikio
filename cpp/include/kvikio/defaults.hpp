@@ -21,7 +21,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <utility>
 
 #include <BS_thread_pool.hpp>
 

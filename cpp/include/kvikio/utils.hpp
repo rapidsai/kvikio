@@ -21,12 +21,28 @@
 #include <iostream>
 #include <map>
 #include <optional>
+#include <stdexcept>
 #include <tuple>
+#include <type_traits>
 
 #include <nvtx3/nvtx3.hpp>
 
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
+
+// Macros used for defining symbol visibility, only GLIBC is supported.
+// Since KvikIO is header-only, we rely on the linker to disambiguate inline functions
+// that have (or return) static references. To do this, the relevant function must have
+// `__attribute__((visibility("default")))`. If not, then if KvikIO is used in two
+// different DSOs, the function will appear twice, and there will be two static objects.
+// See <https://github.com/rapidsai/kvikio/issues/442>.
+#if (defined(__GNUC__) || defined(__clang__)) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#define KVIKIO_EXPORT __attribute__((visibility("default")))
+#define KVIKIO_HIDDEN __attribute__((visibility("hidden")))
+#else
+#define KVIKIO_EXPORT
+#define KVIKIO_HIDDEN
+#endif
 
 namespace kvikio {
 
@@ -53,6 +69,29 @@ inline constexpr std::size_t page_size = 4096;
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   return reinterpret_cast<CUdeviceptr>(devPtr);
+}
+
+/**
+ * @brief Help function to convert value to 64 bit signed integer
+ */
+template <typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
+[[nodiscard]] std::int64_t convert_to_64bit(T value)
+{
+  if constexpr (std::numeric_limits<T>::max() > std::numeric_limits<std::int64_t>::max()) {
+    if (value > std::numeric_limits<std::int64_t>::max()) {
+      throw std::overflow_error("convert_to_64bit(x): x too large to fit std::int64_t");
+    }
+  }
+  return std::int64_t(value);
+}
+
+/**
+ * @brief Help function to convert value to 64 bit float
+ */
+template <typename T, std::enable_if_t<std::is_floating_point_v<T>>* = nullptr>
+[[nodiscard]] double convert_to_64bit(T value)
+{
+  return double(value);
 }
 
 /**
@@ -102,33 +141,6 @@ constexpr bool is_host_memory(const void* ptr) { return true; }
 }
 
 /**
- * @brief RAII wrapper for a CUDA primary context
- */
-class CudaPrimaryContext {
- public:
-  CUdevice dev{};
-  CUcontext ctx{};
-
-  CudaPrimaryContext(int device_ordinal)
-  {
-    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, device_ordinal));
-    CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
-  }
-  CudaPrimaryContext(const CudaPrimaryContext&)            = delete;
-  CudaPrimaryContext& operator=(CudaPrimaryContext const&) = delete;
-  CudaPrimaryContext(CudaPrimaryContext&&)                 = delete;
-  CudaPrimaryContext&& operator=(CudaPrimaryContext&&)     = delete;
-  ~CudaPrimaryContext()
-  {
-    try {
-      CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRelease(dev), CUfileException);
-    } catch (const CUfileException& e) {
-      std::cerr << e.what() << std::endl;
-    }
-  }
-};
-
-/**
  * @brief Given a device ordinal, return the primary context of the device.
  *
  * This function caches the primary contexts retrieved until program exit
@@ -136,11 +148,24 @@ class CudaPrimaryContext {
  * @param ordinal Device ordinal - an integer between 0 and the number of CUDA devices
  * @return Primary CUDA context
  */
-[[nodiscard]] inline CUcontext get_primary_cuda_context(int ordinal)
+[[nodiscard]] KVIKIO_EXPORT inline CUcontext get_primary_cuda_context(int ordinal)
 {
-  static std::map<int, CudaPrimaryContext> _primary_contexts;
-  _primary_contexts.try_emplace(ordinal, ordinal);
-  return _primary_contexts.at(ordinal).ctx;
+  static std::map<int, CUcontext> _cache;
+  static std::mutex _mutex;
+  std::lock_guard const lock(_mutex);
+
+  if (_cache.find(ordinal) == _cache.end()) {
+    CUdevice dev{};
+    CUcontext ctx{};
+    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, ordinal));
+
+    // Notice, we let the primary context leak at program exit. We do this because `_cache`
+    // is static and we are not allowed to call `cuDevicePrimaryCtxRelease()` after main:
+    // <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
+    CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
+    _cache.emplace(ordinal, ctx);
+  }
+  return _cache.at(ordinal);
 }
 
 /**
@@ -280,7 +305,7 @@ struct libkvikio_domain {
   {                                                           \
     nvtx3::event_attributes                                   \
     {                                                         \
-      msg, nvtx3::payload { val }                             \
+      msg, nvtx3::payload { convert_to_64bit(val) }           \
     }                                                         \
   }
 #define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
