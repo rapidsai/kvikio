@@ -13,6 +13,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_cupy
+      - depends_on_nvcomp
       - docs
       - py_version
       - rapids_build_skbuild
@@ -198,10 +199,6 @@ dependencies:
             packages:
               - cuda-version=12.5
   cuda:
-    common:
-      - output_types: conda
-        packages:
-          - nvcomp==4.0.1
     specific:
       - output_types: conda
         matrices:
@@ -264,6 +261,10 @@ dependencies:
               - cupy-cuda11x>=12.0.0
           - {matrix: null, packages: *cupy_packages_cu11}
   depends_on_nvcomp:
+    common:
+      - output_types: conda
+        packages:
+          - nvcomp==4.0.1
     specific:
       - output_types: [requirements, pyproject]
         matrices:
