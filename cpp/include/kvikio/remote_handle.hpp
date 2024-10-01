@@ -32,13 +32,26 @@
 namespace kvikio {
 namespace detail {
 
+/**
+ * @brief Context used by the "CURLOPT_WRITEFUNCTION" callbacks.
+ */
 struct CallbackContext {
-  char* buf;
-  std::size_t size;
-  std::size_t offset;
-  bool overflow_error;
+  char* buf;            // Output buffer to read into.
+  std::size_t size;     // Total number of bytes to read.
+  std::size_t offset;   // Offset into `buf` to start reading.
+  bool overflow_error;  // Flag to indicate overflow.
 };
 
+/**
+ * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output host buffer.
+ *
+ * See <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>.
+ *
+ * @param data Data downloaded by libcurl that is ready for consumption.
+ * @param size Size of each element in `nmemb`; size is always 1.
+ * @param nmemb Size of the data in `nmemb`.
+ * @param context A pointer to `CallbackContext`.
+ */
 inline std::size_t callback_host_memory(char* data,
                                         std::size_t size,
                                         std::size_t nmemb,
@@ -55,6 +68,16 @@ inline std::size_t callback_host_memory(char* data,
   return nbytes;
 }
 
+/**
+ * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output device buffer.
+ *
+ * See <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>.
+ *
+ * @param data Data downloaded by libcurl that is ready for consumption.
+ * @param size Size of each element in `nmemb`; size is always 1.
+ * @param nmemb Size of the data in `nmemb`.
+ * @param context A pointer to `CallbackContext`.
+ */
 inline std::size_t callback_device_memory(char* data,
                                           std::size_t size,
                                           std::size_t nmemb,
@@ -72,7 +95,7 @@ inline std::size_t callback_device_memory(char* data,
   CUstream stream = detail::StreamsByThread::get();
   CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
     convert_void2deviceptr(ctx->buf + ctx->offset), data, nbytes, stream));
-  // We have to sync since curl moght overwrite or free `data`.
+  // We have to sync since curl might overwrite or free `data`.
   CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
 
   ctx->offset += nbytes;
@@ -165,7 +188,6 @@ class RemoteHandle {
       throw std::runtime_error("cannot get size of " + endpoint->str() +
                                ", content-length not provided by the server");
     }
-
     _nbytes   = cl;
     _endpoint = std::move(endpoint);
   }
