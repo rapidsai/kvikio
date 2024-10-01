@@ -344,12 +344,6 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
-  test_python_legate:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - *dask
-          - distributed>=2022.05.2
   test_java:
     common:
       - output_types: conda
