@@ -41,6 +41,7 @@ jobs:
     with:
       build_type: pull-request
   conda-java-tests:
+    needs: conda-cpp-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.12
     with:
