@@ -11,7 +11,10 @@ from kvikio.utils import LocalHttpServer
 
 pytestmark = pytest.mark.skipif(
     not kvikio.is_remote_file_available(),
-    reason="cannot test remote IO, please build KvikIO with libcurl",
+    reason=(
+        "RemoteFile not available, please build KvikIO "
+        "with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
+    ),
 )
 
 
