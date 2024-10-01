@@ -28,6 +28,9 @@ cdef class Array:
     cpdef Py_ssize_t _nbytes(self)
 
 
+cpdef Array asarray(obj)
+
+
 cdef pair[uintptr_t, size_t] parse_buffer_argument(
     buf, size, bint accept_host_buffer
 ) except *
