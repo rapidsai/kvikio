@@ -85,8 +85,8 @@ def test_zarr_io(run_cmd, tmp_path, api):
 @pytest.mark.parametrize(
     "api",
     [
-        "cupy-kvikio",
-        "numpy-kvikio",
+        "cupy",
+        "numpy",
     ],
 )
 def test_http_io(run_cmd, api):

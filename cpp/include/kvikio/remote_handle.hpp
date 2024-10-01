@@ -348,6 +348,7 @@ class HttpEndpoint : public RemoteEndpoint {
   HttpEndpoint(std::string url) : _url{std::move(url)} {}
   void setopt(detail::CurlHandle& curl) override { curl.setopt(CURLOPT_URL, _url.c_str()); }
   std::string str() override { return _url; }
+  ~HttpEndpoint() override = default;
 };
 
 /**
