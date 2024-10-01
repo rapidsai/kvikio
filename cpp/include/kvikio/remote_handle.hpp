@@ -16,7 +16,8 @@
 #pragma once
 
 #ifndef KVIKIO_LIBCURL_FOUND
-#error "cannot include <kvikio/remote_handle.hpp>, configuration did not find libcurl"
+#error \
+  "cannot include <kvikio/remote_handle.hpp>, please build KvikIO with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
 #endif
 
 #include <cstddef>
