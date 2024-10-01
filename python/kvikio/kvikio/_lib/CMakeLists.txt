@@ -22,7 +22,7 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_modules}"
   LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
 )
-if(USE_NVCOMP_WHEEL)
+if(USE_NVCOMP_RUNTIME_WHEEL)
   set(rpaths "$ORIGIN/../../nvidia/nvcomp")
   foreach(tgt IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
     set_property(
