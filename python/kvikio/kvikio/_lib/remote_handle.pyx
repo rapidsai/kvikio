@@ -51,7 +51,7 @@ cdef class RemoteFile:
     cdef unique_ptr[cpp_RemoteHandle] _handle
 
     @classmethod
-    def from_url(
+    def open_http(
         cls,
         url: str,
         nbytes: Optional[int],

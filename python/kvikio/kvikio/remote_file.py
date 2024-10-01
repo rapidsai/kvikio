@@ -40,7 +40,7 @@ class RemoteFile:
         """Create a remote file from a Cython handle.
 
         This constructor should not be called directly instead use a
-        factory method like `RemoteFile.from_http_url()`
+        factory method like `RemoteFile.open_http()`
 
         Parameters
         ----------
@@ -51,7 +51,7 @@ class RemoteFile:
         self._handle = handle
 
     @classmethod
-    def from_http_url(
+    def open_http(
         cls,
         url: str,
         nbytes: Optional[int] = None,
@@ -66,7 +66,7 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        return RemoteFile(_get_remote_module().RemoteFile.from_url(url, nbytes))
+        return RemoteFile(_get_remote_module().RemoteFile.open_http(url, nbytes))
 
     def __enter__(self) -> RemoteFile:
         return self

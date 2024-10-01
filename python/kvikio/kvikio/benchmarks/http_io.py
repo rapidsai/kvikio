@@ -26,7 +26,7 @@ def run_numpy_like(args, xp):
 
     def run() -> float:
         t0 = time.perf_counter()
-        with kvikio.RemoteFile.from_http_url(url, nbytes=src.nbytes) as f:
+        with kvikio.RemoteFile.open_http(url, nbytes=src.nbytes) as f:
             res = f.read(dst)
         t1 = time.perf_counter()
         assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"

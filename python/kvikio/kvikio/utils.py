@@ -47,7 +47,7 @@ class LocalHttpServer:
         Example
         -------
         >>> with LocalHttpServer(root_path="/my/server/") as server:
-        ...     with kvikio.RemoteFile.from_http_url(f"{server.url}/myfile") as f:
+        ...     with kvikio.RemoteFile.open_http(f"{server.url}/myfile") as f:
         ...         f.read(...)
 
         Parameters
@@ -55,7 +55,7 @@ class LocalHttpServer:
         root_path
             Path to the directory the server will serve.
         range_support
-            Whether to support the ranges, required by `RemoteFile.from_http_url()`.
+            Whether to support the ranges, required by `RemoteFile.open_http()`.
             Depend on the `RangeHTTPServer` module (`pip install rangehttpserver`).
         max_lifetime
             Maximum lifetime of the server (in seconds).

@@ -19,7 +19,7 @@ def main(tmpdir: pathlib.Path):
     # Start a local server that serves files in `tmpdir`
     with LocalHttpServer(root_path=tmpdir) as server:
         # Open remote file from a http url
-        with kvikio.RemoteFile.from_http_url(f"{server.url}/myfile") as f:
+        with kvikio.RemoteFile.open_http(f"{server.url}/myfile") as f:
             # KvikIO fetch the file size
             assert f.nbytes() == a.nbytes
             # Read the remote file into `b` as if it was a local file.
