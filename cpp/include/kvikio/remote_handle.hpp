@@ -50,15 +50,15 @@ struct CallbackContext {
  * @param data Data downloaded by libcurl that is ready for consumption.
  * @param size Size of each element in `nmemb`; size is always 1.
  * @param nmemb Size of the data in `nmemb`.
- * @param context A pointer to `CallbackContext`.
+ * @param context A pointer to an instance of `CallbackContext`.
  */
 inline std::size_t callback_host_memory(char* data,
                                         std::size_t size,
                                         std::size_t nmemb,
                                         void* context)
 {
-  auto ctx           = reinterpret_cast<CallbackContext*>(context);
-  std::size_t nbytes = size * nmemb;
+  auto ctx                 = reinterpret_cast<CallbackContext*>(context);
+  const std::size_t nbytes = size * nmemb;
   if (ctx->size < ctx->offset + nbytes) {
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
@@ -76,15 +76,15 @@ inline std::size_t callback_host_memory(char* data,
  * @param data Data downloaded by libcurl that is ready for consumption.
  * @param size Size of each element in `nmemb`; size is always 1.
  * @param nmemb Size of the data in `nmemb`.
- * @param context A pointer to `CallbackContext`.
+ * @param context A pointer to an instance of `CallbackContext`.
  */
 inline std::size_t callback_device_memory(char* data,
                                           std::size_t size,
                                           std::size_t nmemb,
                                           void* context)
 {
-  auto ctx           = reinterpret_cast<CallbackContext*>(context);
-  std::size_t nbytes = size * nmemb;
+  auto ctx                 = reinterpret_cast<CallbackContext*>(context);
+  const std::size_t nbytes = size * nmemb;
   if (ctx->size < ctx->offset + nbytes) {
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
