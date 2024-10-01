@@ -24,7 +24,7 @@ cd "${package_dir}"
 echo "libkvikio-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CPP_WHEELHOUSE}/libkvikio_*.whl)" > ./constraints.txt
 
 PIP_CONSTRAINT="${PWD}/constraints.txt" \
-SKBUILD_CMAKE_ARGS="-DUSE_CUDA_NVCOMP_WHEEL=ON" \
+SKBUILD_CMAKE_ARGS="-DUSE_NVCOMP_WHEEL=ON" \
     python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p final_dist
