@@ -13,6 +13,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_cupy
+      - depends_on_nvcomp
       - docs
       - py_version
       - rapids_build_skbuild
@@ -41,29 +42,30 @@ files:
       - cuda_version
       - docs
       - py_version
-  py_build:
+  py_build_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
     extras:
       table: build-system
     includes:
       - rapids_build_skbuild
-  py_build_cpp_wheel:
+  py_build_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
     extras:
       table: build-system
     includes:
       - rapids_build_skbuild
-  py_run:
+  py_run_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
     extras:
       table: project
     includes:
       - depends_on_cupy
+      - depends_on_nvcomp
       - run
-  py_wheel_cpp:
+  py_rapids_build_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
     extras:
@@ -71,7 +73,7 @@ files:
       key: requires
     includes:
       - build-universal
-  py_wheel_python:
+  py_rapids_build_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
     extras:
@@ -200,10 +202,6 @@ dependencies:
             packages:
               - cuda-version=12.5
   cuda:
-    common:
-      - output_types: conda
-        packages:
-          - nvcomp==4.0.1
     specific:
       - output_types: conda
         matrices:
@@ -265,6 +263,25 @@ dependencies:
             packages: &cupy_packages_cu11
               - cupy-cuda11x>=12.0.0
           - {matrix: null, packages: *cupy_packages_cu11}
+  depends_on_nvcomp:
+    common:
+      - output_types: conda
+        packages:
+          - nvcomp==4.0.1
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - nvidia-nvcomp-cu12==4.0.1
+          - matrix:
+              cuda: "11.*"
+            packages:
+              - nvidia-nvcomp-cu11==4.0.1
+          - matrix:
+            packages:
+              - nvidia-nvcomp==4.0.1
   docs:
     common:
       - output_types: [conda, requirements]
