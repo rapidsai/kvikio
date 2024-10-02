@@ -125,7 +125,7 @@
             <configuration>
               <target>
                 <!-- Compile native code using nvcc -->
-                <exec executable="/usr/local/cuda/bin/nvcc">
+                <exec executable="nvcc">
                   <arg value="-shared"/>
                   <arg value="-o"/>
                   <arg value="${project.build.directory}/libCuFileJNI.so"/>
