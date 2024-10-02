@@ -63,6 +63,7 @@ inline std::size_t callback_host_memory(char* data,
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
+  KVIKIO_NVTX_FUNC_RANGE("RemoteHandle - callback_host_memory()", nbytes);
   std::memcpy(ctx->buf + ctx->offset, data, nbytes);
   ctx->offset += nbytes;
   return nbytes;
@@ -89,6 +90,7 @@ inline std::size_t callback_device_memory(char* data,
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
+  KVIKIO_NVTX_FUNC_RANGE("RemoteHandle - callback_device_memory()", nbytes);
 
   CUstream stream = detail::StreamsByThread::get();
   CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
