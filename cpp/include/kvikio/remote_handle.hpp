@@ -270,7 +270,7 @@ class RemoteHandle {
    * @param size Number of bytes to read.
    * @param file_offset File offset in bytes.
    * @param task_size Size of each task in bytes.
-   * @return Number of bytes read, which is `size` always.
+   * @return Future that on completion returns the size of bytes read, which is always `size`.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
