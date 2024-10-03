@@ -2,7 +2,7 @@
 
 ## Summary
 
-KvikIO (pronounced "kuh-VICK-eye-oh") is a Python and C++ library for high performance file IO. It provides C++ and Python
+KvikIO (pronounced "kuh-VICK-eye-oh", see [here](https://ordnet.dk/ddo_en/dict?query=kvik) for pronunciation of kvik) is a Python and C++ library for high performance file IO. It provides C++ and Python
 bindings to [cuFile](https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html),
 which enables [GPUDirect Storage (GDS)](https://developer.nvidia.com/blog/gpudirect-storage/).
 KvikIO also works efficiently when GDS isn't available and can read/write both host and device data seamlessly.
