@@ -344,13 +344,9 @@ dependencies:
           - &dask dask>=2022.05.2
           - pytest
           - pytest-cov
-      - output_types: [requirements, pyproject]
+      - output_types: [conda, requirements, pyproject]
         packages:
           - rangehttpserver
-      - output_types: conda
-        packages:
-          - pip:
-              - rangehttpserver
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
