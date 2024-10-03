@@ -25,7 +25,9 @@
 #include <tuple>
 #include <type_traits>
 
+#ifdef KVIKIO_CUDA_FOUND
 #include <nvtx3/nvtx3.hpp>
+#endif
 
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
@@ -300,6 +302,7 @@ struct libkvikio_domain {
 
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
 #define KVIKIO_NVTX_FUNC_RANGE_1() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
+#ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                    \
   nvtx3::scoped_range_in<libkvikio_domain> _kvikio_nvtx_range \
   {                                                           \
@@ -308,6 +311,11 @@ struct libkvikio_domain {
       msg, nvtx3::payload { convert_to_64bit(val) }           \
     }                                                         \
   }
+#else
+#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val) \
+  do {                                     \
+  } while (0)
+#endif
 #define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
 
 /**

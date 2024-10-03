@@ -145,7 +145,10 @@ if(KvikIO_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-if(KvikIO_BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+if(CUDAToolkit_FOUND
+   AND KvikIO_BUILD_TESTS
+   AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME
+)
   include(cmake/thirdparty/get_gtest.cmake)
 
   # include CTest module -- automatically calls enable_testing()
