@@ -36,7 +36,7 @@ rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 rapids_cmake_build_type(Release)
 
 # build options
-option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote io support" ON)
+option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 

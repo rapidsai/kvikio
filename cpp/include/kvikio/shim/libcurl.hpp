@@ -57,7 +57,7 @@ namespace kvikio {
  */
 class LibCurl {
  public:
-  // We hold an unique pointer to the raw curl handle and sets `curl_easy_cleanup` as its Deleter.
+  // We hold a unique pointer to the raw curl handle and set `curl_easy_cleanup` as its Deleter.
   using UniqueHandlePtr = std::unique_ptr<CURL, std::function<void(CURL*)>>;
 
  private:
@@ -137,7 +137,7 @@ class LibCurl {
  * @brief Representation of a curl easy handle pointer and its operations.
  *
  * An instance is given a `LibCurl::UniqueHandlePtr` on creation, which is
- * later retailed on destruction.
+ * later retained on destruction.
  */
 class CurlHandle {
  private:
@@ -152,7 +152,7 @@ class CurlHandle {
    *
    * Typically, do not use this directly instead use the `create_curl_handle()` macro.
    *
-   * @param handle An unused curl easy handle pointer, which is retailed on destruction.
+   * @param handle An unused curl easy handle pointer, which is retained on destruction.
    * @param source_file Path of source file of the caller (for error messages).
    * @param source_line Line of source file of the caller (for error messages).
    */

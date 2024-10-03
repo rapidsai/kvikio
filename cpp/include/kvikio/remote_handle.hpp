@@ -58,7 +58,7 @@ inline std::size_t callback_host_memory(char* data,
                                         void* context)
 {
   auto ctx                 = reinterpret_cast<CallbackContext*>(context);
-  const std::size_t nbytes = size * nmemb;
+  std::size_t const nbytes = size * nmemb;
   if (ctx->size < ctx->offset + nbytes) {
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
@@ -107,10 +107,10 @@ inline std::size_t callback_device_memory(char* data,
 /**
  * @brief Abstract base class for remote endpoints.
  *
- * In this context, an endpoint refers to a remote file using a specify communication protocol.
+ * In this context, an endpoint refers to a remote file using a specific communication protocol.
  *
  * Each communication protocol, such as HTTP or S3, needs to implement this ABC and implement
- * their own ctor that takes communication protocol specific arguments.
+ * its own ctor that takes communication protocol specific arguments.
  */
 class RemoteEndpoint {
  public:
@@ -159,7 +159,7 @@ class RemoteHandle {
   /**
    * @brief Create a new remote handle from an endpoint and a file size.
    *
-   * @param endpoint Remote endpoint used for subsequently IO.
+   * @param endpoint Remote endpoint used for subsequent IO.
    * @param nbytes The size of the remote file (in bytes).
    */
   RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
