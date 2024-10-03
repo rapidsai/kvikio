@@ -15,7 +15,7 @@ The C++ library is header-only making it easy to include in [existing projects](
 * A Python [Zarr](https://zarr.readthedocs.io/en/stable/) backend for reading and writing GPU data to file seamlessly.
 * Concurrent reads and writes using an internal thread pool.
 * Non-blocking API.
-* Read/write to both host and device memory seamlessly.
+* Transparently handles reads and writes to/from memory on both host and device.
 * Provides Python bindings to [nvCOMP](https://github.com/NVIDIA/nvcomp).
 
 
@@ -43,6 +43,7 @@ def main(path):
     # Read whole array from file
     f.read(b)
     assert all(a == b)
+    f.close()
 
     # Use contexmanager
     c = cupy.empty_like(a)
@@ -55,6 +56,8 @@ def main(path):
     with kvikio.CuFile(path, "r") as f:
         future1 = f.pread(d[:50])
         future2 = f.pread(d[50:], file_offset=d[:50].nbytes)
+        # Note: must wait for futures before exiting block
+        # at which point the file is closed.
         future1.get()  # Wait for first read
         future2.get()  # Wait for second read
     assert all(a == d)
@@ -93,6 +96,7 @@ int main()
   // Read file into `b` in parallel using 16 threads
   kvikio::default_thread_pool::reset(16);
   {
+    // FileHandles have RAII semantics
     kvikio::FileHandle f("test-file", "r");
     future<size_t> future = f.pread(b_dev, sizeof(a), 0);  // Non-blocking
     size_t read = future.get(); // Blocking
