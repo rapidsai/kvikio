@@ -58,7 +58,7 @@ namespace kvikio {
 class LibCurl {
  public:
   // We hold a unique pointer to the raw curl handle and set `curl_easy_cleanup` as its Deleter.
-  using UniqueHandlePtr = std::unique_ptr<CURL, std::function<void(CURL*)>>;
+  using UniqueHandlePtr = std::unique_ptr<CURL, std::function<decltype(curl_easy_cleanup)>>;
 
  private:
   std::mutex _mutex{};
