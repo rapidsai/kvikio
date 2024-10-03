@@ -237,7 +237,7 @@ class CurlHandle {
    * @param output The output, which is used as-is: `curl_easy_getinfo(..., output)`.
    */
   template <typename OUTPUT>
-  void getinfo(CURLINFO info, OUTPUT output)
+  void getinfo(CURLINFO info, OUTPUT* output)
   {
     CURLcode err = curl_easy_getinfo(handle(), info, output);
     if (err != CURLE_OK) {
