@@ -22,7 +22,7 @@ if(TARGET CURL::libcurl)
   list(APPEND cython_modules remote_handle.pyx)
 else()
   message(
-    WARNING
+    STATUS
       "Skipping remote_handle.pyx (please set KvikIO_REMOTE_SUPPORT=ON for remote file support)"
   )
 endif()
