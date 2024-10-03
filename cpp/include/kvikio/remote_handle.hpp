@@ -40,6 +40,10 @@ struct CallbackContext {
   std::size_t size;       // Total number of bytes to read.
   std::ptrdiff_t offset;  // Offset into `buf` to start reading.
   bool overflow_error;    // Flag to indicate overflow.
+  CallbackContext(void* buf, std::size_t size)
+    : buf{static_cast<char*>(buf)}, size{size}, offset{0}, overflow_error{0}
+  {
+  }
 };
 
 /**
@@ -238,8 +242,7 @@ class RemoteHandle {
     } else {
       curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_device_memory);
     }
-    detail::CallbackContext ctx{
-      .buf = reinterpret_cast<char*>(buf), .size = size, .offset = 0, .overflow_error = false};
+    detail::CallbackContext ctx{buf, size};
     curl.setopt(CURLOPT_WRITEDATA, &ctx);
 
     try {
