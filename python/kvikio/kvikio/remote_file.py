@@ -68,11 +68,15 @@ class RemoteFile:
         """
         return RemoteFile(_get_remote_module().RemoteFile.open_http(url, nbytes))
 
+    def close(self) -> None:
+        """Close the file"""
+        pass
+
     def __enter__(self) -> RemoteFile:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        pass
+        self.close()
 
     def nbytes(self) -> int:
         """Get the file size.
