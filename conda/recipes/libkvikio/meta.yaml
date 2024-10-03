@@ -85,7 +85,6 @@ outputs:
         {% else %}
         - libcufile-dev  # [linux]
         {% endif %}
-        - libcurl>=7.87.0
     test:
         commands:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
