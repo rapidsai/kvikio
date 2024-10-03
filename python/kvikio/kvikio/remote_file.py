@@ -68,6 +68,50 @@ class RemoteFile:
         """
         return RemoteFile(_get_remote_module().RemoteFile.open_http(url, nbytes))
 
+    @classmethod
+    def open_s3(
+        cls,
+        bucket_name: str,
+        object_name: str,
+        nbytes: Optional[int] = None,
+    ) -> RemoteFile:
+        return RemoteFile(
+            _get_remote_module().RemoteFile.open_s3(bucket_name, object_name, nbytes)
+        )
+
+    @classmethod
+    def open_s3_url(
+        cls,
+        url: str,
+        nbytes: Optional[int] = None,
+    ) -> RemoteFile:
+        url = url.lower()
+        if url.startswith("http://") or url.startswith("https://"):
+            return cls.open_s3_from_http_url(url, nbytes)
+        if url.startswith("s://"):
+            return cls.open_s3_from_s3_url(url, nbytes)
+        raise ValueError(f"Unsupported protocol in url: {url}")
+
+    @classmethod
+    def open_s3_from_http_url(
+        cls,
+        url: str,
+        nbytes: Optional[int] = None,
+    ) -> RemoteFile:
+        return RemoteFile(
+            _get_remote_module().RemoteFile.open_s3_from_http_url(url, nbytes)
+        )
+
+    @classmethod
+    def open_s3_from_s3_url(
+        cls,
+        url: str,
+        nbytes: Optional[int] = None,
+    ) -> RemoteFile:
+        return RemoteFile(
+            _get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes)
+        )
+
     def close(self) -> None:
         """Close the file"""
         pass

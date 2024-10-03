@@ -23,6 +23,15 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
     cdef cppclass cpp_HttpEndpoint "kvikio::HttpEndpoint":
         cpp_HttpEndpoint(string url) except +
 
+    cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint":
+        cpp_S3Endpoint(string url) except +
+
+    cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint":
+        cpp_S3Endpoint(string bucket_name, string object_name) except +
+
+    pair[string, string] cpp_parse_s3_url \
+        "kvikio::S3Endpoint::parse_s3_url"(string url) except +
+
     cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
         cpp_RemoteHandle(
             unique_ptr[cpp_RemoteEndpoint] endpoint, size_t nbytes
@@ -59,6 +68,59 @@ cdef class RemoteFile:
         cdef RemoteFile ret = RemoteFile()
         cdef unique_ptr[cpp_HttpEndpoint] ep = make_unique[cpp_HttpEndpoint](
             _to_string(url)
+        )
+        if nbytes is None:
+            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
+            return ret
+        cdef size_t n = nbytes
+        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
+        return ret
+
+    @classmethod
+    def open_s3_from_http_url(
+        cls,
+        url: str,
+        nbytes: Optional[int],
+    ):
+        cdef RemoteFile ret = RemoteFile()
+        cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
+            _to_string(url)
+        )
+        if nbytes is None:
+            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
+            return ret
+        cdef size_t n = nbytes
+        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
+        return ret
+
+    @classmethod
+    def open_s3(
+        cls,
+        bucket_name: str,
+        object_name: str,
+        nbytes: Optional[int],
+    ):
+        cdef RemoteFile ret = RemoteFile()
+        cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
+            _to_string(bucket_name), _to_string(object_name)
+        )
+        if nbytes is None:
+            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
+            return ret
+        cdef size_t n = nbytes
+        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
+        return ret
+
+    @classmethod
+    def open_s3_from_s3_url(
+        cls,
+        url: str,
+        nbytes: Optional[int],
+    ):
+        cdef pair[string, string] bucket_and_object = cpp_parse_s3_url(_to_string(url))
+        cdef RemoteFile ret = RemoteFile()
+        cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
+            bucket_and_object.first, bucket_and_object.second
         )
         if nbytes is None:
             ret._handle = make_unique[cpp_RemoteHandle](move(ep))
