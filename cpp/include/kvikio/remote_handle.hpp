@@ -36,10 +36,10 @@ namespace detail {
  * @brief Context used by the "CURLOPT_WRITEFUNCTION" callbacks.
  */
 struct CallbackContext {
-  char* buf;            // Output buffer to read into.
-  std::size_t size;     // Total number of bytes to read.
-  std::size_t offset;   // Offset into `buf` to start reading.
-  bool overflow_error;  // Flag to indicate overflow.
+  char* buf;              // Output buffer to read into.
+  std::size_t size;       // Total number of bytes to read.
+  std::ptrdiff_t offset;  // Offset into `buf` to start reading.
+  bool overflow_error;    // Flag to indicate overflow.
 };
 
 /**
