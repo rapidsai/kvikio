@@ -293,6 +293,7 @@ inline bool is_future_done(const T& future)
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
 
+#ifdef KVIKIO_CUDA_FOUND
 /**
  * @brief Tag type for libkvikio's NVTX domain.
  */
@@ -302,7 +303,6 @@ struct libkvikio_domain {
 
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
 #define KVIKIO_NVTX_FUNC_RANGE_1() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
-#ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                    \
   nvtx3::scoped_range_in<libkvikio_domain> _kvikio_nvtx_range \
   {                                                           \
@@ -311,12 +311,8 @@ struct libkvikio_domain {
       msg, nvtx3::payload { convert_to_64bit(val) }           \
     }                                                         \
   }
-#else
-#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val) \
-  do {                                     \
-  } while (0)
-#endif
 #define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
+#endif
 
 /**
  * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain
@@ -337,9 +333,15 @@ struct libkvikio_domain {
  * }
  * ```
  */
+#ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_FUNC_RANGE(...)                                  \
   GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(                                  \
     __VA_ARGS__, KVIKIO_NVTX_FUNC_RANGE_2, KVIKIO_NVTX_FUNC_RANGE_1) \
   (__VA_ARGS__)
+#else
+#define KVIKIO_NVTX_FUNC_RANGE(...) \
+  do {                              \
+  } while (0)
+#endif
 
 }  // namespace kvikio
