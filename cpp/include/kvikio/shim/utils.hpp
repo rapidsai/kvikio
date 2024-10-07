@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,21 @@
 #include <vector>
 
 namespace kvikio {
+
+// Macros used for defining symbol visibility, only GLIBC is supported.
+// Since KvikIO is header-only, we rely on the linker to disambiguate inline functions
+// and static methods that have (or return) static references. To do this, the relevant
+// function/method must have `__attribute__((visibility("default")))`. If not, then if
+// KvikIO is used in two different DSOs, the function will appear twice, and there will
+// be two static objects.
+// See <https://gcc.gnu.org/wiki/Visibility> and <https://github.com/rapidsai/kvikio/issues/442>.
+#if (defined(__GNUC__) || defined(__clang__)) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#define KVIKIO_EXPORT __attribute__((visibility("default")))
+#define KVIKIO_HIDDEN __attribute__((visibility("hidden")))
+#else
+#define KVIKIO_EXPORT
+#define KVIKIO_HIDDEN
+#endif
 
 #define KVIKIO_STRINGIFY_DETAIL(x) #x
 #define KVIKIO_STRINGIFY(x)        KVIKIO_STRINGIFY_DETAIL(x)
