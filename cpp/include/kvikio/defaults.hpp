@@ -133,7 +133,7 @@ class defaults {
     }
   }
 
-  static defaults* instance()
+  KVIKIO_EXPORT static defaults* instance()
   {
     static defaults _instance;
     return &_instance;
