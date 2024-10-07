@@ -143,7 +143,7 @@ class AllocRetain {
     return _clear();
   }
 
-  static AllocRetain& instance()
+  KVIKIO_EXPORT static AllocRetain& instance()
   {
     static AllocRetain _instance;
     return _instance;
