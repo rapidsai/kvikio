@@ -51,7 +51,7 @@ class StreamsByThread {
   // cuDevicePrimaryCtxReset() or cudaDeviceReset() before program termination.
   ~StreamsByThread() = default;
 
-  static CUstream get(CUcontext ctx, std::thread::id thd_id)
+  KVIKIO_EXPORT static CUstream get(CUcontext ctx, std::thread::id thd_id)
   {
     static StreamsByThread _instance;
 
