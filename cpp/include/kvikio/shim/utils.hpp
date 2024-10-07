@@ -23,7 +23,7 @@
 
 namespace kvikio {
 
-// Macros used for defining symbol visibility, only GLIBC is supported.
+// Macros used for defining symbol visibility.
 // Since KvikIO is header-only, we rely on the linker to disambiguate inline functions
 // and static methods that have (or return) static references. To do this, the relevant
 // function/method must have `__attribute__((visibility("default")))`. If not, then if
