@@ -242,8 +242,8 @@ if(NOT already_set_kvikio)
   endif()
 
   if(TARGET CURL::libcurl)
-    target_link_libraries(kvikio::kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CURL::libcurl>)
-    target_compile_definitions(kvikio::kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_LIBCURL_FOUND>)
+    target_link_libraries(kvikio::kvikio INTERFACE CURL::libcurl)
+    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_LIBCURL_FOUND)
   endif()
 
 endif()

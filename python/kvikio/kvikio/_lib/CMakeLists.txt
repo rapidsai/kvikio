@@ -30,7 +30,7 @@ endif()
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
-  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
+  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
 )
 if(USE_NVCOMP_RUNTIME_WHEEL)
   set(rpaths "$ORIGIN/../../nvidia/nvcomp")
