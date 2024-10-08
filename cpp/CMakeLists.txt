@@ -36,6 +36,7 @@ rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 rapids_cmake_build_type(Release)
 
 # build options
+option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 
@@ -49,6 +50,10 @@ rapids_find_package(
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
+
+if(KvikIO_REMOTE_SUPPORT)
+  include(cmake/thirdparty/get_libcurl.cmake)
+endif()
 
 rapids_find_package(
   CUDAToolkit
@@ -138,6 +143,10 @@ target_link_libraries(
   kvikio INTERFACE Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS}
                    $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
 )
+if(TARGET CURL::libcurl)
+  target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CURL::libcurl>)
+  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_LIBCURL_FOUND>)
+endif()
 target_compile_features(kvikio INTERFACE cxx_std_17)
 
 # optionally build examples
@@ -231,6 +240,12 @@ if(NOT already_set_kvikio)
       target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_STREAM_API_FOUND)
     endif()
   endif()
+
+  if(TARGET CURL::libcurl)
+    target_link_libraries(kvikio::kvikio INTERFACE CURL::libcurl)
+    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_LIBCURL_FOUND)
+  endif()
+
 endif()
 ]=]
 )

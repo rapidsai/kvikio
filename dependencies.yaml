@@ -110,6 +110,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+          - libcurl>=7.87.0  # Need CURL_WRITEFUNC_ERROR <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>
     specific:
       - output_types: conda
         matrices:
@@ -343,6 +344,7 @@ dependencies:
           - &dask dask>=2022.05.2
           - pytest
           - pytest-cov
+          - rangehttpserver
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:

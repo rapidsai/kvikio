@@ -18,6 +18,13 @@ Zarr
 .. autoclass:: GDSStore
     :members:
 
+RemoteFile
+----------
+.. currentmodule:: kvikio.remote_file
+
+.. autoclass:: RemoteFile
+    :members:
+
 Defaults
 --------
 .. currentmodule:: kvikio.defaults
