@@ -28,6 +28,24 @@
 
 namespace kvikio {
 
+/**
+ * @brief Type of the IO operation.
+ *
+ */
+enum class IOType : uint8_t {
+  READ,   ///< POSIX read.
+  WRITE,  ///< POSIX write.
+};
+
+/**
+ * @brief The degree to which the requested size of data is processed.
+ *
+ */
+enum class IODataCompletionLevel : uint8_t {
+  PARTIAL,  ///< POSIX read/write is called only once, which may not process all data requested.
+  FULL,     ///< POSIX read/write is called repeatedly until all requested data are processed.
+};
+
 namespace detail {
 
 /**
@@ -86,29 +104,30 @@ class StreamsByThread {
 /**
  * @brief Read or write host memory to or from disk using POSIX
  *
- * @tparam IsReadOperation Whether the operation is a read or a write
+ * @tparam ioType Whether the operation is a read or a write.
+ * @tparam ioDataCompletionLevel Whether all requested data are processed or not. If `FULL`, all of
+ * `count` bytes are read or written.
  * @param fd File descriptor
  * @param buf Buffer to write
  * @param count Number of bytes to write
  * @param offset File offset
- * @param partial If false, all of `count` bytes are read or written.
  * @return The number of bytes read or written (always gather than zero)
  */
-template <bool IsReadOperation>
-ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool partial)
+template <IOType ioType, IODataCompletionLevel ioDataCompletionLevel>
+ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset)
 {
   off_t cur_offset      = offset;
   size_t byte_remaining = count;
   char* buffer          = const_cast<char*>(static_cast<const char*>(buf));
   while (byte_remaining > 0) {
     ssize_t nbytes = 0;
-    if constexpr (IsReadOperation) {
+    if constexpr (ioType == IOType::READ) {
       nbytes = ::pread(fd, buffer, byte_remaining, cur_offset);
     } else {
       nbytes = ::pwrite(fd, buffer, byte_remaining, cur_offset);
     }
     if (nbytes == -1) {
-      const std::string name = IsReadOperation ? "pread" : "pwrite";
+      const std::string name = ioType == IOType::READ ? "pread" : "pwrite";
       if (errno == EBADF) {
         throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
                               KVIKIO_STRINGIFY(__LINE__) + ": Operation not permitted"};
@@ -116,13 +135,13 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
       throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
                             KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
     }
-    if constexpr (IsReadOperation) {
+    if constexpr (ioType == IOType::READ) {
       if (nbytes == 0) {
         throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
                               KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
       }
     }
-    if (partial) { return nbytes; }
+    if constexpr (ioDataCompletionLevel == IODataCompletionLevel::PARTIAL) { return nbytes; }
     buffer += nbytes;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     cur_offset += nbytes;
     byte_remaining -= nbytes;
@@ -133,7 +152,7 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
 /**
  * @brief Read or write device memory to or from disk using POSIX
  *
- * @tparam IsReadOperation Whether the operation is a read or a write
+ * @tparam ioType Whether the operation is a read or a write.
  * @param fd File descriptor
  * @param devPtr_base Device pointer to read or write to.
  * @param size Number of bytes to read or write.
@@ -141,7 +160,7 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset, bool 
  * @param devPtr_offset Byte offset to the start of the device pointer.
  * @return Number of bytes read or written.
  */
-template <bool IsReadOperation>
+template <IOType ioType>
 std::size_t posix_device_io(int fd,
                             const void* devPtr_base,
                             std::size_t size,
@@ -160,15 +179,17 @@ std::size_t posix_device_io(int fd,
   while (byte_remaining > 0) {
     const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
     ssize_t nbytes_got           = nbytes_requested;
-    if constexpr (IsReadOperation) {
-      nbytes_got = posix_host_io<true>(fd, alloc.get(), nbytes_requested, cur_file_offset, true);
+    if constexpr (ioType == IOType::READ) {
+      nbytes_got = posix_host_io<IOType::READ, IODataCompletionLevel::PARTIAL>(
+        fd, alloc.get(), nbytes_requested, cur_file_offset);
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
       CUDA_DRIVER_TRY(
         cudaAPI::instance().MemcpyDtoHAsync(alloc.get(), devPtr, nbytes_requested, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-      posix_host_io<false>(fd, alloc.get(), nbytes_requested, cur_file_offset, false);
+      posix_host_io<IOType::WRITE, IODataCompletionLevel::FULL>(
+        fd, alloc.get(), nbytes_requested, cur_file_offset);
     }
     cur_file_offset += nbytes_got;
     devPtr += nbytes_got;
@@ -185,18 +206,20 @@ std::size_t posix_device_io(int fd,
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
+ * @tparam ioDataCompletionLevel Whether all requested data are processed or not. If `FULL`, all of
+ * `count` bytes are read.
  * @param fd File descriptor
  * @param buf Base address of buffer in host memory.
  * @param size Size in bytes to read.
  * @param file_offset Offset in the file to read from.
- * @param partial If false, all of `size` bytes are read.
  * @return Size of bytes that were successfully read.
  */
-inline std::size_t posix_host_read(
-  int fd, void* buf, std::size_t size, std::size_t file_offset, bool partial)
+template <IODataCompletionLevel ioDataCompletionLevel>
+std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE("posix_host_read()", size);
-  return detail::posix_host_io<true>(fd, buf, size, convert_size2off(file_offset), partial);
+  return detail::posix_host_io<IOType::READ, ioDataCompletionLevel>(
+    fd, buf, size, convert_size2off(file_offset));
 }
 
 /**
@@ -205,18 +228,20 @@ inline std::size_t posix_host_read(
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
+ * @tparam ioDataCompletionLevel Whether all requested data are processed or not. If `FULL`, all of
+ * `count` bytes are written.
  * @param fd File descriptor
  * @param buf Base address of buffer in host memory.
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.
- * @param partial If false, all of `size` bytes are written.
  * @return Size of bytes that were successfully read.
  */
-inline std::size_t posix_host_write(
-  int fd, const void* buf, std::size_t size, std::size_t file_offset, bool partial)
+template <IODataCompletionLevel ioDataCompletionLevel>
+std::size_t posix_host_write(int fd, const void* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE("posix_host_write()", size);
-  return detail::posix_host_io<false>(fd, buf, size, convert_size2off(file_offset), partial);
+  return detail::posix_host_io<IOType::WRITE, ioDataCompletionLevel>(
+    fd, buf, size, convert_size2off(file_offset));
 }
 
 /**
@@ -239,7 +264,7 @@ inline std::size_t posix_device_read(int fd,
                                      std::size_t devPtr_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE("posix_device_read()", size);
-  return detail::posix_device_io<true>(fd, devPtr_base, size, file_offset, devPtr_offset);
+  return detail::posix_device_io<IOType::READ>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
 /**
@@ -262,7 +287,7 @@ inline std::size_t posix_device_write(int fd,
                                       std::size_t devPtr_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE("posix_device_write()", size);
-  return detail::posix_device_io<false>(fd, devPtr_base, size, file_offset, devPtr_offset);
+  return detail::posix_device_io<IOType::WRITE>(fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
 }  // namespace kvikio
