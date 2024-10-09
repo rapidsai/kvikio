@@ -60,12 +60,14 @@ class StreamsByThread {
     auto key = std::make_pair(ctx, thd_id);
 
     // Create a new stream if `ctx` doesn't have one.
-    if (_instance._streams.find(key) == _instance._streams.end()) {
+    if (auto search = _instance._streams.find(key); search == _instance._streams.end()) {
       CUstream stream{};
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
       _instance._streams[key] = stream;
+      return stream;
+    } else {
+      return search->second;
     }
-    return _instance._streams.at(key);
   }
 
   static CUstream get()
