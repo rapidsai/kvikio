@@ -47,6 +47,8 @@ cdef extern from "nvcomp/lz4.h" nogil:
     ctypedef struct nvcompBatchedLZ4Opts_t:
         nvcompType_t data_type
 
+    cdef nvcompBatchedLZ4Opts_t nvcompBatchedLZ4DefaultOpts
+
     # Compression API.
     cdef nvcompStatus_t nvcompBatchedLZ4CompressGetTempSize(
         size_t batch_size,
@@ -108,6 +110,8 @@ cdef extern from "nvcomp/lz4.h" nogil:
 cdef extern from "nvcomp/gdeflate.h" nogil:
     ctypedef struct nvcompBatchedGdeflateOpts_t:
         int algo
+
+    cdef nvcompBatchedGdeflateOpts_t nvcompBatchedGdeflateDefaultOpts
 
     # Compression API.
     cdef nvcompStatus_t nvcompBatchedGdeflateCompressGetTempSize(
@@ -171,6 +175,8 @@ cdef extern from "nvcomp/zstd.h" nogil:
     ctypedef struct nvcompBatchedZstdOpts_t:
         int reserved
 
+    cdef nvcompBatchedZstdOpts_t nvcompBatchedZstdDefaultOpts
+
     # Compression API.
     cdef nvcompStatus_t nvcompBatchedZstdCompressGetTempSize(
         size_t batch_size,
@@ -232,6 +238,8 @@ cdef extern from "nvcomp/zstd.h" nogil:
 cdef extern from "nvcomp/snappy.h" nogil:
     ctypedef struct nvcompBatchedSnappyOpts_t:
         int reserved
+
+    cdef nvcompBatchedSnappyOpts_t nvcompBatchedSnappyDefaultOpts
 
     # Compression API.
     cdef nvcompStatus_t nvcompBatchedSnappyCompressGetTempSize(
@@ -295,6 +303,8 @@ cdef extern from "nvcomp/snappy.h" nogil:
 cdef extern from "nvcomp/deflate.h" nogil:
     ctypedef struct nvcompBatchedDeflateOpts_t:
         int algo
+
+    cdef nvcompBatchedDeflateOpts_t nvcompBatchedDeflateDefaultOpts
 
     # Compression API.
     cdef nvcompStatus_t nvcompBatchedDeflateCompressGetTempSize(

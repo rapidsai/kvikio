@@ -4,7 +4,7 @@
 import pathlib
 from typing import Optional, Union
 
-from ._lib import libkvikio  # type: ignore
+from kvikio._lib import file_handle  # type: ignore
 
 
 class IOFutureStream:
@@ -85,7 +85,7 @@ class CuFile:
             "a" -> "open for writing, appending to the end of file if it exists"
             "+" -> "open for updating (reading and writing)"
         """
-        self._handle = libkvikio.CuFile(file, flags)
+        self._handle = file_handle.CuFile(file, flags)
 
     def close(self) -> None:
         """Deregister the file and close the file"""

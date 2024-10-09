@@ -26,32 +26,19 @@ project(
   LANGUAGES CXX CUDA
 )
 
-option(FIND_KVIKIO_CPP
-       "Search for existing KVIKIO C++ installations before defaulting to local files" OFF
-)
-
 # TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
 include(../../cpp/cmake/Modules/FindcuFile.cmake)
 
-if(FIND_KVIKIO_CPP)
-  find_package(KvikIO "${RAPIDS_VERSION}")
-else()
-  set(KvikIO_FOUND OFF)
-endif()
+find_package(KvikIO REQUIRED "${RAPIDS_VERSION}")
 
 find_package(CUDAToolkit REQUIRED)
-
-set(cython_lib_dir kvikio)
-
-if(NOT KvikIO_FOUND)
-  add_subdirectory(../../cpp kvikio-cpp)
-  install(TARGETS kvikio DESTINATION ${cython_lib_dir})
-endif()
 
 include(rapids-cython-core)
 rapids_cython_init()
 
 add_subdirectory(cmake)
+
+set(cython_lib_dir kvikio)
 
 # It would be better to factor nvcomp out into its own wheel. Until that is available, we vendor it
 # here.

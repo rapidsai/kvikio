@@ -1,10 +1,10 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 
 import contextlib
 
-from ._lib import libkvikio  # type: ignore
+import kvikio._lib.defaults
 
 
 def compat_mode() -> bool:
@@ -23,12 +23,12 @@ def compat_mode() -> bool:
     - when `/run/udev` isn't readable, which typically happens when running inside
     a docker image not launched with `--volume /run/udev:/run/udev:ro`
 
-    Return
-    ------
+    Returns
+    -------
     bool
         Whether KvikIO is running in compatibility mode or not.
     """
-    return libkvikio.compat_mode()
+    return kvikio._lib.defaults.compat_mode()
 
 
 def compat_mode_reset(enable: bool) -> None:
@@ -41,7 +41,7 @@ def compat_mode_reset(enable: bool) -> None:
     enable : bool
         Set to True to enable and False to disable compatibility mode
     """
-    libkvikio.compat_mode_reset(enable)
+    kvikio._lib.defaults.compat_mode_reset(enable)
 
 
 @contextlib.contextmanager
@@ -68,12 +68,12 @@ def get_num_threads() -> int:
     Set the default value using `num_threads_reset()` or by setting the
     `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
 
-    Return
-    ------
+    Returns
+    -------
     nthreads: int
         The number of threads in the current thread pool.
     """
-    return libkvikio.thread_pool_nthreads()
+    return kvikio._lib.defaults.thread_pool_nthreads()
 
 
 def num_threads_reset(nthreads: int) -> None:
@@ -92,7 +92,7 @@ def num_threads_reset(nthreads: int) -> None:
         the `KVIKIO_NTHREADS` environment variable. If not set, the default value
         is 1.
     """
-    libkvikio.thread_pool_nthreads_reset(nthreads)
+    kvikio._lib.defaults.thread_pool_nthreads_reset(nthreads)
 
 
 @contextlib.contextmanager
@@ -119,12 +119,12 @@ def task_size() -> int:
     the `KVIKIO_TASK_SIZE` environment variable. If not set,
     the default value is 4 MiB.
 
-    Return
-    ------
+    Returns
+    -------
     nbytes: int
         The default task size in bytes.
     """
-    return libkvikio.task_size()
+    return kvikio._lib.defaults.task_size()
 
 
 def task_size_reset(nbytes: int) -> None:
@@ -135,7 +135,7 @@ def task_size_reset(nbytes: int) -> None:
     nbytes : int
         The default task size in bytes.
     """
-    libkvikio.task_size_reset(nbytes)
+    kvikio._lib.defaults.task_size_reset(nbytes)
 
 
 @contextlib.contextmanager
@@ -163,15 +163,15 @@ def gds_threshold() -> int:
     backend directly.
 
     Set the default value using `gds_threshold_reset()` or by setting the
-    `KVIKIO_TASK_SIZE` environment variable. If not set, the default value
-    is 1 MiB.
+    `KVIKIO_GDS_THRESHOLD` environment variable. If not set, the default
+    value is 1 MiB.
 
-    Return
-    ------
+    Returns
+    -------
     nbytes : int
         The default GDS threshold size in bytes.
     """
-    return libkvikio.gds_threshold()
+    return kvikio._lib.defaults.gds_threshold()
 
 
 def gds_threshold_reset(nbytes: int) -> None:
@@ -182,7 +182,7 @@ def gds_threshold_reset(nbytes: int) -> None:
     nbytes : int
         The default GDS threshold size in bytes.
     """
-    libkvikio.gds_threshold_reset(nbytes)
+    kvikio._lib.defaults.gds_threshold_reset(nbytes)
 
 
 @contextlib.contextmanager
@@ -200,3 +200,46 @@ def set_gds_threshold(nbytes: int):
         yield
     finally:
         gds_threshold_reset(old_value)
+
+
+def bounce_buffer_size() -> int:
+    """Get the size of the bounce buffer used to stage data in host memory.
+
+    Set the value using `bounce_buffer_size_reset()` or by setting the
+    `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the
+    value is 16 MiB.
+
+    Return
+    ------
+    nbytes : int
+        The bounce buffer size in bytes.
+    """
+    return kvikio._lib.defaults.bounce_buffer_size()
+
+
+def bounce_buffer_size_reset(nbytes: int) -> None:
+    """Reset the size of the bounce buffer used to stage data in host memory.
+
+    Parameters
+    ----------
+    nbytes : int
+        The bounce buffer size in bytes.
+    """
+    kvikio._lib.defaults.bounce_buffer_size_reset(nbytes)
+
+
+@contextlib.contextmanager
+def set_bounce_buffer_size(nbytes: int):
+    """Context for resetting the the size of the bounce buffer.
+
+    Parameters
+    ----------
+    nbytes : int
+        The bounce buffer size in bytes.
+    """
+    old_value = bounce_buffer_size()
+    try:
+        bounce_buffer_size_reset(nbytes)
+        yield
+    finally:
+        bounce_buffer_size_reset(old_value)

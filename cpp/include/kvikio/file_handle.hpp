@@ -286,7 +286,7 @@ class FileHandle {
    *
    * @return The number of bytes
    */
-  [[nodiscard]] inline std::size_t nbytes() const
+  [[nodiscard]] std::size_t nbytes() const
   {
     if (closed()) { return 0; }
     if (_nbytes == 0) { _nbytes = detail::get_file_size(_fd_direct_off); }
@@ -314,16 +314,26 @@ class FileHandle {
    * @param file_offset Offset in the file to read from.
    * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
    * This parameter should be used only with registered buffers.
+   * @param sync_default_stream Synchronize the CUDA default (null) stream prior to calling cuFile.
+   * Contrary to most of the non-async CUDA API, cuFile does not have the semantic of being ordered
+   * with respect to other non-cuFile work in the default stream. By enabling `sync_default_stream`,
+   * KvikIO will synchronize the default stream and order the operation with respect to other work
+   * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
+   * operation is always default stream ordered like the rest of the non-async CUDA API. In this
+   * case, the value of `sync_default_stream` is ignored.
    * @return Size of bytes that were successfully read.
    */
   std::size_t read(void* devPtr_base,
                    std::size_t size,
                    std::size_t file_offset,
-                   std::size_t devPtr_offset)
+                   std::size_t devPtr_offset,
+                   bool sync_default_stream = true)
   {
     if (_compat_mode) {
       return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
+    if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
+
     KVIKIO_NVTX_FUNC_RANGE("cufileRead()", size);
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
@@ -351,20 +361,30 @@ class FileHandle {
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
-   * This parameter should be used only with registered buffers.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from. This parameter
+   * should be used only with registered buffers.
+   * @param sync_default_stream Synchronize the CUDA default (null) stream prior to calling cuFile.
+   * Contrary to most of the non-async CUDA API, cuFile does not have the semantic of being ordered
+   * with respect to other non-cuFile work in the default stream. By enabling `sync_default_stream`,
+   * KvikIO will synchronize the default stream and order the operation with respect to other work
+   * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
+   * operation is always default stream ordered like the rest of the non-async CUDA API. In this
+   * case, the value of `sync_default_stream` is ignored.
    * @return Size of bytes that were successfully written.
    */
   std::size_t write(const void* devPtr_base,
                     std::size_t size,
                     std::size_t file_offset,
-                    std::size_t devPtr_offset)
+                    std::size_t devPtr_offset,
+                    bool sync_default_stream = true)
   {
     _nbytes = 0;  // Invalidate the computed file size
 
     if (_compat_mode) {
       return posix_device_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
+    if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
+
     KVIKIO_NVTX_FUNC_RANGE("cufileWrite()", size);
     ssize_t ret = cuFileAPI::instance().Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
@@ -396,13 +416,21 @@ class FileHandle {
    * @param file_offset Offset in the file to read from.
    * @param task_size Size of each task in bytes.
    * @param gds_threshold Minimum buffer size to use GDS and the thread pool.
+   * @param sync_default_stream Synchronize the CUDA default (null) stream prior to calling cuFile.
+   * Contrary to most of the non-async CUDA API, cuFile does not have the semantic of being ordered
+   * with respect to other non-cuFile work in the default stream. By enabling `sync_default_stream`,
+   * KvikIO will synchronize the default stream and order the operation with respect to other work
+   * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
+   * operation is always default stream ordered like the rest of the non-async CUDA API. In this
+   * case, the value of `sync_default_stream` is ignored.
    * @return Future that on completion returns the size of bytes that were successfully read.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
                                  std::size_t file_offset   = 0,
                                  std::size_t task_size     = defaults::task_size(),
-                                 std::size_t gds_threshold = defaults::gds_threshold())
+                                 std::size_t gds_threshold = defaults::gds_threshold(),
+                                 bool sync_default_stream  = true)
   {
     if (is_host_memory(buf)) {
       auto op = [this](void* hostPtr_base,
@@ -427,13 +455,19 @@ class FileHandle {
       return std::async(std::launch::deferred, task);
     }
 
+    // Let's synchronize once instead of in each task.
+    if (sync_default_stream && !_compat_mode) {
+      PushAndPopContext c(ctx);
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
+    }
+
     // Regular case that use the threadpool and run the tasks in parallel
     auto task = [this, ctx](void* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
                             std::size_t devPtr_offset) -> std::size_t {
       PushAndPopContext c(ctx);
-      return read(devPtr_base, size, file_offset, devPtr_offset);
+      return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
     };
     auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
     return parallel_io(task, devPtr_base, size, file_offset, task_size, devPtr_offset);
@@ -457,13 +491,21 @@ class FileHandle {
    * @param file_offset Offset in the file to write from.
    * @param task_size Size of each task in bytes.
    * @param gds_threshold Minimum buffer size to use GDS and the thread pool.
+   * @param sync_default_stream Synchronize the CUDA default (null) stream prior to calling cuFile.
+   * Contrary to most of the non-async CUDA API, cuFile does not have the semantic of being ordered
+   * with respect to other non-cuFile work in the default stream. By enabling `sync_default_stream`,
+   * KvikIO will synchronize the default stream and order the operation with respect to other work
+   * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
+   * operation is always default stream ordered like the rest of the non-async CUDA API. In this
+   * case, the value of `sync_default_stream` is ignored.
    * @return Future that on completion returns the size of bytes that were successfully written.
    */
   std::future<std::size_t> pwrite(const void* buf,
                                   std::size_t size,
                                   std::size_t file_offset   = 0,
                                   std::size_t task_size     = defaults::task_size(),
-                                  std::size_t gds_threshold = defaults::gds_threshold())
+                                  std::size_t gds_threshold = defaults::gds_threshold(),
+                                  bool sync_default_stream  = true)
   {
     if (is_host_memory(buf)) {
       auto op = [this](const void* hostPtr_base,
@@ -488,13 +530,20 @@ class FileHandle {
       return std::async(std::launch::deferred, task);
     }
 
+    // Let's synchronize once instead of in each task.
+    if (sync_default_stream && !_compat_mode) {
+      PushAndPopContext c(ctx);
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
+    }
+
     // Regular case that use the threadpool and run the tasks in parallel
     auto op = [this, ctx](const void* devPtr_base,
                           std::size_t size,
                           std::size_t file_offset,
                           std::size_t devPtr_offset) -> std::size_t {
       PushAndPopContext c(ctx);
-      return write(devPtr_base, size, file_offset, devPtr_offset);
+      return write(
+        devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
     };
     auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
     return parallel_io(op, devPtr_base, size, file_offset, task_size, devPtr_offset);
@@ -571,8 +620,8 @@ class FileHandle {
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Size in bytes to read.
    * @param file_offset Offset in the file to read from.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
-   * This parameter should be used only with registered buffers.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into. This parameter
+   * should be used only with registered buffers.
    * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
    * synchronous.
    * @return A future object that must be kept alive until all data has been read to disk e.g.
@@ -663,8 +712,8 @@ class FileHandle {
    * `devPtr_base` must remain set to the base address used in the `buffer_register` call.
    * @param size Size in bytes to write.
    * @param file_offset Offset in the file to write from.
-   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from.
-   * This parameter should be used only with registered buffers.
+   * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write from. This parameter
+   * should be used only with registered buffers.
    * @param stream CUDA stream in which to enqueue the operation. If NULL, make this operation
    * synchronous.
    * @return A future object that must be kept alive until all data has been written to disk e.g.

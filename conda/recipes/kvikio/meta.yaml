@@ -62,15 +62,15 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - nvcomp {{ nvcomp_version }}
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
-    - scikit-build-core >=0.7.0
+    - scikit-build-core >=0.10.0
     - libkvikio ={{ version }}
   run:
     - python
-    - numpy >=1.23,<2.0a0
+    - numpy >=1.23,<3.0a0
     - cupy >=12.0.0
     - zarr
     # See https://github.com/zarr-developers/numcodecs/pull/475
-    - numcodecs <0.12.0
+    - numcodecs !=0.12.0
     - packaging
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
@@ -78,8 +78,6 @@ requirements:
     {% endif %}
 
 test:
-  requires:
-    - pytest
   imports:
     - kvikio
 
