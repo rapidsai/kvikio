@@ -102,32 +102,9 @@ def run_numpy_like(args, xp):
         yield run()
 
 
-def run_cudf(args, libcudf_s3_io: bool):
-    import cudf
-
-    cudf.set_option("libcudf_s3_io", libcudf_s3_io)
-
-    # Upload data to S3 server
-    create_client_and_bucket()
-    data = cupy.random.rand(args.nelem).astype(args.dtype)
-    df = cudf.DataFrame({"a": data})
-    df.to_parquet(f"s3://{args.bucket}/data1")
-
-    def run() -> float:
-        t0 = time.perf_counter()
-        cudf.read_parquet(f"s3://{args.bucket}/data1")
-        t1 = time.perf_counter()
-        return t1 - t0
-
-    for _ in range(args.nruns):
-        yield run()
-
-
 API = {
-    "cupy-kvikio": partial(run_numpy_like, xp=cupy),
-    "numpy-kvikio": partial(run_numpy_like, xp=numpy),
-    "cudf-kvikio": partial(run_cudf, libcudf_s3_io=True),
-    "cudf-fsspec": partial(run_cudf, libcudf_s3_io=False),
+    "cupy": partial(run_numpy_like, xp=cupy),
+    "numpy": partial(run_numpy_like, xp=numpy),
 }
 
 
@@ -138,7 +115,7 @@ def main(args):
     os.environ["KVIKIO_NTHREADS"] = str(args.nthreads)
     kvikio.defaults.num_threads_reset(args.nthreads)
 
-    print("Roundtrip benchmark")
+    print("Remote S3 benchmark")
     print("--------------------------------------")
     print(f"nelem       | {args.nelem} ({format_bytes(args.nbytes)})")
     print(f"dtype       | {args.dtype}")
