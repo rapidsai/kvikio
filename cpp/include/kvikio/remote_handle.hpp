@@ -146,6 +146,11 @@ class HttpEndpoint : public RemoteEndpoint {
   std::string _url;
 
  public:
+  /**
+   * @brief Create a http endpoint from a url.
+   *
+   * @param url The full http url to the remote file.
+   */
   HttpEndpoint(std::string url) : _url{std::move(url)} {}
   void setopt(CurlHandle& curl) override { curl.setopt(CURLOPT_URL, _url.c_str()); }
   std::string str() override { return _url; }
@@ -153,7 +158,7 @@ class HttpEndpoint : public RemoteEndpoint {
 };
 
 /**
- * @brief
+ * @brief A remote endpoint using AWS's S3 protocol.
  */
 class S3Endpoint : public RemoteEndpoint {
  private:
@@ -182,10 +187,7 @@ class S3Endpoint : public RemoteEndpoint {
                                                 std::optional<std::string> aws_endpoint_url)
   {
     std::string endpoint_url =
-      parse_aws_argument(std::move(aws_endpoint_url),
-                         "AWS_ENDPOINT_URL",
-                         "S3: must provide `aws_endpoint_url` if AWS_ENDPOINT_URL isn't set.",
-                         true);
+      parse_aws_argument(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL", "", true);
     std::stringstream ss;
     if (endpoint_url.empty()) {
       std::string region =
@@ -229,6 +231,19 @@ class S3Endpoint : public RemoteEndpoint {
     return std::make_pair(std::move(bucket_name), std::move(object_name));
   }
 
+  /**
+   * @brief Create a S3 endpoint from a url.
+   *
+   * @param url The full http url to the S3 file. NB: this should an url starting with
+   * "http://" or "https://". If you have an S3 url of the form "s3://<bucket>/<object>",
+   * please use `S3Endpoint::parse_s3_url()` to convert it.
+   * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
+   * `AWS_DEFAULT_REGION` environment variable is used.
+   * @param aws_access_key The AWS access key to use. If nullopt, the value of the
+   * `AWS_ACCESS_KEY_ID` environment variable is used.
+   * @param aws_secret_access_key The AWS secret access key to use. If nullopt, the value of the
+   * `AWS_SECRET_ACCESS_KEY` environment variable is used.
+   */
   S3Endpoint(std::string url,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
@@ -263,6 +278,22 @@ class S3Endpoint : public RemoteEndpoint {
       _aws_userpwd = ss.str();
     }
   }
+
+  /**
+   * @brief Create a S3 endpoint from a bucket and object name.
+   *
+   * @param bucket_name The name of the S3 bucket.
+   * @param object_name The name of the S3 object.
+   * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
+   * `AWS_DEFAULT_REGION` environment variable is used.
+   * @param aws_access_key The AWS access key to use. If nullopt, the value of the
+   * `AWS_ACCESS_KEY_ID` environment variable is used.
+   * @param aws_secret_access_key The AWS secret access key to use. If nullopt, the value of the
+   * `AWS_SECRET_ACCESS_KEY` environment variable is used.
+   * @param aws_endpoint_url Overwrite the endpoint url to use. If nullopt, the value of
+   * the `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular
+   * AWS url scheme is used: "https://<bucket>.s3.<region>.amazonaws.com/<object>"
+   */
   S3Endpoint(const std::string& bucket_name,
              const std::string& object_name,
              std::optional<std::string> aws_region            = std::nullopt,
