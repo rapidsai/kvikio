@@ -90,7 +90,7 @@ inline std::size_t callback_device_memory(char* data,
                                           void* context)
 {
   auto ctx                 = reinterpret_cast<CallbackContext*>(context);
-  const std::size_t nbytes = size * nmemb;
+  std::size_t const nbytes = size * nmemb;
   if (ctx->size < ctx->offset + nbytes) {
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
@@ -167,8 +167,8 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _aws_userpwd;
 
   static std::string parse_aws_argument(std::optional<std::string> aws_arg,
-                                        const std::string& env_var,
-                                        const std::string& err_msg,
+                                        std::string const& env_var,
+                                        std::string const& err_msg,
                                         bool allow_empty = false)
   {
     if (aws_arg.has_value()) { return std::move(*aws_arg); }
@@ -181,9 +181,9 @@ class S3Endpoint : public RemoteEndpoint {
     return std::string(env);
   }
 
-  static std::string url_from_bucket_and_object(const std::string& bucket_name,
-                                                const std::string& object_name,
-                                                const std::optional<std::string>& aws_region,
+  static std::string url_from_bucket_and_object(std::string const& bucket_name,
+                                                std::string const& object_name,
+                                                std::optional<std::string> const& aws_region,
                                                 std::optional<std::string> aws_endpoint_url)
   {
     std::string endpoint_url =
@@ -294,8 +294,8 @@ class S3Endpoint : public RemoteEndpoint {
    * the `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular
    * AWS url scheme is used: "https://<bucket>.s3.<region>.amazonaws.com/<object>"
    */
-  S3Endpoint(const std::string& bucket_name,
-             const std::string& object_name,
+  S3Endpoint(std::string const& bucket_name,
+             std::string const& object_name,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
              std::optional<std::string> aws_secret_access_key = std::nullopt,
@@ -396,7 +396,7 @@ class RemoteHandle {
          << " bytes file (" << _endpoint->str() << ")";
       throw std::invalid_argument(ss.str());
     }
-    const bool is_host_mem = is_host_memory(buf);
+    bool const is_host_mem = is_host_memory(buf);
     auto curl              = create_curl_handle();
     _endpoint->setopt(curl);
 
