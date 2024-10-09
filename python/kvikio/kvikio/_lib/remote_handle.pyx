@@ -77,23 +77,6 @@ cdef class RemoteFile:
         return ret
 
     @classmethod
-    def open_s3_from_http_url(
-        cls,
-        url: str,
-        nbytes: Optional[int],
-    ):
-        cdef RemoteFile ret = RemoteFile()
-        cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
-            _to_string(url)
-        )
-        if nbytes is None:
-            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
-            return ret
-        cdef size_t n = nbytes
-        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
-        return ret
-
-    @classmethod
     def open_s3(
         cls,
         bucket_name: str,
@@ -103,6 +86,23 @@ cdef class RemoteFile:
         cdef RemoteFile ret = RemoteFile()
         cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
             _to_string(bucket_name), _to_string(object_name)
+        )
+        if nbytes is None:
+            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
+            return ret
+        cdef size_t n = nbytes
+        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
+        return ret
+
+    @classmethod
+    def open_s3_from_http_url(
+        cls,
+        url: str,
+        nbytes: Optional[int],
+    ):
+        cdef RemoteFile ret = RemoteFile()
+        cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
+            _to_string(url)
         )
         if nbytes is None:
             ret._handle = make_unique[cpp_RemoteHandle](move(ep))
