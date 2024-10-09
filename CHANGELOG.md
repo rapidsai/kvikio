@@ -1,3 +1,53 @@
+# kvikio 24.10.00 (9 Oct 2024)
+
+## 🚨 Breaking Changes
+
+- Remove now unnecessary variable ([#466](https://github.com/rapidsai/kvikio/pull/466)) [@vyasr](https://github.com/vyasr)
+
+## 🐛 Bug Fixes
+
+- Fix no-cuda build ([#484](https://github.com/rapidsai/kvikio/pull/484)) [@madsbk](https://github.com/madsbk)
+- Add license to kvikio wheel ([#481](https://github.com/rapidsai/kvikio/pull/481)) [@raydouglass](https://github.com/raydouglass)
+- Fix release-after-main bug in `get_primary_cuda_context` ([#472](https://github.com/rapidsai/kvikio/pull/472)) [@madsbk](https://github.com/madsbk)
+- Intentionally leak static CUDA resources to avoid crash (part 2) ([#462](https://github.com/rapidsai/kvikio/pull/462)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Fix several issues with wheel builds ([#439](https://github.com/rapidsai/kvikio/pull/439)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Fix missing 24.08 =&gt; 24.10 renames ([#423](https://github.com/rapidsai/kvikio/pull/423)) [@madsbk](https://github.com/madsbk)
+
+## 📖 Documentation
+
+- Docs cleanup ([#480](https://github.com/rapidsai/kvikio/pull/480)) [@madsbk](https://github.com/madsbk)
+
+## 🚀 New Features
+
+- Update nvcomp to 4.0.1 ([#449](https://github.com/rapidsai/kvikio/pull/449)) [@vuule](https://github.com/vuule)
+
+## 🛠️ Improvements
+
+- nvtx support macos ([#474](https://github.com/rapidsai/kvikio/pull/474)) [@madsbk](https://github.com/madsbk)
+- Update update-version.sh to use packaging lib ([#469](https://github.com/rapidsai/kvikio/pull/469)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Remove now unnecessary variable ([#466](https://github.com/rapidsai/kvikio/pull/466)) [@vyasr](https://github.com/vyasr)
+- Use CI workflow branch &#39;branch-24.10&#39; again ([#465](https://github.com/rapidsai/kvikio/pull/465)) [@jameslamb](https://github.com/jameslamb)
+- Update to flake8 7.1.1. ([#463](https://github.com/rapidsai/kvikio/pull/463)) [@bdice](https://github.com/bdice)
+- remove pytest dependency in kvikio conda recipe ([#461](https://github.com/rapidsai/kvikio/pull/461)) [@jameslamb](https://github.com/jameslamb)
+- Add support for Python 3.12, relax numcodecs pin ([#458](https://github.com/rapidsai/kvikio/pull/458)) [@jameslamb](https://github.com/jameslamb)
+- Skip cufile and nvtx3 when cuda isn&#39;t found ([#455](https://github.com/rapidsai/kvikio/pull/455)) [@madsbk](https://github.com/madsbk)
+- Non-static bounce buffer option ([#454](https://github.com/rapidsai/kvikio/pull/454)) [@madsbk](https://github.com/madsbk)
+- Use nvcomp defaults for algo options. ([#450](https://github.com/rapidsai/kvikio/pull/450)) [@bdice](https://github.com/bdice)
+- Update rapidsai/pre-commit-hooks ([#448](https://github.com/rapidsai/kvikio/pull/448)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Make the bounce buffer size configurable ([#447](https://github.com/rapidsai/kvikio/pull/447)) [@madsbk](https://github.com/madsbk)
+- Update `build.sh` ([#445](https://github.com/rapidsai/kvikio/pull/445)) [@madsbk](https://github.com/madsbk)
+- Drop Python 3.9 support ([#443](https://github.com/rapidsai/kvikio/pull/443)) [@jameslamb](https://github.com/jameslamb)
+- Remove NumPy &lt;2 pin ([#441](https://github.com/rapidsai/kvikio/pull/441)) [@seberg](https://github.com/seberg)
+- C++ Test ([#440](https://github.com/rapidsai/kvikio/pull/440)) [@madsbk](https://github.com/madsbk)
+- `config_path()`: return a reference ([#438](https://github.com/rapidsai/kvikio/pull/438)) [@madsbk](https://github.com/madsbk)
+- Stream sync before calling cufile ([#437](https://github.com/rapidsai/kvikio/pull/437)) [@madsbk](https://github.com/madsbk)
+- Speeding up Python tests ([#435](https://github.com/rapidsai/kvikio/pull/435)) [@madsbk](https://github.com/madsbk)
+- Cython refactoring ([#434](https://github.com/rapidsai/kvikio/pull/434)) [@madsbk](https://github.com/madsbk)
+- Update pre-commit hooks ([#433](https://github.com/rapidsai/kvikio/pull/433)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Improve update-version.sh ([#432](https://github.com/rapidsai/kvikio/pull/432)) [@bdice](https://github.com/bdice)
+- Use tool.scikit-build.cmake.version, set scikit-build-core minimum-version ([#430](https://github.com/rapidsai/kvikio/pull/430)) [@jameslamb](https://github.com/jameslamb)
+- build.sh: --pydevelop ([#429](https://github.com/rapidsai/kvikio/pull/429)) [@madsbk](https://github.com/madsbk)
+
 # kvikio 24.08.00 (7 Aug 2024)
 
 ## 🐛 Bug Fixes
