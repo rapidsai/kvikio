@@ -57,7 +57,9 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
   }
   // Convert to lowercase
   std::string str{env_val};
-  std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+  // To avoid UB in std::tolower(), the character must be cast to unsigned char
+  std::transform(
+    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
   // Trim whitespaces
   std::stringstream trimmer;
   trimmer << str;
