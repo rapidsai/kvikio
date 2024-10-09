@@ -38,7 +38,7 @@ enum class IOType : uint8_t {
 };
 
 /**
- * @brief The degree to which the requested size of data is processed.
+ * @brief The degree to which the requested size of data is completed.
  *
  */
 enum class IODataCompletionLevel : uint8_t {
