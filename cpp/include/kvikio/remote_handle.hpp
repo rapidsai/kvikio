@@ -211,7 +211,7 @@ class S3Endpoint : public RemoteEndpoint {
    * @param s3_url S3 url.
    * @return Pair of strings: [bucket-name, object-name].
    */
-  static std::pair<std::string, std::string> parse_s3_url(std::string const& s3_url)
+  [[nodiscard]] static std::pair<std::string, std::string> parse_s3_url(std::string const& s3_url)
   {
     if (s3_url.empty()) { throw std::invalid_argument("The S3 url cannot be an empty string."); }
     if (s3_url.size() < 5 || s3_url.substr(0, 5) != "s3://") {
@@ -234,7 +234,7 @@ class S3Endpoint : public RemoteEndpoint {
   /**
    * @brief Create a S3 endpoint from a url.
    *
-   * @param url The full http url to the S3 file. NB: this should an url starting with
+   * @param url The full http url to the S3 file. NB: this should be an url starting with
    * "http://" or "https://". If you have an S3 url of the form "s3://<bucket>/<object>",
    * please use `S3Endpoint::parse_s3_url()` to convert it.
    * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
