@@ -57,7 +57,11 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
   }
   // Convert to lowercase
   std::string str{env_val};
-  // To avoid UB in std::tolower(), the character must be cast to unsigned char
+  // Special considerations regarding the case conversion:
+  // - std::tolower() is not an addressable function. Passing it to std::transform() as
+  //   a function pointer causes the program behavior "unspecified (possibly ill-formed)",
+  //   hence the lambda.
+  // - To avoid UB in std::tolower(), the character must be cast to unsigned char.
   std::transform(
     str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
   // Trim whitespaces
