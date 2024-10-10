@@ -26,7 +26,7 @@
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
-namespace kvikio {
+namespace kvikio::detail {
 
 /**
  * @brief Type of the IO operation.
@@ -43,8 +43,6 @@ enum class PartialIO : uint8_t {
   YES,  ///< POSIX read/write is called only once, which may not process all bytes requested.
   NO,   ///< POSIX read/write is called repeatedly until all requested bytes are processed.
 };
-
-namespace detail {
 
 /**
  * @brief Singleton class to retrieve a CUDA stream for device-host copying
@@ -288,6 +286,4 @@ inline std::size_t posix_device_write(int fd,
     fd, devPtr_base, size, file_offset, devPtr_offset);
 }
 
-}  // namespace detail
-
-}  // namespace kvikio
+}  // namespace kvikio::detail

@@ -440,7 +440,8 @@ class FileHandle {
                        std::size_t file_offset,
                        std::size_t hostPtr_offset) -> std::size_t {
         char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
-        return detail::posix_host_read<PartialIO::NO>(_fd_direct_off, buf, size, file_offset);
+        return detail::posix_host_read<detail::PartialIO::NO>(
+          _fd_direct_off, buf, size, file_offset);
       };
 
       return parallel_io(op, buf, size, file_offset, task_size, 0);
@@ -515,7 +516,8 @@ class FileHandle {
                        std::size_t file_offset,
                        std::size_t hostPtr_offset) -> std::size_t {
         const char* buf = static_cast<const char*>(hostPtr_base) + hostPtr_offset;
-        return detail::posix_host_write<PartialIO::NO>(_fd_direct_off, buf, size, file_offset);
+        return detail::posix_host_write<detail::PartialIO::NO>(
+          _fd_direct_off, buf, size, file_offset);
       };
 
       return parallel_io(op, buf, size, file_offset, task_size, 0);
