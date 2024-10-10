@@ -196,8 +196,6 @@ std::size_t posix_device_io(int fd,
   return size;
 }
 
-}  // namespace detail
-
 /**
  * @brief Read from disk to host memory using POSIX
  *
@@ -289,5 +287,7 @@ inline std::size_t posix_device_write(int fd,
   return detail::posix_device_io<IOOperationType::WRITE>(
     fd, devPtr_base, size, file_offset, devPtr_offset);
 }
+
+}  // namespace detail
 
 }  // namespace kvikio
