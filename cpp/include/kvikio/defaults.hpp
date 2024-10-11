@@ -57,7 +57,14 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
   }
   // Convert to lowercase
   std::string str{env_val};
-  std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+  // Special considerations regarding the case conversion:
+  // - std::tolower() is not an addressable function. Passing it to std::transform() as
+  //   a function pointer, if the compile turns out successful, causes the program behavior
+  //   "unspecified (possibly ill-formed)", hence the lambda. ::tolower() is addressable
+  //   and does not have this problem, but the following item still applies.
+  // - To avoid UB in std::tolower() or ::tolower(), the character must be cast to unsigned char.
+  std::transform(
+    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
   // Trim whitespaces
   std::stringstream trimmer;
   trimmer << str;
@@ -133,7 +140,7 @@ class defaults {
     }
   }
 
-  static defaults* instance()
+  KVIKIO_EXPORT static defaults* instance()
   {
     static defaults _instance;
     return &_instance;

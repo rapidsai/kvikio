@@ -25,24 +25,12 @@
 #include <tuple>
 #include <type_traits>
 
+#ifdef KVIKIO_CUDA_FOUND
 #include <nvtx3/nvtx3.hpp>
+#endif
 
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
-
-// Macros used for defining symbol visibility, only GLIBC is supported.
-// Since KvikIO is header-only, we rely on the linker to disambiguate inline functions
-// that have (or return) static references. To do this, the relevant function must have
-// `__attribute__((visibility("default")))`. If not, then if KvikIO is used in two
-// different DSOs, the function will appear twice, and there will be two static objects.
-// See <https://github.com/rapidsai/kvikio/issues/442>.
-#if (defined(__GNUC__) || defined(__clang__)) && !defined(__MINGW32__) && !defined(__MINGW64__)
-#define KVIKIO_EXPORT __attribute__((visibility("default")))
-#define KVIKIO_HIDDEN __attribute__((visibility("hidden")))
-#else
-#define KVIKIO_EXPORT
-#define KVIKIO_HIDDEN
-#endif
 
 namespace kvikio {
 
@@ -291,6 +279,7 @@ inline bool is_future_done(const T& future)
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
 
+#ifdef KVIKIO_CUDA_FOUND
 /**
  * @brief Tag type for libkvikio's NVTX domain.
  */
@@ -309,6 +298,7 @@ struct libkvikio_domain {
     }                                                         \
   }
 #define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
+#endif
 
 /**
  * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain
@@ -329,9 +319,15 @@ struct libkvikio_domain {
  * }
  * ```
  */
+#ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_FUNC_RANGE(...)                                  \
   GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(                                  \
     __VA_ARGS__, KVIKIO_NVTX_FUNC_RANGE_2, KVIKIO_NVTX_FUNC_RANGE_1) \
   (__VA_ARGS__)
+#else
+#define KVIKIO_NVTX_FUNC_RANGE(...) \
+  do {                              \
+  } while (0)
+#endif
 
 }  // namespace kvikio

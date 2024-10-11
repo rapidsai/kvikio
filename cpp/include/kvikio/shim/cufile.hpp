@@ -132,7 +132,7 @@ class cuFileAPI {
   cuFileAPI(cuFileAPI const&&)      = delete;
   void operator=(cuFileAPI const&&) = delete;
 
-  static cuFileAPI& instance()
+  KVIKIO_EXPORT static cuFileAPI& instance()
   {
     static cuFileAPI _instance;
     return _instance;

@@ -17,6 +17,16 @@ set(cython_modules arr.pyx buffer.pyx defaults.pyx driver_properties.pyx file_ha
                    libnvcomp.pyx libnvcomp_ll.pyx
 )
 
+if(TARGET CURL::libcurl)
+  message(STATUS "Building remote_handle.pyx (libcurl found)")
+  list(APPEND cython_modules remote_handle.pyx)
+else()
+  message(
+    STATUS
+      "Skipping remote_handle.pyx (please set KvikIO_REMOTE_SUPPORT=ON for remote file support)"
+  )
+endif()
+
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
