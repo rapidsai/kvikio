@@ -167,28 +167,50 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _aws_sigv4;
   std::string _aws_userpwd;
 
+  /**
+   * @brief Parse a AWS argument such as `aws_region` or `aws_access_key`.
+   *
+   * If not nullopt, the optional's value is returned otherwise the environment
+   * variable `env_var` is used. If that also doesn't have a value:
+   *   - if `err_msg` is empty, the empty string is returned.
+   *   - if `err_msg` is not empty, `std::invalid_argument(`err_msg`)` is thrown.
+   *
+   * @param aws_arg The AWS argument to parse.
+   * @param env_var The name of the environment variable to check if `aws_arg` isn't set.
+   * @param err_msg The error message to throw on error or the empty string.
+   * @return The parsed AWS argument or the empty string.
+   */
   static std::string parse_aws_argument(std::optional<std::string> aws_arg,
                                         std::string const& env_var,
-                                        std::string const& err_msg,
-                                        bool allow_empty = false)
+                                        std::string const& err_msg = "")
   {
     if (aws_arg.has_value()) { return std::move(*aws_arg); }
 
     char const* env = std::getenv(env_var.c_str());
     if (env == nullptr) {
-      if (allow_empty) { return std::string(); }
+      if (err_msg.empty()) { return std::string(); }
       throw std::invalid_argument(err_msg);
     }
     return std::string(env);
   }
 
+  /**
+   * @brief Get url from a AWS S3 bucket and object name.
+   *
+   * @param bucket_name The name of the S3 bucket.
+   * @param object_name The name of the S3 object.
+   * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
+   * `AWS_DEFAULT_REGION` environment variable is used.
+   * @param aws_endpoint_url Overwrite the endpoint url to use. If nullopt, the value of
+   * the `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular
+   * AWS url scheme is used: "https://<bucket>.s3.<region>.amazonaws.com/<object>"
+   */
   static std::string url_from_bucket_and_object(std::string const& bucket_name,
                                                 std::string const& object_name,
                                                 std::optional<std::string> const& aws_region,
                                                 std::optional<std::string> aws_endpoint_url)
   {
-    auto const endpoint_url =
-      parse_aws_argument(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL", "", true);
+    auto const endpoint_url = parse_aws_argument(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
     std::stringstream ss;
     if (endpoint_url.empty()) {
       auto const region =
