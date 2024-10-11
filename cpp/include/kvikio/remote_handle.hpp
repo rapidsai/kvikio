@@ -19,6 +19,7 @@
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -213,22 +214,11 @@ class S3Endpoint : public RemoteEndpoint {
    */
   [[nodiscard]] static std::pair<std::string, std::string> parse_s3_url(std::string const& s3_url)
   {
-    if (s3_url.empty()) { throw std::invalid_argument("The S3 url cannot be an empty string."); }
-    if (s3_url.size() < 5 || s3_url.substr(0, 5) != "s3://") {
-      throw std::invalid_argument("The S3 url must start with the S3 scheme (\"s3://\").");
-    }
-    std::string p = s3_url.substr(5);
-    if (p.empty()) { throw std::invalid_argument("The S3 url cannot be an empty string."); }
-    size_t pos              = p.find_first_of('/');
-    std::string bucket_name = p.substr(0, pos);
-    if (bucket_name.empty()) {
-      throw std::invalid_argument("The S3 url does not contain a bucket name.");
-    }
-    std::string object_name = (pos == std::string::npos) ? "" : p.substr(pos + 1);
-    if (object_name.empty()) {
-      throw std::invalid_argument("The S3 url does not contain an object name.");
-    }
-    return std::make_pair(std::move(bucket_name), std::move(object_name));
+    // Regular expression to match s3://<bucket>/<object>
+    std::regex pattern{R"(s3://([^/]+)/(.+))"};
+    std::smatch matches;
+    if (std::regex_match(s3_url, matches, pattern)) { return {matches[1].str(), matches[2].str()}; }
+    throw std::invalid_argument("Input string does not match the expected S3 URL format.");
   }
 
   /**
