@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package bindings.kvikio.cufile;
+package ai.rapids.kvikio.cufile;
 
 public class CuFile {
     private static boolean initialized = false;
@@ -34,7 +34,7 @@ public class CuFile {
                 }));
                 initialized = true;
             } catch (Throwable t) {
-                System.out.println("could not load cufile jni library");
+                System.out.println("could not load cufile jni library:"+ t.getMessage());
             }
         }
     }

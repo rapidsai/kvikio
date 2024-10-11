@@ -5,13 +5,13 @@
           xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>bindings.kvikio</groupId>
+  <groupId>ai.rapids.kvikio</groupId>
   <artifactId>cufile</artifactId>
   <version>24.12.0-SNAPSHOT</version>
 
   <name>cufile</name>
   <description>
-      This project provides java bindings for the GPUDirect Storage cufile library, enabling the GPU to load and
+      This project provides Java bindings for the GPUDirect Storage cufile library, enabling the GPU to load and
       save large amounts of data to and from persistent storage. This is still a work in progress so some APIs may change.
   </description>
   <url>http://ai.rapids</url>
@@ -21,18 +21,21 @@
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <junit.version>5.4.2</junit.version>
+    <jcuda.version>12.0.0</jcuda.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>org.jcuda</groupId>
       <artifactId>jcuda</artifactId>
-      <version>12.0.0</version>
+      <version>${jcuda.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.jcuda</groupId>
       <artifactId>jcuda-natives</artifactId>
-      <version>12.0.0</version>
+      <version>${jcuda.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package bindings.kvikio.cufile;
+package ai.rapids.kvikio.cufile;
 
 import org.junit.jupiter.api.Test;
 

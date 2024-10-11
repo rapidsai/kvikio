@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package bindings.kvikio.cufile;
+package ai.rapids.kvikio.cufile;
 
-public final class CuFileWriteHandle extends CuFileHandle {
+final class CuFileDriver implements AutoCloseable {
+    private final long pointer;
 
-    public CuFileWriteHandle(String path) {
-        super(create(path));
+    CuFileDriver() {
+        pointer = create();
     }
 
-    public void write(long device_pointer, long size, long file_offset, long buffer_offset) {
-        writeFile(getPointer(), device_pointer, size, file_offset, buffer_offset);
+    public void close() {
+        destroy(pointer);
     }
 
-    private static native long create(String path);
+    private static native long create();
 
-    private static native void writeFile(long file_pointer, long device_pointer, long size, long file_offset,
-            long buffer_offset);
+    private static native void destroy(long pointer);
 }

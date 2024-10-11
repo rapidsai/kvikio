@@ -14,21 +14,26 @@
  * limitations under the License.
  */
 
-package bindings.kvikio.cufile;
+package ai.rapids.kvikio.cufile;
 
-public final class CuFileReadHandle extends CuFileHandle {
+abstract class CuFileHandle implements AutoCloseable {
+    private final long pointer;
 
-    public CuFileReadHandle(String path) {
-        super(create(path));
+    static {
+        CuFile.initialize();
     }
 
-    public void read(long device_pointer, long size, long file_offset, long device_offset) {
-        readFile(getPointer(), device_pointer, size, file_offset, device_offset);
+    protected CuFileHandle(long pointer) {
+        this.pointer = pointer;
     }
 
-    private static native long create(String path);
+    public void close() {
+        destroy(pointer);
+    }
 
-    private static native void readFile(long file_pointer, long device_pointer, long size, long file_offset,
-            long device_offset);
+    protected long getPointer() {
+        return this.pointer;
+    }
 
+    private static native void destroy(long pointer);
 }
