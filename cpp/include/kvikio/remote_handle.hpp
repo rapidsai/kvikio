@@ -186,11 +186,11 @@ class S3Endpoint : public RemoteEndpoint {
                                                 std::optional<std::string> const& aws_region,
                                                 std::optional<std::string> aws_endpoint_url)
   {
-    std::string endpoint_url =
+    auto const endpoint_url =
       parse_aws_argument(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL", "", true);
     std::stringstream ss;
     if (endpoint_url.empty()) {
-      std::string region =
+      auto const region =
         parse_aws_argument(std::move(aws_region),
                            "AWS_DEFAULT_REGION",
                            "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
@@ -250,17 +250,17 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_secret_access_key = std::nullopt)
     : _url{std::move(url)}
   {
-    std::string region =
+    auto const region =
       parse_aws_argument(std::move(aws_region),
                          "AWS_DEFAULT_REGION",
                          "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
 
-    std::string access_key =
+    auto const access_key =
       parse_aws_argument(std::move(aws_access_key),
                          "AWS_ACCESS_KEY_ID",
                          "S3: must provide `aws_access_key` if AWS_ACCESS_KEY_ID isn't set.");
 
-    std::string secret_access_key = parse_aws_argument(
+    auto const secret_access_key = parse_aws_argument(
       std::move(aws_secret_access_key),
       "AWS_SECRET_ACCESS_KEY",
       "S3: must provide `aws_secret_access_key` if AWS_SECRET_ACCESS_KEY isn't set.");
