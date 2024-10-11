@@ -22,6 +22,7 @@
     <maven.compiler.target>21</maven.compiler.target>
     <junit.version>5.4.2</junit.version>
     <jcuda.version>12.0.0</jcuda.version>
+    <cmake.version>3.16.3-b2</cmake.version>
   </properties>
 
   <dependencies>
@@ -116,31 +117,30 @@
     </pluginManagement>
     <plugins>
       <plugin>
-        <artifactId>maven-antrun-plugin</artifactId>
-        <version>3.0.0</version>
+        <groupId>com.googlecode.cmake-maven-project</groupId>
+        <artifactId>cmake-maven-plugin</artifactId>
+        <version>${cmake.version}</version>
         <executions>
           <execution>
-            <id>compile-native-code</id>
-            <phase>generate-sources</phase>
+            <id>cmake-generate</id>
+              <goals>
+                <goal>generate</goal>
+              </goals>
+              <configuration>
+                <sourcePath>${project.basedir}/src/main/native</sourcePath>
+                <targetPath>${project.build.directory}/native-build</targetPath>
+                <options>
+                  <option>-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${project.build.directory}</option>
+                </options>
+              </configuration>
+          </execution>
+          <execution>
+            <id>cmake-compile</id>
             <goals>
-              <goal>run</goal>
+              <goal>compile</goal>
             </goals>
             <configuration>
-              <target>
-                <!-- Compile native code using nvcc -->
-                <exec executable="nvcc">
-                  <arg value="-shared"/>
-                  <arg value="-o"/>
-                  <arg value="${project.build.directory}/libCuFileJNI.so"/>
-                  <arg value="-I/usr/local/cuda/include/"/>
-                  <arg value="-I/usr/lib/jvm/java-21-openjdk-amd64/include/"/>
-                  <arg value="-I/usr/lib/jvm/java-21-openjdk-amd64/include/linux"/>
-                  <arg value="${project.basedir}/src/main/native/src/CuFileJni.cpp"/>
-                  <arg value="--compiler-options"/>
-                  <arg value="-fPIC"/>
-                  <arg value="-lcufile"/>
-                </exec>
-              </target>
+              <projectDirectory>${project.build.directory}/native-build</projectDirectory>
             </configuration>
           </execution>
         </executions>
