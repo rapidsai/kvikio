@@ -6,6 +6,7 @@
 
 from typing import Optional
 
+from cython cimport Py_ssize_t
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport make_unique, unique_ptr
@@ -56,17 +57,16 @@ cdef class RemoteFile:
     def open_http(
         cls,
         url: str,
-        nbytes: Optional[int],
+        nbytes: Py_ssize_t = -1,
     ):
         cdef RemoteFile ret = RemoteFile()
         cdef unique_ptr[cpp_HttpEndpoint] ep = make_unique[cpp_HttpEndpoint](
             _to_string(url)
         )
-        if nbytes is None:
+        if nbytes >= 0:
             ret._handle = make_unique[cpp_RemoteHandle](move(ep))
             return ret
-        cdef size_t n = nbytes
-        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
+        ret._handle = make_unique[cpp_RemoteHandle](move(ep), nbytes)
         return ret
 
     def nbytes(self) -> int:
