@@ -39,8 +39,10 @@ classifiers = [
 
 [project.optional-dependencies]
 test = [
+    "boto3>=1.21.21",
     "cuda-python>=11.7.1,<12.0a0",
     "dask>=2022.05.2",
+    "moto[server]>=4.0.8",
     "pytest",
     "pytest-cov",
     "rangehttpserver",
@@ -140,4 +142,5 @@ regex = "(?P<value>.*)"
 filterwarnings = [
     "error",
     "ignore:Jitify is performing a one-time only warm-up to populate the persistent cache",
+    "ignore::DeprecationWarning:botocore.*",
 ]
