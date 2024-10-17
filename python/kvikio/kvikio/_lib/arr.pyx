@@ -236,7 +236,7 @@ cdef class Array:
 cdef inline bint _c_contiguous(Py_ssize_t itemsize,
                                Py_ssize_t ndim,
                                Py_ssize_t[::1] shape_mv,
-                               Py_ssize_t[::1] strides_mv) nogil:
+                               Py_ssize_t[::1] strides_mv) noexcept nogil:
     cdef Py_ssize_t i, s
     if strides_mv is not None:
         s = itemsize
@@ -254,7 +254,7 @@ cdef inline bint _c_contiguous(Py_ssize_t itemsize,
 cdef inline bint _f_contiguous(Py_ssize_t itemsize,
                                Py_ssize_t ndim,
                                Py_ssize_t[::1] shape_mv,
-                               Py_ssize_t[::1] strides_mv) nogil:
+                               Py_ssize_t[::1] strides_mv) noexcept nogil:
     cdef Py_ssize_t i, s
     if strides_mv is not None:
         s = itemsize
@@ -270,7 +270,7 @@ cdef inline bint _f_contiguous(Py_ssize_t itemsize,
 cdef inline bint _contiguous(Py_ssize_t itemsize,
                              Py_ssize_t ndim,
                              Py_ssize_t[::1] shape_mv,
-                             Py_ssize_t[::1] strides_mv) nogil:
+                             Py_ssize_t[::1] strides_mv) noexcept nogil:
     cdef bint r = _c_contiguous(itemsize, ndim, shape_mv, strides_mv)
     if not r:
         r = _f_contiguous(itemsize, ndim, shape_mv, strides_mv)
@@ -283,7 +283,7 @@ cdef inline bint _contiguous(Py_ssize_t itemsize,
 @wraparound(False)
 cdef inline Py_ssize_t _nbytes(Py_ssize_t itemsize,
                                Py_ssize_t ndim,
-                               Py_ssize_t[::1] shape_mv) nogil:
+                               Py_ssize_t[::1] shape_mv) noexcept nogil:
     cdef Py_ssize_t i, nbytes = itemsize
     for i in range(ndim):
         nbytes *= shape_mv[i]
