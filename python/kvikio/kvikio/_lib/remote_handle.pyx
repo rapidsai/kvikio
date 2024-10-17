@@ -4,41 +4,14 @@
 # distutils: language = c++
 # cython: language_level=3
 
-from typing import Optional
-
+from cython cimport Py_ssize_t
 from cython.operator cimport dereference as deref
-from libc.stdint cimport uintptr_t
 from libcpp.memory cimport make_unique, unique_ptr
 from libcpp.string cimport string
-from libcpp.utility cimport move, pair
+from libcpp.utility cimport move
 
-from kvikio._lib.arr cimport parse_buffer_argument
-from kvikio._lib.future cimport IOFuture, _wrap_io_future, future
-
-
-cdef extern from "<kvikio/remote_handle.hpp>" nogil:
-    cdef cppclass cpp_RemoteEndpoint "kvikio::RemoteEndpoint":
-        pass
-
-    cdef cppclass cpp_HttpEndpoint "kvikio::HttpEndpoint":
-        cpp_HttpEndpoint(string url) except +
-
-    cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
-        cpp_RemoteHandle(
-            unique_ptr[cpp_RemoteEndpoint] endpoint, size_t nbytes
-        ) except +
-        cpp_RemoteHandle(unique_ptr[cpp_RemoteEndpoint] endpoint) except +
-        int nbytes() except +
-        size_t read(
-            void* buf,
-            size_t size,
-            size_t file_offset
-        ) except +
-        future[size_t] pread(
-            void* buf,
-            size_t size,
-            size_t file_offset
-        ) except +
+from kvikio._lib.arr cimport Array, mem_ptr_nbytes, parse_buffer_argument
+from kvikio._lib.future cimport IOFuture, _wrap_io_future
 
 
 cdef string _to_string(str s):
@@ -50,42 +23,40 @@ cdef string _to_string(str s):
 
 
 cdef class RemoteFile:
-    cdef unique_ptr[cpp_RemoteHandle] _handle
+    @staticmethod
+    def open_http(str url, Py_ssize_t nbytes=-1) -> RemoteFile:
+        return RemoteFile.cpp_open_http(url, nbytes)
 
-    @classmethod
-    def open_http(
-        cls,
-        url: str,
-        nbytes: Optional[int],
-    ):
+    @staticmethod
+    cdef RemoteFile cpp_open_http(str url, Py_ssize_t nbytes=-1):
         cdef RemoteFile ret = RemoteFile()
         cdef unique_ptr[cpp_HttpEndpoint] ep = make_unique[cpp_HttpEndpoint](
             _to_string(url)
         )
-        if nbytes is None:
+        if nbytes < 0:
             ret._handle = make_unique[cpp_RemoteHandle](move(ep))
             return ret
-        cdef size_t n = nbytes
-        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
+        ret._handle = make_unique[cpp_RemoteHandle](move(ep), nbytes)
         return ret
 
-    def nbytes(self) -> int:
+    cpdef Py_ssize_t nbytes(self):
         return deref(self._handle).nbytes()
 
-    def read(self, buf, size: Optional[int], file_offset: int) -> int:
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+    cpdef Py_ssize_t read(self, Array buf, Py_ssize_t size=-1,
+                          Py_ssize_t file_offset=0):
+        cdef mem_ptr_nbytes info = parse_buffer_argument(buf, size, True)
         return deref(self._handle).read(
-            <void*>info.first,
-            info.second,
+            <void*>info.ptr,
+            info.nbytes,
             file_offset,
         )
 
-    def pread(self, buf, size: Optional[int], file_offset: int) -> IOFuture:
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+    cpdef IOFuture pread(self, Array buf, Py_ssize_t size=-1, Py_ssize_t file_offset=0):
+        cdef mem_ptr_nbytes info = parse_buffer_argument(buf, size, True)
         return _wrap_io_future(
             deref(self._handle).pread(
-                <void*>info.first,
-                info.second,
+                <void*>info.ptr,
+                info.nbytes,
                 file_offset,
             )
         )

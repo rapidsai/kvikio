@@ -2,9 +2,10 @@
 # See file LICENSE for terms.
 
 import pathlib
-from typing import Optional, Union
+from typing import Union
 
 from kvikio._lib import file_handle  # type: ignore
+from kvikio._lib.arr import asarray
 
 
 class IOFutureStream:
@@ -112,9 +113,9 @@ class CuFile:
     def pread(
         self,
         buf,
-        size: Optional[int] = None,
+        size: int = -1,
         file_offset: int = 0,
-        task_size: Optional[int] = None,
+        task_size: int = 0,
     ) -> IOFuture:
         """Reads specified bytes from the file into device or host memory in parallel
 
@@ -154,14 +155,14 @@ class CuFile:
         any undesired bytes from the resulting data. Similarly, it is optimal for `size`
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
-        return IOFuture(self._handle.pread(buf, size, file_offset, task_size))
+        return IOFuture(self._handle.pread(asarray(buf), size, file_offset, task_size))
 
     def pwrite(
         self,
         buf,
-        size: Optional[int] = None,
+        size: int = -1,
         file_offset: int = 0,
-        task_size: Optional[int] = None,
+        task_size: int = 0,
     ) -> IOFuture:
         """Writes specified bytes from device or host memory into the file in parallel
 
@@ -201,14 +202,14 @@ class CuFile:
         any undesired bytes from the resulting data. Similarly, it is optimal for `size`
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
-        return IOFuture(self._handle.pwrite(buf, size, file_offset, task_size))
+        return IOFuture(self._handle.pwrite(asarray(buf), size, file_offset, task_size))
 
     def read(
         self,
         buf,
-        size: Optional[int] = None,
+        size: int = -1,
         file_offset: int = 0,
-        task_size: Optional[int] = None,
+        task_size: int = 0,
     ) -> int:
         """Reads specified bytes from the file into the device memory in parallel
 
@@ -240,14 +241,14 @@ class CuFile:
         any undesired bytes from the resulting data. Similarly, it is optimal for `size`
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
-        return self.pread(buf, size, file_offset, task_size).get()
+        return self.pread(asarray(buf), size, file_offset, task_size).get()
 
     def write(
         self,
         buf,
-        size: Optional[int] = None,
+        size: int = -1,
         file_offset: int = 0,
-        task_size: Optional[int] = None,
+        task_size: int = 0,
     ) -> int:
         """Writes specified bytes from the device memory into the file in parallel
 
@@ -279,13 +280,13 @@ class CuFile:
         any undesired bytes from the resulting data. Similarly, it is optimal for `size`
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
-        return self.pwrite(buf, size, file_offset, task_size).get()
+        return self.pwrite(asarray(buf), size, file_offset, task_size).get()
 
     def raw_read_async(
         self,
         buf,
         stream,
-        size: Optional[int] = None,
+        size: int = -1,
         file_offset: int = 0,
         dev_offset: int = 0,
     ) -> IOFutureStream:
@@ -314,13 +315,15 @@ class CuFile:
             `IOFutureStream.check_bytes_done()`, which will synchronize the associated
             stream and return the number of bytes read.
         """
-        return self._handle.read_async(buf, size, file_offset, dev_offset, stream)
+        return self._handle.read_async(
+            asarray(buf), size, file_offset, dev_offset, stream
+        )
 
     def raw_write_async(
         self,
         buf,
         stream,
-        size: Optional[int] = None,
+        size: int = -1,
         file_offset: int = 0,
         dev_offset: int = 0,
     ) -> IOFutureStream:
@@ -349,12 +352,14 @@ class CuFile:
             `IOFutureStream.check_bytes_done()`, which will synchronize the associated
             stream and return the number of bytes written.
         """
-        return self._handle.write_async(buf, size, file_offset, dev_offset, stream)
+        return self._handle.write_async(
+            asarray(buf), size, file_offset, dev_offset, stream
+        )
 
     def raw_read(
         self,
         buf,
-        size: Optional[int] = None,
+        size: int = -1,
         file_offset: int = 0,
         dev_offset: int = 0,
     ) -> int:
@@ -389,12 +394,12 @@ class CuFile:
         any undesired bytes from the resulting data. Similarly, it is optimal for `size`
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
-        return self._handle.read(buf, size, file_offset, dev_offset)
+        return self._handle.read(asarray(buf), size, file_offset, dev_offset)
 
     def raw_write(
         self,
         buf,
-        size: Optional[int] = None,
+        size: int = -1,
         file_offset: int = 0,
         dev_offset: int = 0,
     ) -> int:
@@ -429,4 +434,4 @@ class CuFile:
         any undesired bytes from the resulting data. Similarly, it is optimal for `size`
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
-        return self._handle.write(buf, size, file_offset, dev_offset)
+        return self._handle.write(asarray(buf), size, file_offset, dev_offset)
