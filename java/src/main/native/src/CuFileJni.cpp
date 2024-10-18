@@ -180,34 +180,34 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_kvikio_cufile_CuFileDriver_create(JNIEnv*
 }
 
 JNIEXPORT void JNICALL Java_ai_rapids_kvikio_cufile_CuFileDriver_destroy(JNIEnv* env,
-                                                                        jclass,
-                                                                        jlong pointer)
+                                                                         jclass,
+                                                                         jlong pointer)
 {
   delete reinterpret_cast<cufile_driver*>(pointer);
 }
 
 JNIEXPORT void JNICALL Java_ai_rapids_kvikio_cufile_CuFileHandle_destroy(JNIEnv* env,
-                                                                        jclass,
-                                                                        jlong pointer)
+                                                                         jclass,
+                                                                         jlong pointer)
 {
   delete reinterpret_cast<cufile_file*>(pointer);
 }
 
 JNIEXPORT jlong JNICALL Java_ai_rapids_kvikio_cufile_CuFileReadHandle_create(JNIEnv* env,
-                                                                            jclass,
-                                                                            jstring path)
+                                                                             jclass,
+                                                                             jstring path)
 {
   auto file = cufile_file::make_reader(env->GetStringUTFChars(path, nullptr));
   return reinterpret_cast<jlong>(file.release());
 }
 
 JNIEXPORT void JNICALL Java_ai_rapids_kvikio_cufile_CuFileReadHandle_readFile(JNIEnv* env,
-                                                                             jclass,
-                                                                             jlong file_pointer,
-                                                                             jlong device_pointer,
-                                                                             jlong size,
-                                                                             jlong file_offset,
-                                                                             jlong device_offset)
+                                                                              jclass,
+                                                                              jlong file_pointer,
+                                                                              jlong device_pointer,
+                                                                              jlong size,
+                                                                              jlong file_offset,
+                                                                              jlong device_offset)
 {
   auto* file_ptr = reinterpret_cast<cufile_file*>(file_pointer);
   auto* dev_ptr  = reinterpret_cast<void*>(device_pointer);
@@ -215,20 +215,21 @@ JNIEXPORT void JNICALL Java_ai_rapids_kvikio_cufile_CuFileReadHandle_readFile(JN
 }
 
 JNIEXPORT jlong JNICALL Java_ai_rapids_kvikio_cufile_CuFileWriteHandle_create(JNIEnv* env,
-                                                                             jclass,
-                                                                             jstring path)
+                                                                              jclass,
+                                                                              jstring path)
 {
   auto file = cufile_file::make_writer(env->GetStringUTFChars(path, nullptr));
   return reinterpret_cast<jlong>(file.release());
 }
 
-JNIEXPORT void JNICALL Java_ai_rapids_kvikio_cufile_CuFileWriteHandle_writeFile(JNIEnv* env,
-                                                                               jclass,
-                                                                               jlong file_pointer,
-                                                                               jlong device_pointer,
-                                                                               jlong size,
-                                                                               jlong file_offset,
-                                                                               jlong buffer_offset)
+JNIEXPORT void JNICALL
+Java_ai_rapids_kvikio_cufile_CuFileWriteHandle_writeFile(JNIEnv* env,
+                                                         jclass,
+                                                         jlong file_pointer,
+                                                         jlong device_pointer,
+                                                         jlong size,
+                                                         jlong file_offset,
+                                                         jlong buffer_offset)
 {
   auto* file_ptr = reinterpret_cast<cufile_file*>(file_pointer);
   auto* dev_ptr  = reinterpret_cast<void*>(device_pointer);
