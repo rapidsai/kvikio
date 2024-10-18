@@ -371,3 +371,4 @@ dependencies:
           - *cmake_ver
           - maven
           - openjdk=11.*
+          - make
