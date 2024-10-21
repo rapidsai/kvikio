@@ -61,17 +61,15 @@ def local_s3_server(lifetime: int):
 def create_client_and_bucket():
     client = boto3.client("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL", None))
     try:
-        client.create_bucket(Bucket=args.bucket, ACL="public-read-write")
-    except (
-        client.exceptions.BucketAlreadyOwnedByYou,
-        client.exceptions.BucketAlreadyExists,
-    ):
-        pass
+        bucket_names = {bucket["Name"] for bucket in client.list_buckets()["Buckets"]}
+        if args.bucket not in bucket_names:
+            client.create_bucket(Bucket=args.bucket, ACL="public-read-write")
     except Exception:
         print(
             "Problem accessing the S3 server? using wrong credentials? Try setting "
-            "AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and/or AWS_ENDPOINT_URL. "
-            "Alternatively, use the bundled server `--use-bundled-server`\n",
+            "AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and/or AWS_ENDPOINT_URL. Also, "
+            "if the bucket doesn't exist, make sure you have the required permission. "
+            "Alternatively, use the bundled server `--use-bundled-server`:\n",
             file=sys.stderr,
             flush=True,
         )
