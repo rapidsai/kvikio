@@ -394,6 +394,13 @@ class RemoteHandle {
   [[nodiscard]] std::size_t nbytes() const noexcept { return _nbytes; }
 
   /**
+   * @brief Get a const reference to the underlying remote endpoint.
+   *
+   * @return The remote endpoint.
+   */
+  [[nodiscard]] RemoteEndpoint const& endpoint() const noexcept { return *_endpoint; }
+
+  /**
    * @brief Read from remote source into buffer (host or device memory).
    *
    * @param buf Pointer to host or device memory.

@@ -149,6 +149,9 @@ class RemoteFile:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
+    def __str__(self) -> str:
+        return str(self._handle)
+
     def nbytes(self) -> int:
         """Get the file size.
 

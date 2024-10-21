@@ -18,12 +18,12 @@ from kvikio._lib.future cimport IOFuture, _wrap_io_future, future
 
 cdef extern from "<kvikio/remote_handle.hpp>" nogil:
     cdef cppclass cpp_RemoteEndpoint "kvikio::RemoteEndpoint":
-        pass
+        string str() except +
 
-    cdef cppclass cpp_HttpEndpoint "kvikio::HttpEndpoint":
+    cdef cppclass cpp_HttpEndpoint "kvikio::HttpEndpoint"(cpp_RemoteEndpoint):
         cpp_HttpEndpoint(string url) except +
 
-    cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint":
+    cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint"(cpp_RemoteEndpoint):
         cpp_S3Endpoint(string url) except +
         cpp_S3Endpoint(string bucket_name, string object_name) except +
 
@@ -36,6 +36,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
         ) except +
         cpp_RemoteHandle(unique_ptr[cpp_RemoteEndpoint] endpoint) except +
         int nbytes() except +
+        const cpp_RemoteEndpoint& endpoint() except +
         size_t read(
             void* buf,
             size_t size,
@@ -136,6 +137,10 @@ cdef class RemoteFile:
             ),
             nbytes
         )
+
+    def __str__(self) -> str:
+        cdef string ep_str = deref(self._handle).endpoint().str()
+        return f'<{self.__class__.__name__} "{ep_str.decode()}">'
 
     def nbytes(self) -> int:
         return deref(self._handle).nbytes()
