@@ -330,7 +330,8 @@ class FileHandle {
                    bool sync_default_stream = true)
   {
     if (_compat_mode) {
-      return posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      return detail::posix_device_read(
+        _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
     if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -381,7 +382,8 @@ class FileHandle {
     _nbytes = 0;  // Invalidate the computed file size
 
     if (_compat_mode) {
-      return posix_device_write(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      return detail::posix_device_write(
+        _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
     if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -438,7 +440,8 @@ class FileHandle {
                        std::size_t file_offset,
                        std::size_t hostPtr_offset) -> std::size_t {
         char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
-        return posix_host_read(_fd_direct_off, buf, size, file_offset, false);
+        return detail::posix_host_read<detail::PartialIO::NO>(
+          _fd_direct_off, buf, size, file_offset);
       };
 
       return parallel_io(op, buf, size, file_offset, task_size, 0);
@@ -450,7 +453,7 @@ class FileHandle {
     if (size < gds_threshold) {
       auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
         PushAndPopContext c(ctx);
-        return posix_device_read(_fd_direct_off, buf, size, file_offset, 0);
+        return detail::posix_device_read(_fd_direct_off, buf, size, file_offset, 0);
       };
       return std::async(std::launch::deferred, task);
     }
@@ -513,7 +516,8 @@ class FileHandle {
                        std::size_t file_offset,
                        std::size_t hostPtr_offset) -> std::size_t {
         const char* buf = static_cast<const char*>(hostPtr_base) + hostPtr_offset;
-        return posix_host_write(_fd_direct_off, buf, size, file_offset, false);
+        return detail::posix_host_write<detail::PartialIO::NO>(
+          _fd_direct_off, buf, size, file_offset);
       };
 
       return parallel_io(op, buf, size, file_offset, task_size, 0);
@@ -525,7 +529,7 @@ class FileHandle {
     if (size < gds_threshold) {
       auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
         PushAndPopContext c(ctx);
-        return posix_device_write(_fd_direct_off, buf, size, file_offset, 0);
+        return detail::posix_device_write(_fd_direct_off, buf, size, file_offset, 0);
       };
       return std::async(std::launch::deferred, task);
     }

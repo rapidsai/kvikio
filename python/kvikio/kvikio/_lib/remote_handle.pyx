@@ -49,11 +49,13 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
             size_t file_offset
         ) except +
 
-cdef string _to_string(str_or_none):
+
+cdef string _to_string(str s):
     """Convert Python object to a C++ string (if None, return the empty string)"""
-    if str_or_none is None:
+    if s is not None:
+        return s.encode()
+    else:
         return string()
-    return str.encode(str(str_or_none))
 
 
 cdef class RemoteFile:
