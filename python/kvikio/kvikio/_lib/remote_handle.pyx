@@ -25,8 +25,6 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
 
     cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint":
         cpp_S3Endpoint(string url) except +
-
-    cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint":
         cpp_S3Endpoint(string bucket_name, string object_name) except +
 
     pair[string, string] cpp_parse_s3_url \

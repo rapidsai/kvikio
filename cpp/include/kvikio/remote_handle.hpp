@@ -148,7 +148,7 @@ class HttpEndpoint : public RemoteEndpoint {
 
  public:
   /**
-   * @brief Create a http endpoint from a url.
+   * @brief Create an http endpoint from a url.
    *
    * @param url The full http url to the remote file.
    */
@@ -168,15 +168,15 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _aws_userpwd;
 
   /**
-   * @brief Parse a AWS argument such as `aws_region` or `aws_access_key`.
+   * @brief Unwrap an optional parameter, obtaining a default from the environment.
    *
    * If not nullopt, the optional's value is returned otherwise the environment
    * variable `env_var` is used. If that also doesn't have a value:
    *   - if `err_msg` is empty, the empty string is returned.
    *   - if `err_msg` is not empty, `std::invalid_argument(`err_msg`)` is thrown.
    *
-   * @param aws_arg The AWS argument to parse.
-   * @param env_var The name of the environment variable to check if `aws_arg` isn't set.
+   * @param value The value to unwrap.
+   * @param env_var The name of the environment variable to check if `value` isn't set.
    * @param err_msg The error message to throw on error or the empty string.
    * @return The parsed AWS argument or the empty string.
    */
@@ -196,6 +196,9 @@ class S3Endpoint : public RemoteEndpoint {
 
   /**
    * @brief Get url from a AWS S3 bucket and object name.
+   *
+   * @throws std::invalid_argument if no region is specified and no default region is
+   * specified in the environment.
    *
    * @param bucket_name The name of the S3 bucket.
    * @param object_name The name of the S3 object.
