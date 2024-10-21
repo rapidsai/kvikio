@@ -86,8 +86,7 @@ def run_numpy_like(args, xp):
 
     client = create_client_and_bucket()
     client.put_object(Bucket=args.bucket, Key="data", Body=bytes(data))
-    server_address = os.environ["AWS_ENDPOINT_URL"]
-    url = f"{server_address}/{args.bucket}/data"
+    url = f"s3://{args.bucket}/data"
 
     def run() -> float:
         t0 = time.perf_counter()
@@ -121,7 +120,7 @@ def main(args):
     print(f"dtype       | {args.dtype}")
     print(f"nthreads    | {args.nthreads}")
     print(f"nruns       | {args.nruns}")
-    print(f"server      | {os.getenv('AWS_ENDPOINT_URL', 'http://*.amazonaws.com')}")
+    print(f"file        | s3://{args.bucket}/data")
     if args.use_bundled_server:
         print("--------------------------------------")
         print("Using the bundled local server is slow")
