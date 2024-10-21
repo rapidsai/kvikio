@@ -16,6 +16,11 @@
 function(find_and_configure_libcurl)
   include(${rapids-cmake-dir}/cpm/find.cmake)
 
+  # Work around https://github.com/curl/curl/issues/15351
+  if(DEFINED CACHE{BUILD_TESTING})
+    set(CACHE_HAS_BUILD_TESTING $CACHE{BUILD_TESTING})
+  endif()
+
   rapids_cpm_find(
     CURL 7.87.0
     GLOBAL_TARGETS libcurl
@@ -27,6 +32,11 @@ function(find_and_configure_libcurl)
     OPTIONS "BUILD_CURL_EXE OFF" "BUILD_SHARED_LIBS OFF" "BUILD_TESTING OFF" "CURL_USE_LIBPSL OFF"
             "CURL_DISABLE_LDAP ON" "CMAKE_POSITION_INDEPENDENT_CODE ON"
   )
+  if(DEFINED CACHE_HAS_BUILD_TESTING)
+    set(BUILD_TESTING ${CACHE_HAS_BUILD_TESTING} CACHE BOOL "" FORCE)
+  else()
+    unset(BUILD_TESTING CACHE)
+  endif()
 endfunction()
 
 find_and_configure_libcurl()
