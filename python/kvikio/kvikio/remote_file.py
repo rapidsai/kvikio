@@ -133,7 +133,7 @@ class RemoteFile:
             return RemoteFile(
                 _get_remote_module().RemoteFile.open_s3_from_http_url(url, nbytes)
             )
-        if url.startswith("s://"):
+        if url.startswith("s3://"):
             return RemoteFile(
                 _get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes)
             )
