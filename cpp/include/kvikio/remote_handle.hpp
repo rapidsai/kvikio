@@ -204,9 +204,10 @@ class S3Endpoint : public RemoteEndpoint {
    * @param object_name The name of the S3 object.
    * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
    * `AWS_DEFAULT_REGION` environment variable is used.
-   * @param aws_endpoint_url Overwrite the endpoint url to use. If nullopt, the value of
-   * the `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular
-   * AWS url scheme is used: "https://<bucket>.s3.<region>.amazonaws.com/<object>"
+   * @param aws_endpoint_url Overwrite the endpoint url (including the protocol part) by using
+   * the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If nullopt, the value of the
+   * `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular AWS
+   * url scheme is used: "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
    */
   static std::string url_from_bucket_and_object(std::string const& bucket_name,
                                                 std::string const& object_name,
@@ -305,9 +306,10 @@ class S3Endpoint : public RemoteEndpoint {
    * `AWS_ACCESS_KEY_ID` environment variable is used.
    * @param aws_secret_access_key The AWS secret access key to use. If nullopt, the value of the
    * `AWS_SECRET_ACCESS_KEY` environment variable is used.
-   * @param aws_endpoint_url Overwrite the endpoint url to use. If nullopt, the value of
-   * the `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular
-   * AWS url scheme is used: "https://<bucket>.s3.<region>.amazonaws.com/<object>"
+   * @param aws_endpoint_url Overwrite the endpoint url (including the protocol part) by using
+   * the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If nullopt, the value of the
+   * `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular AWS
+   * url scheme is used: "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
    */
   S3Endpoint(std::string const& bucket_name,
              std::string const& object_name,
