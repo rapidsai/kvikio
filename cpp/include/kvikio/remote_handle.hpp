@@ -134,7 +134,7 @@ class RemoteEndpoint {
    *
    * @returns A string description.
    */
-  virtual std::string str() = 0;
+  virtual std::string str() const = 0;
 
   virtual ~RemoteEndpoint() = default;
 };
@@ -154,7 +154,7 @@ class HttpEndpoint : public RemoteEndpoint {
    */
   HttpEndpoint(std::string url) : _url{std::move(url)} {}
   void setopt(CurlHandle& curl) override { curl.setopt(CURLOPT_URL, _url.c_str()); }
-  std::string str() override { return _url; }
+  std::string str() const override { return _url; }
   ~HttpEndpoint() override = default;
 };
 
@@ -329,7 +329,7 @@ class S3Endpoint : public RemoteEndpoint {
     curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
     curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
   }
-  std::string str() override { return _url; }
+  std::string str() const override { return _url; }
   ~S3Endpoint() override = default;
 };
 
