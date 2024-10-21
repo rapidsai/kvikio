@@ -34,8 +34,8 @@ function(find_and_configure_libcurl)
   )
   if(DEFINED CACHE_HAS_BUILD_TESTING)
     set(BUILD_TESTING
-      ${CACHE_HAS_BUILD_TESTING}
-      CACHE BOOL "" FORCE)
+        ${CACHE_HAS_BUILD_TESTING}
+        CACHE BOOL "" FORCE)
   else()
     unset(BUILD_TESTING CACHE)
   endif()
