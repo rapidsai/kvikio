@@ -57,20 +57,27 @@ cdef string _to_string(str s):
     else:
         return string()
 
+# Help function to cast an endpoint to its base class `RemoteEndpoint`
+cdef extern from *:
+    """
+    template <typename T>
+    std::unique_ptr<kvikio::RemoteEndpoint> cast_to_remote_endpoint(T endpoint)
+    {
+        return std::move(endpoint);
+    }
+    """
+    cdef unique_ptr[cpp_RemoteEndpoint] cast_to_remote_endpoint[T](T handle) except +
+
 
 cdef class RemoteFile:
     cdef unique_ptr[cpp_RemoteHandle] _handle
 
-    @classmethod
-    def open_http(
-        cls,
-        url: str,
+    @staticmethod
+    cdef RemoteFile _from_endpoint(
+        unique_ptr[cpp_RemoteEndpoint] ep,
         nbytes: Optional[int],
     ):
         cdef RemoteFile ret = RemoteFile()
-        cdef unique_ptr[cpp_HttpEndpoint] ep = make_unique[cpp_HttpEndpoint](
-            _to_string(url)
-        )
         if nbytes is None:
             ret._handle = make_unique[cpp_RemoteHandle](move(ep))
             return ret
@@ -78,58 +85,59 @@ cdef class RemoteFile:
         ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
         return ret
 
-    @classmethod
+    @staticmethod
+    def open_http(
+        url: str,
+        nbytes: Optional[int],
+    ):
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_HttpEndpoint](_to_string(url))
+            ),
+            nbytes
+        )
+
+    @staticmethod
     def open_s3(
-        cls,
         bucket_name: str,
         object_name: str,
         nbytes: Optional[int],
     ):
-        cdef RemoteFile ret = RemoteFile()
-        cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
-            _to_string(bucket_name), _to_string(object_name)
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](
+                    _to_string(bucket_name), _to_string(object_name)
+                )
+            ),
+            nbytes
         )
-        if nbytes is None:
-            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
-            return ret
-        cdef size_t n = nbytes
-        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
-        return ret
 
-    @classmethod
+    @staticmethod
     def open_s3_from_http_url(
-        cls,
         url: str,
         nbytes: Optional[int],
     ):
-        cdef RemoteFile ret = RemoteFile()
-        cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
-            _to_string(url)
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](_to_string(url))
+            ),
+            nbytes
         )
-        if nbytes is None:
-            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
-            return ret
-        cdef size_t n = nbytes
-        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
-        return ret
 
-    @classmethod
+    @staticmethod
     def open_s3_from_s3_url(
-        cls,
         url: str,
         nbytes: Optional[int],
     ):
         cdef pair[string, string] bucket_and_object = cpp_parse_s3_url(_to_string(url))
-        cdef RemoteFile ret = RemoteFile()
-        cdef unique_ptr[cpp_S3Endpoint] ep = make_unique[cpp_S3Endpoint](
-            bucket_and_object.first, bucket_and_object.second
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](
+                    bucket_and_object.first, bucket_and_object.second
+                )
+            ),
+            nbytes
         )
-        if nbytes is None:
-            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
-            return ret
-        cdef size_t n = nbytes
-        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
-        return ret
 
     def nbytes(self) -> int:
         return deref(self._handle).nbytes()
