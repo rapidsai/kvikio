@@ -33,7 +33,9 @@ function(find_and_configure_libcurl)
             "CURL_DISABLE_LDAP ON" "CMAKE_POSITION_INDEPENDENT_CODE ON"
   )
   if(DEFINED CACHE_HAS_BUILD_TESTING)
-    set(BUILD_TESTING ${CACHE_HAS_BUILD_TESTING} CACHE BOOL "" FORCE)
+    set(BUILD_TESTING
+      ${CACHE_HAS_BUILD_TESTING}
+      CACHE BOOL "" FORCE)
   else()
     unset(BUILD_TESTING CACHE)
   endif()
