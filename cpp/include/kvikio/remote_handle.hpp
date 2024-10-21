@@ -194,6 +194,7 @@ class S3Endpoint : public RemoteEndpoint {
     return std::string(env);
   }
 
+ public:
   /**
    * @brief Get url from a AWS S3 bucket and object name.
    *
@@ -229,7 +230,6 @@ class S3Endpoint : public RemoteEndpoint {
     return ss.str();
   }
 
- public:
   /**
    * @brief Given an url like "s3://<bucket>/<object>", return the name of the bucket and object.
    *
@@ -251,8 +251,8 @@ class S3Endpoint : public RemoteEndpoint {
    * @brief Create a S3 endpoint from a url.
    *
    * @param url The full http url to the S3 file. NB: this should be an url starting with
-   * "http://" or "https://". If you have an S3 url of the form "s3://<bucket>/<object>",
-   * please use `S3Endpoint::parse_s3_url()` to convert it.
+   * "http://" or "https://". If you have an S3 url of the form "s3://<bucket>/<object>", please
+   * use `S3Endpoint::parse_s3_url()` and `S3Endpoint::url_from_bucket_and_object() to convert it.
    * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
    * `AWS_DEFAULT_REGION` environment variable is used.
    * @param aws_access_key The AWS access key to use. If nullopt, the value of the
