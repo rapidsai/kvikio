@@ -180,9 +180,9 @@ class S3Endpoint : public RemoteEndpoint {
    * @param err_msg The error message to throw on error or the empty string.
    * @return The parsed AWS argument or the empty string.
    */
-  static std::string parse_aws_argument(std::optional<std::string> aws_arg,
-                                        std::string const& env_var,
-                                        std::string const& err_msg = "")
+  static std::string unwrap_or_default(std::optional<std::string> aws_arg,
+                                       std::string const& env_var,
+                                       std::string const& err_msg = "")
   {
     if (aws_arg.has_value()) { return std::move(*aws_arg); }
 
@@ -213,13 +213,13 @@ class S3Endpoint : public RemoteEndpoint {
                                                 std::optional<std::string> const& aws_region,
                                                 std::optional<std::string> aws_endpoint_url)
   {
-    auto const endpoint_url = parse_aws_argument(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
+    auto const endpoint_url = unwrap_or_default(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
     std::stringstream ss;
     if (endpoint_url.empty()) {
       auto const region =
-        parse_aws_argument(std::move(aws_region),
-                           "AWS_DEFAULT_REGION",
-                           "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
+        unwrap_or_default(std::move(aws_region),
+                          "AWS_DEFAULT_REGION",
+                          "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
       // We default to the official AWS url scheme.
       ss << "https://" << bucket_name << ".s3." << region << ".amazonaws.com/" << object_name;
     } else {
@@ -266,16 +266,16 @@ class S3Endpoint : public RemoteEndpoint {
     : _url{std::move(url)}
   {
     auto const region =
-      parse_aws_argument(std::move(aws_region),
-                         "AWS_DEFAULT_REGION",
-                         "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
+      unwrap_or_default(std::move(aws_region),
+                        "AWS_DEFAULT_REGION",
+                        "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
 
     auto const access_key =
-      parse_aws_argument(std::move(aws_access_key),
-                         "AWS_ACCESS_KEY_ID",
-                         "S3: must provide `aws_access_key` if AWS_ACCESS_KEY_ID isn't set.");
+      unwrap_or_default(std::move(aws_access_key),
+                        "AWS_ACCESS_KEY_ID",
+                        "S3: must provide `aws_access_key` if AWS_ACCESS_KEY_ID isn't set.");
 
-    auto const secret_access_key = parse_aws_argument(
+    auto const secret_access_key = unwrap_or_default(
       std::move(aws_secret_access_key),
       "AWS_SECRET_ACCESS_KEY",
       "S3: must provide `aws_secret_access_key` if AWS_SECRET_ACCESS_KEY isn't set.");
