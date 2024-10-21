@@ -241,7 +241,7 @@ class S3Endpoint : public RemoteEndpoint {
   [[nodiscard]] static std::pair<std::string, std::string> parse_s3_url(std::string const& s3_url)
   {
     // Regular expression to match s3://<bucket>/<object>
-    std::regex pattern{R"(s3://([^/]+)/(.+))"};
+    std::regex pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
     std::smatch matches;
     if (std::regex_match(s3_url, matches, pattern)) { return {matches[1].str(), matches[2].str()}; }
     throw std::invalid_argument("Input string does not match the expected S3 URL format.");
@@ -266,6 +266,12 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_secret_access_key = std::nullopt)
     : _url{std::move(url)}
   {
+    // Regular expression to match http[s]://
+    std::regex pattern{R"(^https?://.*)", std::regex_constants::icase};
+    if (!std::regex_search(_url, pattern)) {
+      throw std::invalid_argument("url must start with http:// or https://");
+    }
+
     auto const region =
       unwrap_or_default(std::move(aws_region),
                         "AWS_DEFAULT_REGION",

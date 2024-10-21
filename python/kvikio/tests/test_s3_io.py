@@ -79,6 +79,40 @@ def s3_context(s3_base, bucket, files=None):
             pass
 
 
+def test_read_access(s3_base):
+    bucket_name = "bucket"
+    object_name = "data"
+    data = b"file content"
+    with s3_context(
+        s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(data)}
+    ) as server_address:
+        with kvikio.RemoteFile.open_s3_url(f"s3://{bucket_name}/{object_name}") as f:
+            assert f.nbytes() == len(data)
+            got = bytearray(len(data))
+            assert f.read(got) == len(got)
+
+        with kvikio.RemoteFile.open_s3(bucket_name, object_name) as f:
+            assert f.nbytes() == len(data)
+            got = bytearray(len(data))
+            assert f.read(got) == len(got)
+
+        with kvikio.RemoteFile.open_s3_url(
+            f"{server_address}/{bucket_name}/{object_name}"
+        ) as f:
+            assert f.nbytes() == len(data)
+            got = bytearray(len(data))
+            assert f.read(got) == len(got)
+
+        with pytest.raises(ValueError, match="Unsupported protocol"):
+            kvikio.RemoteFile.open_s3_url(f"unknown://{bucket_name}/{object_name}")
+
+        with pytest.raises(RuntimeError, match="URL returned error: 404"):
+            kvikio.RemoteFile.open_s3("unknown-bucket", object_name)
+
+        with pytest.raises(RuntimeError, match="URL returned error: 404"):
+            kvikio.RemoteFile.open_s3(bucket_name, "unknown-file")
+
+
 @pytest.mark.parametrize("size", [10, 100, 1000])
 @pytest.mark.parametrize("nthreads", [1, 3])
 @pytest.mark.parametrize("tasksize", [99, 999])
@@ -96,12 +130,6 @@ def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
                     with kvikio.RemoteFile.open_s3_url(
                         f"{server_address}/{bucket_name}/{object_name}"
                     ) as f:
-                        assert f.nbytes() == a.nbytes
-                        b = xp.empty_like(a)
-                        assert f.read(buf=b) == a.nbytes
-                        xp.testing.assert_array_equal(a, b)
-
-                    with kvikio.RemoteFile.open_s3(bucket_name, object_name) as f:
                         assert f.nbytes() == a.nbytes
                         b = xp.empty_like(a)
                         assert f.read(buf=b) == a.nbytes
