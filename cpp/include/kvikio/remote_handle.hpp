@@ -294,8 +294,8 @@ class S3Endpoint : public RemoteEndpoint {
       _aws_sigv4 = ss.str();
     }
     // Create the CURLOPT_USERPWD option
-    // Notice, curl uses `secret_access_key` to generate a AWS V4 signature. It is NOT set
-    // over the wire. See
+    // Notice, curl uses `secret_access_key` to generate a AWS V4 signature. It is NOT included
+    // in the http header. See
     // <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html>
     {
       std::stringstream ss;
