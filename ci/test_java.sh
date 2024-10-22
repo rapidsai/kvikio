@@ -35,6 +35,8 @@ trap "EXITCODE=1" ERR
 set +e
 
 rapids-logger "Run Java tests"
+mkdir /mnt/nvme
+touch /mnt/nvme/java_test
 pushd java
 mvn test -B
 popd

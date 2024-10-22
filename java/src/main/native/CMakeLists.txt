@@ -28,4 +28,4 @@ target_include_directories(
   CuFileJNI PRIVATE ${CUDA_INCLUDE_DIRS} ${JAVA_INCLUDE_PATH} ${JAVA_INCLUDE_PATH2}
 )
 
-target_link_libraries(CuFileJNI cufile)
+target_link_libraries(CuFileJNI cufile cuda)
