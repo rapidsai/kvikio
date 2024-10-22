@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import functools
-from typing import Optional
 
+from kvikio._lib.arr import asarray
 from kvikio.cufile import IOFuture
 
 
@@ -54,7 +54,7 @@ class RemoteFile:
     def open_http(
         cls,
         url: str,
-        nbytes: Optional[int] = None,
+        nbytes: int = -1,
     ) -> RemoteFile:
         """Open a http file.
 
@@ -89,7 +89,7 @@ class RemoteFile:
         """
         return self._handle.nbytes()
 
-    def read(self, buf, size: Optional[int] = None, file_offset: int = 0) -> int:
+    def read(self, buf, size: int = -1, file_offset: int = 0) -> int:
         """Read from remote source into buffer (host or device memory) in parallel.
 
         Parameters
@@ -105,9 +105,9 @@ class RemoteFile:
         -------
         The size of bytes that were successfully read.
         """
-        return self.pread(buf, size, file_offset).get()
+        return self.pread(asarray(buf), size, file_offset).get()
 
-    def pread(self, buf, size: Optional[int] = None, file_offset: int = 0) -> IOFuture:
+    def pread(self, buf, size: int = -1, file_offset: int = 0) -> IOFuture:
         """Read from remote source into buffer (host or device memory) in parallel.
 
         Parameters
@@ -124,4 +124,4 @@ class RemoteFile:
         Future that on completion returns the size of bytes that were successfully
         read.
         """
-        return IOFuture(self._handle.pread(buf, size, file_offset))
+        return IOFuture(self._handle.pread(asarray(buf), size, file_offset))

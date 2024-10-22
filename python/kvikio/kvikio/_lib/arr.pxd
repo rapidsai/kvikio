@@ -1,12 +1,10 @@
 # Copyright (c) 2020-2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-# distutils: language = c++
 # cython: language_level=3
 
 
 from libc.stdint cimport uintptr_t
-from libcpp.utility cimport pair
 
 
 cdef class Array:
@@ -31,6 +29,11 @@ cdef class Array:
 cpdef Array asarray(obj)
 
 
-cdef pair[uintptr_t, size_t] parse_buffer_argument(
-    buf, size, bint accept_host_buffer
+cdef struct mem_ptr_nbytes:
+    uintptr_t ptr
+    Py_ssize_t nbytes
+
+
+cdef mem_ptr_nbytes parse_buffer_argument(
+    Array arr, Py_ssize_t nbytes, bint accept_host_buffer
 ) except *
