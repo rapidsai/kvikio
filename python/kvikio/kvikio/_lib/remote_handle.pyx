@@ -18,10 +18,17 @@ from kvikio._lib.future cimport IOFuture, _wrap_io_future, future
 
 cdef extern from "<kvikio/remote_handle.hpp>" nogil:
     cdef cppclass cpp_RemoteEndpoint "kvikio::RemoteEndpoint":
-        pass
+        string str() except +
 
-    cdef cppclass cpp_HttpEndpoint "kvikio::HttpEndpoint":
+    cdef cppclass cpp_HttpEndpoint "kvikio::HttpEndpoint"(cpp_RemoteEndpoint):
         cpp_HttpEndpoint(string url) except +
+
+    cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint"(cpp_RemoteEndpoint):
+        cpp_S3Endpoint(string url) except +
+        cpp_S3Endpoint(string bucket_name, string object_name) except +
+
+    pair[string, string] cpp_parse_s3_url \
+        "kvikio::S3Endpoint::parse_s3_url"(string url) except +
 
     cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
         cpp_RemoteHandle(
@@ -29,6 +36,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
         ) except +
         cpp_RemoteHandle(unique_ptr[cpp_RemoteEndpoint] endpoint) except +
         int nbytes() except +
+        const cpp_RemoteEndpoint& endpoint() except +
         size_t read(
             void* buf,
             size_t size,
@@ -48,26 +56,91 @@ cdef string _to_string(str s):
     else:
         return string()
 
+# Helper function to cast an endpoint to its base class `RemoteEndpoint`
+cdef extern from *:
+    """
+    template <typename T>
+    std::unique_ptr<kvikio::RemoteEndpoint> cast_to_remote_endpoint(T endpoint)
+    {
+        return std::move(endpoint);
+    }
+    """
+    cdef unique_ptr[cpp_RemoteEndpoint] cast_to_remote_endpoint[T](T handle) except +
+
 
 cdef class RemoteFile:
     cdef unique_ptr[cpp_RemoteHandle] _handle
 
-    @classmethod
-    def open_http(
-        cls,
-        url: str,
+    @staticmethod
+    cdef RemoteFile _from_endpoint(
+        unique_ptr[cpp_RemoteEndpoint] ep,
         nbytes: Optional[int],
     ):
         cdef RemoteFile ret = RemoteFile()
-        cdef unique_ptr[cpp_HttpEndpoint] ep = make_unique[cpp_HttpEndpoint](
-            _to_string(url)
-        )
         if nbytes is None:
             ret._handle = make_unique[cpp_RemoteHandle](move(ep))
             return ret
         cdef size_t n = nbytes
         ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
         return ret
+
+    @staticmethod
+    def open_http(
+        url: str,
+        nbytes: Optional[int],
+    ):
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_HttpEndpoint](_to_string(url))
+            ),
+            nbytes
+        )
+
+    @staticmethod
+    def open_s3(
+        bucket_name: str,
+        object_name: str,
+        nbytes: Optional[int],
+    ):
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](
+                    _to_string(bucket_name), _to_string(object_name)
+                )
+            ),
+            nbytes
+        )
+
+    @staticmethod
+    def open_s3_from_http_url(
+        url: str,
+        nbytes: Optional[int],
+    ):
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](_to_string(url))
+            ),
+            nbytes
+        )
+
+    @staticmethod
+    def open_s3_from_s3_url(
+        url: str,
+        nbytes: Optional[int],
+    ):
+        cdef pair[string, string] bucket_and_object = cpp_parse_s3_url(_to_string(url))
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](
+                    bucket_and_object.first, bucket_and_object.second
+                )
+            ),
+            nbytes
+        )
+
+    def __str__(self) -> str:
+        cdef string ep_str = deref(self._handle).endpoint().str()
+        return f'<{self.__class__.__name__} "{ep_str.decode()}">'
 
     def nbytes(self) -> int:
         return deref(self._handle).nbytes()
