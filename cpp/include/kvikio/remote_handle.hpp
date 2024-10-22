@@ -170,7 +170,7 @@ class S3Endpoint : public RemoteEndpoint {
   /**
    * @brief Unwrap an optional parameter, obtaining a default from the environment.
    *
-   * If not nullopt, the optional's value is returned otherwise the environment
+   * If not nullopt, the optional's value is returned. Otherwise, the environment
    * variable `env_var` is used. If that also doesn't have a value:
    *   - if `err_msg` is empty, the empty string is returned.
    *   - if `err_msg` is not empty, `std::invalid_argument(`err_msg`)` is thrown.
@@ -241,7 +241,7 @@ class S3Endpoint : public RemoteEndpoint {
   [[nodiscard]] static std::pair<std::string, std::string> parse_s3_url(std::string const& s3_url)
   {
     // Regular expression to match s3://<bucket>/<object>
-    std::regex pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
+    std::regex const pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
     std::smatch matches;
     if (std::regex_match(s3_url, matches, pattern)) { return {matches[1].str(), matches[2].str()}; }
     throw std::invalid_argument("Input string does not match the expected S3 URL format.");

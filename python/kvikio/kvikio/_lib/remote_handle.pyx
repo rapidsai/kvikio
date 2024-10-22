@@ -56,7 +56,7 @@ cdef string _to_string(str s):
     else:
         return string()
 
-# Help function to cast an endpoint to its base class `RemoteEndpoint`
+# Helper function to cast an endpoint to its base class `RemoteEndpoint`
 cdef extern from *:
     """
     template <typename T>
