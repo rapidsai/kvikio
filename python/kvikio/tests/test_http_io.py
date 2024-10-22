@@ -47,6 +47,7 @@ def test_read(http_server, tmpdir, xp, size, nthreads, tasksize):
         with kvikio.defaults.set_task_size(tasksize):
             with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
                 assert f.nbytes() == a.nbytes
+                assert f"{http_server}/a" in str(f)
                 b = xp.empty_like(a)
                 assert f.read(b) == a.nbytes
                 xp.testing.assert_array_equal(a, b)
@@ -60,6 +61,7 @@ def test_large_read(http_server, tmpdir, xp, nthreads):
     with kvikio.defaults.set_num_threads(nthreads):
         with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
             assert f.nbytes() == a.nbytes
+            assert f"{http_server}/a" in str(f)
             b = xp.empty_like(a)
             assert f.read(b) == a.nbytes
             xp.testing.assert_array_equal(a, b)
@@ -71,6 +73,7 @@ def test_error_too_small_file(http_server, tmpdir, xp):
     a.tofile(tmpdir / "a")
     with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
         assert f.nbytes() == a.nbytes
+        assert f"{http_server}/a" in str(f)
         with pytest.raises(
             ValueError, match=r"cannot read 0\+100 bytes into a 10 bytes file"
         ):
@@ -88,6 +91,7 @@ def test_no_range_support(http_server, tmpdir, xp):
     b = xp.empty_like(a)
     with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
         assert f.nbytes() == a.nbytes
+        assert f"{http_server}/a" in str(f)
         with pytest.raises(
             OverflowError, match="maybe the server doesn't support file ranges?"
         ):
