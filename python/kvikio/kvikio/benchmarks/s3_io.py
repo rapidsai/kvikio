@@ -135,7 +135,7 @@ def main(args):
         def pprint_api_res(name, samples):
             samples = [args.nbytes / s for s in samples]  # Convert to throughput
             mean = statistics.harmonic_mean(samples) if len(samples) > 1 else samples[0]
-            ret = f"{api}-{name}".ljust(18)
+            ret = f"{api}-{name}".ljust(12)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
             if len(samples) > 1:
                 stdev = statistics.stdev(samples) / mean * 100
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--api",
         metavar="API",
-        default=list(API.keys())[0],  # defaults to the first API
+        default="all",
         nargs="+",
         choices=tuple(API.keys()) + ("all",),
         help="List of APIs to use {%(choices)s} (default: %(default)s).",
