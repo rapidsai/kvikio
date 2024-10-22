@@ -22,6 +22,7 @@
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <tuple>
+#include <utility>
 
 namespace kvikio {
 
