@@ -68,7 +68,7 @@ requirements:
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - scikit-build-core >=0.10.0
     - libkvikio ={{ version }}
-    - libcurl==7.87.0
+    - libcurl {{ libcurl_version }}
   run:
     - python
     - numpy >=1.23,<3.0a0
