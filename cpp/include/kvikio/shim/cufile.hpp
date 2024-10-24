@@ -38,8 +38,6 @@ class cuFileAPI {
   decltype(cuFileWrite)* Write{nullptr};
   decltype(cuFileBufRegister)* BufRegister{nullptr};
   decltype(cuFileBufDeregister)* BufDeregister{nullptr};
-  decltype(cuFileDriverOpen)* DriverOpen{nullptr};
-  decltype(cuFileDriverClose)* DriverClose{nullptr};
   decltype(cuFileDriverGetProperties)* DriverGetProperties{nullptr};
   decltype(cuFileDriverSetPollMode)* DriverSetPollMode{nullptr};
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
@@ -54,6 +52,12 @@ class cuFileAPI {
   decltype(cuFileStreamRegister)* StreamRegister{nullptr};
   decltype(cuFileStreamDeregister)* StreamDeregister{nullptr};
 
+ private:
+  // Don't call driver open and close directly, use
+  decltype(cuFileDriverOpen)* _DriverOpen{nullptr};
+  decltype(cuFileDriverClose)* _DriverClose{nullptr};
+
+ public:
   bool stream_available = false;
 
  private:
@@ -77,8 +81,8 @@ class cuFileAPI {
     get_symbol(Write, lib, KVIKIO_STRINGIFY(cuFileWrite));
     get_symbol(BufRegister, lib, KVIKIO_STRINGIFY(cuFileBufRegister));
     get_symbol(BufDeregister, lib, KVIKIO_STRINGIFY(cuFileBufDeregister));
-    get_symbol(DriverOpen, lib, KVIKIO_STRINGIFY(cuFileDriverOpen));
-    get_symbol(DriverClose, lib, KVIKIO_STRINGIFY(cuFileDriverClose));
+    get_symbol(_DriverOpen, lib, KVIKIO_STRINGIFY(cuFileDriverOpen));
+    get_symbol(_DriverClose, lib, KVIKIO_STRINGIFY(cuFileDriverClose));
     get_symbol(DriverGetProperties, lib, KVIKIO_STRINGIFY(cuFileDriverGetProperties));
     get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
@@ -108,21 +112,16 @@ class cuFileAPI {
     // cuFile is supposed to open and close the driver automatically but because of a bug in
     // CUDA 11.8, it sometimes segfault. See <https://github.com/rapidsai/kvikio/issues/159>.
     if (!stream_available) {  // The stream API was introduced in CUDA 12.2.
-      CUfileError_t const error = DriverOpen();
-      if (error.err != CU_FILE_SUCCESS) {
-        throw std::runtime_error(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                                 KVIKIO_STRINGIFY(__LINE__) + ": " +
-                                 cufileop_status_error(error.err));
-      }
+      driver_open();
     }
   }
   ~cuFileAPI()
   {
     if (!stream_available) {
-      CUfileError_t const error = DriverClose();
-      if (error.err != CU_FILE_SUCCESS) {
-        std::cerr << "Unable to close GDS file driver: " << cufileop_status_error(error.err)
-                  << std::endl;
+      try {
+        driver_close();
+      } catch (std::runtime_error const& e) {
+        std::cerr << e.what() << std::endl;
       }
     }
   }
@@ -140,6 +139,33 @@ class cuFileAPI {
   {
     static cuFileAPI _instance;
     return _instance;
+  }
+
+  /**
+   * @brief Open cuFile driver
+   *
+   * cuFile accept multiple calls cufileDriverOpen(), only the first call opens the driver, but
+   * every call should have a matching call to `.driver_close()`.
+   */
+  void driver_open()
+  {
+    CUfileError_t const error = _DriverOpen();
+    if (error.err != CU_FILE_SUCCESS) {
+      throw std::runtime_error(std::string{"Unable to open GDS file driver: "} +
+                               cufileop_status_error(error.err));
+    }
+  }
+
+  /**
+   * @brief Close cuFile driver
+   */
+  void driver_close()
+  {
+    CUfileError_t const error = _DriverClose();
+    if (error.err != CU_FILE_SUCCESS) {
+      throw std::runtime_error(std::string{"Unable to close GDS file driver: "} +
+                               cufileop_status_error(error.err));
+    }
   }
 };
 
