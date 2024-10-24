@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ inline void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noe
 class DriverInitializer {
   // Optional, if not used cuFiles opens the driver automatically
  public:
-  DriverInitializer() { CUFILE_TRY(cuFileAPI::instance().DriverOpen()); }
+  DriverInitializer() { cuFileAPI::instance().driver_open(); }
 
   DriverInitializer(DriverInitializer const&)                = delete;
   DriverInitializer& operator=(DriverInitializer const&)     = delete;
@@ -55,7 +55,7 @@ class DriverInitializer {
   ~DriverInitializer()
   {
     try {
-      CUFILE_TRY(cuFileAPI::instance().DriverClose());
+      cuFileAPI::instance().driver_close();
     } catch (const CUfileException& e) {
       std::cerr << "Unable to close GDS file driver: ";
       std::cerr << e.what();

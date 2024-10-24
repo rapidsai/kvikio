@@ -12,6 +12,7 @@ import subprocess
 from dask.utils import format_bytes
 
 import kvikio
+import kvikio.cufile_driver
 import kvikio.defaults
 
 
@@ -26,7 +27,7 @@ def drop_vm_cache() -> None:
 def pprint_sys_info() -> None:
     """Pretty print system information"""
 
-    props = kvikio.DriverProperties()
+    props = kvikio.cufile_driver.DriverProperties()
     try:
         import pynvml
 

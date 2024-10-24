@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-#include <chrono>
 #include <iostream>
 
 #include <kvikio/batch.hpp>
 #include <kvikio/buffer.hpp>
+#include <kvikio/cufile/driver.hpp>
 #include <kvikio/defaults.hpp>
-#include <kvikio/driver.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 
