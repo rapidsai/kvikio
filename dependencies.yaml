@@ -92,6 +92,14 @@ files:
       key: test
     includes:
       - test_python
+  test_java:
+    output: none
+    includes:
+      - build-universal
+      - build-cpp
+      - cuda_version
+      - cuda
+      - test_java
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -362,3 +370,12 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - cuda-python>=11.7.1,<12.0a0
+  test_java:
+    common:
+      - output_types: conda
+        packages:
+          - cxx-compiler
+          - *cmake_ver
+          - maven
+          - openjdk=11.*
+          - make
