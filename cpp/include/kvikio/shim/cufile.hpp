@@ -15,9 +15,9 @@
  */
 #pragma once
 
+#include <iostream>
 #include <stdexcept>
 
-#include <iostream>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/shim/utils.hpp>
 
@@ -107,19 +107,23 @@ class cuFileAPI {
 
     // cuFile is supposed to open and close the driver automatically but because of a bug in
     // CUDA 11.8, it sometimes segfault. See <https://github.com/rapidsai/kvikio/issues/159>.
-    CUfileError_t const error = DriverOpen();
-    if (error.err != CU_FILE_SUCCESS) {
-      throw std::runtime_error(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                               KVIKIO_STRINGIFY(__LINE__) + ": " +
-                               cufileop_status_error(error.err));
+    if (!stream_available) {  // The stream API was introduced in CUDA 12.2.
+      CUfileError_t const error = DriverOpen();
+      if (error.err != CU_FILE_SUCCESS) {
+        throw std::runtime_error(std::string{"cuFile error at: "} + __FILE__ + ":" +
+                                 KVIKIO_STRINGIFY(__LINE__) + ": " +
+                                 cufileop_status_error(error.err));
+      }
     }
   }
   ~cuFileAPI()
   {
-    CUfileError_t const error = DriverClose();
-    if (error.err != CU_FILE_SUCCESS) {
-      std::cerr << "Unable to close GDS file driver: " << cufileop_status_error(error.err)
-                << std::endl;
+    if (!stream_available) {
+      CUfileError_t const error = DriverClose();
+      if (error.err != CU_FILE_SUCCESS) {
+        std::cerr << "Unable to close GDS file driver: " << cufileop_status_error(error.err)
+                  << std::endl;
+      }
     }
   }
 #else
