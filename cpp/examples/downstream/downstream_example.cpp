@@ -1,7 +1,7 @@
 #include <iostream>
 
+#include <kvikio/cufile/driver.hpp>
 #include <kvikio/defaults.hpp>
-#include <kvikio/driver.hpp>
 
 using namespace std;
 

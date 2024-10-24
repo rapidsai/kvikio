@@ -22,15 +22,12 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
-#include <numeric>
-#include <optional>
 #include <stdexcept>
 #include <system_error>
 #include <utility>
 
 #include <kvikio/buffer.hpp>
-#include <kvikio/cufile_config.hpp>
+#include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
