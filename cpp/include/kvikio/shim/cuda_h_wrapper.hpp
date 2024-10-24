@@ -55,24 +55,24 @@ using CUstream  = struct CUstream_st*;
 #define CU_MEMHOSTREGISTER_PORTABLE         0
 #define CU_STREAM_DEFAULT                   0
 
-#define cuInit(...)                    ((CUresult)CUDA_SUCCESS)
-#define cuMemHostAlloc(...)            ((CUresult)CUDA_SUCCESS)
-#define cuMemFreeHost(...)             ((CUresult)CUDA_SUCCESS)
-#define cuMemcpyHtoDAsync(...)         ((CUresult)CUDA_SUCCESS)
-#define cuMemcpyDtoHAsync(...)         ((CUresult)CUDA_SUCCESS)
-#define cuPointerGetAttribute(...)     ((CUresult)CUDA_SUCCESS)
-#define cuPointerGetAttributes(...)    ((CUresult)CUDA_SUCCESS)
-#define cuCtxPushCurrent(...)          ((CUresult)CUDA_SUCCESS)
-#define cuCtxPopCurrent(...)           ((CUresult)CUDA_SUCCESS)
-#define cuCtxGetCurrent(...)           ((CUresult)CUDA_SUCCESS)
-#define cuMemGetAddressRange(...)      ((CUresult)CUDA_SUCCESS)
-#define cuGetErrorName(...)            ((CUresult)CUDA_SUCCESS)
-#define cuGetErrorString(...)          ((CUresult)CUDA_SUCCESS)
-#define cuDeviceGet(...)               ((CUresult)CUDA_SUCCESS)
-#define cuDevicePrimaryCtxRetain(...)  ((CUresult)CUDA_SUCCESS)
-#define cuDevicePrimaryCtxRelease(...) ((CUresult)CUDA_SUCCESS)
-#define cuStreamCreate(...)            ((CUresult)CUDA_SUCCESS)
-#define cuStreamDestroy(...)           ((CUresult)CUDA_SUCCESS)
-#define cuStreamSynchronize(...)       ((CUresult)CUDA_SUCCESS)
+CUresult cuInit(...);
+CUresult cuMemHostAlloc(...);
+CUresult cuMemFreeHost(...);
+CUresult cuMemcpyHtoDAsync(...);
+CUresult cuMemcpyDtoHAsync(...);
+CUresult cuPointerGetAttribute(...);
+CUresult cuPointerGetAttributes(...);
+CUresult cuCtxPushCurrent(...);
+CUresult cuCtxPopCurrent(...);
+CUresult cuCtxGetCurrent(...);
+CUresult cuMemGetAddressRange(...);
+CUresult cuGetErrorName(...);
+CUresult cuGetErrorString(...);
+CUresult cuDeviceGet(...);
+CUresult cuDevicePrimaryCtxRetain(...);
+CUresult cuDevicePrimaryCtxRelease(...);
+CUresult cuStreamCreate(...);
+CUresult cuStreamDestroy(...);
+CUresult cuStreamSynchronize(...);
 
 #endif
