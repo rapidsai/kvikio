@@ -8,7 +8,7 @@
 from libcpp cimport bool
 
 
-cdef extern from "<kvikio/driver.hpp>" nogil:
+cdef extern from "<kvikio/cufile/driver.hpp>" nogil:
     cdef cppclass cpp_DriverProperties "kvikio::DriverProperties":
         cpp_DriverProperties() except +
         bool is_gds_available() except +
