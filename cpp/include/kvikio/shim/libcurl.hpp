@@ -224,6 +224,7 @@ class CurlHandle {
       } else {
         ss << "(" << msg << ")";
       }
+      std::cout << "perform() error: " << ss.str() << " (ERROR END)" << std::endl;
       throw std::runtime_error(ss.str());
     }
   }
