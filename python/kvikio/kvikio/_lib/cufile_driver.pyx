@@ -8,6 +8,19 @@
 from libcpp cimport bool
 
 
+cdef extern from "<kvikio/shim/cufile.hpp>" nogil:
+    cdef void cpp_driver_open "kvikio::cuFileAPI::instance().driver_open"() except +
+    cdef void cpp_driver_close "kvikio::cuFileAPI::instance().driver_close"() except +
+
+
+def driver_open():
+    cpp_driver_open()
+
+
+def driver_close():
+    cpp_driver_close()
+
+
 cdef extern from "<kvikio/cufile/driver.hpp>" nogil:
     cdef cppclass cpp_DriverProperties "kvikio::DriverProperties":
         cpp_DriverProperties() except +

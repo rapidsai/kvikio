@@ -53,7 +53,7 @@ class cuFileAPI {
   decltype(cuFileStreamDeregister)* StreamDeregister{nullptr};
 
  private:
-  // Don't call driver open and close directly, use
+  // Don't call driver open and close directly, use `.driver_open()` and `driver_close()`.
   decltype(cuFileDriverOpen)* _DriverOpen{nullptr};
   decltype(cuFileDriverClose)* _DriverClose{nullptr};
 
@@ -142,7 +142,7 @@ class cuFileAPI {
   }
 
   /**
-   * @brief Open cuFile driver
+   * @brief Open the cuFile driver
    *
    * cuFile accept multiple calls cufileDriverOpen(), only the first call opens the driver, but
    * every call should have a matching call to `.driver_close()`.
@@ -157,7 +157,7 @@ class cuFileAPI {
   }
 
   /**
-   * @brief Close cuFile driver
+   * @brief Close the cuFile driver
    */
   void driver_close()
   {
