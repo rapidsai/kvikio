@@ -16,8 +16,8 @@
 #pragma once
 
 #include <stdexcept>
+#include <string>
 
-#include <iostream>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/shim/utils.hpp>
 
@@ -38,8 +38,6 @@ class cuFileAPI {
   decltype(cuFileWrite)* Write{nullptr};
   decltype(cuFileBufRegister)* BufRegister{nullptr};
   decltype(cuFileBufDeregister)* BufDeregister{nullptr};
-  decltype(cuFileDriverOpen)* DriverOpen{nullptr};
-  decltype(cuFileDriverClose)* DriverClose{nullptr};
   decltype(cuFileDriverGetProperties)* DriverGetProperties{nullptr};
   decltype(cuFileDriverSetPollMode)* DriverSetPollMode{nullptr};
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
@@ -54,6 +52,12 @@ class cuFileAPI {
   decltype(cuFileStreamRegister)* StreamRegister{nullptr};
   decltype(cuFileStreamDeregister)* StreamDeregister{nullptr};
 
+ private:
+  // Don't call driver open and close directly, use `.driver_open()` and `.driver_close()`.
+  decltype(cuFileDriverOpen)* _DriverOpen{nullptr};
+  decltype(cuFileDriverClose)* _DriverClose{nullptr};
+
+ public:
   bool stream_available = false;
 
  private:
@@ -77,8 +81,8 @@ class cuFileAPI {
     get_symbol(Write, lib, KVIKIO_STRINGIFY(cuFileWrite));
     get_symbol(BufRegister, lib, KVIKIO_STRINGIFY(cuFileBufRegister));
     get_symbol(BufDeregister, lib, KVIKIO_STRINGIFY(cuFileBufDeregister));
-    get_symbol(DriverOpen, lib, KVIKIO_STRINGIFY(cuFileDriverOpen));
-    get_symbol(DriverClose, lib, KVIKIO_STRINGIFY(cuFileDriverClose));
+    get_symbol(_DriverOpen, lib, KVIKIO_STRINGIFY(cuFileDriverOpen));
+    get_symbol(_DriverClose, lib, KVIKIO_STRINGIFY(cuFileDriverClose));
     get_symbol(DriverGetProperties, lib, KVIKIO_STRINGIFY(cuFileDriverGetProperties));
     get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
@@ -107,23 +111,17 @@ class cuFileAPI {
 
     // cuFile is supposed to open and close the driver automatically but because of a bug in
     // CUDA 11.8, it sometimes segfault. See <https://github.com/rapidsai/kvikio/issues/159>.
-    CUfileError_t const error = DriverOpen();
-    if (error.err != CU_FILE_SUCCESS) {
-      throw std::runtime_error(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                               KVIKIO_STRINGIFY(__LINE__) + ": " +
-                               cufileop_status_error(error.err));
-    }
+    driver_open();
   }
-  ~cuFileAPI()
-  {
-    CUfileError_t const error = DriverClose();
-    if (error.err != CU_FILE_SUCCESS) {
-      std::cerr << "Unable to close GDS file driver: " << cufileop_status_error(error.err)
-                << std::endl;
-    }
-  }
+
+  // Notice, we have to close the driver at program exit even though we are not allowed to
+  // call CUDA after main[1]. This is because, cuFile will segfault if the driver isn't
+  // closed on program exit i.e. we are doomed if we do, doomed if we don't, but this seems
+  // to be the lesser of two evils.
+  // [1] <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
+  ~cuFileAPI() { driver_close(); }
 #else
-  cuFileAPI() { throw std::runtime_error(CUFILE_ERRSTR(0)); }
+  cuFileAPI() { throw std::runtime_error("KvikIO not compiled with cuFile.h"); }
 #endif
 
  public:
@@ -136,6 +134,33 @@ class cuFileAPI {
   {
     static cuFileAPI _instance;
     return _instance;
+  }
+
+  /**
+   * @brief Open the cuFile driver
+   *
+   * cuFile accept multiple calls to `cufileDriverOpen()`, only the first call opens
+   * the driver, but every call should have a matching call to `cufileDriverClose()`.
+   */
+  void driver_open()
+  {
+    CUfileError_t const error = _DriverOpen();
+    if (error.err != CU_FILE_SUCCESS) {
+      throw std::runtime_error(std::string{"Unable to open GDS file driver: "} +
+                               cufileop_status_error(error.err));
+    }
+  }
+
+  /**
+   * @brief Close the cuFile driver
+   */
+  void driver_close()
+  {
+    CUfileError_t const error = _DriverClose();
+    if (error.err != CU_FILE_SUCCESS) {
+      throw std::runtime_error(std::string{"Unable to close GDS file driver: "} +
+                               cufileop_status_error(error.err));
+    }
   }
 };
 
