@@ -111,15 +111,20 @@ class cuFileAPI {
 
     // cuFile is supposed to open and close the driver automatically but because of a bug in
     // CUDA 11.8, it sometimes segfault. See <https://github.com/rapidsai/kvikio/issues/159>.
-    driver_open();
+    if (!stream_available) {  // The stream API was introduced in CUDA 12.2.
+      driver_open();
+    }
   }
 
-  // Notice, we have to close the driver at program exit even though we are not allowed to
-  // call CUDA after main[1]. This is because, cuFile will segfault if the driver isn't
-  // closed on program exit i.e. we are doomed if we do, doomed if we don't, but this seems
-  // to be the lesser of two evils.
+  // Notice, we have to close the driver at program exit (if we opened it) even though we are
+  // not allowed to call CUDA after main[1]. This is because, cuFile will segfault if the
+  // driver isn't closed on program exit i.e. we are doomed if we do, doomed if we don't, but
+  // this seems to be the lesser of two evils.
   // [1] <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
-  ~cuFileAPI() { driver_close(); }
+  ~cuFileAPI()
+  {
+    if (!stream_available) { driver_close(); }
+  }
 #else
   cuFileAPI() { throw std::runtime_error("KvikIO not compiled with cuFile.h"); }
 #endif
