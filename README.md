@@ -70,9 +70,9 @@ if __name__ == "__main__":
 #### C++
 ```c++
 #include <cstddef>
+#include <future>
 #include <cuda_runtime.h>
 #include <kvikio/file_handle.hpp>
-using namespace std;
 
 int main()
 {
@@ -85,12 +85,12 @@ int main()
 
   // Write `a` to file
   kvikio::FileHandle fw("test-file", "w");
-  size_t written = fw.write(a, size);
+  std::size_t written = fw.write(a, size);
   fw.close();
 
   // Read file into `b`
   kvikio::FileHandle fr("test-file", "r");
-  size_t read = fr.read(b, size);
+  std::size_t read = fr.read(b, size);
   fr.close();
 
   // Read file into `b` in parallel using 16 threads
@@ -98,8 +98,8 @@ int main()
   {
     // FileHandles have RAII semantics
     kvikio::FileHandle f("test-file", "r");
-    future<size_t> future = f.pread(b_dev, sizeof(a), 0);  // Non-blocking
-    size_t read = future.get(); // Blocking
+    std::future<std::size_t> future = f.pread(b_dev, sizeof(a), 0);  // Non-blocking
+    std::size_t read = future.get(); // Blocking
     // Notice, `f` closes automatically on destruction.
   }
 }
