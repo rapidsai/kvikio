@@ -9,4 +9,4 @@ RAPIDS_PY_WHEEL_NAME="kvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-fr
 
 python -m pip install "$(echo ${WHEELHOUSE}/kvikio_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
-python -m pytest ./python/kvikio/tests
+python -m pytest --verbose ./python/kvikio/tests
