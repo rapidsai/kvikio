@@ -287,15 +287,20 @@ struct libkvikio_domain {
   static constexpr char const* name{"libkvikio"};
 };
 
+// Macro to concatenate two tokens x and y
+#define CONCAT_HELPER(x, y) x##y
+#define CONCAT(x, y)        CONCAT_HELPER(x, y)
+
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
 #define KVIKIO_NVTX_FUNC_RANGE_1() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
-#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                    \
-  nvtx3::scoped_range_in<libkvikio_domain> _kvikio_nvtx_range \
-  {                                                           \
-    nvtx3::event_attributes                                   \
-    {                                                         \
-      msg, nvtx3::payload { convert_to_64bit(val) }           \
-    }                                                         \
+#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                                               \
+  static nvtx3::registered_string_in<libkvikio_domain> CONCAT(a_reg_str, __LINE__){msg}; \
+  nvtx3::scoped_range_in<libkvikio_domain> CONCAT(_kvikio_nvtx_range, __LINE__)          \
+  {                                                                                      \
+    nvtx3::event_attributes                                                              \
+    {                                                                                    \
+      CONCAT(a_reg_str, __LINE__), nvtx3::payload { convert_to_64bit(val) }              \
+    }                                                                                    \
   }
 #define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
 #endif

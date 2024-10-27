@@ -329,6 +329,8 @@ class FileHandle {
                    std::size_t devPtr_offset,
                    bool sync_default_stream = true)
   {
+    KVIKIO_NVTX_FUNC_RANGE("FileHandle::read()", size);
+
     if (_compat_mode) {
       return detail::posix_device_read(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
@@ -379,6 +381,8 @@ class FileHandle {
                     std::size_t devPtr_offset,
                     bool sync_default_stream = true)
   {
+    KVIKIO_NVTX_FUNC_RANGE("FileHandle::write()", size);
+
     _nbytes = 0;  // Invalidate the computed file size
 
     if (_compat_mode) {
@@ -434,6 +438,8 @@ class FileHandle {
                                  std::size_t gds_threshold = defaults::gds_threshold(),
                                  bool sync_default_stream  = true)
   {
+    KVIKIO_NVTX_FUNC_RANGE("FileHandle::pread()", size);
+
     if (is_host_memory(buf)) {
       auto op = [this](void* hostPtr_base,
                        std::size_t size,
@@ -510,6 +516,7 @@ class FileHandle {
                                   std::size_t gds_threshold = defaults::gds_threshold(),
                                   bool sync_default_stream  = true)
   {
+    KVIKIO_NVTX_FUNC_RANGE("FileHandle::pwrite()", size);
     if (is_host_memory(buf)) {
       auto op = [this](const void* hostPtr_base,
                        std::size_t size,
