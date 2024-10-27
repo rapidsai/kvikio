@@ -144,3 +144,6 @@ filterwarnings = [
     "ignore:Jitify is performing a one-time only warm-up to populate the persistent cache",
     "ignore::DeprecationWarning:botocore.*",
 ]
+markers = [
+    "cufile: tests to skip if cuFile isn't available e.g. run with `pytest -m 'not cufile'`"
+]
