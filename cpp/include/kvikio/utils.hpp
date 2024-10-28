@@ -310,6 +310,11 @@ struct libkvikio_domain {
     }                                                                           \
   }
 #define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
+
+#define KVIKIO_NVTX_MARKER_IMPL(msg, val) \
+  nvtx3::mark_in<libkvikio_domain>(       \
+    nvtx3::event_attributes{REGISTER_STRING(msg), nvtx3::payload{convert_to_64bit(val)}})
+
 #endif
 
 /**
@@ -339,6 +344,31 @@ struct libkvikio_domain {
 #else
 #define KVIKIO_NVTX_FUNC_RANGE(...) \
   do {                              \
+  } while (0)
+#endif
+
+/**
+ * @brief Convenience macro for generating an NVTX marker in the `libkvikio` domain to annotate a
+ * certain time point.
+ *
+ * Takes two arguments (message, payload). Use this macro to annotate asynchronous I/O operations,
+ * where the payload refers to the I/O size.
+ *
+ * Example:
+ * ```
+ * std::future<void> some_function(){
+ *     size_t io_size{2077};
+ *     KVIKIO_NVTX_MARKER("I/O operation", io_size);
+ *     perform_async_io_operation(io_size);
+ *     ...
+ * }
+ * ```
+ */
+#ifdef KVIKIO_CUDA_FOUND
+#define KVIKIO_NVTX_MARKER(message, payload) KVIKIO_NVTX_MARKER_IMPL(message, payload)
+#else
+#define KVIKIO_NVTX_MARKER(message, payload) \
+  do {                                       \
   } while (0)
 #endif
 
