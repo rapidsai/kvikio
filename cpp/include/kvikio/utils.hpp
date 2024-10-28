@@ -287,15 +287,17 @@ struct libkvikio_domain {
   static constexpr char const* name{"libkvikio"};
 };
 
-// Macro to concatenate two tokens x and y
+// Macro to concatenate two tokens x and y.
 #define CONCAT_HELPER(x, y) x##y
 #define CONCAT(x, y)        CONCAT_HELPER(x, y)
 
-#define REGISTER_STRING(msg)                                             \
-  [&]() -> auto& {                                                       \
-    static nvtx3::registered_string_in<libkvikio_domain> a_reg_str{msg}; \
-    return a_reg_str;                                                    \
-  }()
+// Macro to create a static, registered string that will not have a name conflict with any
+// registered string defined in the same scope.
+#define REGISTER_STRING(msg)                                               \
+  [](const char* a_msg) -> auto& {                                         \
+    static nvtx3::registered_string_in<libkvikio_domain> a_reg_str{a_msg}; \
+    return a_reg_str;                                                      \
+  }(msg)
 
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
 #define KVIKIO_NVTX_FUNC_RANGE_1() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
