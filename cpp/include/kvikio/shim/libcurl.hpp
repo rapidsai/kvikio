@@ -20,6 +20,7 @@
   "cannot include the remote IO API, please build KvikIO with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
 #endif
 
+#include <algorithm>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -161,6 +162,10 @@ class CurlHandle {
       _source_file(std::move(source_file)),
       _source_line(std::move(source_line))
   {
+    // Removing all '\0' characters
+    _source_file.erase(std::remove(_source_file.begin(), _source_file.end(), '\0'),
+                       _source_file.end());
+
     // Need CURLOPT_NOSIGNAL to support threading, see
     // <https://curl.se/libcurl/c/CURLOPT_NOSIGNAL.html>
     setopt(CURLOPT_NOSIGNAL, 1L);
