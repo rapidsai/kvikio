@@ -150,7 +150,7 @@ class CurlHandle {
   /**
    * @brief Construct a new curl handle.
    *
-   * Typically, do not use this directly instead use the `create_curl_handle()` macro.
+   * Typically, do not call this directly instead use the `create_curl_handle()` macro.
    *
    * @param handle An unused curl easy handle pointer, which is retained on destruction.
    * @param source_file Path of source file of the caller (for error messages).
@@ -166,6 +166,7 @@ class CurlHandle {
     setopt(CURLOPT_NOSIGNAL, 1L);
 
     // We always set CURLOPT_ERRORBUFFER to get better error messages.
+    _errbuf[0] = 0;  // Set the error buffer as empty.
     setopt(CURLOPT_ERRORBUFFER, _errbuf);
 
     // Make curl_easy_perform() fail when receiving HTTP code errors.
@@ -216,7 +217,7 @@ class CurlHandle {
     // Perform the curl operation and check for errors.
     CURLcode err = curl_easy_perform(handle());
     if (err != CURLE_OK) {
-      std::string msg(_errbuf);
+      std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
       std::stringstream ss;
       ss << "curl_easy_perform() error near " << _source_file << ":" << _source_line;
       if (msg.empty()) {
