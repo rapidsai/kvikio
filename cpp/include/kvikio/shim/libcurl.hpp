@@ -260,6 +260,9 @@ namespace detail {
  * creating a `std::string` from a `char*`, the compiler might optimize the code such that the
  * `std::string` is created from the full size of `__FILE__` including the trailing `\0` chars.
  *
+ * The extra `\0` is problematic if `CurlHandle` later throws an exception to Cython since while
+ * converting the exception to Python, Cython might truncate the error message.
+ *
  * [1] <https://docs.conda.io/projects/conda-build/en/latest/resources/make-relocatable.html>
  */
 __attribute__((optnone, noinline)) inline std::string fix_conda_file_path_hack(std::string filename)
