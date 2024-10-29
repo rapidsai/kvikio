@@ -250,12 +250,31 @@ class CurlHandle {
   }
 };
 
+namespace detail {
+/**
+ * @brief Fix Conda's manipulation of __FILE__.
+ *
+ * Conda manipulate the path information in its shared libraries with the results that the C macro
+ * `__FILE__` might contain trailing `\0` chars. Normally, this isn't a problem because `__FILE__`
+ * is a `const char*` that are terminated by the first encounter of `\0`. However, when creating a
+ * `std::string` from a `char*`, the compiler might optimize the code such that the `std::string`
+ * is created from the full size of `__FILE__` including the trailing `\0` chars.
+ */
+__attribute__((optnone)) inline std::string fix_conda_file_path_hack(std::string filename)
+{
+  if (filename.data() != nullptr) { return std::string{filename.data()}; }
+  return std::string{};
+}
+}  // namespace detail
+
 /**
  * @brief Create a new curl handle.
  *
  * @returns A `kvikio::CurlHandle` instance ready to be used.
  */
-#define create_curl_handle() \
-  kvikio::CurlHandle(kvikio::LibCurl::instance().get_handle(), __FILE__, KVIKIO_STRINGIFY(__LINE__))
+#define create_curl_handle()                                             \
+  kvikio::CurlHandle(kvikio::LibCurl::instance().get_handle(),           \
+                     kvikio::detail::fix_conda_file_path_hack(__FILE__), \
+                     KVIKIO_STRINGIFY(__LINE__))
 
 }  // namespace kvikio
