@@ -254,13 +254,15 @@ namespace detail {
 /**
  * @brief Fix Conda's manipulation of __FILE__.
  *
- * Conda manipulate the path information in its shared libraries with the results that the C macro
- * `__FILE__` might contain trailing `\0` chars. Normally, this isn't a problem because `__FILE__`
- * is a `const char*` that are terminated by the first encounter of `\0`. However, when creating a
- * `std::string` from a `char*`, the compiler might optimize the code such that the `std::string`
- * is created from the full size of `__FILE__` including the trailing `\0` chars.
+ * Conda manipulates the path information in its shared libraries[1] with the results that the
+ * C macro `__FILE__` might contain trailing `\0` chars. Normally, this isn't a problem because
+ * `__FILE__` is a `const char*` that are terminated by the first encounter of `\0`. However, when
+ * creating a `std::string` from a `char*`, the compiler might optimize the code such that the
+ * `std::string` is created from the full size of `__FILE__` including the trailing `\0` chars.
+ *
+ * [1] <https://docs.conda.io/projects/conda-build/en/latest/resources/make-relocatable.html>
  */
-__attribute__((optnone)) inline std::string fix_conda_file_path_hack(std::string filename)
+__attribute__((optnone, noinline)) inline std::string fix_conda_file_path_hack(std::string filename)
 {
   if (filename.data() != nullptr) { return std::string{filename.data()}; }
   return std::string{};
