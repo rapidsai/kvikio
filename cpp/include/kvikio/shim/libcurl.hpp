@@ -265,7 +265,7 @@ namespace detail {
  *
  * [1] <https://docs.conda.io/projects/conda-build/en/latest/resources/make-relocatable.html>
  */
-__attribute__((optnone, noinline)) inline std::string fix_conda_file_path_hack(std::string filename)
+__attribute__((noinline)) inline std::string fix_conda_file_path_hack(std::string filename)
 {
   if (filename.data() != nullptr) { return std::string{filename.data()}; }
   return std::string{};
