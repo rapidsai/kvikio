@@ -134,6 +134,12 @@ class LibCurl {
   }
 };
 
+__attribute__((optnone)) inline std::string fix_conda_fuckery(std::string filename)
+{
+  if (filename.data() != nullptr) { return std::string{filename.data()}; }
+  return std::string{};
+}
+
 /**
  * @brief Representation of a curl easy handle pointer and its operations.
  *
@@ -159,7 +165,7 @@ class CurlHandle {
    */
   CurlHandle(LibCurl::UniqueHandlePtr handle, std::string source_file, std::string source_line)
     : _handle{std::move(handle)},
-      _source_file(std::move(source_file)),
+      _source_file(fix_conda_fuckery(std::move(source_file))),
       _source_line(std::move(source_line))
   {
     // Removing all '\0' characters
