@@ -25,7 +25,7 @@ dependencies:
 - numpy>=1.23,<3.0a0
 - numpydoc
 - nvcc_linux-aarch64=11.8
-- nvcomp==4.0.1
+- nvcomp==4.1.0.6
 - packaging
 - pre-commit
 - pytest
