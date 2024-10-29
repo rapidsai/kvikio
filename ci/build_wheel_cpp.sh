@@ -13,8 +13,13 @@ rapids-generate-version > ./VERSION
 
 cd "${package_dir}"
 
+sccache --zero-stats
+
 python -m pip install wheel
-python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
+
+sccache --show-adv-stats
+
+python -m pip wheel . -w dist -v --no-deps --disable-pip-version-check
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp dist

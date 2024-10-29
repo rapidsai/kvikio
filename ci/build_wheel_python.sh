@@ -23,9 +23,13 @@ cd "${package_dir}"
 # are used when creating the isolated build environment
 echo "libkvikio-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CPP_WHEELHOUSE}/libkvikio_*.whl)" > ./constraints.txt
 
+sccache --zero-stats
+
 PIP_CONSTRAINT="${PWD}/constraints.txt" \
 SKBUILD_CMAKE_ARGS="-DUSE_NVCOMP_RUNTIME_WHEEL=ON" \
-    python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
+    python -m pip wheel . -w dist -v --no-deps --disable-pip-version-check
+
+sccache --show-adv-stats
 
 mkdir -p final_dist
 python -m auditwheel repair \
@@ -33,4 +37,4 @@ python -m auditwheel repair \
     -w final_dist \
     dist/*
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 final_dist
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python final_dist
