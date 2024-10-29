@@ -163,8 +163,16 @@ class CurlHandle {
       _source_line(std::move(source_line))
   {
     // Removing all '\0' characters
+    auto _source_file_size = _source_file.size();
     _source_file.erase(std::remove(_source_file.begin(), _source_file.end(), '\0'),
                        _source_file.end());
+    if (_source_file_size != _source_file.size()) {
+      std::stringstream ss;
+      ss << "CurlHandle - `source_file` contains " << _source_file_size - _source_file.size()
+         << " '\\0' chars?!? - source_file: " << _source_file;
+
+      throw std::runtime_error(ss.str());
+    }
 
     // Need CURLOPT_NOSIGNAL to support threading, see
     // <https://curl.se/libcurl/c/CURLOPT_NOSIGNAL.html>
@@ -260,7 +268,9 @@ class CurlHandle {
  *
  * @returns A `kvikio::CurlHandle` instance ready to be used.
  */
-#define create_curl_handle() \
-  kvikio::CurlHandle(kvikio::LibCurl::instance().get_handle(), __FILE__, KVIKIO_STRINGIFY(__LINE__))
+#define create_curl_handle()                                   \
+  kvikio::CurlHandle(kvikio::LibCurl::instance().get_handle(), \
+                     __FILE__ ":" KVIKIO_STRINGIFY(__LINE__),  \
+                     KVIKIO_STRINGIFY(__LINE__))
 
 }  // namespace kvikio
