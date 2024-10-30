@@ -49,6 +49,10 @@ def initialize() -> None:
     Normally, it is not required to open and close the cuFile driver since
     it is done automatically.
 
+    Notes
+    -----
+    Registers an atexit handler that calls :func:`driver_close`.
+
     Raises
     ------
     RuntimeError
