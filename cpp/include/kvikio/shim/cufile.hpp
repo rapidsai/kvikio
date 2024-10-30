@@ -145,7 +145,7 @@ class cuFileAPI {
   /**
    * @brief Open the cuFile driver
    *
-   * cuFile accept multiple calls to `cufileDriverOpen()`, only the first call opens
+   * cuFile allows multiple calls to `cufileDriverOpen()`, only the first call opens
    * the driver, but every call should have a matching call to `cufileDriverClose()`.
    */
   void driver_open()
