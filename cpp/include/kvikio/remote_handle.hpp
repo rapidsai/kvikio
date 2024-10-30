@@ -502,6 +502,10 @@ class RemoteHandle {
   /**
    * @brief Read from remote source into buffer (host or device memory).
    *
+   * When reading into device memory, a bounce buffer is used to avoid many small memory
+   * copies to device. Use `kvikio::default::bounce_buffer_size_reset()` to set the size
+   * of this bounce buffer (default 16 MiB).
+   *
    * @param buf Pointer to host or device memory.
    * @param size Number of bytes to read.
    * @param file_offset File offset in bytes.
