@@ -38,6 +38,8 @@ namespace detail {
 
 /**
  * @brief Bounce buffer in pinned host memory.
+ *
+ * @note Is not thread-safe.
  */
 class BounceBufferH2D {
   CUstream _stream;                 // The CUDA steam to use.
