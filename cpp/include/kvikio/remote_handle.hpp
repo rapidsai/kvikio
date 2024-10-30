@@ -91,7 +91,7 @@ class BounceBufferH2D {
   }
 
   /**
-   * @brief FLush the bounce buffer by writing everything to the output device buffer.
+   * @brief Flush the bounce buffer by writing everything to the output device buffer.
    */
   void flush()
   {
@@ -110,7 +110,7 @@ class BounceBufferH2D {
    */
   void write(char const* data, std::size_t size)
   {
-    if (_host_buffer.size() - _host_offset < size) {  // Not enough space left on the bounce buffer
+    if (_host_buffer.size() - _host_offset < size) {  // Not enough space left in the bounce buffer
       flush();
       assert(_host_offset == 0);
     }
