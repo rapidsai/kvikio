@@ -21,6 +21,7 @@ function(find_and_configure_libcurl)
     set(CACHE_HAS_BUILD_TESTING $CACHE{BUILD_TESTING})
   endif()
 
+  # target_link_options(my_shared_library PRIVATE "-Wl,-Bsymbolic")
   rapids_cpm_find(
     CURL 7.87.0
     GLOBAL_TARGETS libcurl

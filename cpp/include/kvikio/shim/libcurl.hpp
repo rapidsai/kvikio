@@ -22,6 +22,7 @@
 
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -73,7 +74,10 @@ class LibCurl {
     }
     curl_version_info_data* ver = curl_version_info(::CURLVERSION_NOW);
     if ((ver->features & CURL_VERSION_THREADSAFE) == 0) {
-      throw std::runtime_error("cannot initialize libcurl - built with thread safety disabled");
+      std::stringstream ss;
+      ss << "cannot initialize libcurl(" << ver->version
+         << ") - wasn't built with Atomic for thread safety";
+      throw std::runtime_error(ss.str());
     }
   }
   ~LibCurl() noexcept
