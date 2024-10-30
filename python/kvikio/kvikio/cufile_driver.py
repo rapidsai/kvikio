@@ -6,6 +6,7 @@ import atexit
 from kvikio._lib import cufile_driver  # type: ignore
 
 # TODO: Wrap nicely, maybe as a dataclass?
+# <https://github.com/rapidsai/kvikio/issues/526>
 DriverProperties = cufile_driver.DriverProperties
 
 
