@@ -288,12 +288,12 @@ struct libkvikio_domain {
 };
 
 // Macro to concatenate two tokens x and y.
-#define CONCAT_HELPER(x, y) x##y
-#define CONCAT(x, y)        CONCAT_HELPER(x, y)
+#define KVIKIO_CONCAT_HELPER(x, y) x##y
+#define KVIKIO_CONCAT(x, y)        KVIKIO_CONCAT_HELPER(x, y)
 
 // Macro to create a static, registered string that will not have a name conflict with any
 // registered string defined in the same scope.
-#define REGISTER_STRING(msg)                                               \
+#define KVIKIO_REGISTER_STRING(msg)                                        \
   [](const char* a_msg) -> auto& {                                         \
     static nvtx3::registered_string_in<libkvikio_domain> a_reg_str{a_msg}; \
     return a_reg_str;                                                      \
@@ -301,19 +301,19 @@ struct libkvikio_domain {
 
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
 #define KVIKIO_NVTX_FUNC_RANGE_1() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
-#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                                      \
-  nvtx3::scoped_range_in<libkvikio_domain> CONCAT(_kvikio_nvtx_range, __LINE__) \
-  {                                                                             \
-    nvtx3::event_attributes                                                     \
-    {                                                                           \
-      REGISTER_STRING(msg), nvtx3::payload { convert_to_64bit(val) }            \
-    }                                                                           \
+#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                                             \
+  nvtx3::scoped_range_in<libkvikio_domain> KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__) \
+  {                                                                                    \
+    nvtx3::event_attributes                                                            \
+    {                                                                                  \
+      KVIKIO_REGISTER_STRING(msg), nvtx3::payload { convert_to_64bit(val) }            \
+    }                                                                                  \
   }
 #define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
 
 #define KVIKIO_NVTX_MARKER_IMPL(msg, val) \
   nvtx3::mark_in<libkvikio_domain>(       \
-    nvtx3::event_attributes{REGISTER_STRING(msg), nvtx3::payload{convert_to_64bit(val)}})
+    nvtx3::event_attributes{KVIKIO_REGISTER_STRING(msg), nvtx3::payload{convert_to_64bit(val)}})
 
 #endif
 
