@@ -54,8 +54,8 @@ class cuFileAPI {
 
  private:
   // Don't call driver open and close directly, use `.driver_open()` and `.driver_close()`.
-  decltype(cuFileDriverOpen)* _DriverOpen{nullptr};
-  decltype(cuFileDriverClose)* _DriverClose{nullptr};
+  decltype(cuFileDriverOpen)* DriverOpen{nullptr};
+  decltype(cuFileDriverClose)* DriverClose{nullptr};
 
  public:
   bool stream_available = false;
@@ -81,8 +81,8 @@ class cuFileAPI {
     get_symbol(Write, lib, KVIKIO_STRINGIFY(cuFileWrite));
     get_symbol(BufRegister, lib, KVIKIO_STRINGIFY(cuFileBufRegister));
     get_symbol(BufDeregister, lib, KVIKIO_STRINGIFY(cuFileBufDeregister));
-    get_symbol(_DriverOpen, lib, KVIKIO_STRINGIFY(cuFileDriverOpen));
-    get_symbol(_DriverClose, lib, KVIKIO_STRINGIFY(cuFileDriverClose));
+    get_symbol(DriverOpen, lib, KVIKIO_STRINGIFY(cuFileDriverOpen));
+    get_symbol(DriverClose, lib, KVIKIO_STRINGIFY(cuFileDriverClose));
     get_symbol(DriverGetProperties, lib, KVIKIO_STRINGIFY(cuFileDriverGetProperties));
     get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
@@ -149,7 +149,7 @@ class cuFileAPI {
    */
   void driver_open()
   {
-    CUfileError_t const error = _DriverOpen();
+    CUfileError_t const error = DriverOpen();
     if (error.err != CU_FILE_SUCCESS) {
       throw std::runtime_error(std::string{"Unable to open GDS file driver: "} +
                                cufileop_status_error(error.err));
@@ -161,7 +161,7 @@ class cuFileAPI {
    */
   void driver_close()
   {
-    CUfileError_t const error = _DriverClose();
+    CUfileError_t const error = DriverClose();
     if (error.err != CU_FILE_SUCCESS) {
       throw std::runtime_error(std::string{"Unable to close GDS file driver: "} +
                                cufileop_status_error(error.err));
