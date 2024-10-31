@@ -335,7 +335,7 @@ class FileHandle {
     }
     if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
-    KVIKIO_NVTX_FUNC_RANGE("cufileRead()", size);
+    KVIKIO_NVTX_SCOPED_RANGE("cufileRead()", size);
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     CUFILE_CHECK_BYTES_DONE(ret);
@@ -387,7 +387,7 @@ class FileHandle {
     }
     if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
-    KVIKIO_NVTX_FUNC_RANGE("cufileWrite()", size);
+    KVIKIO_NVTX_SCOPED_RANGE("cufileWrite()", size);
     ssize_t ret = cuFileAPI::instance().Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {

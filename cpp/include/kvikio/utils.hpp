@@ -300,8 +300,9 @@ struct libkvikio_domain {
   }(msg)
 
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
-#define KVIKIO_NVTX_FUNC_RANGE_1() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
-#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                                             \
+#define KVIKIO_NVTX_FUNC_RANGE_IMPL() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
+
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL(msg, val)                                        \
   nvtx3::scoped_range_in<libkvikio_domain> KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__) \
   {                                                                                    \
     nvtx3::event_attributes                                                            \
@@ -309,7 +310,6 @@ struct libkvikio_domain {
       KVIKIO_REGISTER_STRING(msg), nvtx3::payload { convert_to_64bit(val) }            \
     }                                                                                  \
   }
-#define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
 
 #define KVIKIO_NVTX_MARKER_IMPL(msg, val) \
   nvtx3::mark_in<libkvikio_domain>(       \
@@ -321,29 +321,44 @@ struct libkvikio_domain {
  * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain
  * from the lifetime of a function.
  *
- * Takes two arguments (message, payload) or no arguments, in which case the name
- * of the immediately enclosing function returned by `__func__` is used.
+ * Takes no argument. The name of the immediately enclosing function returned by `__func__` is used
+ * as the message.
  *
  * Example:
  * ```
- * void some_function1(){
- *    KVIKIO_NVTX_FUNC_RANGE("my function", 42);
- *    ...
- * }
- * void some_function2(){
- *    KVIKIO_NVTX_FUNC_RANGE();  // The name `some_function2` is used
+ * void some_function(){
+ *    KVIKIO_NVTX_FUNC_RANGE();  // The name `some_function` is used as the message
  *    ...
  * }
  * ```
  */
 #ifdef KVIKIO_CUDA_FOUND
-#define KVIKIO_NVTX_FUNC_RANGE(...)                                  \
-  GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(                                  \
-    __VA_ARGS__, KVIKIO_NVTX_FUNC_RANGE_2, KVIKIO_NVTX_FUNC_RANGE_1) \
-  (__VA_ARGS__)
+#define KVIKIO_NVTX_FUNC_RANGE() KVIKIO_NVTX_FUNC_RANGE_IMPL()
 #else
 #define KVIKIO_NVTX_FUNC_RANGE(...) \
   do {                              \
+  } while (0)
+#endif
+
+/**
+ * @brief Convenience macro for generating an NVTX scoped range in the `libkvikio` domain to
+ * annotate a time duration.
+ *
+ * Takes two arguments (message, payload).
+ *
+ * Example:
+ * ```
+ * void some_function(){
+ *    KVIKIO_NVTX_SCOPED_RANGE("my function", 42);
+ *    ...
+ * }
+ * ```
+ */
+#ifdef KVIKIO_CUDA_FOUND
+#define KVIKIO_NVTX_SCOPED_RANGE(msg, val) KVIKIO_NVTX_SCOPED_RANGE_IMPL(msg, val)
+#else
+#define KVIKIO_NVTX_SCOPED_RANGE(msg, val) \
+  do {                                     \
   } while (0)
 #endif
 

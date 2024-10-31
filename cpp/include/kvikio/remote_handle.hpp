@@ -69,7 +69,7 @@ inline std::size_t callback_host_memory(char* data,
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-  KVIKIO_NVTX_FUNC_RANGE("RemoteHandle - callback_host_memory()", nbytes);
+  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle - callback_host_memory()", nbytes);
   std::memcpy(ctx->buf + ctx->offset, data, nbytes);
   ctx->offset += nbytes;
   return nbytes;
@@ -96,7 +96,7 @@ inline std::size_t callback_device_memory(char* data,
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-  KVIKIO_NVTX_FUNC_RANGE("RemoteHandle - callback_device_memory()", nbytes);
+  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle - callback_device_memory()", nbytes);
 
   CUstream stream = detail::StreamsByThread::get();
   CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
@@ -421,7 +421,7 @@ class RemoteHandle {
    */
   std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0)
   {
-    KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::read()", size);
+    KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::read()", size);
 
     if (file_offset + size > _nbytes) {
       std::stringstream ss;
@@ -480,7 +480,7 @@ class RemoteHandle {
                                  std::size_t file_offset = 0,
                                  std::size_t task_size   = defaults::task_size())
   {
-    KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::pread()", size);
+    KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::pread()", size);
     auto task = [this](void* devPtr_base,
                        std::size_t size,
                        std::size_t file_offset,
