@@ -267,21 +267,21 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - nvcomp==4.0.1
+          - nvcomp==4.1.0.6
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - nvidia-nvcomp-cu12==4.0.1
+              - nvidia-nvcomp-cu12==4.1.0.6
           - matrix:
               cuda: "11.*"
             packages:
-              - nvidia-nvcomp-cu11==4.0.1
+              - nvidia-nvcomp-cu11==4.1.0.6
           - matrix:
             packages:
-              - nvidia-nvcomp==4.0.1
+              - nvidia-nvcomp==4.1.0.6
   docs:
     common:
       - output_types: [conda, requirements]
