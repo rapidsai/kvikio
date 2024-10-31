@@ -332,7 +332,7 @@ class FileHandle {
     }
     if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
-    KVIKIO_NVTX_FUNC_RANGE("cufileRead()", size);
+    KVIKIO_NVTX_SCOPED_RANGE("cufileRead()", size);
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     CUFILE_CHECK_BYTES_DONE(ret);
@@ -384,7 +384,7 @@ class FileHandle {
     }
     if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
-    KVIKIO_NVTX_FUNC_RANGE("cufileWrite()", size);
+    KVIKIO_NVTX_SCOPED_RANGE("cufileWrite()", size);
     ssize_t ret = cuFileAPI::instance().Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -431,6 +431,7 @@ class FileHandle {
                                  std::size_t gds_threshold = defaults::gds_threshold(),
                                  bool sync_default_stream  = true)
   {
+    KVIKIO_NVTX_MARKER("FileHandle::pread()", size);
     if (is_host_memory(buf)) {
       auto op = [this](void* hostPtr_base,
                        std::size_t size,
@@ -507,6 +508,7 @@ class FileHandle {
                                   std::size_t gds_threshold = defaults::gds_threshold(),
                                   bool sync_default_stream  = true)
   {
+    KVIKIO_NVTX_MARKER("FileHandle::pwrite()", size);
     if (is_host_memory(buf)) {
       auto op = [this](const void* hostPtr_base,
                        std::size_t size,
