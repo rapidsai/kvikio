@@ -13,7 +13,7 @@ DriverProperties = cufile_driver.DriverProperties
 def driver_open() -> None:
     """Open the cuFile driver
 
-    cuFile accept multiple calls to `driver_open()`, only the first call
+    cuFile accepts multiple calls to `driver_open()`. Only the first call
     opens the driver, but every call must have a matching call to
     `driver_close()`.
 
@@ -31,7 +31,7 @@ def driver_open() -> None:
 def driver_close() -> None:
     """Close the cuFile driver
 
-    cuFile accept multiple calls to `driver_open()`, only the first call
+    cuFile accepts multiple calls to `driver_open()`. Only the first call
     opens the driver, but every call must have a matching call to
     `driver_close()`.
 

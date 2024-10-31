@@ -110,9 +110,9 @@ class cuFileAPI {
 #endif
 
     // cuFile is supposed to open and close the driver automatically but
-    // because of a bug in cuFile v1.4 (CUDA v11.8), it sometimes segfault:
+    // because of a bug in cuFile v1.4 (CUDA v11.8) it sometimes segfaults:
     // <https://github.com/rapidsai/kvikio/issues/159>.
-    // We use the stream API as an version indicator of cuFile, it was introduced
+    // We use the stream API as a version indicator of cuFile since it was introduced
     // in cuFile v1.7 (CUDA v12.2).
     if (!stream_available) { driver_open(); }
   }
