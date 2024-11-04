@@ -32,7 +32,8 @@ set_target_properties(
              CUDA_STANDARD 17
              CUDA_STANDARD_REQUIRED ON
 )
-target_link_libraries(cpp_tests PRIVATE kvikio::kvikio GTest::gmock GTest::gtest)
+target_link_libraries(cpp_tests PRIVATE kvikio::kvikio GTest::gmock GTest::gtest CUDA::cudart)
+
 rapids_test_add(
   NAME cpp_tests
   COMMAND cpp_tests
