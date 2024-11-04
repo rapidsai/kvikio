@@ -114,7 +114,7 @@ add_library(kvikio ${SOURCES})
 # dependency OpenSSL, we exclude them when building libkvikio.so. This way, libkvikio.so will not
 # expose any OpenSSL symbols that could conflict with downstream users like CPython that also links
 # to (another version of) OpenSSL.
-target_link_options(kvikio PRIVATE "-Wl,--exclude-libs,ALL")
+target_link_options(kvikio PRIVATE "LINKER:--exclude-libs,ALL")
 
 add_library(kvikio::kvikio ALIAS kvikio)
 
