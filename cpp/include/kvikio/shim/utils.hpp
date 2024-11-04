@@ -24,7 +24,7 @@
 namespace kvikio {
 
 // Macros used for defining symbol visibility.
-// Since KvikIO declare global default values in headers, we rely on the linker to disambiguate
+// Since KvikIO declares global default values in headers, we rely on the linker to disambiguate
 // inline and static methods that have (or return) static references. To do this, the relevant
 // function/method must have `__attribute__((visibility("default")))`. If not, then if KvikIO is
 // used in two different DSOs, the function will appear twice, and there will be two static objects.
