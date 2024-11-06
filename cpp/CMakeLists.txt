@@ -107,7 +107,12 @@ include(cmake/thirdparty/get_thread_pool.cmake)
 # ##################################################################################################
 # * library targets --------------------------------------------------------------------------------
 
-file(GLOB SOURCES "src/*.cpp")
+set(SOURCES "src/file_handle.cpp")
+
+if(KvikIO_REMOTE_SUPPORT)
+  list(APPEND SOURCES "src/remote_handle.cpp")
+endif()
+
 add_library(kvikio ${SOURCES})
 
 # To avoid symbol conflicts when statically linking to libcurl.a (see get_libcurl.cmake) and its
