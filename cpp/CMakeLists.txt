@@ -125,15 +125,19 @@ add_library(kvikio::kvikio ALIAS kvikio)
 
 target_include_directories(
   kvikio
-  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "${CUDAToolkit_INCLUDE_DIRS}"
-         "${cuFile_INCLUDE_DIRS}"
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
 target_link_libraries(
   kvikio
-  PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
+  PUBLIC Threads::Threads
+         BS::thread_pool
+         ${CMAKE_DL_LIBS}
+         $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
+         $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:CUDA::cudart>>
+         $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:cufile::cufile>>
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
 
