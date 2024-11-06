@@ -35,14 +35,23 @@ rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 # Set a default build type if none was specified
 rapids_cmake_build_type(Release)
 
-# build options
-option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
+# ##################################################################################################
+# * build options ----------------------------------------------------------------------------------
+
+option(BUILD_SHARED_LIBS "Build KvikIO shared library" ON)
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
+option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
+option(KvikIO_CUDA_SUPPORT "Configure CMake to build with CUDA support" ON)
+option(KvikIO_EXPORT_NVCOMP "Export NVCOMP as a dependency" ON)
 
+# ##################################################################################################
+# * conda environment ------------------------------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
-# find packages we depend on
+# ##################################################################################################
+# * dependencies -----------------------------------------------------------------------------------
+
 rapids_cpm_init()
 
 rapids_find_package(
@@ -55,99 +64,95 @@ if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
 endif()
 
+if(KvikIO_CUDA_SUPPORT)
+  rapids_find_package(
+    CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET kvikio-exports
+    INSTALL_EXPORT_SET kvikio-exports
+  )
+  include(cmake/thirdparty/get_nvtx.cmake)
+endif()
+
 rapids_find_package(
-  CUDAToolkit
+  cuFile
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
 
-if(CUDAToolkit_FOUND)
-  rapids_find_package(
-    cuFile
-    BUILD_EXPORT_SET kvikio-exports
-    INSTALL_EXPORT_SET kvikio-exports
+if(NOT cuFile_FOUND)
+  message(
+    WARNING "Cannot find cuFile - KvikIO will still work but won't use GPUDirect Storage (GDS)"
   )
-  if(NOT cuFile_FOUND)
-    message(
-      WARNING "Cannot find cuFile - KvikIO will still work but won't use GPUDirect Storage (GDS)"
-    )
+else()
+  # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
+  file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
+  string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
+  if(cuFileBatchIOSetUp_location EQUAL "-1")
+    set(cuFile_BATCH_API_FOUND FALSE)
   else()
-    file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
-    string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
-    if(cuFileBatchIOSetUp_location EQUAL "-1")
-      set(cuFile_BATCH_API_FOUND FALSE)
-    else()
-      set(cuFile_BATCH_API_FOUND TRUE)
-    endif()
-    message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
-    string(FIND "${CUFILE_H_STR}" "cuFileReadAsync" cuFileReadAsync_location)
-    if(cuFileReadAsync_location EQUAL "-1")
-      set(cuFile_STREAM_API_FOUND FALSE)
-    else()
-      set(cuFile_STREAM_API_FOUND TRUE)
-    endif()
-    message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
+    set(cuFile_BATCH_API_FOUND TRUE)
   endif()
-
-  include(cmake/thirdparty/get_nvtx.cmake)
+  message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
+  string(FIND "${CUFILE_H_STR}" "cuFileReadAsync" cuFileReadAsync_location)
+  if(cuFileReadAsync_location EQUAL "-1")
+    set(cuFile_STREAM_API_FOUND FALSE)
+  else()
+    set(cuFile_STREAM_API_FOUND TRUE)
+  endif()
+  message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
 endif()
 
 include(cmake/thirdparty/get_thread_pool.cmake)
 
-# library targets
-add_library(kvikio INTERFACE)
+# ##################################################################################################
+# * library targets --------------------------------------------------------------------------------
+
+file(GLOB SOURCES "src/*.cpp")
+add_library(kvikio ${SOURCES})
+
+# To avoid symbol conflicts when statically linking to libcurl.a (see get_libcurl.cmake) and its
+# dependency OpenSSL, we exclude them when building libkvikio.so. This way, libkvikio.so will not
+# expose any OpenSSL symbols that could conflict with downstream users like CPython that also links
+# to (another version of) OpenSSL.
+target_link_options(kvikio PRIVATE "LINKER:--exclude-libs,ALL")
+
 add_library(kvikio::kvikio ALIAS kvikio)
 
-# We enable CUDA and cuFile both here and in the FINAL_CODE_BLOCK export block. While the code block
-# below (in FINAL_CODE_BLOCK) sets this information when KvikIO is imported from a
-# kvikio-config.cmake file, this code block is intended to be used by projects that include KvikIO's
-# source directory in their own CMake build.
-#
-# Normally we would just set the below without using $<BUILD_LOCAL_INTERFACE:...>, and without the
-# final_code_string, but in this case we want to conditionally set these things at import time, not
-# export time, since KvikIO is a header-only library that can adapt to different build environments.
-
-# Enable CUDA in KvikIO
-if(CUDAToolkit_FOUND)
-  if(CUDA_STATIC_RUNTIME)
-    target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::cudart_static>)
-  else()
-    target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CUDA::cudart>)
-  endif()
-  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUDA_FOUND>)
-else()
-  message(WARNING "Building KvikIO without CUDA")
-endif()
-
-# Enable supported cuFile features in KvikIO
-if(cuFile_FOUND)
-  target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:cufile::cuFile_interface>)
-  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_FOUND>)
-  if(cuFile_BATCH_API_FOUND)
-    target_compile_definitions(
-      kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_BATCH_API_FOUND>
-    )
-  endif()
-  if(cuFile_STREAM_API_FOUND)
-    target_compile_definitions(
-      kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_CUFILE_STREAM_API_FOUND>
-    )
-  endif()
-endif()
-
 target_include_directories(
-  kvikio INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-                   "$<INSTALL_INTERFACE:include>"
+  kvikio
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "${CUDAToolkit_INCLUDE_DIRS}"
+         "${cuFile_INCLUDE_DIRS}"
+  INTERFACE "$<INSTALL_INTERFACE:include>"
 )
+
+# Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
 target_link_libraries(
-  kvikio INTERFACE Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS}
-                   $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
+  kvikio
+  PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
+  PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
-if(TARGET CURL::libcurl)
-  target_link_libraries(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:CURL::libcurl>)
-  target_compile_definitions(kvikio INTERFACE $<BUILD_LOCAL_INTERFACE:KVIKIO_LIBCURL_FOUND>)
-endif()
-target_compile_features(kvikio INTERFACE cxx_std_17)
+
+target_compile_definitions(
+  kvikio
+  PUBLIC $<$<BOOL:${KvikIO_REMOTE_SUPPORT}>:KVIKIO_LIBCURL_FOUND>
+         $<$<BOOL:${KvikIO_CUDA_SUPPORT}>:KVIKIO_CUDA_FOUND>
+         $<$<BOOL:${cuFile_FOUND}>:KVIKIO_CUFILE_FOUND>
+         $<$<BOOL:${cuFile_BATCH_API_FOUND}>:KVIKIO_CUFILE_BATCH_API_FOUND>
+         $<$<BOOL:${cuFile_STREAM_API_FOUND}>:KVIKIO_CUFILE_STREAM_API_FOUND>
+)
+
+set_target_properties(
+  kvikio
+  PROPERTIES BUILD_RPATH "\$ORIGIN"
+             INSTALL_RPATH "\$ORIGIN"
+             CXX_STANDARD 17
+             CXX_STANDARD_REQUIRED ON
+             POSITION_INDEPENDENT_CODE ON
+             INTERFACE_POSITION_INDEPENDENT_CODE ON
+)
+
+# ##################################################################################################
+# * add examples -----------------------------------------------------------------------------------
 
 # optionally build examples
 if(KvikIO_BUILD_EXAMPLES)
@@ -168,10 +173,21 @@ if(CUDAToolkit_FOUND
   add_subdirectory(tests)
 endif()
 
-include(CPack)
+# ##################################################################################################
+# * install targets --------------------------------------------------------------------------------
 
-# install export targets
-install(TARGETS kvikio EXPORT kvikio-exports)
+rapids_cmake_install_lib_dir(lib_dir)
+include(CPack)
+include(GNUInstallDirs)
+
+set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME kvikio)
+
+install(
+  TARGETS kvikio
+  DESTINATION ${lib_dir}
+  EXPORT kvikio-exports
+)
+
 install(DIRECTORY include/kvikio/ DESTINATION include/kvikio)
 install(FILES ${KvikIO_BINARY_DIR}/include/kvikio/version_config.hpp DESTINATION include/kvikio)
 
@@ -185,68 +201,7 @@ rapids_export_find_package_file(
 
 set(doc_string
     [=[
-Provide targets for KvikIO: C++ bindings for cuFile.
-]=]
-)
-
-set(final_code_string
-    [=[
-get_property(already_set_kvikio DIRECTORY PROPERTY kvikio_already_set_defines SET)
-if(NOT already_set_kvikio)
-  set_property(DIRECTORY PROPERTY kvikio_already_set_defines "ON")
-
-  find_package(CUDAToolkit QUIET)
-  if(CUDAToolkit_FOUND)
-    if(CUDA_STATIC_RUNTIME)
-      target_link_libraries(kvikio::kvikio INTERFACE CUDA::cudart_static)
-    else()
-      target_link_libraries(kvikio::kvikio INTERFACE CUDA::cudart)
-    endif()
-    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUDA_FOUND)
-  else()
-    message(WARNING "Building KvikIO without CUDA")
-  endif()
-
-  # Find cuFile and determine which features are supported
-  find_package(cuFile QUIET)
-  if(NOT cuFile_FOUND)
-    message(WARNING "KvikIO: cuFile not found")
-  else()
-    file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
-    string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
-    if(cuFileBatchIOSetUp_location EQUAL "-1")
-      set(cuFile_BATCH_API_FOUND FALSE)
-    else()
-      set(cuFile_BATCH_API_FOUND TRUE)
-    endif()
-    message(STATUS "KvikIO: Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
-    string(FIND "${CUFILE_H_STR}" "cuFileReadAsync" cuFileReadAsync_location)
-    if(cuFileReadAsync_location EQUAL "-1")
-      set(cuFile_STREAM_API_FOUND FALSE)
-    else()
-      set(cuFile_STREAM_API_FOUND TRUE)
-    endif()
-    message(STATUS "KvikIO: Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
-  endif()
-
-  # Enable supported cuFile features in KvikIO
-  if(cuFile_FOUND)
-    target_link_libraries(kvikio::kvikio INTERFACE cufile::cuFile_interface)
-    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_FOUND)
-    if(cuFile_BATCH_API_FOUND)
-      target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_BATCH_API_FOUND)
-    endif()
-    if(cuFile_STREAM_API_FOUND)
-      target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_STREAM_API_FOUND)
-    endif()
-  endif()
-
-  if(TARGET CURL::libcurl)
-    target_link_libraries(kvikio::kvikio INTERFACE CURL::libcurl)
-    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_LIBCURL_FOUND)
-  endif()
-
-endif()
+Provide targets for KvikIO.
 ]=]
 )
 
@@ -256,7 +211,6 @@ rapids_export(
   GLOBAL_TARGETS kvikio
   NAMESPACE kvikio::
   DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK final_code_string
 )
 
 rapids_export(
@@ -265,5 +219,4 @@ rapids_export(
   GLOBAL_TARGETS kvikio
   NAMESPACE kvikio::
   DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK final_code_string
 )
