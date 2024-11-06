@@ -74,13 +74,16 @@ if(KvikIO_CUDA_SUPPORT)
   include(cmake/thirdparty/get_nvtx.cmake)
 endif()
 
-if(NOT cuFile_FOUND)
+if(NOT TARGET CUDA::cuFile)
+  set(cuFile_FOUND 0)
   message(
     WARNING "Cannot find cuFile - KvikIO will still work but won't use GPUDirect Storage (GDS)"
   )
 else()
+  set(cuFile_FOUND 1)
+
   # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
-  file(READ "${cuFile_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
+  file(READ "${CUDAToolkit_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
   string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
   if(cuFileBatchIOSetUp_location EQUAL "-1")
     set(cuFile_BATCH_API_FOUND FALSE)
@@ -128,7 +131,7 @@ target_include_directories(
 target_link_libraries(
   kvikio
   PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
-         $<COMPILE_ONLY:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:CUDA::cudart>> $<COMPILE_ONLY:CUDA::cuFile>
+         $<COMPILE_ONLY:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:CUDA::cudart>> $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:CUDA::cuFile>>
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
 
