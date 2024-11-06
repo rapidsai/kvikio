@@ -132,7 +132,7 @@ target_link_libraries(
          ${CMAKE_DL_LIBS}
          $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
          $<COMPILE_ONLY:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:CUDA::cudart>>
-         $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:CUDA::cuFile>>
+         $<COMPILE_ONLY:CUDA::cuFile>
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
 
