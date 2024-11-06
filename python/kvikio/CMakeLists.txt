@@ -28,9 +28,6 @@ project(
 
 option(USE_NVCOMP_RUNTIME_WHEEL "Use the nvcomp wheel at runtime instead of the system library" OFF)
 
-# TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
-include(../../cpp/cmake/Modules/FindcuFile.cmake)
-
 find_package(kvikio REQUIRED "${RAPIDS_VERSION}")
 
 find_package(CUDAToolkit REQUIRED)
