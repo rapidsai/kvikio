@@ -64,20 +64,15 @@ if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
 endif()
 
-if(KvikIO_CUDA_SUPPORT)
-  rapids_find_package(
-    CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET kvikio-exports
-    INSTALL_EXPORT_SET kvikio-exports
-  )
-  include(cmake/thirdparty/get_nvtx.cmake)
-endif()
-
 rapids_find_package(
-  cuFile
+  CUDAToolkit REQUIRED
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
+
+if(KvikIO_CUDA_SUPPORT)
+  include(cmake/thirdparty/get_nvtx.cmake)
+endif()
 
 if(NOT cuFile_FOUND)
   message(
@@ -136,8 +131,8 @@ target_link_libraries(
          BS::thread_pool
          ${CMAKE_DL_LIBS}
          $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
-         $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:CUDA::cudart>>
-         $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:cufile::cufile>>
+         $<COMPILE_ONLY:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:CUDA::cudart>>
+         $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:CUDA::cuFile>>
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
 
