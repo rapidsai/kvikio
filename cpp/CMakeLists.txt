@@ -126,8 +126,6 @@ add_library(kvikio::kvikio ALIAS kvikio)
 target_include_directories(
   kvikio
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-         "$<BUILD_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>"
-         "$<BUILD_INTERFACE:${cuFile_INCLUDE_DIRS}>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
@@ -135,6 +133,7 @@ target_include_directories(
 target_link_libraries(
   kvikio
   PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
+         $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:CUDA::cudart>> $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:cufile::cufile>>
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
 
