@@ -130,8 +130,12 @@ target_include_directories(
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
 target_link_libraries(
   kvikio
-  PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
-         $<COMPILE_ONLY:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:CUDA::cudart>> $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:CUDA::cuFile>>
+  PUBLIC Threads::Threads
+         BS::thread_pool
+         ${CMAKE_DL_LIBS}
+         $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
+         $<COMPILE_ONLY:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:CUDA::cudart>>
+         $<COMPILE_ONLY:$<TARGET_NAME_IF_EXISTS:CUDA::cuFile>>
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
 
