@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <chrono>
 #include <iostream>
+#include <numeric>
 
 #include <kvikio/batch.hpp>
 #include <kvikio/buffer.hpp>
