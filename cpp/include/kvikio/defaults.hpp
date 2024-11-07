@@ -29,6 +29,12 @@
 namespace kvikio {
 namespace detail {
 
+enum class compat_mode : uint8_t {
+  ON,
+  OFF,
+  ALLOW,
+};
+
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
@@ -77,16 +83,44 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
                               std::string{env_val});
 }
 
+template <>
+inline compat_mode getenv_or(std::string_view env_var_name, compat_mode default_val
+{
+  auto* env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return default_val; }
+
+  // Convert to lowercase
+  std::string env_val_lowercase{env_val};
+  std::transform(env_val_lowercase.begin(),
+                 env_val_lowercase.end(),
+                 env_val_lowercase.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+
+  compat_mode res{};
+  if (env_val_lowercase == "on") {
+    res = compat_mode::ON;
+  } else if (env_val_lowercase == "off") {
+    res = compat_mode::OFF;
+  } else if (env_val_lowercase == "allow") {
+    res = compat_mode::ALLOW;
+  } else {
+    throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
+                                std::string{env_val});
+  }
+
+  return res;
+}
+
 }  // namespace detail
 
 /**
- * @brief Singleton class of default values used thoughtout KvikIO.
+ * @brief Singleton class of default values used throughout KvikIO.
  *
  */
 class defaults {
  private:
   BS::thread_pool _thread_pool{get_num_threads_from_env()};
-  bool _compat_mode;
+  detail::compat_mode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
@@ -106,10 +140,14 @@ class defaults {
     {
       if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
         // Setting `KVIKIO_COMPAT_MODE` take precedence
-        _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", false);
+        _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", detail::compat_mode::ALLOW);
       } else {
         // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
-        _compat_mode = !is_cufile_available();
+        if (is_cufile_available()) {
+          _compat_mode = detail::compat_mode::OFF;
+        } else {
+          _compat_mode = detail::compat_mode::ON;
+        }
       }
     }
     // Determine the default value of `task_size`
