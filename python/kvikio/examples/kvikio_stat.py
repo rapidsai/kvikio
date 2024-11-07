@@ -1,17 +1,26 @@
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import sqlite3
-import pandas as pd
-import numpy as np
-import subprocess
 import argparse
-import pathlib
 import os
+import pathlib
+import sqlite3
+import subprocess
+
+import numpy as np
+import pandas as pd
 
 
 class Analyzer:
+    """_summary_
+    """
+
     def __init__(self, args: argparse.Namespace):
+        """_summary_
+
+        :param args: _description_
+        :type args: argparse.Namespace
+        """
         self.nsys_report_path = args.nsys_report_path
 
         self.sql_path = None
@@ -28,9 +37,12 @@ class Analyzer:
             self.nsys_binary = args.nsys_binary
 
     def _export_report_to_sqlite(self):
+        """_summary_
+        """
         full_cmd_str = (
             f"{self.nsys_binary} export --type=sqlite --lazy=false "
-            + f"--force-overwrite=true --output={self.sql_path} {self.nsys_report_path} "
+            + f"--force-overwrite=true --output={self.sql_path} "
+            + f"{self.nsys_report_path} "
             + "--tables=StringIds,NVTX_EVENTS"
         )
         full_cmd_list = full_cmd_str.split()
@@ -40,15 +52,17 @@ class Analyzer:
     def _initialize_bins(self):
         """Create bins ranging from 0 B to 512 PiB"""
 
-        tmp = np.logspace(start=0, stop=59, num=60, base=2,
-                          dtype=np.float64)  # 2^0 2^1 ... 2^59
+        tmp = np.logspace(
+            start=0, stop=59, num=60, base=2, dtype=np.float64
+        )  # 2^0 2^1 ... 2^59
         self.bin_full = np.insert(tmp, 0, 0.0)  # 0 2^0 2^1 ... 2^59
         self.bin_full_in_MiB = self.bin_full / 1024.0 / 1024.0
 
     def _sql_query(self, filter_string: str) -> pd.DataFrame:
         """Perform SQL query.
-        The SQLite schema in nsys is not forward compatible, and may change completely in a new release.
-        Refer to https://docs.nvidia.com/nsight-systems/UserGuide/index.html?highlight=schema#sqlite-schema-reference
+        The SQLite schema in nsys is not forward compatible, and may change completely
+        in a new release. Refer to
+        https://docs.nvidia.com/nsight-systems/UserGuide/index.html?highlight=schema#sqlite-schema-reference
 
         :param filter_string: NVTX annotation string serving as a filter for the query.
         :type filter_string: str
@@ -85,6 +99,13 @@ class Analyzer:
         return df
 
     def _generate_hist(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        """_summary_
+
+        :param df: _description_
+        :type df: pd.DataFrame
+        :return: _description_
+        :rtype: tuple[np.ndarray, np.ndarray]
+        """
         my_series = df["ioSize"]
 
         # Determine the appropriate bins for the histogram
@@ -101,6 +122,14 @@ class Analyzer:
         return np.histogram(my_series, tight_bin_edges)
 
     def _get_compact_filesize(self, file_size_inB: np.float64) -> str:
+        """_summary_
+
+        :param file_size_inB: _description_
+        :type file_size_inB: np.float64
+        :raises Exception: _description_
+        :return: _description_
+        :rtype: str
+        """
         KiB = 1024.0
         MiB = 1024.0 * KiB
         GiB = 1024.0 * MiB
@@ -124,6 +153,15 @@ class Analyzer:
             raise Exception("Invalid value for file_size.")
 
     def _print(self, title, hist, bin_edges):
+        """_summary_
+
+        :param title: _description_
+        :type title: _type_
+        :param hist: _description_
+        :type hist: _type_
+        :param bin_edges: _description_
+        :type bin_edges: _type_
+        """
         print(f"\n{title}")
         print("    Bins                 ...... Count")
         for idx in range(len(hist)):
@@ -141,6 +179,11 @@ class Analyzer:
             )
 
     def _process(self, filter_string: str):
+        """_summary_
+
+        :param filter_string: _description_
+        :type filter_string: str
+        """
         df = self._sql_query(filter_string)
         if df.empty:
             return
@@ -149,6 +192,8 @@ class Analyzer:
         self._print(filter_string, hist, bin_edges)
 
     def run(self):
+        """_summary_
+        """
         self._initialize_bins()
 
         self._export_report_to_sqlite()
@@ -173,19 +218,27 @@ class Analyzer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="kvikio_stat", description="Generate I/O size histogram from Nsight System report"
+        prog="kvikio_stat",
+        description="Generate I/O size histogram from Nsight System report",
     )
-    parser.add_argument("--nsys-report-path", required=True,
-                        help="The path of the Nsight System report.", type=str)
     parser.add_argument(
-        "--sql-path",
-        help="The path of the SQL database exported from the Nsight System report. "
-        + "If unspecified, the current working directory is used to store the SQL database, "
-        + "and the file name is derived from the Nsight System report.",
+        "--nsys-report-path",
+        required=True,
+        help="The path of the Nsight System report.",
         type=str,
     )
     parser.add_argument(
-        "--nsys-binary", help='The path of the Nsight System CLI program. If unspecified, "nsys" is used.', type=str
+        "--sql-path",
+        help="The path of the SQL database exported from the Nsight System report. "
+        + "If unspecified, the current working directory is used to store the SQL "
+        + "database, and the file name is derived from the Nsight System report.",
+        type=str,
+    )
+    parser.add_argument(
+        "--nsys-binary",
+        help='The path of the Nsight System CLI program. If unspecified, "nsys" is '
+        + "used.",
+        type=str,
     )
     args = parser.parse_args()
 
