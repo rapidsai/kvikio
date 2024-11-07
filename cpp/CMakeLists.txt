@@ -64,13 +64,13 @@ if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
 endif()
 
-set(CMAKE_FIND_DEBUG_MODE ON)
+#set(CMAKE_FIND_DEBUG_MODE ON)
 rapids_find_package(
   CUDAToolkit REQUIRED
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
-set(CMAKE_FIND_DEBUG_MODE)
+#set(CMAKE_FIND_DEBUG_MODE)
 
 if(KvikIO_CUDA_SUPPORT)
   include(cmake/thirdparty/get_nvtx.cmake)
@@ -85,7 +85,7 @@ else()
   set(cuFile_FOUND 1)
 
   # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
-  file(READ "${CUDAToolkit_INCLUDE_DIRS}/cufile.h" CUFILE_H_STR)
+  file(READ "${CUDAToolkit_TARGET_DIR}/include/cufile.h" CUFILE_H_STR)
   string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
   if(cuFileBatchIOSetUp_location EQUAL "-1")
     set(cuFile_BATCH_API_FOUND FALSE)
