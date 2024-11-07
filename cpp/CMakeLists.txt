@@ -85,6 +85,8 @@ else()
   set(cuFile_FOUND 1)
 
   # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
+  message(STATUS "PREFIX: $ENV{PREFIX}")
+  message(STATUS "CUDAToolkit_TARGET_DIR: ${CUDAToolkit_TARGET_DIR}")
   file(READ "${CUDAToolkit_TARGET_DIR}/include/cufile.h" CUFILE_H_STR)
   string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
   if(cuFileBatchIOSetUp_location EQUAL "-1")
