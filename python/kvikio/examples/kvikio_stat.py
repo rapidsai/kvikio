@@ -12,8 +12,7 @@ import pandas as pd
 
 
 class Analyzer:
-    """_summary_
-    """
+    """_summary_"""
 
     def __init__(self, args: argparse.Namespace):
         """_summary_
@@ -37,8 +36,7 @@ class Analyzer:
             self.nsys_binary = args.nsys_binary
 
     def _export_report_to_sqlite(self):
-        """_summary_
-        """
+        """_summary_"""
         full_cmd_str = (
             f"{self.nsys_binary} export --type=sqlite --lazy=false "
             + f"--force-overwrite=true --output={self.sql_path} "
@@ -94,8 +92,7 @@ class Analyzer:
 
         df = pd.read_sql(sql_expr, self.db_connection)
         if df.empty:
-            print(
-                f'Warning: SQL result is empty for filter string "{filter_string}"')
+            print(f'Warning: SQL result is empty for filter string "{filter_string}"')
         return df
 
     def _generate_hist(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
@@ -116,7 +113,7 @@ class Analyzer:
                 idx_upperbound = idx
                 break
 
-        tight_bin_edges = self.bin_full_in_MiB[0: (idx_upperbound + 1)]
+        tight_bin_edges = self.bin_full_in_MiB[0 : (idx_upperbound + 1)]
         if max_v > self.bin_full_in_MiB[-1]:
             tight_bin_edges.append(max_v)
         return np.histogram(my_series, tight_bin_edges)
@@ -192,8 +189,7 @@ class Analyzer:
         self._print(filter_string, hist, bin_edges)
 
     def run(self):
-        """_summary_
-        """
+        """_summary_"""
         self._initialize_bins()
 
         self._export_report_to_sqlite()
