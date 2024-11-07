@@ -64,13 +64,13 @@ if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
 endif()
 
-#set(CMAKE_FIND_DEBUG_MODE ON)
+# set(CMAKE_FIND_DEBUG_MODE ON)
 rapids_find_package(
   CUDAToolkit REQUIRED
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
-#set(CMAKE_FIND_DEBUG_MODE)
+# set(CMAKE_FIND_DEBUG_MODE)
 
 if(KvikIO_CUDA_SUPPORT)
   include(cmake/thirdparty/get_nvtx.cmake)
