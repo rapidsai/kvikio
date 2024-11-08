@@ -24,7 +24,6 @@
 #include <system_error>
 
 #include <kvikio/file_handle.hpp>
-#include "kvikio/defaults.hpp"
 
 namespace kvikio {
 
@@ -119,12 +118,12 @@ int open_fd(const std::string& file_path, const std::string& flags, bool o_direc
 FileHandle::FileHandle(const std::string& file_path,
                        const std::string& flags,
                        mode_t mode,
-                       CompatMode compat_mode)
+                       bool compat_mode)
   : _fd_direct_off{open_fd(file_path, flags, false, mode)},
     _initialized{true},
     _compat_mode{compat_mode}
 {
-  if (_compat_mode == CompatMode::ON) {
+  if (_compat_mode) {
     return;  // Nothing to do in compatibility mode
   }
 
@@ -132,13 +131,13 @@ FileHandle::FileHandle(const std::string& file_path,
   try {
     _fd_direct_on = open_fd(file_path, flags, true, mode);
   } catch (const std::system_error&) {
-    _compat_mode = CompatMode::ON;
+    _compat_mode = true;
   } catch (const std::invalid_argument&) {
-    _compat_mode = CompatMode::ON;
+    _compat_mode = true;
   }
 
   // Create a cuFile handle, if not in compatibility mode
-  if (_compat_mode == CompatMode::OFF) {
+  if (!_compat_mode) {
     CUfileDescr_t desc{};  // It is important to set to zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
