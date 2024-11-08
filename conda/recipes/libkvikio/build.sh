@@ -5,4 +5,4 @@ echo '$PREFIX:'
 find $PREFIX
 echo '$BUILD_PREFIX:'
 find $BUILD_PREFIX
-./build.sh -v -n libkvikio --cmake-args=\"--trace-expand\"
+./build.sh -v -n libkvikio
