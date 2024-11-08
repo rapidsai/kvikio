@@ -94,7 +94,7 @@ else()
       return 0;
     }
     ]]
-    LINK_LIBRARIES CUDA::cuFile ${CMAKE_DL_LIBS}
+    LINK_LIBRARIES CUDA::cuFile rt ${CMAKE_DL_LIBS}
     OUTPUT_VARIABLE batch_output
   )
   message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
@@ -110,7 +110,7 @@ else()
       return 0;
     }
     ]]
-    LINK_LIBRARIES CUDA::cuFile ${CMAKE_DL_LIBS}
+    LINK_LIBRARIES CUDA::cuFile rt ${CMAKE_DL_LIBS}
     OUTPUT_VARIABLE stream_output
   )
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
