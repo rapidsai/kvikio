@@ -97,8 +97,8 @@ else()
     LINK_LIBRARIES CUDA::cuFile
     OUTPUT_VARIABLE batch_output
   )
-  message(STATUS "batch output: ${batch_output}")
   message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
+  message(STATUS "batch output: ${batch_output}")
   try_compile(
     cuFile_STREAM_API_FOUND SOURCE_FROM_CONTENT
     stream.cpp
@@ -113,8 +113,8 @@ else()
     LINK_LIBRARIES CUDA::cuFile
     OUTPUT_VARIABLE stream_output
   )
-  message(STATUS "stream output: ${stream_output}")
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
+  message(STATUS "stream output: ${stream_output}")
 endif()
 
 include(cmake/thirdparty/get_thread_pool.cmake)
