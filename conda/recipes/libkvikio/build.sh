@@ -3,5 +3,6 @@
 
 echo '$PREFIX:'
 find $PREFIX
-echo "\$PREFIX: $PREFIX" > /dev/stderr
+echo '$BUILD_PREFIX:'
+find $BUILD_PREFIX
 ./build.sh -v -n libkvikio
