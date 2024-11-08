@@ -64,13 +64,11 @@ if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
 endif()
 
-# set(CMAKE_FIND_DEBUG_MODE ON)
 rapids_find_package(
   CUDAToolkit REQUIRED
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
-# set(CMAKE_FIND_DEBUG_MODE)
 
 if(KvikIO_CUDA_SUPPORT)
   include(cmake/thirdparty/get_nvtx.cmake)
@@ -98,7 +96,6 @@ else()
     OUTPUT_VARIABLE batch_output
   )
   message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
-  message(STATUS "batch output: ${batch_output}")
   try_compile(
     cuFile_STREAM_API_FOUND SOURCE_FROM_CONTENT
     stream.cpp
@@ -114,7 +111,6 @@ else()
     OUTPUT_VARIABLE stream_output
   )
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
-  message(STATUS "stream output: ${stream_output}")
 endif()
 
 include(cmake/thirdparty/get_thread_pool.cmake)
@@ -155,7 +151,6 @@ target_link_libraries(
 target_compile_definitions(
   kvikio
   PUBLIC $<$<BOOL:${KvikIO_REMOTE_SUPPORT}>:KVIKIO_LIBCURL_FOUND>
-         $<$<BOOL:${KvikIO_CUDA_SUPPORT}>:KVIKIO_CUDA_FOUND>
          $<$<BOOL:${cuFile_FOUND}>:KVIKIO_CUFILE_FOUND>
          $<$<BOOL:${cuFile_BATCH_API_FOUND}>:KVIKIO_CUFILE_BATCH_API_FOUND>
          $<$<BOOL:${cuFile_STREAM_API_FOUND}>:KVIKIO_CUFILE_STREAM_API_FOUND>
@@ -217,12 +212,30 @@ Provide targets for KvikIO.
 ]=]
 )
 
+set(final_code_string)
+if(KvikIO_CUDA_SUPPORT)
+  string(APPEND final_code_string
+      [=[
+get_property(already_set_kvikio DIRECTORY PROPERTIES kvikio_already_set_defines SET)
+if(NOT already_set_kvikio)
+  set_property(DIRECTORY PROPERTY kvikio_already_set_defines "ON")
+
+  find_package(CUDAToolkit QUIET)
+  if(CUDAToolkit_FOUND)
+    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUDA_FOUND)
+    target_include_directories(kvikio::kvikio INTERFACE ${CUDAToolkit_INCLUDE_DIRS})
+  endif()
+]=]
+  )
+endif()
+
 rapids_export(
   INSTALL kvikio
   EXPORT_SET kvikio-exports
   GLOBAL_TARGETS kvikio
   NAMESPACE kvikio::
   DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK final_code_string
 )
 
 rapids_export(
@@ -231,4 +244,5 @@ rapids_export(
   GLOBAL_TARGETS kvikio
   NAMESPACE kvikio::
   DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK final_code_string
 )
