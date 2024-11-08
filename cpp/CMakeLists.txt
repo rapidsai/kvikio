@@ -236,7 +236,6 @@ if(KvikIO_CUFILE_SUPPORT AND NOT TARGET CUDA::cuFile)
 endif()
 ]=]
 )
-endif()
 
 rapids_export(
   INSTALL kvikio
