@@ -214,8 +214,10 @@ Provide targets for KvikIO.
 
 set(final_code_string)
 if(KvikIO_CUDA_SUPPORT)
-  string(APPEND final_code_string
-      [=[
+  string(
+    APPEND
+    final_code_string
+    [=[
 get_property(already_set_kvikio DIRECTORY PROPERTIES kvikio_already_set_defines SET)
 if(NOT already_set_kvikio)
   set_property(DIRECTORY PROPERTY kvikio_already_set_defines "ON")
