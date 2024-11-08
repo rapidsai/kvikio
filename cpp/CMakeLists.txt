@@ -86,8 +86,7 @@ else()
 
   # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
   try_compile(
-    cuFile_BATCH_API_FOUND
-    SOURCE_FROM_CONTENT
+    cuFile_BATCH_API_FOUND SOURCE_FROM_CONTENT
     batch.cpp
     [[#include <cufile.h>
     int main() {
@@ -100,8 +99,7 @@ else()
   message(STATUS "batch output: ${batch_output}")
   message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
   try_compile(
-    cuFile_STREAM_API_FOUND
-    SOURCE_FROM_CONTENT
+    cuFile_STREAM_API_FOUND SOURCE_FROM_CONTENT
     stream.cpp
     [[#include <cufile.h>
     int main() {
