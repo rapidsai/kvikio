@@ -97,6 +97,7 @@ else()
     LINK_LIBRARIES CUDA::cuFile
     OUTPUT_VARIABLE batch_output
   )
+  message(STATUS "batch output: ${batch_output}")
   message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
   try_compile(
     cuFile_STREAM_API_FOUND SOURCE_FROM_CONTENT
@@ -112,6 +113,7 @@ else()
     LINK_LIBRARIES CUDA::cuFile
     OUTPUT_VARIABLE stream_output
   )
+  message(STATUS "stream output: ${stream_output}")
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
 endif()
 
