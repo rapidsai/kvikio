@@ -85,34 +85,25 @@ else()
   set(cuFile_FOUND 1)
 
   # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
-  get_property(
-    _cufile_location
-    TARGET CUDA::cuFile
-    PROPERTY IMPORTED_LOCATION
-  )
-  get_filename_component(_cufile_root "${_cufile_location}" DIRECTORY)
-  get_filename_component(_cufile_root "${_cufile_root}" DIRECTORY)
-  message(WARNING "PREFIX: $ENV{PREFIX}")
-  message(WARNING "BUILD_PREFIX: $ENV{BUILD_PREFIX}")
-  file(WRITE "${CMAKE_BINARY_DIR}/try_cufile.cpp"
-       "#include <cufile_noexist.h>\nint main() { return 0; }\n"
-  )
-  try_compile(_try_cufile SOURCES "${CMAKE_BINARY_DIR}/try_cufile.cpp")
-  message(STATUS "try_compile() result: ${_try_cufile}")
-  file(READ "${_cufile_root}/include/cufile.h" CUFILE_H_STR)
-  string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
-  if(cuFileBatchIOSetUp_location EQUAL "-1")
-    set(cuFile_BATCH_API_FOUND FALSE)
-  else()
-    set(cuFile_BATCH_API_FOUND TRUE)
-  endif()
+  try_compile(cuFile_BATCH_API_FOUND OUTPUT_VARIABLE batch_output SOURCE_FROM_CONTENT batch.cpp
+    [[#include <cufile.h>
+    int main() {
+      cuFileBatchIOSetUp(nullptr, 0);
+      return 0;
+    }
+  ]])
+  message(STATUS "batch output: ${batch_output}")
   message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
-  string(FIND "${CUFILE_H_STR}" "cuFileReadAsync" cuFileReadAsync_location)
-  if(cuFileReadAsync_location EQUAL "-1")
-    set(cuFile_STREAM_API_FOUND FALSE)
-  else()
-    set(cuFile_STREAM_API_FOUND TRUE)
-  endif()
+  try_compile(cuFile_STREAM_API_FOUND OUTPUT_VARIABLE stream_output SOURCE_FROM_CONTENT stream.cpp
+    [[#include <cufile.h>
+    int main() {
+      CUFileHandle_t fh;
+      CUstream stream;
+      cuFileReadAsync(fh, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+      return 0;
+    }
+  ]])
+  message(STATUS "stream output: ${stream_output}")
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
 endif()
 
