@@ -103,7 +103,7 @@ else()
     stream.cpp
     [[#include <cufile.h>
     int main() {
-      CUFileHandle_t fh;
+      CUfileHandle_t fh;
       CUstream stream;
       cuFileReadAsync(fh, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       return 0;
