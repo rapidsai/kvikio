@@ -90,8 +90,9 @@ else()
     TARGET CUDA::cuFile
     PROPERTY IMPORTED_LOCATION
   )
-  message(STATUS "cufile location: ${_cufile_location}")
-  file(READ "${CUDAToolkit_TARGET_DIR}/include/cufile.h" CUFILE_H_STR)
+  get_filename_component(_cufile_root "${_cufile_location}" DIRECTORY)
+  get_filename_component(_cufile_root "${_cufile_root}" DIRECTORY)
+  file(READ "${_cufile_root}/include/cufile.h" CUFILE_H_STR)
   string(FIND "${CUFILE_H_STR}" "cuFileBatchIOSetUp" cuFileBatchIOSetUp_location)
   if(cuFileBatchIOSetUp_location EQUAL "-1")
     set(cuFile_BATCH_API_FOUND FALSE)
