@@ -159,11 +159,7 @@ class defaults {
   {
     // Determine the default value of `compat_mode`
     {
-      if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
-        // Setting `KVIKIO_COMPAT_MODE` take precedence
-        _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::ALLOW);
-      }
-
+      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::ALLOW);
       if (_compat_mode == CompatMode::ALLOW) {
         // Infer based on runtime environment
         readjust_compat_mode();
