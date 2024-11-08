@@ -27,14 +27,16 @@
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
-namespace detail {
 
-enum class compat_mode : uint8_t {
-  ON,
-  OFF,
-  ALLOW,
+enum class CompatMode : uint8_t {
+  OFF,    // Enforce cuFile I/O. Undefined behavior for KvikIO if the system config check does not
+          // pass, where the program may error out, crash or hang on I/O operations.
+  ON,     // Enforce POSIX I/O.
+  ALLOW,  // Use cuFile I/O. Fall back to the POSIX I/O if the system config check does not
+          // pass.
 };
 
+namespace detail {
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
@@ -84,7 +86,7 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
 }
 
 template <>
-inline compat_mode getenv_or(std::string_view env_var_name, compat_mode default_val
+inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 {
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
@@ -96,13 +98,13 @@ inline compat_mode getenv_or(std::string_view env_var_name, compat_mode default_
                  env_val_lowercase.begin(),
                  [](unsigned char c) { return std::tolower(c); });
 
-  compat_mode res{};
+  CompatMode res{};
   if (env_val_lowercase == "on") {
-    res = compat_mode::ON;
+    res = CompatMode::ON;
   } else if (env_val_lowercase == "off") {
-    res = compat_mode::OFF;
+    res = CompatMode::OFF;
   } else if (env_val_lowercase == "allow") {
-    res = compat_mode::ALLOW;
+    res = CompatMode::ALLOW;
   } else {
     throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
                                 std::string{env_val});
@@ -120,7 +122,7 @@ inline compat_mode getenv_or(std::string_view env_var_name, compat_mode default_
 class defaults {
  private:
   BS::thread_pool _thread_pool{get_num_threads_from_env()};
-  detail::compat_mode _compat_mode;
+  CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
@@ -138,17 +140,7 @@ class defaults {
   {
     // Determine the default value of `compat_mode`
     {
-      if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
-        // Setting `KVIKIO_COMPAT_MODE` take precedence
-        _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", detail::compat_mode::ALLOW);
-      } else {
-        // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
-        if (is_cufile_available()) {
-          _compat_mode = detail::compat_mode::OFF;
-        } else {
-          _compat_mode = detail::compat_mode::ON;
-        }
-      }
+      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::ALLOW);
     }
     // Determine the default value of `task_size`
     {
@@ -203,7 +195,7 @@ class defaults {
    *
    * @return The boolean answer
    */
-  [[nodiscard]] static bool compat_mode() { return instance()->_compat_mode; }
+  [[nodiscard]] static CompatMode compat_mode() { return instance()->_compat_mode; }
 
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`
@@ -213,7 +205,7 @@ class defaults {
    *
    * @param enable Whether to enable compatibility mode or not.
    */
-  static void compat_mode_reset(bool enable) { instance()->_compat_mode = enable; }
+  static void compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
 
   /**
    * @brief Get the default thread pool.
