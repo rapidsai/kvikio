@@ -5,4 +5,4 @@ touch empty.cu
 nvcc -c empty.cu -v
 rm empty.cu
 
-CUDACXX=nvcc ./build.sh -v -n libkvikio --cmake-args=\"--trace-expand\"
+CUDACXX=nvcc ./build.sh -v -n libkvikio --cmake-args=\"--trace-expand -DKvikIO_CUDA_SUPPORT=ON\"
