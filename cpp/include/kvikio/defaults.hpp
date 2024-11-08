@@ -28,6 +28,9 @@
 
 namespace kvikio {
 
+/**
+ * @brief I/O compatibility mode.
+ */
 enum class CompatMode : uint8_t {
   OFF,    // Enforce cuFile I/O. Undefined behavior for KvikIO if the system config check does not
           // pass, where the program may error out, crash or hang on I/O operations.
@@ -136,6 +139,12 @@ class defaults {
     return ret;
   }
 
+  /**
+   * @brief Set the internal compatibility mode to either ON or OFF according to the actual system
+   * config check. While users can set the compatibility mode to one of the three options, this
+   * function reduces the internal state to two possibilities in order to determine the actual I/O
+   * path.
+   */
   void readjust_compat_mode()
   {
     if (is_cufile_available()) {
@@ -155,7 +164,7 @@ class defaults {
       }
 
       if (_compat_mode == CompatMode::ALLOW) {
-        // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
+        // Infer based on runtime environment
         readjust_compat_mode();
       }
     }
@@ -215,7 +224,8 @@ class defaults {
   [[nodiscard]] static bool compat_mode() { return instance()->_compat_mode == CompatMode::ON; }
 
   /**
-   * @brief Reset the value of `kvikio::defaults::compat_mode()`
+   * @brief Reset the value of `kvikio::defaults::compat_mode()`. This overload only allows the
+   * users to choose the compatibility mode from the `ON` (true) or `OFF` (false) option.
    *
    * Changing compatibility mode, effects all new FileHandles that doesn't sets the
    * `compat_mode` argument explicitly but it never effect existing FileHandles.
@@ -231,6 +241,15 @@ class defaults {
     }
   }
 
+  /**
+   * @brief Reset the value of `kvikio::defaults::compat_mode()`. This overload allows the users to
+   * choose the compatibility mode from one of the three options, including the `ALLOW` mode.
+   *
+   * Changing compatibility mode, effects all new FileHandles that doesn't sets the
+   * `compat_mode` argument explicitly but it never effect existing FileHandles.
+   *
+   * @param enable Whether to enable compatibility mode or not.
+   */
   static void compat_mode_reset(CompatMode compat_mode)
   {
     instance()->_compat_mode = compat_mode;
