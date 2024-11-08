@@ -45,6 +45,10 @@ option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" O
 option(KvikIO_CUDA_SUPPORT "Configure CMake to build with CUDA support" ON)
 option(KvikIO_EXPORT_NVCOMP "Export NVCOMP as a dependency" ON)
 
+if(KvikIO_CUDA_SUPPORT)
+  enable_language(CUDA)
+endif()
+
 # ##################################################################################################
 # * conda environment ------------------------------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
