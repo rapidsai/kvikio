@@ -85,6 +85,8 @@ else()
   set(cuFile_FOUND 1)
 
   # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
+  set(_old_type ${CMAKE_TRY_COMPILE_TARGET_TYPE})
+  set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
   try_compile(
     cuFile_BATCH_API_FOUND SOURCE_FROM_CONTENT
     batch.cpp
@@ -113,6 +115,7 @@ else()
   )
   message(STATUS "stream output: ${stream_output}")
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
+  set(CMAKE_TRY_COMPILE_TARGET_TYPE ${_old_type})
 endif()
 
 include(cmake/thirdparty/get_thread_pool.cmake)
