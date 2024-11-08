@@ -87,8 +87,8 @@ else()
   # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
   get_property(
     _cufile_location
-    TARGET CUDA::cufile
-    PROPERTY LOCATION
+    TARGET CUDA::cuFile
+    PROPERTY IMPORTED_LOCATION
   )
   message(STATUS "cufile location: ${_cufile_location}")
   file(READ "${CUDAToolkit_TARGET_DIR}/include/cufile.h" CUFILE_H_STR)
