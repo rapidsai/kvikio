@@ -85,16 +85,25 @@ else()
   set(cuFile_FOUND 1)
 
   # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
-  try_compile(cuFile_BATCH_API_FOUND OUTPUT_VARIABLE batch_output SOURCE_FROM_CONTENT batch.cpp
+  try_compile(
+    cuFile_BATCH_API_FOUND OUTPUT_VARIABLE
+    batch_output
+    SOURCE_FROM_CONTENT
+    batch.cpp
     [[#include <cufile.h>
     int main() {
       cuFileBatchIOSetUp(nullptr, 0);
       return 0;
     }
-  ]])
+  ]]
+  )
   message(STATUS "batch output: ${batch_output}")
   message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
-  try_compile(cuFile_STREAM_API_FOUND OUTPUT_VARIABLE stream_output SOURCE_FROM_CONTENT stream.cpp
+  try_compile(
+    cuFile_STREAM_API_FOUND OUTPUT_VARIABLE
+    stream_output
+    SOURCE_FROM_CONTENT
+    stream.cpp
     [[#include <cufile.h>
     int main() {
       CUFileHandle_t fh;
@@ -102,7 +111,8 @@ else()
       cuFileReadAsync(fh, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       return 0;
     }
-  ]])
+  ]]
+  )
   message(STATUS "stream output: ${stream_output}")
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
 endif()
