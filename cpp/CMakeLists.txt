@@ -140,8 +140,8 @@ add_library(kvikio::kvikio ALIAS kvikio)
 
 target_include_directories(
   kvikio
-  PRIVATE "$<BUILD_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>"
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+         "$<BUILD_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
