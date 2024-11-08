@@ -123,6 +123,7 @@ class defaults {
  private:
   BS::thread_pool _thread_pool{get_num_threads_from_env()};
   CompatMode _compat_mode;
+  CompatMode _requested_compat_mode;  // Initial compatibility mode requested by the user
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
@@ -140,7 +141,19 @@ class defaults {
   {
     // Determine the default value of `compat_mode`
     {
-      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::ALLOW);
+      if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
+        // Setting `KVIKIO_COMPAT_MODE` take precedence
+        _requested_compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::ALLOW);
+      }
+
+      if (_requested_compat_mode == CompatMode::ALLOW) {
+        // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
+        if (is_cufile_available()) {
+          _compat_mode = CompatMode::OFF;
+        } else {
+          _compat_mode = CompatMode::ON;
+        }
+      }
     }
     // Determine the default value of `task_size`
     {
@@ -205,7 +218,15 @@ class defaults {
    *
    * @param enable Whether to enable compatibility mode or not.
    */
-  static void compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
+  static void compat_mode_reset(CompatMode compat_mode)
+  {
+    instance()->_requested_compat_mode = compat_mode;
+    if (is_cufile_available()) {
+      instance()->_compat_mode = CompatMode::OFF;
+    } else {
+      instance()->_compat_mode = CompatMode::ON;
+    }
+  }
 
   /**
    * @brief Get the default thread pool.
