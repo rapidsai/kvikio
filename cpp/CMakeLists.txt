@@ -65,12 +65,16 @@ if(KvikIO_REMOTE_SUPPORT)
 endif()
 
 rapids_find_package(
-  CUDAToolkit REQUIRED
+  CUDAToolkit
   BUILD_EXPORT_SET kvikio-exports
   INSTALL_EXPORT_SET kvikio-exports
 )
 
 if(KvikIO_CUDA_SUPPORT)
+  if(NOT CUDAToolkit_FOUND)
+    message(FATAL_ERROR "CUDA support requested but CUDA toolkit not found")
+  endif()
+
   include(cmake/thirdparty/get_nvtx.cmake)
 endif()
 
@@ -150,9 +154,9 @@ target_link_libraries(
 
 target_compile_definitions(
   kvikio
-  PRIVATE $<$<BOOL:${KvikIO_CUDA_SUPPORT}>:KVIKIO_CUDA_FOUND>
-          $<$<BOOL:${KvikIO_CUDA_SUPPORT}>:KVIKIO_CUFILE_FOUND>
   PUBLIC $<$<BOOL:${KvikIO_REMOTE_SUPPORT}>:KVIKIO_LIBCURL_FOUND>
+         $<$<BOOL:${KvikIO_CUDA_SUPPORT}>:KVIKIO_CUDA_FOUND>
+         $<$<BOOL:${KvikIO_CUDA_SUPPORT}>:KVIKIO_CUFILE_FOUND>
          $<$<BOOL:${cuFile_BATCH_API_FOUND}>:KVIKIO_CUFILE_BATCH_API_FOUND>
          $<$<BOOL:${cuFile_STREAM_API_FOUND}>:KVIKIO_CUFILE_STREAM_API_FOUND>
 )
@@ -213,27 +217,25 @@ Provide targets for KvikIO.
 ]=]
 )
 
-set(final_code_string)
-if(KvikIO_CUDA_SUPPORT)
-  string(
-    APPEND
-    final_code_string
-    [=[
-get_property(already_set_kvikio DIRECTORY PROPERTIES kvikio_already_set_defines SET)
-if(NOT already_set_kvikio)
-  set_property(DIRECTORY PROPERTY kvikio_already_set_defines "ON")
-
+set(final_code_string
+  "
+set(KvikIO_CUDA_SUPPORT [=[${KvikIO_CUDA_SUPPORT}]=])
+set(KvikIO_CUFILE_SUPPORT [=[${cuFile_FOUND}]=])
+"
+)
+string(
+  APPEND
+  final_code_string
+  [=[
+if(KvikIO_CUDA_SUPPORT OR KvikIO_CUFILE_SUPPORT)
   find_package(CUDAToolkit QUIET)
-  if(CUDAToolkit_FOUND)
-    target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUDA_FOUND)
-    target_include_directories(kvikio::kvikio INTERFACE ${CUDAToolkit_INCLUDE_DIRS})
+endif()
 
-    if(TARGET CUDA::cuFile)
-      target_compile_definitions(kvikio::kvikio INTERFACE KVIKIO_CUFILE_FOUND)
-    endif()
-  endif()
+if(KvikIO_CUFILE_SUPPORT AND NOT TARGET CUDA::cuFile)
+  message(FATAL_ERROR "Compiled with cuFile support but cuFile not found")
+endif()
 ]=]
-  )
+)
 endif()
 
 rapids_export(
