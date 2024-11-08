@@ -32,8 +32,9 @@ namespace kvikio {
  * @brief I/O compatibility mode.
  */
 enum class CompatMode : uint8_t {
-  OFF,    // Enforce cuFile I/O. Undefined behavior for KvikIO if the system config check does not
-          // pass, where the program may error out, crash or hang on I/O operations.
+  OFF,    // Enforce cuFile I/O. Undefined behavior for KvikIO if this option is selected but the
+          // system config check does not pass: The program may error out, crash or hang on I/O
+          // operations.
   ON,     // Enforce POSIX I/O.
   ALLOW,  // Use cuFile I/O. Fall back to the POSIX I/O if the system config check does not
           // pass.
