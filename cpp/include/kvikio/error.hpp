@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cstring>
+#include <stdexcept>
 
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
