@@ -88,7 +88,7 @@ else()
   get_property(
     _cufile_location
     TARGET CUDA::cufile
-    PROPERTY IMPORTED_LOCATION
+    PROPERTY LOCATION
   )
   message(STATUS "cufile location: ${_cufile_location}")
   file(READ "${CUDAToolkit_TARGET_DIR}/include/cufile.h" CUFILE_H_STR)
