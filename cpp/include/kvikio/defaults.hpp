@@ -32,12 +32,10 @@ namespace kvikio {
  * @brief I/O compatibility mode.
  */
 enum class CompatMode : uint8_t {
-  OFF,    // Enforce cuFile I/O. Undefined behavior for KvikIO if this option is selected but the
-          // system config check does not pass: The program may error out, crash or hang on I/O
-          // operations.
-  ON,     // Enforce POSIX I/O.
-  ALLOW,  // Use cuFile I/O. Fall back to the POSIX I/O if the system config check does not
-          // pass.
+  OFF,  // Enforce cuFile I/O. Undefined behavior if this option is selected but the system does not
+        // support GDS: The program may error out, crash or hang on I/O operations.
+  ON,   // Enforce POSIX I/O.
+  AUTO,  // Use cuFile I/O, and fall back to the POSIX I/O if the system config check does not pass.
 };
 
 namespace detail {
@@ -107,8 +105,8 @@ inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_va
     res = CompatMode::ON;
   } else if (env_val_lowercase == "off") {
     res = CompatMode::OFF;
-  } else if (env_val_lowercase == "allow") {
-    res = CompatMode::ALLOW;
+  } else if (env_val_lowercase == "auto") {
+    res = CompatMode::AUTO;
   } else {
     throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
                                 std::string{env_val});
@@ -146,7 +144,7 @@ class defaults {
    * function reduces the internal state to two possibilities in order to determine the actual I/O
    * path.
    */
-  void readjust_compat_mode()
+  void infer_compat_mode_from_runtime_sys()
   {
     if (is_cufile_available()) {
       _compat_mode = CompatMode::OFF;
@@ -159,11 +157,8 @@ class defaults {
   {
     // Determine the default value of `compat_mode`
     {
-      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::ALLOW);
-      if (_compat_mode == CompatMode::ALLOW) {
-        // Infer based on runtime environment
-        readjust_compat_mode();
-      }
+      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
+      if (_compat_mode == CompatMode::AUTO) { infer_compat_mode_from_runtime_sys(); }
     }
     // Determine the default value of `task_size`
     {
@@ -240,7 +235,7 @@ class defaults {
 
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`. This overload allows the users to
-   * choose the compatibility mode from one of the three options, including the `ALLOW` mode.
+   * choose the compatibility mode from one of the three options, including the `AUTO` mode.
    *
    * Changing compatibility mode, effects all new FileHandles that doesn't sets the
    * `compat_mode` argument explicitly but it never effect existing FileHandles.
@@ -250,7 +245,7 @@ class defaults {
   static void compat_mode_reset(CompatMode compat_mode)
   {
     instance()->_compat_mode = compat_mode;
-    if (compat_mode == CompatMode::ALLOW) { instance()->readjust_compat_mode(); }
+    if (compat_mode == CompatMode::AUTO) { instance()->infer_compat_mode_from_runtime_sys(); }
   }
 
   /**
