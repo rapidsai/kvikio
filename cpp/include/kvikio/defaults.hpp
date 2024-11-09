@@ -37,7 +37,6 @@ enum class CompatMode : uint8_t {
         // support GDS: The program may error out, crash or hang on I/O operations.
   ON,   // Enforce POSIX I/O.
   AUTO,  // Use cuFile I/O, and fall back to the POSIX I/O if the system config check does not pass.
-  INVALID,
 };
 
 inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
@@ -57,7 +56,7 @@ inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
   } else if (compat_mode_lower == "auto") {
     res = CompatMode::AUTO;
   } else {
-    res = CompatMode::INVALID;
+    throw std::invalid_argument("Unknown compatibility mode: " + std::string{compat_mode_str});
   }
   return res;
 }
@@ -115,14 +114,7 @@ inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_va
 {
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
-
-  auto requested_compat_mode = parse_compat_mode_str(env_val);
-  if (requested_compat_mode == CompatMode::INVALID) {
-    throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
-                                std::string{env_val});
-  }
-
-  return requested_compat_mode;
+  return parse_compat_mode_str(env_val);
 }
 
 }  // namespace detail
