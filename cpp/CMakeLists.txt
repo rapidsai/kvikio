@@ -64,57 +64,52 @@ if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
 endif()
 
-rapids_find_package(
-  CUDAToolkit
-  BUILD_EXPORT_SET kvikio-exports
-  INSTALL_EXPORT_SET kvikio-exports
-)
-
+set(cuFile_FOUND 0)
 if(KvikIO_CUDA_SUPPORT)
-  if(NOT CUDAToolkit_FOUND)
-    message(FATAL_ERROR "CUDA support requested but CUDA toolkit not found")
-  endif()
-
+  rapids_find_package(
+    CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET kvikio-exports
+    INSTALL_EXPORT_SET kvikio-exports
+  )
   include(cmake/thirdparty/get_nvtx.cmake)
-endif()
 
-if(NOT TARGET CUDA::cuFile)
-  set(cuFile_FOUND 0)
-  message(
-    WARNING "Cannot find cuFile - KvikIO will still work but won't use GPUDirect Storage (GDS)"
-  )
-else()
-  set(cuFile_FOUND 1)
+  if(NOT TARGET CUDA::cuFile)
+    message(
+      WARNING "Cannot find cuFile - KvikIO will still work but won't use GPUDirect Storage (GDS)"
+    )
+  else()
+    set(cuFile_FOUND 1)
 
-  # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
-  try_compile(
-    cuFile_BATCH_API_FOUND SOURCE_FROM_CONTENT
-    batch.cpp
-    [[#include <cufile.h>
-    int main() {
-      cuFileBatchIOSetUp(nullptr, 0);
-      return 0;
-    }
-    ]]
-    LINK_LIBRARIES CUDA::cuFile rt ${CMAKE_DL_LIBS}
-    OUTPUT_VARIABLE batch_output
-  )
-  message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
-  try_compile(
-    cuFile_STREAM_API_FOUND SOURCE_FROM_CONTENT
-    stream.cpp
-    [[#include <cufile.h>
-    int main() {
-      CUfileHandle_t fh;
-      CUstream stream;
-      cuFileReadAsync(fh, nullptr, nullptr, nullptr, nullptr, nullptr, stream);
-      return 0;
-    }
-    ]]
-    LINK_LIBRARIES CUDA::cuFile rt ${CMAKE_DL_LIBS}
-    OUTPUT_VARIABLE stream_output
-  )
-  message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
+    # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
+    try_compile(
+      cuFile_BATCH_API_FOUND SOURCE_FROM_CONTENT
+      batch.cpp
+      [[#include <cufile.h>
+      int main() {
+        cuFileBatchIOSetUp(nullptr, 0);
+        return 0;
+      }
+      ]]
+      LINK_LIBRARIES CUDA::cuFile rt ${CMAKE_DL_LIBS}
+      OUTPUT_VARIABLE batch_output
+    )
+    message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
+    try_compile(
+      cuFile_STREAM_API_FOUND SOURCE_FROM_CONTENT
+      stream.cpp
+      [[#include <cufile.h>
+      int main() {
+        CUfileHandle_t fh;
+        CUstream stream;
+        cuFileReadAsync(fh, nullptr, nullptr, nullptr, nullptr, nullptr, stream);
+        return 0;
+      }
+      ]]
+      LINK_LIBRARIES CUDA::cuFile rt ${CMAKE_DL_LIBS}
+      OUTPUT_VARIABLE stream_output
+    )
+    message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
+  endif()
 endif()
 
 include(cmake/thirdparty/get_thread_pool.cmake)
@@ -141,7 +136,7 @@ add_library(kvikio::kvikio ALIAS kvikio)
 target_include_directories(
   kvikio
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-         "$<$<OR:${KvikIO_CUDA_SUPPORT},${cuFile_FOUND}>:$<BUILD_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>>"
+         "$<BUILD_INTERFACE:$<${KvikIO_CUDA_SUPPORT}>:${CUDAToolkit_INCLUDE_DIRS}>>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
@@ -227,13 +222,13 @@ string(
   APPEND
   final_code_string
   [=[
-if(KvikIO_CUDA_SUPPORT OR KvikIO_CUFILE_SUPPORT)
+if(KvikIO_CUDA_SUPPORT)
   find_package(CUDAToolkit REQUIRED QUIET)
   target_include_directories(kvikio::kvikio INTERFACE ${CUDAToolkit_INCLUDE_DIRS})
-endif()
 
-if(KvikIO_CUFILE_SUPPORT AND NOT TARGET CUDA::cuFile)
-  message(FATAL_ERROR "Compiled with cuFile support but cuFile not found")
+  if(KvikIO_CUFILE_SUPPORT AND NOT TARGET CUDA::cuFile)
+    message(FATAL_ERROR "Compiled with cuFile support but cuFile not found")
+  endif()
 endif()
 ]=]
 )
