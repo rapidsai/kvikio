@@ -139,13 +139,13 @@ class defaults {
   }
 
   /**
-   * @brief Set the internal compatibility mode to either ON or OFF according to the actual system
-   * config check. While users can set the compatibility mode to one of the three options, this
-   * function reduces the internal state to two possibilities in order to determine the actual I/O
-   * path.
+   * @brief While user's requested compatibility mode can be ON/OFF/AUTO, this function reduces the
+   * internal state to two possibilities, ON or OFF, so as to determine the actual I/O path.
    */
   void infer_compat_mode_from_runtime_sys()
   {
+    if (_compat_mode != CompatMode::AUTO) { return; }
+
     if (is_cufile_available()) {
       _compat_mode = CompatMode::OFF;
     } else {
@@ -158,7 +158,7 @@ class defaults {
     // Determine the default value of `compat_mode`
     {
       _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
-      if (_compat_mode == CompatMode::AUTO) { infer_compat_mode_from_runtime_sys(); }
+      infer_compat_mode_from_runtime_sys();
     }
     // Determine the default value of `task_size`
     {
@@ -245,7 +245,7 @@ class defaults {
   static void compat_mode_reset(CompatMode compat_mode)
   {
     instance()->_compat_mode = compat_mode;
-    if (compat_mode == CompatMode::AUTO) { instance()->infer_compat_mode_from_runtime_sys(); }
+    instance()->infer_compat_mode_from_runtime_sys();
   }
 
   /**
