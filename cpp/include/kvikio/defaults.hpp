@@ -28,6 +28,7 @@
 
 namespace kvikio {
 
+namespace detail {
 /**
  * @brief I/O compatibility mode.
  */
@@ -36,9 +37,31 @@ enum class CompatMode : uint8_t {
         // support GDS: The program may error out, crash or hang on I/O operations.
   ON,   // Enforce POSIX I/O.
   AUTO,  // Use cuFile I/O, and fall back to the POSIX I/O if the system config check does not pass.
+  INVALID,
 };
 
-namespace detail {
+inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
+{
+  // Convert to lowercase
+  std::string compat_mode_lower{compat_mode_str};
+  std::transform(compat_mode_lower.begin(),
+                 compat_mode_lower.end(),
+                 compat_mode_lower.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+
+  CompatMode res{};
+  if (compat_mode_lower == "on") {
+    res = CompatMode::ON;
+  } else if (compat_mode_lower == "off") {
+    res = CompatMode::OFF;
+  } else if (compat_mode_lower == "auto") {
+    res = CompatMode::AUTO;
+  } else {
+    res = CompatMode::INVALID;
+  }
+  return res;
+}
+
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
@@ -93,26 +116,13 @@ inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_va
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
 
-  // Convert to lowercase
-  std::string env_val_lowercase{env_val};
-  std::transform(env_val_lowercase.begin(),
-                 env_val_lowercase.end(),
-                 env_val_lowercase.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-
-  CompatMode res{};
-  if (env_val_lowercase == "on") {
-    res = CompatMode::ON;
-  } else if (env_val_lowercase == "off") {
-    res = CompatMode::OFF;
-  } else if (env_val_lowercase == "auto") {
-    res = CompatMode::AUTO;
-  } else {
+  auto requested_compat_mode = parse_compat_mode_str(env_val);
+  if (requested_compat_mode == CompatMode::INVALID) {
     throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
                                 std::string{env_val});
   }
 
-  return res;
+  return requested_compat_mode;
 }
 
 }  // namespace detail
@@ -124,7 +134,7 @@ inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_va
 class defaults {
  private:
   BS::thread_pool _thread_pool{get_num_threads_from_env()};
-  CompatMode _compat_mode;
+  detail::CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
@@ -144,12 +154,11 @@ class defaults {
    */
   void infer_compat_mode_from_runtime_sys()
   {
-    if (_compat_mode != CompatMode::AUTO) { return; }
-
+    if (_compat_mode != detail::CompatMode::AUTO) { return; }
     if (is_cufile_available()) {
-      _compat_mode = CompatMode::OFF;
+      _compat_mode = detail::CompatMode::OFF;
     } else {
-      _compat_mode = CompatMode::ON;
+      _compat_mode = detail::CompatMode::ON;
     }
   }
 
@@ -157,7 +166,7 @@ class defaults {
   {
     // Determine the default value of `compat_mode`
     {
-      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
+      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", detail::CompatMode::AUTO);
       infer_compat_mode_from_runtime_sys();
     }
     // Determine the default value of `task_size`
@@ -213,38 +222,42 @@ class defaults {
    *
    * @return The boolean answer
    */
-  [[nodiscard]] static bool compat_mode() { return instance()->_compat_mode == CompatMode::ON; }
+  [[nodiscard]] static bool compat_mode()
+  {
+    return instance()->_compat_mode == detail::CompatMode::ON;
+  }
 
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`. This overload only allows the
-   * users to choose the compatibility mode from the `ON` (true) or `OFF` (false) option.
+   * users to choose the compatibility mode in boolean format.
    *
-   * Changing compatibility mode, effects all new FileHandles that doesn't sets the
-   * `compat_mode` argument explicitly but it never effect existing FileHandles.
+   * Changing the compatibility mode affects all the new FileHandles whose `compat_mode` argument is
+   * not explicitly set, but it never affects existing FileHandles.
    *
    * @param enable Whether to enable compatibility mode or not.
    */
-  static void compat_mode_reset(bool compat_mode)
+  static void compat_mode_reset(bool enable)
   {
-    if (compat_mode) {
-      instance()->_compat_mode = CompatMode::ON;
+    if (enable) {
+      instance()->_compat_mode = detail::CompatMode::ON;
     } else {
-      instance()->_compat_mode = CompatMode::OFF;
+      instance()->_compat_mode = detail::CompatMode::OFF;
     }
   }
 
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`. This overload allows the users to
-   * choose the compatibility mode from one of the three options, including the `AUTO` mode.
+   * choose the compatibility mode in string format from three options: "ON", "OFF",
+   * "AUTO".
    *
-   * Changing compatibility mode, effects all new FileHandles that doesn't sets the
-   * `compat_mode` argument explicitly but it never effect existing FileHandles.
+   * Changing the compatibility mode affects all the new FileHandles whose `compat_mode` argument is
+   * not explicitly set, but it never affects existing FileHandles.
    *
-   * @param enable Whether to enable compatibility mode or not.
+   * @param compat_mode_str Compatibility mode specified in string format.
    */
-  static void compat_mode_reset(CompatMode compat_mode)
+  static void compat_mode_reset(const std::string& compat_mode_str)
   {
-    instance()->_compat_mode = compat_mode;
+    instance()->_compat_mode = detail::parse_compat_mode_str(compat_mode_str);
     instance()->infer_compat_mode_from_runtime_sys();
   }
 
