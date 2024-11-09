@@ -136,7 +136,7 @@ add_library(kvikio::kvikio ALIAS kvikio)
 target_include_directories(
   kvikio
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-         "$<BUILD_INTERFACE:$<${KvikIO_CUDA_SUPPORT}>:${CUDAToolkit_INCLUDE_DIRS}>>"
+         "$<BUILD_INTERFACE:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>>:${CUDAToolkit_INCLUDE_DIRS}>>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
