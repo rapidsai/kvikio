@@ -228,7 +228,7 @@ string(
   final_code_string
   [=[
 if(KvikIO_CUDA_SUPPORT OR KvikIO_CUFILE_SUPPORT)
-  find_package(CUDAToolkit QUIET)
+  find_package(CUDAToolkit REQUIRED QUIET)
   target_include_directories(kvikio::kvikio INTERFACE ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
