@@ -38,8 +38,10 @@ def compat_mode_reset(compat_mode: bool | str) -> None:
 
     Parameters
     ----------
-    enable : bool
-        Set to True to enable and False to disable compatibility mode
+    compat_mode : bool or str
+        bool: Set to True to enable and False to disable compatibility mode
+        str: Set to "ON" to enable and "OFF" to disable compatibility mode, or "AUTO"
+        to let KvikIO determine (try "OFF", and if failed, fall back to "ON")
     """
     if isinstance(compat_mode, bool):
         kvikio._lib.defaults.compat_mode_reset_bool(compat_mode)
