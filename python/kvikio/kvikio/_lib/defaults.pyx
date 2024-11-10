@@ -5,12 +5,14 @@
 # cython: language_level=3
 
 from libcpp cimport bool
-
+from libcpp.string cimport string
 
 cdef extern from "<kvikio/defaults.hpp>" nogil:
     bool cpp_compat_mode "kvikio::defaults::compat_mode"() except +
-    void cpp_compat_mode_reset \
+    void cpp_compat_mode_reset_bool \
         "kvikio::defaults::compat_mode_reset"(bool enable) except +
+    void cpp_compat_mode_reset_str \
+        "kvikio::defaults::compat_mode_reset"(string compat_mode_str) except +
     unsigned int cpp_thread_pool_nthreads \
         "kvikio::defaults::thread_pool_nthreads"() except +
     void cpp_thread_pool_nthreads_reset \
@@ -30,8 +32,10 @@ def compat_mode() -> bool:
 
 
 def compat_mode_reset(enable: bool) -> None:
-    cpp_compat_mode_reset(enable)
+    cpp_compat_mode_reset_bool(enable)
 
+def compat_mode_reset(compat_mode_str: string) -> None:
+    cpp_compat_mode_reset_str(compat_mode_str)
 
 def thread_pool_nthreads() -> int:
     return cpp_thread_pool_nthreads()
