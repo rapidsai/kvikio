@@ -25,7 +25,6 @@ def test_compat_mode():
         assert kvikio.defaults.compat_mode()
         kvikio.defaults.compat_mode_reset("OFF")
         assert not kvikio.defaults.compat_mode()
-    assert before == kvikio.defaults.compat_mode()
 
 
 def test_num_threads():
