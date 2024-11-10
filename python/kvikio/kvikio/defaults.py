@@ -31,7 +31,7 @@ def compat_mode() -> bool:
     return kvikio._lib.defaults.compat_mode()
 
 
-def compat_mode_reset(enable: bool) -> None:
+def compat_mode_reset(compat_mode: bool | str) -> None:
     """Reset the compatibility mode.
 
     Use this function to enable/disable compatibility mode explicitly.
@@ -41,7 +41,10 @@ def compat_mode_reset(enable: bool) -> None:
     enable : bool
         Set to True to enable and False to disable compatibility mode
     """
-    kvikio._lib.defaults.compat_mode_reset(enable)
+    if isinstance(compat_mode, bool):
+        kvikio._lib.defaults.compat_mode_reset_bool(compat_mode)
+    else:
+        kvikio._lib.defaults.compat_mode_reset_str(compat_mode)
 
 
 @contextlib.contextmanager

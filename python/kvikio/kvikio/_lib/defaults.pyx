@@ -7,6 +7,7 @@
 from libcpp cimport bool
 from libcpp.string cimport string
 
+
 cdef extern from "<kvikio/defaults.hpp>" nogil:
     bool cpp_compat_mode "kvikio::defaults::compat_mode"() except +
     void cpp_compat_mode_reset_bool \
@@ -31,11 +32,21 @@ def compat_mode() -> bool:
     return cpp_compat_mode()
 
 
-def compat_mode_reset(enable: bool) -> None:
+cdef string _to_string(str s):
+    """Convert Python object to a C++ string (if None, return the empty string)"""
+    if s is not None:
+        return s.encode()
+    else:
+        return string()
+
+
+def compat_mode_reset_bool(enable: bool) -> None:
     cpp_compat_mode_reset_bool(enable)
 
-def compat_mode_reset(compat_mode_str: string) -> None:
-    cpp_compat_mode_reset_str(compat_mode_str)
+
+def compat_mode_reset_str(compat_mode_str: str) -> None:
+    cpp_compat_mode_reset_str(_to_string(compat_mode_str))
+
 
 def thread_pool_nthreads() -> int:
     return cpp_thread_pool_nthreads()
