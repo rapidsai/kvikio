@@ -21,6 +21,12 @@ def test_compat_mode():
         assert not kvikio.defaults.compat_mode()
     assert before == kvikio.defaults.compat_mode()
 
+    with kvikio.defaults.set_compat_mode("ON"):
+        assert kvikio.defaults.compat_mode()
+        kvikio.defaults.compat_mode_reset("OFF")
+        assert not kvikio.defaults.compat_mode()
+    assert before == kvikio.defaults.compat_mode()
+
 
 def test_num_threads():
     """Test changing `num_threads`"""
