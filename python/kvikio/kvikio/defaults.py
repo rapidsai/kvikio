@@ -31,37 +31,39 @@ def compat_mode() -> bool:
     return kvikio._lib.defaults.compat_mode()
 
 
-def compat_mode_reset(compat_mode: bool | str) -> None:
+def compat_mode_reset(compatmode: bool | str) -> None:
     """Reset the compatibility mode.
 
     Use this function to enable/disable compatibility mode explicitly.
 
     Parameters
     ----------
-    compat_mode : bool or str
+    compatmode : bool or str
         bool: Set to True to enable and False to disable compatibility mode
         str: Set to "ON" to enable and "OFF" to disable compatibility mode, or "AUTO"
         to let KvikIO determine (try "OFF", and if failed, fall back to "ON")
     """
-    if isinstance(compat_mode, bool):
-        kvikio._lib.defaults.compat_mode_reset_bool(compat_mode)
+    if isinstance(compatmode, bool):
+        kvikio._lib.defaults.compat_mode_reset_bool(compatmode)
     else:
-        kvikio._lib.defaults.compat_mode_reset_str(compat_mode)
+        kvikio._lib.defaults.compat_mode_reset_str(compatmode)
 
 
 @contextlib.contextmanager
-def set_compat_mode(enable: bool):
+def set_compat_mode(compatmode: bool | str):
     """Context for resetting the compatibility mode.
 
     Parameters
     ----------
-    enable : bool
-        Set to True to enable and False to disable compatibility mode
+    compatmode : bool or str
+        bool: Set to True to enable and False to disable compatibility mode
+        str: Set to "ON" to enable and "OFF" to disable compatibility mode, or "AUTO"
+        to let KvikIO determine (try "OFF", and if failed, fall back to "ON")
     """
     num_threads_reset(get_num_threads())  # Sync all running threads
     old_value = compat_mode()
     try:
-        compat_mode_reset(enable)
+        compat_mode_reset(compatmode)
         yield
     finally:
         compat_mode_reset(old_value)

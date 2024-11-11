@@ -27,6 +27,14 @@ def test_compat_mode():
         assert not kvikio.defaults.compat_mode()
 
 
+def test_compat_mode_extra():
+    inputs = ["", "invalidOption"]
+    for input in inputs:
+        with pytest.raises(ValueError):
+            with kvikio.defaults.set_compat_mode(input):
+                pass
+
+
 def test_num_threads():
     """Test changing `num_threads`"""
 
