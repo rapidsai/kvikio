@@ -15,7 +15,6 @@
  */
 
 #include <stdexcept>
-#include <unordered_map>
 
 #include <gtest/gtest.h>
 #include <kvikio/defaults.hpp>
