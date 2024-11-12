@@ -38,10 +38,10 @@ def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
 
     Parameters
     ----------
-    compatmode : bool or str
-        bool: Set to True to enable and False to disable compatibility mode
-        str: Set to "ON" to enable and "OFF" to disable compatibility mode, or "AUTO"
-        to let KvikIO determine (try "OFF", and if failed, fall back to "ON")
+    compatmode : kvikio.CompatMode
+        Set to kvikio.CompatMode.ON to enable and kvikio.CompatMode.OFF to disable
+        compatibility mode, or kvikio.CompatMode.AUTO to let KvikIO determine: try
+        OFF first, and upon failure, fall back to ON.
     """
     kvikio._lib.defaults.compat_mode_reset(compatmode)
 
@@ -52,10 +52,10 @@ def set_compat_mode(compatmode: kvikio.CompatMode):
 
     Parameters
     ----------
-    compatmode : bool or str
-        bool: Set to True to enable and False to disable compatibility mode
-        str: Set to "ON" to enable and "OFF" to disable compatibility mode, or "AUTO"
-        to let KvikIO determine (try "OFF", and if failed, fall back to "ON")
+    compatmode : kvikio.CompatMode
+        Set to kvikio.CompatMode.ON to enable and kvikio.CompatMode.OFF to disable
+        compatibility mode, or kvikio.CompatMode.AUTO to let KvikIO determine: try
+        OFF first, and upon failure, fall back to ON.
     """
     num_threads_reset(get_num_threads())  # Sync all running threads
     old_value = compat_mode()
