@@ -111,6 +111,7 @@ class FileHandle {
     if (closed()) { return; }
 
     if (_compat_mode == CompatMode::OFF) { cuFileAPI::instance().HandleDeregister(_handle); }
+    _compat_mode = CompatMode::AUTO;
     ::close(_fd_direct_off);
     if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
     _fd_direct_on  = -1;
