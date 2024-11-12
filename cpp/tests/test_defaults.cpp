@@ -24,21 +24,21 @@ TEST(Defaults, parse_compat_mode_str)
   {
     std::vector<std::string> inputs{"ON", "on", "On"};
     for (const auto& input : inputs) {
-      EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::detail::CompatMode::ON);
+      EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::CompatMode::ON);
     }
   }
 
   {
     std::vector<std::string> inputs{"OFF", "off", "oFf"};
     for (const auto& input : inputs) {
-      EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::detail::CompatMode::OFF);
+      EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::CompatMode::OFF);
     }
   }
 
   {
     std::vector<std::string> inputs{"AUTO", "auto", "aUtO"};
     for (const auto& input : inputs) {
-      EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::detail::CompatMode::AUTO);
+      EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::CompatMode::AUTO);
     }
   }
 

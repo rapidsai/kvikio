@@ -16,6 +16,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <sstream>
@@ -27,8 +28,6 @@
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
-
-namespace detail {
 /**
  * @brief I/O compatibility mode.
  */
@@ -39,6 +38,14 @@ enum class CompatMode : uint8_t {
   AUTO,  // Use cuFile I/O, and fall back to the POSIX I/O if the system config check does not pass.
 };
 
+namespace detail {
+/**
+ * @brief Parse a string into a CompatMode enum.
+ *
+ * @param compat_mode_str Compatibility mode in string format. Valid values include "ON", "OFF",
+ * "AUTO" (case-insensitive).
+ * @return A CompatMode enum.
+ */
 inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 {
   // Convert to lowercase
@@ -126,7 +133,7 @@ inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_va
 class defaults {
  private:
   BS::thread_pool _thread_pool{get_num_threads_from_env()};
-  detail::CompatMode _compat_mode;
+  CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
@@ -140,26 +147,12 @@ class defaults {
     return ret;
   }
 
-  /**
-   * @brief While user's requested compatibility mode can be ON/OFF/AUTO, this function reduces the
-   * internal state to two possibilities, ON or OFF, so as to determine the actual I/O path.
-   */
-  void infer_compat_mode_from_runtime_sys()
-  {
-    if (_compat_mode != detail::CompatMode::AUTO) { return; }
-    if (is_cufile_available()) {
-      _compat_mode = detail::CompatMode::OFF;
-    } else {
-      _compat_mode = detail::CompatMode::ON;
-    }
-  }
-
   defaults()
   {
     // Determine the default value of `compat_mode`
     {
-      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", detail::CompatMode::AUTO);
-      infer_compat_mode_from_runtime_sys();
+      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
+      _compat_mode = infer_compat_mode_from_runtime_sys(_compat_mode);
     }
     // Determine the default value of `task_size`
     {
@@ -212,45 +205,45 @@ class defaults {
    *  - when `/run/udev` isn't readable, which typically happens when running inside a docker
    *    image not launched with `--volume /run/udev:/run/udev:ro`
    *
-   * @return The boolean answer
+   * @return Compatibility mode.
    */
-  [[nodiscard]] static bool compat_mode()
+  [[nodiscard]] static CompatMode compat_mode()
   {
-    return instance()->_compat_mode == detail::CompatMode::ON;
+    auto res = instance()->_compat_mode;
+    assert(res == CompatMode::ON || res == CompatMode::OFF);
+    return res;
   }
 
   /**
-   * @brief Reset the value of `kvikio::defaults::compat_mode()`. This overload only allows the
-   * users to choose the compatibility mode in boolean format.
+   * @brief Reset the value of `kvikio::defaults::compat_mode()`.
    *
    * Changing the compatibility mode affects all the new FileHandles whose `compat_mode` argument is
    * not explicitly set, but it never affects existing FileHandles.
    *
-   * @param enable Whether to enable compatibility mode or not.
+   * @param compat_mode Compatibility mode.
    */
-  static void compat_mode_reset(bool enable)
+  static void compat_mode_reset(CompatMode compat_mode)
   {
-    if (enable) {
-      instance()->_compat_mode = detail::CompatMode::ON;
-    } else {
-      instance()->_compat_mode = detail::CompatMode::OFF;
+    compat_mode              = infer_compat_mode_from_runtime_sys(compat_mode);
+    instance()->_compat_mode = compat_mode;
+  }
+
+  /**
+   * @brief If the requested compatibility mode is AUTO, set the actual compatibility mode to ON or
+   * OFF by performing a system config check; otherwise, do nothing. Effectively, this function
+   * reduces the requested compatibility mode from three possible states (ON/OFF/AUTO) to two
+   * (ON/OFF) so as to determine the actual I/O path.
+   */
+  static CompatMode infer_compat_mode_from_runtime_sys(CompatMode compat_mode)
+  {
+    if (compat_mode == CompatMode::AUTO) {
+      if (is_cufile_available()) {
+        compat_mode = CompatMode::OFF;
+      } else {
+        compat_mode = CompatMode::ON;
+      }
     }
-  }
-
-  /**
-   * @brief Reset the value of `kvikio::defaults::compat_mode()`. This overload allows the users to
-   * choose the compatibility mode in string format from three options: "ON", "OFF",
-   * "AUTO".
-   *
-   * Changing the compatibility mode affects all the new FileHandles whose `compat_mode` argument is
-   * not explicitly set, but it never affects existing FileHandles.
-   *
-   * @param compat_mode_str Compatibility mode specified in string format.
-   */
-  static void compat_mode_reset(const std::string& compat_mode_str)
-  {
-    instance()->_compat_mode = detail::parse_compat_mode_str(compat_mode_str);
-    instance()->infer_compat_mode_from_runtime_sys();
+    return compat_mode;
   }
 
   /**

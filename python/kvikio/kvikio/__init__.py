@@ -15,6 +15,7 @@ else:
 from kvikio._version import __git_commit__, __version__
 from kvikio.cufile import CuFile
 from kvikio.remote_file import RemoteFile, is_remote_file_available
+from kvikio._lib.defaults import CompatMode
 
 __all__ = [
     "__git_commit__",

@@ -8,31 +8,18 @@ import kvikio.defaults
 
 
 @pytest.mark.skipif(
-    kvikio.defaults.compat_mode(),
+    kvikio.defaults.compat_mode() == kvikio.CompatMode.ON,
     reason="cannot test `compat_mode` when already running in compatibility mode",
 )
 def test_compat_mode():
     """Test changing `compat_mode`"""
 
     before = kvikio.defaults.compat_mode()
-    with kvikio.defaults.set_compat_mode(True):
+    with kvikio.defaults.set_compat_mode():
         assert kvikio.defaults.compat_mode()
-        kvikio.defaults.compat_mode_reset(False)
+        kvikio.defaults.compat_mode_reset(kvikio.CompatMode.OFF)
         assert not kvikio.defaults.compat_mode()
     assert before == kvikio.defaults.compat_mode()
-
-    with kvikio.defaults.set_compat_mode("ON"):
-        assert kvikio.defaults.compat_mode()
-        kvikio.defaults.compat_mode_reset("OFF")
-        assert not kvikio.defaults.compat_mode()
-
-
-def test_compat_mode_extra():
-    inputs = ["", "invalidOption"]
-    for input in inputs:
-        with pytest.raises(ValueError):
-            with kvikio.defaults.set_compat_mode(input):
-                pass
 
 
 def test_num_threads():
