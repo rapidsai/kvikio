@@ -99,9 +99,33 @@ def run_numpy_like(args, xp):
         yield run()
 
 
+def run_cudf(args, kvikio_remote_io: bool):
+    import cudf
+
+    cudf.set_option("kvikio_remote_io", kvikio_remote_io)
+    url = f"s3://{args.bucket}/data"
+
+    # Upload data to S3 server
+    create_client_and_bucket()
+    data = cupy.random.rand(args.nelem).astype(args.dtype)
+    df = cudf.DataFrame({"a": data})
+    df.to_parquet(url)
+
+    def run() -> float:
+        t0 = time.perf_counter()
+        cudf.read_parquet(url)
+        t1 = time.perf_counter()
+        return t1 - t0
+
+    for _ in range(args.nruns):
+        yield run()
+
+
 API = {
     "cupy": partial(run_numpy_like, xp=cupy),
     "numpy": partial(run_numpy_like, xp=numpy),
+    "cudf-kvikio": partial(run_cudf, kvikio_remote_io=True),
+    "cudf-fsspec": partial(run_cudf, kvikio_remote_io=False),
 }
 
 
@@ -135,7 +159,7 @@ def main(args):
         def pprint_api_res(name, samples):
             samples = [args.nbytes / s for s in samples]  # Convert to throughput
             mean = statistics.harmonic_mean(samples) if len(samples) > 1 else samples[0]
-            ret = f"{api}-{name}".ljust(12)
+            ret = f"{api}-{name}".ljust(18)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
             if len(samples) > 1:
                 stdev = statistics.stdev(samples) / mean * 100
