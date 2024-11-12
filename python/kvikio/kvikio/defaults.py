@@ -7,7 +7,7 @@ import contextlib
 import kvikio._lib.defaults
 
 
-def compat_mode() -> kvikio._lib.defaults.CompatMode:
+def compat_mode() -> kvikio.CompatMode:
     """Check if KvikIO is running in compatibility mode.
 
     Notice, this is not the same as the compatibility mode in cuFile. That is,
@@ -31,7 +31,7 @@ def compat_mode() -> kvikio._lib.defaults.CompatMode:
     return kvikio._lib.defaults.compat_mode()
 
 
-def compat_mode_reset(compatmode: kvikio._lib.defaults.CompatMode) -> None:
+def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
     """Reset the compatibility mode.
 
     Use this function to enable/disable compatibility mode explicitly.
@@ -47,7 +47,7 @@ def compat_mode_reset(compatmode: kvikio._lib.defaults.CompatMode) -> None:
 
 
 @contextlib.contextmanager
-def set_compat_mode(compatmode: kvikio._lib.defaults.CompatMode):
+def set_compat_mode(compatmode: kvikio.CompatMode):
     """Context for resetting the compatibility mode.
 
     Parameters

@@ -4,8 +4,8 @@
 # distutils: language = c++
 # cython: language_level=3
 
-from libcpp cimport bool
 from libc.stdint cimport uint8_t
+from libcpp cimport bool
 
 
 cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:

@@ -15,7 +15,7 @@ def test_compat_mode():
     """Test changing `compat_mode`"""
 
     before = kvikio.defaults.compat_mode()
-    with kvikio.defaults.set_compat_mode():
+    with kvikio.defaults.set_compat_mode(kvikio.CompatMode.ON):
         assert kvikio.defaults.compat_mode()
         kvikio.defaults.compat_mode_reset(kvikio.CompatMode.OFF)
         assert not kvikio.defaults.compat_mode()
