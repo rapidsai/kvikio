@@ -124,10 +124,10 @@ FileHandle::FileHandle(const std::string& file_path,
     _initialized{true},
     _compat_mode{compat_mode}
 {
+  _compat_mode = defaults::infer_compat_mode_from_runtime_sys(_compat_mode);
+
   if (_compat_mode == CompatMode::ON) {
     return;  // Nothing to do in compatibility mode
-  } else if (_compat_mode == CompatMode::AUTO) {
-    _compat_mode = defaults::infer_compat_mode_from_runtime_sys(_compat_mode);
   }
 
   // Try to open the file with the O_DIRECT flag. Fall back to compatibility mode, if it fails.
