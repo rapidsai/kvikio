@@ -154,7 +154,6 @@ class defaults {
     // Determine the default value of `compat_mode`
     {
       _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
-      _compat_mode = infer_compat_mode_if_needed(_compat_mode);
     }
     // Determine the default value of `task_size`
     {
@@ -209,12 +208,7 @@ class defaults {
    *
    * @return Compatibility mode.
    */
-  [[nodiscard]] static CompatMode compat_mode()
-  {
-    auto res = instance()->_compat_mode;
-    assert(res == CompatMode::ON || res == CompatMode::OFF);
-    return res;
-  }
+  [[nodiscard]] static CompatMode compat_mode() { return instance()->_compat_mode; }
 
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`.
@@ -224,11 +218,7 @@ class defaults {
    *
    * @param compat_mode Compatibility mode.
    */
-  static void compat_mode_reset(CompatMode compat_mode)
-  {
-    compat_mode              = infer_compat_mode_if_needed(compat_mode);
-    instance()->_compat_mode = compat_mode;
-  }
+  static void compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
 
   /**
    * @brief If the requested compatibility mode is AUTO, set the actual compatibility mode to ON or
