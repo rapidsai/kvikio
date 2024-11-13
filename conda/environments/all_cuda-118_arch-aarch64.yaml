@@ -6,9 +6,10 @@ channels:
 - conda-forge
 - nvidia
 dependencies:
+- boto3>=1.21.21
 - c-compiler
 - cmake>=3.26.4,!=3.30.0
-- cuda-python>=11.7.1,<12.0a0
+- cuda-python>=11.7.1,<12.0a0,<=11.8.3
 - cuda-version=11.8
 - cudatoolkit
 - cupy>=12.0.0
@@ -18,12 +19,13 @@ dependencies:
 - doxygen=1.9.1
 - gcc_linux-aarch64=11.*
 - libcurl>=7.87.0
+- moto>=4.0.8
 - ninja
 - numcodecs !=0.12.0
 - numpy>=1.23,<3.0a0
 - numpydoc
 - nvcc_linux-aarch64=11.8
-- nvcomp==4.0.1
+- nvcomp==4.1.0.6
 - packaging
 - pre-commit
 - pytest

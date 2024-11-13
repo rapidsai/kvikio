@@ -211,7 +211,7 @@ std::size_t posix_device_io(int fd,
 template <PartialIO PartialIOStatus>
 std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t file_offset)
 {
-  KVIKIO_NVTX_FUNC_RANGE("posix_host_read()", size);
+  KVIKIO_NVTX_SCOPED_RANGE("posix_host_read()", size);
   return detail::posix_host_io<IOOperationType::READ, PartialIOStatus>(
     fd, buf, size, convert_size2off(file_offset));
 }
@@ -233,7 +233,7 @@ std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t fil
 template <PartialIO PartialIOStatus>
 std::size_t posix_host_write(int fd, const void* buf, std::size_t size, std::size_t file_offset)
 {
-  KVIKIO_NVTX_FUNC_RANGE("posix_host_write()", size);
+  KVIKIO_NVTX_SCOPED_RANGE("posix_host_write()", size);
   return detail::posix_host_io<IOOperationType::WRITE, PartialIOStatus>(
     fd, buf, size, convert_size2off(file_offset));
 }
@@ -257,7 +257,7 @@ inline std::size_t posix_device_read(int fd,
                                      std::size_t file_offset,
                                      std::size_t devPtr_offset)
 {
-  KVIKIO_NVTX_FUNC_RANGE("posix_device_read()", size);
+  KVIKIO_NVTX_SCOPED_RANGE("posix_device_read()", size);
   return detail::posix_device_io<IOOperationType::READ>(
     fd, devPtr_base, size, file_offset, devPtr_offset);
 }
@@ -281,7 +281,7 @@ inline std::size_t posix_device_write(int fd,
                                       std::size_t file_offset,
                                       std::size_t devPtr_offset)
 {
-  KVIKIO_NVTX_FUNC_RANGE("posix_device_write()", size);
+  KVIKIO_NVTX_SCOPED_RANGE("posix_device_write()", size);
   return detail::posix_device_io<IOOperationType::WRITE>(
     fd, devPtr_base, size, file_offset, devPtr_offset);
 }
