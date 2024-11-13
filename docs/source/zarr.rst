@@ -8,7 +8,7 @@ Zarr
 KvikIO provides a GPU backend to Zarr-Python that enables `GPUDirect Storage (GDS) <https://developer.nvidia.com/blog/gpudirect-storage/>`_ seamlessly.
 
 The following is an example of how to use the convenience function :py:meth:`kvikio.zarr.open_cupy_array`
-to create a new Zarr array and how open an existing Zarr array.
+to create a new Zarr array and how to open an existing Zarr array.
 
 
 .. literalinclude:: ../../python/kvikio/examples/zarr_cupy_nvcomp.py

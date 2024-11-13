@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -28,6 +28,4 @@ include(cmake/get_kvikio.cmake)
 
 add_executable(downstream_example downstream_example.cpp)
 
-# Notice, even though KvikIO is a header-only library, we link to it here. Linking to
-# `kvikio::kvikio` makes CMake include the headers of KvikIO when building.
 target_link_libraries(downstream_example PRIVATE kvikio::kvikio)
