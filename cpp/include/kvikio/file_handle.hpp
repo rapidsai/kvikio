@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <stdexcept>
 #include <system_error>
 #include <utility>
 
@@ -46,6 +47,7 @@ class FileHandle {
   int _fd_direct_on{-1};
   int _fd_direct_off{-1};
   bool _initialized{false};
+  CompatMode _compat_mode_requested{CompatMode::AUTO};
   CompatMode _compat_mode{CompatMode::AUTO};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUfileHandle_t _handle{};
@@ -68,7 +70,7 @@ class FileHandle {
    *   "a" -> "open for writing, appending to the end of file if it exists"
    *   "+" -> "open for updating (reading and writing)"
    * @param mode Access modes (see `open(2)`).
-   * @param compat_mode Enable KvikIO's compatibility mode for this file.
+   * @param compat_mode Set KvikIO's compatibility mode for this file.
    */
   FileHandle(const std::string& file_path,
              const std::string& flags = "r",
@@ -84,6 +86,7 @@ class FileHandle {
     : _fd_direct_on{std::exchange(o._fd_direct_on, -1)},
       _fd_direct_off{std::exchange(o._fd_direct_off, -1)},
       _initialized{std::exchange(o._initialized, false)},
+      _compat_mode_requested{std::exchange(o._compat_mode_requested, CompatMode::AUTO)},
       _compat_mode{std::exchange(o._compat_mode, CompatMode::AUTO)},
       _nbytes{std::exchange(o._nbytes, 0)},
       _handle{std::exchange(o._handle, CUfileHandle_t{})}
@@ -91,12 +94,13 @@ class FileHandle {
   }
   FileHandle& operator=(FileHandle&& o) noexcept
   {
-    _fd_direct_on  = std::exchange(o._fd_direct_on, -1);
-    _fd_direct_off = std::exchange(o._fd_direct_off, -1);
-    _initialized   = std::exchange(o._initialized, false);
-    _compat_mode   = std::exchange(o._compat_mode, CompatMode::AUTO);
-    _nbytes        = std::exchange(o._nbytes, 0);
-    _handle        = std::exchange(o._handle, CUfileHandle_t{});
+    _fd_direct_on          = std::exchange(o._fd_direct_on, -1);
+    _fd_direct_off         = std::exchange(o._fd_direct_off, -1);
+    _initialized           = std::exchange(o._initialized, false);
+    _compat_mode_requested = std::exchange(o._compat_mode_requested, CompatMode::AUTO);
+    _compat_mode           = std::exchange(o._compat_mode, CompatMode::AUTO);
+    _nbytes                = std::exchange(o._nbytes, 0);
+    _handle                = std::exchange(o._handle, CUfileHandle_t{});
     return *this;
   }
   ~FileHandle() noexcept { close(); }
@@ -111,7 +115,8 @@ class FileHandle {
     if (closed()) { return; }
 
     if (_compat_mode == CompatMode::OFF) { cuFileAPI::instance().HandleDeregister(_handle); }
-    _compat_mode = CompatMode::AUTO;
+    _compat_mode_requested = CompatMode::AUTO;
+    _compat_mode           = CompatMode::AUTO;
     ::close(_fd_direct_off);
     if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
     _fd_direct_on  = -1;
@@ -123,7 +128,7 @@ class FileHandle {
    * @brief Get the underlying cuFile file handle
    *
    * The file handle must be open and not in compatibility mode i.e.
-   * both `.closed()` and `.is_compat_mode_on()` must be return false.
+   * both `.closed()` and `.is_on()` must be return false.
    *
    * @return cuFile's file handle
    */
@@ -470,17 +475,36 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-    // When checking for availability, we also check if cuFile's config file exist. This is because
-    // even when the stream API is available, it doesn't work if no config file exist.
-    if (kvikio::is_batch_and_stream_available() && _compat_mode == CompatMode::OFF &&
-        !config_path().empty()) {
+    auto posix_fallback = [&] {
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      *bytes_read_p =
+        static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    };
+
+    if (_compat_mode == CompatMode::OFF) {
+      if (!kvikio::is_batch_and_stream_available()) {
+        if (_compat_mode_requested == CompatMode::AUTO) {
+          posix_fallback();
+          return;
+        }
+        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
+      }
+
+      // When checking for availability, we also check if cuFile's config file exist. This is
+      // because even when the stream API is available, it doesn't work if no config file exist.
+      if (config_path().empty()) {
+        if (_compat_mode_requested == CompatMode::AUTO) {
+          posix_fallback();
+          return;
+        }
+        throw std::runtime_error("Missing cuFile configuration file.");
+      }
+
       CUFILE_TRY(cuFileAPI::instance().ReadAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
-      return;
+    } else {
+      posix_fallback();
     }
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    *bytes_read_p =
-      static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   }
 
   /**
@@ -563,17 +587,36 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-    // When checking for availability, we also check if cuFile's config file exist. This is because
-    // even when the stream API is available, it doesn't work if no config file exist.
-    if (kvikio::is_batch_and_stream_available() && _compat_mode == CompatMode::OFF &&
-        !config_path().empty()) {
+    auto posix_fallback = [&] {
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      *bytes_written_p =
+        static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    };
+
+    if (_compat_mode == CompatMode::OFF) {
+      if (!kvikio::is_batch_and_stream_available()) {
+        if (_compat_mode_requested == CompatMode::AUTO) {
+          posix_fallback();
+          return;
+        }
+        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
+      }
+
+      // When checking for availability, we also check if cuFile's config file exist. This is
+      // because even when the stream API is available, it doesn't work if no config file exist.
+      if (config_path().empty()) {
+        if (_compat_mode_requested == CompatMode::AUTO) {
+          posix_fallback();
+          return;
+        }
+        throw std::runtime_error("Missing cuFile configuration file.");
+      }
+
       CUFILE_TRY(cuFileAPI::instance().WriteAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
-      return;
+    } else {
+      posix_fallback();
     }
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    *bytes_written_p =
-      static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   }
 
   /**

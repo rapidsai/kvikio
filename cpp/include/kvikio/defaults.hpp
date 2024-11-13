@@ -152,7 +152,7 @@ class defaults {
     // Determine the default value of `compat_mode`
     {
       _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
-      _compat_mode = infer_compat_mode_from_runtime_sys(_compat_mode);
+      _compat_mode = infer_compat_mode_if_needed(_compat_mode);
     }
     // Determine the default value of `task_size`
     {
@@ -224,7 +224,7 @@ class defaults {
    */
   static void compat_mode_reset(CompatMode compat_mode)
   {
-    compat_mode              = infer_compat_mode_from_runtime_sys(compat_mode);
+    compat_mode              = infer_compat_mode_if_needed(compat_mode);
     instance()->_compat_mode = compat_mode;
   }
 
@@ -234,7 +234,7 @@ class defaults {
    * reduces the requested compatibility mode from three possible states (ON/OFF/AUTO) to two
    * (ON/OFF) so as to determine the actual I/O path.
    */
-  static CompatMode infer_compat_mode_from_runtime_sys(CompatMode compat_mode)
+  static CompatMode infer_compat_mode_if_needed(CompatMode compat_mode)
   {
     if (compat_mode == CompatMode::AUTO) {
       if (is_cufile_available()) {
