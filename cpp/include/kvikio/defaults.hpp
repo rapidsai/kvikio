@@ -32,10 +32,12 @@ namespace kvikio {
  * @brief I/O compatibility mode.
  */
 enum class CompatMode : uint8_t {
-  OFF,  // Enforce cuFile I/O. Undefined behavior if this option is selected but the system does not
-        // support GDS: The program may error out, crash or hang on I/O operations.
-  ON,   // Enforce POSIX I/O.
-  AUTO,  // Use cuFile I/O, and fall back to the POSIX I/O if the system config check does not pass.
+  OFF,   // Enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met
+         // and cuFile is properly configured. However, if the system is not suited for cuFile, I/O
+         // operations under the OFF option may error out, crash or hang.
+  ON,    // Enforce POSIX I/O.
+  AUTO,  // Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile
+         // are not met.
 };
 
 namespace detail {
