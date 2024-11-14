@@ -16,7 +16,6 @@
 #pragma once
 
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <sstream>
@@ -224,7 +223,8 @@ class defaults {
    * @brief If the requested compatibility mode is AUTO, set the actual compatibility mode to ON or
    * OFF by performing a system config check; otherwise, do nothing. Effectively, this function
    * reduces the requested compatibility mode from three possible states (ON/OFF/AUTO) to two
-   * (ON/OFF) so as to determine the actual I/O path.
+   * (ON/OFF) so as to determine the actual I/O path. This function is lightweight as the inferred
+   * result is cached.
    */
   static CompatMode infer_compat_mode_if_auto(CompatMode compat_mode)
   {

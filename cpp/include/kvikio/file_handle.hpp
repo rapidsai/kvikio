@@ -126,7 +126,7 @@ class FileHandle {
    * @brief Get the underlying cuFile file handle
    *
    * The file handle must be open and not in compatibility mode i.e.
-   * both `.closed()` and `.is_on()` must be return false.
+   * both `.closed()` and `defaults::is_compat_mode_always_on()` must be return false.
    *
    * @return cuFile's file handle
    */
