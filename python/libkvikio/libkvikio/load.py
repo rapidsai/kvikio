@@ -16,30 +16,58 @@
 import ctypes
 import os
 
+# Loading with RTLD_LOCAL adds the library itself to the loader's
+# loaded library cache without loading any symbols into the global
+# namespace. This allows libraries that express a dependency on
+# this library to be loaded later and successfully satisfy this dependency
+# without polluting the global symbol table with symbols from
+# libkvikio that could conflict with symbols from other DSOs.
+PREFERRED_LOAD_FLAG = ctypes.RTLD_LOCAL
+
+
+def _load_system_installation(soname: str):
+    """Try to dlopen() the library indicated by ``soname``
+
+    Raises ``OSError`` if library cannot be loaded.
+    """
+    return ctypes.CDLL(soname, PREFERRED_LOAD_FLAG)
+
+
+def _load_wheel_installation(soname: str):
+    """Try to dlopen() the library indicated by ``soname``
+
+    Returns ``None`` if the library cannot be loaded.
+    """
+    if os.path.isfile(lib := os.path.join(os.path.dirname(__file__), "lib64", soname)):
+        return ctypes.CDLL(lib, PREFERRED_LOAD_FLAG)
+    return None
+
 
 def load_library():
-    # Dynamically load libkvikio.so. Prefer a system library if one is present to
-    # avoid clobbering symbols that other packages might expect, but if no
-    # other library is present use the one in the wheel.
+    """Dynamically load libkvikio.so and its dependencies"""
+    prefer_system_installation = (
+        os.getenv("RAPIDS_LIBKVIKIO_PREFER_SYSTEM_LIBRARY", "false").lower() != "false"
+    )
+
+    soname = "libkvikio.so"
     libkvikio_lib = None
-    try:
-        libkvikio_lib = ctypes.CDLL("libkvikio.so", ctypes.RTLD_GLOBAL)
-    except OSError:
-        # If neither of these directories contain the library, we assume we are in an
-        # environment where the C++ library is already installed somewhere else and the
-        # CMake build of the libkvikio Python package was a no-op.
-        #
-        # Note that this approach won't work for real editable installs of the libkvikio
-        # package. scikit-build-core has limited support for importlib.resources so
-        # there isn't a clean way to support that case yet.
-        for lib_dir in ("lib", "lib64"):
-            if os.path.isfile(
-                lib := os.path.join(os.path.dirname(__file__), lib_dir, "libkvikio.so")
-            ):
-                libkvikio_lib = ctypes.CDLL(lib, ctypes.RTLD_GLOBAL)
-                break
+    if prefer_system_installation:
+        # Prefer a system library if one is present to
+        # avoid clobbering symbols that other packages might expect, but if no
+        # other library is present use the one in the wheel.
+        try:
+            libkvikio_lib = _load_system_installation(soname)
+        except OSError:
+            libkvikio_lib = _load_wheel_installation(soname)
+    else:
+        # Prefer the libraries bundled in this package. If they aren't found
+        # (which might be the case in builds where the library was prebuilt
+        # before packaging the wheel), look for a system installation.
+        libkvikio_lib = _load_wheel_installation(soname)
+        if libkvikio_lib is None:
+            libkvikio_lib = _load_system_installation(soname)
 
     # The caller almost never needs to do anything with this library, but no
     # harm in offering the option since this object at least provides a handle
-    # to inspect where libkvikio was loaded from.
+    # to inspect where the libkvikio was loaded from.
     return libkvikio_lib
