@@ -661,11 +661,15 @@ class FileHandle {
    * @brief Returns `true` if the compatibility mode has been enabled for this file.
    *
    * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
-   * automatically, if file cannot be opened with the `O_DIRECT` flag.
+   * automatically, if file cannot be opened with the `O_DIRECT` flag, or if the system does not
+   * meet the requirements for the cuFile library under the `AUTO` compatibility mode.
    *
    * @return compatibility mode state for the object
    */
-  [[nodiscard]] bool is_compat_mode_on() const noexcept { return _compat_mode == CompatMode::ON; }
+  [[nodiscard]] bool is_compat_mode_always_on() const noexcept
+  {
+    return defaults::is_compat_mode_always_on(_compat_mode);
+  }
 };
 
 }  // namespace kvikio
