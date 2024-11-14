@@ -226,17 +226,60 @@ class defaults {
    * reduces the requested compatibility mode from three possible states (ON/OFF/AUTO) to two
    * (ON/OFF) so as to determine the actual I/O path.
    */
-  static CompatMode infer_compat_mode_if_needed(CompatMode compat_mode)
+  static CompatMode infer_compat_mode_if_auto(CompatMode compat_mode)
   {
     if (compat_mode == CompatMode::AUTO) {
-      if (is_cufile_available()) {
-        compat_mode = CompatMode::OFF;
-      } else {
-        compat_mode = CompatMode::ON;
-      }
+      static auto inferred_compat_mode_for_auto = []() -> CompatMode {
+        return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
+      }();
+      compat_mode = inferred_compat_mode_for_auto;
     }
     return compat_mode;
   }
+
+  /**
+   * @brief Given a compatibility mode, return true if it is ON, or it is AUTO but inferred to be
+   * ON.
+   *
+   * @param compat_mode Compatibility mode.
+   */
+  static bool is_compat_mode_always_on(CompatMode compat_mode)
+  {
+    if (compat_mode == CompatMode::ON ||
+        (compat_mode == CompatMode::AUTO &&
+         defaults::infer_compat_mode_if_auto(compat_mode) == CompatMode::ON)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * @brief For the global compatibility mode obtained from the class "defaults", return true if it
+   * is ON, or it is AUTO but inferred to be ON.
+   */
+  static bool is_compat_mode_always_on() { return is_compat_mode_always_on(compat_mode()); }
+
+  /**
+   * @brief Given a compatibility mode, return true if it is OFF, or it is AUTO but inferred to be
+   * OFF.
+   *
+   * @param compat_mode Compatibility mode.
+   */
+  static bool is_compat_mode_always_off(CompatMode compat_mode)
+  {
+    if (compat_mode == CompatMode::OFF ||
+        (compat_mode == CompatMode::AUTO &&
+         defaults::infer_compat_mode_if_auto(compat_mode) == CompatMode::OFF)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * @brief For the global compatibility mode obtained from the class "defaults", return true if it
+   * is OFF, or it is AUTO but inferred to be OFF.
+   */
+  static bool is_compat_mode_always_off() { return is_compat_mode_always_off(compat_mode()); }
 
   /**
    * @brief Get the default thread pool.

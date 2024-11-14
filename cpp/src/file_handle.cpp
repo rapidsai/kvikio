@@ -119,14 +119,12 @@ int open_fd(const std::string& file_path, const std::string& flags, bool o_direc
 FileHandle::FileHandle(const std::string& file_path,
                        const std::string& flags,
                        mode_t mode,
-                       CompatMode compat_mode_requested)
+                       CompatMode compat_mode)
   : _fd_direct_off{open_fd(file_path, flags, false, mode)},
     _initialized{true},
-    _compat_mode_requested{compat_mode_requested}
+    _compat_mode{compat_mode}
 {
-  _compat_mode = defaults::infer_compat_mode_if_needed(_compat_mode_requested);
-
-  if (_compat_mode == CompatMode::ON) {
+  if (defaults::is_compat_mode_always_on(_compat_mode)) {
     return;  // Nothing to do in compatibility mode
   }
 
@@ -140,7 +138,7 @@ FileHandle::FileHandle(const std::string& file_path,
   }
 
   // Create a cuFile handle, if not in compatibility mode
-  if (_compat_mode == CompatMode::OFF) {
+  if (defaults::is_compat_mode_always_off(_compat_mode)) {
     CUfileDescr_t desc{};  // It is important to set to zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
