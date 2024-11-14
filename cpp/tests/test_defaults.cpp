@@ -22,14 +22,16 @@
 TEST(Defaults, parse_compat_mode_str)
 {
   {
-    std::vector<std::string> inputs{"ON", "on", "On"};
+    std::vector<std::string> inputs{
+      "ON", "on", "On", "TRUE", "true", "True", "YES", "yes", "Yes", "1"};
     for (const auto& input : inputs) {
       EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::CompatMode::ON);
     }
   }
 
   {
-    std::vector<std::string> inputs{"OFF", "off", "oFf"};
+    std::vector<std::string> inputs{
+      "OFF", "off", "oFf", "FALSE", "false", "False", "NO", "no", "No", "0"};
     for (const auto& input : inputs) {
       EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::CompatMode::OFF);
     }
@@ -43,7 +45,7 @@ TEST(Defaults, parse_compat_mode_str)
   }
 
   {
-    std::vector<std::string> inputs{"", "invalidOption"};
+    std::vector<std::string> inputs{"", "invalidOption", "11", "*&^Yes"};
     for (const auto& input : inputs) {
       EXPECT_THROW(kvikio::detail::parse_compat_mode_str(input), std::invalid_argument);
     }

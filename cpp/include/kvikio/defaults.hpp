@@ -55,21 +55,19 @@ namespace detail {
 inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 {
   // Convert to lowercase
-  std::string compat_mode_lower{compat_mode_str};
-  std::transform(compat_mode_lower.begin(),
-                 compat_mode_lower.end(),
-                 compat_mode_lower.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
+  std::string tmp{compat_mode_str};
+  std::transform(
+    tmp.begin(), tmp.end(), tmp.begin(), [](unsigned char c) { return std::tolower(c); });
 
   CompatMode res{};
-  if (compat_mode_lower == "on") {
+  if (tmp == "on" || tmp == "true" || tmp == "yes" || tmp == "1") {
     res = CompatMode::ON;
-  } else if (compat_mode_lower == "off") {
+  } else if (tmp == "off" || tmp == "false" || tmp == "no" || tmp == "0") {
     res = CompatMode::OFF;
-  } else if (compat_mode_lower == "auto") {
+  } else if (tmp == "auto") {
     res = CompatMode::AUTO;
   } else {
-    throw std::invalid_argument("Unknown compatibility mode: " + std::string{compat_mode_str});
+    throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
   }
   return res;
 }
