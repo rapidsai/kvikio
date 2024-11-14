@@ -23,8 +23,8 @@
 #include <stdexcept>
 #include <system_error>
 
+#include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
-#include "kvikio/defaults.hpp"
 
 namespace kvikio {
 
