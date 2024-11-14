@@ -356,7 +356,7 @@ dependencies:
           - numpy>=1.23,<3.0a0
           - zarr
           # See https://github.com/zarr-developers/numcodecs/pull/475
-          - numcodecs>=0.13.0,<14
+          - numcodecs>=0.13.0,<0.14.0a0
           - packaging
   test_cpp:
     common:
