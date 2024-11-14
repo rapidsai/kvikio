@@ -66,6 +66,7 @@ endif()
 
 set(cuFile_FOUND 0)
 if(KvikIO_CUDA_SUPPORT)
+  set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules ${CMAKE_MODULE_PATH})
   rapids_find_package(
     CUDAToolkit REQUIRED
     BUILD_EXPORT_SET kvikio-exports
