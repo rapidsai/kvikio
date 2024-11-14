@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * @file
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -31,12 +36,12 @@ namespace kvikio {
  * @brief I/O compatibility mode.
  */
 enum class CompatMode : uint8_t {
-  OFF,   // Enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met
-         // and cuFile is properly configured. However, if the system is not suited for cuFile, I/O
-         // operations under the OFF option may error out, crash or hang.
-  ON,    // Enforce POSIX I/O.
-  AUTO,  // Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile
-         // are not met.
+  OFF,  ///< Enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met
+        ///< and cuFile is properly configured. However, if the system is not suited for cuFile, I/O
+        ///< operations under the OFF option may error out, crash or hang.
+  ON,   ///< Enforce POSIX I/O.
+  AUTO,  ///< Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile
+         ///< are not met.
 };
 
 namespace detail {
