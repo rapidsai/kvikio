@@ -104,6 +104,7 @@ jobs:
       build_command: |
         sccache -z;
         build-all --verbose;
+        python -c "import kvikio; print(kvikio.__version__)";
         sccache -s;
   wheel-cpp-build:
     secrets: inherit
