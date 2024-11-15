@@ -78,10 +78,10 @@ Then run the example:
 #### Compatibility Mode (KVIKIO_COMPAT_MODE)
 When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. Instead, reads and writes are done using POSIX. Notice, this is not the same as the compatibility mode in cuFile. It is possible that KvikIO performs I/O in the non-compatibility mode by using the cuFile library, but the cuFile library itself is configured to operate in its own compatibility mode. For more details, refer to [cuFile compatibility mode](https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html#cufile-compatibility-mode) and [cuFile environment variables](https://docs.nvidia.com/gpudirect-storage/troubleshooting-guide/index.html#environment-variables)
 
-The environment variable `KVIKIO_COMPAT_MODE` has three options:
-  - `ON`: Enable the compatibility mode.
-  - `OFF`: Disable the compatibility mode, and enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met and cuFile is properly configured. However, if the system is not suited for cuFile, I/O operations under the `OFF` option may error out, crash or hang.
-  - `AUTO` (default): Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile are not met.
+The environment variable `KVIKIO_COMPAT_MODE` has three options (case-insensitive):
+  - `ON` (aliases: `TRUE`, `YES`, `1`): Enable the compatibility mode.
+  - `OFF` (aliases: `FALSE`, `NO`, `0`): Disable the compatibility mode, and enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met and cuFile is properly configured. However, if the system is not suited for cuFile, I/O operations under the `OFF` option may error out, crash or hang.
+  - `AUTO` (default; alias: `WHATEVER`): Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile are not met.
 
 Under `AUTO`, KvikIO falls back to the compatibility mode:
   - when `libcufile.so` cannot be found.

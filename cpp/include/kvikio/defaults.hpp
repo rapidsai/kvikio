@@ -48,8 +48,8 @@ namespace detail {
 /**
  * @brief Parse a string into a CompatMode enum.
  *
- * @param compat_mode_str Compatibility mode in string format. Valid values include "ON", "OFF",
- * "AUTO" (case-insensitive).
+ * @param compat_mode_str Compatibility mode in string format. Valid values include "ON/TRUE/YES/1",
+ * "OFF/FALSE/NO/0", "AUTO/WHATEVER" (case-insensitive).
  * @return A CompatMode enum.
  */
 inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
@@ -64,7 +64,7 @@ inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
     res = CompatMode::ON;
   } else if (tmp == "off" || tmp == "false" || tmp == "no" || tmp == "0") {
     res = CompatMode::OFF;
-  } else if (tmp == "auto") {
+  } else if (tmp == "auto" || tmp == "whatever") {
     res = CompatMode::AUTO;
   } else {
     throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
