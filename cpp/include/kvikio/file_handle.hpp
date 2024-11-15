@@ -36,6 +36,38 @@
 
 namespace kvikio {
 
+namespace {
+/**
+ * @brief Given the requested compatibility mode, determine for asynchronous I/O if eventually
+ * cuFile or POSIX I/O will be used.
+ *
+ * @param compat_mode Requested compatibility mode.
+ * @return True if POSIX I/O fallback will be used; false for cuFile I/O.
+ * @exception std::runtime_error When the requested compatibility mode is OFF, but cuFile
+ * batch/stream library symbol is missing, or cuFile configuration file is missing.
+ */
+bool should_async_io_fall_back_to_posix(CompatMode requested_compat_mode)
+{
+  if (defaults::can_compat_mode_reduce_to_off(requested_compat_mode)) {
+    if (!kvikio::is_batch_and_stream_available()) {
+      if (requested_compat_mode == CompatMode::AUTO) { return true; }
+      throw std::runtime_error("Missing cuFile batch or stream library symbol.");
+    }
+
+    // When checking for availability, we also check if cuFile's config file exist. This is
+    // because even when the stream API is available, it doesn't work if no config file exist.
+    if (config_path().empty()) {
+      if (requested_compat_mode == CompatMode::AUTO) { return true; }
+      throw std::runtime_error("Missing cuFile configuration file.");
+    }
+
+    return false;
+  }
+
+  return true;
+}
+}  // namespace
+
 /**
  * @brief Handle of an open file registered with cufile.
  *
@@ -473,37 +505,14 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-    auto posix_fallback = [&] {
+    if (should_async_io_fall_back_to_posix(_compat_mode)) {
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       *bytes_read_p =
         static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-    };
-
-    if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
-      if (!kvikio::is_batch_and_stream_available()) {
-        if (_compat_mode == CompatMode::AUTO) {
-          posix_fallback();
-          return;
-        }
-        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
-      }
-
-      // When checking for availability, we also check if cuFile's config file exist. This is
-      // because even when the stream API is available, it doesn't work if no config file exist.
-      if (config_path().empty()) {
-        if (_compat_mode == CompatMode::AUTO) {
-          posix_fallback();
-          return;
-        }
-        throw std::runtime_error("Missing cuFile configuration file.");
-      }
-
+    } else {
       CUFILE_TRY(cuFileAPI::instance().ReadAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
-      return;
     }
-
-    posix_fallback();
   }
 
   /**
@@ -586,37 +595,14 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-    auto posix_fallback = [&] {
+    if (should_async_io_fall_back_to_posix(_compat_mode)) {
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       *bytes_written_p =
         static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-    };
-
-    if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
-      if (!kvikio::is_batch_and_stream_available()) {
-        if (_compat_mode == CompatMode::AUTO) {
-          posix_fallback();
-          return;
-        }
-        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
-      }
-
-      // When checking for availability, we also check if cuFile's config file exist. This is
-      // because even when the stream API is available, it doesn't work if no config file exist.
-      if (config_path().empty()) {
-        if (_compat_mode == CompatMode::AUTO) {
-          posix_fallback();
-          return;
-        }
-        throw std::runtime_error("Missing cuFile configuration file.");
-      }
-
+    } else {
       CUFILE_TRY(cuFileAPI::instance().WriteAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
-      return;
     }
-
-    posix_fallback();
   }
 
   /**
