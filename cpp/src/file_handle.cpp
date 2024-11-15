@@ -124,7 +124,7 @@ FileHandle::FileHandle(const std::string& file_path,
     _initialized{true},
     _compat_mode{compat_mode}
 {
-  if (defaults::is_compat_mode_always_on(_compat_mode)) {
+  if (defaults::can_compat_mode_reduce_to_on(_compat_mode)) {
     return;  // Nothing to do in compatibility mode
   }
 
@@ -138,7 +138,7 @@ FileHandle::FileHandle(const std::string& file_path,
   }
 
   // Create a cuFile handle, if not in compatibility mode
-  if (defaults::is_compat_mode_always_off(_compat_mode)) {
+  if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
     CUfileDescr_t desc{};  // It is important to set to zero!
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)

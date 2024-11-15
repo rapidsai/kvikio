@@ -246,7 +246,7 @@ class defaults {
    *
    * @param compat_mode Compatibility mode.
    */
-  static bool is_compat_mode_always_on(CompatMode compat_mode)
+  static bool can_compat_mode_reduce_to_on(CompatMode compat_mode)
   {
     if (compat_mode == CompatMode::ON ||
         (compat_mode == CompatMode::AUTO &&
@@ -260,7 +260,7 @@ class defaults {
    * @brief For the global compatibility mode obtained from the class "defaults", return true if it
    * is ON, or it is AUTO but inferred to be ON.
    */
-  static bool is_compat_mode_always_on() { return is_compat_mode_always_on(compat_mode()); }
+  static bool can_compat_mode_reduce_to_on() { return can_compat_mode_reduce_to_on(compat_mode()); }
 
   /**
    * @brief Given a compatibility mode, return true if it is OFF, or it is AUTO but inferred to be
@@ -268,7 +268,7 @@ class defaults {
    *
    * @param compat_mode Compatibility mode.
    */
-  static bool is_compat_mode_always_off(CompatMode compat_mode)
+  static bool can_compat_mode_reduce_to_off(CompatMode compat_mode)
   {
     if (compat_mode == CompatMode::OFF ||
         (compat_mode == CompatMode::AUTO &&
@@ -282,7 +282,10 @@ class defaults {
    * @brief For the global compatibility mode obtained from the class "defaults", return true if it
    * is OFF, or it is AUTO but inferred to be OFF.
    */
-  static bool is_compat_mode_always_off() { return is_compat_mode_always_off(compat_mode()); }
+  static bool can_compat_mode_reduce_to_off()
+  {
+    return can_compat_mode_reduce_to_off(compat_mode());
+  }
 
   /**
    * @brief Get the default thread pool.

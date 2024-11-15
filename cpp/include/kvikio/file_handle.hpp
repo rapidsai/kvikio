@@ -111,7 +111,7 @@ class FileHandle {
   {
     if (closed()) { return; }
 
-    if (defaults::is_compat_mode_always_off(_compat_mode)) {
+    if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
       cuFileAPI::instance().HandleDeregister(_handle);
     }
     _compat_mode = CompatMode::AUTO;
@@ -126,14 +126,14 @@ class FileHandle {
    * @brief Get the underlying cuFile file handle
    *
    * The file handle must be open and not in compatibility mode i.e.
-   * both `.closed()` and `defaults::is_compat_mode_always_on()` must be return false.
+   * both `.closed()` and `defaults::can_compat_mode_reduce_to_on()` must be return false.
    *
    * @return cuFile's file handle
    */
   [[nodiscard]] CUfileHandle_t handle()
   {
     if (closed()) { throw CUfileException("File handle is closed"); }
-    if (defaults::is_compat_mode_always_on(_compat_mode)) {
+    if (defaults::can_compat_mode_reduce_to_on(_compat_mode)) {
       throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
     }
     return _handle;
@@ -206,7 +206,7 @@ class FileHandle {
                    std::size_t devPtr_offset,
                    bool sync_default_stream = true)
   {
-    if (defaults::is_compat_mode_always_on(_compat_mode)) {
+    if (defaults::can_compat_mode_reduce_to_on(_compat_mode)) {
       return detail::posix_device_read(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -258,7 +258,7 @@ class FileHandle {
   {
     _nbytes = 0;  // Invalidate the computed file size
 
-    if (defaults::is_compat_mode_always_on(_compat_mode)) {
+    if (defaults::can_compat_mode_reduce_to_on(_compat_mode)) {
       return detail::posix_device_write(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -337,7 +337,7 @@ class FileHandle {
     }
 
     // Let's synchronize once instead of in each task.
-    if (sync_default_stream && defaults::is_compat_mode_always_off(_compat_mode)) {
+    if (sync_default_stream && defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
       PushAndPopContext c(ctx);
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
@@ -414,7 +414,7 @@ class FileHandle {
     }
 
     // Let's synchronize once instead of in each task.
-    if (sync_default_stream && defaults::is_compat_mode_always_off(_compat_mode)) {
+    if (sync_default_stream && defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
       PushAndPopContext c(ctx);
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
@@ -479,7 +479,7 @@ class FileHandle {
         static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
     };
 
-    if (defaults::is_compat_mode_always_off(_compat_mode)) {
+    if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
       if (!kvikio::is_batch_and_stream_available()) {
         if (_compat_mode == CompatMode::AUTO) {
           posix_fallback();
@@ -592,7 +592,7 @@ class FileHandle {
         static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
     };
 
-    if (defaults::is_compat_mode_always_off(_compat_mode)) {
+    if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
       if (!kvikio::is_batch_and_stream_available()) {
         if (_compat_mode == CompatMode::AUTO) {
           posix_fallback();
@@ -666,9 +666,9 @@ class FileHandle {
    *
    * @return compatibility mode state for the object
    */
-  [[nodiscard]] bool is_compat_mode_always_on() const noexcept
+  [[nodiscard]] bool can_compat_mode_reduce_to_on() const noexcept
   {
-    return defaults::is_compat_mode_always_on(_compat_mode);
+    return defaults::can_compat_mode_reduce_to_on(_compat_mode);
   }
 };
 
