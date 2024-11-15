@@ -27,7 +27,6 @@
 #include <kvikio/buffer.hpp>
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
-#include <kvikio/detail/io_operation.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
@@ -51,58 +50,6 @@ class FileHandle {
   CompatMode _compat_mode{CompatMode::AUTO};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUfileHandle_t _handle{};
-
-  template <detail::IOOperationType Operation>
-  void handle_async_io(void* devPtr_base,
-                       std::size_t* size_p,
-                       off_t* file_offset_p,
-                       off_t* devPtr_offset_p,
-                       ssize_t* bytes_done_p,
-                       CUstream stream)
-  {
-    auto posix_fallback = [&] {
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-      if constexpr (Operation == detail::IOOperationType::READ) {
-        *bytes_done_p =
-          static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-      } else {
-        *bytes_done_p =
-          static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-      }
-    };
-
-    if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
-      if (!kvikio::is_batch_and_stream_available()) {
-        if (_compat_mode == CompatMode::AUTO) {
-          posix_fallback();
-          return;
-        }
-        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
-      }
-
-      // When checking for availability, we also check if cuFile's config file exist. This is
-      // because even when the stream API is available, it doesn't work if no config file exist.
-      if (config_path().empty()) {
-        if (_compat_mode == CompatMode::AUTO) {
-          posix_fallback();
-          return;
-        }
-        throw std::runtime_error("Missing cuFile configuration file.");
-      }
-
-      if constexpr (Operation == detail::IOOperationType::READ) {
-        CUFILE_TRY(cuFileAPI::instance().ReadAsync(
-          _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_done_p, stream));
-      } else {
-        CUFILE_TRY(cuFileAPI::instance().WriteAsync(
-          _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_done_p, stream));
-      }
-
-      return;
-    }
-
-    posix_fallback();
-  }
 
  public:
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
@@ -526,8 +473,37 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-    handle_async_io<detail::IOOperationType::READ>(
-      devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream);
+    auto posix_fallback = [&] {
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      *bytes_read_p =
+        static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    };
+
+    if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
+      if (!kvikio::is_batch_and_stream_available()) {
+        if (_compat_mode == CompatMode::AUTO) {
+          posix_fallback();
+          return;
+        }
+        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
+      }
+
+      // When checking for availability, we also check if cuFile's config file exist. This is
+      // because even when the stream API is available, it doesn't work if no config file exist.
+      if (config_path().empty()) {
+        if (_compat_mode == CompatMode::AUTO) {
+          posix_fallback();
+          return;
+        }
+        throw std::runtime_error("Missing cuFile configuration file.");
+      }
+
+      CUFILE_TRY(cuFileAPI::instance().ReadAsync(
+        _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
+      return;
+    }
+
+    posix_fallback();
   }
 
   /**
@@ -610,8 +586,37 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-    handle_async_io<detail::IOOperationType::WRITE>(
-      devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream);
+    auto posix_fallback = [&] {
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      *bytes_written_p =
+        static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    };
+
+    if (defaults::can_compat_mode_reduce_to_off(_compat_mode)) {
+      if (!kvikio::is_batch_and_stream_available()) {
+        if (_compat_mode == CompatMode::AUTO) {
+          posix_fallback();
+          return;
+        }
+        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
+      }
+
+      // When checking for availability, we also check if cuFile's config file exist. This is
+      // because even when the stream API is available, it doesn't work if no config file exist.
+      if (config_path().empty()) {
+        if (_compat_mode == CompatMode::AUTO) {
+          posix_fallback();
+          return;
+        }
+        throw std::runtime_error("Missing cuFile configuration file.");
+      }
+
+      CUFILE_TRY(cuFileAPI::instance().WriteAsync(
+        _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
+      return;
+    }
+
+    posix_fallback();
   }
 
   /**

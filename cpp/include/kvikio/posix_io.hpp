@@ -22,12 +22,20 @@
 #include <thread>
 
 #include <kvikio/bounce_buffer.hpp>
-#include <kvikio/detail/io_operation.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio::detail {
+
+/**
+ * @brief Type of the IO operation.
+ */
+enum class IOOperationType : uint8_t {
+  READ,   ///< POSIX read.
+  WRITE,  ///< POSIX write.
+};
+
 /**
  * @brief Specifies whether all requested bytes are to be processed or not.
  */
