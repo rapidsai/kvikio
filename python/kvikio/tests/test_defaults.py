@@ -19,6 +19,8 @@ def test_compat_mode():
         assert kvikio.defaults.compat_mode() == kvikio.CompatMode.ON
         kvikio.defaults.compat_mode_reset(kvikio.CompatMode.OFF)
         assert kvikio.defaults.compat_mode() == kvikio.CompatMode.OFF
+        kvikio.defaults.compat_mode_reset(kvikio.CompatMode.AUTO)
+        assert kvikio.defaults.compat_mode() == kvikio.CompatMode.AUTO
     assert before == kvikio.defaults.compat_mode()
 
 

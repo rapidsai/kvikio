@@ -235,7 +235,7 @@ class defaults {
       static auto inferred_compat_mode_for_auto = []() -> CompatMode {
         return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
       }();
-      compat_mode = inferred_compat_mode_for_auto;
+      return inferred_compat_mode_for_auto;
     }
     return compat_mode;
   }
