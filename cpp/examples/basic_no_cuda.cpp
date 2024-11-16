@@ -41,7 +41,7 @@ constexpr int LARGE_SIZE = 8 * SIZE;             // LARGE SIZE to test partial s
 int main()
 {
   cout << "KvikIO defaults: " << endl;
-  if (kvikio::defaults::can_compat_mode_reduce_to_on()) {
+  if (kvikio::defaults::is_compat_mode_expected()) {
     cout << "  Compatibility mode: enabled" << endl;
   } else {
     kvikio::DriverInitializer manual_init_driver;

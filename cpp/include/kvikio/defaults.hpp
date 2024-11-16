@@ -246,7 +246,7 @@ class defaults {
    *
    * @param compat_mode Compatibility mode.
    */
-  static bool can_compat_mode_reduce_to_on(CompatMode compat_mode)
+  static bool is_compat_mode_expected(CompatMode compat_mode)
   {
     if (compat_mode == CompatMode::ON ||
         (compat_mode == CompatMode::AUTO &&
@@ -257,35 +257,16 @@ class defaults {
   }
 
   /**
-   * @brief For the global compatibility mode obtained from the class "defaults", return true if it
-   * is ON, or it is AUTO but inferred to be ON.
+   * @brief Whether the global compatibility mode from class defaults is expected to be enabled.
+   * This function returns true if any of the two condition is satisfied:
+   * - The compatibility mode is ON.
+   * - It is AUTO but inferred to be ON.
+   * Conceptually, the opposite of this function is whether the global compatibility mode is
+   * expected to be disabled, which would occur if any of the two condition is satisfied:
+   * - The compatibility mode is OFF.
+   * - It is AUTO but inferred to be OFF.
    */
-  static bool can_compat_mode_reduce_to_on() { return can_compat_mode_reduce_to_on(compat_mode()); }
-
-  /**
-   * @brief Given a compatibility mode, return true if it is OFF, or it is AUTO but inferred to be
-   * OFF.
-   *
-   * @param compat_mode Compatibility mode.
-   */
-  static bool can_compat_mode_reduce_to_off(CompatMode compat_mode)
-  {
-    if (compat_mode == CompatMode::OFF ||
-        (compat_mode == CompatMode::AUTO &&
-         defaults::infer_compat_mode_if_auto(compat_mode) == CompatMode::OFF)) {
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * @brief For the global compatibility mode obtained from the class "defaults", return true if it
-   * is OFF, or it is AUTO but inferred to be OFF.
-   */
-  static bool can_compat_mode_reduce_to_off()
-  {
-    return can_compat_mode_reduce_to_off(compat_mode());
-  }
+  static bool is_compat_mode_expected() { return is_compat_mode_expected(compat_mode()); }
 
   /**
    * @brief Get the default thread pool.
