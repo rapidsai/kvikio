@@ -52,12 +52,12 @@ class FileHandle {
   CUfileHandle_t _handle{};
 
   /**
-   * @brief Given a requested compatibility mode, whether it is expected to reduce to ON for
+   * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON` for
    * asynchronous I/O.
    *
    * @param requested_compat_mode Requested compatibility mode.
    * @return True if POSIX I/O fallback will be used; false for cuFile I/O.
-   * @exception std::runtime_error When the requested compatibility mode is OFF, but cuFile
+   * @exception std::runtime_error When the requested compatibility mode is `OFF`, but cuFile
    * batch/stream library symbol is missing, or cuFile configuration file is missing.
    */
   bool is_compat_mode_expected_for_async(CompatMode requested_compat_mode)
@@ -132,6 +132,11 @@ class FileHandle {
   }
   ~FileHandle() noexcept { close(); }
 
+  /**
+   * @brief Whether the file is closed according to its initialization status.
+   *
+   * @return Boolean answer.
+   */
   [[nodiscard]] bool closed() const noexcept { return !_initialized; }
 
   /**
@@ -154,7 +159,7 @@ class FileHandle {
    * @brief Get the underlying cuFile file handle
    *
    * The file handle must be open and not in compatibility mode i.e.
-   * both `.closed()` and `is_compat_mode_expected()` must be false.
+   * both `closed()` and `is_compat_mode_expected()` must be false.
    *
    * @return cuFile's file handle
    */
@@ -640,7 +645,7 @@ class FileHandle {
   }
 
   /**
-   * @brief Returns `true` if the compatibility mode is expected to be ON for this file.
+   * @brief Returns `true` if the compatibility mode is expected to be `ON` for this file.
    *
    * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
    * automatically, if file cannot be opened with the `O_DIRECT` flag, or if the system does not
@@ -654,12 +659,12 @@ class FileHandle {
   }
 
   /**
-   * @brief Returns `true` if the compatibility mode is expected to be ON for the asynchronous I/O
+   * @brief Returns `true` if the compatibility mode is expected to be `ON` for the asynchronous I/O
    * on this file.
    *
    * For asynchronous I/O, the compatibility mode can be automatically enabled if the cuFile batch
    * and stream symbols are missing, or if the cuFile configuration file is missing, or if
-   * `is_compat_mode_expected` returns true.
+   * `is_compat_mode_expected()` returns true.
    *
    * @return Boolean answer.
    */

@@ -48,8 +48,11 @@ namespace detail {
 /**
  * @brief Parse a string into a CompatMode enum.
  *
- * @param compat_mode_str Compatibility mode in string format. Valid values include "ON/TRUE/YES/1",
- * "OFF/FALSE/NO/0", "AUTO/WHATEVER" (case-insensitive).
+ * @param compat_mode_str Compatibility mode in string format(case-insensitive). Valid values
+ * include:
+ *   - `ON` (alias: `TRUE`, `YES`, `1`)
+ *   - `OFF` (alias: `FALSE`, `NO`, `0`)
+ *   - `AUTO` (alias: `WHATEVER`)
  * @return A CompatMode enum.
  */
 inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
@@ -223,11 +226,13 @@ class defaults {
   static void compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
 
   /**
-   * @brief If the requested compatibility mode is AUTO, set the expected compatibility mode to ON
-   * or OFF by performing a system config check; otherwise, do nothing. Effectively, this function
-   * reduces the requested compatibility mode from three possible states (ON/OFF/AUTO) to two
-   * (ON/OFF) so as to determine the actual I/O path. This function is lightweight as the inferred
-   * result is cached.
+   * @brief Infer the `AUTO` compatibility mode from the system runtime.
+   *
+   * If the requested compatibility mode is `AUTO`, set the expected compatibility mode to
+   * `ON` or `OFF` by performing a system config check; otherwise, do nothing. Effectively, this
+   * function reduces the requested compatibility mode from three possible states
+   * (`ON`/`OFF`/`AUTO`) to two (`ON`/`OFF`) so as to determine the actual I/O path. This function
+   * is lightweight as the inferred result is cached.
    */
   static CompatMode infer_compat_mode_if_auto(CompatMode compat_mode)
   {
@@ -241,14 +246,16 @@ class defaults {
   }
 
   /**
-   * @brief Given a requested compatibility mode, whether it is expected to reduce to ON.
+   * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON`.
+   *
    * This function returns true if any of the two condition is satisfied:
-   * - The compatibility mode is ON.
-   * - It is AUTO but inferred to be ON.
+   *   - The compatibility mode is `ON`.
+   *   - It is `AUTO` but inferred to be `ON`.
+   *
    * Conceptually, the opposite of this function is whether requested compatibility mode is expected
-   * to be OFF, which would occur if any of the two condition is satisfied:
-   * - The compatibility mode is OFF.
-   * - It is AUTO but inferred to be OFF.
+   * to be `OFF`, which would occur if any of the two condition is satisfied:
+   *   - The compatibility mode is `OFF`.
+   *   - It is `AUTO` but inferred to be `OFF`.
    *
    * @param compat_mode Compatibility mode.
    * @return Boolean answer.
@@ -264,14 +271,16 @@ class defaults {
   }
 
   /**
-   * @brief Whether the global compatibility mode from class defaults is expected to be ON.
+   * @brief Whether the global compatibility mode from class defaults is expected to be `ON`.
+   *
    * This function returns true if any of the two condition is satisfied:
-   * - The compatibility mode is ON.
-   * - It is AUTO but inferred to be ON.
+   *   - The compatibility mode is `ON`.
+   *   - It is `AUTO` but inferred to be `ON`.
+   *
    * Conceptually, the opposite of this function is whether the global compatibility mode is
-   * expected to be OFF, which would occur if any of the two condition is satisfied:
-   * - The compatibility mode is OFF.
-   * - It is AUTO but inferred to be OFF.
+   * expected to be `OFF`, which would occur if any of the two condition is satisfied:
+   *   - The compatibility mode is `OFF`.
+   *   - It is `AUTO` but inferred to be `OFF`.
    *
    * @return Boolean answer.
    */
