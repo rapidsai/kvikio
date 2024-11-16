@@ -150,7 +150,7 @@ class CurlHandle {
   /**
    * @brief Construct a new curl handle.
    *
-   * Typically, do not use this directly instead use the `create_curl_handle()` macro.
+   * Typically, do not call this directly instead use the `create_curl_handle()` macro.
    *
    * @param handle An unused curl easy handle pointer, which is retained on destruction.
    * @param source_file Path of source file of the caller (for error messages).
@@ -166,6 +166,7 @@ class CurlHandle {
     setopt(CURLOPT_NOSIGNAL, 1L);
 
     // We always set CURLOPT_ERRORBUFFER to get better error messages.
+    _errbuf[0] = 0;  // Set the error buffer as empty.
     setopt(CURLOPT_ERRORBUFFER, _errbuf);
 
     // Make curl_easy_perform() fail when receiving HTTP code errors.
@@ -216,7 +217,7 @@ class CurlHandle {
     // Perform the curl operation and check for errors.
     CURLcode err = curl_easy_perform(handle());
     if (err != CURLE_OK) {
-      std::string msg(_errbuf);
+      std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
       std::stringstream ss;
       ss << "curl_easy_perform() error near " << _source_file << ":" << _source_line;
       if (msg.empty()) {
@@ -249,12 +250,36 @@ class CurlHandle {
   }
 };
 
+namespace detail {
+/**
+ * @brief Fix Conda's manipulation of __FILE__.
+ *
+ * Conda manipulates the path information in its shared libraries[1] with the results that the
+ * C macro `__FILE__` might contain trailing `\0` chars. Normally, this isn't a problem because
+ * `__FILE__` is a `const char*` that are terminated by the first encounter of `\0`. However, when
+ * creating a `std::string` from a `char*`, the compiler might optimize the code such that the
+ * `std::string` is created from the full size of `__FILE__` including the trailing `\0` chars.
+ *
+ * The extra `\0` is problematic if `CurlHandle` later throws an exception to Cython since, while
+ * converting the exception to Python, Cython might truncate the error message.
+ *
+ * [1] <https://docs.conda.io/projects/conda-build/en/latest/resources/make-relocatable.html>
+ */
+__attribute__((noinline)) inline std::string fix_conda_file_path_hack(std::string filename)
+{
+  if (filename.data() != nullptr) { return std::string{filename.data()}; }
+  return std::string{};
+}
+}  // namespace detail
+
 /**
  * @brief Create a new curl handle.
  *
  * @returns A `kvikio::CurlHandle` instance ready to be used.
  */
-#define create_curl_handle() \
-  kvikio::CurlHandle(kvikio::LibCurl::instance().get_handle(), __FILE__, KVIKIO_STRINGIFY(__LINE__))
+#define create_curl_handle()                                             \
+  kvikio::CurlHandle(kvikio::LibCurl::instance().get_handle(),           \
+                     kvikio::detail::fix_conda_file_path_hack(__FILE__), \
+                     KVIKIO_STRINGIFY(__LINE__))
 
 }  // namespace kvikio

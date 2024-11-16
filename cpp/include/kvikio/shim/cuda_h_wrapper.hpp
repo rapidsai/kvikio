@@ -27,13 +27,24 @@
 #else
 
 // If CUDA isn't defined, we define some of the data types here.
-// Notice, this doesn't need to be ABI compatible with the CUDA definitions.
+// Notice, the functions and constant values don't need to match the CUDA
+// definitions, but the types *do*, since downstream libraries dlsym()-ing
+// the symbols at runtime rely on accurate type definitions. If we mismatch
+// here, then those libraries will get "mismatched type alias redefinition"
+// errors when they include our headers.
 
-using CUresult    = int;
+#if defined(_WIN64) || defined(__LP64__)
+// Don't use uint64_t, we want to match the driver headers exactly
 using CUdeviceptr = unsigned long long;
-using CUdevice    = int;
-using CUcontext   = void*;
-using CUstream    = void*;
+#else
+using CUdeviceptr = unsigned int;
+#endif
+static_assert(sizeof(CUdeviceptr) == sizeof(void*));
+
+using CUresult  = int;
+using CUdevice  = int;
+using CUcontext = struct CUctx_st*;
+using CUstream  = struct CUstream_st*;
 
 #define CUDA_ERROR_STUB_LIBRARY             0
 #define CUDA_SUCCESS                        0

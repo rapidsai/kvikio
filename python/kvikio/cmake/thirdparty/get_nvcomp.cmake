@@ -18,7 +18,11 @@ set(KVIKIO_USE_PROPRIETARY_BINARY ON)
 function(find_and_configure_nvcomp)
 
   include(${rapids-cmake-dir}/cpm/nvcomp.cmake)
-  rapids_cpm_nvcomp(USE_PROPRIETARY_BINARY ${KVIKIO_USE_PROPRIETARY_BINARY})
+  set(export_args)
+  if(KvikIO_EXPORT_NVCOMP)
+    set(export_args BUILD_EXPORT_SET kvikio-exports INSTALL_EXPORT_SET kvikio-exports)
+  endif()
+  rapids_cpm_nvcomp(${export_args} USE_PROPRIETARY_BINARY ${KVIKIO_USE_PROPRIETARY_BINARY})
 
   # Per-thread default stream
   if(TARGET nvcomp AND PER_THREAD_DEFAULT_STREAM)

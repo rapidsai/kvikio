@@ -15,22 +15,16 @@
  */
 #pragma once
 
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
-#include <numeric>
-#include <optional>
-#include <stdexcept>
 #include <system_error>
 #include <utility>
 
 #include <kvikio/buffer.hpp>
-#include <kvikio/cufile_config.hpp>
+#include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
@@ -40,96 +34,6 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-namespace detail {
-
-/**
- * @brief Parse open file flags given as a string and return oflags
- *
- * @param flags The flags
- * @param o_direct Append O_DIRECT to the open flags
- * @return oflags
- *
- * @throw std::invalid_argument if the specified flags are not supported.
- * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
- */
-inline int open_fd_parse_flags(const std::string& flags, bool o_direct)
-{
-  int file_flags = -1;
-  if (flags.empty()) { throw std::invalid_argument("Unknown file open flag"); }
-  switch (flags[0]) {
-    case 'r':
-      file_flags = O_RDONLY;
-      if (flags[1] == '+') { file_flags = O_RDWR; }
-      break;
-    case 'w':
-      file_flags = O_WRONLY;
-      if (flags[1] == '+') { file_flags = O_RDWR; }
-      file_flags |= O_CREAT | O_TRUNC;
-      break;
-    case 'a': throw std::invalid_argument("Open flag 'a' isn't supported");
-    default: throw std::invalid_argument("Unknown file open flag");
-  }
-  file_flags |= O_CLOEXEC;
-  if (o_direct) {
-#if defined(O_DIRECT)
-    file_flags |= O_DIRECT;
-#else
-    throw std::invalid_argument("'o_direct' flag unsupported on this platform");
-#endif
-  }
-  return file_flags;
-}
-
-/**
- * @brief Open file using `open(2)`
- *
- * @param flags Open flags given as a string
- * @param o_direct Append O_DIRECT to `flags`
- * @param mode Access modes
- * @return File descriptor
- */
-inline int open_fd(const std::string& file_path,
-                   const std::string& flags,
-                   bool o_direct,
-                   mode_t mode)
-{
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-  int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
-  if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
-  return fd;
-}
-
-/**
- * @brief Get the flags of the file descriptor (see `open(2)`)
- *
- * @return Open flags
- */
-[[nodiscard]] inline int open_flags(int fd)
-{
-  int ret = fcntl(fd, F_GETFL);  // NOLINT(cppcoreguidelines-pro-type-vararg)
-  if (ret == -1) {
-    throw std::system_error(errno, std::generic_category(), "Unable to retrieve open flags");
-  }
-  return ret;
-}
-
-/**
- * @brief Get file size from file descriptor `fstat(3)`
- *
- * @param file_descriptor Open file descriptor
- * @return The number of bytes
- */
-[[nodiscard]] inline std::size_t get_file_size(int file_descriptor)
-{
-  struct stat st {};
-  int ret = fstat(file_descriptor, &st);
-  if (ret == -1) {
-    throw std::system_error(errno, std::generic_category(), "Unable to query file size");
-  }
-  return static_cast<std::size_t>(st.st_size);
-}
-
-}  // namespace detail
 
 /**
  * @brief Handle of an open file registered with cufile.
@@ -169,33 +73,7 @@ class FileHandle {
   FileHandle(const std::string& file_path,
              const std::string& flags = "r",
              mode_t mode              = m644,
-             bool compat_mode         = defaults::compat_mode())
-    : _fd_direct_off{detail::open_fd(file_path, flags, false, mode)},
-      _initialized{true},
-      _compat_mode{compat_mode}
-  {
-    if (_compat_mode) {
-      return;  // Nothing to do in compatibility mode
-    }
-
-    // Try to open the file with the O_DIRECT flag. Fall back to compatibility mode, if it fails.
-    try {
-      _fd_direct_on = detail::open_fd(file_path, flags, true, mode);
-    } catch (const std::system_error&) {
-      _compat_mode = true;
-    } catch (const std::invalid_argument&) {
-      _compat_mode = true;
-    }
-
-    // Create a cuFile handle, if not in compatibility mode
-    if (!_compat_mode) {
-      CUfileDescr_t desc{};  // It is important to set to zero!
-      desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-      desc.handle.fd = _fd_direct_on;
-      CUFILE_TRY(cuFileAPI::instance().HandleRegister(&_handle, &desc));
-    }
-  }
+             bool compat_mode         = defaults::compat_mode());
 
   /**
    * @brief FileHandle support move semantic but isn't copyable
@@ -277,7 +155,7 @@ class FileHandle {
    *
    * @return File descriptor
    */
-  [[nodiscard]] int fd_open_flags() const { return detail::open_flags(_fd_direct_off); }
+  [[nodiscard]] int fd_open_flags() const;
 
   /**
    * @brief Get the file size
@@ -286,12 +164,7 @@ class FileHandle {
    *
    * @return The number of bytes
    */
-  [[nodiscard]] std::size_t nbytes() const
-  {
-    if (closed()) { return 0; }
-    if (_nbytes == 0) { _nbytes = detail::get_file_size(_fd_direct_off); }
-    return _nbytes;
-  }
+  [[nodiscard]] std::size_t nbytes() const;
 
   /**
    * @brief Reads specified bytes from the file into the device memory.
@@ -335,7 +208,7 @@ class FileHandle {
     }
     if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
-    KVIKIO_NVTX_FUNC_RANGE("cufileRead()", size);
+    KVIKIO_NVTX_SCOPED_RANGE("cufileRead()", size);
     ssize_t ret = cuFileAPI::instance().Read(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     CUFILE_CHECK_BYTES_DONE(ret);
@@ -387,7 +260,7 @@ class FileHandle {
     }
     if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
-    KVIKIO_NVTX_FUNC_RANGE("cufileWrite()", size);
+    KVIKIO_NVTX_SCOPED_RANGE("cufileWrite()", size);
     ssize_t ret = cuFileAPI::instance().Write(
       _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
     if (ret == -1) {
@@ -434,6 +307,7 @@ class FileHandle {
                                  std::size_t gds_threshold = defaults::gds_threshold(),
                                  bool sync_default_stream  = true)
   {
+    KVIKIO_NVTX_MARKER("FileHandle::pread()", size);
     if (is_host_memory(buf)) {
       auto op = [this](void* hostPtr_base,
                        std::size_t size,
@@ -510,6 +384,7 @@ class FileHandle {
                                   std::size_t gds_threshold = defaults::gds_threshold(),
                                   bool sync_default_stream  = true)
   {
+    KVIKIO_NVTX_MARKER("FileHandle::pwrite()", size);
     if (is_host_memory(buf)) {
       auto op = [this](const void* hostPtr_base,
                        std::size_t size,
