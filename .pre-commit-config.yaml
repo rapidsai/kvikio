@@ -62,6 +62,10 @@ repos:
           - cmakelang==0.6.13
         verbose: true
         require_serial: true
+        exclude: |
+          (?x)^(
+            cpp/cmake/Modules/FindCUDAToolkit[.]cmake$
+          )
       - id: cmake-lint
         name: cmake-lint
         entry: ./cpp/scripts/run-cmake-format.sh cmake-lint
@@ -73,6 +77,10 @@ repos:
           - cmakelang==0.6.13
         verbose: true
         require_serial: true
+        exclude: |
+          (?x)^(
+            cpp/cmake/Modules/FindCUDAToolkit[.]cmake$
+          )
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.4
     hooks:
@@ -90,6 +98,10 @@ repos:
               [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
               CMakeLists[.]txt$|
               meta[.]yaml$
+        exclude: |
+          (?x)^(
+            cpp/cmake/Modules/FindCUDAToolkit[.]cmake$
+          )
       - id: verify-alpha-spec
   - repo: https://github.com/rapidsai/dependency-file-generator
     rev: v1.16.0
