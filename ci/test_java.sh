@@ -34,11 +34,13 @@ EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
+# CI/CD machines don't support running GDS, so the test will only make sure the library builds for now
 rapids-logger "Run Java tests"
-mkdir /mnt/nvme
-touch /mnt/nvme/java_test
+mkdir -p /mnt/nvme
+rm -f /mnt/nvme/java_test
+touch -f /mnt/nvme/java_test
 pushd java
-mvn test -B
+mvn clean install -DskipTests
 popd
 
 rapids-logger "Test script exiting with value: $EXITCODE"

@@ -18,7 +18,8 @@ package ai.rapids.kvikio.cufile;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
+import java.io.File;
+import java.io.IOException;
 
 import jcuda.Pointer;
 import jcuda.Sizeof;
@@ -32,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class BasicReadWriteTest {
 
     @Test
-    public void testReadBackWrite() {
+    public void testReadBackWrite() throws IOException {
         // Allocate CUDA device memory
         int numInts = 4;
         Pointer pointer = new Pointer();
@@ -50,7 +51,9 @@ public class BasicReadWriteTest {
 
         // Copy filled data array to GPU and write to file
         JCuda.cudaMemcpy(pointer, Pointer.to(hostDataFilled), numInts * Sizeof.INT, cudaMemcpyHostToDevice);
-        CuFileWriteHandle fw = new CuFileWriteHandle("/mnt/nvme/java_test");
+        File testFile = File.createTempFile("java_test",".tmp");
+
+        CuFileWriteHandle fw = new CuFileWriteHandle(testFile.getAbsolutePath());
         fw.write(pointerAddress, numInts * Sizeof.INT, 0, 0);
         fw.close();
 
@@ -58,7 +61,7 @@ public class BasicReadWriteTest {
         JCuda.cudaMemcpy(pointer, Pointer.to(hostData), numInts * Sizeof.INT, cudaMemcpyHostToDevice);
 
         // Read data back into GPU
-        CuFileReadHandle f = new CuFileReadHandle("/mnt/nvme/java_test");
+        CuFileReadHandle f = new CuFileReadHandle(testFile.getAbsolutePath());
         f.read(pointerAddress, numInts * Sizeof.INT, 0, 0);
         f.close();
 
