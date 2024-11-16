@@ -52,10 +52,10 @@ class FileHandle {
   CUfileHandle_t _handle{};
 
   /**
-   * @brief Given the requested compatibility mode, determine for asynchronous I/O if eventually
-   * cuFile or POSIX I/O will be used.
+   * @brief Given a requested compatibility mode, whether it is expected to reduce to ON for
+   * asynchronous I/O.
    *
-   * @param compat_mode Requested compatibility mode.
+   * @param requested_compat_mode Requested compatibility mode.
    * @return True if POSIX I/O fallback will be used; false for cuFile I/O.
    * @exception std::runtime_error When the requested compatibility mode is OFF, but cuFile
    * batch/stream library symbol is missing, or cuFile configuration file is missing.
@@ -141,9 +141,7 @@ class FileHandle {
   {
     if (closed()) { return; }
 
-    if (!defaults::is_compat_mode_expected(_compat_mode)) {
-      cuFileAPI::instance().HandleDeregister(_handle);
-    }
+    if (!is_compat_mode_expected()) { cuFileAPI::instance().HandleDeregister(_handle); }
     _compat_mode = CompatMode::AUTO;
     ::close(_fd_direct_off);
     if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
@@ -156,14 +154,14 @@ class FileHandle {
    * @brief Get the underlying cuFile file handle
    *
    * The file handle must be open and not in compatibility mode i.e.
-   * both `.closed()` and `defaults::is_compat_mode_expected()` must be false.
+   * both `.closed()` and `is_compat_mode_expected()` must be false.
    *
    * @return cuFile's file handle
    */
   [[nodiscard]] CUfileHandle_t handle()
   {
     if (closed()) { throw CUfileException("File handle is closed"); }
-    if (defaults::is_compat_mode_expected(_compat_mode)) {
+    if (is_compat_mode_expected()) {
       throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
     }
     return _handle;
@@ -236,7 +234,7 @@ class FileHandle {
                    std::size_t devPtr_offset,
                    bool sync_default_stream = true)
   {
-    if (defaults::is_compat_mode_expected(_compat_mode)) {
+    if (is_compat_mode_expected()) {
       return detail::posix_device_read(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -288,7 +286,7 @@ class FileHandle {
   {
     _nbytes = 0;  // Invalidate the computed file size
 
-    if (defaults::is_compat_mode_expected(_compat_mode)) {
+    if (is_compat_mode_expected()) {
       return detail::posix_device_write(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -367,7 +365,7 @@ class FileHandle {
     }
 
     // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !defaults::is_compat_mode_expected(_compat_mode)) {
+    if (sync_default_stream && !is_compat_mode_expected()) {
       PushAndPopContext c(ctx);
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
@@ -444,7 +442,7 @@ class FileHandle {
     }
 
     // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !defaults::is_compat_mode_expected(_compat_mode)) {
+    if (sync_default_stream && !is_compat_mode_expected()) {
       PushAndPopContext c(ctx);
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
@@ -642,7 +640,7 @@ class FileHandle {
   }
 
   /**
-   * @brief Returns `true` if the compatibility mode has been enabled for this file.
+   * @brief Returns `true` if the compatibility mode is expected to be ON for this file.
    *
    * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
    * automatically, if file cannot be opened with the `O_DIRECT` flag, or if the system does not
@@ -656,8 +654,8 @@ class FileHandle {
   }
 
   /**
-   * @brief Returns `true` if the compatibility mode has been enabled for the asynchronous I/O on
-   * this file.
+   * @brief Returns `true` if the compatibility mode is expected to be ON for the asynchronous I/O
+   * on this file.
    *
    * For asynchronous I/O, the compatibility mode can be automatically enabled if the cuFile batch
    * and stream symbols are missing, or if the cuFile configuration file is missing, or if
@@ -669,8 +667,7 @@ class FileHandle {
   {
     static bool is_extra_symbol_available = is_batch_and_stream_available();
     static bool is_config_path_empty      = config_path().empty();
-    return defaults::is_compat_mode_expected(_compat_mode) || !is_extra_symbol_available ||
-           is_config_path_empty;
+    return is_compat_mode_expected() || !is_extra_symbol_available || is_config_path_empty;
   }
 };
 

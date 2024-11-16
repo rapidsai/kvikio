@@ -223,8 +223,8 @@ class defaults {
   static void compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
 
   /**
-   * @brief If the requested compatibility mode is AUTO, set the actual compatibility mode to ON or
-   * OFF by performing a system config check; otherwise, do nothing. Effectively, this function
+   * @brief If the requested compatibility mode is AUTO, set the expected compatibility mode to ON
+   * or OFF by performing a system config check; otherwise, do nothing. Effectively, this function
    * reduces the requested compatibility mode from three possible states (ON/OFF/AUTO) to two
    * (ON/OFF) so as to determine the actual I/O path. This function is lightweight as the inferred
    * result is cached.
@@ -241,10 +241,17 @@ class defaults {
   }
 
   /**
-   * @brief Given a compatibility mode, return true if it is ON, or it is AUTO but inferred to be
-   * ON.
+   * @brief Given a requested compatibility mode, whether it is expected to reduce to ON.
+   * This function returns true if any of the two condition is satisfied:
+   * - The compatibility mode is ON.
+   * - It is AUTO but inferred to be ON.
+   * Conceptually, the opposite of this function is whether requested compatibility mode is expected
+   * to be OFF, which would occur if any of the two condition is satisfied:
+   * - The compatibility mode is OFF.
+   * - It is AUTO but inferred to be OFF.
    *
    * @param compat_mode Compatibility mode.
+   * @return Boolean answer.
    */
   static bool is_compat_mode_expected(CompatMode compat_mode)
   {
@@ -257,14 +264,16 @@ class defaults {
   }
 
   /**
-   * @brief Whether the global compatibility mode from class defaults is expected to be enabled.
+   * @brief Whether the global compatibility mode from class defaults is expected to be ON.
    * This function returns true if any of the two condition is satisfied:
    * - The compatibility mode is ON.
    * - It is AUTO but inferred to be ON.
    * Conceptually, the opposite of this function is whether the global compatibility mode is
-   * expected to be disabled, which would occur if any of the two condition is satisfied:
+   * expected to be OFF, which would occur if any of the two condition is satisfied:
    * - The compatibility mode is OFF.
    * - It is AUTO but inferred to be OFF.
+   *
+   * @return Boolean answer.
    */
   static bool is_compat_mode_expected() { return is_compat_mode_expected(compat_mode()); }
 
