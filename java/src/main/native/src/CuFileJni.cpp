@@ -99,7 +99,7 @@ class cufile_file {
   cufile_file& operator=(cufile_file const&) = delete;
 
   /** @brief Destroy the file wrapper by de-registering the cuFile handle and closing the file. */
-  ~cufile_file()
+  ~cufile_file() noexcept
   {
     cuFileHandleDeregister(cufile_handle_);
     close(file_descriptor_);
