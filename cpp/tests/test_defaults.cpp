@@ -38,7 +38,7 @@ TEST(Defaults, parse_compat_mode_str)
   }
 
   {
-    std::vector<std::string> inputs{"AUTO", "auto", "aUtO", "WHATEVER", "whatever", "WhatEver"};
+    std::vector<std::string> inputs{"AUTO", "auto", "aUtO"};
     for (const auto& input : inputs) {
       EXPECT_EQ(kvikio::detail::parse_compat_mode_str(input), kvikio::CompatMode::AUTO);
     }
