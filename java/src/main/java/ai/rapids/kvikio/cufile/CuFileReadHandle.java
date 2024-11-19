@@ -18,7 +18,7 @@ package ai.rapids.kvikio.cufile;
 
 /**
  * The {@code CuFileReadHandle} class represents a handle for reading data from
- * a file using the CuFile library.
+ * a file using the cuFile library.
  * <p>
  * This class is initialized with the path to the file to be read, and it
  * creates a native resource pointer for

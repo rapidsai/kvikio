@@ -17,13 +17,13 @@
 package ai.rapids.kvikio.cufile;
 
 /**
- * The {@code CuFileHandle} class is an abstract base class for managing CuFile
+ * The {@code CuFileHandle} class is an abstract base class for managing cuFile
  * resource handles in the native library.
- * It represents a common mechanism for interacting with files via CuFile,
+ * It represents a common mechanism for interacting with files via cuFile,
  * storing the native pointer to a resource and
  * ensuring that the resource is properly destroyed when no longer needed.
  * <p>
- * This class initializes the CuFile library on class loading and provides
+ * This class initializes the cuFile library on class loading and provides
  * methods for cleanup, specifically the
  * {@code close()} method to destroy the native resource pointer. Subclasses of
  * {@code CuFileHandle} should implement

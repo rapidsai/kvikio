@@ -9,9 +9,9 @@
   <artifactId>cufile</artifactId>
   <version>24.12.0-SNAPSHOT</version>
 
-  <name>cufile</name>
+  <name>cuFile</name>
   <description>
-      This project provides Java bindings for the GPUDirect Storage cufile library, enabling the GPU to load and
+      This project provides Java bindings for the GPUDirect Storage cuFile library, enabling the GPU to load and
       save large amounts of data to and from persistent storage. This is still a work in progress so some APIs may change.
   </description>
   <url>http://ai.rapids</url>

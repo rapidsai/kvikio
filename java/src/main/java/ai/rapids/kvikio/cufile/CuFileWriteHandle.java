@@ -18,7 +18,7 @@ package ai.rapids.kvikio.cufile;
 
 /**
  * The {@code CuFileWriteHandle} class represents a handle for writing data to a
- * file using the CuFile library.
+ * file using the cuFile library.
  * <p>
  * This class is initialized with the path to the file to be written to, and it
  * creates a native resource pointer

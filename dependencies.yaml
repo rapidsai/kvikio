@@ -400,8 +400,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cxx-compiler
-          - *cmake_ver
+          - make
           - maven
           - openjdk=11.*
-          - make
+          

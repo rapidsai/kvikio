@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include <cufile.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <memory>
-
-#include <stdexcept>
-
 #include <cstring>
+#include <fcntl.h>
+#include <memory>
+#include <stdexcept>
+#include <unistd.h>
+
+#include <cufile.h>
 
 char const* GetCuErrorString(CUresult cu_result)
 {
@@ -82,7 +81,7 @@ class cufile_file {
    * @brief Factory method to create a file wrapper for writing.
    *
    * @param path Absolute path of the file to write to. This creates the file if it does not already
-   * exist..
+   * exist.
    * @return std::unique_ptr<cufile_file> for writing.
    */
   static auto make_writer(char const* path)

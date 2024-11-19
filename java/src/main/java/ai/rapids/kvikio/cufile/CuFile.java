@@ -18,12 +18,12 @@ package ai.rapids.kvikio.cufile;
 
 /**
  * The {@code CuFile} class is responsible for initializing and managing the
- * CuFile JNI library and its associated driver.
- * It ensures that the native CuFile library is loaded only once during the
+ * cuFile JNI library and its associated driver.
+ * It ensures that the native cuFile library is loaded only once during the
  * application lifecycle.
  * <p>
  * Upon class loading, the {@code initialize()} method is called to load the
- * CuFile JNI library and initialize the {@code CuFileDriver}.
+ * cuFile JNI library and initialize the {@code CuFileDriver}.
  * A shutdown hook is also registered to ensure that the driver is properly
  * closed when the application terminates.
  * </p>
@@ -56,7 +56,7 @@ public class CuFile {
     }
 
     /**
-     * Checks if the CuFile library has been successfully loaded and initialized.
+     * Checks if the cuFile library has been successfully loaded and initialized.
      *
      * @return {@code true} if the library is loaded, {@code false} otherwise.
      */

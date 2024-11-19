@@ -25,7 +25,7 @@ rapids-print-env
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  libkvikio libkvikio-tests
+  libkvikio
 
 rapids-logger "Check GPU usage"
 nvidia-smi

@@ -18,11 +18,11 @@ package ai.rapids.kvikio.cufile;
 
 /**
  * The {@code CuFileDriver} class provides an interface for interacting with the
- * CuFile native library, specifically
+ * cuFile native library, specifically
  * for managing the lifecycle of the CuFileDriver.
  * <p>
  * This class is responsible for allocating and deallocating the native
- * resources needed by the CuFile API. The
+ * resources needed by the cuFile API. The
  * {@code pointer} field represents the native resource that is created when the
  * driver is instantiated and
  * destroyed when the driver is closed. The class ensures proper cleanup of
