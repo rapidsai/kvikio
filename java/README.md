@@ -12,11 +12,11 @@ For more information on JCuda and potentially more up to date installation instr
 [JCuda](http://javagl.de/jcuda.org/), [JCuda Usage](https://github.com/jcuda/jcuda-main/blob/master/USAGE.md), [JCuda Maven Repo](https://mvnrepository.com/artifact/org.jcuda)
 
 ## Compilation and examples
-An example for how to use the Java KvikIO bindings can be found in `src/test/java/ai/rapids/kvikio/cufile/BasicReadWriteTest.java` 
+An example for how to use the Java KvikIO bindings can be found in `src/test/java/ai/rapids/kvikio/cufile/BasicReadWriteTest.java`
 
 ##### Note: This example has a dependency on JCuda so ensure that when running the example the JCuda shared library files are on the JVM library path along with the `libCuFileJNI.so` file.
 
-### Setup a test file target 
+### Setup a test file target
 ##### NOTE: the example as written will default to creating a temporary file in your `/tmp` directory. This directory may not be mounted in a compatible manner for use with GDS on your particular system, causing the example to run in compatibility mode. If this is the case, run the following command replacing `/mnt/nvme/` with your mount directory and update `cufile/BasicReadWriteTest.java` to point to the correct file path.
 
     touch /mnt/nvme/java_test

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <cstring>
 #include <fcntl.h>
+#include <unistd.h>
+#include <cstring>
 #include <memory>
 #include <stdexcept>
-#include <unistd.h>
 
 #include <cufile.h>
 
