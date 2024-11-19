@@ -118,7 +118,7 @@ class BatchHandle {
     std::vector<CUfileIOParams_t> io_batch_params;
     io_batch_params.reserve(operations.size());
     for (const auto& op : operations) {
-      if (op.file_handle.is_compat_mode_expected()) {
+      if (op.file_handle.is_compat_mode_preferred()) {
         throw CUfileException("Cannot submit a FileHandle opened in compatibility mode");
       }
 

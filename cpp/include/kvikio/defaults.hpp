@@ -260,7 +260,7 @@ class defaults {
    * @param compat_mode Compatibility mode.
    * @return Boolean answer.
    */
-  static bool is_compat_mode_expected(CompatMode compat_mode)
+  static bool is_compat_mode_preferred(CompatMode compat_mode)
   {
     if (compat_mode == CompatMode::ON ||
         (compat_mode == CompatMode::AUTO &&
@@ -284,7 +284,7 @@ class defaults {
    *
    * @return Boolean answer.
    */
-  static bool is_compat_mode_expected() { return is_compat_mode_expected(compat_mode()); }
+  static bool is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
 
   /**
    * @brief Get the default thread pool.

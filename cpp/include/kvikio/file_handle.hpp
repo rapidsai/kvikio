@@ -60,9 +60,9 @@ class FileHandle {
    * @exception std::runtime_error When the requested compatibility mode is `OFF`, but cuFile
    * batch/stream library symbol is missing, or cuFile configuration file is missing.
    */
-  bool is_compat_mode_expected_for_async(CompatMode requested_compat_mode)
+  bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode)
   {
-    if (!defaults::is_compat_mode_expected(requested_compat_mode)) {
+    if (!defaults::is_compat_mode_preferred(requested_compat_mode)) {
       if (!is_batch_and_stream_available()) {
         if (requested_compat_mode == CompatMode::AUTO) { return true; }
         throw std::runtime_error("Missing cuFile batch or stream library symbol.");
@@ -146,7 +146,7 @@ class FileHandle {
   {
     if (closed()) { return; }
 
-    if (!is_compat_mode_expected()) { cuFileAPI::instance().HandleDeregister(_handle); }
+    if (!is_compat_mode_preferred()) { cuFileAPI::instance().HandleDeregister(_handle); }
     _compat_mode = CompatMode::AUTO;
     ::close(_fd_direct_off);
     if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
@@ -159,14 +159,14 @@ class FileHandle {
    * @brief Get the underlying cuFile file handle
    *
    * The file handle must be open and not in compatibility mode i.e.
-   * both `closed()` and `is_compat_mode_expected()` must be false.
+   * both `closed()` and `is_compat_mode_preferred()` must be false.
    *
    * @return cuFile's file handle
    */
   [[nodiscard]] CUfileHandle_t handle()
   {
     if (closed()) { throw CUfileException("File handle is closed"); }
-    if (is_compat_mode_expected()) {
+    if (is_compat_mode_preferred()) {
       throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
     }
     return _handle;
@@ -239,7 +239,7 @@ class FileHandle {
                    std::size_t devPtr_offset,
                    bool sync_default_stream = true)
   {
-    if (is_compat_mode_expected()) {
+    if (is_compat_mode_preferred()) {
       return detail::posix_device_read(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -291,7 +291,7 @@ class FileHandle {
   {
     _nbytes = 0;  // Invalidate the computed file size
 
-    if (is_compat_mode_expected()) {
+    if (is_compat_mode_preferred()) {
       return detail::posix_device_write(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -370,7 +370,7 @@ class FileHandle {
     }
 
     // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !is_compat_mode_expected()) {
+    if (sync_default_stream && !is_compat_mode_preferred()) {
       PushAndPopContext c(ctx);
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
@@ -447,7 +447,7 @@ class FileHandle {
     }
 
     // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !is_compat_mode_expected()) {
+    if (sync_default_stream && !is_compat_mode_preferred()) {
       PushAndPopContext c(ctx);
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
@@ -506,7 +506,7 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-    if (is_compat_mode_expected_for_async(_compat_mode)) {
+    if (is_compat_mode_preferred_for_async(_compat_mode)) {
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       *bytes_read_p =
         static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
@@ -596,7 +596,7 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-    if (is_compat_mode_expected_for_async(_compat_mode)) {
+    if (is_compat_mode_preferred_for_async(_compat_mode)) {
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       *bytes_written_p =
         static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
@@ -653,9 +653,9 @@ class FileHandle {
    *
    * @return Boolean answer.
    */
-  [[nodiscard]] bool is_compat_mode_expected() const noexcept
+  [[nodiscard]] bool is_compat_mode_preferred() const noexcept
   {
-    return defaults::is_compat_mode_expected(_compat_mode);
+    return defaults::is_compat_mode_preferred(_compat_mode);
   }
 
   /**
@@ -664,15 +664,15 @@ class FileHandle {
    *
    * For asynchronous I/O, the compatibility mode can be automatically enabled if the cuFile batch
    * and stream symbols are missing, or if the cuFile configuration file is missing, or if
-   * `is_compat_mode_expected()` returns true.
+   * `is_compat_mode_preferred()` returns true.
    *
    * @return Boolean answer.
    */
-  [[nodiscard]] bool is_compat_mode_expected_for_async() const noexcept
+  [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept
   {
     static bool is_extra_symbol_available = is_batch_and_stream_available();
     static bool is_config_path_empty      = config_path().empty();
-    return is_compat_mode_expected() || !is_extra_symbol_available || is_config_path_empty;
+    return is_compat_mode_preferred() || !is_extra_symbol_available || is_config_path_empty;
   }
 };
 
