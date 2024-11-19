@@ -14,7 +14,7 @@
       This project provides Java bindings for the GPUDirect Storage cuFile library, enabling the GPU to load and
       save large amounts of data to and from persistent storage. This is still a work in progress so some APIs may change.
   </description>
-  <url>http://ai.rapids</url>
+  <url>https://rapids.ai</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
