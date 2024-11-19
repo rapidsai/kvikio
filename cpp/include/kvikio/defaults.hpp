@@ -262,12 +262,9 @@ class defaults {
    */
   static bool is_compat_mode_preferred(CompatMode compat_mode)
   {
-    if (compat_mode == CompatMode::ON ||
-        (compat_mode == CompatMode::AUTO &&
-         defaults::infer_compat_mode_if_auto(compat_mode) == CompatMode::ON)) {
-      return true;
-    }
-    return false;
+    return compat_mode == CompatMode::ON ||
+           (compat_mode == CompatMode::AUTO &&
+            defaults::infer_compat_mode_if_auto(compat_mode) == CompatMode::ON);
   }
 
   /**
