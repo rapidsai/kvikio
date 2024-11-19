@@ -9,7 +9,7 @@ The environment variable ``KVIKIO_COMPAT_MODE`` has three options (case-insensit
 
   * ``ON`` (aliases: ``TRUE``, ``YES``, ``1``): Enable the compatibility mode.
   * ``OFF`` (aliases: ``FALSE``, ``NO``, ``0``): Disable the compatibility mode, and enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met and cuFile is properly configured. However, if the system is not suited for cuFile, I/O operations under the ``OFF`` option may error out, crash or hang.
-  * ``AUTO`` (default; alias: ``WHATEVER``): Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile are not met.
+  * ``AUTO``: Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile are not met.
 
 Under ``AUTO``, KvikIO falls back to the compatibility mode:
 

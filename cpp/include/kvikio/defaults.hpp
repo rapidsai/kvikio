@@ -52,7 +52,7 @@ namespace detail {
  * include:
  *   - `ON` (alias: `TRUE`, `YES`, `1`)
  *   - `OFF` (alias: `FALSE`, `NO`, `0`)
- *   - `AUTO` (alias: `WHATEVER`)
+ *   - `AUTO`
  * @return A CompatMode enum.
  */
 inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
@@ -67,7 +67,7 @@ inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
     res = CompatMode::ON;
   } else if (tmp == "off" || tmp == "false" || tmp == "no" || tmp == "0") {
     res = CompatMode::OFF;
-  } else if (tmp == "auto" || tmp == "whatever") {
+  } else if (tmp == "auto") {
     res = CompatMode::AUTO;
   } else {
     throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
