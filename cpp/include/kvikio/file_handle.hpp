@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <stdexcept>
 #include <system_error>
 #include <utility>
 
@@ -46,9 +47,39 @@ class FileHandle {
   int _fd_direct_on{-1};
   int _fd_direct_off{-1};
   bool _initialized{false};
-  bool _compat_mode{false};
+  CompatMode _compat_mode{CompatMode::AUTO};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUfileHandle_t _handle{};
+
+  /**
+   * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON` for
+   * asynchronous I/O.
+   *
+   * @param requested_compat_mode Requested compatibility mode.
+   * @return True if POSIX I/O fallback will be used; false for cuFile I/O.
+   * @exception std::runtime_error When the requested compatibility mode is `OFF`, but cuFile
+   * batch/stream library symbol is missing, or cuFile configuration file is missing.
+   */
+  bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode)
+  {
+    if (!defaults::is_compat_mode_preferred(requested_compat_mode)) {
+      if (!is_batch_and_stream_available()) {
+        if (requested_compat_mode == CompatMode::AUTO) { return true; }
+        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
+      }
+
+      // When checking for availability, we also check if cuFile's config file exist. This is
+      // because even when the stream API is available, it doesn't work if no config file exist.
+      if (config_path().empty()) {
+        if (requested_compat_mode == CompatMode::AUTO) { return true; }
+        throw std::runtime_error("Missing cuFile configuration file.");
+      }
+
+      return false;
+    }
+
+    return true;
+  }
 
  public:
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
@@ -68,12 +99,12 @@ class FileHandle {
    *   "a" -> "open for writing, appending to the end of file if it exists"
    *   "+" -> "open for updating (reading and writing)"
    * @param mode Access modes (see `open(2)`).
-   * @param compat_mode Enable KvikIO's compatibility mode for this file.
+   * @param compat_mode Set KvikIO's compatibility mode for this file.
    */
   FileHandle(const std::string& file_path,
              const std::string& flags = "r",
              mode_t mode              = m644,
-             bool compat_mode         = defaults::compat_mode());
+             CompatMode compat_mode   = defaults::compat_mode());
 
   /**
    * @brief FileHandle support move semantic but isn't copyable
@@ -84,7 +115,7 @@ class FileHandle {
     : _fd_direct_on{std::exchange(o._fd_direct_on, -1)},
       _fd_direct_off{std::exchange(o._fd_direct_off, -1)},
       _initialized{std::exchange(o._initialized, false)},
-      _compat_mode{std::exchange(o._compat_mode, false)},
+      _compat_mode{std::exchange(o._compat_mode, CompatMode::AUTO)},
       _nbytes{std::exchange(o._nbytes, 0)},
       _handle{std::exchange(o._handle, CUfileHandle_t{})}
   {
@@ -94,13 +125,18 @@ class FileHandle {
     _fd_direct_on  = std::exchange(o._fd_direct_on, -1);
     _fd_direct_off = std::exchange(o._fd_direct_off, -1);
     _initialized   = std::exchange(o._initialized, false);
-    _compat_mode   = std::exchange(o._compat_mode, false);
+    _compat_mode   = std::exchange(o._compat_mode, CompatMode::AUTO);
     _nbytes        = std::exchange(o._nbytes, 0);
     _handle        = std::exchange(o._handle, CUfileHandle_t{});
     return *this;
   }
   ~FileHandle() noexcept { close(); }
 
+  /**
+   * @brief Whether the file is closed according to its initialization status.
+   *
+   * @return Boolean answer.
+   */
   [[nodiscard]] bool closed() const noexcept { return !_initialized; }
 
   /**
@@ -110,7 +146,8 @@ class FileHandle {
   {
     if (closed()) { return; }
 
-    if (!_compat_mode) { cuFileAPI::instance().HandleDeregister(_handle); }
+    if (!is_compat_mode_preferred()) { cuFileAPI::instance().HandleDeregister(_handle); }
+    _compat_mode = CompatMode::AUTO;
     ::close(_fd_direct_off);
     if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
     _fd_direct_on  = -1;
@@ -122,14 +159,14 @@ class FileHandle {
    * @brief Get the underlying cuFile file handle
    *
    * The file handle must be open and not in compatibility mode i.e.
-   * both `.closed()` and `.is_compat_mode_on()` must be return false.
+   * both `closed()` and `is_compat_mode_preferred()` must be false.
    *
    * @return cuFile's file handle
    */
   [[nodiscard]] CUfileHandle_t handle()
   {
     if (closed()) { throw CUfileException("File handle is closed"); }
-    if (_compat_mode) {
+    if (is_compat_mode_preferred()) {
       throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
     }
     return _handle;
@@ -202,7 +239,7 @@ class FileHandle {
                    std::size_t devPtr_offset,
                    bool sync_default_stream = true)
   {
-    if (_compat_mode) {
+    if (is_compat_mode_preferred()) {
       return detail::posix_device_read(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -254,7 +291,7 @@ class FileHandle {
   {
     _nbytes = 0;  // Invalidate the computed file size
 
-    if (_compat_mode) {
+    if (is_compat_mode_preferred()) {
       return detail::posix_device_write(
         _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
     }
@@ -333,7 +370,7 @@ class FileHandle {
     }
 
     // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !_compat_mode) {
+    if (sync_default_stream && !is_compat_mode_preferred()) {
       PushAndPopContext c(ctx);
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
@@ -410,7 +447,7 @@ class FileHandle {
     }
 
     // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !_compat_mode) {
+    if (sync_default_stream && !is_compat_mode_preferred()) {
       PushAndPopContext c(ctx);
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
@@ -469,16 +506,14 @@ class FileHandle {
                   ssize_t* bytes_read_p,
                   CUstream stream)
   {
-    // When checking for availability, we also check if cuFile's config file exist. This is because
-    // even when the stream API is available, it doesn't work if no config file exist.
-    if (kvikio::is_batch_and_stream_available() && !_compat_mode && !config_path().empty()) {
+    if (is_compat_mode_preferred_for_async(_compat_mode)) {
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      *bytes_read_p =
+        static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    } else {
       CUFILE_TRY(cuFileAPI::instance().ReadAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
-      return;
     }
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    *bytes_read_p =
-      static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   }
 
   /**
@@ -561,16 +596,14 @@ class FileHandle {
                    ssize_t* bytes_written_p,
                    CUstream stream)
   {
-    // When checking for availability, we also check if cuFile's config file exist. This is because
-    // even when the stream API is available, it doesn't work if no config file exist.
-    if (kvikio::is_batch_and_stream_available() && !_compat_mode && !config_path().empty()) {
+    if (is_compat_mode_preferred_for_async(_compat_mode)) {
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      *bytes_written_p =
+        static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+    } else {
       CUFILE_TRY(cuFileAPI::instance().WriteAsync(
         _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
-      return;
     }
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    *bytes_written_p =
-      static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   }
 
   /**
@@ -612,14 +645,35 @@ class FileHandle {
   }
 
   /**
-   * @brief Returns `true` if the compatibility mode has been enabled for this file.
+   * @brief Returns `true` if the compatibility mode is expected to be `ON` for this file.
    *
    * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
-   * automatically, if file cannot be opened with the `O_DIRECT` flag.
+   * automatically, if file cannot be opened with the `O_DIRECT` flag, or if the system does not
+   * meet the requirements for the cuFile library under the `AUTO` compatibility mode.
    *
-   * @return compatibility mode state for the object
+   * @return Boolean answer.
    */
-  [[nodiscard]] bool is_compat_mode_on() const noexcept { return _compat_mode; }
+  [[nodiscard]] bool is_compat_mode_preferred() const noexcept
+  {
+    return defaults::is_compat_mode_preferred(_compat_mode);
+  }
+
+  /**
+   * @brief Returns `true` if the compatibility mode is expected to be `ON` for the asynchronous I/O
+   * on this file.
+   *
+   * For asynchronous I/O, the compatibility mode can be automatically enabled if the cuFile batch
+   * and stream symbols are missing, or if the cuFile configuration file is missing, or if
+   * `is_compat_mode_preferred()` returns true.
+   *
+   * @return Boolean answer.
+   */
+  [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept
+  {
+    static bool is_extra_symbol_available = is_batch_and_stream_available();
+    static bool is_config_path_empty      = config_path().empty();
+    return is_compat_mode_preferred() || !is_extra_symbol_available || is_config_path_empty;
+  }
 };
 
 }  // namespace kvikio

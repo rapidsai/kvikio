@@ -12,6 +12,7 @@ else:
     del libkvikio
 
 
+from kvikio._lib.defaults import CompatMode  # noqa: F401
 from kvikio._version import __git_commit__, __version__
 from kvikio.cufile import CuFile
 from kvikio.remote_file import RemoteFile, is_remote_file_available
