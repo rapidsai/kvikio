@@ -16,8 +16,8 @@
 #pragma once
 
 #include <stdexcept>
+#include <string>
 
-#include <iostream>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/shim/utils.hpp>
 
@@ -38,8 +38,6 @@ class cuFileAPI {
   decltype(cuFileWrite)* Write{nullptr};
   decltype(cuFileBufRegister)* BufRegister{nullptr};
   decltype(cuFileBufDeregister)* BufDeregister{nullptr};
-  decltype(cuFileDriverOpen)* DriverOpen{nullptr};
-  decltype(cuFileDriverClose)* DriverClose{nullptr};
   decltype(cuFileDriverGetProperties)* DriverGetProperties{nullptr};
   decltype(cuFileDriverSetPollMode)* DriverSetPollMode{nullptr};
   decltype(cuFileDriverSetMaxCacheSize)* DriverSetMaxCacheSize{nullptr};
@@ -54,6 +52,12 @@ class cuFileAPI {
   decltype(cuFileStreamRegister)* StreamRegister{nullptr};
   decltype(cuFileStreamDeregister)* StreamDeregister{nullptr};
 
+ private:
+  // Don't call driver open and close directly, use `.driver_open()` and `.driver_close()`.
+  decltype(cuFileDriverOpen)* DriverOpen{nullptr};
+  decltype(cuFileDriverClose)* DriverClose{nullptr};
+
+ public:
   bool stream_available = false;
 
  private:
@@ -105,25 +109,25 @@ class cuFileAPI {
     }
 #endif
 
-    // cuFile is supposed to open and close the driver automatically but because of a bug in
-    // CUDA 11.8, it sometimes segfault. See <https://github.com/rapidsai/kvikio/issues/159>.
-    CUfileError_t const error = DriverOpen();
-    if (error.err != CU_FILE_SUCCESS) {
-      throw std::runtime_error(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                               KVIKIO_STRINGIFY(__LINE__) + ": " +
-                               cufileop_status_error(error.err));
-    }
+    // cuFile is supposed to open and close the driver automatically but
+    // because of a bug in cuFile v1.4 (CUDA v11.8) it sometimes segfaults:
+    // <https://github.com/rapidsai/kvikio/issues/159>.
+    // We use the stream API as a version indicator of cuFile since it was introduced
+    // in cuFile v1.7 (CUDA v12.2).
+    if (!stream_available) { driver_open(); }
   }
+
+  // Notice, we have to close the driver at program exit (if we opened it) even though we are
+  // not allowed to call CUDA after main[1]. This is because, cuFile will segfault if the
+  // driver isn't closed on program exit i.e. we are doomed if we do, doomed if we don't, but
+  // this seems to be the lesser of two evils.
+  // [1] <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
   ~cuFileAPI()
   {
-    CUfileError_t const error = DriverClose();
-    if (error.err != CU_FILE_SUCCESS) {
-      std::cerr << "Unable to close GDS file driver: " << cufileop_status_error(error.err)
-                << std::endl;
-    }
+    if (!stream_available) { driver_close(); }
   }
 #else
-  cuFileAPI() { throw std::runtime_error(CUFILE_ERRSTR(0)); }
+  cuFileAPI() { throw std::runtime_error("KvikIO not compiled with cuFile.h"); }
 #endif
 
  public:
@@ -136,6 +140,33 @@ class cuFileAPI {
   {
     static cuFileAPI _instance;
     return _instance;
+  }
+
+  /**
+   * @brief Open the cuFile driver
+   *
+   * cuFile allows multiple calls to `cufileDriverOpen()`, only the first call opens
+   * the driver, but every call should have a matching call to `cufileDriverClose()`.
+   */
+  void driver_open()
+  {
+    CUfileError_t const error = DriverOpen();
+    if (error.err != CU_FILE_SUCCESS) {
+      throw std::runtime_error(std::string{"Unable to open GDS file driver: "} +
+                               cufileop_status_error(error.err));
+    }
+  }
+
+  /**
+   * @brief Close the cuFile driver
+   */
+  void driver_close()
+  {
+    CUfileError_t const error = DriverClose();
+    if (error.err != CU_FILE_SUCCESS) {
+      throw std::runtime_error(std::string{"Unable to close GDS file driver: "} +
+                               cufileop_status_error(error.err));
+    }
   }
 };
 
@@ -183,7 +214,7 @@ inline bool is_cufile_available()
  * @return The boolean answer
  */
 #if defined(KVIKIO_CUFILE_STREAM_API_FOUND) && defined(KVIKIO_CUFILE_STREAM_API_FOUND)
-inline bool is_batch_and_stream_available()
+inline bool is_batch_and_stream_available() noexcept
 {
   try {
     return is_cufile_available() && cuFileAPI::instance().stream_available;

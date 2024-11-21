@@ -15,8 +15,10 @@
  */
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <regex>
@@ -28,87 +30,106 @@
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
-#include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
 namespace detail {
 
 /**
- * @brief Context used by the "CURLOPT_WRITEFUNCTION" callbacks.
+ * @brief Bounce buffer in pinned host memory.
+ *
+ * @note Is not thread-safe.
  */
-struct CallbackContext {
-  char* buf;              // Output buffer to read into.
-  std::size_t size;       // Total number of bytes to read.
-  std::ptrdiff_t offset;  // Offset into `buf` to start reading.
-  bool overflow_error;    // Flag to indicate overflow.
-  CallbackContext(void* buf, std::size_t size)
-    : buf{static_cast<char*>(buf)}, size{size}, offset{0}, overflow_error{0}
+class BounceBufferH2D {
+  CUstream _stream;                 // The CUDA steam to use.
+  CUdeviceptr _dev;                 // The output device buffer.
+  AllocRetain::Alloc _host_buffer;  // The host buffer to bounce data on.
+  std::ptrdiff_t _dev_offset{0};    // Number of bytes written to `_dev`.
+  std::ptrdiff_t _host_offset{0};   // Number of bytes written to `_host` (resets on flush).
+
+ public:
+  /**
+   * @brief Create a bounce buffer for an output device buffer.
+   *
+   * @param stream The CUDA stream used throughout the lifetime of the bounce buffer.
+   * @param device_buffer The output device buffer (final destination of the data).
+   */
+  BounceBufferH2D(CUstream stream, void* device_buffer)
+    : _stream{stream},
+      _dev{convert_void2deviceptr(device_buffer)},
+      _host_buffer{AllocRetain::instance().get()}
   {
+  }
+
+  /**
+   * @brief The bounce buffer if flushed to device on destruction.
+   */
+  ~BounceBufferH2D() noexcept
+  {
+    try {
+      flush();
+    } catch (CUfileException const& e) {
+      std::cerr << "BounceBufferH2D error on final flush: ";
+      std::cerr << e.what();
+      std::cerr << std::endl;
+    }
+  }
+
+ private:
+  /**
+   * @brief Write host memory to the output device buffer.
+   *
+   * @param src The host memory source.
+   * @param size Number of bytes to write.
+   */
+  void write_to_device(void const* src, std::size_t size)
+  {
+    if (size > 0) {
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(_dev + _dev_offset, src, size, _stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
+      _dev_offset += size;
+    }
+  }
+
+  /**
+   * @brief Flush the bounce buffer by writing everything to the output device buffer.
+   */
+  void flush()
+  {
+    write_to_device(_host_buffer.get(), _host_offset);
+    _host_offset = 0;
+  }
+
+ public:
+  /**
+   * @brief Write host memory to the bounce buffer (also host memory).
+   *
+   * Only when the bounce buffer has been filled up is data copied to the output device buffer.
+   *
+   * @param data The host memory source.
+   * @param size Number of bytes to write.
+   */
+  void write(char const* data, std::size_t size)
+  {
+    if (_host_buffer.size() - _host_offset < size) {  // Not enough space left in the bounce buffer
+      flush();
+      assert(_host_offset == 0);
+    }
+    if (_host_buffer.size() < size) {
+      // If still not enough space, we just copy the data to the device. This only happens when
+      // `defaults::bounce_buffer_size()` is smaller than 16kb thus no need to performance
+      // optimize for this case.
+      write_to_device(data, size);
+    } else if (size > 0) {
+      std::memcpy(_host_buffer.get(_host_offset), data, size);
+      _host_offset += size;
+    }
   }
 };
 
-/**
- * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output host buffer.
- *
- * See <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>.
- *
- * @param data Data downloaded by libcurl that is ready for consumption.
- * @param size Size of each element in `nmemb`; size is always 1.
- * @param nmemb Size of the data in `nmemb`.
- * @param context A pointer to an instance of `CallbackContext`.
- */
-inline std::size_t callback_host_memory(char* data,
-                                        std::size_t size,
-                                        std::size_t nmemb,
-                                        void* context)
-{
-  auto ctx                 = reinterpret_cast<CallbackContext*>(context);
-  std::size_t const nbytes = size * nmemb;
-  if (ctx->size < ctx->offset + nbytes) {
-    ctx->overflow_error = true;
-    return CURL_WRITEFUNC_ERROR;
-  }
-  KVIKIO_NVTX_FUNC_RANGE("RemoteHandle - callback_host_memory()", nbytes);
-  std::memcpy(ctx->buf + ctx->offset, data, nbytes);
-  ctx->offset += nbytes;
-  return nbytes;
-}
-
-/**
- * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output device buffer.
- *
- * See <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>.
- *
- * @param data Data downloaded by libcurl that is ready for consumption.
- * @param size Size of each element in `nmemb`; size is always 1.
- * @param nmemb Size of the data in `nmemb`.
- * @param context A pointer to an instance of `CallbackContext`.
- */
-inline std::size_t callback_device_memory(char* data,
-                                          std::size_t size,
-                                          std::size_t nmemb,
-                                          void* context)
-{
-  auto ctx                 = reinterpret_cast<CallbackContext*>(context);
-  std::size_t const nbytes = size * nmemb;
-  if (ctx->size < ctx->offset + nbytes) {
-    ctx->overflow_error = true;
-    return CURL_WRITEFUNC_ERROR;
-  }
-  KVIKIO_NVTX_FUNC_RANGE("RemoteHandle - callback_device_memory()", nbytes);
-
-  CUstream stream = detail::StreamsByThread::get();
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-    convert_void2deviceptr(ctx->buf + ctx->offset), data, nbytes, stream));
-  // We have to sync since curl might overwrite or free `data`.
-  CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-
-  ctx->offset += nbytes;
-  return nbytes;
-}
-
 }  // namespace detail
+
+class CurlHandle;  // Prototype
 
 /**
  * @brief Abstract base class for remote endpoints.
@@ -153,7 +174,7 @@ class HttpEndpoint : public RemoteEndpoint {
    * @param url The full http url to the remote file.
    */
   HttpEndpoint(std::string url) : _url{std::move(url)} {}
-  void setopt(CurlHandle& curl) override { curl.setopt(CURLOPT_URL, _url.c_str()); }
+  void setopt(CurlHandle& curl) override;
   std::string str() const override { return _url; }
   ~HttpEndpoint() override = default;
 };
@@ -334,12 +355,7 @@ class S3Endpoint : public RemoteEndpoint {
   {
   }
 
-  void setopt(CurlHandle& curl) override
-  {
-    curl.setopt(CURLOPT_URL, _url.c_str());
-    curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
-    curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
-  }
+  void setopt(CurlHandle& curl) override;
   std::string str() const override { return _url; }
   ~S3Endpoint() override = default;
 };
@@ -371,23 +387,7 @@ class RemoteHandle {
    *
    * @param endpoint Remote endpoint used for subsequently IO.
    */
-  RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
-  {
-    auto curl = create_curl_handle();
-
-    endpoint->setopt(curl);
-    curl.setopt(CURLOPT_NOBODY, 1L);
-    curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-    curl.perform();
-    curl_off_t cl;
-    curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
-    if (cl < 0) {
-      throw std::runtime_error("cannot get size of " + endpoint->str() +
-                               ", content-length not provided by the server");
-    }
-    _nbytes   = cl;
-    _endpoint = std::move(endpoint);
-  }
+  RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint);
 
   // A remote handle is moveable but not copyable.
   RemoteHandle(RemoteHandle&& o)               = default;
@@ -414,54 +414,16 @@ class RemoteHandle {
   /**
    * @brief Read from remote source into buffer (host or device memory).
    *
+   * When reading into device memory, a bounce buffer is used to avoid many small memory
+   * copies to device. Use `kvikio::default::bounce_buffer_size_reset()` to set the size
+   * of this bounce buffer (default 16 MiB).
+   *
    * @param buf Pointer to host or device memory.
    * @param size Number of bytes to read.
    * @param file_offset File offset in bytes.
    * @return Number of bytes read, which is always `size`.
    */
-  std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0)
-  {
-    KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::read()", size);
-
-    if (file_offset + size > _nbytes) {
-      std::stringstream ss;
-      ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
-         << " bytes file (" << _endpoint->str() << ")";
-      throw std::invalid_argument(ss.str());
-    }
-    bool const is_host_mem = is_host_memory(buf);
-    auto curl              = create_curl_handle();
-    _endpoint->setopt(curl);
-
-    std::string const byte_range =
-      std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
-    curl.setopt(CURLOPT_RANGE, byte_range.c_str());
-
-    if (is_host_mem) {
-      curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_host_memory);
-    } else {
-      curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_device_memory);
-    }
-    detail::CallbackContext ctx{buf, size};
-    curl.setopt(CURLOPT_WRITEDATA, &ctx);
-
-    try {
-      if (is_host_mem) {
-        curl.perform();
-      } else {
-        PushAndPopContext c(get_context_from_pointer(buf));
-        curl.perform();
-      }
-    } catch (std::runtime_error const& e) {
-      if (ctx.overflow_error) {
-        std::stringstream ss;
-        ss << "maybe the server doesn't support file ranges? [" << e.what() << "]";
-        throw std::overflow_error(ss.str());
-      }
-      throw;
-    }
-    return size;
-  }
+  std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0);
 
   /**
    * @brief Read from remote source into buffer (host or device memory) in parallel.
@@ -478,17 +440,7 @@ class RemoteHandle {
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
                                  std::size_t file_offset = 0,
-                                 std::size_t task_size   = defaults::task_size())
-  {
-    KVIKIO_NVTX_FUNC_RANGE("RemoteHandle::pread()", size);
-    auto task = [this](void* devPtr_base,
-                       std::size_t size,
-                       std::size_t file_offset,
-                       std::size_t devPtr_offset) -> std::size_t {
-      return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
-    };
-    return parallel_io(task, buf, size, file_offset, task_size, 0);
-  }
+                                 std::size_t task_size   = defaults::task_size());
 };
 
 }  // namespace kvikio

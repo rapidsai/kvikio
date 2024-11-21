@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ class BatchHandle {
     std::vector<CUfileIOParams_t> io_batch_params;
     io_batch_params.reserve(operations.size());
     for (const auto& op : operations) {
-      if (op.file_handle.is_compat_mode_on()) {
+      if (op.file_handle.is_compat_mode_preferred()) {
         throw CUfileException("Cannot submit a FileHandle opened in compatibility mode");
       }
 

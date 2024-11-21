@@ -6,7 +6,6 @@ KvikIO (pronounced "kuh-VICK-eye-oh", see [here](https://ordnet.dk/ddo_en/dict?q
 bindings to [cuFile](https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html),
 which enables [GPUDirect Storage (GDS)](https://developer.nvidia.com/blog/gpudirect-storage/).
 KvikIO also works efficiently when GDS isn't available and can read/write both host and device data seamlessly.
-The C++ library is header-only making it easy to include in [existing projects](https://github.com/rapidsai/kvikio/blob/HEAD/cpp/examples/downstream/).
 
 
 ### Features
