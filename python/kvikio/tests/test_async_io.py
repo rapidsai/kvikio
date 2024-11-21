@@ -32,7 +32,9 @@ def test_read_write(tmp_path, size):
     # Try to read file opened in write-only mode
     # POSIX read would yield the error "Operation not permitted"
     # cuFile read would yield the error "unsupported file open flags"
-    with pytest.raises(RuntimeError, match="Operation not permitted|unsupported file open flags"):
+    with pytest.raises(
+        RuntimeError, match="Operation not permitted|unsupported file open flags"
+    ):
         # The exception is raised when we call the raw_read_async API.
         future_stream = f.raw_read_async(a, stream.ptr)
         future_stream.check_bytes_done()
