@@ -37,6 +37,8 @@ build:
     - {{ compiler('cuda11') }}
     {% else %}
     - {{ compiler('cuda') }}
+    - cuda-cudart-dev
+    - libcufile-dev  # [linux]
     {% endif %}
 
 requirements:
