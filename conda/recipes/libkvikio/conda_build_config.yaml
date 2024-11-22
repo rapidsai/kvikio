@@ -30,4 +30,4 @@ cuda11_libcufile_run_version:
   - ">=1.0.0.82,<=1.4.0.31"
 
 libcurl_version:
-  - "=7.87.0"
+  - "==7.87.0"
