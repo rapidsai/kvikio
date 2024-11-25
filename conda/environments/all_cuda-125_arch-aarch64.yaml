@@ -22,7 +22,7 @@ dependencies:
 - libcurl>=7.87.0
 - moto>=4.0.8
 - ninja
-- numcodecs>=0.13.0,<0.14.0a0
+- numcodecs>=0.13.0
 - numpy>=1.23,<3.0a0
 - numpydoc
 - nvcomp==4.1.0.6

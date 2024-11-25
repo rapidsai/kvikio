@@ -355,10 +355,7 @@ dependencies:
         packages:
           - numpy>=1.23,<3.0a0
           - zarr
-          # Pinned to the 0.13 for the following reasons:
-          #   https://github.com/zarr-developers/numcodecs/pull/475
-          #   0.14.0 doesn't offer python 3.10 support
-          - numcodecs>=0.13.0,<0.14.0a0
+          - numcodecs>=0.13.0
           - packaging
   test_cpp:
     common:
