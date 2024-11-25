@@ -45,8 +45,8 @@ struct CUfileException : public std::runtime_error {
     if (error != CUDA_SUCCESS) {                                                               \
       const char* err_name     = nullptr;                                                      \
       const char* err_str      = nullptr;                                                      \
-      CUresult err_name_status = cudaAPI::instance().GetErrorName(error, &err_name);           \
-      CUresult err_str_status  = cudaAPI::instance().GetErrorString(error, &err_str);          \
+      CUresult err_name_status = kvikio::cudaAPI::instance().GetErrorName(error, &err_name);   \
+      CUresult err_str_status  = kvikio::cudaAPI::instance().GetErrorString(error, &err_str);  \
       if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }               \
       if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }                 \
       throw(_exception_type){std::string{"CUDA error at: "} + __FILE__ + ":" +                 \

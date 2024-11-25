@@ -214,7 +214,7 @@ inline bool is_cufile_available()
  * @return The boolean answer
  */
 #if defined(KVIKIO_CUFILE_STREAM_API_FOUND) && defined(KVIKIO_CUFILE_STREAM_API_FOUND)
-inline bool is_batch_and_stream_available()
+inline bool is_batch_and_stream_available() noexcept
 {
   try {
     return is_cufile_available() && cuFileAPI::instance().stream_available;
