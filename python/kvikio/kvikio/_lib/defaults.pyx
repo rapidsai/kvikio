@@ -4,13 +4,18 @@
 # distutils: language = c++
 # cython: language_level=3
 
+from libc.stdint cimport uint8_t
 from libcpp cimport bool
 
 
-cdef extern from "<kvikio/defaults.hpp>" nogil:
-    bool cpp_compat_mode "kvikio::defaults::compat_mode"() except +
+cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
+    cpdef enum class CompatMode(uint8_t):
+        OFF = 0
+        ON = 1
+        AUTO = 2
+    CompatMode cpp_compat_mode "kvikio::defaults::compat_mode"() except +
     void cpp_compat_mode_reset \
-        "kvikio::defaults::compat_mode_reset"(bool enable) except +
+        "kvikio::defaults::compat_mode_reset"(CompatMode compat_mode) except +
     unsigned int cpp_thread_pool_nthreads \
         "kvikio::defaults::thread_pool_nthreads"() except +
     void cpp_thread_pool_nthreads_reset \
@@ -25,12 +30,12 @@ cdef extern from "<kvikio/defaults.hpp>" nogil:
         "kvikio::defaults::bounce_buffer_size_reset"(size_t nbytes) except +
 
 
-def compat_mode() -> bool:
+def compat_mode() -> CompatMode:
     return cpp_compat_mode()
 
 
-def compat_mode_reset(enable: bool) -> None:
-    cpp_compat_mode_reset(enable)
+def compat_mode_reset(compat_mode: CompatMode) -> None:
+    cpp_compat_mode_reset(compat_mode)
 
 
 def thread_pool_nthreads() -> int:
