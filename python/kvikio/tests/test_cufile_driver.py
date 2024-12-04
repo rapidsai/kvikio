@@ -7,7 +7,9 @@ import kvikio.cufile_driver
 
 
 def test_version():
-    print(kvikio.cufile_driver.libcufile_version())
+    major, minor = kvikio.cufile_driver.libcufile_version()
+    assert major >= 0
+    assert minor >= 0
 
 
 @pytest.mark.cufile
