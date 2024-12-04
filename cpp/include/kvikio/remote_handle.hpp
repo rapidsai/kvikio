@@ -41,7 +41,7 @@ namespace detail {
  * @note Is not thread-safe.
  */
 class BounceBufferH2D {
-  CUstream _stream;                 // The CUDA steam to use.
+  CUstream _stream;                 // The CUDA stream to use.
   CUdeviceptr _dev;                 // The output device buffer.
   AllocRetain::Alloc _host_buffer;  // The host buffer to bounce data on.
   std::ptrdiff_t _dev_offset{0};    // Number of bytes written to `_dev`.
