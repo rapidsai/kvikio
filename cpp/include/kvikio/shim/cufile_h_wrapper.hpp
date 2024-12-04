@@ -75,7 +75,7 @@ CUfileError_t cuFileDriverSetMaxPinnedMemSize(...);
 
 #endif
 
-// If some cufile APIs isn't defined, we define some of the data types here.
+// If some cufile APIs aren't defined, we define some of the data types here.
 // Notice, this doesn't need to be ABI compatible with the cufile definitions and
 // the lack of definitions is not a problem because the linker will never look for
 // these symbols because the "real" function calls are made through the shim instance.
