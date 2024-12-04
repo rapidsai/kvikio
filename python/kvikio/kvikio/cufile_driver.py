@@ -12,7 +12,9 @@ DriverProperties = cufile_driver.DriverProperties
 
 
 def libcufile_version() -> Tuple[int, int]:
-    """Get the libcufile version (or zero if older than v1.8).
+    """Get the libcufile version.
+
+    Returns (0, 0) for cuFile versions prior to v1.8.
 
     Notes
     -----
