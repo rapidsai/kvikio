@@ -57,8 +57,12 @@ class cuFileAPI {
   decltype(cuFileDriverOpen)* DriverOpen{nullptr};
   decltype(cuFileDriverClose)* DriverClose{nullptr};
 
+  // Don't call `GetVersion` directly, use `cuFileAPI::instance().version`.
+  decltype(cuFileGetVersion)* GetVersion{nullptr};
+
  public:
   bool stream_available = false;
+  int version{0};
 
  private:
 #ifdef KVIKIO_CUFILE_FOUND
@@ -87,6 +91,20 @@ class cuFileAPI {
     get_symbol(DriverSetPollMode, lib, KVIKIO_STRINGIFY(cuFileDriverSetPollMode));
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
     get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
+
+#ifdef KVIKIO_CUFILE_VERSION_API_FOUND
+    try {
+      get_symbol(GetVersion, lib, KVIKIO_STRINGIFY(cuFileGetVersion));
+      int ver{0};
+      CUfileError_t const error = GetVersion(&ver);
+      if (error.err != CU_FILE_SUCCESS) {
+        throw std::runtime_error(std::string{"cuFileGetVersion() failed: "} +
+                                 cufileop_status_error(error.err));
+      }
+      version = ver;
+    } catch (std::runtime_error const&) {
+    }
+#endif
 
 #ifdef KVIKIO_CUFILE_BATCH_API_FOUND
     get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
