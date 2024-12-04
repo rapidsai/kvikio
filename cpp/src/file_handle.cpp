@@ -129,7 +129,7 @@ FileHandle::FileHandle(const std::string& file_path,
   }
 
   // Try to open the file with the O_DIRECT flag. Fall back to compatibility mode, if it fails.
-  auto handle_0_direct_except = [this] {
+  auto handle_o_direct_except = [this] {
     if (_compat_mode == CompatMode::AUTO) {
       _compat_mode = CompatMode::ON;
     } else {  // CompatMode::OFF
@@ -140,9 +140,9 @@ FileHandle::FileHandle(const std::string& file_path,
   try {
     _fd_direct_on = open_fd(file_path, flags, true, mode);
   } catch (const std::system_error&) {
-    handle_0_direct_except();
+    handle_o_direct_except();
   } catch (const std::invalid_argument&) {
-    handle_0_direct_except();
+    handle_o_direct_except();
   }
 
   if (_compat_mode == CompatMode::ON) { return; }
