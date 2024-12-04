@@ -94,13 +94,9 @@ class cuFileAPI {
 #ifdef KVIKIO_CUFILE_VERSION_API_FOUND
     try {
       get_symbol(GetVersion, lib, KVIKIO_STRINGIFY(cuFileGetVersion));
-      int ver{0};
+      int ver;
       CUfileError_t const error = GetVersion(&ver);
-      if (error.err != CU_FILE_SUCCESS) {
-        throw std::runtime_error(std::string{"cuFileGetVersion() failed: "} +
-                                 cufileop_status_error(error.err));
-      }
-      version = ver;
+      if (error.err == CU_FILE_SUCCESS) { version = ver; }
     } catch (std::runtime_error const&) {
     }
 #endif
