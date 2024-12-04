@@ -45,7 +45,7 @@ def pprint_sys_info() -> None:
     if version == (0, 0):
         libcufile_version = "unknown (earlier than cuFile 1.8)"
     else:
-        libcufile_version = ".".join(version)
+        libcufile_version = f"{version[0]}.{version[1]}"
     gds_version = "N/A (Compatibility Mode)"
     if props.is_gds_available:
         gds_version = f"v{props.major_version}.{props.minor_version}"
