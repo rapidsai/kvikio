@@ -105,20 +105,20 @@ class cuFileAPI {
     }
 #endif
 
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
-    get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
-    get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
-    get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
-    get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
-    get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
-#endif
+    if (version >= 1060) {
+      get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
+      get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
+      get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
+      get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
+      get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
+    }
 
-#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
-    get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
-    get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
-    get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
-    get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
-#endif
+    if (version >= 1070) {
+      get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
+      get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
+      get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
+      get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
+    }
 
     // cuFile is supposed to open and close the driver automatically but
     // because of a bug in cuFile v1.4 (CUDA v11.8) it sometimes segfaults:
