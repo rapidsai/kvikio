@@ -9,8 +9,13 @@ from libcpp cimport bool
 
 
 cdef extern from "<kvikio/shim/cufile.hpp>" nogil:
+    cdef int cpp_libcufile_version "kvikio::cufile_version"() except +
     cdef void cpp_driver_open "kvikio::cuFileAPI::instance().driver_open"() except +
     cdef void cpp_driver_close "kvikio::cuFileAPI::instance().driver_close"() except +
+
+
+def libcufile_version() -> int:
+    return cpp_libcufile_version()
 
 
 def driver_open():

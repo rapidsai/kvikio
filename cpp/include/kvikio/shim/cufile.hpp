@@ -212,13 +212,13 @@ inline bool is_cufile_available()
 /**
  * @brief Get cufile version (or zero if older than v1.8).
  *
- * The version is returned as (1000 major + 10 minor). E.g., cufile v1.8.0 would
+ * The version is returned as (1000*major + 10*minor). E.g., cufile v1.8.0 would
  * be represented by 1080.
  *
  * Notice, this is not the version of the CUDA toolkit. cufile is part of the
  * toolkit but follows its own version scheme.
  *
- * @return The version (1000 major + 10 minor) or zero if older than 1080.
+ * @return The version (1000*major + 10*minor) or zero if older than 1080.
  */
 #ifdef KVIKIO_CUFILE_FOUND
 inline int cufile_version()

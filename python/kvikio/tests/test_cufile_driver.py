@@ -6,6 +6,10 @@ import pytest
 import kvikio.cufile_driver
 
 
+def test_version():
+    print(kvikio.cufile_driver.libcufile_version())
+
+
 @pytest.mark.cufile
 def test_open_and_close():
     kvikio.cufile_driver.driver_open()
