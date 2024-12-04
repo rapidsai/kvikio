@@ -242,7 +242,7 @@ constexpr bool cufile_version() { return 0; }
  *
  * @return The boolean answer
  */
-inline bool is_batch_api_available() noexcept { return cufile_version() > 1060; }
+inline bool is_batch_api_available() noexcept { return cufile_version() >= 1060; }
 
 /**
  * @brief Check if cuFile's stream (async) API is available.
@@ -253,6 +253,6 @@ inline bool is_batch_api_available() noexcept { return cufile_version() > 1060; 
  *
  * @return The boolean answer
  */
-inline bool is_stream_api_available() noexcept { return cufile_version() > 1070; }
+inline bool is_stream_api_available() noexcept { return cufile_version() >= 1070; }
 
 }  // namespace kvikio
