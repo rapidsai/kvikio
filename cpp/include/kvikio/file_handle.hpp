@@ -69,8 +69,8 @@ class FileHandle {
       throw std::runtime_error("Missing the cuFile stream api.");
     }
 
-    // When checking for availability, we also check if cuFile's config file exist. This is
-    // because even when the stream API is available, it doesn't work if no config file exist.
+    // When checking for availability, we also check if cuFile's config file exists. This is
+    // because even when the stream API is available, it doesn't work if no config file exists.
     if (config_path().empty()) {
       if (requested_compat_mode == CompatMode::AUTO) { return true; }
       throw std::runtime_error("Missing cuFile configuration file.");

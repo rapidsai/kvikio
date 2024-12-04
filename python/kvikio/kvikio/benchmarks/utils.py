@@ -43,9 +43,9 @@ def pprint_sys_info() -> None:
         mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
         bar1_total = format_bytes(pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total)
     if version == (0, 0):
-        libcufile_version = "unknown"
+        libcufile_version = "unknown (earlier than cuFile 1.8)"
     else:
-        libcufile_version = f"{version[0]}.{version[1]}"
+        libcufile_version = ".".join(version)
     gds_version = "N/A (Compatibility Mode)"
     if props.is_gds_available:
         gds_version = f"v{props.major_version}.{props.minor_version}"

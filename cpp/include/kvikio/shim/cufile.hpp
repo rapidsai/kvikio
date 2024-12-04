@@ -234,7 +234,7 @@ inline int cufile_version()
   }
 }
 #else
-constexpr bool cufile_version() { return 0; }
+constexpr int cufile_version() { return 0; }
 #endif
 
 /**
