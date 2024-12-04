@@ -101,6 +101,11 @@ class cuFileAPI {
     }
 #endif
 
+    // Some symbols were introduced in later versions, so version guards are required.
+    // Note: `version` is 0 for cuFile versions prior to v1.8 because `cuFileGetVersion`
+    // did not exist. As a result, the batch and stream APIs are not loaded in versions
+    // 1.6 and 1.7, respectively, even though they are available. This trade-off is made
+    // for improved robustness.
     if (version >= 1060) {
       get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
       get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
@@ -108,7 +113,6 @@ class cuFileAPI {
       get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
       get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
     }
-
     if (version >= 1070) {
       get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
       get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
