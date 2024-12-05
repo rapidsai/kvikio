@@ -26,9 +26,9 @@ def libcufile_version() -> Tuple[int, int]:
     The version as a tuple (MAJOR, MINOR).
     """
     v = cufile_driver.libcufile_version()
+    # Convert the integer version like 1080 to (1, 8).
     major, minor = divmod(v, 1000)
-    minor //= 10
-    return (major, minor)
+    return (major, minor // 10)
 
 
 def driver_open() -> None:
