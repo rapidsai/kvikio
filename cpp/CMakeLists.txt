@@ -80,7 +80,7 @@ if(KvikIO_CUDA_SUPPORT)
   else()
     set(cuFile_FOUND 1)
 
-    # Check batch and stream API support (cuFile_BATCH_API_FOUND and cuFile_STREAM_API_FOUND)
+    # Check API support
     try_compile(
       cuFile_BATCH_API_FOUND SOURCE_FROM_CONTENT
       batch.cpp
@@ -109,6 +109,20 @@ if(KvikIO_CUDA_SUPPORT)
       OUTPUT_VARIABLE stream_output
     )
     message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
+    try_compile(
+      cuFile_VERSION_API_FOUND SOURCE_FROM_CONTENT
+      version.cpp
+      [[#include <cufile.h>
+      int main() {
+        int version;
+        cuFileGetVersion(&version);
+        return 0;
+      }
+      ]]
+      LINK_LIBRARIES CUDA::cuFile rt ${CMAKE_DL_LIBS}
+      OUTPUT_VARIABLE version_output
+    )
+    message(STATUS "Found cuFile Version API: ${cuFile_VERSION_API_FOUND}")
   endif()
 endif()
 
@@ -154,6 +168,7 @@ target_compile_definitions(
          $<$<BOOL:${cuFile_FOUND}>:KVIKIO_CUFILE_FOUND>
          $<$<BOOL:${cuFile_BATCH_API_FOUND}>:KVIKIO_CUFILE_BATCH_API_FOUND>
          $<$<BOOL:${cuFile_STREAM_API_FOUND}>:KVIKIO_CUFILE_STREAM_API_FOUND>
+         $<$<BOOL:${cuFile_VERSION_API_FOUND}>:KVIKIO_CUFILE_VERSION_API_FOUND>
 )
 
 set_target_properties(
