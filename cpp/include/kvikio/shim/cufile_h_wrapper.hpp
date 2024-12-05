@@ -75,7 +75,7 @@ CUfileError_t cuFileDriverSetMaxPinnedMemSize(...);
 
 #endif
 
-// If the Batch API isn't defined, we define some of the data types here.
+// If some cufile APIs aren't defined, we define some of the data types here.
 // Notice, this doesn't need to be ABI compatible with the cufile definitions and
 // the lack of definitions is not a problem because the linker will never look for
 // these symbols because the "real" function calls are made through the shim instance.
@@ -105,10 +105,13 @@ CUfileError_t cuFileBatchIOCancel(...);
 CUfileError_t cuFileBatchIODestroy(...);
 #endif
 
-// If the Stream API isn't defined, we define some of the data types here.
 #ifndef KVIKIO_CUFILE_STREAM_API_FOUND
 CUfileError_t cuFileReadAsync(...);
 CUfileError_t cuFileWriteAsync(...);
 CUfileError_t cuFileStreamRegister(...);
 CUfileError_t cuFileStreamDeregister(...);
+#endif
+
+#ifndef KVIKIO_CUFILE_VERSION_API_FOUND
+CUfileError_t cuFileGetVersion(...);
 #endif
