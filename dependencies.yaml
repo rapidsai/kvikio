@@ -44,6 +44,7 @@ files:
       - cuda_version
       - docs
       - py_version
+      - test_kvikio
   py_build_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
