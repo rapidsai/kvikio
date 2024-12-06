@@ -24,12 +24,14 @@ files:
     output: none
     includes:
       - cuda_version
+      - test_libkvikio
       - test_cpp
   test_python:
     output: none
     includes:
       - cuda_version
       - py_version
+      - test_kvikio
       - test_python
   checks:
     output: none
@@ -42,6 +44,7 @@ files:
       - cuda_version
       - docs
       - py_version
+      - test_kvikio
   py_build_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -358,6 +361,18 @@ dependencies:
           # See https://github.com/zarr-developers/numcodecs/pull/475
           - numcodecs !=0.12.0
           - packaging
+  test_libkvikio:
+    common:
+      - output_types: conda
+        packages:
+          - libkvikio==24.12.*,>=0.0.0a0
+          - libkvikio-tests==24.12.*,>=0.0.0a0
+  test_kvikio:
+    common:
+      - output_types: conda
+        packages:
+          - libkvikio==24.12.*,>=0.0.0a0
+          - kvikio==24.12.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -367,7 +382,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &dask dask>=2022.05.2
+          - rapids-dask-dependency==24.12.*,>=0.0.0a0
           - pytest
           - pytest-cov
           - rangehttpserver
