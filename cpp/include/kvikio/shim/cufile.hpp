@@ -57,8 +57,11 @@ class cuFileAPI {
   decltype(cuFileDriverOpen)* DriverOpen{nullptr};
   decltype(cuFileDriverClose)* DriverClose{nullptr};
 
+  // Don't call `GetVersion` directly, use `cuFileAPI::instance().version`.
+  decltype(cuFileGetVersion)* GetVersion{nullptr};
+
  public:
-  bool stream_available = false;
+  int version{0};
 
  private:
 #ifdef KVIKIO_CUFILE_FOUND
@@ -88,33 +91,39 @@ class cuFileAPI {
     get_symbol(DriverSetMaxCacheSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxCacheSize));
     get_symbol(DriverSetMaxPinnedMemSize, lib, KVIKIO_STRINGIFY(cuFileDriverSetMaxPinnedMemSize));
 
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
-    get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
-    get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
-    get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
-    get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
-    get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
-#endif
-
-#ifdef KVIKIO_CUFILE_STREAM_API_FOUND
-    get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
-    get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
-    get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
-    get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
+#ifdef KVIKIO_CUFILE_VERSION_API_FOUND
     try {
-      void* s{};
-      get_symbol(s, lib, "cuFileReadAsync");
-      stream_available = true;
-    } catch (const std::runtime_error&) {
+      get_symbol(GetVersion, lib, KVIKIO_STRINGIFY(cuFileGetVersion));
+      int ver;
+      CUfileError_t const error = GetVersion(&ver);
+      if (error.err == CU_FILE_SUCCESS) { version = ver; }
+    } catch (std::runtime_error const&) {
     }
 #endif
+
+    // Some symbols were introduced in later versions, so version guards are required.
+    // Note: `version` is 0 for cuFile versions prior to v1.8 because `cuFileGetVersion`
+    // did not exist. As a result, the batch and stream APIs are not loaded in versions
+    // 1.6 and 1.7, respectively, even though they are available. This trade-off is made
+    // for improved robustness.
+    if (version >= 1060) {
+      get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
+      get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
+      get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
+      get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
+      get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
+    }
+    if (version >= 1070) {
+      get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
+      get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
+      get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
+      get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
+    }
 
     // cuFile is supposed to open and close the driver automatically but
     // because of a bug in cuFile v1.4 (CUDA v11.8) it sometimes segfaults:
     // <https://github.com/rapidsai/kvikio/issues/159>.
-    // We use the stream API as a version indicator of cuFile since it was introduced
-    // in cuFile v1.7 (CUDA v12.2).
-    if (!stream_available) { driver_open(); }
+    if (version < 1050) { driver_open(); }
   }
 
   // Notice, we have to close the driver at program exit (if we opened it) even though we are
@@ -124,7 +133,7 @@ class cuFileAPI {
   // [1] <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
   ~cuFileAPI()
   {
-    if (!stream_available) { driver_close(); }
+    if (version < 1050) { driver_close(); }
   }
 #else
   cuFileAPI() { throw std::runtime_error("KvikIO not compiled with cuFile.h"); }
@@ -205,25 +214,49 @@ inline bool is_cufile_available()
 }
 
 /**
- * @brief Check if cuFile's batch and stream API is available
+ * @brief Get cufile version (or zero if older than v1.8).
  *
- * Technically, the batch API is available in CUDA 12.1 but since there is no good
- * way to check CUDA version using the driver API, we check for the existing of the
- * `cuFileReadAsync` symbol, which is defined in CUDA 12.2+.
+ * The version is returned as (1000*major + 10*minor). E.g., cufile v1.8.0 would
+ * be represented by 1080.
  *
- * @return The boolean answer
+ * Notice, this is not the version of the CUDA toolkit. cufile is part of the
+ * toolkit but follows its own version scheme.
+ *
+ * @return The version (1000*major + 10*minor) or zero if older than 1080.
  */
-#if defined(KVIKIO_CUFILE_STREAM_API_FOUND) && defined(KVIKIO_CUFILE_STREAM_API_FOUND)
-inline bool is_batch_and_stream_available() noexcept
+#ifdef KVIKIO_CUFILE_FOUND
+inline int cufile_version()
 {
   try {
-    return is_cufile_available() && cuFileAPI::instance().stream_available;
-  } catch (const std::runtime_error&) {
-    return false;
+    return cuFileAPI::instance().version;
+  } catch (std::runtime_error const&) {
+    return 0;
   }
 }
 #else
-constexpr bool is_batch_and_stream_available() { return false; }
+constexpr int cufile_version() { return 0; }
 #endif
+
+/**
+ * @brief Check if cuFile's batch API is available.
+ *
+ * Since `cuFileGetVersion()` first became available in cufile v1.8 (CTK v12.3),
+ * this function returns false for versions older than v1.8 even though the batch
+ * API became available in v1.6.
+ *
+ * @return The boolean answer
+ */
+inline bool is_batch_api_available() noexcept { return cufile_version() >= 1060; }
+
+/**
+ * @brief Check if cuFile's stream (async) API is available.
+ *
+ * Since `cuFileGetVersion()` first became available in cufile v1.8 (CTK v12.3),
+ * this function returns false for versions older than v1.8 even though the stream
+ * API became available in v1.7.
+ *
+ * @return The boolean answer
+ */
+inline bool is_stream_api_available() noexcept { return cufile_version() >= 1070; }
 
 }  // namespace kvikio

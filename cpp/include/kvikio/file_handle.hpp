@@ -62,23 +62,20 @@ class FileHandle {
    */
   bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode)
   {
-    if (!defaults::is_compat_mode_preferred(requested_compat_mode)) {
-      if (!is_batch_and_stream_available()) {
-        if (requested_compat_mode == CompatMode::AUTO) { return true; }
-        throw std::runtime_error("Missing cuFile batch or stream library symbol.");
-      }
+    if (defaults::is_compat_mode_preferred(requested_compat_mode)) { return true; }
 
-      // When checking for availability, we also check if cuFile's config file exist. This is
-      // because even when the stream API is available, it doesn't work if no config file exist.
-      if (config_path().empty()) {
-        if (requested_compat_mode == CompatMode::AUTO) { return true; }
-        throw std::runtime_error("Missing cuFile configuration file.");
-      }
-
-      return false;
+    if (!is_stream_api_available()) {
+      if (requested_compat_mode == CompatMode::AUTO) { return true; }
+      throw std::runtime_error("Missing the cuFile stream api.");
     }
 
-    return true;
+    // When checking for availability, we also check if cuFile's config file exists. This is
+    // because even when the stream API is available, it doesn't work if no config file exists.
+    if (config_path().empty()) {
+      if (requested_compat_mode == CompatMode::AUTO) { return true; }
+      throw std::runtime_error("Missing cuFile configuration file.");
+    }
+    return false;
   }
 
  public:
@@ -670,7 +667,7 @@ class FileHandle {
    */
   [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept
   {
-    static bool is_extra_symbol_available = is_batch_and_stream_available();
+    static bool is_extra_symbol_available = is_stream_api_available();
     static bool is_config_path_empty      = config_path().empty();
     return is_compat_mode_preferred() || !is_extra_symbol_available || is_config_path_empty;
   }
