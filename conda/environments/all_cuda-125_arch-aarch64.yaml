@@ -10,12 +10,11 @@ dependencies:
 - c-compiler
 - cmake>=3.26.4,!=3.30.0
 - cuda-nvcc
-- cuda-python>=12.0,<13.0a0,<=12.6.0
+- cuda-python>=12.6.2,<13.0a0
 - cuda-version=12.5
 - cupy>=12.0.0
 - cxx-compiler
 - cython>=3.0.0
-- dask>=2022.05.2
 - doxygen=1.9.1
 - gcc_linux-aarch64=11.*
 - libcufile-dev
@@ -33,6 +32,7 @@ dependencies:
 - python>=3.10,<3.13
 - rangehttpserver
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
+- rapids-dask-dependency==25.2.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - sphinx
 - sphinx-click
