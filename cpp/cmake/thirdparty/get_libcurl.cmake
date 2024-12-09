@@ -27,7 +27,7 @@ function(find_and_configure_libcurl)
     BUILD_EXPORT_SET kvikio-exports
     INSTALL_EXPORT_SET kvikio-exports
     CPM_ARGS
-   GIT_REPOSITORY https://github.com/curl/curl
+    GIT_REPOSITORY https://github.com/curl/curl
     GIT_TAG curl-8_5_0
     OPTIONS "BUILD_CURL_EXE OFF" "BUILD_SHARED_LIBS OFF" "BUILD_TESTING OFF" "CURL_USE_LIBPSL OFF"
             "CURL_DISABLE_LDAP ON" "CMAKE_POSITION_INDEPENDENT_CODE ON"
