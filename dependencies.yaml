@@ -114,7 +114,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcurl>=8.5.0
+          - libcurl>=8.5.0,<9.0a0
     specific:
       - output_types: conda
         matrices:
