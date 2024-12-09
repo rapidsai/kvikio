@@ -129,21 +129,37 @@ FileHandle::FileHandle(const std::string& file_path,
   }
 
   // Try to open the file with the O_DIRECT flag. Fall back to compatibility mode, if it fails.
+  auto handle_o_direct_except = [this] {
+    if (_compat_mode == CompatMode::AUTO) {
+      _compat_mode = CompatMode::ON;
+    } else {  // CompatMode::OFF
+      throw;
+    }
+  };
+
   try {
     _fd_direct_on = open_fd(file_path, flags, true, mode);
   } catch (const std::system_error&) {
-    _compat_mode = CompatMode::ON;
+    handle_o_direct_except();
   } catch (const std::invalid_argument&) {
-    _compat_mode = CompatMode::ON;
+    handle_o_direct_except();
   }
 
+  if (_compat_mode == CompatMode::ON) { return; }
+
   // Create a cuFile handle, if not in compatibility mode
-  if (!is_compat_mode_preferred()) {
-    CUfileDescr_t desc{};  // It is important to set to zero!
-    desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-    desc.handle.fd = _fd_direct_on;
-    CUFILE_TRY(cuFileAPI::instance().HandleRegister(&_handle, &desc));
+  CUfileDescr_t desc{};  // It is important to set to zero!
+  desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+  desc.handle.fd = _fd_direct_on;
+
+  auto error_code = cuFileAPI::instance().HandleRegister(&_handle, &desc);
+  // For the AUTO mode, if the first cuFile API call fails, fall back to the compatibility
+  // mode.
+  if (_compat_mode == CompatMode::AUTO && error_code.err != CU_FILE_SUCCESS) {
+    _compat_mode = CompatMode::ON;
+  } else {
+    CUFILE_TRY(error_code);
   }
 }
 
