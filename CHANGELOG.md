@@ -1,3 +1,67 @@
+# kvikio 24.12.00 (11 Dec 2024)
+
+## 🚨 Breaking Changes
+
+- Use curl &gt;=8.5.0 to align with conda-forge and avoid CVEs. ([#574](https://github.com/rapidsai/kvikio/pull/574)) [@bdice](https://github.com/bdice)
+- cufile version ([#565](https://github.com/rapidsai/kvikio/pull/565)) [@madsbk](https://github.com/madsbk)
+- Add a new KvikIO compatibility mode &quot;AUTO&quot; ([#547](https://github.com/rapidsai/kvikio/pull/547)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Build KvikIO as a shared library ([#527](https://github.com/rapidsai/kvikio/pull/527)) [@madsbk](https://github.com/madsbk)
+- Small improvements ([#493](https://github.com/rapidsai/kvikio/pull/493)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 🐛 Bug Fixes
+
+- Use curl &gt;=8.5.0 to align with conda-forge and avoid CVEs. ([#574](https://github.com/rapidsai/kvikio/pull/574)) [@bdice](https://github.com/bdice)
+- cufile version ([#565](https://github.com/rapidsai/kvikio/pull/565)) [@madsbk](https://github.com/madsbk)
+- Fix the pytest error for async io ([#559](https://github.com/rapidsai/kvikio/pull/559)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- fix library-loading issues in editable installs ([#553](https://github.com/rapidsai/kvikio/pull/553)) [@jameslamb](https://github.com/jameslamb)
+- Backport `FindCUDAToolkit` from CMake 3.31 ([#550](https://github.com/rapidsai/kvikio/pull/550)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Fix exporting of include directories ([#540](https://github.com/rapidsai/kvikio/pull/540)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Moving details in file_handle.hpp to .cpp ([#539](https://github.com/rapidsai/kvikio/pull/539)) [@madsbk](https://github.com/madsbk)
+- Disallow cuda-python 12.6.1 and 11.8.4 ([#537](https://github.com/rapidsai/kvikio/pull/537)) [@bdice](https://github.com/bdice)
+- Fix case of find_package call ([#534](https://github.com/rapidsai/kvikio/pull/534)) [@vyasr](https://github.com/vyasr)
+- CurlHandle: fix error message handling ([#522](https://github.com/rapidsai/kvikio/pull/522)) [@madsbk](https://github.com/madsbk)
+- Don&#39;t use macros for cuda driver functions ([#516](https://github.com/rapidsai/kvikio/pull/516)) [@Jacobfaib](https://github.com/Jacobfaib)
+- Fix CUDA driver type stub definitions ([#511](https://github.com/rapidsai/kvikio/pull/511)) [@Jacobfaib](https://github.com/Jacobfaib)
+- Stop tagging wheels as arch-agnostic ([#507](https://github.com/rapidsai/kvikio/pull/507)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Include &lt;utility&gt; since we use std::exchange ([#505](https://github.com/rapidsai/kvikio/pull/505)) [@robertmaynard](https://github.com/robertmaynard)
+- Disabling curl tests doesn&#39;t now disable kvikio cpp tests ([#503](https://github.com/rapidsai/kvikio/pull/503)) [@robertmaynard](https://github.com/robertmaynard)
+- Visibility of static class methods ([#492](https://github.com/rapidsai/kvikio/pull/492)) [@madsbk](https://github.com/madsbk)
+
+## 📖 Documentation
+
+- to ([#532](https://github.com/rapidsai/kvikio/pull/532)) [@RichardScottOZ](https://github.com/RichardScottOZ)
+
+## 🚀 New Features
+
+- Add a new KvikIO compatibility mode &quot;AUTO&quot; ([#547](https://github.com/rapidsai/kvikio/pull/547)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Upgrade nvcomp to 4.1.0.6 ([#525](https://github.com/rapidsai/kvikio/pull/525)) [@bdice](https://github.com/bdice)
+
+## 🛠️ Improvements
+
+- prefer wheel-provided libkvikio.so, use RTLD_LOCAL ([#551](https://github.com/rapidsai/kvikio/pull/551)) [@jameslamb](https://github.com/jameslamb)
+- enforce wheel size limits, README formatting in CI ([#548](https://github.com/rapidsai/kvikio/pull/548)) [@jameslamb](https://github.com/jameslamb)
+- remove WheelHelpers.cmake ([#545](https://github.com/rapidsai/kvikio/pull/545)) [@jameslamb](https://github.com/jameslamb)
+- Put a ceiling on cuda-python ([#543](https://github.com/rapidsai/kvikio/pull/543)) [@jameslamb](https://github.com/jameslamb)
+- Replace FindcuFile with upstream FindCUDAToolkit support ([#542](https://github.com/rapidsai/kvikio/pull/542)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Build KvikIO as a shared library ([#527](https://github.com/rapidsai/kvikio/pull/527)) [@madsbk](https://github.com/madsbk)
+- print sccache stats in builds ([#524](https://github.com/rapidsai/kvikio/pull/524)) [@jameslamb](https://github.com/jameslamb)
+- RemoteIO: use a pinned bounce buffer ([#519](https://github.com/rapidsai/kvikio/pull/519)) [@madsbk](https://github.com/madsbk)
+- Use registered strings for NVTX. Add more NVTX annotations. ([#518](https://github.com/rapidsai/kvikio/pull/518)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Minor README fixes ([#517](https://github.com/rapidsai/kvikio/pull/517)) [@Jacobfaib](https://github.com/Jacobfaib)
+- Python bindings to `cuFileDriverOpen()` and `cuFileDriverClose()` ([#514](https://github.com/rapidsai/kvikio/pull/514)) [@madsbk](https://github.com/madsbk)
+- Add CUDA libs in Python Conda, Consolidate Conda CI installs &amp; use `rapids-dask-dependency` ([#513](https://github.com/rapidsai/kvikio/pull/513)) [@jakirkham](https://github.com/jakirkham)
+- S3 benchmark: adding cudf-kvikio and cudf-fsspec ([#509](https://github.com/rapidsai/kvikio/pull/509)) [@madsbk](https://github.com/madsbk)
+- Use Cython&#39;s `array` to back `Py_ssize_t[::1]` ([#504](https://github.com/rapidsai/kvikio/pull/504)) [@jakirkham](https://github.com/jakirkham)
+- Mark all of `Array`&#39;s `nogil` `cdef` functions as `noexcept` ([#502](https://github.com/rapidsai/kvikio/pull/502)) [@jakirkham](https://github.com/jakirkham)
+- Simplify `_to_string` encoding of Python `str`s ([#498](https://github.com/rapidsai/kvikio/pull/498)) [@jakirkham](https://github.com/jakirkham)
+- make conda installs in CI stricter ([#495](https://github.com/rapidsai/kvikio/pull/495)) [@jameslamb](https://github.com/jameslamb)
+- Small improvements ([#493](https://github.com/rapidsai/kvikio/pull/493)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Prune workflows based on changed files ([#489](https://github.com/rapidsai/kvikio/pull/489)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Remote IO: S3 support ([#479](https://github.com/rapidsai/kvikio/pull/479)) [@madsbk](https://github.com/madsbk)
+- Use nvcomp wheel instead of bundling nvcomp ([#478](https://github.com/rapidsai/kvikio/pull/478)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Touch ups to `Array` ([#475](https://github.com/rapidsai/kvikio/pull/475)) [@jakirkham](https://github.com/jakirkham)
+- Remote IO: http support ([#464](https://github.com/rapidsai/kvikio/pull/464)) [@madsbk](https://github.com/madsbk)
+
 # kvikio 24.10.00 (9 Oct 2024)
 
 ## 🚨 Breaking Changes
