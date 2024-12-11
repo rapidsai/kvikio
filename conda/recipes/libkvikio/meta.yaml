@@ -52,6 +52,7 @@ requirements:
     {% else %}
     - libcufile-dev  # [linux]
     {% endif %}
+    - libcurl {{ libcurl_version }}
 
 outputs:
   - name: libkvikio
@@ -74,6 +75,7 @@ outputs:
         - cmake {{ cmake_version }}
       host:
         - cuda-version ={{ cuda_version }}
+        - libcurl {{ libcurl_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}

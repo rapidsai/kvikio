@@ -7,7 +7,7 @@ import contextlib
 import kvikio._lib.defaults
 
 
-def compat_mode() -> bool:
+def compat_mode() -> kvikio.CompatMode:
     """Check if KvikIO is running in compatibility mode.
 
     Notice, this is not the same as the compatibility mode in cuFile. That is,
@@ -18,10 +18,11 @@ def compat_mode() -> bool:
 
     Set the environment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility
     mode. By default, compatibility mode is enabled:
+
     - when `libcufile` cannot be found
     - when running in Windows Subsystem for Linux (WSL)
     - when `/run/udev` isn't readable, which typically happens when running inside
-    a docker image not launched with `--volume /run/udev:/run/udev:ro`
+      a docker image not launched with `--volume /run/udev:/run/udev:ro`
 
     Returns
     -------
@@ -31,32 +32,36 @@ def compat_mode() -> bool:
     return kvikio._lib.defaults.compat_mode()
 
 
-def compat_mode_reset(enable: bool) -> None:
+def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
     """Reset the compatibility mode.
 
     Use this function to enable/disable compatibility mode explicitly.
 
     Parameters
     ----------
-    enable : bool
-        Set to True to enable and False to disable compatibility mode
+    compatmode : kvikio.CompatMode
+        Set to kvikio.CompatMode.ON to enable and kvikio.CompatMode.OFF to disable
+        compatibility mode, or kvikio.CompatMode.AUTO to let KvikIO determine: try
+        OFF first, and upon failure, fall back to ON.
     """
-    kvikio._lib.defaults.compat_mode_reset(enable)
+    kvikio._lib.defaults.compat_mode_reset(compatmode)
 
 
 @contextlib.contextmanager
-def set_compat_mode(enable: bool):
+def set_compat_mode(compatmode: kvikio.CompatMode):
     """Context for resetting the compatibility mode.
 
     Parameters
     ----------
-    enable : bool
-        Set to True to enable and False to disable compatibility mode
+    compatmode : kvikio.CompatMode
+        Set to kvikio.CompatMode.ON to enable and kvikio.CompatMode.OFF to disable
+        compatibility mode, or kvikio.CompatMode.AUTO to let KvikIO determine: try
+        OFF first, and upon failure, fall back to ON.
     """
     num_threads_reset(get_num_threads())  # Sync all running threads
     old_value = compat_mode()
     try:
-        compat_mode_reset(enable)
+        compat_mode_reset(compatmode)
         yield
     finally:
         compat_mode_reset(old_value)

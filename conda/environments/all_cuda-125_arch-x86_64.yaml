@@ -6,29 +6,33 @@ channels:
 - conda-forge
 - nvidia
 dependencies:
+- boto3>=1.21.21
 - c-compiler
 - cmake>=3.26.4,!=3.30.0
 - cuda-nvcc
-- cuda-python>=12.0,<13.0a0
+- cuda-python>=12.0,<13.0a0,<=12.6.0
 - cuda-version=12.5
 - cupy>=12.0.0
 - cxx-compiler
 - cython>=3.0.0
-- dask>=2022.05.2
 - doxygen=1.9.1
 - gcc_linux-64=11.*
 - libcufile-dev
+- libcurl>=8.5.0,<9.0a0
+- moto>=4.0.8
 - ninja
 - numcodecs !=0.12.0
 - numpy>=1.23,<3.0a0
 - numpydoc
-- nvcomp==4.0.1
+- nvcomp==4.1.0.6
 - packaging
 - pre-commit
 - pytest
 - pytest-cov
 - python>=3.10,<3.13
+- rangehttpserver
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
+- rapids-dask-dependency==24.12.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - sphinx
 - sphinx-click

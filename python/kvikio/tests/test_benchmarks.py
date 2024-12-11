@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+import kvikio
+
 benchmarks_path = (
     Path(os.path.realpath(__file__)).parent.parent / "kvikio" / "benchmarks"
 )
@@ -72,6 +74,64 @@ def test_zarr_io(run_cmd, tmp_path, api):
             "1MiB",
             "-d",
             str(tmp_path),
+            "--api",
+            api,
+        ],
+        cwd=benchmarks_path,
+    )
+    assert retcode == 0
+
+
+@pytest.mark.parametrize(
+    "api",
+    [
+        "cupy",
+        "numpy",
+    ],
+)
+def test_http_io(run_cmd, api):
+    """Test benchmarks/http_io.py"""
+
+    if not kvikio.is_remote_file_available():
+        pytest.skip(
+            "RemoteFile not available, please build KvikIO "
+            "with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
+        )
+    retcode = run_cmd(
+        cmd=[
+            sys.executable,
+            "http_io.py",
+            "-n",
+            "1000",
+            "--api",
+            api,
+        ],
+        cwd=benchmarks_path,
+    )
+    assert retcode == 0
+
+
+@pytest.mark.parametrize(
+    "api",
+    [
+        "cupy",
+        "numpy",
+    ],
+)
+def test_s3_io(run_cmd, api):
+    """Test benchmarks/s3_io.py"""
+
+    if not kvikio.is_remote_file_available():
+        pytest.skip(
+            "RemoteFile not available, please build KvikIO "
+            "with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
+        )
+    retcode = run_cmd(
+        cmd=[
+            sys.executable,
+            "http_io.py",
+            "-n",
+            "1000",
             "--api",
             api,
         ],

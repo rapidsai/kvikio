@@ -85,7 +85,7 @@ class cudaAPI {
   cudaAPI(cudaAPI const&)        = delete;
   void operator=(cudaAPI const&) = delete;
 
-  static cudaAPI& instance()
+  KVIKIO_EXPORT static cudaAPI& instance()
   {
     static cudaAPI _instance;
     return _instance;

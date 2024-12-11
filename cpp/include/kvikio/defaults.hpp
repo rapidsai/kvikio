@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * @file
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -27,7 +32,48 @@
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
+/**
+ * @brief I/O compatibility mode.
+ */
+enum class CompatMode : uint8_t {
+  OFF,  ///< Enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met
+        ///< and cuFile is properly configured. However, if the system is not suited for cuFile, I/O
+        ///< operations under the OFF option may error out, crash or hang.
+  ON,   ///< Enforce POSIX I/O.
+  AUTO,  ///< Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile
+         ///< are not met.
+};
+
 namespace detail {
+/**
+ * @brief Parse a string into a CompatMode enum.
+ *
+ * @param compat_mode_str Compatibility mode in string format(case-insensitive). Valid values
+ * include:
+ *   - `ON` (alias: `TRUE`, `YES`, `1`)
+ *   - `OFF` (alias: `FALSE`, `NO`, `0`)
+ *   - `AUTO`
+ * @return A CompatMode enum.
+ */
+inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
+{
+  // Convert to lowercase
+  std::string tmp{compat_mode_str};
+  std::transform(
+    tmp.begin(), tmp.end(), tmp.begin(), [](unsigned char c) { return std::tolower(c); });
+
+  CompatMode res{};
+  if (tmp == "on" || tmp == "true" || tmp == "yes" || tmp == "1") {
+    res = CompatMode::ON;
+  } else if (tmp == "off" || tmp == "false" || tmp == "no" || tmp == "0") {
+    res = CompatMode::OFF;
+  } else if (tmp == "auto") {
+    res = CompatMode::AUTO;
+  } else {
+    throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
+  }
+  return res;
+}
 
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
@@ -57,7 +103,14 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
   }
   // Convert to lowercase
   std::string str{env_val};
-  std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+  // Special considerations regarding the case conversion:
+  // - std::tolower() is not an addressable function. Passing it to std::transform() as
+  //   a function pointer, if the compile turns out successful, causes the program behavior
+  //   "unspecified (possibly ill-formed)", hence the lambda. ::tolower() is addressable
+  //   and does not have this problem, but the following item still applies.
+  // - To avoid UB in std::tolower() or ::tolower(), the character must be cast to unsigned char.
+  std::transform(
+    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
   // Trim whitespaces
   std::stringstream trimmer;
   trimmer << str;
@@ -70,16 +123,24 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
                               std::string{env_val});
 }
 
+template <>
+inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
+{
+  auto* env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return default_val; }
+  return parse_compat_mode_str(env_val);
+}
+
 }  // namespace detail
 
 /**
- * @brief Singleton class of default values used thoughtout KvikIO.
+ * @brief Singleton class of default values used throughout KvikIO.
  *
  */
 class defaults {
  private:
   BS::thread_pool _thread_pool{get_num_threads_from_env()};
-  bool _compat_mode;
+  CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
@@ -97,13 +158,7 @@ class defaults {
   {
     // Determine the default value of `compat_mode`
     {
-      if (std::getenv("KVIKIO_COMPAT_MODE") != nullptr) {
-        // Setting `KVIKIO_COMPAT_MODE` take precedence
-        _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", false);
-      } else {
-        // If `KVIKIO_COMPAT_MODE` isn't set, we infer based on runtime environment
-        _compat_mode = !is_cufile_available();
-      }
+      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
     }
     // Determine the default value of `task_size`
     {
@@ -133,7 +188,7 @@ class defaults {
     }
   }
 
-  static defaults* instance()
+  KVIKIO_EXPORT static defaults* instance()
   {
     static defaults _instance;
     return &_instance;
@@ -156,19 +211,77 @@ class defaults {
    *  - when `/run/udev` isn't readable, which typically happens when running inside a docker
    *    image not launched with `--volume /run/udev:/run/udev:ro`
    *
-   * @return The boolean answer
+   * @return Compatibility mode.
    */
-  [[nodiscard]] static bool compat_mode() { return instance()->_compat_mode; }
+  [[nodiscard]] static CompatMode compat_mode() { return instance()->_compat_mode; }
 
   /**
-   * @brief Reset the value of `kvikio::defaults::compat_mode()`
+   * @brief Reset the value of `kvikio::defaults::compat_mode()`.
    *
-   * Changing compatibility mode, effects all new FileHandles that doesn't sets the
-   * `compat_mode` argument explicitly but it never effect existing FileHandles.
+   * Changing the compatibility mode affects all the new FileHandles whose `compat_mode` argument is
+   * not explicitly set, but it never affects existing FileHandles.
    *
-   * @param enable Whether to enable compatibility mode or not.
+   * @param compat_mode Compatibility mode.
    */
-  static void compat_mode_reset(bool enable) { instance()->_compat_mode = enable; }
+  static void compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
+
+  /**
+   * @brief Infer the `AUTO` compatibility mode from the system runtime.
+   *
+   * If the requested compatibility mode is `AUTO`, set the expected compatibility mode to
+   * `ON` or `OFF` by performing a system config check; otherwise, do nothing. Effectively, this
+   * function reduces the requested compatibility mode from three possible states
+   * (`ON`/`OFF`/`AUTO`) to two (`ON`/`OFF`) so as to determine the actual I/O path. This function
+   * is lightweight as the inferred result is cached.
+   */
+  static CompatMode infer_compat_mode_if_auto(CompatMode compat_mode)
+  {
+    if (compat_mode == CompatMode::AUTO) {
+      static auto inferred_compat_mode_for_auto = []() -> CompatMode {
+        return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
+      }();
+      return inferred_compat_mode_for_auto;
+    }
+    return compat_mode;
+  }
+
+  /**
+   * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON`.
+   *
+   * This function returns true if any of the two condition is satisfied:
+   *   - The compatibility mode is `ON`.
+   *   - It is `AUTO` but inferred to be `ON`.
+   *
+   * Conceptually, the opposite of this function is whether requested compatibility mode is expected
+   * to be `OFF`, which would occur if any of the two condition is satisfied:
+   *   - The compatibility mode is `OFF`.
+   *   - It is `AUTO` but inferred to be `OFF`.
+   *
+   * @param compat_mode Compatibility mode.
+   * @return Boolean answer.
+   */
+  static bool is_compat_mode_preferred(CompatMode compat_mode)
+  {
+    return compat_mode == CompatMode::ON ||
+           (compat_mode == CompatMode::AUTO &&
+            defaults::infer_compat_mode_if_auto(compat_mode) == CompatMode::ON);
+  }
+
+  /**
+   * @brief Whether the global compatibility mode from class defaults is expected to be `ON`.
+   *
+   * This function returns true if any of the two condition is satisfied:
+   *   - The compatibility mode is `ON`.
+   *   - It is `AUTO` but inferred to be `ON`.
+   *
+   * Conceptually, the opposite of this function is whether the global compatibility mode is
+   * expected to be `OFF`, which would occur if any of the two condition is satisfied:
+   *   - The compatibility mode is `OFF`.
+   *   - It is `AUTO` but inferred to be `OFF`.
+   *
+   * @return Boolean answer.
+   */
+  static bool is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
 
   /**
    * @brief Get the default thread pool.

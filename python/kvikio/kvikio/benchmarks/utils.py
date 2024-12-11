@@ -12,6 +12,7 @@ import subprocess
 from dask.utils import format_bytes
 
 import kvikio
+import kvikio.cufile_driver
 import kvikio.defaults
 
 
@@ -26,7 +27,8 @@ def drop_vm_cache() -> None:
 def pprint_sys_info() -> None:
     """Pretty print system information"""
 
-    props = kvikio.DriverProperties()
+    version = kvikio.cufile_driver.libcufile_version()
+    props = kvikio.cufile_driver.DriverProperties()
     try:
         import pynvml
 
@@ -40,6 +42,10 @@ def pprint_sys_info() -> None:
         gpu_name = f"{pynvml.nvmlDeviceGetName(dev)} (dev #0)"
         mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
         bar1_total = format_bytes(pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total)
+    if version == (0, 0):
+        libcufile_version = "unknown (earlier than cuFile 1.8)"
+    else:
+        libcufile_version = f"{version[0]}.{version[1]}"
     gds_version = "N/A (Compatibility Mode)"
     if props.is_gds_available:
         gds_version = f"v{props.major_version}.{props.minor_version}"
@@ -60,6 +66,7 @@ def pprint_sys_info() -> None:
     print(f"GPU               | {gpu_name}")
     print(f"GPU Memory Total  | {mem_total}")
     print(f"BAR1 Memory Total | {bar1_total}")
+    print(f"libcufile version | {libcufile_version}")
     print(f"GDS driver        | {gds_version}")
     print(f"GDS config.json   | {gds_config_json_path}")
 

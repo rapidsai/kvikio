@@ -5,7 +5,7 @@ bindings to [cuFile](https://docs.nvidia.com/gpudirect-storage/api-reference-gui
 which enables [GPUDirect Storage (GDS)](https://developer.nvidia.com/blog/gpudirect-storage/).
 KvikIO also works efficiently when GDS isn't available and can read/write both host and device data seamlessly.
 
-KvikIO C++ is a header-only library that is part of the [RAPIDS](https://rapids.ai/) suite of open-source software libraries for GPU-accelerated data science.
+KvikIO C++ is part of the [RAPIDS](https://rapids.ai/) suite of open-source software libraries for GPU-accelerated data science.
 
 ---
 **Notice** this is the documentation for the C++ library. For the Python documentation, see under [kvikio](https://docs.rapids.ai/api/kvikio/nightly/).
@@ -23,9 +23,7 @@ KvikIO C++ is a header-only library that is part of the [RAPIDS](https://rapids.
 
 ## Installation
 
-KvikIO is a header-only library and as such doesn't need installation.
-However, for convenience we release Conda packages that makes it easy
-to include KvikIO in your CMake projects.
+For convenience we release Conda packages that makes it easy to include KvikIO in your CMake projects.
 
 ### Conda/Mamba
 
@@ -78,14 +76,19 @@ Then run the example:
 ## Runtime Settings
 
 #### Compatibility Mode (KVIKIO_COMPAT_MODE)
-When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. Instead, reads and writes are done using POSIX. Notice, this is not the same as the compatibility mode in cuFile. That is cuFile can run in compatibility mode while KvikIO is not.
+When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. Instead, reads and writes are done using POSIX. Notice, this is not the same as the compatibility mode in cuFile. It is possible that KvikIO performs I/O in the non-compatibility mode by using the cuFile library, but the cuFile library itself is configured to operate in its own compatibility mode. For more details, refer to [cuFile compatibility mode](https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html#cufile-compatibility-mode) and [cuFile environment variables](https://docs.nvidia.com/gpudirect-storage/troubleshooting-guide/index.html#environment-variables)
 
-Set the environment variable `KVIKIO_COMPAT_MODE` to enable/disable compatibility mode. By default, compatibility mode is enabled:
+The environment variable `KVIKIO_COMPAT_MODE` has three options (case-insensitive):
+  - `ON` (aliases: `TRUE`, `YES`, `1`): Enable the compatibility mode.
+  - `OFF` (aliases: `FALSE`, `NO`, `0`): Disable the compatibility mode, and enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met and cuFile is properly configured. However, if the system is not suited for cuFile, I/O operations under the `OFF` option may error out, crash or hang.
+  - `AUTO`: Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile are not met.
+
+Under `AUTO`, KvikIO falls back to the compatibility mode:
   - when `libcufile.so` cannot be found.
   - when running in Windows Subsystem for Linux (WSL).
   - when `/run/udev` isn't readable, which typically happens when running inside a docker image not launched with `--volume /run/udev:/run/udev:ro`.
 
-This setting can also be controlled by `defaults::compat_mode()` and `defaults::compat_mode_reset()`.
+This setting can also be programmatically controlled by `defaults::set_compat_mode()` and `defaults::compat_mode_reset()`.
 
 
 #### Thread Pool (KVIKIO_NTHREADS)

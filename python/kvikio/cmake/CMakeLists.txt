@@ -13,5 +13,3 @@
 # =============================================================================
 
 include(thirdparty/get_nvcomp.cmake)
-# Needed for install_aliased_imported_targets
-include(thirdparty/WheelHelpers.cmake)

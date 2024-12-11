@@ -13,5 +13,6 @@
 # limitations under the License.
 
 from libkvikio._version import __git_commit__, __version__
+from libkvikio.load import load_library
 
-__all__ = ["__git_commit__", "__version__"]
+__all__ = ["__git_commit__", "__version__", "load_library"]

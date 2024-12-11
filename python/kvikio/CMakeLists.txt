@@ -26,10 +26,9 @@ project(
   LANGUAGES CXX CUDA
 )
 
-# TODO: Should we symlink FindcuFile.cmake into python/cmake? find cuFile
-include(../../cpp/cmake/Modules/FindcuFile.cmake)
+option(USE_NVCOMP_RUNTIME_WHEEL "Use the nvcomp wheel at runtime instead of the system library" OFF)
 
-find_package(KvikIO REQUIRED "${RAPIDS_VERSION}")
+find_package(kvikio REQUIRED "${RAPIDS_VERSION}")
 
 find_package(CUDAToolkit REQUIRED)
 
@@ -39,12 +38,5 @@ rapids_cython_init()
 add_subdirectory(cmake)
 
 set(cython_lib_dir kvikio)
-
-# It would be better to factor nvcomp out into its own wheel. Until that is available, we vendor it
-# here.
-install_aliased_imported_targets(
-  TARGETS nvcomp::nvcomp nvcomp::nvcomp_gdeflate nvcomp::nvcomp_bitcomp DESTINATION
-  ${cython_lib_dir}/_lib
-)
 
 add_subdirectory(kvikio/_lib)

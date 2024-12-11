@@ -110,9 +110,11 @@ class TempDir {
  */
 class DevBuffer {
  public:
-  const std::size_t nelem;
-  const std::size_t nbytes;
+  std::size_t nelem;
+  std::size_t nbytes;
   void* ptr{nullptr};
+
+  DevBuffer() : nelem{0}, nbytes{0} {};
 
   DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(std::int64_t)}
   {
@@ -121,6 +123,21 @@ class DevBuffer {
   DevBuffer(const std::vector<std::int64_t>& host_buffer) : DevBuffer{host_buffer.size()}
   {
     KVIKIO_CHECK_CUDA(cudaMemcpy(ptr, host_buffer.data(), nbytes, cudaMemcpyHostToDevice));
+  }
+
+  DevBuffer(DevBuffer&& dev_buffer) noexcept
+    : nelem{std::exchange(dev_buffer.nelem, 0)},
+      nbytes{std::exchange(dev_buffer.nbytes, 0)},
+      ptr{std::exchange(dev_buffer.ptr, nullptr)}
+  {
+  }
+
+  DevBuffer& operator=(DevBuffer&& dev_buffer) noexcept
+  {
+    nelem  = std::exchange(dev_buffer.nelem, 0);
+    nbytes = std::exchange(dev_buffer.nbytes, 0);
+    ptr    = std::exchange(dev_buffer.ptr, nullptr);
+    return *this;
   }
 
   ~DevBuffer() noexcept { cudaFree(ptr); }

@@ -36,7 +36,10 @@ function sed_runner() {
 echo "${NEXT_FULL_TAG}" > VERSION
 
 DEPENDENCIES=(
+  kvikio
   libkvikio
+  libkvikio-tests
+  rapids-dask-dependency
 )
 for DEP in "${DEPENDENCIES[@]}"; do
   for FILE in dependencies.yaml conda/environments/*.yaml; do

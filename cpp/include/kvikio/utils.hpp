@@ -32,20 +32,6 @@
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 
-// Macros used for defining symbol visibility, only GLIBC is supported.
-// Since KvikIO is header-only, we rely on the linker to disambiguate inline functions
-// that have (or return) static references. To do this, the relevant function must have
-// `__attribute__((visibility("default")))`. If not, then if KvikIO is used in two
-// different DSOs, the function will appear twice, and there will be two static objects.
-// See <https://github.com/rapidsai/kvikio/issues/442>.
-#if (defined(__GNUC__) || defined(__clang__)) && !defined(__MINGW32__) && !defined(__MINGW64__)
-#define KVIKIO_EXPORT __attribute__((visibility("default")))
-#define KVIKIO_HIDDEN __attribute__((visibility("hidden")))
-#else
-#define KVIKIO_EXPORT
-#define KVIKIO_HIDDEN
-#endif
-
 namespace kvikio {
 
 // cuFile defines a page size to 4 KiB
@@ -301,46 +287,103 @@ struct libkvikio_domain {
   static constexpr char const* name{"libkvikio"};
 };
 
+// Macro to concatenate two tokens x and y.
+#define KVIKIO_CONCAT_HELPER(x, y) x##y
+#define KVIKIO_CONCAT(x, y)        KVIKIO_CONCAT_HELPER(x, y)
+
+// Macro to create a static, registered string that will not have a name conflict with any
+// registered string defined in the same scope.
+#define KVIKIO_REGISTER_STRING(msg)                                        \
+  [](const char* a_msg) -> auto& {                                         \
+    static nvtx3::registered_string_in<libkvikio_domain> a_reg_str{a_msg}; \
+    return a_reg_str;                                                      \
+  }(msg)
+
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
-#define KVIKIO_NVTX_FUNC_RANGE_1() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
-#define KVIKIO_NVTX_FUNC_RANGE_2(msg, val)                    \
-  nvtx3::scoped_range_in<libkvikio_domain> _kvikio_nvtx_range \
-  {                                                           \
-    nvtx3::event_attributes                                   \
-    {                                                         \
-      msg, nvtx3::payload { convert_to_64bit(val) }           \
-    }                                                         \
+#define KVIKIO_NVTX_FUNC_RANGE_IMPL() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
+
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL(msg, val)                                        \
+  nvtx3::scoped_range_in<libkvikio_domain> KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__) \
+  {                                                                                    \
+    nvtx3::event_attributes                                                            \
+    {                                                                                  \
+      KVIKIO_REGISTER_STRING(msg), nvtx3::payload { convert_to_64bit(val) }            \
+    }                                                                                  \
   }
-#define GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(_1, _2, NAME, ...) NAME
+
+#define KVIKIO_NVTX_MARKER_IMPL(msg, val) \
+  nvtx3::mark_in<libkvikio_domain>(       \
+    nvtx3::event_attributes{KVIKIO_REGISTER_STRING(msg), nvtx3::payload{convert_to_64bit(val)}})
+
 #endif
 
 /**
  * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain
  * from the lifetime of a function.
  *
- * Takes two arguments (message, payload) or no arguments, in which case the name
- * of the immediately enclosing function returned by `__func__` is used.
+ * Takes no argument. The name of the immediately enclosing function returned by `__func__` is used
+ * as the message.
  *
  * Example:
  * ```
- * void some_function1(){
- *    KVIKIO_NVTX_FUNC_RANGE("my function", 42);
- *    ...
- * }
- * void some_function2(){
- *    KVIKIO_NVTX_FUNC_RANGE();  // The name `some_function2` is used
+ * void some_function(){
+ *    KVIKIO_NVTX_FUNC_RANGE();  // The name `some_function` is used as the message
  *    ...
  * }
  * ```
  */
 #ifdef KVIKIO_CUDA_FOUND
-#define KVIKIO_NVTX_FUNC_RANGE(...)                                  \
-  GET_KVIKIO_NVTX_FUNC_RANGE_MACRO(                                  \
-    __VA_ARGS__, KVIKIO_NVTX_FUNC_RANGE_2, KVIKIO_NVTX_FUNC_RANGE_1) \
-  (__VA_ARGS__)
+#define KVIKIO_NVTX_FUNC_RANGE() KVIKIO_NVTX_FUNC_RANGE_IMPL()
 #else
 #define KVIKIO_NVTX_FUNC_RANGE(...) \
   do {                              \
+  } while (0)
+#endif
+
+/**
+ * @brief Convenience macro for generating an NVTX scoped range in the `libkvikio` domain to
+ * annotate a time duration.
+ *
+ * Takes two arguments (message, payload).
+ *
+ * Example:
+ * ```
+ * void some_function(){
+ *    KVIKIO_NVTX_SCOPED_RANGE("my function", 42);
+ *    ...
+ * }
+ * ```
+ */
+#ifdef KVIKIO_CUDA_FOUND
+#define KVIKIO_NVTX_SCOPED_RANGE(msg, val) KVIKIO_NVTX_SCOPED_RANGE_IMPL(msg, val)
+#else
+#define KVIKIO_NVTX_SCOPED_RANGE(msg, val) \
+  do {                                     \
+  } while (0)
+#endif
+
+/**
+ * @brief Convenience macro for generating an NVTX marker in the `libkvikio` domain to annotate a
+ * certain time point.
+ *
+ * Takes two arguments (message, payload). Use this macro to annotate asynchronous I/O operations,
+ * where the payload refers to the I/O size.
+ *
+ * Example:
+ * ```
+ * std::future<void> some_function(){
+ *     size_t io_size{2077};
+ *     KVIKIO_NVTX_MARKER("I/O operation", io_size);
+ *     perform_async_io_operation(io_size);
+ *     ...
+ * }
+ * ```
+ */
+#ifdef KVIKIO_CUDA_FOUND
+#define KVIKIO_NVTX_MARKER(message, payload) KVIKIO_NVTX_MARKER_IMPL(message, payload)
+#else
+#define KVIKIO_NVTX_MARKER(message, payload) \
+  do {                                       \
   } while (0)
 #endif
 

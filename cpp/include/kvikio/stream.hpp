@@ -16,12 +16,13 @@
 #pragma once
 
 #include <sys/types.h>
-#include <algorithm>
 #include <cstdlib>
+#include <iostream>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <tuple>
+#include <utility>
 
 namespace kvikio {
 

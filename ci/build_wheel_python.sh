@@ -6,27 +6,25 @@ set -euo pipefail
 package_name="kvikio"
 package_dir="python/kvikio"
 
-source rapids-configure-sccache
-source rapids-date-string
-
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-rapids-generate-version > ./VERSION
-
-CPP_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libkvikio_dist)
-
-cd "${package_dir}"
-
-# ensure 'kvikio' wheel builds always use the 'libkvikio' just built in the same CI run
+# Ensure 'kvikio' wheel builds always use the 'libkvikio' just built in the same CI run
 #
-# using env variable PIP_CONSTRAINT is necessary to ensure the constraints
+# Using env variable PIP_CONSTRAINT is necessary to ensure the constraints
 # are used when creating the isolated build environment
-echo "libkvikio-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CPP_WHEELHOUSE}/libkvikio_*.whl)" > ./constraints.txt
+RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libkvikio_dist
+echo "libkvikio-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libkvikio_dist/libkvikio_*.whl)" > /tmp/constraints.txt
+export PIP_CONSTRAINT="/tmp/constraints.txt"
 
-PIP_CONSTRAINT="${PWD}/constraints.txt" \
-    python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
+export SKBUILD_CMAKE_ARGS="-DUSE_NVCOMP_RUNTIME_WHEEL=ON"
+./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
-mkdir -p final_dist
-python -m auditwheel repair -w final_dist dist/*
+python -m auditwheel repair \
+    --exclude libkvikio.so \
+    --exclude libnvcomp.so.4 \
+    -w ${package_dir}/final_dist \
+    ${package_dir}/dist/*
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 final_dist
+./ci/validate_wheel.sh ${package_dir} final_dist
+
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python ${package_dir}/final_dist

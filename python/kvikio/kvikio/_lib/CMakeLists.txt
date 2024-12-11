@@ -13,12 +13,32 @@
 # =============================================================================
 
 # Set the list of Cython files to build, one .so per file
-set(cython_modules arr.pyx buffer.pyx defaults.pyx driver_properties.pyx file_handle.pyx future.pyx
+set(cython_modules arr.pyx buffer.pyx defaults.pyx cufile_driver.pyx file_handle.pyx future.pyx
                    libnvcomp.pyx libnvcomp_ll.pyx
 )
+
+if(TARGET CURL::libcurl)
+  message(STATUS "Building remote_handle.pyx (libcurl found)")
+  list(APPEND cython_modules remote_handle.pyx)
+else()
+  message(
+    STATUS
+      "Skipping remote_handle.pyx (please set KvikIO_REMOTE_SUPPORT=ON for remote file support)"
+  )
+endif()
 
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
   LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
 )
+if(USE_NVCOMP_RUNTIME_WHEEL)
+  set(rpaths "$ORIGIN/../../nvidia/nvcomp")
+  foreach(tgt IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
+    set_property(
+      TARGET ${tgt}
+      PROPERTY INSTALL_RPATH ${rpaths}
+      APPEND
+    )
+  endforeach()
+endif()

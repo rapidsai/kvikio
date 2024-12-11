@@ -8,17 +8,19 @@ import kvikio.defaults
 
 
 @pytest.mark.skipif(
-    kvikio.defaults.compat_mode(),
+    kvikio.defaults.compat_mode() == kvikio.CompatMode.ON,
     reason="cannot test `compat_mode` when already running in compatibility mode",
 )
 def test_compat_mode():
     """Test changing `compat_mode`"""
 
     before = kvikio.defaults.compat_mode()
-    with kvikio.defaults.set_compat_mode(True):
-        assert kvikio.defaults.compat_mode()
-        kvikio.defaults.compat_mode_reset(False)
-        assert not kvikio.defaults.compat_mode()
+    with kvikio.defaults.set_compat_mode(kvikio.CompatMode.ON):
+        assert kvikio.defaults.compat_mode() == kvikio.CompatMode.ON
+        kvikio.defaults.compat_mode_reset(kvikio.CompatMode.OFF)
+        assert kvikio.defaults.compat_mode() == kvikio.CompatMode.OFF
+        kvikio.defaults.compat_mode_reset(kvikio.CompatMode.AUTO)
+        assert kvikio.defaults.compat_mode() == kvikio.CompatMode.AUTO
     assert before == kvikio.defaults.compat_mode()
 
 

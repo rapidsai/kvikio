@@ -36,6 +36,7 @@ class AllocRetain {
   // The size of each allocation in `_free_allocs`
   std::size_t _size{defaults::bounce_buffer_size()};
 
+ public:
   /**
    * @brief An host memory allocation
    */
@@ -56,6 +57,7 @@ class AllocRetain {
     Alloc& operator=(Alloc&& o)    = delete;
     ~Alloc() noexcept { _manager->put(_alloc, _size); }
     void* get() noexcept { return _alloc; }
+    void* get(std::ptrdiff_t offset) noexcept { return static_cast<char*>(_alloc) + offset; }
     std::size_t size() noexcept { return _size; }
   };
 
@@ -67,6 +69,7 @@ class AllocRetain {
   // <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
   ~AllocRetain() noexcept = default;
 
+ private:
   /**
    * @brief Free all retained allocations
    *
@@ -143,7 +146,7 @@ class AllocRetain {
     return _clear();
   }
 
-  static AllocRetain& instance()
+  KVIKIO_EXPORT static AllocRetain& instance()
   {
     static AllocRetain _instance;
     return _instance;

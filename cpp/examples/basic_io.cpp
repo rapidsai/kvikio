@@ -21,8 +21,8 @@
 
 #include <kvikio/batch.hpp>
 #include <kvikio/buffer.hpp>
+#include <kvikio/cufile/driver.hpp>
 #include <kvikio/defaults.hpp>
-#include <kvikio/driver.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 
@@ -65,7 +65,7 @@ int main()
   check(cudaSetDevice(0) == cudaSuccess);
 
   cout << "KvikIO defaults: " << endl;
-  if (kvikio::defaults::compat_mode()) {
+  if (kvikio::defaults::is_compat_mode_preferred()) {
     cout << "  Compatibility mode: enabled" << endl;
   } else {
     kvikio::DriverInitializer manual_init_driver;
@@ -181,7 +181,7 @@ int main()
     cout << "Parallel POSIX read (" << kvikio::defaults::thread_pool_nthreads()
          << " threads): " << read << endl;
   }
-  if (kvikio::is_batch_and_stream_available() && !kvikio::defaults::compat_mode()) {
+  if (kvikio::is_batch_api_available() && !kvikio::defaults::is_compat_mode_preferred()) {
     std::cout << std::endl;
     Timer timer;
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
