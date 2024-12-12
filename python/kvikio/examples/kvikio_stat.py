@@ -1,6 +1,25 @@
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+# usage: kvikio_stat [-h] --nsys-report-path NSYS_REPORT_PATH
+#                    [--sql-path SQL_PATH]
+#                    [--nsys-binary NSYS_BINARY]
+#
+# Generate I/O size histogram from Nsight System report.
+#
+# options:
+#   -h, --help            show this help message and exit
+#   --nsys-report-path NSYS_REPORT_PATH
+#                         The path of the Nsight System report.
+#   --sql-path SQL_PATH   kvikio_stat will invoke Nsight System to generated a SQL
+#                         database from the provided Nsight System report. --sql-path
+#                         specifies the path of this SQL database. If unspecified, the
+#                         current working directory will be used to store it, and the
+#                         file name will be derived from the Nsight System report.
+#   --nsys-binary NSYS_BINARY
+#                         The path of the Nsight System CLI program. If unspecified,
+#                         "nsys" will be used.
+
 import argparse
 import os
 import pathlib
@@ -22,14 +41,12 @@ class Analyzer:
         """
         self.nsys_report_path = args.nsys_report_path
 
-        self.sql_path = None
         if args.sql_path is None:
             report_basename_no_ext = pathlib.Path(self.nsys_report_path).stem
             self.sql_path = os.getcwd() + os.sep + report_basename_no_ext + ".sqlite"
         else:
             self.sql_path = args.sql_path
 
-        self.nsys_binary = None
         if args.nsys_binary is None:
             self.nsys_binary = "nsys"
         else:
@@ -91,8 +108,6 @@ class Analyzer:
         )
 
         df = pd.read_sql(sql_expr, self.db_connection)
-        if df.empty:
-            print(f'Warning: SQL result is empty for filter string "{filter_string}"')
         return df
 
     def _generate_hist(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
@@ -183,6 +198,8 @@ class Analyzer:
         """
         df = self._sql_query(filter_string)
         if df.empty:
+            print(f"\n{filter_string}")
+            print("    Data is not detected.")
             return
 
         hist, bin_edges = self._generate_hist(df)
@@ -196,16 +213,46 @@ class Analyzer:
         self.db_connection = sqlite3.connect(self.sql_path)
 
         filter_string_list = [
+            # Size of the read to be performed by KvikIO in parallel.
+            # Source is the file, and destination is the host or device memory.
             "FileHandle::pread()",
+            # Size of the write to be performed by KvikIO in parallel.
+            # Source is the host or device memory, and destination is the file.
             "FileHandle::pwrite()",
+            # Size of the read to be iteratively processed by POSIX pread() and CUDA
+            # H2D memory copy.
+            # Source is the file, and destination is the device memory.
+            # This can be the individual task size as a result of KvikIO's
+            # parallelization.
+            # This can also be a simple sequential read size.
             "posix_device_read()",
+            # Size of the write to be iteratively processed by CUDA D2H memory copy
+            # and POSIX pwrite().
+            # Source is the device memory, and destination is the file.
+            # This can be the individual task size as a result of KvikIO's
+            # parallelization.
+            # This can also be a simple sequential write size.
             "posix_device_write()",
+            # Size of the read to be iteratively processed by POSIX pread().
+            # Source is the file, and destination is the host memory.
+            # This can be the individual task size as a result of KvikIO's
+            # parallelization.
             "posix_host_read()",
+            # Size of the write to be iteratively processed by POSIX pwrite().
+            # Source is the host memory, and destination is the file.
+            # This can be the individual task size as a result of KvikIO's
+            # parallelization.
             "posix_host_write()",
+            # Size of the read passed to cuFile API.
+            # Source is the file, and destination is the device memory.
             "cufileRead()",
+            # Size of the write passed to cuFile API.
+            # Source is the device memory, and destination is the file.
             "cufileWrite()",
             "RemoteHandle::read()",
             "RemoteHandle::pread()",
+            "RemoteHandle - callback_host_memory()",
+            "RemoteHandle - callback_device_memory()",
         ]
 
         for filter_string in filter_string_list:
@@ -215,7 +262,7 @@ class Analyzer:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="kvikio_stat",
-        description="Generate I/O size histogram from Nsight System report",
+        description="Generate I/O size histogram from Nsight System report.",
     )
     parser.add_argument(
         "--nsys-report-path",
@@ -225,15 +272,17 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--sql-path",
-        help="The path of the SQL database exported from the Nsight System report. "
-        + "If unspecified, the current working directory is used to store the SQL "
-        + "database, and the file name is derived from the Nsight System report.",
+        help="kvikio_stat will invoke Nsight System to generated a SQL database from "
+        + "the provided Nsight System report. --sql-path specifies the path of this "
+        + "SQL database. If unspecified, the current working directory will be used "
+        + "to store it, and the file name will be derived from the Nsight System "
+        + "report.",
         type=str,
     )
     parser.add_argument(
         "--nsys-binary",
-        help='The path of the Nsight System CLI program. If unspecified, "nsys" is '
-        + "used.",
+        help='The path of the Nsight System CLI program. If unspecified, "nsys" will '
+        "be used.",
         type=str,
     )
     args = parser.parse_args()
