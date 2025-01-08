@@ -174,69 +174,69 @@ DriverInitializer::DriverInitializer() {}
 
 DriverProperties::DriverProperties() {}
 
-static bool DriverProperties::is_gds_available() { return false; }
+bool DriverProperties::is_gds_available() { return false; }
 
-[[nodiscard]] static unsigned int DriverProperties::get_nvfs_major_version()
+[[nodiscard]] unsigned int DriverProperties::get_nvfs_major_version()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-[[nodiscard]] static unsigned int DriverProperties::get_nvfs_minor_version()
+[[nodiscard]] unsigned int DriverProperties::get_nvfs_minor_version()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-[[nodiscard]] static bool DriverProperties::get_nvfs_allow_compat_mode()
+[[nodiscard]] bool DriverProperties::get_nvfs_allow_compat_mode()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-[[nodiscard]] static bool DriverProperties::get_nvfs_poll_mode()
+[[nodiscard]] bool DriverProperties::get_nvfs_poll_mode()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-[[nodiscard]] static std::size_t DriverProperties::get_nvfs_poll_thresh_size()
+[[nodiscard]] std::size_t DriverProperties::get_nvfs_poll_thresh_size()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-static void DriverProperties::set_nvfs_poll_mode(bool enable)
+void DriverProperties::set_nvfs_poll_mode(bool enable)
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-static void DriverProperties::set_nvfs_poll_thresh_size(std::size_t size_in_kb)
+void DriverProperties::set_nvfs_poll_thresh_size(std::size_t size_in_kb)
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-[[nodiscard]] static std::vector<CUfileDriverControlFlags> DriverProperties::get_nvfs_statusflags()
+[[nodiscard]] std::vector<CUfileDriverControlFlags> DriverProperties::get_nvfs_statusflags()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-[[nodiscard]] static std::size_t DriverProperties::get_max_device_cache_size()
+[[nodiscard]] std::size_t DriverProperties::get_max_device_cache_size()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-static void DriverProperties::set_max_device_cache_size(std::size_t size_in_kb)
+void DriverProperties::set_max_device_cache_size(std::size_t size_in_kb)
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-[[nodiscard]] static std::size_t DriverProperties::get_per_buffer_cache_size()
+[[nodiscard]] std::size_t DriverProperties::get_per_buffer_cache_size()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-[[nodiscard]] static std::size_t DriverProperties::get_max_pinned_memory_size()
+[[nodiscard]] std::size_t DriverProperties::get_max_pinned_memory_size()
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
 
-static void DriverProperties::set_max_pinned_memory_size(std::size_t size_in_kb)
+void DriverProperties::set_max_pinned_memory_size(std::size_t size_in_kb)
 {
   throw CUfileException("KvikIO not compiled with cuFile.h");
 }
