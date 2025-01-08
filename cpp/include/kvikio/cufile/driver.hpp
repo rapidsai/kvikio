@@ -22,6 +22,8 @@
 
 namespace kvikio {
 
+#ifdef KVIKIO_CUFILE_FOUND
+
 class DriverInitializer {
   // Optional, if not used cuFiles opens the driver automatically
  public:
@@ -45,12 +47,7 @@ class DriverProperties {
   void lazy_init();
 
  public:
-#ifdef KVIKIO_CUFILE_FOUND
   DriverProperties() = default;
-#else
-  // Implement a non-default constructor to avoid `unused variable` warnings downstream
-  DriverProperties();
-#endif
 
   bool is_gds_available();
 
@@ -82,5 +79,47 @@ class DriverProperties {
 
   [[nodiscard]] std::size_t get_max_batch_io_size();
 };
+
+#else
+struct DriverInitializer {
+  // Implement a non-default constructor to avoid `unused variable` warnings downstream
+  DriverInitializer();
+};
+
+struct DriverProperties {
+  // Implement a non-default constructor to avoid `unused variable` warnings downstream
+  DriverProperties();
+
+  static bool is_gds_available();
+
+  [[nodiscard]] static unsigned int get_nvfs_major_version();
+
+  [[nodiscard]] static unsigned int get_nvfs_minor_version();
+
+  [[nodiscard]] static bool get_nvfs_allow_compat_mode();
+
+  [[nodiscard]] static bool get_nvfs_poll_mode();
+
+  [[nodiscard]] static std::size_t get_nvfs_poll_thresh_size();
+
+  static void set_nvfs_poll_mode(bool enable);
+
+  static void set_nvfs_poll_thresh_size(std::size_t size_in_kb);
+
+  [[nodiscard]] static std::vector<CUfileDriverControlFlags> get_nvfs_statusflags();
+
+  [[nodiscard]] static std::size_t get_max_device_cache_size();
+
+  static void set_max_device_cache_size(std::size_t size_in_kb);
+
+  [[nodiscard]] static std::size_t get_per_buffer_cache_size();
+
+  [[nodiscard]] static std::size_t get_max_pinned_memory_size();
+
+  static void set_max_pinned_memory_size(std::size_t size_in_kb);
+
+  [[nodiscard]] std::size_t get_max_batch_io_size();
+};
+#endif
 
 }  // namespace kvikio
