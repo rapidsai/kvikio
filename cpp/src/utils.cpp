@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
 #include <cstring>
 #include <future>
@@ -163,9 +162,7 @@ PushAndPopContext::~PushAndPopContext()
   }
 }
 
-// Find the base and offset of the memory allocation `devPtr` is in
-std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* devPtr,
-                                                           CUcontext* ctx = nullptr)
+std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* devPtr, CUcontext* ctx)
 {
   auto dev = convert_void2deviceptr(devPtr);
   CUdeviceptr base_ptr{};

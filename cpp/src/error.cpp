@@ -14,29 +14,4 @@
  * limitations under the License.
  */
 
-#include <cstdlib>
-#include <filesystem>
-#include <string>
-
-#include <kvikio/cufile/config.hpp>
-
-namespace kvikio {
-namespace {
-
-[[nodiscard]] inline const char* lookup_config_path()
-{
-  const char* env = std::getenv("CUFILE_ENV_PATH_JSON");
-  if (env != nullptr && std::filesystem::exists(env)) { return env; }
-  if (std::filesystem::exists("/etc/cufile.json")) { return "/etc/cufile.json"; }
-  return "";
-}
-
-}  // namespace
-
-const std::string& config_path()
-{
-  static const std::string ret = lookup_config_path();
-  return ret;
-}
-
-}  // namespace kvikio
+#include <kvikio/error.hpp>

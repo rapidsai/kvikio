@@ -131,8 +131,22 @@ include(cmake/thirdparty/get_thread_pool.cmake)
 # ##################################################################################################
 # * library targets --------------------------------------------------------------------------------
 
-set(SOURCES "src/file_handle.cpp" "src/cufile/config.cpp" "src/cufile/driver.cpp"
-            "src/shim/cuda.cpp" "src/shim/cufile.cpp" "src/shim/libcurl.cpp" "src/shim/utils.cpp"
+set(SOURCES
+    "src/batch.cpp"
+    "src/bounce_buffer.cpp"
+    "src/buffer.cpp"
+    "src/cufile/config.cpp"
+    "src/cufile/driver.cpp"
+    "src/defaults.cpp"
+    "src/error.cpp"
+    "src/file_handle.cpp"
+    "src/posix_io.cpp"
+    "src/shim/cuda.cpp"
+    "src/shim/cufile.cpp"
+    "src/shim/libcurl.cpp"
+    "src/shim/utils.cpp"
+    "src/stream.cpp"
+    "src/utils.cpp"
 )
 
 if(KvikIO_REMOTE_SUPPORT)

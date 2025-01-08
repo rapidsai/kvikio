@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,9 +163,9 @@ FileHandle::FileHandle(const std::string& file_path,
   }
 }
 
-[[nodiscard]] int FileHandle::fd_open_flags() const { return open_flags(_fd_direct_off); }
+int FileHandle::fd_open_flags() const { return open_flags(_fd_direct_off); }
 
-[[nodiscard]] std::size_t FileHandle::nbytes() const
+std::size_t FileHandle::nbytes() const
 {
   if (closed()) { return 0; }
   if (_nbytes == 0) { _nbytes = get_file_size(_fd_direct_off); }

@@ -45,7 +45,7 @@ void* load_library(const std::vector<const char*>& names, int mode)
   throw std::runtime_error("cannot open shared object file, tried: " + ss.str());
 }
 
-[[nodiscard]] bool is_running_in_wsl()
+bool is_running_in_wsl()
 {
   struct utsname buf {};
   int err = ::uname(&buf);
@@ -57,7 +57,7 @@ void* load_library(const std::vector<const char*>& names, int mode)
   return false;
 }
 
-[[nodiscard]] bool run_udev_readable()
+bool run_udev_readable()
 {
   try {
     return std::filesystem::is_directory("/run/udev");
