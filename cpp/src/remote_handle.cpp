@@ -299,10 +299,7 @@ struct CallbackContext {
  * @param nmemb Size of the data in `nmemb`.
  * @param context A pointer to an instance of `CallbackContext`.
  */
-inline std::size_t callback_host_memory(char* data,
-                                        std::size_t size,
-                                        std::size_t nmemb,
-                                        void* context)
+std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
 {
   auto ctx                 = reinterpret_cast<CallbackContext*>(context);
   std::size_t const nbytes = size * nmemb;
@@ -326,10 +323,7 @@ inline std::size_t callback_host_memory(char* data,
  * @param nmemb Size of the data in `nmemb`.
  * @param context A pointer to an instance of `CallbackContext`.
  */
-inline std::size_t callback_device_memory(char* data,
-                                          std::size_t size,
-                                          std::size_t nmemb,
-                                          void* context)
+std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
 {
   auto ctx                 = reinterpret_cast<CallbackContext*>(context);
   std::size_t const nbytes = size * nmemb;

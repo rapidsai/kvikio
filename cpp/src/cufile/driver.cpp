@@ -25,12 +25,12 @@
 namespace kvikio {
 namespace {
 
-[[nodiscard]] inline bool get_driver_flag(unsigned int prop, unsigned int flag) noexcept
+[[nodiscard]] bool get_driver_flag(unsigned int prop, unsigned int flag) noexcept
 {
   return (prop & (1U << flag)) != 0;
 }
 
-inline void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noexcept
+void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noexcept
 {
   if (val) {
     prop |= (1U << flag);
@@ -44,7 +44,7 @@ inline void set_driver_flag(unsigned int& prop, unsigned int flag, bool val) noe
 
 DriverInitializer::DriverInitializer() { cuFileAPI::instance().driver_open(); }
 
-DriverInitializer::~DriverInitializer()
+DriverInitializer::~DriverInitializer() noexcept
 {
   try {
     cuFileAPI::instance().driver_close();

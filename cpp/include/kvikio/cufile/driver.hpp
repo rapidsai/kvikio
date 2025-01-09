@@ -34,7 +34,7 @@ class DriverInitializer {
   DriverInitializer(DriverInitializer&&) noexcept            = delete;
   DriverInitializer& operator=(DriverInitializer&&) noexcept = delete;
 
-  ~DriverInitializer();
+  ~DriverInitializer() noexcept;
 };
 
 class DriverProperties {

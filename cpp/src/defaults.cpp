@@ -49,8 +49,10 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
   return res;
 }
 
+}  // namespace detail
+
 template <>
-inline bool getenv_or(std::string_view env_var_name, bool default_val)
+bool getenv_or(std::string_view env_var_name, bool default_val)
 {
   const auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
@@ -82,18 +84,16 @@ inline bool getenv_or(std::string_view env_var_name, bool default_val)
 }
 
 template <>
-inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
+CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 {
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
-  return parse_compat_mode_str(env_val);
+  return detail::parse_compat_mode_str(env_val);
 }
-
-}  // namespace detail
 
 unsigned int defaults::get_num_threads_from_env()
 {
-  const int ret = detail::getenv_or("KVIKIO_NTHREADS", 1);
+  const int ret = getenv_or("KVIKIO_NTHREADS", 1);
   if (ret <= 0) {
     throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer greater than zero");
   }
@@ -104,11 +104,11 @@ defaults::defaults()
 {
   // Determine the default value of `compat_mode`
   {
-    _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
+    _compat_mode = getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
   }
   // Determine the default value of `task_size`
   {
-    const ssize_t env = detail::getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
+    const ssize_t env = getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
     if (env <= 0) {
       throw std::invalid_argument(
         "KVIKIO_TASK_SIZE has to be a positive integer greater than zero");
@@ -117,7 +117,7 @@ defaults::defaults()
   }
   // Determine the default value of `gds_threshold`
   {
-    const ssize_t env = detail::getenv_or("KVIKIO_GDS_THRESHOLD", 1024 * 1024);
+    const ssize_t env = getenv_or("KVIKIO_GDS_THRESHOLD", 1024 * 1024);
     if (env < 0) {
       throw std::invalid_argument("KVIKIO_GDS_THRESHOLD has to be a positive integer");
     }
@@ -125,7 +125,7 @@ defaults::defaults()
   }
   // Determine the default value of `bounce_buffer_size`
   {
-    const ssize_t env = detail::getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
+    const ssize_t env = getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
     if (env <= 0) {
       throw std::invalid_argument(
         "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer greater than zero");

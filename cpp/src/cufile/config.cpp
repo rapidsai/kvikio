@@ -23,7 +23,7 @@
 namespace kvikio {
 namespace {
 
-[[nodiscard]] inline const char* lookup_config_path()
+[[nodiscard]] const char* lookup_config_path()
 {
   const char* env = std::getenv("CUFILE_ENV_PATH_JSON");
   if (env != nullptr && std::filesystem::exists(env)) { return env; }

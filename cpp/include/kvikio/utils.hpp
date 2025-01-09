@@ -93,7 +93,7 @@ constexpr bool is_host_memory(const void* ptr) { return true; }
  * @param ordinal Device ordinal - an integer between 0 and the number of CUDA devices
  * @return Primary CUDA context
  */
-[[nodiscard]] KVIKIO_EXPORT inline CUcontext get_primary_cuda_context(int ordinal);
+[[nodiscard]] KVIKIO_EXPORT CUcontext get_primary_cuda_context(int ordinal);
 
 /**
  * @brief Return the CUDA context associated the given device pointer, if any.

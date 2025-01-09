@@ -57,6 +57,8 @@ namespace detail {
  */
 CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
 
+}  // namespace detail
+
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
@@ -78,8 +80,6 @@ bool getenv_or(std::string_view env_var_name, bool default_val);
 
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
-
-}  // namespace detail
 
 /**
  * @brief Singleton class of default values used throughout KvikIO.
