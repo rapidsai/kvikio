@@ -150,7 +150,7 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* devPtr,
                                                            CUcontext* ctx = nullptr);
 
 template <typename T>
-inline bool is_future_done(const T& future)
+bool is_future_done(const T& future)
 {
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }

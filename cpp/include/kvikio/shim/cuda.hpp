@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/cuda_h_wrapper.hpp>
 #include <kvikio/shim/utils.hpp>
 

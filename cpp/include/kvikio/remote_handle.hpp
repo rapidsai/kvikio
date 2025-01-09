@@ -226,7 +226,7 @@ class RemoteHandle {
    *
    * @return The number of bytes.
    */
-  std::size_t nbytes() const noexcept;
+  [[nodiscard]] std::size_t nbytes() const noexcept;
 
   /**
    * @brief Get a const reference to the underlying remote endpoint.
