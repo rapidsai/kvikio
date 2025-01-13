@@ -38,5 +38,5 @@ dependencies:
 - sphinx-click
 - sphinx_rtd_theme
 - sysroot_linux-aarch64=2.17
-- zarr
+- zarr<3.0.0,>=2.0.0
 name: all_cuda-118_arch-aarch64
