@@ -75,7 +75,7 @@ requirements:
     - python
     - numpy >=1.23,<3.0a0
     - cupy >=12.0.0
-    - zarr <3.0.0,>=2.0.0
+    - zarr >=2.0.0,<3.0.0a0
     # See https://github.com/zarr-developers/numcodecs/pull/475
     - numcodecs !=0.12.0
     - packaging
