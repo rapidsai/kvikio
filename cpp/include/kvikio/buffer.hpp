@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,7 @@
  */
 #pragma once
 
-#include <algorithm>
-#include <iostream>
-#include <map>
 #include <vector>
-
-#include <kvikio/defaults.hpp>
-#include <kvikio/error.hpp>
-#include <kvikio/shim/cufile.hpp>
-#include <kvikio/shim/cufile_h_wrapper.hpp>
-#include <kvikio/utils.hpp>
 
 namespace kvikio {
 
@@ -44,32 +35,17 @@ namespace kvikio {
  * streaming buffer that is reused across multiple cuFile IO operations.
  */
 /*NOLINTNEXTLINE(readability-function-cognitive-complexity)*/
-inline void buffer_register(const void* devPtr_base,
-                            std::size_t size,
-                            int flags                                = 0,
-                            const std::vector<int>& errors_to_ignore = std::vector<int>())
-{
-  if (defaults::is_compat_mode_preferred()) { return; }
-  CUfileError_t status = cuFileAPI::instance().BufRegister(devPtr_base, size, flags);
-  if (status.err != CU_FILE_SUCCESS) {
-    // Check if `status.err` is in `errors_to_ignore`
-    if (std::find(errors_to_ignore.begin(), errors_to_ignore.end(), status.err) ==
-        errors_to_ignore.end()) {
-      CUFILE_TRY(status);
-    }
-  }
-}
+void buffer_register(const void* devPtr_base,
+                     std::size_t size,
+                     int flags                                = 0,
+                     const std::vector<int>& errors_to_ignore = std::vector<int>());
 
 /**
  * @brief deregister an already registered device memory from cuFile
  *
  * @param devPtr_base  device pointer to deregister
  */
-inline void buffer_deregister(const void* devPtr_base)
-{
-  if (defaults::is_compat_mode_preferred()) { return; }
-  CUFILE_TRY(cuFileAPI::instance().BufDeregister(devPtr_base));
-}
+void buffer_deregister(const void* devPtr_base);
 
 /**
  * @brief Register device memory allocation which is part of devPtr. Use this
@@ -85,23 +61,15 @@ inline void buffer_deregister(const void* devPtr_base)
  * @warning This API is intended for usecases where the memory is used as
  * streaming buffer that is reused across multiple cuFile IO operations.
  */
-inline void memory_register(const void* devPtr,
-                            int flags                                = 0,
-                            const std::vector<int>& errors_to_ignore = {})
-{
-  auto [base, nbytes, offset] = get_alloc_info(devPtr);
-  buffer_register(base, nbytes, flags, errors_to_ignore);
-}
+void memory_register(const void* devPtr,
+                     int flags                                = 0,
+                     const std::vector<int>& errors_to_ignore = {});
 
 /**
  * @brief  deregister an already registered device memory from cuFile.
  *
  * @param devPtr device pointer to deregister
  */
-inline void memory_deregister(const void* devPtr)
-{
-  auto [base, nbytes, offset] = get_alloc_info(devPtr);
-  buffer_deregister(base);
-}
+void memory_deregister(const void* devPtr);
 
 }  // namespace kvikio

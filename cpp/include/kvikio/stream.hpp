@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,10 @@
 
 #include <sys/types.h>
 #include <cstdlib>
-#include <iostream>
-#include <kvikio/error.hpp>
-#include <kvikio/shim/cuda.hpp>
-#include <kvikio/shim/cufile.hpp>
 #include <tuple>
 #include <utility>
+
+#include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
 
@@ -63,38 +61,15 @@ class StreamFuture {
   StreamFuture() noexcept = default;
 
   StreamFuture(
-    void* devPtr_base, std::size_t size, off_t file_offset, off_t devPtr_offset, CUstream stream)
-    : _devPtr_base{devPtr_base}, _stream{stream}
-  {
-    // Notice, we allocate the arguments using malloc() as specified in the cuFile docs:
-    // <https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html#cufilewriteasync>
-    if ((_val = static_cast<ArgByVal*>(std::malloc(sizeof(ArgByVal)))) == nullptr) {
-      throw std::bad_alloc{};
-    }
-    *_val = {
-      .size = size, .file_offset = file_offset, .devPtr_offset = devPtr_offset, .bytes_done = 0};
-  }
+    void* devPtr_base, std::size_t size, off_t file_offset, off_t devPtr_offset, CUstream stream);
 
   /**
    * @brief StreamFuture support move semantic but isn't copyable
    */
   StreamFuture(const StreamFuture&)        = delete;
   StreamFuture& operator=(StreamFuture& o) = delete;
-  StreamFuture(StreamFuture&& o) noexcept
-    : _devPtr_base{std::exchange(o._devPtr_base, nullptr)},
-      _stream{std::exchange(o._stream, nullptr)},
-      _val{std::exchange(o._val, nullptr)},
-      _stream_synchronized{o._stream_synchronized}
-  {
-  }
-  StreamFuture& operator=(StreamFuture&& o) noexcept
-  {
-    _devPtr_base         = std::exchange(o._devPtr_base, nullptr);
-    _stream              = std::exchange(o._stream, nullptr);
-    _val                 = std::exchange(o._val, nullptr);
-    _stream_synchronized = o._stream_synchronized;
-    return *this;
-  }
+  StreamFuture(StreamFuture&& o) noexcept;
+  StreamFuture& operator=(StreamFuture&& o) noexcept;
 
   /**
    * @brief Return the arguments of the future call
@@ -102,18 +77,7 @@ class StreamFuture {
    * @return Tuple of the arguments in the order matching `FileHandle.read()` and
    * `FileHandle.write()`
    */
-  std::tuple<void*, std::size_t*, off_t*, off_t*, ssize_t*, CUstream> get_args() const
-  {
-    if (_val == nullptr) {
-      throw kvikio::CUfileException("cannot get arguments from an uninitialized StreamFuture");
-    }
-    return {_devPtr_base,
-            &_val->size,
-            &_val->file_offset,
-            &_val->devPtr_offset,
-            &_val->bytes_done,
-            _stream};
-  }
+  std::tuple<void*, std::size_t*, off_t*, off_t*, ssize_t*, CUstream> get_args() const;
 
   /**
    * @brief Return the number of bytes read or written by the future operation.
@@ -122,38 +86,13 @@ class StreamFuture {
    *
    * @return Number of bytes read or written by the future operation.
    */
-  std::size_t check_bytes_done()
-  {
-    if (_val == nullptr) {
-      throw kvikio::CUfileException("cannot check bytes done on an uninitialized StreamFuture");
-    }
-
-    if (!_stream_synchronized) {
-      _stream_synchronized = true;
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
-    }
-
-    CUFILE_CHECK_BYTES_DONE(_val->bytes_done);
-    // At this point, we know `_val->bytes_done` is a positive value otherwise
-    // CUFILE_CHECK_BYTES_DONE() would have raised an exception.
-    return static_cast<std::size_t>(_val->bytes_done);
-  }
+  std::size_t check_bytes_done();
 
   /**
    * @brief Free the by-value arguments and make sure the associated CUDA stream has been
    * synchronized.
    */
-  ~StreamFuture() noexcept
-  {
-    if (_val != nullptr) {
-      try {
-        check_bytes_done();
-      } catch (const kvikio::CUfileException& e) {
-        std::cerr << e.what() << std::endl;
-      }
-      std::free(_val);
-    }
-  }
+  ~StreamFuture() noexcept;
 };
 
 }  // namespace kvikio

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,36 +73,22 @@ class BatchHandle {
    *
    * @param max_num_events The maximum number of operations supported by this instance.
    */
-  BatchHandle(int max_num_events) : _initialized{true}, _max_num_events{max_num_events}
-  {
-    CUFILE_TRY(cuFileAPI::instance().BatchIOSetUp(&_handle, max_num_events));
-  }
+  BatchHandle(int max_num_events);
 
   /**
    * @brief BatchHandle support move semantic but isn't copyable
    */
   BatchHandle(const BatchHandle&)            = delete;
   BatchHandle& operator=(BatchHandle const&) = delete;
-  BatchHandle(BatchHandle&& o) noexcept
-    : _initialized{std::exchange(o._initialized, false)},
-      _max_num_events{std::exchange(o._max_num_events, 0)}
-  {
-    _handle = std::exchange(o._handle, CUfileBatchHandle_t{});
-  }
-  ~BatchHandle() noexcept { close(); }
+  BatchHandle(BatchHandle&& o) noexcept;
+  ~BatchHandle() noexcept;
 
-  [[nodiscard]] bool closed() const noexcept { return !_initialized; }
+  [[nodiscard]] bool closed() const noexcept;
 
   /**
    * @brief Destroy the batch handle and free up resources
    */
-  void close() noexcept
-  {
-    if (closed()) { return; }
-    _initialized = false;
-
-    cuFileAPI::instance().BatchIODestroy(_handle);
-  }
+  void close() noexcept;
 
   /**
    * @brief Submit a vector of batch operations
@@ -110,31 +96,7 @@ class BatchHandle {
    * @param operations The vector of batch operations, which must not exceed the
    * `max_num_events`.
    */
-  void submit(const std::vector<BatchOp>& operations)
-  {
-    if (convert_size2ssize(operations.size()) > _max_num_events) {
-      throw CUfileException("Cannot submit more than the max_num_events)");
-    }
-    std::vector<CUfileIOParams_t> io_batch_params;
-    io_batch_params.reserve(operations.size());
-    for (const auto& op : operations) {
-      if (op.file_handle.is_compat_mode_preferred()) {
-        throw CUfileException("Cannot submit a FileHandle opened in compatibility mode");
-      }
-
-      io_batch_params.push_back(CUfileIOParams_t{.mode   = CUFILE_BATCH,
-                                                 .u      = {.batch = {.devPtr_base   = op.devPtr_base,
-                                                                      .file_offset   = op.file_offset,
-                                                                      .devPtr_offset = op.devPtr_offset,
-                                                                      .size          = op.size}},
-                                                 .fh     = op.file_handle.handle(),
-                                                 .opcode = op.opcode,
-                                                 .cookie = nullptr});
-    }
-
-    CUFILE_TRY(cuFileAPI::instance().BatchIOSubmit(
-      _handle, io_batch_params.size(), io_batch_params.data(), 0));
-  }
+  void submit(const std::vector<BatchOp>& operations);
 
   /**
    * @brief Get status of submitted operations
@@ -148,16 +110,9 @@ class BatchHandle {
    */
   std::vector<CUfileIOEvents_t> status(unsigned min_nr,
                                        unsigned max_nr,
-                                       struct timespec* timeout = nullptr)
-  {
-    std::vector<CUfileIOEvents_t> ret;
-    ret.resize(_max_num_events);
-    CUFILE_TRY(cuFileAPI::instance().BatchIOGetStatus(_handle, min_nr, &max_nr, &ret[0], timeout));
-    ret.resize(max_nr);
-    return ret;
-  }
+                                       struct timespec* timeout = nullptr);
 
-  void cancel() { CUFILE_TRY(cuFileAPI::instance().BatchIOCancel(_handle)); }
+  void cancel();
 };
 
 #else
@@ -166,24 +121,19 @@ class BatchHandle {
  public:
   BatchHandle() noexcept = default;
 
-  BatchHandle(int max_num_events)
-  {
-    throw CUfileException("BatchHandle requires cuFile's batch API, please build with CUDA v12.1+");
-  }
+  BatchHandle(int max_num_events);
 
-  [[nodiscard]] bool closed() const noexcept { return true; }
+  [[nodiscard]] bool closed() const noexcept;
 
-  void close() noexcept {}
+  void close() noexcept;
 
-  void submit(const std::vector<BatchOp>& operations) {}
+  void submit(const std::vector<BatchOp>& operations);
 
   std::vector<CUfileIOEvents_t> status(unsigned min_nr,
                                        unsigned max_nr,
-                                       struct timespec* timeout = nullptr)
-  {
-    return std::vector<CUfileIOEvents_t>{};
-  }
-  void cancel() {}
+                                       struct timespec* timeout = nullptr);
+
+  void cancel();
 };
 
 #endif
