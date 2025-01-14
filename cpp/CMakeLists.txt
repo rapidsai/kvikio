@@ -143,14 +143,13 @@ set(SOURCES
     "src/posix_io.cpp"
     "src/shim/cuda.cpp"
     "src/shim/cufile.cpp"
-    "src/shim/libcurl.cpp"
     "src/shim/utils.cpp"
     "src/stream.cpp"
     "src/utils.cpp"
 )
 
 if(KvikIO_REMOTE_SUPPORT)
-  list(APPEND SOURCES "src/remote_handle.cpp")
+  list(APPEND SOURCES "src/remote_handle.cpp" "src/shim/libcurl.cpp")
 endif()
 
 add_library(kvikio ${SOURCES})
