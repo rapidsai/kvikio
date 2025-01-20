@@ -250,7 +250,7 @@ class FileHandle {
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
-   * the FileHandle object. Otherwise, the behavior is undefined.
+   * the FileHandle object ends. Otherwise, the behavior is undefined.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
@@ -287,7 +287,7 @@ class FileHandle {
    * @return Future that on completion returns the size of bytes that were successfully written.
    *
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
-   * the FileHandle object. Otherwise, the behavior is undefined.
+   * the FileHandle object ends. Otherwise, the behavior is undefined.
    */
   std::future<std::size_t> pwrite(const void* buf,
                                   std::size_t size,
