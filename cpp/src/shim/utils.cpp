@@ -45,19 +45,23 @@ void* load_library(const std::vector<const char*>& names, int mode)
   throw std::runtime_error("cannot open shared object file, tried: " + ss.str());
 }
 
-bool is_running_in_wsl()
+bool is_running_in_wsl() noexcept
 {
-  struct utsname buf {};
-  int err = ::uname(&buf);
-  if (err == 0) {
-    const std::string name(static_cast<char*>(buf.release));
-    // 'Microsoft' for WSL1 and 'microsoft' for WSL2
-    return name.find("icrosoft") != std::string::npos;
+  try {
+    struct utsname buf {};
+    int err = ::uname(&buf);
+    if (err == 0) {
+      const std::string name(static_cast<char*>(buf.release));
+      // 'Microsoft' for WSL1 and 'microsoft' for WSL2
+      return name.find("icrosoft") != std::string::npos;
+    }
+    return false;
+  } catch (...) {
+    return false;
   }
-  return false;
 }
 
-bool run_udev_readable()
+bool run_udev_readable() noexcept
 {
   try {
     return std::filesystem::is_directory("/run/udev");
