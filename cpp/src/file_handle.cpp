@@ -190,15 +190,18 @@ bool FileHandle::closed() const noexcept { return !_initialized; }
 
 void FileHandle::close() noexcept
 {
-  if (closed()) { return; }
+  try {
+    if (closed()) { return; }
 
-  if (!is_compat_mode_preferred()) { cuFileAPI::instance().HandleDeregister(_handle); }
-  _compat_mode = CompatMode::AUTO;
-  ::close(_fd_direct_off);
-  if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
-  _fd_direct_on  = -1;
-  _fd_direct_off = -1;
-  _initialized   = false;
+    if (!is_compat_mode_preferred()) { cuFileAPI::instance().HandleDeregister(_handle); }
+    _compat_mode = CompatMode::AUTO;
+    ::close(_fd_direct_off);
+    if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
+    _fd_direct_on  = -1;
+    _fd_direct_off = -1;
+    _initialized   = false;
+  } catch (...) {
+  }
 }
 
 CUfileHandle_t FileHandle::handle()

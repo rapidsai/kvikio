@@ -127,7 +127,7 @@ bool is_cufile_library_available() noexcept
 {
   try {
     cuFileAPI::instance();
-  } catch (const std::runtime_error&) {
+  } catch (...) {
     return false;
   }
   return true;
@@ -144,7 +144,7 @@ int cufile_version() noexcept
 {
   try {
     return cuFileAPI::instance().version;
-  } catch (std::runtime_error const&) {
+  } catch (...) {
     return 0;
   }
 }
