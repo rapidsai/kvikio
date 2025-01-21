@@ -295,7 +295,7 @@ dependencies:
         packages:
           - nvcomp==4.1.0.6
     specific:
-      - output_types: [pyproject, requirements]
+      - output_types: pyproject
         matrices:
           - matrix:
               cuda: "12.*"
