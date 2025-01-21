@@ -65,7 +65,7 @@ bool run_udev_readable() noexcept
 {
   try {
     return std::filesystem::is_directory("/run/udev");
-  } catch (const std::filesystem::filesystem_error&) {
+  } catch (...) {
     return false;
   }
 }
