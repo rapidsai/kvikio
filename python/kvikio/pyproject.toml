@@ -115,7 +115,7 @@ nvcomp_batch = "kvikio.nvcomp_codec:NvCompBatchCodec"
 [tool.rapids-build-backend]
 build-backend = "scikit_build_core.build"
 dependencies-file = "../../dependencies.yaml"
-matrix-entry = "cuda_suffixed=true"
+matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=3.26.4,!=3.30.0",
     "cython>=3.0.0",
