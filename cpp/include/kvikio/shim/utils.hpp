@@ -80,7 +80,7 @@ void get_symbol(T& handle, void* lib, const char* name)
  *
  * @return The boolean answer
  */
-[[nodiscard]] bool is_running_in_wsl();
+[[nodiscard]] bool is_running_in_wsl() noexcept;
 
 /**
  * @brief Check if `/run/udev` is readable
@@ -91,6 +91,6 @@ void get_symbol(T& handle, void* lib, const char* name)
  *
  * @return The boolean answer
  */
-[[nodiscard]] bool run_udev_readable();
+[[nodiscard]] bool run_udev_readable() noexcept;
 
 }  // namespace kvikio

@@ -123,28 +123,28 @@ void cuFileAPI::driver_close()
 }
 
 #ifdef KVIKIO_CUFILE_FOUND
-bool is_cufile_library_available()
+bool is_cufile_library_available() noexcept
 {
   try {
     cuFileAPI::instance();
-  } catch (const std::runtime_error&) {
+  } catch (...) {
     return false;
   }
   return true;
 }
 #endif
 
-bool is_cufile_available()
+bool is_cufile_available() noexcept
 {
   return is_cufile_library_available() && run_udev_readable() && !is_running_in_wsl();
 }
 
 #ifdef KVIKIO_CUFILE_FOUND
-int cufile_version()
+int cufile_version() noexcept
 {
   try {
     return cuFileAPI::instance().version;
-  } catch (std::runtime_error const&) {
+  } catch (...) {
     return 0;
   }
 }

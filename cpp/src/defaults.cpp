@@ -143,7 +143,7 @@ CompatMode defaults::compat_mode() { return instance()->_compat_mode; }
 
 void defaults::compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
 
-CompatMode defaults::infer_compat_mode_if_auto(CompatMode compat_mode)
+CompatMode defaults::infer_compat_mode_if_auto(CompatMode compat_mode) noexcept
 {
   if (compat_mode == CompatMode::AUTO) {
     static auto inferred_compat_mode_for_auto = []() -> CompatMode {
@@ -154,7 +154,7 @@ CompatMode defaults::infer_compat_mode_if_auto(CompatMode compat_mode)
   return compat_mode;
 }
 
-bool defaults::is_compat_mode_preferred(CompatMode compat_mode)
+bool defaults::is_compat_mode_preferred(CompatMode compat_mode) noexcept
 {
   return compat_mode == CompatMode::ON ||
          (compat_mode == CompatMode::AUTO &&

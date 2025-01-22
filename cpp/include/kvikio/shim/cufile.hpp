@@ -102,9 +102,9 @@ class cuFileAPI {
  * @return The boolean answer
  */
 #ifdef KVIKIO_CUFILE_FOUND
-bool is_cufile_library_available();
+bool is_cufile_library_available() noexcept;
 #else
-constexpr bool is_cufile_library_available() { return false; }
+constexpr bool is_cufile_library_available() noexcept { return false; }
 #endif
 
 /**
@@ -115,7 +115,7 @@ constexpr bool is_cufile_library_available() { return false; }
  *
  * @return The boolean answer
  */
-bool is_cufile_available();
+bool is_cufile_available() noexcept;
 
 /**
  * @brief Get cufile version (or zero if older than v1.8).
@@ -129,9 +129,9 @@ bool is_cufile_available();
  * @return The version (1000*major + 10*minor) or zero if older than 1080.
  */
 #ifdef KVIKIO_CUFILE_FOUND
-int cufile_version();
+int cufile_version() noexcept;
 #else
-constexpr int cufile_version() { return 0; }
+constexpr int cufile_version() noexcept { return 0; }
 #endif
 
 /**

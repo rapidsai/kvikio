@@ -139,7 +139,7 @@ class defaults {
    * (`ON`/`OFF`/`AUTO`) to two (`ON`/`OFF`) so as to determine the actual I/O path. This function
    * is lightweight as the inferred result is cached.
    */
-  static CompatMode infer_compat_mode_if_auto(CompatMode compat_mode);
+  static CompatMode infer_compat_mode_if_auto(CompatMode compat_mode) noexcept;
 
   /**
    * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON`.
@@ -156,7 +156,7 @@ class defaults {
    * @param compat_mode Compatibility mode.
    * @return Boolean answer.
    */
-  static bool is_compat_mode_preferred(CompatMode compat_mode);
+  static bool is_compat_mode_preferred(CompatMode compat_mode) noexcept;
 
   /**
    * @brief Whether the global compatibility mode from class defaults is expected to be `ON`.
