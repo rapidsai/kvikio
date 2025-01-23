@@ -40,7 +40,7 @@ namespace {
  * @throw std::invalid_argument if the specified flags are not supported.
  * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
  */
-int open_fd_parse_flags(const std::string& flags, bool o_direct)
+int open_fd_parse_flags(std::string const& flags, bool o_direct)
 {
   int file_flags = -1;
   if (flags.empty()) { throw std::invalid_argument("Unknown file open flag"); }
@@ -76,7 +76,7 @@ int open_fd_parse_flags(const std::string& flags, bool o_direct)
  * @param mode Access modes
  * @return File descriptor
  */
-int open_fd(const std::string& file_path, const std::string& flags, bool o_direct, mode_t mode)
+int open_fd(std::string const& file_path, std::string const& flags, bool o_direct, mode_t mode)
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
@@ -106,7 +106,7 @@ int open_fd(const std::string& file_path, const std::string& flags, bool o_direc
  */
 [[nodiscard]] std::size_t get_file_size(int file_descriptor)
 {
-  struct stat st {};
+  struct stat st{};
   int ret = fstat(file_descriptor, &st);
   if (ret == -1) {
     throw std::system_error(errno, std::generic_category(), "Unable to query file size");
@@ -116,8 +116,8 @@ int open_fd(const std::string& file_path, const std::string& flags, bool o_direc
 
 }  // namespace
 
-FileHandle::FileHandle(const std::string& file_path,
-                       const std::string& flags,
+FileHandle::FileHandle(std::string const& file_path,
+                       std::string const& flags,
                        mode_t mode,
                        CompatMode compat_mode)
   : _fd_direct_off{open_fd(file_path, flags, false, mode)},
@@ -139,9 +139,9 @@ FileHandle::FileHandle(const std::string& file_path,
 
   try {
     _fd_direct_on = open_fd(file_path, flags, true, mode);
-  } catch (const std::system_error&) {
+  } catch (std::system_error const&) {
     handle_o_direct_except();
-  } catch (const std::invalid_argument&) {
+  } catch (std::invalid_argument const&) {
     handle_o_direct_except();
   }
 
@@ -242,7 +242,7 @@ std::size_t FileHandle::read(void* devPtr_base,
   return ret;
 }
 
-std::size_t FileHandle::write(const void* devPtr_base,
+std::size_t FileHandle::write(void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
                               std::size_t devPtr_offset,
@@ -318,7 +318,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   return parallel_io(task, devPtr_base, size, file_offset, task_size, devPtr_offset);
 }
 
-std::future<std::size_t> FileHandle::pwrite(const void* buf,
+std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             std::size_t size,
                                             std::size_t file_offset,
                                             std::size_t task_size,
@@ -327,11 +327,11 @@ std::future<std::size_t> FileHandle::pwrite(const void* buf,
 {
   KVIKIO_NVTX_MARKER("FileHandle::pwrite()", size);
   if (is_host_memory(buf)) {
-    auto op = [this](const void* hostPtr_base,
+    auto op = [this](void const* hostPtr_base,
                      std::size_t size,
                      std::size_t file_offset,
                      std::size_t hostPtr_offset) -> std::size_t {
-      const char* buf = static_cast<const char*>(hostPtr_base) + hostPtr_offset;
+      char const* buf = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
       return detail::posix_host_write<detail::PartialIO::NO>(
         _fd_direct_off, buf, size, file_offset);
     };
@@ -357,7 +357,7 @@ std::future<std::size_t> FileHandle::pwrite(const void* buf,
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
-  auto op = [this, ctx](const void* devPtr_base,
+  auto op = [this, ctx](void const* devPtr_base,
                         std::size_t size,
                         std::size_t file_offset,
                         std::size_t devPtr_offset) -> std::size_t {

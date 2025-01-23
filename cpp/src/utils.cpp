@@ -49,7 +49,7 @@ ssize_t convert_size2ssize(std::size_t x)
   return static_cast<ssize_t>(x);
 }
 
-CUdeviceptr convert_void2deviceptr(const void* devPtr)
+CUdeviceptr convert_void2deviceptr(void const* devPtr)
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   return reinterpret_cast<CUdeviceptr>(devPtr);
@@ -108,7 +108,7 @@ CUcontext get_primary_cuda_context(int ordinal)
 std::optional<CUcontext> get_context_associated_pointer(CUdeviceptr dev_ptr)
 {
   CUcontext ctx = nullptr;
-  const CUresult err =
+  CUresult const err =
     cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
   if (err == CUDA_SUCCESS && ctx != nullptr) { return ctx; }
   if (err != CUDA_ERROR_INVALID_VALUE) { CUDA_DRIVER_TRY(err); }
@@ -118,14 +118,14 @@ std::optional<CUcontext> get_context_associated_pointer(CUdeviceptr dev_ptr)
 bool current_context_can_access_pointer(CUdeviceptr dev_ptr)
 {
   CUdeviceptr current_ctx_dev_ptr{};
-  const CUresult err = cudaAPI::instance().PointerGetAttribute(
+  CUresult const err = cudaAPI::instance().PointerGetAttribute(
     &current_ctx_dev_ptr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr);
   if (err == CUDA_SUCCESS && current_ctx_dev_ptr == dev_ptr) { return true; }
   if (err != CUDA_ERROR_INVALID_VALUE) { CUDA_DRIVER_TRY(err); }
   return false;
 }
 
-CUcontext get_context_from_pointer(const void* devPtr)
+CUcontext get_context_from_pointer(void const* devPtr)
 {
   CUdeviceptr dev_ptr = convert_void2deviceptr(devPtr);
 
@@ -157,12 +157,12 @@ PushAndPopContext::~PushAndPopContext()
 {
   try {
     CUDA_DRIVER_TRY(cudaAPI::instance().CtxPopCurrent(&_ctx), CUfileException);
-  } catch (const CUfileException& e) {
+  } catch (CUfileException const& e) {
     std::cerr << e.what() << std::endl;
   }
 }
 
-std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* devPtr, CUcontext* ctx)
+std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, CUcontext* ctx)
 {
   auto dev = convert_void2deviceptr(devPtr);
   CUdeviceptr base_ptr{};

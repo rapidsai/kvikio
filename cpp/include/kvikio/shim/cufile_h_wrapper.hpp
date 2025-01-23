@@ -59,7 +59,7 @@ struct CUfileDescr_t {
   } handle;
 };
 
-static inline const char* cufileop_status_error(CUfileOpError err) { return CUFILE_ERRSTR(err); };
+inline static char const* cufileop_status_error(CUfileOpError err) { return CUFILE_ERRSTR(err); };
 CUfileError_t cuFileHandleRegister(...);
 CUfileError_t cuFileHandleDeregister(...);
 ssize_t cuFileRead(...);

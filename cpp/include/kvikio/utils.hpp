@@ -38,7 +38,7 @@ inline constexpr std::size_t page_size = 4096;
 
 [[nodiscard]] ssize_t convert_size2ssize(std::size_t x);
 
-[[nodiscard]] CUdeviceptr convert_void2deviceptr(const void* devPtr);
+[[nodiscard]] CUdeviceptr convert_void2deviceptr(void const* devPtr);
 
 /**
  * @brief Help function to convert value to 64 bit signed integer
@@ -127,7 +127,7 @@ constexpr bool is_host_memory(const void* ptr) { return true; }
  * @param devPtr Device pointer to query
  * @return Usable CUDA context
  */
-[[nodiscard]] CUcontext get_context_from_pointer(const void* devPtr);
+[[nodiscard]] CUcontext get_context_from_pointer(void const* devPtr);
 
 /**
  * @brief Push CUDA context on creation and pop it on destruction
@@ -138,7 +138,7 @@ class PushAndPopContext {
 
  public:
   PushAndPopContext(CUcontext ctx);
-  PushAndPopContext(const PushAndPopContext&)            = delete;
+  PushAndPopContext(PushAndPopContext const&)            = delete;
   PushAndPopContext& operator=(PushAndPopContext const&) = delete;
   PushAndPopContext(PushAndPopContext&&)                 = delete;
   PushAndPopContext&& operator=(PushAndPopContext&&)     = delete;
@@ -146,11 +146,11 @@ class PushAndPopContext {
 };
 
 // Find the base and offset of the memory allocation `devPtr` is in
-std::tuple<void*, std::size_t, std::size_t> get_alloc_info(const void* devPtr,
+std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr,
                                                            CUcontext* ctx = nullptr);
 
 template <typename T>
-bool is_future_done(const T& future)
+bool is_future_done(T const& future)
 {
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }

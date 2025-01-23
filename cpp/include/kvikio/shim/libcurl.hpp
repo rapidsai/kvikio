@@ -20,13 +20,13 @@
   "cannot include the remote IO API, please build KvikIO with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
 #endif
 
+#include <curl/curl.h>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <curl/curl.h>
 
 namespace kvikio {
 

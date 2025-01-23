@@ -67,7 +67,7 @@ struct CUfileException : public std::runtime_error {
 
 namespace detail {
 template <typename Exception>
-void cuda_driver_try_2(CUresult error, int line_number, const char* filename)
+void cuda_driver_try_2(CUresult error, int line_number, char const* filename)
 {
   if (error == CUDA_ERROR_STUB_LIBRARY) {
     throw Exception{std::string{"CUDA error at: "} + std::string(filename) + ":" +
@@ -76,8 +76,8 @@ void cuda_driver_try_2(CUresult error, int line_number, const char* filename)
                     "The CUDA driver loaded is a stub library)"};
   }
   if (error != CUDA_SUCCESS) {
-    const char* err_name     = nullptr;
-    const char* err_str      = nullptr;
+    char const* err_name     = nullptr;
+    char const* err_str      = nullptr;
     CUresult err_name_status = cudaAPI::instance().GetErrorName(error, &err_name);
     CUresult err_str_status  = cudaAPI::instance().GetErrorString(error, &err_str);
     if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }
@@ -89,7 +89,7 @@ void cuda_driver_try_2(CUresult error, int line_number, const char* filename)
 }
 
 template <typename Exception>
-void cufile_try_2(CUfileError_t error, int line_number, const char* filename)
+void cufile_try_2(CUfileError_t error, int line_number, char const* filename)
 {
   if (error.err != CU_FILE_SUCCESS) {
     if (error.err == CU_FILE_CUDA_DRIVER_ERROR) {
@@ -103,7 +103,7 @@ void cufile_try_2(CUfileError_t error, int line_number, const char* filename)
 }
 
 template <typename Exception>
-void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, const char* filename)
+void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, char const* filename)
 {
   if (nbytes_done < 0) {
     auto const err = std::abs(nbytes_done);

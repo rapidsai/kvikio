@@ -23,9 +23,9 @@
 namespace kvikio {
 namespace {
 
-[[nodiscard]] const char* lookup_config_path()
+[[nodiscard]] char const* lookup_config_path()
 {
-  const char* env = std::getenv("CUFILE_ENV_PATH_JSON");
+  char const* env = std::getenv("CUFILE_ENV_PATH_JSON");
   if (env != nullptr && std::filesystem::exists(env)) { return env; }
   if (std::filesystem::exists("/etc/cufile.json")) { return "/etc/cufile.json"; }
   return "";
@@ -33,9 +33,9 @@ namespace {
 
 }  // namespace
 
-const std::string& config_path()
+std::string const& config_path()
 {
-  static const std::string ret = lookup_config_path();
+  static std::string const ret = lookup_config_path();
   return ret;
 }
 

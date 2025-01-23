@@ -92,7 +92,7 @@ StreamFuture::~StreamFuture() noexcept
   if (_val != nullptr) {
     try {
       check_bytes_done();
-    } catch (const kvikio::CUfileException& e) {
+    } catch (kvikio::CUfileException const& e) {
       std::cerr << e.what() << std::endl;
     }
     std::free(_val);
