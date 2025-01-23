@@ -170,7 +170,7 @@ dependencies:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==25.2.*,>=0.0.0a0
+          - libkvikio==25.4.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -178,12 +178,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.2.*,>=0.0.0a0
+              - libkvikio-cu12==25.4.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu11==25.2.*,>=0.0.0a0
+              - libkvikio-cu11==25.4.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
@@ -321,7 +321,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &libkvikio_unsuffixed libkvikio==25.2.*,>=0.0.0a0
+          - &libkvikio_unsuffixed libkvikio==25.4.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -335,12 +335,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.2.*,>=0.0.0a0
+              - libkvikio-cu12==25.4.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu11==25.2.*,>=0.0.0a0
+              - libkvikio-cu11==25.4.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   docs:
     common:
@@ -396,14 +396,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.2.*,>=0.0.0a0
-          - libkvikio-tests==25.2.*,>=0.0.0a0
+          - libkvikio==25.4.*,>=0.0.0a0
+          - libkvikio-tests==25.4.*,>=0.0.0a0
   test_kvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.2.*,>=0.0.0a0
-          - kvikio==25.2.*,>=0.0.0a0
+          - libkvikio==25.4.*,>=0.0.0a0
+          - kvikio==25.4.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -413,7 +413,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-dask-dependency==25.2.*,>=0.0.0a0
+          - rapids-dask-dependency==25.4.*,>=0.0.0a0
           - pytest
           - pytest-cov
           - rangehttpserver
