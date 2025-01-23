@@ -106,7 +106,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
  */
 [[nodiscard]] std::size_t get_file_size(int file_descriptor)
 {
-  struct stat st{};
+  struct stat st {};
   int ret = fstat(file_descriptor, &st);
   if (ret == -1) {
     throw std::system_error(errno, std::generic_category(), "Unable to query file size");

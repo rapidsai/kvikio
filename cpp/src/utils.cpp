@@ -56,7 +56,7 @@ CUdeviceptr convert_void2deviceptr(void const* devPtr)
 }
 
 #ifdef KVIKIO_CUDA_FOUND
-bool is_host_memory(const void* ptr)
+bool is_host_memory(void const* ptr)
 {
   CUpointer_attribute attrs[1] = {
     CU_POINTER_ATTRIBUTE_MEMORY_TYPE,

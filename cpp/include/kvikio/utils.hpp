@@ -72,9 +72,9 @@ template <typename T, std::enable_if_t<std::is_floating_point_v<T>>* = nullptr>
  * @return The boolean answer
  */
 #ifdef KVIKIO_CUDA_FOUND
-bool is_host_memory(const void* ptr);
+bool is_host_memory(void const* ptr);
 #else
-constexpr bool is_host_memory(const void* ptr) { return true; }
+constexpr bool is_host_memory(void const* ptr) { return true; }
 #endif
 
 /**
