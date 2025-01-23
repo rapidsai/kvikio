@@ -138,6 +138,7 @@ set(SOURCES
     "src/cufile/config.cpp"
     "src/cufile/driver.cpp"
     "src/defaults.cpp"
+    "src/detail/file_handle_dep.cpp"
     "src/error.cpp"
     "src/file_handle.cpp"
     "src/posix_io.cpp"
