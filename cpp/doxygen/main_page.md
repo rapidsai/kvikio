@@ -36,7 +36,7 @@ mamba install -c rapidsai -c conda-forge libkvikio
 # Create new environment (CUDA 11.8)
 mamba create -n libkvikio-env -c rapidsai -c conda-forge cuda-version=11.8 libkvikio
 # Create new environment (CUDA 12.5)
-mamba create -n libkvikio-env -c rapidsai -c conda-forge cuda-version=12.5 libkvikio
+mamba create -n libkvikio-env -c rapidsai -c conda-forge cuda-version=12.8 libkvikio
 ```
 
 Install the **nightly release** from the ``rapidsai-nightly`` channel with the following:
@@ -47,7 +47,7 @@ mamba install -c rapidsai-nightly -c conda-forge libkvikio
 # Create new environment (CUDA 11.8)
 mamba create -n libkvikio-env -c rapidsai-nightly -c conda-forge python=3.12 cuda-version=11.8 libkvikio
 # Create new environment (CUDA 12.5)
-mamba create -n libkvikio-env -c rapidsai-nightly -c conda-forge python=3.12 cuda-version=12.5 libkvikio
+mamba create -n libkvikio-env -c rapidsai-nightly -c conda-forge python=3.12 cuda-version=12.8 libkvikio
 ```
 
 ---
