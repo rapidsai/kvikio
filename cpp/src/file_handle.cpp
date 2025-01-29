@@ -210,11 +210,12 @@ std::future<std::size_t> FileHandle::pread(void* buf,
 
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
-    auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
-      PushAndPopContext c(ctx);
-      return detail::posix_device_read(_fd_direct_off.fd(), buf, size, file_offset, 0);
-    };
-    return std::async(std::launch::deferred, task);
+    PushAndPopContext c(ctx);
+    auto bytes_read = detail::posix_device_read(_fd_direct_off.fd(), buf, size, file_offset, 0);
+    std::promise<std::size_t> read_promise;
+    auto read_future = read_promise.get_future();
+    read_promise.set_value(bytes_read);
+    return read_future;
   }
 
   // Let's synchronize once instead of in each task.
@@ -260,11 +261,12 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
 
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
-    auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
-      PushAndPopContext c(ctx);
-      return detail::posix_device_write(_fd_direct_off.fd(), buf, size, file_offset, 0);
-    };
-    return std::async(std::launch::deferred, task);
+    PushAndPopContext c(ctx);
+    auto bytes_write = detail::posix_device_write(_fd_direct_off.fd(), buf, size, file_offset, 0);
+    std::promise<std::size_t> write_promise;
+    auto write_future = write_promise.get_future();
+    write_promise.set_value(bytes_write);
+    return write_future;
   }
 
   // Let's synchronize once instead of in each task.
