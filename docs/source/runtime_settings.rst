@@ -42,3 +42,12 @@ Size of the Bounce Buffer ``KVIKIO_BOUNCE_BUFFER_SIZE``
 KvikIO might have to use intermediate host buffers (one per thread) when copying between files and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to the size (in bytes) of these "bounce" buffers. If not set, the default value is 16777216 (16 MiB).
 
 This setting can also be controlled by :py:func:`kvikio.defaults.bounce_buffer_size`, :py:func:`kvikio.defaults.bounce_buffer_size_reset`, and :py:func:`kvikio.defaults.set_bounce_buffer_size`.
+
+HTTP Retries ``KVIKIO_MAX_ATTEMPTS``
+------------------------------------
+When the remote server returns a 50x error, ``kvikio`` wil retry up to a limit.
+
+This setting can also be controlled by
+:py:func:`kvikio.defaults.max_attempts`,
+:py:func:`kvikio.defaults.max_attempts_reset`, and
+:py:func:`kvikio.defaults.set_max_attempts`.

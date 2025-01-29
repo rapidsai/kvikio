@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include <chrono>
 #include <cstring>
 #include <functional>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <curl/curl.h>
@@ -116,19 +118,51 @@ CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 
 void CurlHandle::perform()
 {
-  // Perform the curl operation and check for errors.
-  CURLcode err = curl_easy_perform(handle());
-  if (err != CURLE_OK) {
-    std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
+  CURLcode err;
+  int http_code                      = 0;
+  int attempt_count                  = 1;
+  int baseDelay                      = 100;  // milliseconds
+  std::size_t max_attempts           = kvikio::defaults::max_attempts();
+  std::vector<int> http_status_codes = kvikio::defaults::http_status_codes();
+
+  while (attempt_count <= max_attempts) {
     std::stringstream ss;
-    ss << "curl_easy_perform() error near " << _source_file << ":" << _source_line;
-    if (msg.empty()) {
-      ss << "(" << curl_easy_strerror(err) << ")";
+
+    CURLcode err = curl_easy_perform(handle());
+    curl_easy_getinfo(handle(), CURLINFO_RESPONSE_CODE, &http_code);
+
+    // Check if we should retry based on HTTP status code
+    if (std::find(http_status_codes.begin(), http_status_codes.end(), http_code) !=
+        http_status_codes.end()) {
+      // Retry only if one of the specified status codes is returned
+      // TODO: Parse the Retry-After header, if it exists.
+      // TODO: configurable maximum wait.
+      ss << "HTTP " << http_code << std::endl;
+      if (attempt_count == max_attempts) {
+        ss << "Max attempts reached." << std::endl;
+        throw std::runtime_error(ss.str());
+      } else {
+        int backoffDelay = baseDelay * (1 << attempt_count);
+        int delay        = std::max(1, backoffDelay);
+
+        attempt_count++;
+        ss << "Retrying. after=" << delay << " attempt=" << attempt_count
+           << " max_attempts=" << max_attempts << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+      }
+    } else if (err != CURLE_OK) {
+      std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
+      ss << "curl_easy_perform() error near " << _source_file << ":" << _source_line;
+      if (msg.empty()) {
+        ss << "(" << curl_easy_strerror(err) << ")";
+      } else {
+        ss << "(" << msg << ")";
+      }
+      throw std::runtime_error(ss.str());
     } else {
-      ss << "(" << msg << ")";
+      // No retry needed
+      break;
     }
-    throw std::runtime_error(ss.str());
   }
 }
-
 }  // namespace kvikio

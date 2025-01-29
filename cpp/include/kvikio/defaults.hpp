@@ -81,6 +81,9 @@ bool getenv_or(std::string_view env_var_name, bool default_val);
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 
+template <>
+std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val);
+
 /**
  * @brief Singleton class of default values used throughout KvikIO.
  *
@@ -92,6 +95,8 @@ class defaults {
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
+  std::size_t _max_attempts;
+  std::vector<int> _http_status_codes;
 
   static unsigned int get_num_threads_from_env();
 
@@ -181,7 +186,7 @@ class defaults {
    * always use the same thread pool however it is possible to change number of
    * threads in the pool (see `kvikio::default::thread_pool_nthreads_reset()`).
    *
-   * @return The the default thread pool instance.
+   * @return The default thread pool instance.
    */
   [[nodiscard]] static BS::thread_pool& thread_pool();
 
@@ -258,6 +263,46 @@ class defaults {
    * @param nbytes The bounce buffer size in bytes.
    */
   static void bounce_buffer_size_reset(std::size_t nbytes);
+
+  /**
+   * @brief Get the maximum number of attempts per remote IO read.
+   *
+   * Set the value using `kvikio::default::max_attempts()` or by setting the
+   * `KVIKIO_MAX_ATTEMPTS` environment variable. If not set, the value is 3.
+   *
+   * @return The maximum number of remote IO reads to attempt before raising an error.
+   */
+  [[nodiscard]] static std::size_t max_attempts();
+
+  /**
+   * @brief Reset the maximum number of attempts per remote IO read.
+   *
+   * @param attempts The maximum number of attempts to try before raising an error.
+   */
+  static void max_attempts_reset(std::size_t attempts);
+
+  /**
+   * @brief The list of HTTP status codes to retry.
+   *
+   * Set the value using `kvikio::default::http_status_codes()` or by setting the
+   * `KVIKIO_HTTP_STATUS_CODES` environment variable. If not set, the default value is
+   *
+   * - 429
+   * - 500
+   * - 502
+   * - 503
+   * - 504
+   *
+   * @return The list of HTTP status codes to retry.
+   */
+  [[nodiscard]] static std::vector<int> http_status_codes();
+
+  /**
+   * @brief Reset the list of HTTP status codes to retry.
+   *
+   * @param status_codes The HTTP status codes to retry.
+   */
+  static void http_status_codes_reset(std::vector<int> status_codes);
 };
 
 }  // namespace kvikio
