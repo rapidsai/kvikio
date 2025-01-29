@@ -81,15 +81,13 @@ bool getenv_or(std::string_view env_var_name, bool default_val);
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 
-using BS_thread_pool = BS::thread_pool<BS::tp::none>;
-
 /**
  * @brief Singleton class of default values used throughout KvikIO.
  *
  */
 class defaults {
  private:
-  BS_thread_pool _thread_pool{get_num_threads_from_env()};
+  BS::thread_pool _thread_pool{get_num_threads_from_env()};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
@@ -185,7 +183,7 @@ class defaults {
    *
    * @return The the default thread pool instance.
    */
-  [[nodiscard]] static BS_thread_pool& thread_pool();
+  [[nodiscard]] static BS::thread_pool& thread_pool();
 
   /**
    * @brief Get the number of threads in the default thread pool.

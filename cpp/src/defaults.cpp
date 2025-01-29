@@ -163,7 +163,7 @@ bool defaults::is_compat_mode_preferred(CompatMode compat_mode) noexcept
 
 bool defaults::is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
 
-BS_thread_pool& defaults::thread_pool() { return instance()->_thread_pool; }
+BS::thread_pool& defaults::thread_pool() { return instance()->_thread_pool; }
 
 unsigned int defaults::thread_pool_nthreads() { return thread_pool().get_thread_count(); }
 
