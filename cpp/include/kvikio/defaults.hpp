@@ -53,6 +53,8 @@ bool getenv_or(std::string_view env_var_name, bool default_val);
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 
+using BS_thread_pool = BS::thread_pool<BS::tp::none>;
+
 /**
  * @brief Singleton class of default values used throughout KvikIO.
  *
