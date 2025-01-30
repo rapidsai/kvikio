@@ -21,6 +21,7 @@
 #include <memory>
 #include <numeric>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -32,6 +33,31 @@
 namespace kvikio {
 
 namespace detail {
+
+/**
+ * @brief Utility function to create a copyable callable from a move-only callable.
+ *
+ * The underlying thread pool uses `std::function` (until C++23) or `std::move_only_function`
+ * (since C++23) as the element type of the task queue. For the former case that currently applies,
+ * the `std::function` requires its "target" (associated callable) to be copy-constructible. This
+ * utility function is a workaround for those move-only callables.
+ *
+ * @tparam F Callable type. F shall be move-only.
+ * @param op Callable.
+ * @return A new callable that satisfies the copy-constructible condition.
+ */
+template <typename F>
+auto make_copyable_lambda(F op)
+{
+  static_assert(std::is_move_constructible_v<F>);
+
+  // Create the callable on the heap by moving from f. Use a shared pointer to manage its lifetime.
+  auto sp = std::make_shared<F>(std::forward<F>(op));
+
+  // Use the copyable closure as the proxy of the move-only callable.
+  return
+    [sp](auto&&... args) -> decltype(auto) { return (*sp)(std::forward<decltype(args)>(args)...); };
+}
 
 /**
  * @brief Determine the NVTX color and call index. They are used to identify tasks from different
@@ -51,6 +77,11 @@ inline const std::pair<const nvtx_color_type&, std::uint64_t> get_next_color_and
   return {nvtx_color, call_idx};
 }
 
+/**
+ * @brief Submit the task callable to the underlying thread pool.
+ *
+ * Both the callable and arguments shall satisfy copy-constructible.
+ */
 template <typename F, typename T>
 std::future<std::size_t> submit_task(F op,
                                      T buf,
@@ -60,17 +91,32 @@ std::future<std::size_t> submit_task(F op,
                                      std::uint64_t nvtx_payload = 0ull,
                                      nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
+  static_assert(std::is_invocable_r_v<std::size_t,
+                                      decltype(op),
+                                      decltype(buf),
+                                      decltype(size),
+                                      decltype(file_offset),
+                                      decltype(devPtr_offset)>);
+
   return defaults::thread_pool().submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
     return op(buf, size, file_offset, devPtr_offset);
   });
 }
 
+/**
+ * @brief Submit the move-only task callable to the underlying thread pool.
+ *
+ * @tparam F Callable type. F shall be move-only and have no argument.
+ * @param op Callable.
+ * @return A future to be used later to check if the operation has finished its execution.
+ */
 template <typename F>
-auto make_copyable_lambda(F&& f)
+std::future<std::size_t> submit_move_only_task(F op_move_only)
 {
-  auto sp = std::make_shared<F>(std::forward<F>(f));
-  return [sp]() -> decltype(auto) { return (*sp)(); };
+  static_assert(std::is_invocable_r_v<std::size_t, F>);
+  auto op_copyable = make_copyable_lambda(std::move(op_move_only));
+  return defaults::thread_pool().submit_task(op_copyable);
 }
 
 }  // namespace detail
@@ -98,6 +144,12 @@ std::future<std::size_t> parallel_io(F op,
                                      nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
+  static_assert(std::is_invocable_r_v<std::size_t,
+                                      decltype(op),
+                                      decltype(buf),
+                                      decltype(size),
+                                      decltype(file_offset),
+                                      decltype(devPtr_offset)>);
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
@@ -124,15 +176,14 @@ std::future<std::size_t> parallel_io(F op,
   }
 
   // Finally, we sum the result of all tasks.
-  auto gather_tasks =
-    detail::make_copyable_lambda([tasks = std::move(tasks)]() mutable -> std::size_t {
-      std::size_t ret = 0;
-      for (auto& task : tasks) {
-        ret += task.get();
-      }
-      return ret;
-    });
-  return defaults::thread_pool().submit_task(std::move(gather_tasks));
+  auto gather_tasks = [tasks = std::move(tasks)]() mutable -> std::size_t {
+    std::size_t ret = 0;
+    for (auto& task : tasks) {
+      ret += task.get();
+    }
+    return ret;
+  };
+  return detail::submit_move_only_task(std::move(gather_tasks));
 }
 
 }  // namespace kvikio
