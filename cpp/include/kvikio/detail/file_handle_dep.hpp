@@ -43,8 +43,8 @@ class FileHandleDependencyBase {
   virtual ~FileHandleDependencyBase() = default;
   void set_file_handle(FileHandle* file_handle);
 
-  virtual int open_fd(const std::string& file_path,
-                      const std::string& flags,
+  virtual int open_fd(std::string const& file_path,
+                      std::string const& flags,
                       bool o_direct,
                       mode_t mode)                                                       = 0;
   virtual void close_fd(int fd)                                                          = 0;
@@ -53,7 +53,7 @@ class FileHandleDependencyBase {
   virtual bool is_compat_mode_preferred() const noexcept                                 = 0;
   virtual bool is_compat_mode_preferred(CompatMode compat_mode) const noexcept           = 0;
   virtual bool is_stream_api_available() noexcept                                        = 0;
-  virtual const std::string& config_path()                                               = 0;
+  virtual std::string const& config_path()                                               = 0;
 
  protected:
   FileHandle* _file_handle;
@@ -69,8 +69,8 @@ class FileHandleDependencyProduction : public FileHandleDependencyBase {
    * @param mode Access modes
    * @return File descriptor
    */
-  virtual int open_fd(const std::string& file_path,
-                      const std::string& flags,
+  virtual int open_fd(std::string const& file_path,
+                      std::string const& flags,
                       bool o_direct,
                       mode_t mode) override;
   virtual void close_fd(int fd) override;
@@ -79,7 +79,7 @@ class FileHandleDependencyProduction : public FileHandleDependencyBase {
   virtual bool is_compat_mode_preferred() const noexcept override;
   virtual bool is_compat_mode_preferred(CompatMode compat_mode) const noexcept override;
   virtual bool is_stream_api_available() noexcept override;
-  virtual const std::string& config_path() override;
+  virtual std::string const& config_path() override;
 };
 }  // namespace detail
 }  // namespace kvikio

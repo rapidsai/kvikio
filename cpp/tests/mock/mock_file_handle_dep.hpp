@@ -30,7 +30,7 @@ class FileHandleDependencyMock : public detail::FileHandleDependencyBase {
  public:
   MOCK_METHOD(int,
               open_fd,
-              (const std::string& file_path, const std::string& flags, bool o_direct, mode_t mode),
+              (std::string const& file_path, std::string const& flags, bool o_direct, mode_t mode),
               (override));
   MOCK_METHOD(void, close_fd, (int fd), (override));
   MOCK_METHOD(CUfileError_t,
@@ -44,7 +44,7 @@ class FileHandleDependencyMock : public detail::FileHandleDependencyBase {
               (CompatMode compat_mode),
               (const, noexcept, override));
   MOCK_METHOD(bool, is_stream_api_available, (), (noexcept, override));
-  MOCK_METHOD(const std::string&, config_path, (), (override));
+  MOCK_METHOD(std::string const&, config_path, (), (override));
 };
 
 }  // namespace mock

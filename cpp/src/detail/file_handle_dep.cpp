@@ -31,7 +31,7 @@ namespace {
  * @throw std::invalid_argument if the specified flags are not supported.
  * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
  */
-int open_fd_parse_flags(const std::string& flags, bool o_direct)
+int open_fd_parse_flags(std::string const& flags, bool o_direct)
 {
   int file_flags = -1;
   if (flags.empty()) { throw std::invalid_argument("Unknown file open flag"); }
@@ -79,8 +79,8 @@ bool FileHandleDependencyProduction::is_compat_mode_preferred(CompatMode compat_
   return defaults::is_compat_mode_preferred(compat_mode);
 }
 
-int FileHandleDependencyProduction::open_fd(const std::string& file_path,
-                                            const std::string& flags,
+int FileHandleDependencyProduction::open_fd(std::string const& file_path,
+                                            std::string const& flags,
                                             bool o_direct,
                                             mode_t mode)
 {
@@ -108,7 +108,7 @@ bool FileHandleDependencyProduction::is_stream_api_available() noexcept
   return kvikio::is_stream_api_available();
 }
 
-const std::string& FileHandleDependencyProduction::config_path() { return kvikio::config_path(); }
+std::string const& FileHandleDependencyProduction::config_path() { return kvikio::config_path(); }
 
 }  // namespace detail
 }  // namespace kvikio
