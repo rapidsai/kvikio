@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ struct CUfileDescr_t {
   } handle;
 };
 
-static inline const char* cufileop_status_error(CUfileOpError err) { return CUFILE_ERRSTR(err); };
+inline static char const* cufileop_status_error(CUfileOpError err) { return CUFILE_ERRSTR(err); };
 CUfileError_t cuFileHandleRegister(...);
 CUfileError_t cuFileHandleDeregister(...);
 ssize_t cuFileRead(...);

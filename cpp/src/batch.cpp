@@ -52,14 +52,14 @@ void BatchHandle::close() noexcept
   cuFileAPI::instance().BatchIODestroy(_handle);
 }
 
-void BatchHandle::submit(const std::vector<BatchOp>& operations)
+void BatchHandle::submit(std::vector<BatchOp> const& operations)
 {
   if (convert_size2ssize(operations.size()) > _max_num_events) {
     throw CUfileException("Cannot submit more than the max_num_events)");
   }
   std::vector<CUfileIOParams_t> io_batch_params;
   io_batch_params.reserve(operations.size());
-  for (const auto& op : operations) {
+  for (auto const& op : operations) {
     if (op.file_handle.is_compat_mode_preferred()) {
       throw CUfileException("Cannot submit a FileHandle opened in compatibility mode");
     }
@@ -102,7 +102,7 @@ bool BatchHandle::closed() const noexcept { return true; }
 
 void BatchHandle::close() noexcept {}
 
-void BatchHandle::submit(const std::vector<BatchOp>& operations) {}
+void BatchHandle::submit(std::vector<BatchOp> const& operations) {}
 
 std::vector<CUfileIOEvents_t> BatchHandle::status(unsigned min_nr,
                                                   unsigned max_nr,

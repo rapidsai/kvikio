@@ -82,15 +82,15 @@ class FileHandle {
    * @param mode Access modes (see `open(2)`).
    * @param compat_mode Set KvikIO's compatibility mode for this file.
    */
-  FileHandle(const std::string& file_path,
-             const std::string& flags = "r",
+  FileHandle(std::string const& file_path,
+             std::string const& flags = "r",
              mode_t mode              = m644,
              CompatMode compat_mode   = defaults::compat_mode());
 
   /**
    * @brief FileHandle support move semantic but isn't copyable
    */
-  FileHandle(const FileHandle&)            = delete;
+  FileHandle(FileHandle const&)            = delete;
   FileHandle& operator=(FileHandle const&) = delete;
   FileHandle(FileHandle&& o) noexcept;
   FileHandle& operator=(FileHandle&& o) noexcept;
@@ -216,7 +216,7 @@ class FileHandle {
    * case, the value of `sync_default_stream` is ignored.
    * @return Size of bytes that were successfully written.
    */
-  std::size_t write(const void* devPtr_base,
+  std::size_t write(void const* devPtr_base,
                     std::size_t size,
                     std::size_t file_offset,
                     std::size_t devPtr_offset,
@@ -289,7 +289,7 @@ class FileHandle {
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
    * the FileHandle object ends. Otherwise, the behavior is undefined.
    */
-  std::future<std::size_t> pwrite(const void* buf,
+  std::future<std::size_t> pwrite(void const* buf,
                                   std::size_t size,
                                   std::size_t file_offset   = 0,
                                   std::size_t task_size     = defaults::task_size(),

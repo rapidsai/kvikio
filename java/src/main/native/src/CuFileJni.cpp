@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -168,7 +168,7 @@ JNIEXPORT jlong JNICALL Java_ai_rapids_kvikio_cufile_CuFileDriver_create(JNIEnv*
 {
   try {
     return reinterpret_cast<jlong>(new cufile_driver());
-  } catch (const std::exception& e) {
+  } catch (std::exception const& e) {
     jlong default_ret_val = 0;
     if (env->ExceptionOccurred()) { return default_ret_val; }
 
