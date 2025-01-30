@@ -20,6 +20,7 @@
 #include <memory>
 #include <numeric>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -31,19 +32,62 @@ namespace kvikio {
 
 namespace detail {
 
-template <typename F, typename T>
-std::future<std::size_t> submit_task(
-  F op, T buf, std::size_t size, std::size_t file_offset, std::size_t devPtr_offset)
+/**
+ * @brief Utility function to create a copyable callable from a move-only callable.
+ *
+ * The underlying thread pool uses `std::function` (until C++23) or `std::move_only_function`
+ * (since C++23) as the element type of the task queue. For the former case that currently applies,
+ * the `std::function` requires its "target" (associated callable) to be copy-constructible. This
+ * utility function is a workaround for those move-only callables.
+ *
+ * @tparam F Callable type. F shall be move-only.
+ * @param op Callable.
+ * @return A new callable that satisfies the copy-constructible condition.
+ */
+template <typename F>
+auto make_copyable_lambda(F op)
 {
-  return defaults::thread_pool().submit_task(
-    [=] { return op(buf, size, file_offset, devPtr_offset); });
+  static_assert(std::is_move_constructible_v<F>);
+
+  // Create the callable on the heap by moving from f. Use a shared pointer to manage its lifetime.
+  auto sp = std::make_shared<F>(std::forward<F>(op));
+
+  // Use the copyable closure as the proxy of the move-only callable.
+  return
+    [sp](auto&&... args) -> decltype(auto) { return (*sp)(std::forward<decltype(args)>(args)...); };
 }
 
-template <typename F>
-auto make_copyable_lambda(F&& f)
+/**
+ * @brief Submit the task callable to the underlying thread pool.
+ *
+ * Both the callable and arguments shall satisfy copy-constructible.
+ *
+ * @tparam F Callable type.
+ * @tparam Args Argument type.
+ * @param op Callable.
+ * @param args Arguments to the callable.
+ * @return A future to be used later to check if the operation has finished its execution.
+ */
+template <typename F, typename... Args>
+std::future<std::size_t> submit_task(F&& op, Args&&... args)
 {
-  auto sp = std::make_shared<F>(std::forward<F>(f));
-  return [sp]() -> decltype(auto) { return (*sp)(); };
+  static_assert(std::is_invocable_r_v<std::size_t, std::decay_t<F>, Args...>);
+  return defaults::thread_pool().submit_task([=] { return op(args...); });
+}
+
+/**
+ * @brief Submit the move-only task callable to the underlying thread pool.
+ *
+ * @tparam F Callable type. F shall be move-only and have no argument.
+ * @param op Callable.
+ * @return A future to be used later to check if the operation has finished its execution.
+ */
+template <typename F>
+std::future<std::size_t> submit_move_only_task(F op_move_only)
+{
+  static_assert(std::is_invocable_r_v<std::size_t, F>);
+  auto op_copyable = make_copyable_lambda(std::move(op_move_only));
+  return defaults::thread_pool().submit_task(op_copyable);
 }
 
 }  // namespace detail
@@ -68,6 +112,13 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t task_size,
                                      std::size_t devPtr_offset)
 {
+  static_assert(std::is_invocable_r_v<std::size_t,
+                                      decltype(op),
+                                      decltype(buf),
+                                      decltype(size),
+                                      decltype(file_offset),
+                                      decltype(devPtr_offset)>);
+
   if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
 
   // Single-task guard
@@ -91,15 +142,14 @@ std::future<std::size_t> parallel_io(F op,
   if (size > 0) { tasks.push_back(detail::submit_task(op, buf, size, file_offset, devPtr_offset)); }
 
   // Finally, we sum the result of all tasks.
-  auto gather_tasks =
-    detail::make_copyable_lambda([tasks = std::move(tasks)]() mutable -> std::size_t {
-      std::size_t ret = 0;
-      for (auto& task : tasks) {
-        ret += task.get();
-      }
-      return ret;
-    });
-  return defaults::thread_pool().submit_task(std::move(gather_tasks));
+  auto gather_tasks = [tasks = std::move(tasks)]() mutable -> std::size_t {
+    std::size_t ret = 0;
+    for (auto& task : tasks) {
+      ret += task.get();
+    }
+    return ret;
+  };
+  return detail::submit_move_only_task(std::move(gather_tasks));
 }
 
 }  // namespace kvikio
