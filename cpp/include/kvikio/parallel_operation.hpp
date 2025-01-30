@@ -47,10 +47,8 @@ namespace detail {
 template <typename F>
 auto make_copyable_lambda(F op)
 {
-  static_assert(std::is_move_constructible_v<F>);
-
-  // Create the callable on the heap by moving from f. Use a shared pointer to manage its lifetime.
-  auto sp = std::make_shared<F>(std::forward<F>(op));
+  // Create the callable on the heap by moving from op. Use a shared pointer to manage its lifetime.
+  auto sp = std::make_shared<F>(std::move(op));
 
   // Use the copyable closure as the proxy of the move-only callable.
   return
