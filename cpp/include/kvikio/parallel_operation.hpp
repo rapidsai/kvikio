@@ -141,12 +141,7 @@ std::future<std::size_t> parallel_io(F op,
                                      std::uint64_t call_idx     = 0,
                                      nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
-  static_assert(std::is_invocable_r_v<std::size_t,
-                                      decltype(op),
-                                      decltype(buf),
-                                      decltype(size),
-                                      decltype(file_offset),
-                                      decltype(devPtr_offset)>);
+  static_assert(std::is_invocable_r_v<std::size_t, F, T, std::size_t, std::size_t, std::size_t>);
 
   if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
 
