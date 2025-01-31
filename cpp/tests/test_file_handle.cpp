@@ -32,85 +32,102 @@ class FileHandleTest : public testing::Test {
   void SetUp() override {}
   void TearDown() override {}
 
-  std::string _file_path{"mocked_file_path"};
-  std::string _config_path{"mocked_config_path"};
-  int _fd_direct_off{1000};
-  int _fd_direct_on{2000};
+ public:
+  std::string _mocked_file_path{"mocked_file_path"};
+  std::string _mocked_config_path{"mocked_config_path"};
+  int _mocked_fd_direct_off{1000};
+  int _mocked_fd_direct_on{2000};
 
   using DependencyMock = ::testing::NiceMock<mock::FileHandleDependencyMock>;
 };
 
-// Mock the simplest case where FileHandle constructor receives argument CompatMode::ON.
+// Mock the simplest case where the desired compatibility mode is ON.
 TEST_F(FileHandleTest, compat_mode_on)
 {
-  CompatMode input_compat_mode{CompatMode::ON};
+  CompatMode desired_compat_mode{CompatMode::ON};
   auto dep_mock = std::make_unique<DependencyMock>();
 
   ON_CALL(*dep_mock, is_compat_mode_preferred()).WillByDefault(::testing::Return(true));
   ON_CALL(*dep_mock, is_compat_mode_preferred(::testing::_)).WillByDefault(::testing::Return(true));
   ON_CALL(*dep_mock, is_stream_api_available).WillByDefault(::testing::Return(true));
-  ON_CALL(*dep_mock, config_path).WillByDefault(::testing::ReturnRef(_config_path));
+  ON_CALL(*dep_mock, config_path).WillByDefault(::testing::ReturnRef(_mocked_config_path));
 
-  EXPECT_CALL(*dep_mock, open_fd).Times(1).WillOnce(::testing::Return(_fd_direct_off));
+  EXPECT_CALL(*dep_mock, open_fd).Times(1).WillOnce(::testing::Return(_mocked_fd_direct_off));
   EXPECT_CALL(*dep_mock, close_fd).Times(1);
+  // Expect the cuFile I/O path to be not taken.
   EXPECT_CALL(*dep_mock, cuFile_handle_register).Times(0);
+  EXPECT_CALL(*dep_mock, cuFile_handle_deregister).Times(0);
+  EXPECT_CALL(*dep_mock, is_stream_api_available).Times(0);
+  EXPECT_CALL(*dep_mock, config_path).Times(0);
 
   {
     FileHandle file_handle(
-      _file_path, "w", FileHandle::m644, input_compat_mode, std::move(dep_mock));
+      _mocked_file_path, "w", FileHandle::m644, desired_compat_mode, std::move(dep_mock));
 
-    EXPECT_TRUE(file_handle.is_compat_mode_preferred_for_async(input_compat_mode));
-    EXPECT_EQ(file_handle.fd(), _fd_direct_off);
+    EXPECT_TRUE(file_handle.is_compat_mode_preferred_for_async(desired_compat_mode));
+    EXPECT_EQ(file_handle.fd(), _mocked_fd_direct_off);
   }
 }
 
-// Mock the case where FileHandle constructor receives argument CompatMode::OFF. The file cannot be
-// opened with O_DIRECT flag, and an exception is thrown.
+// Mock the case where the desired compatibility mode is OFF. The file cannot be opened with
+// O_DIRECT flag, and an exception is thrown.
 TEST_F(FileHandleTest, compat_mode_off_1)
 {
-  CompatMode input_compat_mode{CompatMode::OFF};
+  CompatMode desired_compat_mode{CompatMode::OFF};
   auto dep_mock = std::make_unique<DependencyMock>();
 
   ON_CALL(*dep_mock, is_compat_mode_preferred()).WillByDefault(::testing::Return(false));
+
+  // Two calls to open_fd, without and with O_DIRECT flag. Let the latter case throw an exception.
   EXPECT_CALL(*dep_mock, open_fd)
     .Times(2)
-    .WillOnce(::testing::Return(_fd_direct_off))
+    .WillOnce(::testing::Return(_mocked_fd_direct_off))
     .WillOnce(
       ::testing::Throw(std::system_error(errno, std::generic_category(), "Unable to open file")));
-  EXPECT_CALL(*dep_mock, close_fd).Times(0);
   EXPECT_CALL(*dep_mock, cuFile_handle_register).Times(0);
   EXPECT_CALL(*dep_mock, cuFile_handle_deregister).Times(0);
+
+  // TODO: Currently there will be a file resource leak if this case happens.
+  // See https://github.com/rapidsai/kvikio/issues/607
+  // EXPECT_CALL(*dep_mock, close_fd).Times(1);
 
   EXPECT_THROW(
     {
       FileHandle file_handle(
-        _file_path, "w", FileHandle::m644, input_compat_mode, std::move(dep_mock));
+        _mocked_file_path, "w", FileHandle::m644, desired_compat_mode, std::move(dep_mock));
     },
     std::system_error);
 }
 
-// Mock the case where FileHandle constructor receives argument CompatMode::AUTO. The file cannot be
-// opened with O_DIRECT flag, and the compatibility mode is set to ON.
+// Mock the case where the desired compatibility mode is OFF. The file cannot be
+// opened with O_DIRECT flag, and an exception is thrown.
+TEST_F(FileHandleTest, compat_mode_off_2) {}
+
+// Mock the case where the desired compatibility mode is AUTO. The file cannot be opened with
+// O_DIRECT flag, and the compatibility mode is adjusted to ON.
 TEST_F(FileHandleTest, compat_mode_auto_1)
 {
-  CompatMode input_compat_mode{CompatMode::AUTO};
+  CompatMode desired_compat_mode{CompatMode::AUTO};
   auto dep_mock = std::make_unique<DependencyMock>();
 
   EXPECT_CALL(*dep_mock, is_compat_mode_preferred())
-    .Times(::testing::AtLeast(2))
     .WillOnce(::testing::Return(false))
     .WillRepeatedly(::testing::Return(true));
+  // Two calls to open_fd, without and with O_DIRECT flag. Let the latter case throw an exception.
   EXPECT_CALL(*dep_mock, open_fd)
     .Times(2)
-    .WillOnce(::testing::Return(_fd_direct_off))
+    .WillOnce(::testing::Return(_mocked_fd_direct_off))
     .WillOnce(
       ::testing::Throw(std::system_error(errno, std::generic_category(), "Unable to open file")));
-  EXPECT_CALL(*dep_mock, cuFile_handle_register).Times(0);
   EXPECT_CALL(*dep_mock, close_fd).Times(1);
+
+  // Expect the cuFile I/O path to be not taken.
+  EXPECT_CALL(*dep_mock, cuFile_handle_register).Times(0);
+  EXPECT_CALL(*dep_mock, cuFile_handle_deregister).Times(0);
 
   EXPECT_NO_THROW({
     FileHandle file_handle(
-      _file_path, "w", FileHandle::m644, input_compat_mode, std::move(dep_mock));
+      _mocked_file_path, "w", FileHandle::m644, desired_compat_mode, std::move(dep_mock));
   });
 }
 
