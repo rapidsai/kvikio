@@ -27,6 +27,7 @@
 #include <kvikio/buffer.hpp>
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/file_handle_dep.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
@@ -43,6 +44,7 @@ namespace kvikio {
  */
 class FileHandle {
  private:
+  std::unique_ptr<detail::FileHandleDependencyBase> _dep;
   // We use two file descriptors, one opened with the O_DIRECT flag and one without.
   int _fd_direct_on{-1};
   int _fd_direct_off{-1};
@@ -51,19 +53,10 @@ class FileHandle {
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUfileHandle_t _handle{};
 
-  /**
-   * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON` for
-   * asynchronous I/O.
-   *
-   * @param requested_compat_mode Requested compatibility mode.
-   * @return True if POSIX I/O fallback will be used; false for cuFile I/O.
-   * @exception std::runtime_error When the requested compatibility mode is `OFF`, but cuFile
-   * batch/stream library symbol is missing, or cuFile configuration file is missing.
-   */
-  bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode);
+  friend class detail::FileHandleDependencyProduction;
 
  public:
-  static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
+  static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   FileHandle() noexcept        = default;
 
   /**
@@ -85,7 +78,9 @@ class FileHandle {
   FileHandle(std::string const& file_path,
              std::string const& flags = "r",
              mode_t mode              = m644,
-             CompatMode compat_mode   = defaults::compat_mode());
+             CompatMode compat_mode   = defaults::compat_mode(),
+             std::unique_ptr<detail::FileHandleDependencyBase> dep =
+               std::make_unique<detail::FileHandleDependencyProduction>());
 
   /**
    * @brief FileHandle support move semantic but isn't copyable
@@ -453,16 +448,15 @@ class FileHandle {
   [[nodiscard]] bool is_compat_mode_preferred() const noexcept;
 
   /**
-   * @brief Returns `true` if the compatibility mode is expected to be `ON` for the asynchronous I/O
-   * on this file.
+   * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON` for
+   * asynchronous I/O.
    *
-   * For asynchronous I/O, the compatibility mode can be automatically enabled if the cuFile batch
-   * and stream symbols are missing, or if the cuFile configuration file is missing, or if
-   * `is_compat_mode_preferred()` returns true.
-   *
-   * @return Boolean answer.
+   * @param requested_compat_mode Requested compatibility mode.
+   * @return True if POSIX I/O fallback will be used; false for cuFile I/O.
+   * @exception std::runtime_error When the requested compatibility mode is `OFF`, but cuFile
+   * batch/stream library symbol is missing, or cuFile configuration file is missing.
    */
-  [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept;
+  bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode);
 };
 
 }  // namespace kvikio

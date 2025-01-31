@@ -25,64 +25,11 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
+#include "kvikio/detail/file_handle_dep.hpp"
 
 namespace kvikio {
 
 namespace {
-
-/**
- * @brief Parse open file flags given as a string and return oflags
- *
- * @param flags The flags
- * @param o_direct Append O_DIRECT to the open flags
- * @return oflags
- *
- * @throw std::invalid_argument if the specified flags are not supported.
- * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
- */
-int open_fd_parse_flags(std::string const& flags, bool o_direct)
-{
-  int file_flags = -1;
-  if (flags.empty()) { throw std::invalid_argument("Unknown file open flag"); }
-  switch (flags[0]) {
-    case 'r':
-      file_flags = O_RDONLY;
-      if (flags[1] == '+') { file_flags = O_RDWR; }
-      break;
-    case 'w':
-      file_flags = O_WRONLY;
-      if (flags[1] == '+') { file_flags = O_RDWR; }
-      file_flags |= O_CREAT | O_TRUNC;
-      break;
-    case 'a': throw std::invalid_argument("Open flag 'a' isn't supported");
-    default: throw std::invalid_argument("Unknown file open flag");
-  }
-  file_flags |= O_CLOEXEC;
-  if (o_direct) {
-#if defined(O_DIRECT)
-    file_flags |= O_DIRECT;
-#else
-    throw std::invalid_argument("'o_direct' flag unsupported on this platform");
-#endif
-  }
-  return file_flags;
-}
-
-/**
- * @brief Open file using `open(2)`
- *
- * @param flags Open flags given as a string
- * @param o_direct Append O_DIRECT to `flags`
- * @param mode Access modes
- * @return File descriptor
- */
-int open_fd(std::string const& file_path, std::string const& flags, bool o_direct, mode_t mode)
-{
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-  int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
-  if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
-  return fd;
-}
 
 /**
  * @brief Get the flags of the file descriptor (see `open(2)`)
@@ -119,11 +66,15 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
 FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
-                       CompatMode compat_mode)
-  : _fd_direct_off{open_fd(file_path, flags, false, mode)},
+                       CompatMode compat_mode,
+                       std::unique_ptr<detail::FileHandleDependencyBase> dep)
+  : _fd_direct_off{_dep->open_fd(file_path, flags, false, mode)},
     _initialized{true},
-    _compat_mode{compat_mode}
+    _compat_mode{compat_mode},
+    _dep{std::move(dep)}
 {
+  _dep->set_file_handle(this);
+
   if (is_compat_mode_preferred()) {
     return;  // Nothing to do in compatibility mode
   }
@@ -138,7 +89,7 @@ FileHandle::FileHandle(std::string const& file_path,
   };
 
   try {
-    _fd_direct_on = open_fd(file_path, flags, true, mode);
+    _fd_direct_on = _dep->open_fd(file_path, flags, true, mode);
   } catch (std::system_error const&) {
     handle_o_direct_except();
   } catch (std::invalid_argument const&) {
@@ -153,7 +104,7 @@ FileHandle::FileHandle(std::string const& file_path,
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
   desc.handle.fd = _fd_direct_on;
 
-  auto error_code = cuFileAPI::instance().HandleRegister(&_handle, &desc);
+  auto error_code = _dep->cuFile_handle_register(&_handle, &desc);
   // For the AUTO mode, if the first cuFile API call fails, fall back to the compatibility
   // mode.
   if (_compat_mode == CompatMode::AUTO && error_code.err != CU_FILE_SUCCESS) {
@@ -169,7 +120,8 @@ FileHandle::FileHandle(FileHandle&& o) noexcept
     _initialized{std::exchange(o._initialized, false)},
     _compat_mode{std::exchange(o._compat_mode, CompatMode::AUTO)},
     _nbytes{std::exchange(o._nbytes, 0)},
-    _handle{std::exchange(o._handle, CUfileHandle_t{})}
+    _handle{std::exchange(o._handle, CUfileHandle_t{})},
+    _dep(std::move(o._dep))
 {
 }
 
@@ -181,6 +133,7 @@ FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
   _compat_mode   = std::exchange(o._compat_mode, CompatMode::AUTO);
   _nbytes        = std::exchange(o._nbytes, 0);
   _handle        = std::exchange(o._handle, CUfileHandle_t{});
+  _dep           = std::move(o._dep);
   return *this;
 }
 
@@ -193,10 +146,10 @@ void FileHandle::close() noexcept
   try {
     if (closed()) { return; }
 
-    if (!is_compat_mode_preferred()) { cuFileAPI::instance().HandleDeregister(_handle); }
+    if (!is_compat_mode_preferred()) { _dep->cuFile_handle_deregister(_handle); }
     _compat_mode = CompatMode::AUTO;
-    ::close(_fd_direct_off);
-    if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
+    _dep->close_fd(_fd_direct_off);
+    if (_fd_direct_on != -1) { _dep->close_fd(_fd_direct_on); }
     _fd_direct_on  = -1;
     _fd_direct_off = -1;
     _initialized   = false;
@@ -424,19 +377,12 @@ StreamFuture FileHandle::write_async(
 
 bool FileHandle::is_compat_mode_preferred() const noexcept
 {
-  return defaults::is_compat_mode_preferred(_compat_mode);
-}
-
-bool FileHandle::is_compat_mode_preferred_for_async() const noexcept
-{
-  static bool is_extra_symbol_available = is_stream_api_available();
-  static bool is_config_path_empty      = config_path().empty();
-  return is_compat_mode_preferred() || !is_extra_symbol_available || is_config_path_empty;
+  return _dep->is_compat_mode_preferred();
 }
 
 bool FileHandle::is_compat_mode_preferred_for_async(CompatMode requested_compat_mode)
 {
-  if (defaults::is_compat_mode_preferred(requested_compat_mode)) { return true; }
+  if (_dep->is_compat_mode_preferred(requested_compat_mode)) { return true; }
 
   if (!is_stream_api_available()) {
     if (requested_compat_mode == CompatMode::AUTO) { return true; }
