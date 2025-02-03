@@ -57,6 +57,9 @@ namespace detail {
  */
 CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
 
+std::vector<int> parse_http_status_codes(std::string_view nev_var_name,
+                                         std::string const status_codes);
+
 }  // namespace detail
 
 template <typename T>
