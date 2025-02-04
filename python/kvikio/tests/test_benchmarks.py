@@ -28,7 +28,7 @@ pytest.importorskip("dask")
         "zarr",
     ],
 )
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(30, method="thread")
 def test_single_node_io(run_cmd, tmp_path, api):
     """Test benchmarks/single_node_io.py"""
 
@@ -60,7 +60,7 @@ def test_single_node_io(run_cmd, tmp_path, api):
         "posix",
     ],
 )
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(30, method="thread")
 def test_zarr_io(run_cmd, tmp_path, api):
     """Test benchmarks/zarr_io.py"""
 
@@ -91,7 +91,7 @@ def test_zarr_io(run_cmd, tmp_path, api):
         "numpy",
     ],
 )
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(30, method="thread")
 def test_http_io(run_cmd, api):
     """Test benchmarks/http_io.py"""
 
@@ -121,7 +121,7 @@ def test_http_io(run_cmd, api):
         "numpy",
     ],
 )
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(30, method="thread")
 def test_s3_io(run_cmd, api):
     """Test benchmarks/s3_io.py"""
 
