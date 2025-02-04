@@ -28,6 +28,7 @@
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/file_utils.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/shim/cufile.hpp>
@@ -44,12 +45,12 @@ namespace kvikio {
 class FileHandle {
  private:
   // We use two file descriptors, one opened with the O_DIRECT flag and one without.
-  int _fd_direct_on{-1};
-  int _fd_direct_off{-1};
+  FileWrapper _fd_direct_on{};
+  FileWrapper _fd_direct_off{};
   bool _initialized{false};
   CompatMode _compat_mode{CompatMode::AUTO};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
-  CUfileHandle_t _handle{};
+  CUFileHandleWrapper _handle{};
 
   /**
    * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON` for
@@ -122,23 +123,24 @@ class FileHandle {
    * @brief Get one of the file descriptors
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the
-   * `O_DIRECT` flag and one without. This function returns one of them but
-   * it is unspecified which one.
+   * `O_DIRECT` flag and one without.
    *
+   * @param  o_direct Whether to get the file descriptor opened with the `O_DIRECT` flag.
    * @return File descriptor
    */
-  [[nodiscard]] int fd() const noexcept;
+  [[nodiscard]] int fd(bool o_direct = false) const noexcept;
 
   /**
    * @brief Get the flags of one of the file descriptors (see open(2))
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the
-   * `O_DIRECT` flag and one without. This function returns the flags of one of
-   * them but it is unspecified which one.
+   * `O_DIRECT` flag and one without.
    *
+   * @param  o_direct Whether to get the flags of the file descriptor opened with the `O_DIRECT`
+   * flag.
    * @return File descriptor
    */
-  [[nodiscard]] int fd_open_flags() const;
+  [[nodiscard]] int fd_open_flags(bool o_direct = false) const;
 
   /**
    * @brief Get the file size
