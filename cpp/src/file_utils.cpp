@@ -21,6 +21,7 @@
 #include <system_error>
 #include <utility>
 
+#include <kvikio/error.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/shim/cufile.hpp>
 
@@ -57,7 +58,7 @@ bool FileWrapper::opened() const noexcept { return _fd != -1; }
 void FileWrapper::close() noexcept
 {
   if (opened()) {
-    ::close(_fd);
+    if (::close(_fd) != 0) { KVIKIO_LOG_ERROR("File cannot be closed"); }
     _fd = -1;
   }
 }

@@ -115,6 +115,9 @@ void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, char const*
   }
 }
 
+#define KVIKIO_LOG_ERROR(err_msg) kvikio::detail::log_error(err_msg, __LINE__, __FILE__)
+void log_error(std::string_view err_msg, int line_number, char const* filename);
+
 }  // namespace detail
 
 }  // namespace kvikio
