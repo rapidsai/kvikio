@@ -50,7 +50,7 @@ class FileHandle {
   bool _initialized{false};
   CompatMode _compat_mode{CompatMode::AUTO};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
-  CUFileHandleWrapper _handle{};
+  CUFileHandleWrapper _cufile_handle{};
 
   /**
    * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON` for

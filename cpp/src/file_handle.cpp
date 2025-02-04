@@ -77,7 +77,7 @@ FileHandle::FileHandle(FileHandle&& o) noexcept
     _initialized{std::exchange(o._initialized, false)},
     _compat_mode{std::exchange(o._compat_mode, CompatMode::AUTO)},
     _nbytes{std::exchange(o._nbytes, 0)},
-    _handle{std::exchange(o._handle, {})}
+    _cufile_handle{std::exchange(o._cufile_handle, {})}
 {
 }
 
@@ -88,7 +88,7 @@ FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
   _initialized   = std::exchange(o._initialized, false);
   _compat_mode   = std::exchange(o._compat_mode, CompatMode::AUTO);
   _nbytes        = std::exchange(o._nbytes, 0);
-  _handle        = std::exchange(o._handle, {});
+  _cufile_handle = std::exchange(o._cufile_handle, {});
   return *this;
 }
 
@@ -101,7 +101,7 @@ void FileHandle::close() noexcept
   try {
     if (closed()) { return; }
 
-    _handle.unregister_handle();
+    _cufile_handle.unregister_handle();
     _compat_mode = CompatMode::AUTO;
     _fd_direct_off.close();
     _fd_direct_on.close();
@@ -116,7 +116,7 @@ CUfileHandle_t FileHandle::handle()
   if (is_compat_mode_preferred()) {
     throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
   }
-  return _handle.handle();
+  return _cufile_handle.handle();
 }
 
 int FileHandle::fd(bool o_direct) const noexcept
@@ -146,7 +146,7 @@ std::size_t FileHandle::read(void* devPtr_base,
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
   KVIKIO_NVTX_SCOPED_RANGE("cufileRead()", size);
-  ssize_t ret = cuFileAPI::instance().Read(_handle.handle(),
+  ssize_t ret = cuFileAPI::instance().Read(_cufile_handle.handle(),
                                            devPtr_base,
                                            size,
                                            convert_size2off(file_offset),
@@ -170,7 +170,7 @@ std::size_t FileHandle::write(void const* devPtr_base,
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
   KVIKIO_NVTX_SCOPED_RANGE("cufileWrite()", size);
-  ssize_t ret = cuFileAPI::instance().Write(_handle.handle(),
+  ssize_t ret = cuFileAPI::instance().Write(_cufile_handle.handle(),
                                             devPtr_base,
                                             size,
                                             convert_size2off(file_offset),
@@ -297,8 +297,13 @@ void FileHandle::read_async(void* devPtr_base,
     *bytes_read_p =
       static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   } else {
-    CUFILE_TRY(cuFileAPI::instance().ReadAsync(
-      _handle.handle(), devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
+    CUFILE_TRY(cuFileAPI::instance().ReadAsync(_cufile_handle.handle(),
+                                               devPtr_base,
+                                               size_p,
+                                               file_offset_p,
+                                               devPtr_offset_p,
+                                               bytes_read_p,
+                                               stream));
   }
 }
 
@@ -324,7 +329,7 @@ void FileHandle::write_async(void* devPtr_base,
     *bytes_written_p =
       static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   } else {
-    CUFILE_TRY(cuFileAPI::instance().WriteAsync(_handle.handle(),
+    CUFILE_TRY(cuFileAPI::instance().WriteAsync(_cufile_handle.handle(),
                                                 devPtr_base,
                                                 size_p,
                                                 file_offset_p,
