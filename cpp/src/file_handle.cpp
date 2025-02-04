@@ -25,104 +25,15 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
+#include <kvikio/file_utils.hpp>
 
 namespace kvikio {
-
-namespace {
-
-/**
- * @brief Parse open file flags given as a string and return oflags
- *
- * @param flags The flags
- * @param o_direct Append O_DIRECT to the open flags
- * @return oflags
- *
- * @throw std::invalid_argument if the specified flags are not supported.
- * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
- */
-int open_fd_parse_flags(std::string const& flags, bool o_direct)
-{
-  int file_flags = -1;
-  if (flags.empty()) { throw std::invalid_argument("Unknown file open flag"); }
-  switch (flags[0]) {
-    case 'r':
-      file_flags = O_RDONLY;
-      if (flags[1] == '+') { file_flags = O_RDWR; }
-      break;
-    case 'w':
-      file_flags = O_WRONLY;
-      if (flags[1] == '+') { file_flags = O_RDWR; }
-      file_flags |= O_CREAT | O_TRUNC;
-      break;
-    case 'a': throw std::invalid_argument("Open flag 'a' isn't supported");
-    default: throw std::invalid_argument("Unknown file open flag");
-  }
-  file_flags |= O_CLOEXEC;
-  if (o_direct) {
-#if defined(O_DIRECT)
-    file_flags |= O_DIRECT;
-#else
-    throw std::invalid_argument("'o_direct' flag unsupported on this platform");
-#endif
-  }
-  return file_flags;
-}
-
-/**
- * @brief Open file using `open(2)`
- *
- * @param flags Open flags given as a string
- * @param o_direct Append O_DIRECT to `flags`
- * @param mode Access modes
- * @return File descriptor
- */
-int open_fd(std::string const& file_path, std::string const& flags, bool o_direct, mode_t mode)
-{
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-  int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
-  if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
-  return fd;
-}
-
-/**
- * @brief Get the flags of the file descriptor (see `open(2)`)
- *
- * @return Open flags
- */
-[[nodiscard]] int open_flags(int fd)
-{
-  int ret = fcntl(fd, F_GETFL);  // NOLINT(cppcoreguidelines-pro-type-vararg)
-  if (ret == -1) {
-    throw std::system_error(errno, std::generic_category(), "Unable to retrieve open flags");
-  }
-  return ret;
-}
-
-/**
- * @brief Get file size from file descriptor `fstat(3)`
- *
- * @param file_descriptor Open file descriptor
- * @return The number of bytes
- */
-[[nodiscard]] std::size_t get_file_size(int file_descriptor)
-{
-  struct stat st {};
-  int ret = fstat(file_descriptor, &st);
-  if (ret == -1) {
-    throw std::system_error(errno, std::generic_category(), "Unable to query file size");
-  }
-  return static_cast<std::size_t>(st.st_size);
-}
-
-}  // namespace
 
 FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
                        CompatMode compat_mode)
-  : _fd_direct_off{open_fd(file_path, flags, false, mode)},
-    _initialized{true},
-    _compat_mode{compat_mode}
+  : _fd_direct_off{file_path, flags, false, mode}, _initialized{true}, _compat_mode{compat_mode}
 {
   if (is_compat_mode_preferred()) {
     return;  // Nothing to do in compatibility mode
@@ -138,7 +49,7 @@ FileHandle::FileHandle(std::string const& file_path,
   };
 
   try {
-    _fd_direct_on = open_fd(file_path, flags, true, mode);
+    _fd_direct_on.open(file_path, flags, true, mode);
   } catch (std::system_error const&) {
     handle_o_direct_except();
   } catch (std::invalid_argument const&) {
@@ -147,40 +58,37 @@ FileHandle::FileHandle(std::string const& file_path,
 
   if (_compat_mode == CompatMode::ON) { return; }
 
-  // Create a cuFile handle, if not in compatibility mode
-  CUfileDescr_t desc{};  // It is important to set to zero!
-  desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-  desc.handle.fd = _fd_direct_on;
+  CUFileHandleWrapper handle;
+  auto error_code = handle.register_handle(_fd_direct_on.fd());
+  assert(error_code.has_value());
 
-  auto error_code = cuFileAPI::instance().HandleRegister(&_handle, &desc);
   // For the AUTO mode, if the first cuFile API call fails, fall back to the compatibility
   // mode.
-  if (_compat_mode == CompatMode::AUTO && error_code.err != CU_FILE_SUCCESS) {
+  if (_compat_mode == CompatMode::AUTO && error_code.value().err != CU_FILE_SUCCESS) {
     _compat_mode = CompatMode::ON;
   } else {
-    CUFILE_TRY(error_code);
+    CUFILE_TRY(error_code.value());
   }
 }
 
 FileHandle::FileHandle(FileHandle&& o) noexcept
-  : _fd_direct_on{std::exchange(o._fd_direct_on, -1)},
-    _fd_direct_off{std::exchange(o._fd_direct_off, -1)},
+  : _fd_direct_on{std::exchange(o._fd_direct_on, {})},
+    _fd_direct_off{std::exchange(o._fd_direct_off, {})},
     _initialized{std::exchange(o._initialized, false)},
     _compat_mode{std::exchange(o._compat_mode, CompatMode::AUTO)},
     _nbytes{std::exchange(o._nbytes, 0)},
-    _handle{std::exchange(o._handle, CUfileHandle_t{})}
+    _cufile_handle{std::exchange(o._cufile_handle, {})}
 {
 }
 
 FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
 {
-  _fd_direct_on  = std::exchange(o._fd_direct_on, -1);
-  _fd_direct_off = std::exchange(o._fd_direct_off, -1);
+  _fd_direct_on  = std::exchange(o._fd_direct_on, {});
+  _fd_direct_off = std::exchange(o._fd_direct_off, {});
   _initialized   = std::exchange(o._initialized, false);
   _compat_mode   = std::exchange(o._compat_mode, CompatMode::AUTO);
   _nbytes        = std::exchange(o._nbytes, 0);
-  _handle        = std::exchange(o._handle, CUfileHandle_t{});
+  _cufile_handle = std::exchange(o._cufile_handle, {});
   return *this;
 }
 
@@ -193,13 +101,11 @@ void FileHandle::close() noexcept
   try {
     if (closed()) { return; }
 
-    if (!is_compat_mode_preferred()) { cuFileAPI::instance().HandleDeregister(_handle); }
+    _cufile_handle.unregister_handle();
     _compat_mode = CompatMode::AUTO;
-    ::close(_fd_direct_off);
-    if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
-    _fd_direct_on  = -1;
-    _fd_direct_off = -1;
-    _initialized   = false;
+    _fd_direct_off.close();
+    _fd_direct_on.close();
+    _initialized = false;
   } catch (...) {
   }
 }
@@ -210,17 +116,20 @@ CUfileHandle_t FileHandle::handle()
   if (is_compat_mode_preferred()) {
     throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
   }
-  return _handle;
+  return _cufile_handle.handle();
 }
 
-int FileHandle::fd() const noexcept { return _fd_direct_off; }
+int FileHandle::fd(bool o_direct) const noexcept
+{
+  return o_direct ? _fd_direct_on.fd() : _fd_direct_off.fd();
+}
 
-int FileHandle::fd_open_flags() const { return open_flags(_fd_direct_off); }
+int FileHandle::fd_open_flags(bool o_direct) const { return open_flags(fd(o_direct)); }
 
 std::size_t FileHandle::nbytes() const
 {
   if (closed()) { return 0; }
-  if (_nbytes == 0) { _nbytes = get_file_size(_fd_direct_off); }
+  if (_nbytes == 0) { _nbytes = get_file_size(_fd_direct_off.fd()); }
   return _nbytes;
 }
 
@@ -231,13 +140,17 @@ std::size_t FileHandle::read(void* devPtr_base,
                              bool sync_default_stream)
 {
   if (is_compat_mode_preferred()) {
-    return detail::posix_device_read(_fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+    return detail::posix_device_read(
+      _fd_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
   KVIKIO_NVTX_SCOPED_RANGE("cufileRead()", size);
-  ssize_t ret = cuFileAPI::instance().Read(
-    _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
+  ssize_t ret = cuFileAPI::instance().Read(_cufile_handle.handle(),
+                                           devPtr_base,
+                                           size,
+                                           convert_size2off(file_offset),
+                                           convert_size2off(devPtr_offset));
   CUFILE_CHECK_BYTES_DONE(ret);
   return ret;
 }
@@ -252,13 +165,16 @@ std::size_t FileHandle::write(void const* devPtr_base,
 
   if (is_compat_mode_preferred()) {
     return detail::posix_device_write(
-      _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
+      _fd_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
   KVIKIO_NVTX_SCOPED_RANGE("cufileWrite()", size);
-  ssize_t ret = cuFileAPI::instance().Write(
-    _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
+  ssize_t ret = cuFileAPI::instance().Write(_cufile_handle.handle(),
+                                            devPtr_base,
+                                            size,
+                                            convert_size2off(file_offset),
+                                            convert_size2off(devPtr_offset));
   if (ret == -1) {
     throw std::system_error(errno, std::generic_category(), "Unable to write file");
   }
@@ -283,7 +199,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                      std::size_t file_offset,
                      std::size_t hostPtr_offset) -> std::size_t {
       char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
-      return detail::posix_host_read<detail::PartialIO::NO>(_fd_direct_off, buf, size, file_offset);
+      return detail::posix_host_read<detail::PartialIO::NO>(
+        _fd_direct_off.fd(), buf, size, file_offset);
     };
 
     return parallel_io(op, buf, size, file_offset, task_size, 0);
@@ -295,7 +212,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   if (size < gds_threshold) {
     auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
       PushAndPopContext c(ctx);
-      return detail::posix_device_read(_fd_direct_off, buf, size, file_offset, 0);
+      return detail::posix_device_read(_fd_direct_off.fd(), buf, size, file_offset, 0);
     };
     return std::async(std::launch::deferred, task);
   }
@@ -333,7 +250,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                      std::size_t hostPtr_offset) -> std::size_t {
       char const* buf = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
       return detail::posix_host_write<detail::PartialIO::NO>(
-        _fd_direct_off, buf, size, file_offset);
+        _fd_direct_off.fd(), buf, size, file_offset);
     };
 
     return parallel_io(op, buf, size, file_offset, task_size, 0);
@@ -345,7 +262,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   if (size < gds_threshold) {
     auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
       PushAndPopContext c(ctx);
-      return detail::posix_device_write(_fd_direct_off, buf, size, file_offset, 0);
+      return detail::posix_device_write(_fd_direct_off.fd(), buf, size, file_offset, 0);
     };
     return std::async(std::launch::deferred, task);
   }
@@ -380,8 +297,13 @@ void FileHandle::read_async(void* devPtr_base,
     *bytes_read_p =
       static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   } else {
-    CUFILE_TRY(cuFileAPI::instance().ReadAsync(
-      _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
+    CUFILE_TRY(cuFileAPI::instance().ReadAsync(_cufile_handle.handle(),
+                                               devPtr_base,
+                                               size_p,
+                                               file_offset_p,
+                                               devPtr_offset_p,
+                                               bytes_read_p,
+                                               stream));
   }
 }
 
@@ -407,8 +329,13 @@ void FileHandle::write_async(void* devPtr_base,
     *bytes_written_p =
       static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   } else {
-    CUFILE_TRY(cuFileAPI::instance().WriteAsync(
-      _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
+    CUFILE_TRY(cuFileAPI::instance().WriteAsync(_cufile_handle.handle(),
+                                                devPtr_base,
+                                                size_p,
+                                                file_offset_p,
+                                                devPtr_offset_p,
+                                                bytes_written_p,
+                                                stream));
   }
 }
 
