@@ -270,10 +270,11 @@ class defaults {
   /**
    * @brief Get the maximum number of attempts per remote IO read.
    *
-   * Set the value using `kvikio::default::max_attempts()` or by setting the
-   * `KVIKIO_MAX_ATTEMPTS` environment variable. If not set, the value is 3.
+   * Set the value using `kvikio::default::max_attempts_reset()` or by setting
+   * the `KVIKIO_MAX_ATTEMPTS` environment variable. If not set, the value is 3.
    *
-   * @return The maximum number of remote IO reads to attempt before raising an error.
+   * @return The maximum number of remote IO reads to attempt before raising an
+   * error.
    */
   [[nodiscard]] static std::size_t max_attempts();
 
