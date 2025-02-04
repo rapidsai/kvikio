@@ -65,7 +65,7 @@ class FileWrapper {
    *
    * @return A boolean answer indicating if the file has been opened.
    */
-  bool opened() noexcept;
+  bool opened() const noexcept;
 
   /**
    * @brief Close the file if it is opened; do nothing otherwise.

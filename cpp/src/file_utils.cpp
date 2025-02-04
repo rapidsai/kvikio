@@ -52,7 +52,7 @@ void FileWrapper::open(std::string const& file_path,
   if (!opened()) { _fd = open_fd(file_path, flags, o_direct, mode); }
 }
 
-bool FileWrapper::opened() noexcept { return _fd != -1; }
+bool FileWrapper::opened() const noexcept { return _fd != -1; }
 
 void FileWrapper::close() noexcept
 {
