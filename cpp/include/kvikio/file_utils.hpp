@@ -42,7 +42,7 @@ class FileWrapper {
   /**
    * @brief Construct an empty file wrapper object without opening a file.
    */
-  FileWrapper() = default;
+  FileWrapper() noexcept = default;
 
   ~FileWrapper() noexcept;
   FileWrapper(FileWrapper const&)            = delete;
@@ -89,8 +89,8 @@ class CUFileHandleWrapper {
   bool _registered{false};
 
  public:
-  CUFileHandleWrapper() = default;
-  ~CUFileHandleWrapper();
+  CUFileHandleWrapper() noexcept = default;
+  ~CUFileHandleWrapper() noexcept;
   CUFileHandleWrapper(CUFileHandleWrapper const&)            = delete;
   CUFileHandleWrapper& operator=(CUFileHandleWrapper const&) = delete;
   CUFileHandleWrapper(CUFileHandleWrapper&& o) noexcept;
@@ -103,7 +103,7 @@ class CUFileHandleWrapper {
    * @return Return the cuFile error code from handle register. If the handle has already been
    * registered by calling `register_handle()`, return `std::nullopt`.
    */
-  std::optional<CUfileError_t> register_handle(int fd);
+  std::optional<CUfileError_t> register_handle(int fd) noexcept;
 
   /**
    * @brief Check if the handle has been registered.

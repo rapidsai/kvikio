@@ -64,7 +64,7 @@ void FileWrapper::close() noexcept
 
 int FileWrapper::fd() const noexcept { return _fd; }
 
-CUFileHandleWrapper::~CUFileHandleWrapper() { unregister_handle(); }
+CUFileHandleWrapper::~CUFileHandleWrapper() noexcept { unregister_handle(); }
 
 CUFileHandleWrapper::CUFileHandleWrapper(CUFileHandleWrapper&& o) noexcept
   : _handle{std::exchange(o._handle, {})}, _registered{std::exchange(o._registered, false)}
@@ -78,7 +78,7 @@ CUFileHandleWrapper& CUFileHandleWrapper::operator=(CUFileHandleWrapper&& o) noe
   return *this;
 }
 
-std::optional<CUfileError_t> CUFileHandleWrapper::register_handle(int fd)
+std::optional<CUfileError_t> CUFileHandleWrapper::register_handle(int fd) noexcept
 {
   std::optional<CUfileError_t> error_code;
   if (registered()) { return error_code; }
