@@ -25,6 +25,7 @@ jobs:
       - wheel-cpp-build
       - wheel-python-build
       - wheel-python-tests
+      - telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@nvks-runners
     if: always()
@@ -35,6 +36,7 @@ jobs:
     # provides at least Python 3.11 (see
     # https://docs.python.org/3/library/datetime.html#datetime.date.fromisoformat)
     runs-on: ubuntu-24.04
+    needs: telemetry-setup
     env:
       RAPIDS_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -70,9 +72,23 @@ jobs:
           - '!README.md'
           - '!docs/**'
           - '!notebooks/**'
+  telemetry-setup:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      OTEL_SERVICE_NAME: "pr-kvikio"
+    steps:
+      - name: Telemetry setup
+        # This gate is here and not at the job level because we need the job to not be skipped,
+        # since other jobs depend on it.
+        if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
+        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   checks:
     secrets: inherit
+    needs: telemetry-setup
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@nvks-runners
+    with:
+      ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
     needs: checks
     secrets: inherit
@@ -120,6 +136,7 @@ jobs:
       container_image: "rapidsai/ci-conda:latest"
       run_script: "ci/build_docs.sh"
   devcontainer:
+    needs: telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@nvks-runners
     with:
@@ -152,3 +169,12 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
+  telemetry-summarize:
+    # This job must use a self-hosted runner to record telemetry traces.
+    runs-on: linux-amd64-cpu4
+    needs: pr-builder
+    if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
+    continue-on-error: true
+    steps:
+      - name: Telemetry summarize
+        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main
