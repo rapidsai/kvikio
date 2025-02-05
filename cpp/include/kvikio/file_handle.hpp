@@ -25,6 +25,7 @@
 #include <utility>
 
 #include <kvikio/buffer.hpp>
+#include <kvikio/compat_mode.hpp>
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
@@ -32,6 +33,7 @@
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/stream.hpp>
 #include <kvikio/utils.hpp>
 
@@ -48,20 +50,9 @@ class FileHandle {
   FileWrapper _fd_direct_on{};
   FileWrapper _fd_direct_off{};
   bool _initialized{false};
-  CompatMode _compat_mode{CompatMode::AUTO};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUFileHandleWrapper _cufile_handle{};
-
-  /**
-   * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON` for
-   * asynchronous I/O.
-   *
-   * @param requested_compat_mode Requested compatibility mode.
-   * @return True if POSIX I/O fallback will be used; false for cuFile I/O.
-   * @exception std::runtime_error When the requested compatibility mode is `OFF`, but cuFile
-   * batch/stream library symbol is missing, or cuFile configuration file is missing.
-   */
-  bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode);
+  CompatModeManager _compat_mode_manager{};
 
  public:
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
@@ -465,6 +456,13 @@ class FileHandle {
    * @return Boolean answer.
    */
   [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept;
+
+  /**
+   * @brief Returns the initially requested compatibility mode.
+   *
+   * @return The compatibility mode initially requested.
+   */
+  CompatMode compat_mode_requested() const noexcept;
 };
 
 }  // namespace kvikio
