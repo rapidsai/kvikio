@@ -17,6 +17,7 @@
 
 #include <dlfcn.h>
 #include <sys/utsname.h>
+#include <string>
 #include <vector>
 
 namespace kvikio {
@@ -44,7 +45,7 @@ namespace kvikio {
  * @param name Name of the library to load.
  * @return The library handle.
  */
-void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
+void* load_library(std::string const& name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
 
 /**
  * @brief Load shared library
@@ -52,7 +53,7 @@ void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NO
  * @param names Vector of names to try when loading shared library.
  * @return The library handle.
  */
-void* load_library(const std::vector<const char*>& names,
+void* load_library(std::vector<std::string> const& names,
                    int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
 
 /**
@@ -64,11 +65,11 @@ void* load_library(const std::vector<const char*>& names,
  * @param name Name of the symbol/function to load.
  */
 template <typename T>
-void get_symbol(T& handle, void* lib, const char* name)
+void get_symbol(T& handle, void* lib, std::string const& name)
 {
   ::dlerror();  // Clear old errors
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  handle          = reinterpret_cast<T>(::dlsym(lib, name));
+  handle          = reinterpret_cast<T>(::dlsym(lib, name.c_str()));
   const char* err = ::dlerror();
   if (err != nullptr) { throw std::runtime_error(err); }
 }
