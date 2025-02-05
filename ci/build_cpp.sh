@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -18,7 +18,7 @@ conda config --set path_conflict prevent
 
 sccache --zero-stats
 
-rapids-conda-retry mambabuild conda/recipes/libkvikio
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libkvikio
 
 sccache --show-adv-stats
 
