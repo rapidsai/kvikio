@@ -22,7 +22,7 @@ conda config --set path_conflict prevent
 
 sccache --zero-stats
 
-RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry mambabuild \
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/kvikio
 
