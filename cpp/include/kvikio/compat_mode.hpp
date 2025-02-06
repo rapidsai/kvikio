@@ -62,8 +62,8 @@ class CompatModeManager {
  public:
   CompatModeManager()                                    = default;
   ~CompatModeManager() noexcept                          = default;
-  CompatModeManager(const CompatModeManager&)            = delete;
-  CompatModeManager& operator=(const CompatModeManager&) = delete;
+  CompatModeManager(const CompatModeManager&)            = default;
+  CompatModeManager& operator=(const CompatModeManager&) = default;
   CompatModeManager(CompatModeManager&&) noexcept;
   CompatModeManager& operator=(CompatModeManager&&) noexcept;
 
