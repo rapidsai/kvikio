@@ -26,6 +26,7 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
+#include "kvikio/utils.hpp"
 
 namespace kvikio {
 
@@ -212,10 +213,9 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
     auto bytes_read = detail::posix_device_read(_fd_direct_off.fd(), buf, size, file_offset, 0);
-    std::promise<std::size_t> read_promise;
-    auto read_future = read_promise.get_future();
-    read_promise.set_value(bytes_read);
-    return read_future;
+    // Maintain API consistency while making this trivial case synchronous.
+    // The result in the future is immediately available after the call.
+    return make_ready_future(bytes_read);
   }
 
   // Let's synchronize once instead of in each task.
@@ -263,10 +263,9 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
     auto bytes_write = detail::posix_device_write(_fd_direct_off.fd(), buf, size, file_offset, 0);
-    std::promise<std::size_t> write_promise;
-    auto write_future = write_promise.get_future();
-    write_promise.set_value(bytes_write);
-    return write_future;
+    // Maintain API consistency while making this trivial case synchronous.
+    // The result in the future is immediately available after the call.
+    return make_ready_future(bytes_write);
   }
 
   // Let's synchronize once instead of in each task.
