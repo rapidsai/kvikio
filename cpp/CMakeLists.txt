@@ -246,6 +246,7 @@ set(final_code_string
     "
 set(KvikIO_CUDA_SUPPORT [=[${KvikIO_CUDA_SUPPORT}]=])
 set(KvikIO_CUFILE_SUPPORT [=[${cuFile_FOUND}]=])
+set(KvikIO_REMOTE_SUPPORT [=[${KvikIO_REMOTE_SUPPORT}]=])
 "
 )
 string(
