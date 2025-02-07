@@ -49,10 +49,11 @@ class FileHandle {
   // We use two file descriptors, one opened with the O_DIRECT flag and one without.
   FileWrapper _file_direct_on{};
   FileWrapper _file_direct_off{};
-  CUFileHandleWrapper _cufile_handle{};
   bool _initialized{false};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
+  CUFileHandleWrapper _cufile_handle{};
   CompatModeManager _compat_mode_manager;
+  friend class CompatModeManager;
 
  public:
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
