@@ -96,7 +96,7 @@ class CompatModeManager {
   CompatModeManager& operator=(CompatModeManager&&) noexcept = default;
 
   /**
-   * @brief Functionally identical to `defaults::infer_compat_mode_if_auto(CompatMode)`.
+   * @brief Functionally identical to defaults::infer_compat_mode_if_auto(CompatMode).
    *
    * @param compat_mode Compatibility mode.
    * @return If the given compatibility mode is CompatMode::AUTO, infer the final compatibility
@@ -105,7 +105,7 @@ class CompatModeManager {
   CompatMode infer_compat_mode_if_auto(CompatMode compat_mode) noexcept;
 
   /**
-   * @brief Functionally identical to `defaults::is_compat_mode_preferred(CompatMode)`.
+   * @brief Functionally identical to defaults::is_compat_mode_preferred(CompatMode).
    *
    * @param compat_mode Compatibility mode.
    * @return Boolean answer.
@@ -136,10 +136,10 @@ class CompatModeManager {
   CompatMode compat_mode_requested() const noexcept;
 
   /**
-   * @brief Determine if the asynchronous I/O should be performed or not (throw exceptions)
+   * @brief Determine if the asynchronous I/O can be performed or not (throw exceptions)
    * according to the existing compatibility mode data in the manager.
    *
-   * The asynchronous I/O should not be performed, for instance, when compat_mode_requested() is
+   * The asynchronous I/O  cannot be performed, for instance, when compat_mode_requested() is
    * CompatMode::OFF, is_compat_mode_preferred() is CompatMode::OFF, but
    * is_compat_mode_preferred_for_async() is CompatMode::ON (due to missing cuFile stream API or
    * cuFile configuration file).
