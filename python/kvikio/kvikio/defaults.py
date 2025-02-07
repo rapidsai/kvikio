@@ -235,7 +235,7 @@ def bounce_buffer_size_reset(nbytes: int) -> None:
 
 @contextlib.contextmanager
 def set_bounce_buffer_size(nbytes: int):
-    """Context for resetting the the size of the bounce buffer.
+    """Context for resetting the size of the bounce buffer.
 
     Parameters
     ----------
@@ -253,11 +253,11 @@ def set_bounce_buffer_size(nbytes: int):
 def http_max_attempts() -> int:
     """Get the maximum number of attempts per remote IO read.
 
-    Read are retried up until ``http_max_attempts`` when the response has certain
+    Reads are retried up until ``http_max_attempts`` when the response has certain
     HTTP status codes.
 
-    Set the value using `http_max_atttempts_reset()` or by setting the
-    `KVIKIO_HTTP_MAX_ATTEMPTS` environment variable. If not set, the
+    Set the value using `http_max_attempts_reset()` or by setting the
+    ``KVIKIO_HTTP_MAX_ATTEMPTS`` environment variable. If not set, the
     value is 3.
 
     Returns
@@ -282,7 +282,7 @@ def http_max_attempts_reset(attempts: int) -> None:
 
 @contextlib.contextmanager
 def set_http_max_attempts(attempts: int):
-    """Context for resetting the the maximum number of HTTP attempts.
+    """Context for resetting the maximum number of HTTP attempts.
 
     Parameters
     ----------
@@ -312,31 +312,31 @@ def http_status_codes() -> list[int]:
 
     Returns
     -------
-    status_coders : list[int]
+    status_codes : list[int]
         The HTTP status codes to retry.
     """
     return kvikio._lib.defaults.http_status_codes()
 
 
 def http_status_codes_reset(status_codes: list[int]) -> None:
-    """Reset the maximum number of attempts per remote IO read.
+    """Reset the list of HTTP status codes to retry.
 
     Parameters
     ----------
-    attempts : int
-        The maximum number of attempts to try before raising an error.
+    status_codes : list[int]
+        The HTTP status codes to retry.
     """
     kvikio._lib.defaults.http_status_codes_reset(status_codes)
 
 
 @contextlib.contextmanager
 def set_http_status_codes(status_codes: list[int]):
-    """Context for resetting the the maximum number of HTTP attempts.
+    """Context for resetting the HTTP status codes to retry.
 
     Parameters
     ----------
-    attempts : int
-        The maximum number of attempts to try before raising an error.
+    status_codes : list[int]
+        THe HTTP status codes to retry.
     """
     old_value = http_status_codes()
     try:

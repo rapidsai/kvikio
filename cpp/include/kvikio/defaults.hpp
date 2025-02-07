@@ -58,7 +58,7 @@ namespace detail {
 CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
 
 /**
- * @brief Parse a string of comma-separated string of HTTP status.
+ * @brief Parse a string of comma-separated string of HTTP status codes.
  *
  * @param env_var_name The environment variable holding the string.
  * Used to report errors.

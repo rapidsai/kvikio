@@ -58,7 +58,6 @@ TEST(Defaults, parse_http_status_codes)
     std::vector<std::string> inputs{
       "429,500", "429, 500", " 429,500", "429,  500", "429 ,500", "429,500 "};
     std::vector<int> expected = {429, 500};
-    // std::string const input = "429,500,501,503";
     for (const auto& input : inputs) {
       EXPECT_EQ(kvikio::detail::parse_http_status_codes("KVIKIO_HTTP_STATUS_CODES", input),
                 expected);

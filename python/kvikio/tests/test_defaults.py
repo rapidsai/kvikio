@@ -93,7 +93,7 @@ def test_http_max_attempts():
         assert kvikio.defaults.http_max_attempts() == 5
         kvikio.defaults.http_max_attempts_reset(4)
         assert kvikio.defaults.http_max_attempts() == 4
-    assert before == kvikio.defaults.http_max_attempts()
+    assert kvikio.defaults.http_max_attempts() == before
 
     with pytest.raises(ValueError, match="positive integer"):
         kvikio.defaults.http_max_attempts_reset(0)
@@ -108,7 +108,7 @@ def test_http_status_codes():
         assert kvikio.defaults.http_status_codes() == [500]
         kvikio.defaults.http_status_codes_reset([429, 500])
         assert kvikio.defaults.http_status_codes() == [429, 500]
-    assert before == kvikio.defaults.http_status_codes()
+    assert kvikio.defaults.http_status_codes() == before
 
     with pytest.raises(TypeError):
         kvikio.defaults.http_status_codes_reset(0)

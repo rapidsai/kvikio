@@ -29,14 +29,14 @@ class ErrorCounter:
         self.value = 0
 
 
-class HTTP500Handler(SimpleHTTPRequestHandler):
+class HTTP503Handler(SimpleHTTPRequestHandler):
     """
     An HTTP handler that initially responds with a 503 before responding normally.
 
     Parameters
     ----------
     error_counter : ErrorCounter
-        A class with a mutable `value` for the number of 500 errors that have
+        A class with a mutable `value` for the number of 503 errors that have
         been returned.
     max_error_count : int
         The number of times to respond with a 503 before responding normally.
@@ -158,14 +158,14 @@ def test_no_range_support(http_server, tmpdir, xp):
             f.read(b, size=10, file_offset=10)
 
 
-def test_retry_http_500_ok(tmpdir, xp):
+def test_retry_http_503_ok(tmpdir, xp):
     a = xp.arange(100, dtype="uint8")
     a.tofile(tmpdir / "a")
 
     with LocalHttpServer(
         tmpdir,
         max_lifetime=60,
-        handler=HTTP500Handler,
+        handler=HTTP503Handler,
         handler_options={"error_counter": ErrorCounter()},
     ) as server:
         http_server = server.url
@@ -176,11 +176,11 @@ def test_retry_http_500_ok(tmpdir, xp):
             f.read(b)
 
 
-def test_retry_http_500_fails(tmpdir, xp):
+def test_retry_http_503_fails(tmpdir, xp):
     with LocalHttpServer(
         tmpdir,
         max_lifetime=60,
-        handler=HTTP500Handler,
+        handler=HTTP503Handler,
         handler_options={"error_counter": ErrorCounter(), "max_error_count": 100},
     ) as server:
         a = xp.arange(100, dtype="uint8")
@@ -196,7 +196,7 @@ def test_set_http_status_code(tmpdir, xp):
     with LocalHttpServer(
         tmpdir,
         max_lifetime=60,
-        handler=HTTP500Handler,
+        handler=HTTP503Handler,
         handler_options={"error_counter": ErrorCounter()},
     ) as server:
         http_server = server.url
