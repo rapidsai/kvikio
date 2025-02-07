@@ -60,6 +60,7 @@ class CompatModeManager {
   bool _is_compat_mode_preferred_for_async{true};
 
  public:
+  CompatModeManager() noexcept = default;
   CompatModeManager(std::string const& file_path,
                     std::string const& flags,
                     mode_t mode,
