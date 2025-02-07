@@ -43,11 +43,20 @@ KvikIO might have to use intermediate host buffers (one per thread) when copying
 
 This setting can also be controlled by :py:func:`kvikio.defaults.bounce_buffer_size`, :py:func:`kvikio.defaults.bounce_buffer_size_reset`, and :py:func:`kvikio.defaults.set_bounce_buffer_size`.
 
-HTTP Retries ``KVIKIO_MAX_ATTEMPTS``
-------------------------------------
-When the remote server returns a 50x error, ``kvikio`` wil retry up to a limit.
+#### HTTP Retries
+-----------------
 
-This setting can also be controlled by
+The behavior when a remote IO read returns a error can be controlled through the
+`KVIKIO_HTTP_STATUS_CODES` and `KVIKIO_MAX_ATTEMPTS` environment variables.
+
+`KVIKIO_HTTP_STATUS_CODES` controls the status codes to retry and can be
+controlled by
+:py:func:`kvikio.defaults.http_status_codes`,
+:py:func:`kvikio.defaults.http_status_codes_reset`, and
+:py:func:`kvikio.defaults.set_http_status_codes`.
+
+`KVIKIO_MAX_ATTEMPTS` controls the maximum number of attempts to make before
+throwing an exception and can be controlled by
 :py:func:`kvikio.defaults.max_attempts`,
 :py:func:`kvikio.defaults.max_attempts_reset`, and
 :py:func:`kvikio.defaults.set_max_attempts`.
