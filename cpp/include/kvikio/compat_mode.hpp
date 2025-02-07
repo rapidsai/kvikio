@@ -139,12 +139,12 @@ class CompatModeManager {
    * @brief Determine if the asynchronous I/O can be performed or not (throw exceptions)
    * according to the existing compatibility mode data in the manager.
    *
-   * The asynchronous I/O  cannot be performed, for instance, when compat_mode_requested() is
+   * The asynchronous I/O cannot be performed, for instance, when compat_mode_requested() is
    * CompatMode::OFF, is_compat_mode_preferred() is CompatMode::OFF, but
    * is_compat_mode_preferred_for_async() is CompatMode::ON (due to missing cuFile stream API or
    * cuFile configuration file).
    */
-  void validate_compat_mode_for_async();
+  void validate_compat_mode_for_async() const;
 };
 
 }  // namespace kvikio
