@@ -119,11 +119,11 @@ CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 void CurlHandle::perform()
 {
   CURLcode err;
-  int http_code                      = 0;
-  int attempt_count                  = 1;
-  int baseDelay                      = 100;  // milliseconds
-  std::size_t max_attempts           = kvikio::defaults::max_attempts();
-  std::vector<int> http_status_codes = kvikio::defaults::http_status_codes();
+  long http_code                            = 0;
+  int attempt_count                         = 1;
+  int baseDelay                             = 100;  // milliseconds
+  std::size_t max_attempts                  = kvikio::defaults::max_attempts();
+  std::vector<int> const& http_status_codes = kvikio::defaults::http_status_codes();
 
   while (attempt_count <= max_attempts) {
     std::stringstream ss;

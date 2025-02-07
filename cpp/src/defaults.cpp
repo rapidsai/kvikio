@@ -176,9 +176,8 @@ defaults::defaults()
   }
   // Determine the default value of `http_status_codes`
   {
-    const std::vector<int> env =
+    _http_status_codes =
       getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
-    _http_status_codes = env;
   }
 }
 
@@ -256,7 +255,7 @@ void defaults::max_attempts_reset(std::size_t attempts)
   instance()->_max_attempts = attempts;
 }
 
-std::vector<int> defaults::http_status_codes() { return instance()->_http_status_codes; }
+std::vector<int> const& defaults::http_status_codes() { return instance()->_http_status_codes; }
 
 void defaults::http_status_codes_reset(std::vector<int> status_codes)
 {

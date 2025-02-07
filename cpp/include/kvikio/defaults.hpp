@@ -299,7 +299,7 @@ class defaults {
    *
    * @return The list of HTTP status codes to retry.
    */
-  [[nodiscard]] static std::vector<int> http_status_codes();
+  [[nodiscard]] static std::vector<int> const& http_status_codes();
 
   /**
    * @brief Reset the list of HTTP status codes to retry.
