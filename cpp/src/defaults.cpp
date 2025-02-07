@@ -81,7 +81,7 @@ defaults::defaults()
 {
   // Determine the default value of `compat_mode`
   {
-    _compat_mode_manager.compat_mode_reset(getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO));
+    _compat_mode = getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
   }
   // Determine the default value of `task_size`
   {
@@ -116,30 +116,29 @@ defaults* defaults::instance()
   static defaults _instance;
   return &_instance;
 }
-CompatMode defaults::compat_mode()
-{
-  return instance()->_compat_mode_manager.compat_mode_requested();
-}
+CompatMode defaults::compat_mode() { return instance()->_compat_mode; }
 
-void defaults::compat_mode_reset(CompatMode compat_mode)
-{
-  instance()->_compat_mode_manager.compat_mode_reset(compat_mode);
-}
+void defaults::compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
 
 CompatMode defaults::infer_compat_mode_if_auto(CompatMode compat_mode) noexcept
 {
-  return instance()->_compat_mode_manager.infer_compat_mode_if_auto(compat_mode);
+  if (compat_mode == CompatMode::AUTO) {
+    static auto inferred_compat_mode_for_auto = []() -> CompatMode {
+      return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
+    }();
+    return inferred_compat_mode_for_auto;
+  }
+  return compat_mode;
 }
 
 bool defaults::is_compat_mode_preferred(CompatMode compat_mode) noexcept
 {
-  return instance()->_compat_mode_manager.is_compat_mode_preferred(compat_mode);
+  return compat_mode == CompatMode::ON ||
+         (compat_mode == CompatMode::AUTO &&
+          defaults::infer_compat_mode_if_auto(compat_mode) == CompatMode::ON);
 }
 
-bool defaults::is_compat_mode_preferred()
-{
-  return instance()->_compat_mode_manager.is_compat_mode_preferred();
-}
+bool defaults::is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
 
 BS::thread_pool& defaults::thread_pool() { return instance()->_thread_pool; }
 

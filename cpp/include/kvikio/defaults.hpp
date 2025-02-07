@@ -61,10 +61,10 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 class defaults {
  private:
   BS::thread_pool _thread_pool{get_num_threads_from_env()};
+  CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
-  CompatModeManager _compat_mode_manager{};
 
   static unsigned int get_num_threads_from_env();
 
