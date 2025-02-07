@@ -26,6 +26,6 @@ namespace kvikio {
  *
  * @return The filepath to the cufile.json file or the empty string if it isn't found.
  */
-[[nodiscard]] KVIKIO_EXPORT const std::string& config_path();
+[[nodiscard]] KVIKIO_EXPORT std::string const& config_path();
 
 }  // namespace kvikio

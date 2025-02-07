@@ -24,7 +24,7 @@
 
 namespace kvikio {
 
-void* load_library(const char* name, int mode)
+void* load_library(char const* name, int mode)
 {
   ::dlerror();  // Clear old errors
   void* ret = ::dlopen(name, mode);
@@ -32,14 +32,14 @@ void* load_library(const char* name, int mode)
   return ret;
 }
 
-void* load_library(const std::vector<const char*>& names, int mode)
+void* load_library(std::vector<char const*> const& names, int mode)
 {
   std::stringstream ss;
-  for (const char* name : names) {
+  for (char const* name : names) {
     ss << name << " ";
     try {
       return load_library(name, mode);
-    } catch (const std::runtime_error&) {
+    } catch (std::runtime_error const&) {
     }
   }
   throw std::runtime_error("cannot open shared object file, tried: " + ss.str());
@@ -51,7 +51,7 @@ bool is_running_in_wsl() noexcept
     struct utsname buf {};
     int err = ::uname(&buf);
     if (err == 0) {
-      const std::string name(static_cast<char*>(buf.release));
+      std::string const name(static_cast<char*>(buf.release));
       // 'Microsoft' for WSL1 and 'microsoft' for WSL2
       return name.find("icrosoft") != std::string::npos;
     }

@@ -75,7 +75,7 @@ std::vector<int> parse_http_status_codes(std::string_view env_var_name,
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
-  const auto* env_val = std::getenv(env_var_name.data());
+  auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
 
   std::stringstream sstream(env_val);

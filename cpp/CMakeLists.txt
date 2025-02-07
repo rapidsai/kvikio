@@ -140,6 +140,7 @@ set(SOURCES
     "src/defaults.cpp"
     "src/error.cpp"
     "src/file_handle.cpp"
+    "src/file_utils.cpp"
     "src/posix_io.cpp"
     "src/shim/cuda.cpp"
     "src/shim/cufile.cpp"
