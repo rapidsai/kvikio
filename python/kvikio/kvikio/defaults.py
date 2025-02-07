@@ -250,14 +250,14 @@ def set_bounce_buffer_size(nbytes: int):
         bounce_buffer_size_reset(old_value)
 
 
-def max_attempts() -> int:
+def http_max_attempts() -> int:
     """Get the maximum number of attempts per remote IO read.
 
-    Read are retried up until ``max_attempts`` when the response has certain
+    Read are retried up until ``http_max_attempts`` when the response has certain
     HTTP status codes.
 
-    Set the value using `max_atttempts()` or by setting the
-    `KVIKIO_MAX_ATTEMPTS` environment variable. If not set, the
+    Set the value using `http_max_atttempts_reset()` or by setting the
+    `KVIKIO_HTTP_MAX_ATTEMPTS` environment variable. If not set, the
     value is 3.
 
     Returns
@@ -266,10 +266,10 @@ def max_attempts() -> int:
         The maximum number of remote IO reads to attempt before raising an
         error.
     """
-    return kvikio._lib.defaults.max_attempts()
+    return kvikio._lib.defaults.http_max_attempts()
 
 
-def max_attempts_reset(attempts: int) -> None:
+def http_max_attempts_reset(attempts: int) -> None:
     """Reset the maximum number of attempts per remote IO read.
 
     Parameters
@@ -277,11 +277,11 @@ def max_attempts_reset(attempts: int) -> None:
     attempts : int
         The maximum number of attempts to try before raising an error.
     """
-    kvikio._lib.defaults.max_attempts_reset(attempts)
+    kvikio._lib.defaults.http_max_attempts_reset(attempts)
 
 
 @contextlib.contextmanager
-def set_max_attempts(attempts: int):
+def set_http_max_attempts(attempts: int):
     """Context for resetting the the maximum number of HTTP attempts.
 
     Parameters
@@ -289,12 +289,12 @@ def set_max_attempts(attempts: int):
     attempts : int
         The maximum number of attempts to try before raising an error.
     """
-    old_value = max_attempts()
+    old_value = http_max_attempts()
     try:
-        max_attempts_reset(attempts)
+        http_max_attempts_reset(attempts)
         yield
     finally:
-        max_attempts_reset(old_value)
+        http_max_attempts_reset(old_value)
 
 
 def http_status_codes() -> list[int]:

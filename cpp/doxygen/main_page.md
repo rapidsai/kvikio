@@ -114,10 +114,10 @@ This setting can also be controlled by `defaults::bounce_buffer_size()` and `def
 #### HTTP Retries
 
 The behavior when a remote IO read returns a error can be controlled through the
-`KVIKIO_HTTP_STATUS_CODES` and `KVIKIO_MAX_ATTEMPTS` environment variables.
+`KVIKIO_HTTP_STATUS_CODES` and `KVIKIO_HTTP_MAX_ATTEMPTS` environment variables.
 `KVIKIO_HTTP_STATUS_CODES` controls the status codes to retry, and
-`KVIKIO_MAX_ATTEMPTS` controls the maximum number of attempts to make before
-throwing an exception.
+`KVIKIO_HTTP_MAX_ATTEMPTS` controls the maximum number of attempts to make
+before throwing an exception.
 
 When a response with a status code in the list of retryable codes is received,
 KvikIO will wait for some period of time before retrying the request. It will
@@ -136,8 +136,8 @@ reading a large file that has been split into multiple reads through the
 KvikIO's task size setting, then *each* task will be retried up to the maximum
 number of attempts.
 
-These settings can also be controlled by `defaults::max_attempts()`,
-`defaults::max_attempts_reset()`, `defaults::http_status_codes()`, and
+These settings can also be controlled by `defaults::http_max_attempts()`,
+`defaults::http_max_attempts_reset()`, `defaults::http_status_codes()`, and
 `defaults::http_status_codes_reset()`.
 
 ## Example

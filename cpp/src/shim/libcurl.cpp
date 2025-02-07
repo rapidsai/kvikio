@@ -122,10 +122,10 @@ void CurlHandle::perform()
   long http_code                            = 0;
   int attempt_count                         = 1;
   int baseDelay                             = 100;  // milliseconds
-  std::size_t max_attempts                  = kvikio::defaults::max_attempts();
+  std::size_t http_max_attempts             = kvikio::defaults::http_max_attempts();
   std::vector<int> const& http_status_codes = kvikio::defaults::http_status_codes();
 
-  while (attempt_count <= max_attempts) {
+  while (attempt_count <= http_max_attempts) {
     std::stringstream ss;
 
     CURLcode err = curl_easy_perform(handle());
@@ -138,7 +138,7 @@ void CurlHandle::perform()
       // TODO: Parse the Retry-After header, if it exists.
       // TODO: configurable maximum wait.
       ss << "HTTP " << http_code << std::endl;
-      if (attempt_count == max_attempts) {
+      if (attempt_count == http_max_attempts) {
         ss << "Max attempts reached." << std::endl;
         throw std::runtime_error(ss.str());
       } else {
@@ -147,7 +147,7 @@ void CurlHandle::perform()
 
         attempt_count++;
         ss << "Retrying. after=" << delay << " attempt=" << attempt_count
-           << " max_attempts=" << max_attempts << std::endl;
+           << " http_max_attempts=" << http_max_attempts << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(delay));
       }
     } else if (err != CURLE_OK) {

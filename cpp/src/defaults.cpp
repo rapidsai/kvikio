@@ -166,13 +166,13 @@ defaults::defaults()
     }
     _bounce_buffer_size = env;
   }
-  // Determine the default value of `max_attempts`
+  // Determine the default value of `http_max_attempts`
   {
-    const ssize_t env = getenv_or("KVIKIO_MAX_ATTEMPTS", 3);
+    const ssize_t env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
     if (env <= 0) {
-      throw std::invalid_argument("KVIKIO_MAX_ATTEMPTS has to be a positive integer");
+      throw std::invalid_argument("KVIKIO_HTTP_MAX_ATTEMPTS has to be a positive integer");
     }
-    _max_attempts = env;
+    _http_max_attempts = env;
   }
   // Determine the default value of `http_status_codes`
   {
@@ -247,12 +247,12 @@ void defaults::bounce_buffer_size_reset(std::size_t nbytes)
   instance()->_bounce_buffer_size = nbytes;
 }
 
-std::size_t defaults::max_attempts() { return instance()->_max_attempts; }
+std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }
 
-void defaults::max_attempts_reset(std::size_t attempts)
+void defaults::http_max_attempts_reset(std::size_t attempts)
 {
-  if (attempts == 0) { throw std::invalid_argument("max_attempts must be a positive integer"); }
-  instance()->_max_attempts = attempts;
+  if (attempts == 0) { throw std::invalid_argument("attempts must be a positive integer"); }
+  instance()->_http_max_attempts = attempts;
 }
 
 std::vector<int> const& defaults::http_status_codes() { return instance()->_http_status_codes; }

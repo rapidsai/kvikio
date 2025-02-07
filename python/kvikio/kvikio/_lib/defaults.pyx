@@ -29,9 +29,9 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     size_t cpp_bounce_buffer_size "kvikio::defaults::bounce_buffer_size"() except +
     void cpp_bounce_buffer_size_reset \
         "kvikio::defaults::bounce_buffer_size_reset"(size_t nbytes) except +
-    size_t cpp_max_attempts "kvikio::defaults::max_attempts"() except +
-    void cpp_max_attempts_reset \
-        "kvikio::defaults::max_attempts_reset"(size_t attempts) except +
+    size_t cpp_http_max_attempts "kvikio::defaults::http_max_attempts"() except +
+    void cpp_http_max_attempts_reset \
+        "kvikio::defaults::http_max_attempts_reset"(size_t attempts) except +
     vector[int] cpp_http_status_codes "kvikio::defaults::http_status_codes"() except +
     void cpp_http_status_codes_reset \
         "kvikio::defaults::http_status_codes_reset"(vector[int] status_codes) except +
@@ -77,12 +77,12 @@ def bounce_buffer_size_reset(nbytes: int) -> None:
     cpp_bounce_buffer_size_reset(nbytes)
 
 
-def max_attempts() -> int:
-    return cpp_max_attempts()
+def http_max_attempts() -> int:
+    return cpp_http_max_attempts()
 
 
-def max_attempts_reset(attempts: int) -> None:
-    cpp_max_attempts_reset(attempts)
+def http_max_attempts_reset(attempts: int) -> None:
+    cpp_http_max_attempts_reset(attempts)
 
 
 def http_status_codes() -> list[int]:

@@ -108,7 +108,7 @@ class defaults {
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
-  std::size_t _max_attempts;
+  std::size_t _http_max_attempts;
   std::vector<int> _http_status_codes;
 
   static unsigned int get_num_threads_from_env();
@@ -280,20 +280,20 @@ class defaults {
   /**
    * @brief Get the maximum number of attempts per remote IO read.
    *
-   * Set the value using `kvikio::default::max_attempts_reset()` or by setting
-   * the `KVIKIO_MAX_ATTEMPTS` environment variable. If not set, the value is 3.
+   * Set the value using `kvikio::default::http_max_attempts_reset()` or by setting
+   * the `KVIKIO_HTTP_MAX_ATTEMPTS` environment variable. If not set, the value is 3.
    *
    * @return The maximum number of remote IO reads to attempt before raising an
    * error.
    */
-  [[nodiscard]] static std::size_t max_attempts();
+  [[nodiscard]] static std::size_t http_max_attempts();
 
   /**
    * @brief Reset the maximum number of attempts per remote IO read.
    *
    * @param attempts The maximum number of attempts to try before raising an error.
    */
-  static void max_attempts_reset(std::size_t attempts);
+  static void http_max_attempts_reset(std::size_t attempts);
 
   /**
    * @brief The list of HTTP status codes to retry.
