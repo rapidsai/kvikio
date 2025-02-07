@@ -34,9 +34,7 @@ FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
                        CompatMode compat_mode)
-  : _initialized{true},
-    _compat_mode_manager{
-      file_path, flags, mode, compat_mode, _file_direct_on, _file_direct_off, _cufile_handle}
+  : _initialized{true}, _compat_mode_manager{file_path, flags, mode, compat_mode, this}
 {
 }
 

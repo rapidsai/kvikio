@@ -17,11 +17,11 @@
 #include <algorithm>
 #include <cassert>
 #include <stdexcept>
-#include <utility>
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/file_handle.hpp>
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
@@ -49,19 +49,10 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 
 }  // namespace detail
 
-void CompatModeManager::compat_mode_reset(CompatMode compat_mode_requested)
-{
-  _compat_mode_requested    = compat_mode_requested;
-  _is_compat_mode_preferred = (infer_compat_mode_if_auto(_compat_mode_requested) == CompatMode::ON);
-}
-
 CompatMode CompatModeManager::infer_compat_mode_if_auto(CompatMode compat_mode) noexcept
 {
   if (compat_mode == CompatMode::AUTO) {
-    static auto inferred_compat_mode_for_auto = []() -> CompatMode {
-      return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
-    }();
-    return inferred_compat_mode_for_auto;
+    return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
   }
   return compat_mode;
 }
@@ -92,18 +83,21 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
                                      std::string const& flags,
                                      mode_t mode,
                                      CompatMode compat_mode_requested_v,
-                                     FileWrapper& file_direct_on,
-                                     FileWrapper& file_direct_off,
-                                     CUFileHandleWrapper& cufile_handle)
+                                     FileHandle* file_handle)
 {
-  file_direct_off.open(file_path, flags, false, mode);
+  if (file_handle == nullptr) {
+    throw std::invalid_argument(
+      "The compatibility mode manager does not have a proper owning file handle.");
+  }
+
+  file_handle->_file_direct_off.open(file_path, flags, false, mode);
   _is_compat_mode_preferred = is_compat_mode_preferred(compat_mode_requested_v);
 
   // Nothing to do in compatibility mode
   if (_is_compat_mode_preferred) { return; }
 
   try {
-    file_direct_on.open(file_path, flags, true, mode);
+    file_handle->_file_direct_on.open(file_path, flags, true, mode);
   } catch (...) {
     // Try to open the file with the O_DIRECT flag. Fall back to compatibility mode, if it fails.
     if (compat_mode_requested_v == CompatMode::AUTO) {
@@ -115,7 +109,7 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
 
   if (_is_compat_mode_preferred) { return; }
 
-  auto error_code = cufile_handle.register_handle(file_direct_on.fd());
+  auto error_code = file_handle->_cufile_handle.register_handle(file_handle->_file_direct_on.fd());
   assert(error_code.has_value());
 
   // For the AUTO mode, if the first cuFile API call fails, fall back to the compatibility
