@@ -60,12 +60,18 @@ class CompatModeManager {
   bool _is_compat_mode_preferred_for_async{true};
 
  public:
-  CompatModeManager()                                    = default;
-  ~CompatModeManager() noexcept                          = default;
-  CompatModeManager(const CompatModeManager&)            = default;
-  CompatModeManager& operator=(const CompatModeManager&) = default;
-  CompatModeManager(CompatModeManager&&) noexcept;
-  CompatModeManager& operator=(CompatModeManager&&) noexcept;
+  CompatModeManager(std::string const& file_path,
+                    std::string const& flags,
+                    mode_t mode,
+                    CompatMode compat_mode_requested,
+                    FileWrapper& file_direct_on,
+                    FileWrapper& file_direct_off,
+                    CUFileHandleWrapper& cufile_handle);
+  ~CompatModeManager() noexcept                              = default;
+  CompatModeManager(const CompatModeManager&)                = default;
+  CompatModeManager& operator=(const CompatModeManager&)     = default;
+  CompatModeManager(CompatModeManager&&) noexcept            = default;
+  CompatModeManager& operator=(CompatModeManager&&) noexcept = default;
 
   void compat_mode_reset(CompatMode compat_mode_requested);
 
@@ -78,9 +84,6 @@ class CompatModeManager {
   bool is_compat_mode_preferred_for_async() const noexcept;
 
   CompatMode compat_mode_requested() const noexcept;
-
-  std::tuple<FileWrapper, FileWrapper, CUFileHandleWrapper> resolve_compat_mode_for_file(
-    std::string const& file_path, std::string const& flags, mode_t mode, CompatMode compat_mode);
 
   /**
    * @brief Determine if the asynchronous I/O should be performed or not (throw exceptions)

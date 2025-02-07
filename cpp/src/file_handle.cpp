@@ -34,30 +34,30 @@ FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
                        CompatMode compat_mode)
-  : _initialized{true}
+  : _initialized{true},
+    _compat_mode_manager{
+      file_path, flags, mode, compat_mode, _file_direct_on, _file_direct_off, _cufile_handle}
 {
-  std::tie(_fd_direct_off, _fd_direct_on, _cufile_handle) =
-    _compat_mode_manager.resolve_compat_mode_for_file(file_path, flags, mode, compat_mode);
 }
 
 FileHandle::FileHandle(FileHandle&& o) noexcept
-  : _fd_direct_on{std::exchange(o._fd_direct_on, {})},
-    _fd_direct_off{std::exchange(o._fd_direct_off, {})},
+  : _file_direct_on{std::exchange(o._file_direct_on, {})},
+    _file_direct_off{std::exchange(o._file_direct_off, {})},
     _initialized{std::exchange(o._initialized, false)},
     _nbytes{std::exchange(o._nbytes, 0)},
     _cufile_handle{std::exchange(o._cufile_handle, {})},
-    _compat_mode_manager{std::exchange(o._compat_mode_manager, {})}
+    _compat_mode_manager{std::move(o._compat_mode_manager)}
 {
 }
 
 FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
 {
-  _fd_direct_on        = std::exchange(o._fd_direct_on, {});
-  _fd_direct_off       = std::exchange(o._fd_direct_off, {});
+  _file_direct_on      = std::exchange(o._file_direct_on, {});
+  _file_direct_off     = std::exchange(o._file_direct_off, {});
   _initialized         = std::exchange(o._initialized, false);
   _nbytes              = std::exchange(o._nbytes, 0);
   _cufile_handle       = std::exchange(o._cufile_handle, {});
-  _compat_mode_manager = std::exchange(o._compat_mode_manager, {});
+  _compat_mode_manager = std::move(o._compat_mode_manager);
   return *this;
 }
 
@@ -70,11 +70,10 @@ void FileHandle::close() noexcept
   try {
     if (closed()) { return; }
     _cufile_handle.unregister_handle();
-    _fd_direct_off.close();
-    _fd_direct_on.close();
-    _nbytes              = 0;
-    _initialized         = false;
-    _compat_mode_manager = {};
+    _file_direct_off.close();
+    _file_direct_on.close();
+    _nbytes      = 0;
+    _initialized = false;
   } catch (...) {
   }
 }
@@ -90,7 +89,7 @@ CUfileHandle_t FileHandle::handle()
 
 int FileHandle::fd(bool o_direct) const noexcept
 {
-  return o_direct ? _fd_direct_on.fd() : _fd_direct_off.fd();
+  return o_direct ? _file_direct_on.fd() : _file_direct_off.fd();
 }
 
 int FileHandle::fd_open_flags(bool o_direct) const { return open_flags(fd(o_direct)); }
@@ -98,7 +97,7 @@ int FileHandle::fd_open_flags(bool o_direct) const { return open_flags(fd(o_dire
 std::size_t FileHandle::nbytes() const
 {
   if (closed()) { return 0; }
-  if (_nbytes == 0) { _nbytes = get_file_size(_fd_direct_off.fd()); }
+  if (_nbytes == 0) { _nbytes = get_file_size(_file_direct_off.fd()); }
   return _nbytes;
 }
 
@@ -110,7 +109,7 @@ std::size_t FileHandle::read(void* devPtr_base,
 {
   if (is_compat_mode_preferred()) {
     return detail::posix_device_read(
-      _fd_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -134,7 +133,7 @@ std::size_t FileHandle::write(void const* devPtr_base,
 
   if (is_compat_mode_preferred()) {
     return detail::posix_device_write(
-      _fd_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -169,7 +168,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                      std::size_t hostPtr_offset) -> std::size_t {
       char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
       return detail::posix_host_read<detail::PartialIO::NO>(
-        _fd_direct_off.fd(), buf, size, file_offset);
+        _file_direct_off.fd(), buf, size, file_offset);
     };
 
     return parallel_io(op, buf, size, file_offset, task_size, 0);
@@ -181,7 +180,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   if (size < gds_threshold) {
     auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
       PushAndPopContext c(ctx);
-      return detail::posix_device_read(_fd_direct_off.fd(), buf, size, file_offset, 0);
+      return detail::posix_device_read(_file_direct_off.fd(), buf, size, file_offset, 0);
     };
     return std::async(std::launch::deferred, task);
   }
@@ -219,7 +218,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                      std::size_t hostPtr_offset) -> std::size_t {
       char const* buf = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
       return detail::posix_host_write<detail::PartialIO::NO>(
-        _fd_direct_off.fd(), buf, size, file_offset);
+        _file_direct_off.fd(), buf, size, file_offset);
     };
 
     return parallel_io(op, buf, size, file_offset, task_size, 0);
@@ -231,7 +230,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   if (size < gds_threshold) {
     auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
       PushAndPopContext c(ctx);
-      return detail::posix_device_write(_fd_direct_off.fd(), buf, size, file_offset, 0);
+      return detail::posix_device_write(_file_direct_off.fd(), buf, size, file_offset, 0);
     };
     return std::async(std::launch::deferred, task);
   }
