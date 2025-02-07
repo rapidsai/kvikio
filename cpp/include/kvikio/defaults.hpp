@@ -57,7 +57,17 @@ namespace detail {
  */
 CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
 
-std::vector<int> parse_http_status_codes(std::string_view nev_var_name,
+/**
+ * @brief Parse a string of comma-separated string of HTTP status.
+ *
+ * @param env_var_name The environment variable holding the string.
+ * Used to report errors.
+ * @param status_codes The comma-separated string of HTTP status
+ * codes. Each code should be a 3-digit integer.
+ *
+ * @return The vector with the parsed, integer HTTP status codes.
+ */
+std::vector<int> parse_http_status_codes(std::string_view env_var_name,
                                          std::string const status_codes);
 
 }  // namespace detail
