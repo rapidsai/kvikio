@@ -436,34 +436,13 @@ class FileHandle {
                                          CUstream stream     = nullptr);
 
   /**
-   * @brief Returns `true` if the compatibility mode is expected to be `ON` for this file.
+   * @brief Get the associated compatibility mode manager, which can be used to query the original
+   * requested compatibility mode or the expected compatibility modes for synchronous and
+   * asynchronous I/O.
    *
-   * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
-   * automatically, if file cannot be opened with the `O_DIRECT` flag, or if the system does not
-   * meet the requirements for the cuFile library under the `AUTO` compatibility mode.
-   *
-   * @return Boolean answer.
+   * @return The associated compatibility mode manager.
    */
-  [[nodiscard]] bool is_compat_mode_preferred() const noexcept;
-
-  /**
-   * @brief Returns `true` if the compatibility mode is expected to be `ON` for the asynchronous I/O
-   * on this file.
-   *
-   * For asynchronous I/O, the compatibility mode can be automatically enabled if the cuFile batch
-   * and stream symbols are missing, or if the cuFile configuration file is missing, or if
-   * `is_compat_mode_preferred()` returns true.
-   *
-   * @return Boolean answer.
-   */
-  [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept;
-
-  /**
-   * @brief Returns the initially requested compatibility mode.
-   *
-   * @return The compatibility mode initially requested.
-   */
-  CompatMode compat_mode_requested() const noexcept;
+  const CompatModeManager& get_compat_mode_manager() const noexcept;
 };
 
 }  // namespace kvikio

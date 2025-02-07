@@ -79,7 +79,7 @@ void FileHandle::close() noexcept
 CUfileHandle_t FileHandle::handle()
 {
   if (closed()) { throw CUfileException("File handle is closed"); }
-  if (is_compat_mode_preferred()) {
+  if (get_compat_mode_manager().is_compat_mode_preferred()) {
     throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
   }
   return _cufile_handle.handle();
@@ -105,7 +105,7 @@ std::size_t FileHandle::read(void* devPtr_base,
                              std::size_t devPtr_offset,
                              bool sync_default_stream)
 {
-  if (is_compat_mode_preferred()) {
+  if (get_compat_mode_manager().is_compat_mode_preferred()) {
     return detail::posix_device_read(
       _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
   }
@@ -129,7 +129,7 @@ std::size_t FileHandle::write(void const* devPtr_base,
 {
   _nbytes = 0;  // Invalidate the computed file size
 
-  if (is_compat_mode_preferred()) {
+  if (get_compat_mode_manager().is_compat_mode_preferred()) {
     return detail::posix_device_write(
       _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
   }
@@ -184,7 +184,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   }
 
   // Let's synchronize once instead of in each task.
-  if (sync_default_stream && !is_compat_mode_preferred()) {
+  if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
     PushAndPopContext c(ctx);
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
   }
@@ -234,7 +234,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   }
 
   // Let's synchronize once instead of in each task.
-  if (sync_default_stream && !is_compat_mode_preferred()) {
+  if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
     PushAndPopContext c(ctx);
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
   }
@@ -258,8 +258,8 @@ void FileHandle::read_async(void* devPtr_base,
                             ssize_t* bytes_read_p,
                             CUstream stream)
 {
-  _compat_mode_manager.validate_compat_mode_for_async();
-  if (is_compat_mode_preferred_for_async()) {
+  get_compat_mode_manager().validate_compat_mode_for_async();
+  if (get_compat_mode_manager().is_compat_mode_preferred_for_async()) {
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     *bytes_read_p =
       static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
@@ -291,8 +291,8 @@ void FileHandle::write_async(void* devPtr_base,
                              ssize_t* bytes_written_p,
                              CUstream stream)
 {
-  _compat_mode_manager.validate_compat_mode_for_async();
-  if (is_compat_mode_preferred_for_async()) {
+  get_compat_mode_manager().validate_compat_mode_for_async();
+  if (get_compat_mode_manager().is_compat_mode_preferred_for_async()) {
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     *bytes_written_p =
       static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
@@ -317,19 +317,9 @@ StreamFuture FileHandle::write_async(
   return ret;
 }
 
-CompatMode FileHandle::compat_mode_requested() const noexcept
+const CompatModeManager& FileHandle::get_compat_mode_manager() const noexcept
 {
-  return _compat_mode_manager.compat_mode_requested();
-}
-
-bool FileHandle::is_compat_mode_preferred() const noexcept
-{
-  return _compat_mode_manager.is_compat_mode_preferred();
-}
-
-bool FileHandle::is_compat_mode_preferred_for_async() const noexcept
-{
-  return _compat_mode_manager.is_compat_mode_preferred_for_async();
+  return _compat_mode_manager;
 }
 
 }  // namespace kvikio

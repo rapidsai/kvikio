@@ -128,7 +128,7 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
   return;
 }
 
-void CompatModeManager::validate_compat_mode_for_async()
+void CompatModeManager::validate_compat_mode_for_async() const
 {
   if (!_is_compat_mode_preferred && _is_compat_mode_preferred_for_async &&
       _compat_mode_requested == CompatMode::OFF) {

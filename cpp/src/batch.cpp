@@ -60,7 +60,7 @@ void BatchHandle::submit(std::vector<BatchOp> const& operations)
   std::vector<CUfileIOParams_t> io_batch_params;
   io_batch_params.reserve(operations.size());
   for (auto const& op : operations) {
-    if (op.file_handle.is_compat_mode_preferred()) {
+    if (op.file_handle.get_compat_mode_manager().is_compat_mode_preferred()) {
       throw CUfileException("Cannot submit a FileHandle opened in compatibility mode");
     }
 
