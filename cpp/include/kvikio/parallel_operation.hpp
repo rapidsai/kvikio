@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -32,10 +33,19 @@ namespace detail {
 
 template <typename F, typename T>
 std::future<std::size_t> submit_task(
-  F op, T buf, std::size_t size, std::size_t file_offset, std::size_t devPtr_offset)
+  F op,
+  T buf,
+  std::size_t size,
+  std::size_t file_offset,
+  std::size_t devPtr_offset,
+  kvikio_nvtx_color nvtx_color = nvtx_manager::instance().get_default_color(),
+  kvikio_nvtx_named_category nvtx_category =
+    kvikio_nvtx_named_category::get<libkvikio_category_default>())
 {
-  return defaults::thread_pool().submit_task(
-    [=] { return op(buf, size, file_offset, devPtr_offset); });
+  return defaults::thread_pool().submit_task([=] {
+    KVIKIO_NVTX_SCOPED_RANGE("Task", size, nvtx_color, nvtx_category);
+    return op(buf, size, file_offset, devPtr_offset);
+  });
 }
 
 }  // namespace detail
@@ -53,18 +63,23 @@ std::future<std::size_t> submit_task(
  * @return A future to be used later to check if the operation has finished its execution.
  */
 template <typename F, typename T>
-std::future<std::size_t> parallel_io(F op,
-                                     T buf,
-                                     std::size_t size,
-                                     std::size_t file_offset,
-                                     std::size_t task_size,
-                                     std::size_t devPtr_offset)
+std::future<std::size_t> parallel_io(
+  F op,
+  T buf,
+  std::size_t size,
+  std::size_t file_offset,
+  std::size_t task_size,
+  std::size_t devPtr_offset,
+  kvikio_nvtx_color nvtx_color = nvtx_manager::instance().get_default_color(),
+  kvikio_nvtx_named_category nvtx_category =
+    kvikio_nvtx_named_category::get<libkvikio_category_default>())
 {
   if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
-    return detail::submit_task(op, buf, size, file_offset, devPtr_offset);
+    return detail::submit_task(
+      op, buf, size, file_offset, devPtr_offset, nvtx_color, nvtx_category);
   }
 
   // We know an upper bound of the total number of tasks
@@ -73,14 +88,18 @@ std::future<std::size_t> parallel_io(F op,
 
   // 1) Submit `task_size` sized tasks
   while (size >= task_size) {
-    tasks.push_back(detail::submit_task(op, buf, task_size, file_offset, devPtr_offset));
+    tasks.push_back(detail::submit_task(
+      op, buf, task_size, file_offset, devPtr_offset, nvtx_color, nvtx_category));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
   }
 
   // 2) Submit a task for the remainder
-  if (size > 0) { tasks.push_back(detail::submit_task(op, buf, size, file_offset, devPtr_offset)); }
+  if (size > 0) {
+    tasks.push_back(
+      detail::submit_task(op, buf, size, file_offset, devPtr_offset, nvtx_color, nvtx_category));
+  }
 
   // Finally, we sum the result of all tasks.
   auto gather_tasks = [](std::vector<std::future<std::size_t>>&& tasks) -> std::size_t {

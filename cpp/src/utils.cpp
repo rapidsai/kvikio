@@ -15,17 +15,12 @@
  */
 
 #include <cstring>
-#include <future>
 #include <iostream>
 #include <map>
 #include <optional>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
-
-#ifdef KVIKIO_CUDA_FOUND
-#include <nvtx3/nvtx3.hpp>
-#endif
 
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
