@@ -51,6 +51,12 @@ template <typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
 }
 
 /**
+ * @brief Helper function to allow NVTX payload of type std::uint64_t to pass through without doing
+ * anything.
+ */
+[[nodiscard]] inline std::uint64_t convert_to_64bit(std::uint64_t value) { return value; }
+
+/**
  * @brief Help function to convert value to 64 bit float
  */
 template <typename T, std::enable_if_t<std::is_floating_point_v<T>>* = nullptr>
