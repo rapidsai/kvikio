@@ -31,6 +31,15 @@ namespace kvikio {
 
 namespace detail {
 
+inline const std::pair<const nvtx_color&, std::uint64_t> get_next_color_and_call_idx() noexcept
+{
+  static std::atomic_uint64_t call_counter{0ull};
+  auto call_idx =
+    1ull + std::atomic_fetch_add_explicit(&call_counter, 1ull, std::memory_order_relaxed);
+  auto& nvtx_color = nvtx_manager::instance().get_color_by_index(call_idx);
+  return {nvtx_color, call_idx};
+}
+
 template <typename F, typename T>
 std::future<std::size_t> submit_task(
   F op,
@@ -38,12 +47,11 @@ std::future<std::size_t> submit_task(
   std::size_t size,
   std::size_t file_offset,
   std::size_t devPtr_offset,
-  kvikio_nvtx_color nvtx_color = nvtx_manager::instance().get_default_color(),
-  kvikio_nvtx_named_category nvtx_category =
-    kvikio_nvtx_named_category::get<libkvikio_category_default>())
+  std::uint64_t nvtx_payload = 0ull,
+  nvtx_color nvtx_color      = nvtx_manager::instance().default_color())
 {
   return defaults::thread_pool().submit_task([=] {
-    KVIKIO_NVTX_SCOPED_RANGE("Task", size, nvtx_color, nvtx_category);
+    KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
     return op(buf, size, file_offset, devPtr_offset);
   });
 }
@@ -70,16 +78,14 @@ std::future<std::size_t> parallel_io(
   std::size_t file_offset,
   std::size_t task_size,
   std::size_t devPtr_offset,
-  kvikio_nvtx_color nvtx_color = nvtx_manager::instance().get_default_color(),
-  kvikio_nvtx_named_category nvtx_category =
-    kvikio_nvtx_named_category::get<libkvikio_category_default>())
+  std::uint64_t call_idx  = 0,
+  nvtx_color nvtx_color_v = nvtx_manager::instance().default_color())
 {
   if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
-    return detail::submit_task(
-      op, buf, size, file_offset, devPtr_offset, nvtx_color, nvtx_category);
+    return detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color_v);
   }
 
   // We know an upper bound of the total number of tasks
@@ -88,8 +94,8 @@ std::future<std::size_t> parallel_io(
 
   // 1) Submit `task_size` sized tasks
   while (size >= task_size) {
-    tasks.push_back(detail::submit_task(
-      op, buf, task_size, file_offset, devPtr_offset, nvtx_color, nvtx_category));
+    tasks.push_back(
+      detail::submit_task(op, buf, task_size, file_offset, devPtr_offset, call_idx, nvtx_color_v));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
@@ -98,7 +104,7 @@ std::future<std::size_t> parallel_io(
   // 2) Submit a task for the remainder
   if (size > 0) {
     tasks.push_back(
-      detail::submit_task(op, buf, size, file_offset, devPtr_offset, nvtx_color, nvtx_category));
+      detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color_v));
   }
 
   // Finally, we sum the result of all tasks.

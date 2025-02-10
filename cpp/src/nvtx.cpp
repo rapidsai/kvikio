@@ -25,16 +25,29 @@
 
 namespace kvikio {
 
-nvtx_manager& nvtx_manager::instance()
+nvtx_manager& nvtx_manager::instance() noexcept
 {
   static nvtx_manager _instance;
   return _instance;
 }
 
-#ifdef KVIKIO_CUDA_FOUND
-kvikio_nvtx_color& nvtx_manager::get_next_color()
+const nvtx_color& nvtx_manager::default_color() const noexcept
 {
-  static std::array<kvikio_nvtx_color, 16> color_palette = {nvtx3::rgb{106, 192, 67},
+#ifdef KVIKIO_CUDA_FOUND
+  static nvtx_color default_color{nvtx3::argb{0, 255, 255, 255}};
+  return default_color;
+#else
+  static nvtx_color dummy{};
+  return dummy;
+#endif
+}
+
+const nvtx_color& nvtx_manager::get_color_by_index(std::uint64_t idx) const noexcept
+{
+#ifdef KVIKIO_CUDA_FOUND
+  constexpr std::size_t num_color{16};
+  static_assert((num_color & (num_color - 1)) == 0);  // Is power of 2
+  static std::array<nvtx_color, num_color> color_palette = {nvtx3::rgb{106, 192, 67},
                                                             nvtx3::rgb{191, 73, 203},
                                                             nvtx3::rgb{93, 151, 76},
                                                             nvtx3::rgb{96, 72, 194},
@@ -50,35 +63,12 @@ kvikio_nvtx_color& nvtx_manager::get_next_color()
                                                             nvtx3::rgb{128, 102, 51},
                                                             nvtx3::rgb{211, 138, 130},
                                                             nvtx3::rgb{122, 50, 49}};
-
-  static std::mutex mut;
-  std::lock_guard lock{mut};
-
-  static std::size_t idx = 0;
-  auto old_idx           = idx;
-  ++idx;
-  if (idx >= color_palette.size()) { idx -= color_palette.size(); }
-
-  return color_palette[old_idx];
-}
-
-kvikio_nvtx_color& nvtx_manager::get_default_color()
-{
-  static kvikio_nvtx_color default_color{nvtx3::argb{0, 255, 255, 255}};
-  return default_color;
-}
+  auto safe_idx = idx & (num_color - 1);  // idx % num_color
+  return color_palette[safe_idx];
 #else
-kvikio_nvtx_color& nvtx_manager::get_next_color()
-{
-  static kvikio_nvtx_color dummy{};
+  static nvtx_color dummy{};
   return dummy;
-}
-
-kvikio_nvtx_color& nvtx_manager::get_default_color()
-{
-  static kvikio_nvtx_color dummy{};
-  return dummy;
-}
 #endif
+}
 
 }  // namespace kvikio
