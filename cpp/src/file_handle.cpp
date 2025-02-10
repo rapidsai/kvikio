@@ -194,8 +194,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            std::size_t gds_threshold,
                                            bool sync_default_stream)
 {
-  auto& [nvtx_color_v, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pread()", size, nvtx_color_v);
+  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pread()", size, nvtx_color);
   if (is_host_memory(buf)) {
     auto op = [this](void* hostPtr_base,
                      std::size_t size,
@@ -206,7 +206,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _fd_direct_off.fd(), buf, size, file_offset);
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color_v);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -236,7 +236,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
   return parallel_io(
-    task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color_v);
+    task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -246,8 +246,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             std::size_t gds_threshold,
                                             bool sync_default_stream)
 {
-  auto& [nvtx_color_v, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pwrite()", size, nvtx_color_v);
+  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pwrite()", size, nvtx_color);
   if (is_host_memory(buf)) {
     auto op = [this](void const* hostPtr_base,
                      std::size_t size,
@@ -258,7 +258,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _fd_direct_off.fd(), buf, size, file_offset);
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color_v);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -288,7 +288,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
   return parallel_io(
-    op, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color_v);
+    op, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
 }
 
 void FileHandle::read_async(void* devPtr_base,
