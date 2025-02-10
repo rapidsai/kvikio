@@ -148,7 +148,10 @@ class nvtx_manager {
  * @brief Convenience macro for generating an NVTX scoped range in the `libkvikio` domain to
  * annotate a time duration.
  *
- * Takes two arguments (message, payload).
+ * @param message String literal for NVTX annotation. To improve profile-time performance, the
+ * string literal is registered in NVTX.
+ * @param payload NVTX payload.
+ * @param color (Optional) NVTX color. If unspecified, a default NVTX color is used.
  *
  * Example:
  * ```
@@ -170,8 +173,9 @@ class nvtx_manager {
  * @brief Convenience macro for generating an NVTX marker in the `libkvikio` domain to annotate a
  * certain time point.
  *
- * Takes two arguments (message, payload). Use this macro to annotate asynchronous I/O
- * operations, where the payload refers to the I/O size.
+ * @param message String literal for NVTX annotation. To improve profile-time performance, the
+ * string literal is registered in NVTX.
+ * @param payload NVTX payload.
  *
  * Example:
  * ```
