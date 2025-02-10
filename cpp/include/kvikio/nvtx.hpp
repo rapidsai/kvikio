@@ -43,34 +43,34 @@ using nvtx_registered_string = nvtx3::registered_string_in<libkvikio_domain>;
 
 // Macro to create a static, registered string that will not have a name conflict with any
 // registered string defined in the same scope.
-#define KVIKIO_REGISTER_STRING(msg)                 \
-  [](const char* a_msg) -> auto& {                  \
-    static nvtx_registered_string a_reg_str{a_msg}; \
-    return a_reg_str;                               \
+#define KVIKIO_REGISTER_STRING(msg)                         \
+  [](const char* a_msg) -> auto& {                          \
+    static kvikio::nvtx_registered_string a_reg_str{a_msg}; \
+    return a_reg_str;                                       \
   }(msg)
 
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
-#define KVIKIO_NVTX_FUNC_RANGE_IMPL() NVTX3_FUNC_RANGE_IN(libkvikio_domain)
+#define KVIKIO_NVTX_FUNC_RANGE_IMPL() NVTX3_FUNC_RANGE_IN(kvikio::libkvikio_domain)
 
-#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(msg, nvtx_payload_v, nvtx_color_v)                        \
-  kvikio::nvtx_scoped_range KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                           \
-  {                                                                                               \
-    nvtx3::event_attributes                                                                       \
-    {                                                                                             \
-      KVIKIO_REGISTER_STRING(msg), nvtx3::payload{convert_to_64bit(nvtx_payload_v)}, nvtx_color_v \
-    }                                                                                             \
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(msg, payload_v, color)                                \
+  kvikio::nvtx_scoped_range KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                       \
+  {                                                                                           \
+    nvtx3::event_attributes                                                                   \
+    {                                                                                         \
+      KVIKIO_REGISTER_STRING(msg), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}, color \
+    }                                                                                         \
   }
-#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(msg, nvtx_payload_v) \
-  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(msg, nvtx_payload_v, kvikio::nvtx_manager::default_color())
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(msg, payload) \
+  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(msg, payload, kvikio::nvtx_manager::default_color())
 #define KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(_1, _2, _3, NAME, ...) NAME
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL(...)                                         \
   KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(                                               \
     __VA_ARGS__, KVIKIO_NVTX_SCOPED_RANGE_IMPL_3, KVIKIO_NVTX_SCOPED_RANGE_IMPL_2) \
   (__VA_ARGS__)
 
-#define KVIKIO_NVTX_MARKER_IMPL(msg, nvtx_payload_v)        \
-  nvtx3::mark_in<libkvikio_domain>(nvtx3::event_attributes{ \
-    KVIKIO_REGISTER_STRING(msg), nvtx3::payload{convert_to_64bit(nvtx_payload_v)}})
+#define KVIKIO_NVTX_MARKER_IMPL(msg, payload_v)                     \
+  nvtx3::mark_in<kvikio::libkvikio_domain>(nvtx3::event_attributes{ \
+    KVIKIO_REGISTER_STRING(msg), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}})
 
 #endif
 
@@ -148,7 +148,7 @@ class nvtx_manager {
  * @brief Convenience macro for generating an NVTX scoped range in the `libkvikio` domain to
  * annotate a time duration.
  *
- * Takes two arguments (message, nvtx_payload_v).
+ * Takes two arguments (message, payload).
  *
  * Example:
  * ```
@@ -161,8 +161,8 @@ class nvtx_manager {
 #ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_SCOPED_RANGE(...) KVIKIO_NVTX_SCOPED_RANGE_IMPL(__VA_ARGS__)
 #else
-#define KVIKIO_NVTX_SCOPED_RANGE(msg, nvtx_payload_v, ...) \
-  do {                                                     \
+#define KVIKIO_NVTX_SCOPED_RANGE(msg, payload, ...) \
+  do {                                              \
   } while (0)
 #endif
 
@@ -170,8 +170,8 @@ class nvtx_manager {
  * @brief Convenience macro for generating an NVTX marker in the `libkvikio` domain to annotate a
  * certain time point.
  *
- * Takes two arguments (message, nvtx_payload_v). Use this macro to annotate asynchronous I/O
- * operations, where the nvtx_payload_v refers to the I/O size.
+ * Takes two arguments (message, payload). Use this macro to annotate asynchronous I/O
+ * operations, where the payload refers to the I/O size.
  *
  * Example:
  * ```
@@ -184,10 +184,10 @@ class nvtx_manager {
  * ```
  */
 #ifdef KVIKIO_CUDA_FOUND
-#define KVIKIO_NVTX_MARKER(message, nvtx_payload_v) KVIKIO_NVTX_MARKER_IMPL(message, nvtx_payload_v)
+#define KVIKIO_NVTX_MARKER(message, payload) KVIKIO_NVTX_MARKER_IMPL(message, payload)
 #else
-#define KVIKIO_NVTX_MARKER(message, nvtx_payload_v) \
-  do {                                              \
+#define KVIKIO_NVTX_MARKER(message, payload) \
+  do {                                       \
   } while (0)
 #endif
 
