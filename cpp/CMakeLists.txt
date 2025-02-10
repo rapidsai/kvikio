@@ -62,6 +62,9 @@ rapids_find_package(
 
 if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
+  if(TARGET libcurl_static)
+    set_target_properties(libcurl_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  endif()
 endif()
 
 set(cuFile_FOUND 0)
