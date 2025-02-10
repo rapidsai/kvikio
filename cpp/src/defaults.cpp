@@ -51,7 +51,7 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 }
 
 std::vector<int> parse_http_status_codes(std::string_view env_var_name,
-                                         std::string const status_codes)
+                                         std::string_view status_codes)
 {
   // Ensure `status_codes` consists only of 3-digit integers separated by commas, allowing spaces.
   std::regex const check_pattern(R"(^\s*\d{3}\s*(\s*,\s*\d{3}\s*)*$)");
@@ -259,7 +259,7 @@ std::vector<int> const& defaults::http_status_codes() { return instance()->_http
 
 void defaults::http_status_codes_reset(std::vector<int> status_codes)
 {
-  instance()->_http_status_codes = status_codes;
+  instance()->_http_status_codes = std::move(status_codes);
 }
 
 }  // namespace kvikio
