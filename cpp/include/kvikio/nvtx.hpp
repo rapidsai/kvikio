@@ -34,8 +34,8 @@ struct libkvikio_domain {
   static constexpr char const* name{"libkvikio"};
 };
 
-using nvtx_scoped_range      = nvtx3::scoped_range_in<libkvikio_domain>;
-using nvtx_registered_string = nvtx3::registered_string_in<libkvikio_domain>;
+using nvtx_scoped_range_type      = nvtx3::scoped_range_in<libkvikio_domain>;
+using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain>;
 
 // Macro to concatenate two tokens x and y.
 #define KVIKIO_CONCAT_HELPER(x, y) x##y
@@ -43,17 +43,17 @@ using nvtx_registered_string = nvtx3::registered_string_in<libkvikio_domain>;
 
 // Macro to create a static, registered string that will not have a name conflict with any
 // registered string defined in the same scope.
-#define KVIKIO_REGISTER_STRING(msg)                         \
-  [](const char* a_msg) -> auto& {                          \
-    static kvikio::nvtx_registered_string a_reg_str{a_msg}; \
-    return a_reg_str;                                       \
+#define KVIKIO_REGISTER_STRING(msg)                              \
+  [](const char* a_msg) -> auto& {                               \
+    static kvikio::nvtx_registered_string_type a_reg_str{a_msg}; \
+    return a_reg_str;                                            \
   }(msg)
 
 // Macro overloads of KVIKIO_NVTX_FUNC_RANGE
 #define KVIKIO_NVTX_FUNC_RANGE_IMPL() NVTX3_FUNC_RANGE_IN(kvikio::libkvikio_domain)
 
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(msg, payload_v, color)                                \
-  kvikio::nvtx_scoped_range KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                       \
+  kvikio::nvtx_scoped_range_type KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                  \
   {                                                                                           \
     nvtx3::event_attributes                                                                   \
     {                                                                                         \
@@ -75,9 +75,9 @@ using nvtx_registered_string = nvtx3::registered_string_in<libkvikio_domain>;
 #endif
 
 #ifdef KVIKIO_CUDA_FOUND
-using nvtx_color = nvtx3::color;
+using nvtx_color_type = nvtx3::color;
 #else
-using nvtx_color = int;
+using nvtx_color_type = int;
 #endif
 
 /**
@@ -92,7 +92,7 @@ class nvtx_manager {
    *
    * @return Default color.
    */
-  static const nvtx_color& default_color() noexcept;
+  static const nvtx_color_type& default_color() noexcept;
 
   /**
    * @brief Return the color at the given index from the internal color palette whose size n is a
@@ -102,7 +102,7 @@ class nvtx_manager {
    * @param idx The index value.
    * @return The color picked from the internal color palette.
    */
-  static const nvtx_color& get_color_by_index(std::uint64_t idx) noexcept;
+  static const nvtx_color_type& get_color_by_index(std::uint64_t idx) noexcept;
 
   /**
    * @brief Rename the current thread under the KvikIO NVTX domain.
