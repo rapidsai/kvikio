@@ -32,6 +32,16 @@ namespace kvikio {
 
 namespace detail {
 
+/**
+ * @brief Determine the NVTX color and call index. They are used to identify tasks from different
+ * pread/pwrite calls. Tasks from the same pread/pwrite call are given the same color and call
+ * index. The call index is atomically incremented on each pread/pwrite call, and will wrap around
+ * once it reaches the maximum value the integer type `std::uint64_t` can hold (this overflow
+ * behavior is well-defined in C++). The color is picked from an internal color palette according to
+ * the call index value.
+ *
+ * @return A pair of NVTX color and call index.
+ */
 inline const std::pair<const nvtx_color&, std::uint64_t> get_next_color_and_call_idx() noexcept
 {
   static std::atomic_uint64_t call_counter{0ull};
@@ -52,9 +62,13 @@ std::future<std::size_t> submit_task(F op,
 {
   return defaults::thread_pool().submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
+
+    // Rename the worker thread in the thread pool to improve clarity from nsys-ui.
+    // Note: This NVTX feature is currently not supported by nsys-ui.
     thread_local std::once_flag call_once_per_thread;
     std::call_once(call_once_per_thread,
                    [] { nvtx_manager::rename_current_thread("thread pool"); });
+
     return op(buf, size, file_offset, devPtr_offset);
   });
 }
