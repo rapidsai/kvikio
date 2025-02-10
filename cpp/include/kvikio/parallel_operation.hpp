@@ -17,6 +17,7 @@
 
 #include <cassert>
 #include <future>
+#include <mutex>
 #include <numeric>
 #include <system_error>
 #include <utility>
@@ -36,22 +37,24 @@ inline const std::pair<const nvtx_color&, std::uint64_t> get_next_color_and_call
   static std::atomic_uint64_t call_counter{0ull};
   auto call_idx =
     1ull + std::atomic_fetch_add_explicit(&call_counter, 1ull, std::memory_order_relaxed);
-  auto& nvtx_color = nvtx_manager::instance().get_color_by_index(call_idx);
+  auto& nvtx_color = nvtx_manager::get_color_by_index(call_idx);
   return {nvtx_color, call_idx};
 }
 
 template <typename F, typename T>
-std::future<std::size_t> submit_task(
-  F op,
-  T buf,
-  std::size_t size,
-  std::size_t file_offset,
-  std::size_t devPtr_offset,
-  std::uint64_t nvtx_payload = 0ull,
-  nvtx_color nvtx_color      = nvtx_manager::instance().default_color())
+std::future<std::size_t> submit_task(F op,
+                                     T buf,
+                                     std::size_t size,
+                                     std::size_t file_offset,
+                                     std::size_t devPtr_offset,
+                                     std::uint64_t nvtx_payload = 0ull,
+                                     nvtx_color nvtx_color      = nvtx_manager::default_color())
 {
   return defaults::thread_pool().submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
+    thread_local std::once_flag call_once_per_thread;
+    std::call_once(call_once_per_thread,
+                   [] { nvtx_manager::rename_current_thread("thread pool"); });
     return op(buf, size, file_offset, devPtr_offset);
   });
 }
@@ -71,15 +74,14 @@ std::future<std::size_t> submit_task(
  * @return A future to be used later to check if the operation has finished its execution.
  */
 template <typename F, typename T>
-std::future<std::size_t> parallel_io(
-  F op,
-  T buf,
-  std::size_t size,
-  std::size_t file_offset,
-  std::size_t task_size,
-  std::size_t devPtr_offset,
-  std::uint64_t call_idx  = 0,
-  nvtx_color nvtx_color_v = nvtx_manager::instance().default_color())
+std::future<std::size_t> parallel_io(F op,
+                                     T buf,
+                                     std::size_t size,
+                                     std::size_t file_offset,
+                                     std::size_t task_size,
+                                     std::size_t devPtr_offset,
+                                     std::uint64_t call_idx  = 0,
+                                     nvtx_color nvtx_color_v = nvtx_manager::default_color())
 {
   if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
 

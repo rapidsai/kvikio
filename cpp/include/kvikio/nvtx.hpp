@@ -61,8 +61,7 @@ using nvtx_registered_string = nvtx3::registered_string_in<libkvikio_domain>;
     }                                                                                             \
   }
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(msg, nvtx_payload_v) \
-  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(                           \
-    msg, nvtx_payload_v, kvikio::nvtx_manager::instance().default_color())
+  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(msg, nvtx_payload_v, kvikio::nvtx_manager::default_color())
 #define KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(_1, _2, _3, NAME, ...) NAME
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL(...)                                         \
   KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(                                               \
@@ -81,11 +80,36 @@ using nvtx_color = nvtx3::color;
 using nvtx_color = int;
 #endif
 
+/**
+ * @brief Utility singleton class for NVTX annotation.
+ */
 class nvtx_manager {
  public:
   static nvtx_manager& instance() noexcept;
-  const nvtx_color& default_color() const noexcept;
-  const nvtx_color& get_color_by_index(std::uint64_t idx) const noexcept;
+
+  /**
+   * @brief Return the default color.
+   *
+   * @return Default color.
+   */
+  static const nvtx_color& default_color() noexcept;
+
+  /**
+   * @brief Return the color at the given index from the internal color palette whose size n is a
+   * power of 2. The index may exceed the size of the color palette, in which case it wraps around,
+   * i.e. (idx mod n).
+   *
+   * @param idx The index value.
+   * @return The color picked from the internal color palette.
+   */
+  static const nvtx_color& get_color_by_index(std::uint64_t idx) noexcept;
+
+  /**
+   * @brief Rename the current thread.
+   *
+   */
+  static void rename_current_thread(std::string_view new_name) noexcept;
+
   nvtx_manager(nvtx_manager const&)            = delete;
   nvtx_manager& operator=(nvtx_manager const&) = delete;
   nvtx_manager(nvtx_manager&&)                 = delete;

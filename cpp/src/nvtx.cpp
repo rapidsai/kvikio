@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+#include <sys/syscall.h>
 #include <array>
-#include <mutex>
+#include <sstream>
 
 #ifdef KVIKIO_CUDA_FOUND
 #include <nvtx3/nvtx3.hpp>
@@ -31,7 +32,7 @@ nvtx_manager& nvtx_manager::instance() noexcept
   return _instance;
 }
 
-const nvtx_color& nvtx_manager::default_color() const noexcept
+const nvtx_color& nvtx_manager::default_color() noexcept
 {
 #ifdef KVIKIO_CUDA_FOUND
   static nvtx_color default_color{nvtx3::argb{0, 255, 255, 255}};
@@ -42,7 +43,7 @@ const nvtx_color& nvtx_manager::default_color() const noexcept
 #endif
 }
 
-const nvtx_color& nvtx_manager::get_color_by_index(std::uint64_t idx) const noexcept
+const nvtx_color& nvtx_manager::get_color_by_index(std::uint64_t idx) noexcept
 {
 #ifdef KVIKIO_CUDA_FOUND
   constexpr std::size_t num_color{16};
@@ -68,6 +69,25 @@ const nvtx_color& nvtx_manager::get_color_by_index(std::uint64_t idx) const noex
 #else
   static nvtx_color dummy{};
   return dummy;
+#endif
+}
+
+void nvtx_manager::rename_current_thread(std::string_view new_name) noexcept
+{
+#ifdef KVIKIO_CUDA_FOUND
+  auto tid = syscall(SYS_gettid);
+  std::stringstream ss;
+  ss << new_name << " (" << tid << ")";
+
+  nvtxResourceAttributes_t attribs = {0};
+  attribs.version                  = NVTX_VERSION;
+  attribs.size                     = NVTX_RESOURCE_ATTRIB_STRUCT_SIZE;
+  attribs.identifierType           = NVTX_RESOURCE_TYPE_GENERIC_THREAD_NATIVE;
+  attribs.identifier.ullValue      = tid;
+  attribs.messageType              = NVTX_MESSAGE_TYPE_ASCII;
+  attribs.message.ascii            = ss.str().c_str();
+  nvtxResourceHandle_t handle =
+    nvtxDomainResourceCreate(nvtx3::domain::get<libkvikio_domain>(), &attribs);
 #endif
 }
 
