@@ -105,8 +105,10 @@ class nvtx_manager {
   static const nvtx_color& get_color_by_index(std::uint64_t idx) noexcept;
 
   /**
-   * @brief Rename the current thread.
+   * @brief Rename the current thread under the KvikIO NVTX domain.
    *
+   * @note This NVTX feature is currently not supported by the Nsight System profiler. As a result,
+   * the OS thread will not be renamed in the nsys-ui.
    */
   static void rename_current_thread(std::string_view new_name) noexcept;
 
