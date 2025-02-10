@@ -43,34 +43,36 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
 
 // Macro to create a static, registered string that will not have a name conflict with any
 // registered string defined in the same scope.
-#define KVIKIO_REGISTER_STRING(msg)                              \
-  [](const char* a_msg) -> auto& {                               \
-    static kvikio::nvtx_registered_string_type a_reg_str{a_msg}; \
-    return a_reg_str;                                            \
-  }(msg)
+#define KVIKIO_REGISTER_STRING(message)                              \
+  [](const char* a_message) -> auto& {                               \
+    static kvikio::nvtx_registered_string_type a_reg_str{a_message}; \
+    return a_reg_str;                                                \
+  }(message)
 
-// Macro overloads of KVIKIO_NVTX_FUNC_RANGE
+// Implementation of KVIKIO_NVTX_FUNC_RANGE()
 #define KVIKIO_NVTX_FUNC_RANGE_IMPL() NVTX3_FUNC_RANGE_IN(kvikio::libkvikio_domain)
 
-#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(msg, payload_v, color)                                \
-  kvikio::nvtx_scoped_range_type KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                  \
-  {                                                                                           \
-    nvtx3::event_attributes                                                                   \
-    {                                                                                         \
-      KVIKIO_REGISTER_STRING(msg), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}, color \
-    }                                                                                         \
+// Implementation of KVIKIO_NVTX_SCOPED_RANGE(...)
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload_v, color)                                \
+  kvikio::nvtx_scoped_range_type KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                      \
+  {                                                                                               \
+    nvtx3::event_attributes                                                                       \
+    {                                                                                             \
+      KVIKIO_REGISTER_STRING(message), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}, color \
+    }                                                                                             \
   }
-#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(msg, payload) \
-  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(msg, payload, kvikio::nvtx_manager::default_color())
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(message, payload) \
+  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload, kvikio::nvtx_manager::default_color())
 #define KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(_1, _2, _3, NAME, ...) NAME
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL(...)                                         \
   KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(                                               \
     __VA_ARGS__, KVIKIO_NVTX_SCOPED_RANGE_IMPL_3, KVIKIO_NVTX_SCOPED_RANGE_IMPL_2) \
   (__VA_ARGS__)
 
-#define KVIKIO_NVTX_MARKER_IMPL(msg, payload_v)                     \
+// Implementation of KVIKIO_NVTX_MARKER(message, payload)
+#define KVIKIO_NVTX_MARKER_IMPL(message, payload_v)                 \
   nvtx3::mark_in<kvikio::libkvikio_domain>(nvtx3::event_attributes{ \
-    KVIKIO_REGISTER_STRING(msg), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}})
+    KVIKIO_REGISTER_STRING(message), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}})
 
 #endif
 
@@ -164,8 +166,8 @@ class nvtx_manager {
 #ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_SCOPED_RANGE(...) KVIKIO_NVTX_SCOPED_RANGE_IMPL(__VA_ARGS__)
 #else
-#define KVIKIO_NVTX_SCOPED_RANGE(msg, payload, ...) \
-  do {                                              \
+#define KVIKIO_NVTX_SCOPED_RANGE(message, payload, ...) \
+  do {                                                  \
   } while (0)
 #endif
 
