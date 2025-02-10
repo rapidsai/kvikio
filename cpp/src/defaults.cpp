@@ -51,7 +51,7 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 }
 
 std::vector<int> parse_http_status_codes(std::string_view env_var_name,
-                                         std::string_view status_codes)
+                                         std::string const status_codes)
 {
   // Ensure `status_codes` consists only of 3-digit integers separated by commas, allowing spaces.
   std::regex const check_pattern(R"(^\s*\d{3}\s*(\s*,\s*\d{3}\s*)*$)");
