@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -24,8 +24,6 @@ function(find_and_configure_libcurl)
   rapids_cpm_find(
     CURL 8.5.0
     GLOBAL_TARGETS libcurl
-    BUILD_EXPORT_SET kvikio-exports
-    INSTALL_EXPORT_SET kvikio-exports
     CPM_ARGS
     GIT_REPOSITORY https://github.com/curl/curl
     GIT_TAG curl-8_5_0
