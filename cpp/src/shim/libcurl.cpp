@@ -121,7 +121,8 @@ void CurlHandle::perform()
 {
   long http_code          = 0;
   int attempt_count       = 1;
-  int base_delay          = 100;  // milliseconds
+  int base_delay          = 500;   // milliseconds
+  int max_delay           = 4000;  // milliseconds
   auto http_max_attempts  = kvikio::defaults::http_max_attempts();
   auto& http_status_codes = kvikio::defaults::http_status_codes();
 
@@ -141,8 +142,11 @@ void CurlHandle::perform()
            << " reason=" << http_code;
         throw std::runtime_error(ss.str());
       } else {
+        // backoff and retry again. With a base value of 500, we retry after
+        // 500ms, 1s, 2s, 4s, ...
         int backoff_delay = base_delay * (1 << attempt_count);
-        int delay         = std::max(1, backoff_delay);
+        // up to a maximum of `max_delay` seconds.
+        int delay = std::min(max_delay, backoff_delay);
 
         attempt_count++;
         std::cout << "Retrying. reason=" << http_code << " after=" << delay

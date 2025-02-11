@@ -187,19 +187,20 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         a.tofile(tmpdir / "a")
         b = xp.empty_like(a)
 
-        with pytest.raises(RuntimeError) as m:
+        with pytest.raises(RuntimeError) as m, kvikio.defaults.set_http_max_attempts(2):
             with kvikio.RemoteFile.open_http(f"{server.url}/a") as f:
                 f.read(b)
 
         assert m.match("kvikio http_max_attempts_reached")
-        assert m.match("attempts=3")
+        assert m.match("attempts=2")
         assert m.match("reason=503")
         captured = capfd.readouterr()
 
         records = captured.out.strip().split("\n")
-        assert len(records) == 2
+        assert len(records) == 1
         assert (
-            records[0] == "Retrying. reason=503 after=200 attempt=2 http_max_attempts=3"
+            records[0]
+            == "Retrying. reason=503 after=1000 attempt=2 http_max_attempts=2"
         )
 
 
