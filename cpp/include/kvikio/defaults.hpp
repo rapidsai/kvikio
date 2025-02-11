@@ -68,7 +68,7 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
  * @return The vector with the parsed, integer HTTP status codes.
  */
 std::vector<int> parse_http_status_codes(std::string_view env_var_name,
-                                         std::string const status_codes);
+                                         std::string const& status_codes);
 
 }  // namespace detail
 

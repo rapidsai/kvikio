@@ -118,17 +118,16 @@ CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 
 void CurlHandle::perform()
 {
-  CURLcode err;
-  long http_code                            = 0;
-  int attempt_count                         = 1;
-  int baseDelay                             = 100;  // milliseconds
-  std::size_t http_max_attempts             = kvikio::defaults::http_max_attempts();
-  std::vector<int> const& http_status_codes = kvikio::defaults::http_status_codes();
+  long http_code          = 0;
+  int attempt_count       = 1;
+  int base_delay          = 100;  // milliseconds
+  auto http_max_attempts  = kvikio::defaults::http_max_attempts();
+  auto& http_status_codes = kvikio::defaults::http_status_codes();
 
   while (attempt_count <= http_max_attempts) {
     std::stringstream ss;
 
-    CURLcode err = curl_easy_perform(handle());
+    auto err = curl_easy_perform(handle());
     curl_easy_getinfo(handle(), CURLINFO_RESPONSE_CODE, &http_code);
 
     // Check if we should retry based on HTTP status code
@@ -142,8 +141,8 @@ void CurlHandle::perform()
         ss << "Max attempts reached." << std::endl;
         throw std::runtime_error(ss.str());
       } else {
-        int backoffDelay = baseDelay * (1 << attempt_count);
-        int delay        = std::max(1, backoffDelay);
+        int backoff_delay = base_delay * (1 << attempt_count);
+        int delay         = std::max(1, backoff_delay);
 
         attempt_count++;
         ss << "Retrying. after=" << delay << " attempt=" << attempt_count
