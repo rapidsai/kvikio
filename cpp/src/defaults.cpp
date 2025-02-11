@@ -129,6 +129,16 @@ defaults::defaults()
     }
     _http_max_attempts = env;
   }
+
+  // Determine the default value of `http_timeout`
+  {
+    const long env = getenv_or("KVIKIO_HTTP_TIMEOUT", 60);
+    if (env <= 0) {
+      throw std::invalid_argument("KVIKIO_HTTP_TIMEOUT has to be a positive integer");
+    }
+    _http_timeout = env;
+  }
+
   // Determine the default value of `http_status_codes`
   {
     _http_status_codes =
@@ -211,10 +221,18 @@ void defaults::http_max_attempts_reset(std::size_t attempts)
 }
 
 std::vector<int> const& defaults::http_status_codes() { return instance()->_http_status_codes; }
-
 void defaults::http_status_codes_reset(std::vector<int> status_codes)
 {
   instance()->_http_status_codes = std::move(status_codes);
+}
+
+long defaults::http_timeout() { return instance()->_http_timeout; }
+void defaults::http_timeout_reset(long timeout_seconds)
+{
+  if (timeout_seconds <= 0) {
+    throw std::invalid_argument("timeout_seconds must be a positive integer");
+  }
+  instance()->_http_timeout = timeout_seconds;
 }
 
 }  // namespace kvikio

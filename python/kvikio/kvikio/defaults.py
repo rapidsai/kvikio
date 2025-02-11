@@ -297,6 +297,49 @@ def set_http_max_attempts(attempts: int):
         http_max_attempts_reset(old_value)
 
 
+def http_timeout() -> int:
+    """Get the maximum duration, in seconds, HTTP requests are allowed to take.
+
+    Set the value using :py:func:``kvikio.defaults.set_http_timeout`` or by
+    setting the ``KVIKIO_HTTP_TIMEOUT`` environment variable. If not set, the
+    default value is 60.
+
+    Returns
+    -------
+    timeout : int
+        The maximum duration HTTP requests are allowed to take.
+    """
+    return kvikio._lib.defaults.http_timeout()
+
+
+def http_timeout_reset(timeout_seconds: int) -> None:
+    """Reset the maximum duration HTTP requests are allowed to take.
+
+    Parameters
+    ----------
+    timeout_seconds : int
+        The maximum duration, in seconds, HTTP requests are allowed to take.
+    """
+    kvikio._lib.defaults.http_timeout_reset(timeout_seconds)
+
+
+@contextlib.contextmanager
+def set_http_timeout(timeout_seconds: int):
+    """Context for resetting the the maximum duration of HTTP requests.
+
+    Parameters
+    ----------
+    timeout_seconds : int
+        The maximum duration, in seconds, HTTP requests are allowed to take.
+    """
+    old_value = http_timeout()
+    try:
+        http_timeout_reset(timeout_seconds)
+        yield
+    finally:
+        http_timeout_reset(old_value)
+
+
 def http_status_codes() -> list[int]:
     """Get the list of HTTP status codes to retry.
 

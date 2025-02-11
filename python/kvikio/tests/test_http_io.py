@@ -3,6 +3,7 @@
 
 
 import http
+import time
 from http.server import SimpleHTTPRequestHandler
 from typing import Literal
 
@@ -22,11 +23,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-class ErrorCounter:
+class RequestCounter:
     # ThreadedHTTPServer creates a new handler per request.
     # This lets us share some state between requests.
     def __init__(self):
-        self.value = 0
+        self.error_count = 0
+        self.delay_count = 0
 
 
 class HTTP503Handler(SimpleHTTPRequestHandler):
@@ -35,34 +37,49 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
 
     Parameters
     ----------
-    error_counter : ErrorCounter
-        A class with a mutable `value` for the number of 503 errors that have
-        been returned.
+    request_counter : RequestCounter
+        A class with a mutable values to track the number of 503 errors and delayed
+        responses that have been returned.
     max_error_count : int
         The number of times to respond with a 503 before responding normally.
+    delay_duration : int
+        The duration, in seconds, to sleep before responding to a GET request
+        when this handler has handled fewer than `max_delay_count` requests.
+    max_delay_count : int
+        The maximum number of requests to delay for `delay_duration`.
     """
 
     def __init__(
         self,
         *args,
         directory=None,
-        error_counter: ErrorCounter = ErrorCounter(),
+        request_counter: RequestCounter = RequestCounter(),
         max_error_count: int = 1,
+        delay_duration: int = 0,
+        max_delay_count: int = 1,
         **kwargs,
     ):
         self.max_error_count = max_error_count
-        self.error_counter = error_counter
+        self.request_counter = request_counter
+        self.delay_duration = delay_duration
+        self.max_delay_count = max_delay_count
         super().__init__(*args, directory=directory, **kwargs)
 
     def _do_with_error_count(self, method: Literal["GET", "HEAD"]) -> None:
-        if self.error_counter.value < self.max_error_count:
-            self.error_counter.value += 1
+        if self.request_counter.error_count < self.max_error_count:
+            self.request_counter.error_count += 1
             self.send_error(http.HTTPStatus.SERVICE_UNAVAILABLE)
-            self.send_header("CurrentErrorCount", str(self.error_counter.value))
+            self.send_header("CurrentErrorCount", str(self.request_counter.error_count))
             self.send_header("MaxErrorCount", str(self.max_error_count))
             return None
         else:
             if method == "GET":
+                if (
+                    self.delay_duration > 0
+                    and self.request_counter.delay_count < self.max_delay_count
+                ):
+                    self.request_counter.delay_count += 1
+                    time.sleep(self.delay_duration)
                 return super().do_GET()
             else:
                 return super().do_HEAD()
@@ -166,7 +183,7 @@ def test_retry_http_503_ok(tmpdir, xp):
         tmpdir,
         max_lifetime=60,
         handler=HTTP503Handler,
-        handler_options={"error_counter": ErrorCounter()},
+        handler_options={"request_counter": RequestCounter()},
     ) as server:
         http_server = server.url
         b = xp.empty_like(a)
@@ -181,7 +198,7 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         tmpdir,
         max_lifetime=60,
         handler=HTTP503Handler,
-        handler_options={"error_counter": ErrorCounter(), "max_error_count": 100},
+        handler_options={"request_counter": RequestCounter(), "max_error_count": 100},
     ) as server:
         a = xp.arange(100, dtype="uint8")
         a.tofile(tmpdir / "a")
@@ -219,12 +236,34 @@ def test_no_retries_ok(tmpdir):
                 f.read(b)
 
 
+def test_retry_timeout_ok(tmpdir):
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=HTTP503Handler,
+        handler_options={
+            "request_counter": RequestCounter(),
+            "delay_duration": 2,
+            "max_error_count": 0,
+        },
+    ) as server:
+        http_server = server.url
+        b = np.empty_like(a)
+        with kvikio.defaults.set_http_timeout(1):
+            with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+                assert f.nbytes() == a.nbytes
+                assert f"{http_server}/a" in str(f)
+                f.read(b)
+
+
 def test_set_http_status_code(tmpdir):
     with LocalHttpServer(
         tmpdir,
         max_lifetime=60,
         handler=HTTP503Handler,
-        handler_options={"error_counter": ErrorCounter()},
+        handler_options={"request_counter": RequestCounter()},
     ) as server:
         http_server = server.url
         with kvikio.defaults.set_http_status_codes([429]):
@@ -233,3 +272,40 @@ def test_set_http_status_code(tmpdir):
             with pytest.raises(RuntimeError, match="503"):
                 with kvikio.RemoteFile.open_http(f"{http_server}/a"):
                     pass
+
+
+def test_timeout_raises(tmpdir, capfd):
+    # This server / settings setup will make 2 requests.
+    # The first request times out after 1s and is retried.
+    # The second request times out after 1s and throws an exception.
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=HTTP503Handler,
+        handler_options={
+            "request_counter": RequestCounter(),
+            "max_error_count": 0,
+            "delay_duration": 2,
+            "max_delay_count": 10,
+        },
+    ) as server:
+        http_server = server.url
+        b = np.empty_like(a)
+        with kvikio.defaults.set_http_max_attempts(2), kvikio.defaults.set_http_timeout(
+            1
+        ):
+            # TODO: this should raise a TimeoutError
+            with pytest.raises(RuntimeError) as m:
+                with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+                    assert f.nbytes() == a.nbytes
+                    f.read(b)
+            assert m.match("KvikIO: HTTP request reached maximum number of attempts")
+            assert m.match("Operation timed out.")
+
+    captured = capfd.readouterr()
+    records = captured.out.strip().split("\n")
+    assert len(records) == 1
+    assert records[0] == "KvikIO: Timeout error. Retrying after 500ms (attempt 1 of 2)."
