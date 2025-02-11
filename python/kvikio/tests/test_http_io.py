@@ -191,16 +191,15 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
             with kvikio.RemoteFile.open_http(f"{server.url}/a") as f:
                 f.read(b)
 
-        assert m.match("kvikio http_max_attempts_reached")
-        assert m.match("attempts=2")
-        assert m.match("reason=503")
+        assert m.match(r"KvikIO: HTTP request reached maximum number of attempts \(2\)")
+        assert m.match("Got HTTP code 503")
         captured = capfd.readouterr()
 
         records = captured.out.strip().split("\n")
         assert len(records) == 1
-        assert (
-            records[0]
-            == "Retrying. reason=503 after=1000 attempt=2 http_max_attempts=2"
+        assert records[0] == (
+            "KvikIO: Retrying HTTP request. Got HTTP code 503 after 500ms "
+            "(attempt 2 of 2)."
         )
 
 

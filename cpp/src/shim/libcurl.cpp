@@ -120,9 +120,9 @@ CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 void CurlHandle::perform()
 {
   long http_code          = 0;
-  int attempt_count       = 1;
-  int base_delay          = 500;   // milliseconds
-  int max_delay           = 4000;  // milliseconds
+  auto attempt_count      = 1;
+  auto base_delay         = 500;   // milliseconds
+  auto max_delay          = 4000;  // milliseconds
   auto http_max_attempts  = kvikio::defaults::http_max_attempts();
   auto& http_status_codes = kvikio::defaults::http_status_codes();
 
@@ -136,21 +136,21 @@ void CurlHandle::perform()
       // Retry only if one of the specified status codes is returned
       // TODO: Parse the Retry-After header, if it exists.
       // TODO: configurable maximum wait.
-      if (attempt_count == http_max_attempts) {
+      if (attempt_count >= http_max_attempts) {
         std::stringstream ss;
-        ss << "kvikio http_max_attempts_reached. attempts=" << http_max_attempts
-           << " reason=" << http_code;
+        ss << "KvikIO: HTTP request reached maximum number of attempts (" << http_max_attempts
+           << "). Got HTTP code " << http_code << ".";
         throw std::runtime_error(ss.str());
       } else {
-        // backoff and retry again. With a base value of 500, we retry after
+        // backoff and retry again. With a base value of 500ms, we retry after
         // 500ms, 1s, 2s, 4s, ...
-        int backoff_delay = base_delay * (1 << attempt_count);
+        auto const backoff_delay = base_delay * (1 << std::min(attempt_count - 1, 4));
         // up to a maximum of `max_delay` seconds.
-        int delay = std::min(max_delay, backoff_delay);
+        auto const delay = std::min(max_delay, backoff_delay);
 
         attempt_count++;
-        std::cout << "Retrying. reason=" << http_code << " after=" << delay
-                  << " attempt=" << attempt_count << " http_max_attempts=" << http_max_attempts
+        std::cout << "KvikIO: Retrying HTTP request. Got HTTP code " << http_code << " after "
+                  << delay << "ms (attempt " << attempt_count << " of " << http_max_attempts << ")."
                   << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(delay));
       }

@@ -168,13 +168,9 @@ defaults::defaults()
   }
   // Determine the default value of `http_max_attempts`
   {
-    const ssize_t env         = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
-    auto upperbound_exclusive = sizeof(int);
+    const ssize_t env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
     if (env <= 0) {
       throw std::invalid_argument("KVIKIO_HTTP_MAX_ATTEMPTS has to be a positive integer");
-    } else if (env >= upperbound_exclusive) {
-      throw std::invalid_argument("KVIKIO_HTTP_MAX_ATTEMPTS must be less than " +
-                                  std::to_string(upperbound_exclusive));
     }
     _http_max_attempts = env;
   }
@@ -255,13 +251,7 @@ std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempt
 
 void defaults::http_max_attempts_reset(std::size_t attempts)
 {
-  auto upperbound_exclusive = sizeof(int);
-  if (attempts == 0) {
-    throw std::invalid_argument("attempts must be a positive integer");
-  } else if (attempts >= upperbound_exclusive) {
-    throw std::invalid_argument("attempts must be less than " +
-                                std::to_string(upperbound_exclusive));
-  }
+  if (attempts == 0) { throw std::invalid_argument("attempts must be a positive integer"); }
   instance()->_http_max_attempts = attempts;
 }
 
