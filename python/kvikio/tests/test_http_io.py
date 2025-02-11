@@ -176,7 +176,7 @@ def test_retry_http_503_ok(tmpdir, xp):
             f.read(b)
 
 
-def test_retry_http_503_fails(tmpdir, xp):
+def test_retry_http_503_fails(tmpdir, xp, capfd):
     with LocalHttpServer(
         tmpdir,
         max_lifetime=60,
@@ -187,9 +187,20 @@ def test_retry_http_503_fails(tmpdir, xp):
         a.tofile(tmpdir / "a")
         b = xp.empty_like(a)
 
-        with pytest.raises(RuntimeError, match="503"):
+        with pytest.raises(RuntimeError) as m:
             with kvikio.RemoteFile.open_http(f"{server.url}/a") as f:
                 f.read(b)
+
+        assert m.match("kvikio http_max_attempts_reached")
+        assert m.match("attempts=3")
+        assert m.match("reason=503")
+        captured = capfd.readouterr()
+
+        records = captured.out.strip().split("\n")
+        assert len(records) == 2
+        assert (
+            records[0] == "Retrying. reason=503 after=200 attempt=2 http_max_attempts=3"
+        )
 
 
 def test_set_http_status_code(tmpdir, xp):

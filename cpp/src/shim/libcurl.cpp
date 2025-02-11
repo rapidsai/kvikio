@@ -17,6 +17,7 @@
 #include <chrono>
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -125,8 +126,6 @@ void CurlHandle::perform()
   auto& http_status_codes = kvikio::defaults::http_status_codes();
 
   while (attempt_count <= http_max_attempts) {
-    std::stringstream ss;
-
     auto err = curl_easy_perform(handle());
     curl_easy_getinfo(handle(), CURLINFO_RESPONSE_CODE, &http_code);
 
@@ -136,21 +135,24 @@ void CurlHandle::perform()
       // Retry only if one of the specified status codes is returned
       // TODO: Parse the Retry-After header, if it exists.
       // TODO: configurable maximum wait.
-      ss << "HTTP " << http_code << std::endl;
       if (attempt_count == http_max_attempts) {
-        ss << "Max attempts reached." << std::endl;
+        std::stringstream ss;
+        ss << "kvikio http_max_attempts_reached. attempts=" << http_max_attempts
+           << " reason=" << http_code;
         throw std::runtime_error(ss.str());
       } else {
         int backoff_delay = base_delay * (1 << attempt_count);
         int delay         = std::max(1, backoff_delay);
 
         attempt_count++;
-        ss << "Retrying. after=" << delay << " attempt=" << attempt_count
-           << " http_max_attempts=" << http_max_attempts << std::endl;
+        std::cout << "Retrying. reason=" << http_code << " after=" << delay
+                  << " attempt=" << attempt_count << " http_max_attempts=" << http_max_attempts
+                  << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(delay));
       }
     } else if (err != CURLE_OK) {
       std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
+      std::stringstream ss;
       ss << "curl_easy_perform() error near " << _source_file << ":" << _source_line;
       if (msg.empty()) {
         ss << "(" << curl_easy_strerror(err) << ")";
