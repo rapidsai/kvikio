@@ -126,7 +126,7 @@ std::future<std::size_t> parallel_io(F op,
   if (remaining_bytes != 0) { ++num_tasks; }
   tasks_before_last.reserve(num_tasks - 1);
 
-  // 1) Submit all tasks before the last one. These are all `task_size` sized tasks.
+  // 1) Submit all tasks but the last one. These are all `task_size` sized tasks.
   for (std::size_t i = 0; i < num_tasks - 1; ++i) {
     tasks_before_last.push_back(
       detail::submit_task(op, buf, task_size, file_offset, devPtr_offset));
@@ -135,7 +135,8 @@ std::future<std::size_t> parallel_io(F op,
     size -= task_size;
   }
 
-  // 2) Submit the last task
+  // 2) Submit the last task, which consists of performing the last I/O and waiting the previous
+  // tasks.
   auto last_task_size = (remaining_bytes == 0) ? task_size : remaining_bytes;
 
   auto last_task = [=, tasks_before_last = std::move(tasks_before_last)]() mutable -> std::size_t {
