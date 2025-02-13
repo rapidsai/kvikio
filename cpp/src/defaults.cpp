@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -47,6 +48,28 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
     throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
   }
   return res;
+}
+
+std::vector<int> parse_http_status_codes(std::string_view env_var_name,
+                                         std::string const& status_codes)
+{
+  // Ensure `status_codes` consists only of 3-digit integers separated by commas, allowing spaces.
+  std::regex const check_pattern(R"(^\s*\d{3}\s*(\s*,\s*\d{3}\s*)*$)");
+  if (!std::regex_match(status_codes, check_pattern)) {
+    throw std::invalid_argument(std::string{env_var_name} +
+                                ": invalid format, expected comma-separated integers.");
+  }
+
+  // Match every integer in `status_codes`.
+  std::regex const number_pattern(R"(\d+)");
+
+  // For each match, we push_back `std::stoi(match.str())` into `ret`.
+  std::vector<int> ret;
+  std::transform(std::sregex_iterator(status_codes.begin(), status_codes.end(), number_pattern),
+                 std::sregex_iterator(),
+                 std::back_inserter(ret),
+                 [](std::smatch const& match) -> int { return std::stoi(match.str()); });
+  return ret;
 }
 
 }  // namespace detail
@@ -91,6 +114,17 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
   return detail::parse_compat_mode_str(env_val);
 }
 
+template <>
+std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val)
+{
+  auto* const env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return std::move(default_val); }
+  std::string const int_str(env_val);
+  if (int_str.empty()) { return std::move(default_val); }
+
+  return detail::parse_http_status_codes(env_var_name, int_str);
+}
+
 unsigned int defaults::get_num_threads_from_env()
 {
   int const ret = getenv_or("KVIKIO_NTHREADS", 1);
@@ -131,6 +165,19 @@ defaults::defaults()
         "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer greater than zero");
     }
     _bounce_buffer_size = env;
+  }
+  // Determine the default value of `http_max_attempts`
+  {
+    const ssize_t env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
+    if (env <= 0) {
+      throw std::invalid_argument("KVIKIO_HTTP_MAX_ATTEMPTS has to be a positive integer");
+    }
+    _http_max_attempts = env;
+  }
+  // Determine the default value of `http_status_codes`
+  {
+    _http_status_codes =
+      getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
 }
 
@@ -198,6 +245,21 @@ void defaults::bounce_buffer_size_reset(std::size_t nbytes)
       "size of the bounce buffer must be a positive integer greater than zero");
   }
   instance()->_bounce_buffer_size = nbytes;
+}
+
+std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }
+
+void defaults::http_max_attempts_reset(std::size_t attempts)
+{
+  if (attempts == 0) { throw std::invalid_argument("attempts must be a positive integer"); }
+  instance()->_http_max_attempts = attempts;
+}
+
+std::vector<int> const& defaults::http_status_codes() { return instance()->_http_status_codes; }
+
+void defaults::http_status_codes_reset(std::vector<int> status_codes)
+{
+  instance()->_http_status_codes = std::move(status_codes);
 }
 
 }  // namespace kvikio
