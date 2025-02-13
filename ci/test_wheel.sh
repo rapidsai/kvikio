@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 
 set -eou pipefail
 
@@ -9,7 +9,7 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp ./dist
 RAPIDS_PY_WHEEL_NAME="kvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./dist
 
-python -m pip install -v \
+rapids-pip-retry install -v \
   "$(echo ./dist/libkvikio_${RAPIDS_PY_CUDA_SUFFIX}*.whl)" \
   "$(echo ./dist/kvikio_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 

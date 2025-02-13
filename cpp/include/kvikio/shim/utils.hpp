@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@
 
 #include <dlfcn.h>
 #include <sys/utsname.h>
-#include <filesystem>
-#include <sstream>
+#include <string>
 #include <vector>
 
 namespace kvikio {
@@ -46,13 +45,7 @@ namespace kvikio {
  * @param name Name of the library to load.
  * @return The library handle.
  */
-inline void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE)
-{
-  ::dlerror();  // Clear old errors
-  void* ret = ::dlopen(name, mode);
-  if (ret == nullptr) { throw std::runtime_error(::dlerror()); }
-  return ret;
-}
+void* load_library(std::string const& name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
 
 /**
  * @brief Load shared library
@@ -60,19 +53,8 @@ inline void* load_library(const char* name, int mode = RTLD_LAZY | RTLD_LOCAL | 
  * @param names Vector of names to try when loading shared library.
  * @return The library handle.
  */
-inline void* load_library(const std::vector<const char*>& names,
-                          int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE)
-{
-  std::stringstream ss;
-  for (const char* name : names) {
-    ss << name << " ";
-    try {
-      return load_library(name, mode);
-    } catch (const std::runtime_error&) {
-    }
-  }
-  throw std::runtime_error("cannot open shared object file, tried: " + ss.str());
-}
+void* load_library(std::vector<std::string> const& names,
+                   int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
 
 /**
  * @brief Get symbol using `dlsym`
@@ -83,11 +65,11 @@ inline void* load_library(const std::vector<const char*>& names,
  * @param name Name of the symbol/function to load.
  */
 template <typename T>
-void get_symbol(T& handle, void* lib, const char* name)
+void get_symbol(T& handle, void* lib, std::string const& name)
 {
   ::dlerror();  // Clear old errors
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  handle          = reinterpret_cast<T>(::dlsym(lib, name));
+  handle          = reinterpret_cast<T>(::dlsym(lib, name.c_str()));
   const char* err = ::dlerror();
   if (err != nullptr) { throw std::runtime_error(err); }
 }
@@ -99,17 +81,7 @@ void get_symbol(T& handle, void* lib, const char* name)
  *
  * @return The boolean answer
  */
-[[nodiscard]] inline bool is_running_in_wsl()
-{
-  struct utsname buf {};
-  int err = ::uname(&buf);
-  if (err == 0) {
-    const std::string name(static_cast<char*>(buf.release));
-    // 'Microsoft' for WSL1 and 'microsoft' for WSL2
-    return name.find("icrosoft") != std::string::npos;
-  }
-  return false;
-}
+[[nodiscard]] bool is_running_in_wsl() noexcept;
 
 /**
  * @brief Check if `/run/udev` is readable
@@ -120,13 +92,6 @@ void get_symbol(T& handle, void* lib, const char* name)
  *
  * @return The boolean answer
  */
-[[nodiscard]] inline bool run_udev_readable()
-{
-  try {
-    return std::filesystem::is_directory("/run/udev");
-  } catch (const std::filesystem::filesystem_error&) {
-    return false;
-  }
-}
+[[nodiscard]] bool run_udev_readable() noexcept;
 
 }  // namespace kvikio

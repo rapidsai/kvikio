@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,24 +15,9 @@
  */
 #pragma once
 
-#include <cstdlib>
-#include <filesystem>
-#include <string>
-
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-namespace detail {
-
-[[nodiscard]] inline const char* lookup_config_path()
-{
-  const char* env = std::getenv("CUFILE_ENV_PATH_JSON");
-  if (env != nullptr && std::filesystem::exists(env)) { return env; }
-  if (std::filesystem::exists("/etc/cufile.json")) { return "/etc/cufile.json"; }
-  return "";
-}
-
-}  // namespace detail
 
 /**
  * @brief Get the filepath to cuFile's config file (`cufile.json`) or the empty string
@@ -41,10 +26,6 @@ namespace detail {
  *
  * @return The filepath to the cufile.json file or the empty string if it isn't found.
  */
-[[nodiscard]] KVIKIO_EXPORT inline const std::string& config_path()
-{
-  static const std::string ret = detail::lookup_config_path();
-  return ret;
-}
+[[nodiscard]] KVIKIO_EXPORT const std::string& config_path();
 
 }  // namespace kvikio

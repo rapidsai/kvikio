@@ -105,7 +105,7 @@ repos:
       - id: verify-alpha-spec
         args: ["--fix", "--mode=release"]
   - repo: https://github.com/rapidsai/dependency-file-generator
-    rev: v1.16.0
+    rev: v1.17.0
     hooks:
       - id: rapids-dependency-file-generator
         args: ["--clean"]

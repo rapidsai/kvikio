@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,31 +65,9 @@ class StreamsByThread {
   // cuDevicePrimaryCtxReset() or cudaDeviceReset() before program termination.
   ~StreamsByThread() = default;
 
-  KVIKIO_EXPORT static CUstream get(CUcontext ctx, std::thread::id thd_id)
-  {
-    static StreamsByThread _instance;
+  KVIKIO_EXPORT static CUstream get(CUcontext ctx, std::thread::id thd_id);
 
-    // If no current context, we return the null/default stream
-    if (ctx == nullptr) { return nullptr; }
-    auto key = std::make_pair(ctx, thd_id);
-
-    // Create a new stream if `ctx` doesn't have one.
-    if (auto search = _instance._streams.find(key); search == _instance._streams.end()) {
-      CUstream stream{};
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
-      _instance._streams[key] = stream;
-      return stream;
-    } else {
-      return search->second;
-    }
-  }
-
-  static CUstream get()
-  {
-    CUcontext ctx{nullptr};
-    CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
-    return get(ctx, std::this_thread::get_id());
-  }
+  static CUstream get();
 
   StreamsByThread(const StreamsByThread&)            = delete;
   StreamsByThread& operator=(StreamsByThread const&) = delete;
@@ -251,16 +229,11 @@ std::size_t posix_host_write(int fd, const void* buf, std::size_t size, std::siz
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
  * @return Size of bytes that were successfully read.
  */
-inline std::size_t posix_device_read(int fd,
-                                     const void* devPtr_base,
-                                     std::size_t size,
-                                     std::size_t file_offset,
-                                     std::size_t devPtr_offset)
-{
-  KVIKIO_NVTX_SCOPED_RANGE("posix_device_read()", size);
-  return detail::posix_device_io<IOOperationType::READ>(
-    fd, devPtr_base, size, file_offset, devPtr_offset);
-}
+std::size_t posix_device_read(int fd,
+                              const void* devPtr_base,
+                              std::size_t size,
+                              std::size_t file_offset,
+                              std::size_t devPtr_offset);
 
 /**
  * @brief Write device memory to disk using POSIX
@@ -275,15 +248,10 @@ inline std::size_t posix_device_read(int fd,
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
  * @return Size of bytes that were successfully written.
  */
-inline std::size_t posix_device_write(int fd,
-                                      const void* devPtr_base,
-                                      std::size_t size,
-                                      std::size_t file_offset,
-                                      std::size_t devPtr_offset)
-{
-  KVIKIO_NVTX_SCOPED_RANGE("posix_device_write()", size);
-  return detail::posix_device_io<IOOperationType::WRITE>(
-    fd, devPtr_base, size, file_offset, devPtr_offset);
-}
+std::size_t posix_device_write(int fd,
+                               const void* devPtr_base,
+                               std::size_t size,
+                               std::size_t file_offset,
+                               std::size_t devPtr_offset);
 
 }  // namespace kvikio::detail

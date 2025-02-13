@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,101 +33,6 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-namespace detail {
-
-/**
- * @brief Bounce buffer in pinned host memory.
- *
- * @note Is not thread-safe.
- */
-class BounceBufferH2D {
-  CUstream _stream;                 // The CUDA stream to use.
-  CUdeviceptr _dev;                 // The output device buffer.
-  AllocRetain::Alloc _host_buffer;  // The host buffer to bounce data on.
-  std::ptrdiff_t _dev_offset{0};    // Number of bytes written to `_dev`.
-  std::ptrdiff_t _host_offset{0};   // Number of bytes written to `_host` (resets on flush).
-
- public:
-  /**
-   * @brief Create a bounce buffer for an output device buffer.
-   *
-   * @param stream The CUDA stream used throughout the lifetime of the bounce buffer.
-   * @param device_buffer The output device buffer (final destination of the data).
-   */
-  BounceBufferH2D(CUstream stream, void* device_buffer)
-    : _stream{stream},
-      _dev{convert_void2deviceptr(device_buffer)},
-      _host_buffer{AllocRetain::instance().get()}
-  {
-  }
-
-  /**
-   * @brief The bounce buffer if flushed to device on destruction.
-   */
-  ~BounceBufferH2D() noexcept
-  {
-    try {
-      flush();
-    } catch (CUfileException const& e) {
-      std::cerr << "BounceBufferH2D error on final flush: ";
-      std::cerr << e.what();
-      std::cerr << std::endl;
-    }
-  }
-
- private:
-  /**
-   * @brief Write host memory to the output device buffer.
-   *
-   * @param src The host memory source.
-   * @param size Number of bytes to write.
-   */
-  void write_to_device(void const* src, std::size_t size)
-  {
-    if (size > 0) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(_dev + _dev_offset, src, size, _stream));
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
-      _dev_offset += size;
-    }
-  }
-
-  /**
-   * @brief Flush the bounce buffer by writing everything to the output device buffer.
-   */
-  void flush()
-  {
-    write_to_device(_host_buffer.get(), _host_offset);
-    _host_offset = 0;
-  }
-
- public:
-  /**
-   * @brief Write host memory to the bounce buffer (also host memory).
-   *
-   * Only when the bounce buffer has been filled up is data copied to the output device buffer.
-   *
-   * @param data The host memory source.
-   * @param size Number of bytes to write.
-   */
-  void write(char const* data, std::size_t size)
-  {
-    if (_host_buffer.size() - _host_offset < size) {  // Not enough space left in the bounce buffer
-      flush();
-      assert(_host_offset == 0);
-    }
-    if (_host_buffer.size() < size) {
-      // If still not enough space, we just copy the data to the device. This only happens when
-      // `defaults::bounce_buffer_size()` is smaller than 16kb thus no need to performance
-      // optimize for this case.
-      write_to_device(data, size);
-    } else if (size > 0) {
-      std::memcpy(_host_buffer.get(_host_offset), data, size);
-      _host_offset += size;
-    }
-  }
-};
-
-}  // namespace detail
 
 class CurlHandle;  // Prototype
 
@@ -173,9 +78,9 @@ class HttpEndpoint : public RemoteEndpoint {
    *
    * @param url The full http url to the remote file.
    */
-  HttpEndpoint(std::string url) : _url{std::move(url)} {}
+  HttpEndpoint(std::string url);
   void setopt(CurlHandle& curl) override;
-  std::string str() const override { return _url; }
+  std::string str() const override;
   ~HttpEndpoint() override = default;
 };
 
@@ -203,17 +108,7 @@ class S3Endpoint : public RemoteEndpoint {
    */
   static std::string unwrap_or_default(std::optional<std::string> aws_arg,
                                        std::string const& env_var,
-                                       std::string const& err_msg = "")
-  {
-    if (aws_arg.has_value()) { return std::move(*aws_arg); }
-
-    char const* env = std::getenv(env_var.c_str());
-    if (env == nullptr) {
-      if (err_msg.empty()) { return std::string(); }
-      throw std::invalid_argument(err_msg);
-    }
-    return std::string(env);
-  }
+                                       std::string const& err_msg = "");
 
  public:
   /**
@@ -234,22 +129,7 @@ class S3Endpoint : public RemoteEndpoint {
   static std::string url_from_bucket_and_object(std::string const& bucket_name,
                                                 std::string const& object_name,
                                                 std::optional<std::string> const& aws_region,
-                                                std::optional<std::string> aws_endpoint_url)
-  {
-    auto const endpoint_url = unwrap_or_default(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
-    std::stringstream ss;
-    if (endpoint_url.empty()) {
-      auto const region =
-        unwrap_or_default(std::move(aws_region),
-                          "AWS_DEFAULT_REGION",
-                          "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
-      // We default to the official AWS url scheme.
-      ss << "https://" << bucket_name << ".s3." << region << ".amazonaws.com/" << object_name;
-    } else {
-      ss << endpoint_url << "/" << bucket_name << "/" << object_name;
-    }
-    return ss.str();
-  }
+                                                std::optional<std::string> aws_endpoint_url);
 
   /**
    * @brief Given an url like "s3://<bucket>/<object>", return the name of the bucket and object.
@@ -259,14 +139,7 @@ class S3Endpoint : public RemoteEndpoint {
    * @param s3_url S3 url.
    * @return Pair of strings: [bucket-name, object-name].
    */
-  [[nodiscard]] static std::pair<std::string, std::string> parse_s3_url(std::string const& s3_url)
-  {
-    // Regular expression to match s3://<bucket>/<object>
-    std::regex const pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
-    std::smatch matches;
-    if (std::regex_match(s3_url, matches, pattern)) { return {matches[1].str(), matches[2].str()}; }
-    throw std::invalid_argument("Input string does not match the expected S3 URL format.");
-  }
+  [[nodiscard]] static std::pair<std::string, std::string> parse_s3_url(std::string const& s3_url);
 
   /**
    * @brief Create a S3 endpoint from a url.
@@ -284,46 +157,7 @@ class S3Endpoint : public RemoteEndpoint {
   S3Endpoint(std::string url,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
-             std::optional<std::string> aws_secret_access_key = std::nullopt)
-    : _url{std::move(url)}
-  {
-    // Regular expression to match http[s]://
-    std::regex pattern{R"(^https?://.*)", std::regex_constants::icase};
-    if (!std::regex_search(_url, pattern)) {
-      throw std::invalid_argument("url must start with http:// or https://");
-    }
-
-    auto const region =
-      unwrap_or_default(std::move(aws_region),
-                        "AWS_DEFAULT_REGION",
-                        "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
-
-    auto const access_key =
-      unwrap_or_default(std::move(aws_access_key),
-                        "AWS_ACCESS_KEY_ID",
-                        "S3: must provide `aws_access_key` if AWS_ACCESS_KEY_ID isn't set.");
-
-    auto const secret_access_key = unwrap_or_default(
-      std::move(aws_secret_access_key),
-      "AWS_SECRET_ACCESS_KEY",
-      "S3: must provide `aws_secret_access_key` if AWS_SECRET_ACCESS_KEY isn't set.");
-
-    // Create the CURLOPT_AWS_SIGV4 option
-    {
-      std::stringstream ss;
-      ss << "aws:amz:" << region << ":s3";
-      _aws_sigv4 = ss.str();
-    }
-    // Create the CURLOPT_USERPWD option
-    // Notice, curl uses `secret_access_key` to generate a AWS V4 signature. It is NOT included
-    // in the http header. See
-    // <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html>
-    {
-      std::stringstream ss;
-      ss << access_key << ":" << secret_access_key;
-      _aws_userpwd = ss.str();
-    }
-  }
+             std::optional<std::string> aws_secret_access_key = std::nullopt);
 
   /**
    * @brief Create a S3 endpoint from a bucket and object name.
@@ -346,17 +180,10 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
              std::optional<std::string> aws_secret_access_key = std::nullopt,
-             std::optional<std::string> aws_endpoint_url      = std::nullopt)
-    : S3Endpoint(url_from_bucket_and_object(
-                   bucket_name, object_name, aws_region, std::move(aws_endpoint_url)),
-                 std::move(aws_region),
-                 std::move(aws_access_key),
-                 std::move(aws_secret_access_key))
-  {
-  }
+             std::optional<std::string> aws_endpoint_url      = std::nullopt);
 
   void setopt(CurlHandle& curl) override;
-  std::string str() const override { return _url; }
+  std::string str() const override;
   ~S3Endpoint() override = default;
 };
 
@@ -375,10 +202,7 @@ class RemoteHandle {
    * @param endpoint Remote endpoint used for subsequent IO.
    * @param nbytes The size of the remote file (in bytes).
    */
-  RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
-    : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
-  {
-  }
+  RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes);
 
   /**
    * @brief Create a new remote handle from an endpoint (infers the file size).
@@ -402,14 +226,14 @@ class RemoteHandle {
    *
    * @return The number of bytes.
    */
-  [[nodiscard]] std::size_t nbytes() const noexcept { return _nbytes; }
+  [[nodiscard]] std::size_t nbytes() const noexcept;
 
   /**
    * @brief Get a const reference to the underlying remote endpoint.
    *
    * @return The remote endpoint.
    */
-  [[nodiscard]] RemoteEndpoint const& endpoint() const noexcept { return *_endpoint; }
+  [[nodiscard]] RemoteEndpoint const& endpoint() const noexcept;
 
   /**
    * @brief Read from remote source into buffer (host or device memory).

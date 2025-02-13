@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <mutex>
 #include <stack>
 
 #include <kvikio/defaults.hpp>
@@ -47,18 +46,15 @@ class AllocRetain {
     std::size_t const _size;
 
    public:
-    Alloc(AllocRetain* manager, void* alloc, std::size_t size)
-      : _manager(manager), _alloc{alloc}, _size{size}
-    {
-    }
+    Alloc(AllocRetain* manager, void* alloc, std::size_t size);
     Alloc(Alloc const&)            = delete;
     Alloc& operator=(Alloc const&) = delete;
     Alloc(Alloc&& o)               = delete;
     Alloc& operator=(Alloc&& o)    = delete;
-    ~Alloc() noexcept { _manager->put(_alloc, _size); }
-    void* get() noexcept { return _alloc; }
-    void* get(std::ptrdiff_t offset) noexcept { return static_cast<char*>(_alloc) + offset; }
-    std::size_t size() noexcept { return _size; }
+    ~Alloc() noexcept;
+    void* get() noexcept;
+    void* get(std::ptrdiff_t offset) noexcept;
+    std::size_t size() noexcept;
   };
 
   AllocRetain() = default;
@@ -77,80 +73,28 @@ class AllocRetain {
    *
    * @return The number of bytes cleared
    */
-  std::size_t _clear()
-  {
-    std::size_t ret = _free_allocs.size() * _size;
-    while (!_free_allocs.empty()) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
-      _free_allocs.pop();
-    }
-    return ret;
-  }
+  std::size_t _clear();
 
   /**
    * @brief Ensure the sizes of the retained allocations match `defaults::bounce_buffer_size()`
    *
    * NB: `_mutex` must be taken prior to calling this function.
    */
-  void _ensure_alloc_size()
-  {
-    auto const bounce_buffer_size = defaults::bounce_buffer_size();
-    if (_size != bounce_buffer_size) {
-      _clear();
-      _size = bounce_buffer_size;
-    }
-  }
+  void _ensure_alloc_size();
 
  public:
-  [[nodiscard]] Alloc get()
-  {
-    std::lock_guard const lock(_mutex);
-    _ensure_alloc_size();
+  [[nodiscard]] Alloc get();
 
-    // Check if we have an allocation available
-    if (!_free_allocs.empty()) {
-      void* ret = _free_allocs.top();
-      _free_allocs.pop();
-      return Alloc(this, ret, _size);
-    }
-
-    // If no available allocation, allocate and register a new one
-    void* alloc{};
-    // Allocate page-locked host memory
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, _size, CU_MEMHOSTREGISTER_PORTABLE));
-    return Alloc(this, alloc, _size);
-  }
-
-  void put(void* alloc, std::size_t size)
-  {
-    std::lock_guard const lock(_mutex);
-    _ensure_alloc_size();
-
-    // If the size of `alloc` matches the sizes of the retained allocations,
-    // it is added to the set of free allocation otherwise it is freed.
-    if (size == _size) {
-      _free_allocs.push(alloc);
-    } else {
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(alloc));
-    }
-  }
+  void put(void* alloc, std::size_t size);
 
   /**
    * @brief Free all retained allocations
    *
    * @return The number of bytes cleared
    */
-  std::size_t clear()
-  {
-    std::lock_guard const lock(_mutex);
-    return _clear();
-  }
+  std::size_t clear();
 
-  KVIKIO_EXPORT static AllocRetain& instance()
-  {
-    static AllocRetain _instance;
-    return _instance;
-  }
+  KVIKIO_EXPORT static AllocRetain& instance();
 
   AllocRetain(AllocRetain const&)            = delete;
   AllocRetain& operator=(AllocRetain const&) = delete;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+// Enable documentation of the enum.
 /**
  * @file
  */
 
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <sstream>
@@ -55,25 +55,9 @@ namespace detail {
  *   - `AUTO`
  * @return A CompatMode enum.
  */
-inline CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
-{
-  // Convert to lowercase
-  std::string tmp{compat_mode_str};
-  std::transform(
-    tmp.begin(), tmp.end(), tmp.begin(), [](unsigned char c) { return std::tolower(c); });
+CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
 
-  CompatMode res{};
-  if (tmp == "on" || tmp == "true" || tmp == "yes" || tmp == "1") {
-    res = CompatMode::ON;
-  } else if (tmp == "off" || tmp == "false" || tmp == "no" || tmp == "0") {
-    res = CompatMode::OFF;
-  } else if (tmp == "auto") {
-    res = CompatMode::AUTO;
-  } else {
-    throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
-  }
-  return res;
-}
+}  // namespace detail
 
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
@@ -92,46 +76,10 @@ T getenv_or(std::string_view env_var_name, T default_val)
 }
 
 template <>
-inline bool getenv_or(std::string_view env_var_name, bool default_val)
-{
-  const auto* env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return default_val; }
-  try {
-    // Try parsing `env_var_name` as a integer
-    return static_cast<bool>(std::stoi(env_val));
-  } catch (const std::invalid_argument&) {
-  }
-  // Convert to lowercase
-  std::string str{env_val};
-  // Special considerations regarding the case conversion:
-  // - std::tolower() is not an addressable function. Passing it to std::transform() as
-  //   a function pointer, if the compile turns out successful, causes the program behavior
-  //   "unspecified (possibly ill-formed)", hence the lambda. ::tolower() is addressable
-  //   and does not have this problem, but the following item still applies.
-  // - To avoid UB in std::tolower() or ::tolower(), the character must be cast to unsigned char.
-  std::transform(
-    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
-  // Trim whitespaces
-  std::stringstream trimmer;
-  trimmer << str;
-  str.clear();
-  trimmer >> str;
-  // Match value
-  if (str == "true" || str == "on" || str == "yes") { return true; }
-  if (str == "false" || str == "off" || str == "no") { return false; }
-  throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
-                              std::string{env_val});
-}
+bool getenv_or(std::string_view env_var_name, bool default_val);
 
 template <>
-inline CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
-{
-  auto* env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return default_val; }
-  return parse_compat_mode_str(env_val);
-}
-
-}  // namespace detail
+CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 
 /**
  * @brief Singleton class of default values used throughout KvikIO.
@@ -145,54 +93,11 @@ class defaults {
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
 
-  static unsigned int get_num_threads_from_env()
-  {
-    const int ret = detail::getenv_or("KVIKIO_NTHREADS", 1);
-    if (ret <= 0) {
-      throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer greater than zero");
-    }
-    return ret;
-  }
+  static unsigned int get_num_threads_from_env();
 
-  defaults()
-  {
-    // Determine the default value of `compat_mode`
-    {
-      _compat_mode = detail::getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
-    }
-    // Determine the default value of `task_size`
-    {
-      const ssize_t env = detail::getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
-      if (env <= 0) {
-        throw std::invalid_argument(
-          "KVIKIO_TASK_SIZE has to be a positive integer greater than zero");
-      }
-      _task_size = env;
-    }
-    // Determine the default value of `gds_threshold`
-    {
-      const ssize_t env = detail::getenv_or("KVIKIO_GDS_THRESHOLD", 1024 * 1024);
-      if (env < 0) {
-        throw std::invalid_argument("KVIKIO_GDS_THRESHOLD has to be a positive integer");
-      }
-      _gds_threshold = env;
-    }
-    // Determine the default value of `bounce_buffer_size`
-    {
-      const ssize_t env = detail::getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
-      if (env <= 0) {
-        throw std::invalid_argument(
-          "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer greater than zero");
-      }
-      _bounce_buffer_size = env;
-    }
-  }
+  defaults();
 
-  KVIKIO_EXPORT static defaults* instance()
-  {
-    static defaults _instance;
-    return &_instance;
-  }
+  KVIKIO_EXPORT static defaults* instance();
 
  public:
   /**
@@ -213,7 +118,7 @@ class defaults {
    *
    * @return Compatibility mode.
    */
-  [[nodiscard]] static CompatMode compat_mode() { return instance()->_compat_mode; }
+  [[nodiscard]] static CompatMode compat_mode();
 
   /**
    * @brief Reset the value of `kvikio::defaults::compat_mode()`.
@@ -223,7 +128,7 @@ class defaults {
    *
    * @param compat_mode Compatibility mode.
    */
-  static void compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
+  static void compat_mode_reset(CompatMode compat_mode);
 
   /**
    * @brief Infer the `AUTO` compatibility mode from the system runtime.
@@ -234,16 +139,7 @@ class defaults {
    * (`ON`/`OFF`/`AUTO`) to two (`ON`/`OFF`) so as to determine the actual I/O path. This function
    * is lightweight as the inferred result is cached.
    */
-  static CompatMode infer_compat_mode_if_auto(CompatMode compat_mode)
-  {
-    if (compat_mode == CompatMode::AUTO) {
-      static auto inferred_compat_mode_for_auto = []() -> CompatMode {
-        return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
-      }();
-      return inferred_compat_mode_for_auto;
-    }
-    return compat_mode;
-  }
+  static CompatMode infer_compat_mode_if_auto(CompatMode compat_mode) noexcept;
 
   /**
    * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON`.
@@ -260,12 +156,7 @@ class defaults {
    * @param compat_mode Compatibility mode.
    * @return Boolean answer.
    */
-  static bool is_compat_mode_preferred(CompatMode compat_mode)
-  {
-    return compat_mode == CompatMode::ON ||
-           (compat_mode == CompatMode::AUTO &&
-            defaults::infer_compat_mode_if_auto(compat_mode) == CompatMode::ON);
-  }
+  static bool is_compat_mode_preferred(CompatMode compat_mode) noexcept;
 
   /**
    * @brief Whether the global compatibility mode from class defaults is expected to be `ON`.
@@ -281,7 +172,7 @@ class defaults {
    *
    * @return Boolean answer.
    */
-  static bool is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
+  static bool is_compat_mode_preferred();
 
   /**
    * @brief Get the default thread pool.
@@ -292,7 +183,7 @@ class defaults {
    *
    * @return The the default thread pool instance.
    */
-  [[nodiscard]] static BS::thread_pool& thread_pool() { return instance()->_thread_pool; }
+  [[nodiscard]] static BS::thread_pool& thread_pool();
 
   /**
    * @brief Get the number of threads in the default thread pool.
@@ -302,10 +193,7 @@ class defaults {
    *
    * @return The number of threads.
    */
-  [[nodiscard]] static unsigned int thread_pool_nthreads()
-  {
-    return thread_pool().get_thread_count();
-  }
+  [[nodiscard]] static unsigned int thread_pool_nthreads();
 
   /**
    * @brief Reset the number of threads in the default thread pool. Waits for all currently running
@@ -316,13 +204,7 @@ class defaults {
    *
    * @param nthreads The number of threads to use.
    */
-  static void thread_pool_nthreads_reset(unsigned int nthreads)
-  {
-    if (nthreads == 0) {
-      throw std::invalid_argument("number of threads must be a positive integer greater than zero");
-    }
-    thread_pool().reset(nthreads);
-  }
+  static void thread_pool_nthreads_reset(unsigned int nthreads);
 
   /**
    * @brief Get the default task size used for parallel IO operations.
@@ -332,20 +214,14 @@ class defaults {
    *
    * @return The default task size in bytes.
    */
-  [[nodiscard]] static std::size_t task_size() { return instance()->_task_size; }
+  [[nodiscard]] static std::size_t task_size();
 
   /**
    * @brief Reset the default task size used for parallel IO operations.
    *
    * @param nbytes The default task size in bytes.
    */
-  static void task_size_reset(std::size_t nbytes)
-  {
-    if (nbytes == 0) {
-      throw std::invalid_argument("task size must be a positive integer greater than zero");
-    }
-    instance()->_task_size = nbytes;
-  }
+  static void task_size_reset(std::size_t nbytes);
 
   /**
    * @brief Get the default GDS threshold, which is the minimum size to use GDS (in bytes).
@@ -358,13 +234,13 @@ class defaults {
    *
    * @return The default GDS threshold size in bytes.
    */
-  [[nodiscard]] static std::size_t gds_threshold() { return instance()->_gds_threshold; }
+  [[nodiscard]] static std::size_t gds_threshold();
 
   /**
    * @brief Reset the default GDS threshold, which is the minimum size to use GDS (in bytes).
    * @param nbytes The default GDS threshold size in bytes.
    */
-  static void gds_threshold_reset(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
+  static void gds_threshold_reset(std::size_t nbytes);
 
   /**
    * @brief Get the size of the bounce buffer used to stage data in host memory.
@@ -374,21 +250,14 @@ class defaults {
    *
    * @return The bounce buffer size in bytes.
    */
-  [[nodiscard]] static std::size_t bounce_buffer_size() { return instance()->_bounce_buffer_size; }
+  [[nodiscard]] static std::size_t bounce_buffer_size();
 
   /**
    * @brief Reset the size of the bounce buffer used to stage data in host memory.
    *
    * @param nbytes The bounce buffer size in bytes.
    */
-  static void bounce_buffer_size_reset(std::size_t nbytes)
-  {
-    if (nbytes == 0) {
-      throw std::invalid_argument(
-        "size of the bounce buffer must be a positive integer greater than zero");
-    }
-    instance()->_bounce_buffer_size = nbytes;
-  }
+  static void bounce_buffer_size_reset(std::size_t nbytes);
 };
 
 }  // namespace kvikio

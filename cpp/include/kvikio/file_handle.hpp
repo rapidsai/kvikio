@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,23 +60,7 @@ class FileHandle {
    * @exception std::runtime_error When the requested compatibility mode is `OFF`, but cuFile
    * batch/stream library symbol is missing, or cuFile configuration file is missing.
    */
-  bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode)
-  {
-    if (defaults::is_compat_mode_preferred(requested_compat_mode)) { return true; }
-
-    if (!is_stream_api_available()) {
-      if (requested_compat_mode == CompatMode::AUTO) { return true; }
-      throw std::runtime_error("Missing the cuFile stream api.");
-    }
-
-    // When checking for availability, we also check if cuFile's config file exists. This is
-    // because even when the stream API is available, it doesn't work if no config file exists.
-    if (config_path().empty()) {
-      if (requested_compat_mode == CompatMode::AUTO) { return true; }
-      throw std::runtime_error("Missing cuFile configuration file.");
-    }
-    return false;
-  }
+  bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode);
 
  public:
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
@@ -108,49 +92,21 @@ class FileHandle {
    */
   FileHandle(const FileHandle&)            = delete;
   FileHandle& operator=(FileHandle const&) = delete;
-  FileHandle(FileHandle&& o) noexcept
-    : _fd_direct_on{std::exchange(o._fd_direct_on, -1)},
-      _fd_direct_off{std::exchange(o._fd_direct_off, -1)},
-      _initialized{std::exchange(o._initialized, false)},
-      _compat_mode{std::exchange(o._compat_mode, CompatMode::AUTO)},
-      _nbytes{std::exchange(o._nbytes, 0)},
-      _handle{std::exchange(o._handle, CUfileHandle_t{})}
-  {
-  }
-  FileHandle& operator=(FileHandle&& o) noexcept
-  {
-    _fd_direct_on  = std::exchange(o._fd_direct_on, -1);
-    _fd_direct_off = std::exchange(o._fd_direct_off, -1);
-    _initialized   = std::exchange(o._initialized, false);
-    _compat_mode   = std::exchange(o._compat_mode, CompatMode::AUTO);
-    _nbytes        = std::exchange(o._nbytes, 0);
-    _handle        = std::exchange(o._handle, CUfileHandle_t{});
-    return *this;
-  }
-  ~FileHandle() noexcept { close(); }
+  FileHandle(FileHandle&& o) noexcept;
+  FileHandle& operator=(FileHandle&& o) noexcept;
+  ~FileHandle() noexcept;
 
   /**
    * @brief Whether the file is closed according to its initialization status.
    *
    * @return Boolean answer.
    */
-  [[nodiscard]] bool closed() const noexcept { return !_initialized; }
+  [[nodiscard]] bool closed() const noexcept;
 
   /**
    * @brief Deregister the file and close the two files
    */
-  void close() noexcept
-  {
-    if (closed()) { return; }
-
-    if (!is_compat_mode_preferred()) { cuFileAPI::instance().HandleDeregister(_handle); }
-    _compat_mode = CompatMode::AUTO;
-    ::close(_fd_direct_off);
-    if (_fd_direct_on != -1) { ::close(_fd_direct_on); }
-    _fd_direct_on  = -1;
-    _fd_direct_off = -1;
-    _initialized   = false;
-  }
+  void close() noexcept;
 
   /**
    * @brief Get the underlying cuFile file handle
@@ -160,14 +116,7 @@ class FileHandle {
    *
    * @return cuFile's file handle
    */
-  [[nodiscard]] CUfileHandle_t handle()
-  {
-    if (closed()) { throw CUfileException("File handle is closed"); }
-    if (is_compat_mode_preferred()) {
-      throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
-    }
-    return _handle;
-  }
+  [[nodiscard]] CUfileHandle_t handle();
 
   /**
    * @brief Get one of the file descriptors
@@ -178,7 +127,7 @@ class FileHandle {
    *
    * @return File descriptor
    */
-  [[nodiscard]] int fd() const noexcept { return _fd_direct_off; }
+  [[nodiscard]] int fd() const noexcept;
 
   /**
    * @brief Get the flags of one of the file descriptors (see open(2))
@@ -234,20 +183,7 @@ class FileHandle {
                    std::size_t size,
                    std::size_t file_offset,
                    std::size_t devPtr_offset,
-                   bool sync_default_stream = true)
-  {
-    if (is_compat_mode_preferred()) {
-      return detail::posix_device_read(
-        _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
-    }
-    if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
-
-    KVIKIO_NVTX_SCOPED_RANGE("cufileRead()", size);
-    ssize_t ret = cuFileAPI::instance().Read(
-      _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
-    CUFILE_CHECK_BYTES_DONE(ret);
-    return ret;
-  }
+                   bool sync_default_stream = true);
 
   /**
    * @brief Writes specified bytes from the device memory into the file.
@@ -284,28 +220,7 @@ class FileHandle {
                     std::size_t size,
                     std::size_t file_offset,
                     std::size_t devPtr_offset,
-                    bool sync_default_stream = true)
-  {
-    _nbytes = 0;  // Invalidate the computed file size
-
-    if (is_compat_mode_preferred()) {
-      return detail::posix_device_write(
-        _fd_direct_off, devPtr_base, size, file_offset, devPtr_offset);
-    }
-    if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
-
-    KVIKIO_NVTX_SCOPED_RANGE("cufileWrite()", size);
-    ssize_t ret = cuFileAPI::instance().Write(
-      _handle, devPtr_base, size, convert_size2off(file_offset), convert_size2off(devPtr_offset));
-    if (ret == -1) {
-      throw std::system_error(errno, std::generic_category(), "Unable to write file");
-    }
-    if (ret < -1) {
-      throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
-    }
-    return ret;
-  }
+                    bool sync_default_stream = true);
 
   /**
    * @brief Reads specified bytes from the file into the device or host memory in parallel.
@@ -333,56 +248,16 @@ class FileHandle {
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
    * @return Future that on completion returns the size of bytes that were successfully read.
+   *
+   * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
+   * the FileHandle object ends. Otherwise, the behavior is undefined.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
                                  std::size_t file_offset   = 0,
                                  std::size_t task_size     = defaults::task_size(),
                                  std::size_t gds_threshold = defaults::gds_threshold(),
-                                 bool sync_default_stream  = true)
-  {
-    KVIKIO_NVTX_MARKER("FileHandle::pread()", size);
-    if (is_host_memory(buf)) {
-      auto op = [this](void* hostPtr_base,
-                       std::size_t size,
-                       std::size_t file_offset,
-                       std::size_t hostPtr_offset) -> std::size_t {
-        char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
-        return detail::posix_host_read<detail::PartialIO::NO>(
-          _fd_direct_off, buf, size, file_offset);
-      };
-
-      return parallel_io(op, buf, size, file_offset, task_size, 0);
-    }
-
-    CUcontext ctx = get_context_from_pointer(buf);
-
-    // Shortcut that circumvent the threadpool and use the POSIX backend directly.
-    if (size < gds_threshold) {
-      auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
-        PushAndPopContext c(ctx);
-        return detail::posix_device_read(_fd_direct_off, buf, size, file_offset, 0);
-      };
-      return std::async(std::launch::deferred, task);
-    }
-
-    // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !is_compat_mode_preferred()) {
-      PushAndPopContext c(ctx);
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
-    }
-
-    // Regular case that use the threadpool and run the tasks in parallel
-    auto task = [this, ctx](void* devPtr_base,
-                            std::size_t size,
-                            std::size_t file_offset,
-                            std::size_t devPtr_offset) -> std::size_t {
-      PushAndPopContext c(ctx);
-      return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
-    };
-    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-    return parallel_io(task, devPtr_base, size, file_offset, task_size, devPtr_offset);
-  }
+                                 bool sync_default_stream  = true);
 
   /**
    * @brief Writes specified bytes from device or host memory into the file in parallel.
@@ -410,57 +285,16 @@ class FileHandle {
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
    * @return Future that on completion returns the size of bytes that were successfully written.
+   *
+   * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
+   * the FileHandle object ends. Otherwise, the behavior is undefined.
    */
   std::future<std::size_t> pwrite(const void* buf,
                                   std::size_t size,
                                   std::size_t file_offset   = 0,
                                   std::size_t task_size     = defaults::task_size(),
                                   std::size_t gds_threshold = defaults::gds_threshold(),
-                                  bool sync_default_stream  = true)
-  {
-    KVIKIO_NVTX_MARKER("FileHandle::pwrite()", size);
-    if (is_host_memory(buf)) {
-      auto op = [this](const void* hostPtr_base,
-                       std::size_t size,
-                       std::size_t file_offset,
-                       std::size_t hostPtr_offset) -> std::size_t {
-        const char* buf = static_cast<const char*>(hostPtr_base) + hostPtr_offset;
-        return detail::posix_host_write<detail::PartialIO::NO>(
-          _fd_direct_off, buf, size, file_offset);
-      };
-
-      return parallel_io(op, buf, size, file_offset, task_size, 0);
-    }
-
-    CUcontext ctx = get_context_from_pointer(buf);
-
-    // Shortcut that circumvent the threadpool and use the POSIX backend directly.
-    if (size < gds_threshold) {
-      auto task = [this, ctx, buf, size, file_offset]() -> std::size_t {
-        PushAndPopContext c(ctx);
-        return detail::posix_device_write(_fd_direct_off, buf, size, file_offset, 0);
-      };
-      return std::async(std::launch::deferred, task);
-    }
-
-    // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !is_compat_mode_preferred()) {
-      PushAndPopContext c(ctx);
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
-    }
-
-    // Regular case that use the threadpool and run the tasks in parallel
-    auto op = [this, ctx](const void* devPtr_base,
-                          std::size_t size,
-                          std::size_t file_offset,
-                          std::size_t devPtr_offset) -> std::size_t {
-      PushAndPopContext c(ctx);
-      return write(
-        devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
-    };
-    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-    return parallel_io(op, devPtr_base, size, file_offset, task_size, devPtr_offset);
-  }
+                                  bool sync_default_stream  = true);
 
   /**
    * @brief Reads specified bytes from the file into the device memory asynchronously.
@@ -501,17 +335,7 @@ class FileHandle {
                   off_t* file_offset_p,
                   off_t* devPtr_offset_p,
                   ssize_t* bytes_read_p,
-                  CUstream stream)
-  {
-    if (is_compat_mode_preferred_for_async(_compat_mode)) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-      *bytes_read_p =
-        static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-    } else {
-      CUFILE_TRY(cuFileAPI::instance().ReadAsync(
-        _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream));
-    }
-  }
+                  CUstream stream);
 
   /**
    * @brief Reads specified bytes from the file into the device memory asynchronously.
@@ -542,14 +366,7 @@ class FileHandle {
                                         std::size_t size,
                                         off_t file_offset   = 0,
                                         off_t devPtr_offset = 0,
-                                        CUstream stream     = nullptr)
-  {
-    StreamFuture ret(devPtr_base, size, file_offset, devPtr_offset, stream);
-    auto [devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_] =
-      ret.get_args();
-    read_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_);
-    return ret;
-  }
+                                        CUstream stream     = nullptr);
 
   /**
    * @brief Writes specified bytes from the device memory into the file asynchronously.
@@ -591,17 +408,7 @@ class FileHandle {
                    off_t* file_offset_p,
                    off_t* devPtr_offset_p,
                    ssize_t* bytes_written_p,
-                   CUstream stream)
-  {
-    if (is_compat_mode_preferred_for_async(_compat_mode)) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-      *bytes_written_p =
-        static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-    } else {
-      CUFILE_TRY(cuFileAPI::instance().WriteAsync(
-        _handle, devPtr_base, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream));
-    }
-  }
+                   CUstream stream);
 
   /**
    * @brief Writes specified bytes from the device memory into the file asynchronously.
@@ -632,14 +439,7 @@ class FileHandle {
                                          std::size_t size,
                                          off_t file_offset   = 0,
                                          off_t devPtr_offset = 0,
-                                         CUstream stream     = nullptr)
-  {
-    StreamFuture ret(devPtr_base, size, file_offset, devPtr_offset, stream);
-    auto [devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream_] =
-      ret.get_args();
-    write_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream_);
-    return ret;
-  }
+                                         CUstream stream     = nullptr);
 
   /**
    * @brief Returns `true` if the compatibility mode is expected to be `ON` for this file.
@@ -650,10 +450,7 @@ class FileHandle {
    *
    * @return Boolean answer.
    */
-  [[nodiscard]] bool is_compat_mode_preferred() const noexcept
-  {
-    return defaults::is_compat_mode_preferred(_compat_mode);
-  }
+  [[nodiscard]] bool is_compat_mode_preferred() const noexcept;
 
   /**
    * @brief Returns `true` if the compatibility mode is expected to be `ON` for the asynchronous I/O
@@ -665,12 +462,7 @@ class FileHandle {
    *
    * @return Boolean answer.
    */
-  [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept
-  {
-    static bool is_extra_symbol_available = is_stream_api_available();
-    static bool is_config_path_empty      = config_path().empty();
-    return is_compat_mode_preferred() || !is_extra_symbol_available || is_config_path_empty;
-  }
+  [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept;
 };
 
 }  // namespace kvikio

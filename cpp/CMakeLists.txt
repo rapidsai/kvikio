@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -62,6 +62,9 @@ rapids_find_package(
 
 if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
+  if(TARGET libcurl_static)
+    set_target_properties(libcurl_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  endif()
 endif()
 
 set(cuFile_FOUND 0)
@@ -131,10 +134,25 @@ include(cmake/thirdparty/get_thread_pool.cmake)
 # ##################################################################################################
 # * library targets --------------------------------------------------------------------------------
 
-set(SOURCES "src/file_handle.cpp")
+set(SOURCES
+    "src/batch.cpp"
+    "src/bounce_buffer.cpp"
+    "src/buffer.cpp"
+    "src/cufile/config.cpp"
+    "src/cufile/driver.cpp"
+    "src/defaults.cpp"
+    "src/error.cpp"
+    "src/file_handle.cpp"
+    "src/posix_io.cpp"
+    "src/shim/cuda.cpp"
+    "src/shim/cufile.cpp"
+    "src/shim/utils.cpp"
+    "src/stream.cpp"
+    "src/utils.cpp"
+)
 
 if(KvikIO_REMOTE_SUPPORT)
-  list(APPEND SOURCES "src/remote_handle.cpp")
+  list(APPEND SOURCES "src/remote_handle.cpp" "src/shim/libcurl.cpp")
 endif()
 
 add_library(kvikio ${SOURCES})
@@ -231,6 +249,7 @@ set(final_code_string
     "
 set(KvikIO_CUDA_SUPPORT [=[${KvikIO_CUDA_SUPPORT}]=])
 set(KvikIO_CUFILE_SUPPORT [=[${cuFile_FOUND}]=])
+set(KvikIO_REMOTE_SUPPORT [=[${KvikIO_REMOTE_SUPPORT}]=])
 "
 )
 string(
