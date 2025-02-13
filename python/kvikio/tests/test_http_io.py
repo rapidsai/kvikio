@@ -198,8 +198,7 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         records = captured.out.strip().split("\n")
         assert len(records) == 1
         assert records[0] == (
-            "KvikIO: Retrying HTTP request. Got HTTP code 503 after 500ms "
-            "(attempt 2 of 2)."
+            "KvikIO: Got HTTP code 503. Retrying after 500ms " "(attempt 2 of 2)."
         )
 
 
