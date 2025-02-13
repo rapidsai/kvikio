@@ -1,3 +1,36 @@
+# kvikio 25.02.00 (13 Feb 2025)
+
+## 🚨 Breaking Changes
+
+- Continue to make KvikIO a shared library by moving code from hpp to cpp ([#581](https://github.com/rapidsai/kvikio/pull/581)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 🐛 Bug Fixes
+
+- Set `POSITION_INDEPENDENT_CODE` on libcurl ([#625](https://github.com/rapidsai/kvikio/pull/625)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- allow deselecting nvcomp wheels ([#589](https://github.com/rapidsai/kvikio/pull/589)) [@jameslamb](https://github.com/jameslamb)
+- Fix the misplaced libcurl in CMake ([#587](https://github.com/rapidsai/kvikio/pull/587)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 🚀 New Features
+
+- Remove upper bounds on cuda-python to allow 12.6.2 and 11.8.5 ([#564](https://github.com/rapidsai/kvikio/pull/564)) [@bdice](https://github.com/bdice)
+
+## 🛠️ Improvements
+
+- Use `rapids-pip-retry` in CI jobs that might need retries ([#619](https://github.com/rapidsai/kvikio/pull/619)) [@gforsyth](https://github.com/gforsyth)
+- Use std::string ([#617](https://github.com/rapidsai/kvikio/pull/617)) [@madsbk](https://github.com/madsbk)
+- Revert CUDA 12.8 shared workflow branch changes ([#609](https://github.com/rapidsai/kvikio/pull/609)) [@vyasr](https://github.com/vyasr)
+- Build and test with CUDA 12.8.0 ([#600](https://github.com/rapidsai/kvikio/pull/600)) [@bdice](https://github.com/bdice)
+- Separate more interface and definition. Add comments on std::future. Mark noexcept to compat mode-related functions ([#588](https://github.com/rapidsai/kvikio/pull/588)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Use GCC 13 in CUDA 12 conda builds. ([#586](https://github.com/rapidsai/kvikio/pull/586)) [@bdice](https://github.com/bdice)
+- Zarr: pin to version 2.* ([#583](https://github.com/rapidsai/kvikio/pull/583)) [@madsbk](https://github.com/madsbk)
+- Continue to make KvikIO a shared library by moving code from hpp to cpp ([#581](https://github.com/rapidsai/kvikio/pull/581)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Check if nightlies have succeeded recently enough ([#579](https://github.com/rapidsai/kvikio/pull/579)) [@vyasr](https://github.com/vyasr)
+- Update cuda-python lower bounds to 12.6.2 / 11.8.5 ([#573](https://github.com/rapidsai/kvikio/pull/573)) [@bdice](https://github.com/bdice)
+- Improve compatibility mode consistency ([#567](https://github.com/rapidsai/kvikio/pull/567)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Require approval to run CI on draft PRs ([#563](https://github.com/rapidsai/kvikio/pull/563)) [@bdice](https://github.com/bdice)
+- Add breaking change workflow trigger ([#536](https://github.com/rapidsai/kvikio/pull/536)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Add Initial Java Support for GDS to KvikIO ([#396](https://github.com/rapidsai/kvikio/pull/396)) [@aslobodaNV](https://github.com/aslobodaNV)
+
 # kvikio 24.12.00 (11 Dec 2024)
 
 ## 🚨 Breaking Changes
