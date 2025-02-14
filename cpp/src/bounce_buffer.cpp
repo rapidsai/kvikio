@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <mutex>
 #include <stack>
 
 #include <kvikio/bounce_buffer.hpp>
@@ -61,7 +60,6 @@ void AllocRetain::_ensure_alloc_size()
 
 AllocRetain::Alloc AllocRetain::get()
 {
-  std::lock_guard const lock(_mutex);
   _ensure_alloc_size();
 
   // Check if we have an allocation available
@@ -81,7 +79,6 @@ AllocRetain::Alloc AllocRetain::get()
 
 void AllocRetain::put(void* alloc, std::size_t size)
 {
-  std::lock_guard const lock(_mutex);
   _ensure_alloc_size();
 
   // If the size of `alloc` matches the sizes of the retained allocations,
@@ -93,15 +90,11 @@ void AllocRetain::put(void* alloc, std::size_t size)
   }
 }
 
-std::size_t AllocRetain::clear()
-{
-  std::lock_guard const lock(_mutex);
-  return _clear();
-}
+std::size_t AllocRetain::clear() { return _clear(); }
 
 AllocRetain& AllocRetain::instance()
 {
-  static AllocRetain _instance;
+  thread_local AllocRetain _instance;
   return _instance;
 }
 
