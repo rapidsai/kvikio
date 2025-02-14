@@ -138,6 +138,7 @@ set(SOURCES
     "src/batch.cpp"
     "src/bounce_buffer.cpp"
     "src/buffer.cpp"
+    "src/compat_mode.cpp"
     "src/cufile/config.cpp"
     "src/cufile/driver.cpp"
     "src/defaults.cpp"
