@@ -126,12 +126,6 @@ void CurlHandle::perform()
   auto http_max_attempts  = kvikio::defaults::http_max_attempts();
   auto& http_status_codes = kvikio::defaults::http_status_codes();
 
-  // 0 < 2
-  // fail
-  // 1 < 2
-  // fail
-  // giveup
-
   while (attempt_count < http_max_attempts) {
     auto err = curl_easy_perform(handle());
     attempt_count++;
