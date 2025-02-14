@@ -23,6 +23,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
