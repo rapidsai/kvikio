@@ -198,11 +198,28 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         records = captured.out.strip().split("\n")
         assert len(records) == 1
         assert records[0] == (
-            "KvikIO: Got HTTP code 503. Retrying after 500ms (attempt 2 of 2)."
+            "KvikIO: Got HTTP code 503. Retrying after 500ms (attempt 1 of 2)."
         )
 
 
-def test_set_http_status_code(tmpdir, xp):
+def test_no_retries_ok(tmpdir):
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+    ) as server:
+        http_server = server.url
+        b = np.empty_like(a)
+        with kvikio.defaults.set_http_max_attempts(1):
+            with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+                assert f.nbytes() == a.nbytes
+                assert f"{http_server}/a" in str(f)
+                f.read(b)
+
+
+def test_set_http_status_code(tmpdir):
     with LocalHttpServer(
         tmpdir,
         max_lifetime=60,

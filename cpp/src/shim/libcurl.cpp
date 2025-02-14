@@ -120,14 +120,21 @@ CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 void CurlHandle::perform()
 {
   long http_code          = 0;
-  auto attempt_count      = 1;
+  auto attempt_count      = 0;
   auto base_delay         = 500;   // milliseconds
   auto max_delay          = 4000;  // milliseconds
   auto http_max_attempts  = kvikio::defaults::http_max_attempts();
   auto& http_status_codes = kvikio::defaults::http_status_codes();
 
+  // 0 < 2
+  // fail
+  // 1 < 2
+  // fail
+  // giveup
+
   while (attempt_count < http_max_attempts) {
     auto err = curl_easy_perform(handle());
+    attempt_count++;
 
     if (err == CURLE_OK) {
       // We set CURLE_HTTP_RETURNED_ERROR, so >= 400 status codes are considered
@@ -148,11 +155,13 @@ void CurlHandle::perform()
       // up to a maximum of `max_delay` seconds.
       auto const delay = std::min(max_delay, backoff_delay);
 
-      attempt_count++;
-      std::cout << "KvikIO: Got HTTP code " << http_code << ". Retrying after " << delay
-                << "ms (attempt " << attempt_count << " of " << http_max_attempts << ")."
-                << std::endl;
-      std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+      // Only print this message out and sleep if we're actually going to retry again.
+      if (attempt_count < http_max_attempts) {
+        std::cout << "KvikIO: Got HTTP code " << http_code << ". Retrying after " << delay
+                  << "ms (attempt " << attempt_count << " of " << http_max_attempts << ")."
+                  << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+      }
     } else {
       // We had some kind of fatal error, or we got some status code we don't retry.
       // We want to exit immediately.
