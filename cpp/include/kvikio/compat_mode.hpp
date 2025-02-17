@@ -39,7 +39,7 @@ namespace detail {
  * @brief Parse a string into a CompatMode enum.
  *
  * @param compat_mode_str Compatibility mode in string format (case-insensitive). Valid values
- * include:
+ * are:
  *   - `ON` (alias: `TRUE`, `YES`, `1`)
  *   - `OFF` (alias: `FALSE`, `NO`, `0`)
  *   - `AUTO`
@@ -81,7 +81,7 @@ class CompatModeManager {
    * @param flags Same as above.
    * @param mode Same as above.
    * @param compat_mode_requested Same as above.
-   * @param file_handle Point to the FileHandle object that owns this compatibility mode manager.
+   * @param file_handle Pointer to the FileHandle object that owns this compatibility mode manager.
    */
   CompatModeManager(std::string const& file_path,
                     std::string const& flags,
@@ -136,10 +136,10 @@ class CompatModeManager {
   CompatMode compat_mode_requested() const noexcept;
 
   /**
-   * @brief Determine if the asynchronous I/O can be performed or not (throw exceptions)
+   * @brief Determine if asynchronous I/O can be performed or not (throw exceptions)
    * according to the existing compatibility mode data in the manager.
    *
-   * The asynchronous I/O cannot be performed, for instance, when compat_mode_requested() is
+   * Asynchronous I/O cannot be performed, for instance, when compat_mode_requested() is
    * CompatMode::OFF, is_compat_mode_preferred() is CompatMode::OFF, but
    * is_compat_mode_preferred_for_async() is CompatMode::ON (due to missing cuFile stream API or
    * cuFile configuration file).

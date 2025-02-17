@@ -34,17 +34,15 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
   std::transform(
     tmp.begin(), tmp.end(), tmp.begin(), [](unsigned char c) { return std::tolower(c); });
 
-  CompatMode res{};
   if (tmp == "on" || tmp == "true" || tmp == "yes" || tmp == "1") {
-    res = CompatMode::ON;
+    return CompatMode::ON;
   } else if (tmp == "off" || tmp == "false" || tmp == "no" || tmp == "0") {
-    res = CompatMode::OFF;
+    return CompatMode::OFF;
   } else if (tmp == "auto") {
-    res = CompatMode::AUTO;
+    return CompatMode::AUTO;
   } else {
     throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
   }
-  return res;
 }
 
 }  // namespace detail
