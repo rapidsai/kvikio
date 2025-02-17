@@ -54,12 +54,12 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 template <>
 bool getenv_or(std::string_view env_var_name, bool default_val)
 {
-  const auto* env_val = std::getenv(env_var_name.data());
+  auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   try {
     // Try parsing `env_var_name` as a integer
     return static_cast<bool>(std::stoi(env_val));
-  } catch (const std::invalid_argument&) {
+  } catch (std::invalid_argument const&) {
   }
   // Convert to lowercase
   std::string str{env_val};
@@ -93,7 +93,7 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 
 unsigned int defaults::get_num_threads_from_env()
 {
-  const int ret = getenv_or("KVIKIO_NTHREADS", 1);
+  int const ret = getenv_or("KVIKIO_NTHREADS", 1);
   if (ret <= 0) {
     throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer greater than zero");
   }
@@ -108,7 +108,7 @@ defaults::defaults()
   }
   // Determine the default value of `task_size`
   {
-    const ssize_t env = getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
+    ssize_t const env = getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
     if (env <= 0) {
       throw std::invalid_argument(
         "KVIKIO_TASK_SIZE has to be a positive integer greater than zero");
@@ -117,7 +117,7 @@ defaults::defaults()
   }
   // Determine the default value of `gds_threshold`
   {
-    const ssize_t env = getenv_or("KVIKIO_GDS_THRESHOLD", 1024 * 1024);
+    ssize_t const env = getenv_or("KVIKIO_GDS_THRESHOLD", 1024 * 1024);
     if (env < 0) {
       throw std::invalid_argument("KVIKIO_GDS_THRESHOLD has to be a positive integer");
     }
@@ -125,7 +125,7 @@ defaults::defaults()
   }
   // Determine the default value of `bounce_buffer_size`
   {
-    const ssize_t env = getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
+    ssize_t const env = getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
     if (env <= 0) {
       throw std::invalid_argument(
         "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer greater than zero");

@@ -62,7 +62,7 @@ bool is_cuda_available()
 {
   try {
     cudaAPI::instance();
-  } catch (const std::runtime_error&) {
+  } catch (std::runtime_error const&) {
     return false;
   }
   return true;
