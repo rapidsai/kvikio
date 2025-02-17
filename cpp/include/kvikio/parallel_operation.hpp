@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <cassert>
 #include <future>
 #include <mutex>
@@ -44,9 +45,8 @@ namespace detail {
  */
 inline const std::pair<const nvtx_color_type&, std::uint64_t> get_next_color_and_call_idx() noexcept
 {
-  static std::atomic_uint64_t call_counter{0ull};
-  auto call_idx =
-    1ull + std::atomic_fetch_add_explicit(&call_counter, 1ull, std::memory_order_relaxed);
+  static std::atomic_uint64_t call_counter{1ull};
+  auto call_idx    = call_counter.fetch_add(1ull, std::memory_order_relaxed);
   auto& nvtx_color = nvtx_manager::get_color_by_index(call_idx);
   return {nvtx_color, call_idx};
 }
