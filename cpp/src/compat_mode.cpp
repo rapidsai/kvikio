@@ -123,7 +123,6 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
   static bool is_config_path_empty      = config_path().empty();
   _is_compat_mode_preferred_for_async =
     _is_compat_mode_preferred || !is_extra_symbol_available || is_config_path_empty;
-  return;
 }
 
 void CompatModeManager::validate_compat_mode_for_async() const
