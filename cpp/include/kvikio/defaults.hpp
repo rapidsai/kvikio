@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-// Enable documentation of the enum.
-/**
- * @file
- */
-
 #pragma once
 
 #include <cstddef>
@@ -29,34 +24,13 @@
 
 #include <BS_thread_pool.hpp>
 
+#include <kvikio/compat_mode.hpp>
 #include <kvikio/shim/cufile.hpp>
 
+/**
+ * @brief KvikIO namespace.
+ */
 namespace kvikio {
-/**
- * @brief I/O compatibility mode.
- */
-enum class CompatMode : uint8_t {
-  OFF,  ///< Enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met
-        ///< and cuFile is properly configured. However, if the system is not suited for cuFile, I/O
-        ///< operations under the OFF option may error out, crash or hang.
-  ON,   ///< Enforce POSIX I/O.
-  AUTO,  ///< Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile
-         ///< are not met.
-};
-
-namespace detail {
-/**
- * @brief Parse a string into a CompatMode enum.
- *
- * @param compat_mode_str Compatibility mode in string format(case-insensitive). Valid values
- * include:
- *   - `ON` (alias: `TRUE`, `YES`, `1`)
- *   - `OFF` (alias: `FALSE`, `NO`, `0`)
- *   - `AUTO`
- * @return A CompatMode enum.
- */
-CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
-
 /**
  * @brief Parse a string of comma-separated string of HTTP status codes.
  *
@@ -69,8 +43,6 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
  */
 std::vector<int> parse_http_status_codes(std::string_view env_var_name,
                                          std::string const& status_codes);
-
-}  // namespace detail
 
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
