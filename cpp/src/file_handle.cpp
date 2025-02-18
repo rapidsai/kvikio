@@ -27,6 +27,7 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
+#include <kvikio/nvtx.hpp>
 
 namespace kvikio {
 
@@ -105,13 +106,13 @@ std::size_t FileHandle::read(void* devPtr_base,
                              std::size_t devPtr_offset,
                              bool sync_default_stream)
 {
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::read()", size);
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
     return detail::posix_device_read(
       _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
-  KVIKIO_NVTX_SCOPED_RANGE("cufileRead()", size);
   ssize_t ret = cuFileAPI::instance().Read(_cufile_handle.handle(),
                                            devPtr_base,
                                            size,
@@ -127,6 +128,7 @@ std::size_t FileHandle::write(void const* devPtr_base,
                               std::size_t devPtr_offset,
                               bool sync_default_stream)
 {
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::write()", size);
   _nbytes = 0;  // Invalidate the computed file size
 
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
@@ -135,7 +137,6 @@ std::size_t FileHandle::write(void const* devPtr_base,
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
-  KVIKIO_NVTX_SCOPED_RANGE("cufileWrite()", size);
   ssize_t ret = cuFileAPI::instance().Write(_cufile_handle.handle(),
                                             devPtr_base,
                                             size,
@@ -158,7 +159,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            std::size_t gds_threshold,
                                            bool sync_default_stream)
 {
-  KVIKIO_NVTX_MARKER("FileHandle::pread()", size);
+  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pread()", size, nvtx_color);
   if (is_host_memory(buf)) {
     auto op = [this](void* hostPtr_base,
                      std::size_t size,
@@ -169,7 +171,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset);
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -198,7 +200,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(task, devPtr_base, size, file_offset, task_size, devPtr_offset);
+  return parallel_io(
+    task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -208,7 +211,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             std::size_t gds_threshold,
                                             bool sync_default_stream)
 {
-  KVIKIO_NVTX_MARKER("FileHandle::pwrite()", size);
+  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pwrite()", size, nvtx_color);
   if (is_host_memory(buf)) {
     auto op = [this](void const* hostPtr_base,
                      std::size_t size,
@@ -219,7 +223,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset);
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -248,7 +252,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     return write(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(op, devPtr_base, size, file_offset, task_size, devPtr_offset);
+  return parallel_io(
+    op, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
 }
 
 void FileHandle::read_async(void* devPtr_base,
