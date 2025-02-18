@@ -18,7 +18,6 @@
 #include <atomic>
 #include <cassert>
 #include <future>
-#include <mutex>
 #include <numeric>
 #include <system_error>
 #include <utility>
