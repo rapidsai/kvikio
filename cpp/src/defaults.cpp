@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <sstream>
@@ -23,33 +22,11 @@
 
 #include <BS_thread_pool.hpp>
 
+#include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
-
-namespace detail {
-CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
-{
-  // Convert to lowercase
-  std::string tmp{compat_mode_str};
-  std::transform(
-    tmp.begin(), tmp.end(), tmp.begin(), [](unsigned char c) { return std::tolower(c); });
-
-  CompatMode res{};
-  if (tmp == "on" || tmp == "true" || tmp == "yes" || tmp == "1") {
-    res = CompatMode::ON;
-  } else if (tmp == "off" || tmp == "false" || tmp == "no" || tmp == "0") {
-    res = CompatMode::OFF;
-  } else if (tmp == "auto") {
-    res = CompatMode::AUTO;
-  } else {
-    throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
-  }
-  return res;
-}
-
-}  // namespace detail
 
 template <>
 bool getenv_or(std::string_view env_var_name, bool default_val)
