@@ -160,16 +160,12 @@ std::future<std::size_t> parallel_io(F op,
     return detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color);
   }
 
-  std::vector<std::future<std::size_t>> tasks_before_last;
-  auto const num_full_tasks  = size / task_size;
-  auto const remaining_bytes = size - num_full_tasks * task_size;
-  auto num_tasks{num_full_tasks};
-  if (remaining_bytes != 0) { ++num_tasks; }
-  tasks_before_last.reserve(num_tasks - 1);
+  std::vector<std::future<std::size_t>> tasks;
+  tasks.reserve(size / task_size);
 
   // 1) Submit all tasks but the last one. These are all `task_size` sized tasks.
-  for (std::size_t i = 0; i < num_tasks - 1; ++i) {
-    tasks_before_last.push_back(
+  while (size > task_size) {
+    tasks.push_back(
       detail::submit_task(op, buf, task_size, file_offset, devPtr_offset, call_idx, nvtx_color));
     file_offset += task_size;
     devPtr_offset += task_size;
@@ -178,16 +174,13 @@ std::future<std::size_t> parallel_io(F op,
 
   // 2) Submit the last task, which consists of performing the last I/O and waiting the previous
   // tasks.
-  auto last_task_size = (remaining_bytes == 0) ? task_size : remaining_bytes;
-
-  auto last_task = [=, tasks_before_last = std::move(tasks_before_last)]() mutable -> std::size_t {
-    std::size_t ret = op(buf, last_task_size, file_offset, devPtr_offset);
-    for (auto& task : tasks_before_last) {
+  auto last_task = [=, tasks = std::move(tasks)]() mutable -> std::size_t {
+    auto ret = op(buf, size, file_offset, devPtr_offset);
+    for (auto& task : tasks) {
       ret += task.get();
     }
     return ret;
   };
-
   return detail::submit_move_only_task(std::move(last_task), call_idx, nvtx_color);
 }
 
