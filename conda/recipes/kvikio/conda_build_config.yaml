@@ -33,4 +33,4 @@ libcurl_version:
   - "==8.5.0"
 
 nvcomp_version:
-  - "=4.1.0.6"
+  - "=4.2.0.11"
