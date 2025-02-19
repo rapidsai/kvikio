@@ -61,13 +61,6 @@ std::future<std::size_t> submit_task(F op,
 {
   return defaults::thread_pool().submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
-
-    // Rename the worker thread in the thread pool to improve clarity from nsys-ui.
-    // Note: This NVTX feature is currently not supported by nsys-ui.
-    thread_local std::once_flag call_once_per_thread;
-    std::call_once(call_once_per_thread,
-                   [] { nvtx_manager::rename_current_thread("thread pool"); });
-
     return op(buf, size, file_offset, devPtr_offset);
   });
 }

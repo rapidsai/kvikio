@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
-#include "kvikio/defaults.hpp"
 #include "utils.hpp"
 
 using namespace kvikio::test;
