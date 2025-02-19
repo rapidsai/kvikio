@@ -36,6 +36,18 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 
   If the nightly install doesn't work, set ``channel_priority: flexible`` in your ``.condarc``.
 
+
+PyPi
+----
+
+KvikIO is also available on PyPi. Install the latest release like:
+
+.. code-block::
+
+  pip install kvikio-cu11 # for CUDA 11
+  pip install kvikio-cu12 # for CUDA 12
+
+
 Build from source
 -----------------
 
