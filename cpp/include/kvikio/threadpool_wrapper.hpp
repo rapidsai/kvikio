@@ -45,6 +45,7 @@ class thread_pool_wrapper : public pool_type {
 
  private:
   inline static std::function<void()> worker_thread_init_func{[] {
+    KVIKIO_NVTX_SCOPED_RANGE("worker thread init", 0, nvtx_manager::default_color());
     // Rename the worker thread in the thread pool to improve clarity from nsys-ui.
     // Note: This NVTX feature is currently not supported by nsys-ui.
     nvtx_manager::rename_current_thread("thread pool");
