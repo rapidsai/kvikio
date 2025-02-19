@@ -123,7 +123,7 @@ defaults::defaults()
   }
   // Determine the default value of `http_max_attempts`
   {
-    const ssize_t env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
+    ssize_t const env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
     if (env <= 0) {
       throw std::invalid_argument("KVIKIO_HTTP_MAX_ATTEMPTS has to be a positive integer");
     }

@@ -126,9 +126,8 @@ void CurlHandle::perform()
   auto http_max_attempts  = kvikio::defaults::http_max_attempts();
   auto& http_status_codes = kvikio::defaults::http_status_codes();
 
-  while (attempt_count < http_max_attempts) {
+  while (attempt_count++ < http_max_attempts) {
     auto err = curl_easy_perform(handle());
-    attempt_count++;
 
     if (err == CURLE_OK) {
       // We set CURLE_HTTP_RETURNED_ERROR, so >= 400 status codes are considered
@@ -138,7 +137,7 @@ void CurlHandle::perform()
     }
     // We had an error. Is it retryable?
     curl_easy_getinfo(handle(), CURLINFO_RESPONSE_CODE, &http_code);
-    auto is_retryable_response =
+    auto const is_retryable_response =
       (std::find(http_status_codes.begin(), http_status_codes.end(), http_code) !=
        http_status_codes.end());
 
