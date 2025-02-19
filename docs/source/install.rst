@@ -37,10 +37,10 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
   If the nightly install doesn't work, set ``channel_priority: flexible`` in your ``.condarc``.
 
 
-PyPi
+PyPI
 ----
 
-KvikIO is also available on PyPi. Install the latest release like:
+KvikIO is also available on PyPI. Install the latest release like:
 
 .. code-block::
 
