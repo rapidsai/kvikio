@@ -25,12 +25,15 @@
 #include <utility>
 
 #include <kvikio/buffer.hpp>
+#include <kvikio/compat_mode.hpp>
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/file_utils.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/stream.hpp>
 #include <kvikio/utils.hpp>
 
@@ -44,23 +47,13 @@ namespace kvikio {
 class FileHandle {
  private:
   // We use two file descriptors, one opened with the O_DIRECT flag and one without.
-  int _fd_direct_on{-1};
-  int _fd_direct_off{-1};
+  FileWrapper _file_direct_on{};
+  FileWrapper _file_direct_off{};
   bool _initialized{false};
-  CompatMode _compat_mode{CompatMode::AUTO};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
-  CUfileHandle_t _handle{};
-
-  /**
-   * @brief Given a requested compatibility mode, whether it is expected to reduce to `ON` for
-   * asynchronous I/O.
-   *
-   * @param requested_compat_mode Requested compatibility mode.
-   * @return True if POSIX I/O fallback will be used; false for cuFile I/O.
-   * @exception std::runtime_error When the requested compatibility mode is `OFF`, but cuFile
-   * batch/stream library symbol is missing, or cuFile configuration file is missing.
-   */
-  bool is_compat_mode_preferred_for_async(CompatMode requested_compat_mode);
+  CUFileHandleWrapper _cufile_handle{};
+  CompatModeManager _compat_mode_manager;
+  friend class CompatModeManager;
 
  public:
   static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
@@ -122,23 +115,24 @@ class FileHandle {
    * @brief Get one of the file descriptors
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the
-   * `O_DIRECT` flag and one without. This function returns one of them but
-   * it is unspecified which one.
+   * `O_DIRECT` flag and one without.
    *
+   * @param  o_direct Whether to get the file descriptor opened with the `O_DIRECT` flag.
    * @return File descriptor
    */
-  [[nodiscard]] int fd() const noexcept;
+  [[nodiscard]] int fd(bool o_direct = false) const noexcept;
 
   /**
    * @brief Get the flags of one of the file descriptors (see open(2))
    *
    * Notice, FileHandle maintains two file descriptors - one opened with the
-   * `O_DIRECT` flag and one without. This function returns the flags of one of
-   * them but it is unspecified which one.
+   * `O_DIRECT` flag and one without.
    *
+   * @param  o_direct Whether to get the flags of the file descriptor opened with the `O_DIRECT`
+   * flag.
    * @return File descriptor
    */
-  [[nodiscard]] int fd_open_flags() const;
+  [[nodiscard]] int fd_open_flags(bool o_direct = false) const;
 
   /**
    * @brief Get the file size
@@ -442,27 +436,13 @@ class FileHandle {
                                          CUstream stream     = nullptr);
 
   /**
-   * @brief Returns `true` if the compatibility mode is expected to be `ON` for this file.
+   * @brief Get the associated compatibility mode manager, which can be used to query the original
+   * requested compatibility mode or the expected compatibility modes for synchronous and
+   * asynchronous I/O.
    *
-   * Compatibility mode can be explicitly enabled in object creation. The mode is also enabled
-   * automatically, if file cannot be opened with the `O_DIRECT` flag, or if the system does not
-   * meet the requirements for the cuFile library under the `AUTO` compatibility mode.
-   *
-   * @return Boolean answer.
+   * @return The associated compatibility mode manager.
    */
-  [[nodiscard]] bool is_compat_mode_preferred() const noexcept;
-
-  /**
-   * @brief Returns `true` if the compatibility mode is expected to be `ON` for the asynchronous I/O
-   * on this file.
-   *
-   * For asynchronous I/O, the compatibility mode can be automatically enabled if the cuFile batch
-   * and stream symbols are missing, or if the cuFile configuration file is missing, or if
-   * `is_compat_mode_preferred()` returns true.
-   *
-   * @return Boolean answer.
-   */
-  [[nodiscard]] bool is_compat_mode_preferred_for_async() const noexcept;
+  const CompatModeManager& get_compat_mode_manager() const noexcept;
 };
 
 }  // namespace kvikio

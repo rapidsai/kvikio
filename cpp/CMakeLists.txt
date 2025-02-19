@@ -62,6 +62,9 @@ rapids_find_package(
 
 if(KvikIO_REMOTE_SUPPORT)
   include(cmake/thirdparty/get_libcurl.cmake)
+  if(TARGET libcurl_static)
+    set_target_properties(libcurl_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  endif()
 endif()
 
 set(cuFile_FOUND 0)
@@ -135,11 +138,14 @@ set(SOURCES
     "src/batch.cpp"
     "src/bounce_buffer.cpp"
     "src/buffer.cpp"
+    "src/compat_mode.cpp"
     "src/cufile/config.cpp"
     "src/cufile/driver.cpp"
     "src/defaults.cpp"
     "src/error.cpp"
     "src/file_handle.cpp"
+    "src/file_utils.cpp"
+    "src/nvtx.cpp"
     "src/posix_io.cpp"
     "src/shim/cuda.cpp"
     "src/shim/cufile.cpp"
@@ -246,6 +252,7 @@ set(final_code_string
     "
 set(KvikIO_CUDA_SUPPORT [=[${KvikIO_CUDA_SUPPORT}]=])
 set(KvikIO_CUFILE_SUPPORT [=[${cuFile_FOUND}]=])
+set(KvikIO_REMOTE_SUPPORT [=[${KvikIO_REMOTE_SUPPORT}]=])
 "
 )
 string(

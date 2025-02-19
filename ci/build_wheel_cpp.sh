@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -16,7 +16,7 @@ rapids-dependency-file-generator \
 | tee /tmp/requirements-build.txt
 
 rapids-logger "Installing build requirements"
-python -m pip install \
+rapids-pip-retry install \
     -v \
     --prefer-binary \
     -r /tmp/requirements-build.txt
@@ -28,7 +28,7 @@ export PIP_NO_BUILD_ISOLATION=0
 export SKBUILD_CMAKE_ARGS="-DUSE_NVCOMP_RUNTIME_WHEEL=ON"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 mkdir -p ${package_dir}/final_dist
 python -m auditwheel repair \

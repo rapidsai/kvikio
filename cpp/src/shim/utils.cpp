@@ -24,18 +24,18 @@
 
 namespace kvikio {
 
-void* load_library(char const* name, int mode)
+void* load_library(std::string const& name, int mode)
 {
   ::dlerror();  // Clear old errors
-  void* ret = ::dlopen(name, mode);
+  void* ret = ::dlopen(name.c_str(), mode);
   if (ret == nullptr) { throw std::runtime_error(::dlerror()); }
   return ret;
 }
 
-void* load_library(std::vector<char const*> const& names, int mode)
+void* load_library(std::vector<std::string> const& names, int mode)
 {
   std::stringstream ss;
-  for (char const* name : names) {
+  for (auto const& name : names) {
     ss << name << " ";
     try {
       return load_library(name, mode);

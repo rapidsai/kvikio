@@ -17,6 +17,7 @@
 
 #include <cstring>
 #include <exception>
+#include <string>
 #include <system_error>
 
 #include <kvikio/shim/cuda.hpp>
@@ -71,7 +72,7 @@ void cuda_driver_try_2(CUresult error, int line_number, char const* filename)
 {
   if (error == CUDA_ERROR_STUB_LIBRARY) {
     throw Exception{std::string{"CUDA error at: "} + std::string(filename) + ":" +
-                    KVIKIO_STRINGIFY(line_number) +
+                    std::to_string(line_number) +
                     ": CUDA_ERROR_STUB_LIBRARY("
                     "The CUDA driver loaded is a stub library)"};
   }
@@ -82,9 +83,8 @@ void cuda_driver_try_2(CUresult error, int line_number, char const* filename)
     CUresult err_str_status  = cudaAPI::instance().GetErrorString(error, &err_str);
     if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }
     if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }
-    throw Exception{std::string{"CUDA error at: "} + filename + ":" +
-                    KVIKIO_STRINGIFY(line_number) + ": " + std::string(err_name) + "(" +
-                    std::string(err_str) + ")"};
+    throw Exception{std::string{"CUDA error at: "} + filename + ":" + std::to_string(line_number) +
+                    ": " + std::string(err_name) + "(" + std::string(err_str) + ")"};
   }
 }
 
@@ -97,7 +97,7 @@ void cufile_try_2(CUfileError_t error, int line_number, char const* filename)
       CUDA_DRIVER_TRY(cuda_error);
     }
     throw Exception{std::string{"cuFile error at: "} + filename + ":" +
-                    KVIKIO_STRINGIFY(line_number) + ": " +
+                    std::to_string(line_number) + ": " +
                     cufileop_status_error((CUfileOpError)std::abs(error.err))};
   }
 }
@@ -111,9 +111,12 @@ void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, char const*
                        ? std::string(cufileop_status_error((CUfileOpError)err))
                        : std::string(std::strerror(err));
     throw Exception{std::string{"cuFile error at: "} + filename + ":" +
-                    KVIKIO_STRINGIFY(line_number) + ": " + msg};
+                    std::to_string(line_number) + ": " + msg};
   }
 }
+
+#define KVIKIO_LOG_ERROR(err_msg) kvikio::detail::log_error(err_msg, __LINE__, __FILE__)
+void log_error(std::string_view err_msg, int line_number, char const* filename);
 
 }  // namespace detail
 

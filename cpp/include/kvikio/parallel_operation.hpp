@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <cassert>
 #include <future>
 #include <numeric>
@@ -24,18 +25,51 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
 
 namespace detail {
 
-template <typename F, typename T>
-std::future<std::size_t> submit_task(
-  F op, T buf, std::size_t size, std::size_t file_offset, std::size_t devPtr_offset)
+/**
+ * @brief Determine the NVTX color and call index. They are used to identify tasks from different
+ * pread/pwrite calls. Tasks from the same pread/pwrite call are given the same color and call
+ * index. The call index is atomically incremented on each pread/pwrite call, and will wrap around
+ * once it reaches the maximum value the integer type `std::uint64_t` can hold (this overflow
+ * behavior is well-defined in C++). The color is picked from an internal color palette according to
+ * the call index value.
+ *
+ * @return A pair of NVTX color and call index.
+ */
+inline const std::pair<const nvtx_color_type&, std::uint64_t> get_next_color_and_call_idx() noexcept
 {
-  return defaults::thread_pool().submit_task(
-    [=] { return op(buf, size, file_offset, devPtr_offset); });
+  static std::atomic_uint64_t call_counter{1ull};
+  auto call_idx    = call_counter.fetch_add(1ull, std::memory_order_relaxed);
+  auto& nvtx_color = nvtx_manager::get_color_by_index(call_idx);
+  return {nvtx_color, call_idx};
+}
+
+template <typename F, typename T>
+std::future<std::size_t> submit_task(F op,
+                                     T buf,
+                                     std::size_t size,
+                                     std::size_t file_offset,
+                                     std::size_t devPtr_offset,
+                                     std::uint64_t nvtx_payload = 0ull,
+                                     nvtx_color_type nvtx_color = nvtx_manager::default_color())
+{
+  return defaults::thread_pool().submit_task([=] {
+    KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
+
+    // Rename the worker thread in the thread pool to improve clarity from nsys-ui.
+    // Note: This NVTX feature is currently not supported by nsys-ui.
+    thread_local std::once_flag call_once_per_thread;
+    std::call_once(call_once_per_thread,
+                   [] { nvtx_manager::rename_current_thread("thread pool"); });
+
+    return op(buf, size, file_offset, devPtr_offset);
+  });
 }
 
 }  // namespace detail
@@ -58,13 +92,15 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t size,
                                      std::size_t file_offset,
                                      std::size_t task_size,
-                                     std::size_t devPtr_offset)
+                                     std::size_t devPtr_offset,
+                                     std::uint64_t call_idx     = 0,
+                                     nvtx_color_type nvtx_color = nvtx_manager::default_color())
 {
   if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
-    return detail::submit_task(op, buf, size, file_offset, devPtr_offset);
+    return detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color);
   }
 
   // We know an upper bound of the total number of tasks
@@ -73,14 +109,18 @@ std::future<std::size_t> parallel_io(F op,
 
   // 1) Submit `task_size` sized tasks
   while (size >= task_size) {
-    tasks.push_back(detail::submit_task(op, buf, task_size, file_offset, devPtr_offset));
+    tasks.push_back(
+      detail::submit_task(op, buf, task_size, file_offset, devPtr_offset, call_idx, nvtx_color));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
   }
 
   // 2) Submit a task for the remainder
-  if (size > 0) { tasks.push_back(detail::submit_task(op, buf, size, file_offset, devPtr_offset)); }
+  if (size > 0) {
+    tasks.push_back(
+      detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color));
+  }
 
   // Finally, we sum the result of all tasks.
   auto gather_tasks = [](std::vector<std::future<std::size_t>>&& tasks) -> std::size_t {
