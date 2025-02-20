@@ -104,6 +104,7 @@ files:
       - cuda_version
       - cuda
       - test_java
+      - depends_on_libkvikio
 channels:
   - rapidsai
   - rapidsai-nightly
