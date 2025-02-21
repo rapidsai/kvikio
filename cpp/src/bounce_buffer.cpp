@@ -74,7 +74,8 @@ AllocRetain::Alloc AllocRetain::get()
   // If no available allocation, allocate and register a new one
   void* alloc{};
   // Allocate page-locked host memory
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, _size, CU_MEMHOSTREGISTER_PORTABLE));
+  // Under unified addressing, host memory allocated this way is automatically portable and mapped.
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, _size, CU_MEMHOSTALLOC_PORTABLE));
   return Alloc(this, alloc, _size);
 }
 
