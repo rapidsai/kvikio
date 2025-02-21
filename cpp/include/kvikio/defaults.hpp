@@ -22,10 +22,9 @@
 #include <stdexcept>
 #include <string>
 
-#include <BS_thread_pool.hpp>
-
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 
 /**
  * @brief KvikIO namespace.
@@ -60,7 +59,7 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
  */
 class defaults {
  private:
-  BS::thread_pool _thread_pool{get_num_threads_from_env()};
+  BS_thread_pool _thread_pool{get_num_threads_from_env()};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
@@ -156,7 +155,7 @@ class defaults {
    *
    * @return The the default thread pool instance.
    */
-  [[nodiscard]] static BS::thread_pool& thread_pool();
+  [[nodiscard]] static BS_thread_pool& thread_pool();
 
   /**
    * @brief Get the number of threads in the default thread pool.
