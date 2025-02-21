@@ -22,6 +22,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
@@ -55,7 +56,7 @@ CUstream StreamsByThread::get()
 }
 
 std::size_t posix_device_read(int fd,
-                              const void* devPtr_base,
+                              void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
                               std::size_t devPtr_offset)
@@ -66,7 +67,7 @@ std::size_t posix_device_read(int fd,
 }
 
 std::size_t posix_device_write(int fd,
-                               const void* devPtr_base,
+                               void const* devPtr_base,
                                std::size_t size,
                                std::size_t file_offset,
                                std::size_t devPtr_offset)

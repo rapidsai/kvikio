@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-// Enable documentation of the enum.
-/**
- * @file
- */
-
 #pragma once
 
 #include <cstddef>
@@ -27,42 +22,19 @@
 #include <stdexcept>
 #include <string>
 
-#include <BS_thread_pool.hpp>
-
+#include <kvikio/compat_mode.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 
+/**
+ * @brief KvikIO namespace.
+ */
 namespace kvikio {
-/**
- * @brief I/O compatibility mode.
- */
-enum class CompatMode : uint8_t {
-  OFF,  ///< Enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met
-        ///< and cuFile is properly configured. However, if the system is not suited for cuFile, I/O
-        ///< operations under the OFF option may error out, crash or hang.
-  ON,   ///< Enforce POSIX I/O.
-  AUTO,  ///< Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile
-         ///< are not met.
-};
-
-namespace detail {
-/**
- * @brief Parse a string into a CompatMode enum.
- *
- * @param compat_mode_str Compatibility mode in string format(case-insensitive). Valid values
- * include:
- *   - `ON` (alias: `TRUE`, `YES`, `1`)
- *   - `OFF` (alias: `FALSE`, `NO`, `0`)
- *   - `AUTO`
- * @return A CompatMode enum.
- */
-CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
-
-}  // namespace detail
 
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
-  const auto* env_val = std::getenv(env_var_name.data());
+  auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
 
   std::stringstream sstream(env_val);
@@ -87,7 +59,7 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
  */
 class defaults {
  private:
-  BS::thread_pool _thread_pool{get_num_threads_from_env()};
+  BS_thread_pool _thread_pool{get_num_threads_from_env()};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
@@ -183,7 +155,7 @@ class defaults {
    *
    * @return The the default thread pool instance.
    */
-  [[nodiscard]] static BS::thread_pool& thread_pool();
+  [[nodiscard]] static BS_thread_pool& thread_pool();
 
   /**
    * @brief Get the number of threads in the default thread pool.

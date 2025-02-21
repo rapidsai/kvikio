@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
-#include "kvikio/defaults.hpp"
 #include "utils.hpp"
 
 using namespace kvikio::test;
@@ -77,7 +77,7 @@ TEST_F(BasicIOTest, write_read_async)
 
   // Explicitly set compatibility mode
   std::array<kvikio::CompatMode, 2> compat_modes{kvikio::CompatMode::AUTO, kvikio::CompatMode::ON};
-  for (const auto& compat_mode : compat_modes) {
+  for (auto const& compat_mode : compat_modes) {
     {
       kvikio::FileHandle f(_filepath, "w", kvikio::FileHandle::m644, compat_mode);
       auto stream_future = f.write_async(_dev_a.ptr, _dev_a.nbytes, 0, 0, stream);

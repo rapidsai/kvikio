@@ -48,7 +48,7 @@ DriverInitializer::~DriverInitializer() noexcept
 {
   try {
     cuFileAPI::instance().driver_close();
-  } catch (const CUfileException& e) {
+  } catch (CUfileException const& e) {
     std::cerr << "Unable to close GDS file driver: ";
     std::cerr << e.what();
     std::cerr << std::endl;

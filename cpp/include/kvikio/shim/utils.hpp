@@ -17,6 +17,7 @@
 
 #include <dlfcn.h>
 #include <sys/utsname.h>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -70,7 +71,7 @@ void get_symbol(T& handle, void* lib, std::string const& name)
   ::dlerror();  // Clear old errors
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   handle          = reinterpret_cast<T>(::dlsym(lib, name.c_str()));
-  const char* err = ::dlerror();
+  char const* err = ::dlerror();
   if (err != nullptr) { throw std::runtime_error(err); }
 }
 
