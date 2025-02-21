@@ -26,13 +26,13 @@
 
 namespace kvikio {
 
-nvtx_manager& nvtx_manager::instance() noexcept
+NvtxManager& NvtxManager::instance() noexcept
 {
-  static nvtx_manager _instance;
+  static NvtxManager _instance;
   return _instance;
 }
 
-const nvtx_color_type& nvtx_manager::default_color() noexcept
+const nvtx_color_type& NvtxManager::default_color() noexcept
 {
 #ifdef KVIKIO_CUDA_FOUND
   static nvtx_color_type default_color{nvtx3::argb{0, 255, 255, 255}};
@@ -43,7 +43,7 @@ const nvtx_color_type& nvtx_manager::default_color() noexcept
 #endif
 }
 
-const nvtx_color_type& nvtx_manager::get_color_by_index(std::uint64_t idx) noexcept
+const nvtx_color_type& NvtxManager::get_color_by_index(std::uint64_t idx) noexcept
 {
 #ifdef KVIKIO_CUDA_FOUND
   constexpr std::size_t num_color{16};
@@ -72,7 +72,7 @@ const nvtx_color_type& nvtx_manager::get_color_by_index(std::uint64_t idx) noexc
 #endif
 }
 
-void nvtx_manager::rename_current_thread(std::string_view new_name) noexcept
+void NvtxManager::rename_current_thread(std::string_view new_name) noexcept
 {
 #ifdef KVIKIO_CUDA_FOUND
   auto tid = syscall(SYS_gettid);

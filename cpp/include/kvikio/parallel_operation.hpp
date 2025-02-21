@@ -46,7 +46,7 @@ inline const std::pair<const nvtx_color_type&, std::uint64_t> get_next_color_and
 {
   static std::atomic_uint64_t call_counter{1ull};
   auto call_idx    = call_counter.fetch_add(1ull, std::memory_order_relaxed);
-  auto& nvtx_color = nvtx_manager::get_color_by_index(call_idx);
+  auto& nvtx_color = NvtxManager::get_color_by_index(call_idx);
   return {nvtx_color, call_idx};
 }
 
@@ -57,7 +57,7 @@ std::future<std::size_t> submit_task(F op,
                                      std::size_t file_offset,
                                      std::size_t devPtr_offset,
                                      std::uint64_t nvtx_payload = 0ull,
-                                     nvtx_color_type nvtx_color = nvtx_manager::default_color())
+                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   return defaults::thread_pool().submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
@@ -87,7 +87,7 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t task_size,
                                      std::size_t devPtr_offset,
                                      std::uint64_t call_idx     = 0,
-                                     nvtx_color_type nvtx_color = nvtx_manager::default_color())
+                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
 
