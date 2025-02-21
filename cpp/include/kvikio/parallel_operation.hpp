@@ -113,7 +113,7 @@ template <typename F>
 std::future<std::size_t> submit_move_only_task(
   F op_move_only,
   std::uint64_t nvtx_payload = 0ull,
-  nvtx_color_type nvtx_color = nvtx_manager::default_color())
+  nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   static_assert(std::is_invocable_r_v<std::size_t, F>);
   auto op_copyable = make_copyable_lambda(std::move(op_move_only));
