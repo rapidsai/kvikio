@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import functools
@@ -6,7 +6,12 @@ import multiprocessing
 import pathlib
 import threading
 import time
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import (
+    BaseHTTPRequestHandler,
+    SimpleHTTPRequestHandler,
+    ThreadingHTTPServer,
+)
+from typing import Any
 
 
 class LocalHttpServer:
@@ -15,18 +20,12 @@ class LocalHttpServer:
     @staticmethod
     def _server(
         queue: multiprocessing.Queue,
-        root_path: str,
-        range_support: bool,
+        handler: type[BaseHTTPRequestHandler],
+        handler_options: dict[str, Any],
         max_lifetime: int,
     ):
-        if range_support:
-            from RangeHTTPServer import RangeRequestHandler
-
-            handler = RangeRequestHandler
-        else:
-            handler = SimpleHTTPRequestHandler
         httpd = ThreadingHTTPServer(
-            ("127.0.0.1", 0), functools.partial(handler, directory=root_path)
+            ("127.0.0.1", 0), functools.partial(handler, **handler_options)
         )
         thread = threading.Thread(target=httpd.serve_forever)
         thread.start()
@@ -41,6 +40,8 @@ class LocalHttpServer:
         root_path: str | pathlib.Path,
         range_support: bool = True,
         max_lifetime: int = 120,
+        handler: type[BaseHTTPRequestHandler] | None = None,
+        handler_options: dict[str, Any] | None = None,
     ) -> None:
         """Create a context that starts a local http server.
 
@@ -63,12 +64,26 @@ class LocalHttpServer:
         self.root_path = root_path
         self.range_support = range_support
         self.max_lifetime = max_lifetime
+        self.handler = handler
+        self.handler_options = handler_options or {}
 
     def __enter__(self):
         queue = multiprocessing.Queue()
+
+        if self.handler is not None:
+            handler = self.handler
+        elif self.range_support:
+            from RangeHTTPServer import RangeRequestHandler
+
+            handler = RangeRequestHandler
+        else:
+            handler = SimpleHTTPRequestHandler
+
+        handler_options = {**self.handler_options, **{"directory": self.root_path}}
+
         self.process = multiprocessing.Process(
             target=LocalHttpServer._server,
-            args=(queue, str(self.root_path), self.range_support, self.max_lifetime),
+            args=(queue, handler, handler_options, self.max_lifetime),
         )
         self.process.start()
         ip, port = queue.get()
