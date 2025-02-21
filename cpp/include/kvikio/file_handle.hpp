@@ -56,7 +56,9 @@ class FileHandle {
   friend class CompatModeManager;
 
  public:
-  static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
+  // 644 is a common setting of Unix file permissions: read and write for owner, read-only for group
+  // and others.
+  static constexpr mode_t m644 = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   FileHandle() noexcept        = default;
 
   /**

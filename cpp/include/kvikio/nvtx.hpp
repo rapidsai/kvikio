@@ -62,7 +62,7 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
     }                                                                                             \
   }
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(message, payload) \
-  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload, kvikio::nvtx_manager::default_color())
+  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload, kvikio::NvtxManager::default_color())
 #define KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(_1, _2, _3, NAME, ...) NAME
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL(...)                                         \
   KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(                                               \
@@ -85,9 +85,9 @@ using nvtx_color_type = int;
 /**
  * @brief Utility singleton class for NVTX annotation.
  */
-class nvtx_manager {
+class NvtxManager {
  public:
-  static nvtx_manager& instance() noexcept;
+  static NvtxManager& instance() noexcept;
 
   /**
    * @brief Return the default color.
@@ -114,13 +114,13 @@ class nvtx_manager {
    */
   static void rename_current_thread(std::string_view new_name) noexcept;
 
-  nvtx_manager(nvtx_manager const&)            = delete;
-  nvtx_manager& operator=(nvtx_manager const&) = delete;
-  nvtx_manager(nvtx_manager&&)                 = delete;
-  nvtx_manager& operator=(nvtx_manager&&)      = delete;
+  NvtxManager(NvtxManager const&)            = delete;
+  NvtxManager& operator=(NvtxManager const&) = delete;
+  NvtxManager(NvtxManager&&)                 = delete;
+  NvtxManager& operator=(NvtxManager&&)      = delete;
 
  private:
-  nvtx_manager() = default;
+  NvtxManager() = default;
 };
 
 /**
