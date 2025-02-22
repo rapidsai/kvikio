@@ -22,7 +22,7 @@
     <maven.compiler.target>11</maven.compiler.target>
     <junit.version>5.4.2</junit.version>
     <jcuda.version>12.0.0</jcuda.version>
-    <cmake.version>3.30.2</cmake.version>
+    <cmake.version>3.30.2-b1</cmake.version>
     <cmake.download>false</cmake.download>
   </properties>
 
