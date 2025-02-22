@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -6,6 +6,7 @@
 
 from libc.stdint cimport uint8_t
 from libcpp cimport bool
+from libcpp.vector cimport vector
 
 
 cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
@@ -28,6 +29,12 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     size_t cpp_bounce_buffer_size "kvikio::defaults::bounce_buffer_size"() except +
     void cpp_bounce_buffer_size_reset \
         "kvikio::defaults::bounce_buffer_size_reset"(size_t nbytes) except +
+    size_t cpp_http_max_attempts "kvikio::defaults::http_max_attempts"() except +
+    void cpp_http_max_attempts_reset \
+        "kvikio::defaults::http_max_attempts_reset"(size_t attempts) except +
+    vector[int] cpp_http_status_codes "kvikio::defaults::http_status_codes"() except +
+    void cpp_http_status_codes_reset \
+        "kvikio::defaults::http_status_codes_reset"(vector[int] status_codes) except +
 
 
 def compat_mode() -> CompatMode:
@@ -68,3 +75,19 @@ def bounce_buffer_size() -> int:
 
 def bounce_buffer_size_reset(nbytes: int) -> None:
     cpp_bounce_buffer_size_reset(nbytes)
+
+
+def http_max_attempts() -> int:
+    return cpp_http_max_attempts()
+
+
+def http_max_attempts_reset(attempts: int) -> None:
+    cpp_http_max_attempts_reset(attempts)
+
+
+def http_status_codes() -> list[int]:
+    return cpp_http_status_codes()
+
+
+def http_status_codes_reset(status_codes: list[int]) -> None:
+    return cpp_http_status_codes_reset(status_codes)

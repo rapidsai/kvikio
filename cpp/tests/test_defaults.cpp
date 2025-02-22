@@ -51,3 +51,24 @@ TEST(Defaults, parse_compat_mode_str)
     }
   }
 }
+
+TEST(Defaults, parse_http_status_codes)
+{
+  {
+    std::vector<std::string> inputs{
+      "429,500", "429, 500", " 429,500", "429,  500", "429 ,500", "429,500 "};
+    std::vector<int> expected = {429, 500};
+    for (const auto& input : inputs) {
+      EXPECT_EQ(kvikio::detail::parse_http_status_codes("KVIKIO_HTTP_STATUS_CODES", input),
+                expected);
+    }
+  }
+
+  {
+    std::vector<std::string> inputs{"429,", ",429", "a,b", "429,,500", "429,1000"};
+    for (const auto& input : inputs) {
+      EXPECT_THROW(kvikio::detail::parse_http_status_codes("KVIKIO_HTTP_STATUS_CODES", input),
+                   std::invalid_argument);
+    }
+  }
+}
