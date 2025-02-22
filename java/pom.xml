@@ -23,6 +23,7 @@
     <junit.version>5.4.2</junit.version>
     <jcuda.version>12.0.0</jcuda.version>
     <cmake.version>3.30.4</cmake.version>
+    <cmake.download>false</cmake.download>
   </properties>
 
   <dependencies>
