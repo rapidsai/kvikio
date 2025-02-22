@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
 project(CuFileJNI LANGUAGES CXX CUDA)
 
-find_package(CUDA REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 
 find_package(JNI REQUIRED)
 
