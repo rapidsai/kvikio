@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <mutex>
 #include <stack>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
@@ -42,8 +42,10 @@ std::size_t AllocRetain::Alloc::size() noexcept { return _size; }
 
 std::size_t AllocRetain::_clear()
 {
+  KVIKIO_NVTX_SCOPED_RANGE("AllocRetain::_clear", _size);
   std::size_t ret = _free_allocs.size() * _size;
   while (!_free_allocs.empty()) {
+    KVIKIO_NVTX_SCOPED_RANGE("AllocRetain::cuMemFreeHost", _size);
     CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
     _free_allocs.pop();
   }
@@ -61,7 +63,8 @@ void AllocRetain::_ensure_alloc_size()
 
 AllocRetain::Alloc AllocRetain::get()
 {
-  std::lock_guard const lock(_mutex);
+  KVIKIO_NVTX_SCOPED_RANGE("AllocRetain::get", _size);
+
   _ensure_alloc_size();
 
   // Check if we have an allocation available
@@ -75,13 +78,17 @@ AllocRetain::Alloc AllocRetain::get()
   void* alloc{};
   // Allocate page-locked host memory
   // Under unified addressing, host memory allocated this way is automatically portable and mapped.
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, _size, CU_MEMHOSTALLOC_PORTABLE));
+  {
+    KVIKIO_NVTX_SCOPED_RANGE("AllocRetain::cuMemHostAlloc", _size);
+    CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, _size, CU_MEMHOSTALLOC_PORTABLE));
+  }
   return Alloc(this, alloc, _size);
 }
 
 void AllocRetain::put(void* alloc, std::size_t size)
 {
-  std::lock_guard const lock(_mutex);
+  KVIKIO_NVTX_SCOPED_RANGE("AllocRetain::put", size);
+
   _ensure_alloc_size();
 
   // If the size of `alloc` matches the sizes of the retained allocations,
@@ -93,15 +100,11 @@ void AllocRetain::put(void* alloc, std::size_t size)
   }
 }
 
-std::size_t AllocRetain::clear()
-{
-  std::lock_guard const lock(_mutex);
-  return _clear();
-}
+std::size_t AllocRetain::clear() { return _clear(); }
 
 AllocRetain& AllocRetain::instance()
 {
-  static AllocRetain _instance;
+  thread_local AllocRetain _instance;
   return _instance;
 }
 

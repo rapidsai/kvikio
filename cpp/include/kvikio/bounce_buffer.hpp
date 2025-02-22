@@ -29,7 +29,6 @@ namespace kvikio {
  */
 class AllocRetain {
  private:
-  std::mutex _mutex{};
   // Stack of free allocations
   std::stack<void*> _free_allocs{};
   // The size of each allocation in `_free_allocs`
@@ -69,16 +68,12 @@ class AllocRetain {
   /**
    * @brief Free all retained allocations
    *
-   * NB: The `_mutex` must be taken prior to calling this function.
-   *
    * @return The number of bytes cleared
    */
   std::size_t _clear();
 
   /**
    * @brief Ensure the sizes of the retained allocations match `defaults::bounce_buffer_size()`
-   *
-   * NB: `_mutex` must be taken prior to calling this function.
    */
   void _ensure_alloc_size();
 
