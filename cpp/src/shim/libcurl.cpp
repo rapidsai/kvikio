@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+#include <chrono>
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <curl/curl.h>
@@ -116,19 +119,62 @@ CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 
 void CurlHandle::perform()
 {
-  // Perform the curl operation and check for errors.
-  CURLcode err = curl_easy_perform(handle());
-  if (err != CURLE_OK) {
-    std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
-    std::stringstream ss;
-    ss << "curl_easy_perform() error near " << _source_file << ":" << _source_line;
-    if (msg.empty()) {
-      ss << "(" << curl_easy_strerror(err) << ")";
-    } else {
-      ss << "(" << msg << ")";
-    }
-    throw std::runtime_error(ss.str());
-  }
-}
+  long http_code          = 0;
+  auto attempt_count      = 0;
+  auto base_delay         = 500;   // milliseconds
+  auto max_delay          = 4000;  // milliseconds
+  auto http_max_attempts  = kvikio::defaults::http_max_attempts();
+  auto& http_status_codes = kvikio::defaults::http_status_codes();
 
+  while (attempt_count++ < http_max_attempts) {
+    auto err = curl_easy_perform(handle());
+
+    if (err == CURLE_OK) {
+      // We set CURLE_HTTP_RETURNED_ERROR, so >= 400 status codes are considered
+      // errors, so anything less than this is considered a success and we're
+      // done.
+      return;
+    }
+    // We had an error. Is it retryable?
+    curl_easy_getinfo(handle(), CURLINFO_RESPONSE_CODE, &http_code);
+    auto const is_retryable_response =
+      (std::find(http_status_codes.begin(), http_status_codes.end(), http_code) !=
+       http_status_codes.end());
+
+    if (is_retryable_response) {
+      // backoff and retry again. With a base value of 500ms, we retry after
+      // 500ms, 1s, 2s, 4s, ...
+      auto const backoff_delay = base_delay * (1 << std::min(attempt_count - 1, 4));
+      // up to a maximum of `max_delay` seconds.
+      auto const delay = std::min(max_delay, backoff_delay);
+
+      // Only print this message out and sleep if we're actually going to retry again.
+      if (attempt_count < http_max_attempts) {
+        std::cout << "KvikIO: Got HTTP code " << http_code << ". Retrying after " << delay
+                  << "ms (attempt " << attempt_count << " of " << http_max_attempts << ")."
+                  << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+      }
+    } else {
+      // We had some kind of fatal error, or we got some status code we don't retry.
+      // We want to exit immediately.
+      std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
+      std::stringstream ss;
+      ss << "curl_easy_perform() error near " << _source_file << ":" << _source_line;
+      if (msg.empty()) {
+        ss << "(" << curl_easy_strerror(err) << ")";
+      } else {
+        ss << "(" << msg << ")";
+      }
+      throw std::runtime_error(ss.str());
+    }
+  }
+
+  // We've exceeded the maximum number of requests. Fail with a good error
+  // message.
+  std::stringstream ss;
+  ss << "KvikIO: HTTP request reached maximum number of attempts (" << http_max_attempts
+     << "). Got HTTP code " << http_code << ".";
+  throw std::runtime_error(ss.str());
+}
 }  // namespace kvikio

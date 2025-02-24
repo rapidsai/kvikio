@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 
@@ -214,8 +214,8 @@ def bounce_buffer_size() -> int:
     `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the
     value is 16 MiB.
 
-    Return
-    ------
+    Returns
+    -------
     nbytes : int
         The bounce buffer size in bytes.
     """
@@ -235,7 +235,7 @@ def bounce_buffer_size_reset(nbytes: int) -> None:
 
 @contextlib.contextmanager
 def set_bounce_buffer_size(nbytes: int):
-    """Context for resetting the the size of the bounce buffer.
+    """Context for resetting the size of the bounce buffer.
 
     Parameters
     ----------
@@ -248,3 +248,99 @@ def set_bounce_buffer_size(nbytes: int):
         yield
     finally:
         bounce_buffer_size_reset(old_value)
+
+
+def http_max_attempts() -> int:
+    """Get the maximum number of attempts per remote IO read.
+
+    Reads are retried up until ``http_max_attempts`` when the response has certain
+    HTTP status codes.
+
+    Set the value using `http_max_attempts_reset()` or by setting the
+    ``KVIKIO_HTTP_MAX_ATTEMPTS`` environment variable. If not set, the
+    value is 3.
+
+    Returns
+    -------
+    max_attempts : int
+        The maximum number of remote IO reads to attempt before raising an
+        error.
+    """
+    return kvikio._lib.defaults.http_max_attempts()
+
+
+def http_max_attempts_reset(attempts: int) -> None:
+    """Reset the maximum number of attempts per remote IO read.
+
+    Parameters
+    ----------
+    attempts : int
+        The maximum number of attempts to try before raising an error.
+    """
+    kvikio._lib.defaults.http_max_attempts_reset(attempts)
+
+
+@contextlib.contextmanager
+def set_http_max_attempts(attempts: int):
+    """Context for resetting the maximum number of HTTP attempts.
+
+    Parameters
+    ----------
+    attempts : int
+        The maximum number of attempts to try before raising an error.
+    """
+    old_value = http_max_attempts()
+    try:
+        http_max_attempts_reset(attempts)
+        yield
+    finally:
+        http_max_attempts_reset(old_value)
+
+
+def http_status_codes() -> list[int]:
+    """Get the list of HTTP status codes to retry.
+
+    Set the value using ``set_http_status_codes`` or by setting the
+    ``KVIKIO_HTTP_STATUS_CODES`` environment variable. If not set, the
+    default value is
+
+    - 429
+    - 500
+    - 502
+    - 503
+    - 504
+
+    Returns
+    -------
+    status_codes : list[int]
+        The HTTP status codes to retry.
+    """
+    return kvikio._lib.defaults.http_status_codes()
+
+
+def http_status_codes_reset(status_codes: list[int]) -> None:
+    """Reset the list of HTTP status codes to retry.
+
+    Parameters
+    ----------
+    status_codes : list[int]
+        The HTTP status codes to retry.
+    """
+    kvikio._lib.defaults.http_status_codes_reset(status_codes)
+
+
+@contextlib.contextmanager
+def set_http_status_codes(status_codes: list[int]):
+    """Context for resetting the HTTP status codes to retry.
+
+    Parameters
+    ----------
+    status_codes : list[int]
+        THe HTTP status codes to retry.
+    """
+    old_value = http_status_codes()
+    try:
+        http_status_codes_reset(status_codes)
+        yield
+    finally:
+        http_status_codes_reset(old_value)

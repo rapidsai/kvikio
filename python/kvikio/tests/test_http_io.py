@@ -1,6 +1,10 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+
+import http
+from http.server import SimpleHTTPRequestHandler
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -16,6 +20,58 @@ pytestmark = pytest.mark.skipif(
         "with libcurl (-DKvikIO_REMOTE_SUPPORT=ON)"
     ),
 )
+
+
+class ErrorCounter:
+    # ThreadedHTTPServer creates a new handler per request.
+    # This lets us share some state between requests.
+    def __init__(self):
+        self.value = 0
+
+
+class HTTP503Handler(SimpleHTTPRequestHandler):
+    """
+    An HTTP handler that initially responds with a 503 before responding normally.
+
+    Parameters
+    ----------
+    error_counter : ErrorCounter
+        A class with a mutable `value` for the number of 503 errors that have
+        been returned.
+    max_error_count : int
+        The number of times to respond with a 503 before responding normally.
+    """
+
+    def __init__(
+        self,
+        *args,
+        directory=None,
+        error_counter: ErrorCounter = ErrorCounter(),
+        max_error_count: int = 1,
+        **kwargs,
+    ):
+        self.max_error_count = max_error_count
+        self.error_counter = error_counter
+        super().__init__(*args, directory=directory, **kwargs)
+
+    def _do_with_error_count(self, method: Literal["GET", "HEAD"]) -> None:
+        if self.error_counter.value < self.max_error_count:
+            self.error_counter.value += 1
+            self.send_error(http.HTTPStatus.SERVICE_UNAVAILABLE)
+            self.send_header("CurrentErrorCount", str(self.error_counter.value))
+            self.send_header("MaxErrorCount", str(self.max_error_count))
+            return None
+        else:
+            if method == "GET":
+                return super().do_GET()
+            else:
+                return super().do_HEAD()
+
+    def do_GET(self) -> None:
+        return self._do_with_error_count("GET")
+
+    def do_HEAD(self) -> None:
+        return self._do_with_error_count("HEAD")
 
 
 @pytest.fixture
@@ -100,3 +156,80 @@ def test_no_range_support(http_server, tmpdir, xp):
             OverflowError, match="maybe the server doesn't support file ranges?"
         ):
             f.read(b, size=10, file_offset=10)
+
+
+def test_retry_http_503_ok(tmpdir, xp):
+    a = xp.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=HTTP503Handler,
+        handler_options={"error_counter": ErrorCounter()},
+    ) as server:
+        http_server = server.url
+        b = xp.empty_like(a)
+        with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+            assert f.nbytes() == a.nbytes
+            assert f"{http_server}/a" in str(f)
+            f.read(b)
+
+
+def test_retry_http_503_fails(tmpdir, xp, capfd):
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=HTTP503Handler,
+        handler_options={"error_counter": ErrorCounter(), "max_error_count": 100},
+    ) as server:
+        a = xp.arange(100, dtype="uint8")
+        a.tofile(tmpdir / "a")
+        b = xp.empty_like(a)
+
+        with pytest.raises(RuntimeError) as m, kvikio.defaults.set_http_max_attempts(2):
+            with kvikio.RemoteFile.open_http(f"{server.url}/a") as f:
+                f.read(b)
+
+        assert m.match(r"KvikIO: HTTP request reached maximum number of attempts \(2\)")
+        assert m.match("Got HTTP code 503")
+        captured = capfd.readouterr()
+
+        records = captured.out.strip().split("\n")
+        assert len(records) == 1
+        assert records[0] == (
+            "KvikIO: Got HTTP code 503. Retrying after 500ms (attempt 1 of 2)."
+        )
+
+
+def test_no_retries_ok(tmpdir):
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+    ) as server:
+        http_server = server.url
+        b = np.empty_like(a)
+        with kvikio.defaults.set_http_max_attempts(1):
+            with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+                assert f.nbytes() == a.nbytes
+                assert f"{http_server}/a" in str(f)
+                f.read(b)
+
+
+def test_set_http_status_code(tmpdir):
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=HTTP503Handler,
+        handler_options={"error_counter": ErrorCounter()},
+    ) as server:
+        http_server = server.url
+        with kvikio.defaults.set_http_status_codes([429]):
+            # this raises on the first 503 error, since it's not in the list.
+            assert kvikio.defaults.http_status_codes() == [429]
+            with pytest.raises(RuntimeError, match="503"):
+                with kvikio.RemoteFile.open_http(f"{http_server}/a"):
+                    pass
