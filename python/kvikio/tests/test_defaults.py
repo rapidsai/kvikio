@@ -7,6 +7,31 @@ import pytest
 import kvikio.defaults
 
 
+def test_property_setter():
+    """Test the method `set`"""
+
+    # Attempt to set a nonexistent property
+    with pytest.raises(AttributeError):
+        kvikio.defaults.set("nonexistent_property", 123)
+
+    # Attempt to set a property whose name is mistakenly prefixed by "set_"
+    # (coinciding with the setter method).
+    with pytest.raises(TypeError):
+        kvikio.defaults.set("set_task_size", 123)
+
+    # Nested context managers
+    task_size_default = kvikio.defaults.task_size()
+    with kvikio.defaults.set("task_size", 1024):
+        assert kvikio.defaults.task_size() == 1024
+        with kvikio.defaults.set("task_size", 2048):
+            assert kvikio.defaults.task_size() == 2048
+            with kvikio.defaults.set("task_size", 4096):
+                assert kvikio.defaults.task_size() == 4096
+            assert kvikio.defaults.task_size() == 2048
+        assert kvikio.defaults.task_size() == 1024
+    assert kvikio.defaults.task_size() == task_size_default
+
+
 @pytest.mark.skipif(
     kvikio.defaults.compat_mode() == kvikio.CompatMode.ON,
     reason="cannot test `compat_mode` when already running in compatibility mode",
