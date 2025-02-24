@@ -36,20 +36,21 @@ class ConfigContextManager:
 
 
 def set(*config: Any) -> ConfigContextManager:
-    msg = (
-        "kvikio.defaults.set(config: dict) or kvikio.defaults.set(key: str, value: Any)"
+    err_msg = (
+        "Valid arguments are kvikio.defaults.set(config: dict) or "
+        "kvikio.defaults.set(key: str, value: Any)"
     )
 
     if len(config) == 1:
         if not isinstance(config[0], dict):
-            raise ValueError(f"Valid arguments are {msg}")
+            raise ValueError(err_msg)
         return ConfigContextManager(config[0])
     elif len(config) == 2:
         if not isinstance(config[0], str):
-            raise ValueError(f"Valid arguments are {msg}")
+            raise ValueError(err_msg)
         return ConfigContextManager({config[0]: config[1]})
     else:
-        raise ValueError(f"Valid arguments are {msg}")
+        raise ValueError(err_msg)
 
 
 def compat_mode() -> kvikio.CompatMode:
