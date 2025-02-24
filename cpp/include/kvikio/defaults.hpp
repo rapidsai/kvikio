@@ -166,7 +166,7 @@ class defaults {
   /**
    * @brief Get the number of threads in the default thread pool.
    *
-   * Set the default value using `kvikio::default::set_thread_pool_nthreads` or by
+   * Set the default value using `kvikio::default::set_thread_pool_nthreads()` or by
    * setting the `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
    *
    * @return The number of threads.
@@ -187,7 +187,7 @@ class defaults {
   /**
    * @brief Get the default task size used for parallel IO operations.
    *
-   * Set the default value using `kvikio::default::set_task_size` or by setting
+   * Set the default value using `kvikio::default::set_task_size()` or by setting
    * the `KVIKIO_TASK_SIZE` environment variable. If not set, the default value is 4 MiB.
    *
    * @return The default task size in bytes.
@@ -207,7 +207,7 @@ class defaults {
    * In order to improve performance of small IO, `.pread()` and `.pwrite()` implement a shortcut
    * that circumvent the threadpool and use the POSIX backend directly.
    *
-   * Set the default value using `kvikio::default::set_gds_threshold` or by setting the
+   * Set the default value using `kvikio::default::set_gds_threshold()` or by setting the
    * `KVIKIO_GDS_THRESHOLD` environment variable. If not set, the default value is 1 MiB.
    *
    * @return The default GDS threshold size in bytes.
@@ -258,7 +258,7 @@ class defaults {
   /**
    * @brief The list of HTTP status codes to retry.
    *
-   * Set the value using `kvikio::default::http_status_codes()` or by setting the
+   * Set the value using `kvikio::default::set_http_status_codes()` or by setting the
    * `KVIKIO_HTTP_STATUS_CODES` environment variable. If not set, the default value is
    *
    * - 429
