@@ -16,7 +16,7 @@ class ConfigContextManager:
             self._set_property(key, value)
 
     def __enter__(self):
-        pass
+        return None
 
     def __exit__(self, type, value, traceback):
         for key, value in self._old_properties.items():
