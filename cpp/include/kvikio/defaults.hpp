@@ -157,7 +157,7 @@ class defaults {
    *
    * Notice, it is not possible to change the default thread pool. KvikIO will
    * always use the same thread pool however it is possible to change number of
-   * threads in the pool (see `kvikio::default::set_thread_pool_nthreads`).
+   * threads in the pool (see `kvikio::default::set_thread_pool_nthreads()`).
    *
    * @return The default thread pool instance.
    */
