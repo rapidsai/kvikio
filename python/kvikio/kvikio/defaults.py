@@ -2,7 +2,6 @@
 # See file LICENSE for terms.
 
 
-# import contextlib
 from typing import Any
 
 import kvikio._lib.defaults
