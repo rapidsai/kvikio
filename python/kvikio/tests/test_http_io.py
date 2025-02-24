@@ -58,7 +58,8 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
         if self.error_counter.value < self.max_error_count:
             self.error_counter.value += 1
             self.send_error(http.HTTPStatus.SERVICE_UNAVAILABLE)
-            self.send_header("CurrentErrorCount", str(self.error_counter.value))
+            self.send_header("CurrentErrorCount",
+                             str(self.error_counter.value))
             self.send_header("MaxErrorCount", str(self.max_error_count))
             return None
         else:
@@ -99,14 +100,13 @@ def test_read(http_server, tmpdir, xp, size, nthreads, tasksize):
     a = xp.arange(size)
     a.tofile(tmpdir / "a")
 
-    with kvikio.defaults.set_num_threads(nthreads):
-        with kvikio.defaults.set_task_size(tasksize):
-            with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
-                assert f.nbytes() == a.nbytes
-                assert f"{http_server}/a" in str(f)
-                b = xp.empty_like(a)
-                assert f.read(b) == a.nbytes
-                xp.testing.assert_array_equal(a, b)
+    with kvikio.defaults.set({"num_threads": nthreads, "task_size": tasksize}):
+        with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+            assert f.nbytes() == a.nbytes
+            assert f"{http_server}/a" in str(f)
+            b = xp.empty_like(a)
+            assert f.read(b) == a.nbytes
+            xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize("nthreads", [1, 10])
@@ -114,7 +114,7 @@ def test_large_read(http_server, tmpdir, xp, nthreads):
     a = xp.arange(16_000_000)
     a.tofile(tmpdir / "a")
 
-    with kvikio.defaults.set_num_threads(nthreads):
+    with kvikio.defaults.set("num_threads", nthreads):
         with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
             assert f.nbytes() == a.nbytes
             assert f"{http_server}/a" in str(f)
@@ -181,17 +181,19 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         tmpdir,
         max_lifetime=60,
         handler=HTTP503Handler,
-        handler_options={"error_counter": ErrorCounter(), "max_error_count": 100},
+        handler_options={"error_counter": ErrorCounter(),
+                         "max_error_count": 100},
     ) as server:
         a = xp.arange(100, dtype="uint8")
         a.tofile(tmpdir / "a")
         b = xp.empty_like(a)
 
-        with pytest.raises(RuntimeError) as m, kvikio.defaults.set_http_max_attempts(2):
+        with pytest.raises(RuntimeError) as m, kvikio.defaults.set("http_max_attempts", 2):
             with kvikio.RemoteFile.open_http(f"{server.url}/a") as f:
                 f.read(b)
 
-        assert m.match(r"KvikIO: HTTP request reached maximum number of attempts \(2\)")
+        assert m.match(
+            r"KvikIO: HTTP request reached maximum number of attempts \(2\)")
         assert m.match("Got HTTP code 503")
         captured = capfd.readouterr()
 
@@ -212,7 +214,7 @@ def test_no_retries_ok(tmpdir):
     ) as server:
         http_server = server.url
         b = np.empty_like(a)
-        with kvikio.defaults.set_http_max_attempts(1):
+        with kvikio.defaults.set("http_max_attempts", 1):
             with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
                 assert f.nbytes() == a.nbytes
                 assert f"{http_server}/a" in str(f)
@@ -227,7 +229,7 @@ def test_set_http_status_code(tmpdir):
         handler_options={"error_counter": ErrorCounter()},
     ) as server:
         http_server = server.url
-        with kvikio.defaults.set_http_status_codes([429]):
+        with kvikio.defaults.set("http_status_codes", [429]):
             # this raises on the first 503 error, since it's not in the list.
             assert kvikio.defaults.http_status_codes() == [429]
             with pytest.raises(RuntimeError, match="503"):

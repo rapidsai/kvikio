@@ -143,7 +143,7 @@ defaults* defaults::instance()
 }
 CompatMode defaults::compat_mode() { return instance()->_compat_mode; }
 
-void defaults::compat_mode_reset(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
+void defaults::set_compat_mode(CompatMode compat_mode) { instance()->_compat_mode = compat_mode; }
 
 CompatMode defaults::infer_compat_mode_if_auto(CompatMode compat_mode) noexcept
 {
@@ -169,7 +169,7 @@ BS_thread_pool& defaults::thread_pool() { return instance()->_thread_pool; }
 
 unsigned int defaults::thread_pool_nthreads() { return thread_pool().get_thread_count(); }
 
-void defaults::thread_pool_nthreads_reset(unsigned int nthreads)
+void defaults::set_thread_pool_nthreads(unsigned int nthreads)
 {
   if (nthreads == 0) {
     throw std::invalid_argument("number of threads must be a positive integer greater than zero");
@@ -179,7 +179,7 @@ void defaults::thread_pool_nthreads_reset(unsigned int nthreads)
 
 std::size_t defaults::task_size() { return instance()->_task_size; }
 
-void defaults::task_size_reset(std::size_t nbytes)
+void defaults::set_task_size(std::size_t nbytes)
 {
   if (nbytes == 0) {
     throw std::invalid_argument("task size must be a positive integer greater than zero");
@@ -189,11 +189,11 @@ void defaults::task_size_reset(std::size_t nbytes)
 
 std::size_t defaults::gds_threshold() { return instance()->_gds_threshold; }
 
-void defaults::gds_threshold_reset(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
+void defaults::set_gds_threshold(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
 
 std::size_t defaults::bounce_buffer_size() { return instance()->_bounce_buffer_size; }
 
-void defaults::bounce_buffer_size_reset(std::size_t nbytes)
+void defaults::set_bounce_buffer_size(std::size_t nbytes)
 {
   if (nbytes == 0) {
     throw std::invalid_argument(
@@ -204,7 +204,7 @@ void defaults::bounce_buffer_size_reset(std::size_t nbytes)
 
 std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }
 
-void defaults::http_max_attempts_reset(std::size_t attempts)
+void defaults::set_http_max_attempts(std::size_t attempts)
 {
   if (attempts == 0) { throw std::invalid_argument("attempts must be a positive integer"); }
   instance()->_http_max_attempts = attempts;
@@ -212,7 +212,7 @@ void defaults::http_max_attempts_reset(std::size_t attempts)
 
 std::vector<int> const& defaults::http_status_codes() { return instance()->_http_status_codes; }
 
-void defaults::http_status_codes_reset(std::vector<int> status_codes)
+void defaults::set_http_status_codes(std::vector<int> status_codes)
 {
   instance()->_http_status_codes = std::move(status_codes);
 }

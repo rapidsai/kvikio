@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -27,18 +27,17 @@ def test_write(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
-    with kvikio.defaults.set_num_threads(nthreads):
-        with kvikio.defaults.set_task_size(tasksize):
-            a = xp.arange(size)
-            f = kvikio.CuFile(filename, "w")
-            assert not f.closed
-            assert check_bit_flags(f.open_flags(), os.O_WRONLY)
-            assert f.write(a) == a.nbytes
-            f.close()
-            assert f.closed
+    with kvikio.defaults.set({"num_threads": nthreads, "task_size": tasksize}):
+        a = xp.arange(size)
+        f = kvikio.CuFile(filename, "w")
+        assert not f.closed
+        assert check_bit_flags(f.open_flags(), os.O_WRONLY)
+        assert f.write(a) == a.nbytes
+        f.close()
+        assert f.closed
 
-            b = numpy.fromfile(filename, dtype=a.dtype)
-            xp.testing.assert_array_equal(a, b)
+        b = numpy.fromfile(filename, dtype=a.dtype)
+        xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
@@ -48,17 +47,16 @@ def test_read(tmp_path, xp, gds_threshold, size, nthreads, tasksize):
     """Test basic read/write"""
     filename = tmp_path / "test-file"
 
-    with kvikio.defaults.set_num_threads(nthreads):
-        with kvikio.defaults.set_task_size(tasksize):
-            a = numpy.arange(size)
-            a.tofile(filename)
-            os.sync()
+    with kvikio.defaults.set({"num_threads": nthreads, "task_size": tasksize}):
+        a = numpy.arange(size)
+        a.tofile(filename)
+        os.sync()
 
-            b = xp.empty_like(a)
-            f = kvikio.CuFile(filename, "r")
-            assert check_bit_flags(f.open_flags(), os.O_RDONLY)
-            assert f.read(b) == b.nbytes
-            xp.testing.assert_array_equal(a, b)
+        b = xp.empty_like(a)
+        f = kvikio.CuFile(filename, "r")
+        assert check_bit_flags(f.open_flags(), os.O_RDONLY)
+        assert f.read(b) == b.nbytes
+        xp.testing.assert_array_equal(a, b)
 
 
 def test_file_handle_context(tmp_path):
@@ -106,11 +104,11 @@ def test_incorrect_open_mode_error(tmp_path, xp):
 def test_set_compat_mode_between_io(tmp_path):
     """Test changing `compat_mode`"""
 
-    with kvikio.defaults.set_compat_mode(False):
+    with kvikio.defaults.set("compat_mode", kvikio.CompatMode.OFF):
         f = kvikio.CuFile(tmp_path / "test-file", "w")
         assert not f.closed
         assert f.open_flags() & os.O_WRONLY != 0
-        with kvikio.defaults.set_compat_mode(True):
+        with kvikio.defaults.set("compat_mode", kvikio.CompatMode.ON):
             a = cupy.arange(10)
             assert f.write(a) == a.nbytes
 
@@ -155,17 +153,16 @@ def test_write_to_files_in_chunks(tmp_path, xp, gds_threshold):
 def test_read_write_slices(tmp_path, xp, gds_threshold, nthreads, tasksize, start, end):
     """Read and write different slices"""
 
-    with kvikio.defaults.set_num_threads(nthreads):
-        with kvikio.defaults.set_task_size(tasksize):
-            filename = tmp_path / "test-file"
-            a = xp.arange(10 * 4096)  # 10 page-sizes
-            b = a.copy()
-            a[start:end] = 42
-            with kvikio.CuFile(filename, "w") as f:
-                assert f.write(a[start:end]) == a[start:end].nbytes
-            with kvikio.CuFile(filename, "r") as f:
-                assert f.read(b[start:end]) == b[start:end].nbytes
-            xp.testing.assert_array_equal(a, b)
+    with kvikio.defaults.set({"num_threads": nthreads, "task_size": tasksize}):
+        filename = tmp_path / "test-file"
+        a = xp.arange(10 * 4096)  # 10 page-sizes
+        b = a.copy()
+        a[start:end] = 42
+        with kvikio.CuFile(filename, "w") as f:
+            assert f.write(a[start:end]) == a[start:end].nbytes
+        with kvikio.CuFile(filename, "r") as f:
+            assert f.read(b[start:end]) == b[start:end].nbytes
+        xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
@@ -232,31 +229,30 @@ def test_multiple_gpus(tmp_path, xp, gds_threshold):
     """Test IO from two different GPUs"""
     filename = tmp_path / "test-file"
 
-    with kvikio.defaults.set_num_threads(10):
-        with kvikio.defaults.set_task_size(10):
-            # Allocate an array on each device
+    with kvikio.defaults.set({"num_threads": 10, "task_size": 10}):
+        # Allocate an array on each device
+        with cupy.cuda.Device(0):
+            a0 = xp.arange(200)
+        with cupy.cuda.Device(1):
+            a1 = xp.zeros(200, dtype=a0.dtype)
+
+        # Test when the device match the allocation
+        with kvikio.CuFile(filename, "w") as f:
             with cupy.cuda.Device(0):
-                a0 = xp.arange(200)
+                assert f.write(a0) == a0.nbytes
+        with kvikio.CuFile(filename, "r") as f:
             with cupy.cuda.Device(1):
-                a1 = xp.zeros(200, dtype=a0.dtype)
+                assert f.read(a1) == a1.nbytes
+        assert bytes(a0) == bytes(a1)
 
-            # Test when the device match the allocation
-            with kvikio.CuFile(filename, "w") as f:
-                with cupy.cuda.Device(0):
-                    assert f.write(a0) == a0.nbytes
-            with kvikio.CuFile(filename, "r") as f:
-                with cupy.cuda.Device(1):
-                    assert f.read(a1) == a1.nbytes
-            assert bytes(a0) == bytes(a1)
-
-            # Test when the device doesn't match the allocation
-            with kvikio.CuFile(filename, "w") as f:
-                with cupy.cuda.Device(1):
-                    assert f.write(a0) == a0.nbytes
-            with kvikio.CuFile(filename, "r") as f:
-                with cupy.cuda.Device(0):
-                    assert f.read(a1) == a1.nbytes
-            assert bytes(a0) == bytes(a1)
+        # Test when the device doesn't match the allocation
+        with kvikio.CuFile(filename, "w") as f:
+            with cupy.cuda.Device(1):
+                assert f.write(a0) == a0.nbytes
+        with kvikio.CuFile(filename, "r") as f:
+            with cupy.cuda.Device(0):
+                assert f.read(a1) == a1.nbytes
+        assert bytes(a0) == bytes(a1)
 
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000])
@@ -265,31 +261,35 @@ def test_multiple_gpus(tmp_path, xp, gds_threshold):
 def test_different_bounce_buffer_sizes(tmp_path, size, tasksize, buffer_size):
     """Test different bounce buffer sizes"""
     filename = tmp_path / "test-file"
-    with kvikio.defaults.set_compat_mode(True), kvikio.defaults.set_num_threads(10):
-        with kvikio.defaults.set_task_size(tasksize):
-            with kvikio.defaults.set_bounce_buffer_size(buffer_size):
-                with kvikio.CuFile(filename, "w+") as f:
-                    a = cupy.arange(size)
-                    b = cupy.empty_like(a)
-                    f.write(a)
-                    assert f.read(b) == b.nbytes
-                    cupy.testing.assert_array_equal(a, b)
+    with kvikio.defaults.set(
+        {
+            "compat_mode": kvikio.CompatMode.ON,
+            "num_threads": 10,
+            "bounce_buffer_size": buffer_size,
+        }
+    ):
+        with kvikio.CuFile(filename, "w+") as f:
+            a = cupy.arange(size)
+            b = cupy.empty_like(a)
+            f.write(a)
+            assert f.read(b) == b.nbytes
+            cupy.testing.assert_array_equal(a, b)
 
 
 def test_bounce_buffer_free(tmp_path):
     """Test freeing the bounce buffer allocations"""
     filename = tmp_path / "test-file"
     kvikio.buffer.bounce_buffer_free()
-    with kvikio.defaults.set_compat_mode(True), kvikio.defaults.set_num_threads(1):
+    with kvikio.defaults.set({"compat_mode": kvikio.CompatMode.ON, "num_threads": 1}):
         with kvikio.CuFile(filename, "w") as f:
-            with kvikio.defaults.set_bounce_buffer_size(1024):
+            with kvikio.defaults.set({"bounce_buffer_size": 1024}):
                 # Notice, since the bounce buffer size is only checked when the buffer
                 # is used, we populate the bounce buffer in between we clear it.
                 f.write(cupy.arange(10))
                 assert kvikio.buffer.bounce_buffer_free() == 1024
                 assert kvikio.buffer.bounce_buffer_free() == 0
                 f.write(cupy.arange(10))
-            with kvikio.defaults.set_bounce_buffer_size(2048):
+            with kvikio.defaults.set({"bounce_buffer_size": 2048}):
                 f.write(cupy.arange(10))
                 assert kvikio.buffer.bounce_buffer_free() == 2048
                 assert kvikio.buffer.bounce_buffer_free() == 0

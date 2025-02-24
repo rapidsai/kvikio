@@ -2,9 +2,55 @@
 # See file LICENSE for terms.
 
 
-import contextlib
+# import contextlib
+from typing import Any
 
 import kvikio._lib.defaults
+
+
+class ConfigContextManager:
+    def __init__(self, config: dict):
+        self._old_properties = {}
+
+        for key, value in config.items():
+            self._old_properties[key] = self._get_property(key)
+            self._set_property(key, value)
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, type, value, traceback):
+        for key, value in self._old_properties.items():
+            self._set_property(key, value)
+
+    def _get_property(self, property: str) -> Any:
+        if property == "num_threads":
+            property = "thread_pool_nthreads"
+        func = getattr(kvikio._lib.defaults, property)
+        return func()
+
+    def _set_property(self, property: str, value: Any):
+        if property == "num_threads":
+            property = "thread_pool_nthreads"
+        func = getattr(kvikio._lib.defaults, f"set_{property}")
+        func(value)
+
+
+def set(*config: Any) -> ConfigContextManager:
+    msg = (
+        "kvikio.defaults.set(config: dict) or kvikio.defaults.set(key: str, value: Any)"
+    )
+
+    if len(config) == 1:
+        if not isinstance(config[0], dict):
+            raise ValueError(f"Valid arguments are {msg}")
+        return ConfigContextManager(config[0])
+    elif len(config) == 2:
+        if not isinstance(config[0], str):
+            raise ValueError(f"Valid arguments are {msg}")
+        return ConfigContextManager({config[0]: config[1]})
+    else:
+        raise ValueError("")
 
 
 def compat_mode() -> kvikio.CompatMode:
@@ -32,42 +78,7 @@ def compat_mode() -> kvikio.CompatMode:
     return kvikio._lib.defaults.compat_mode()
 
 
-def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
-    """Reset the compatibility mode.
-
-    Use this function to enable/disable compatibility mode explicitly.
-
-    Parameters
-    ----------
-    compatmode : kvikio.CompatMode
-        Set to kvikio.CompatMode.ON to enable and kvikio.CompatMode.OFF to disable
-        compatibility mode, or kvikio.CompatMode.AUTO to let KvikIO determine: try
-        OFF first, and upon failure, fall back to ON.
-    """
-    kvikio._lib.defaults.compat_mode_reset(compatmode)
-
-
-@contextlib.contextmanager
-def set_compat_mode(compatmode: kvikio.CompatMode):
-    """Context for resetting the compatibility mode.
-
-    Parameters
-    ----------
-    compatmode : kvikio.CompatMode
-        Set to kvikio.CompatMode.ON to enable and kvikio.CompatMode.OFF to disable
-        compatibility mode, or kvikio.CompatMode.AUTO to let KvikIO determine: try
-        OFF first, and upon failure, fall back to ON.
-    """
-    num_threads_reset(get_num_threads())  # Sync all running threads
-    old_value = compat_mode()
-    try:
-        compat_mode_reset(compatmode)
-        yield
-    finally:
-        compat_mode_reset(old_value)
-
-
-def get_num_threads() -> int:
+def num_threads() -> int:
     """Get the number of threads of the thread pool.
 
     Set the default value using `num_threads_reset()` or by setting the
@@ -79,42 +90,6 @@ def get_num_threads() -> int:
         The number of threads in the current thread pool.
     """
     return kvikio._lib.defaults.thread_pool_nthreads()
-
-
-def num_threads_reset(nthreads: int) -> None:
-    """Reset the number of threads in the default thread pool.
-
-    Waits for all currently running tasks to be completed, then destroys all threads
-    in the pool and creates a new thread pool with the new number of threads. Any
-    tasks that were waiting in the queue before the pool was reset will then be
-    executed by the new threads. If the pool was paused before resetting it, the new
-    pool will be paused as well.
-
-    Parameters
-    ----------
-    nthreads : int
-        The number of threads to use. The default value can be specified by setting
-        the `KVIKIO_NTHREADS` environment variable. If not set, the default value
-        is 1.
-    """
-    kvikio._lib.defaults.thread_pool_nthreads_reset(nthreads)
-
-
-@contextlib.contextmanager
-def set_num_threads(nthreads: int):
-    """Context for resetting the number of threads in the default thread pool.
-
-    Parameters
-    ----------
-    nthreads : int
-        The number of threads to use.
-    """
-    old_value = get_num_threads()
-    try:
-        num_threads_reset(nthreads)
-        yield
-    finally:
-        num_threads_reset(old_value)
 
 
 def task_size() -> int:
@@ -130,34 +105,6 @@ def task_size() -> int:
         The default task size in bytes.
     """
     return kvikio._lib.defaults.task_size()
-
-
-def task_size_reset(nbytes: int) -> None:
-    """Reset the default task size used for parallel IO operations.
-
-    Parameters
-    ----------
-    nbytes : int
-        The default task size in bytes.
-    """
-    kvikio._lib.defaults.task_size_reset(nbytes)
-
-
-@contextlib.contextmanager
-def set_task_size(nbytes: int):
-    """Context for resetting the task size used for parallel IO operations.
-
-    Parameters
-    ----------
-    nbytes : int
-        The default task size in bytes.
-    """
-    old_value = task_size()
-    try:
-        task_size_reset(nbytes)
-        yield
-    finally:
-        task_size_reset(old_value)
 
 
 def gds_threshold() -> int:
@@ -179,34 +126,6 @@ def gds_threshold() -> int:
     return kvikio._lib.defaults.gds_threshold()
 
 
-def gds_threshold_reset(nbytes: int) -> None:
-    """Reset the default GDS threshold, which is the minimum size to use GDS.
-
-    Parameters
-    ----------
-    nbytes : int
-        The default GDS threshold size in bytes.
-    """
-    kvikio._lib.defaults.gds_threshold_reset(nbytes)
-
-
-@contextlib.contextmanager
-def set_gds_threshold(nbytes: int):
-    """Context for resetting the default GDS threshold.
-
-    Parameters
-    ----------
-    nbytes : int
-        The default GDS threshold size in bytes.
-    """
-    old_value = gds_threshold()
-    try:
-        gds_threshold_reset(nbytes)
-        yield
-    finally:
-        gds_threshold_reset(old_value)
-
-
 def bounce_buffer_size() -> int:
     """Get the size of the bounce buffer used to stage data in host memory.
 
@@ -220,34 +139,6 @@ def bounce_buffer_size() -> int:
         The bounce buffer size in bytes.
     """
     return kvikio._lib.defaults.bounce_buffer_size()
-
-
-def bounce_buffer_size_reset(nbytes: int) -> None:
-    """Reset the size of the bounce buffer used to stage data in host memory.
-
-    Parameters
-    ----------
-    nbytes : int
-        The bounce buffer size in bytes.
-    """
-    kvikio._lib.defaults.bounce_buffer_size_reset(nbytes)
-
-
-@contextlib.contextmanager
-def set_bounce_buffer_size(nbytes: int):
-    """Context for resetting the size of the bounce buffer.
-
-    Parameters
-    ----------
-    nbytes : int
-        The bounce buffer size in bytes.
-    """
-    old_value = bounce_buffer_size()
-    try:
-        bounce_buffer_size_reset(nbytes)
-        yield
-    finally:
-        bounce_buffer_size_reset(old_value)
 
 
 def http_max_attempts() -> int:
@@ -269,34 +160,6 @@ def http_max_attempts() -> int:
     return kvikio._lib.defaults.http_max_attempts()
 
 
-def http_max_attempts_reset(attempts: int) -> None:
-    """Reset the maximum number of attempts per remote IO read.
-
-    Parameters
-    ----------
-    attempts : int
-        The maximum number of attempts to try before raising an error.
-    """
-    kvikio._lib.defaults.http_max_attempts_reset(attempts)
-
-
-@contextlib.contextmanager
-def set_http_max_attempts(attempts: int):
-    """Context for resetting the maximum number of HTTP attempts.
-
-    Parameters
-    ----------
-    attempts : int
-        The maximum number of attempts to try before raising an error.
-    """
-    old_value = http_max_attempts()
-    try:
-        http_max_attempts_reset(attempts)
-        yield
-    finally:
-        http_max_attempts_reset(old_value)
-
-
 def http_status_codes() -> list[int]:
     """Get the list of HTTP status codes to retry.
 
@@ -316,31 +179,3 @@ def http_status_codes() -> list[int]:
         The HTTP status codes to retry.
     """
     return kvikio._lib.defaults.http_status_codes()
-
-
-def http_status_codes_reset(status_codes: list[int]) -> None:
-    """Reset the list of HTTP status codes to retry.
-
-    Parameters
-    ----------
-    status_codes : list[int]
-        The HTTP status codes to retry.
-    """
-    kvikio._lib.defaults.http_status_codes_reset(status_codes)
-
-
-@contextlib.contextmanager
-def set_http_status_codes(status_codes: list[int]):
-    """Context for resetting the HTTP status codes to retry.
-
-    Parameters
-    ----------
-    status_codes : list[int]
-        THe HTTP status codes to retry.
-    """
-    old_value = http_status_codes()
-    try:
-        http_status_codes_reset(status_codes)
-        yield
-    finally:
-        http_status_codes_reset(old_value)
