@@ -17,37 +17,37 @@ Under ``AUTO``, KvikIO falls back to the compatibility mode:
   * when running in Windows Subsystem for Linux (WSL).
   * when ``/run/udev`` isn't readable, which typically happens when running inside a docker image not launched with ``--volume /run/udev:/run/udev:ro``.
 
-This setting can also be programmatically controlled by :py:func:`kvikio.defaults.set_compat_mode` and :py:func:`kvikio.defaults.compat_mode_reset`.
+This setting can also be programmatically accessed using :py:func:`kvikio.defaults.compat_mode` (getter) and :py:func:`kvikio.defaults.set` (setter).
 
 Thread Pool ``KVIKIO_NTHREADS``
 -------------------------------
 KvikIO can use multiple threads for IO automatically. Set the environment variable ``KVIKIO_NTHREADS`` to the number of threads in the thread pool. If not set, the default value is 1.
 
-This setting can also be controlled by :py:func:`kvikio.defaults.get_num_threads`, :py:func:`kvikio.defaults.num_threads_reset`, and :py:func:`kvikio.defaults.set_num_threads`.
+This setting can also be accessed using :py:func:`kvikio.defaults.num_threads` (getter) and :py:func:`kvikio.defaults.set`  (setter).
 
 Task Size ``KVIKIO_TASK_SIZE``
 ------------------------------
 KvikIO splits parallel IO operations into multiple tasks. Set the environment variable ``KVIKIO_TASK_SIZE`` to the maximum task size (in bytes). If not set, the default value is 4194304 (4 MiB).
 
-This setting can also be controlled by :py:func:`kvikio.defaults.task_size`, :py:func:`kvikio.defaults.task_size_reset`, and :py:func:`kvikio.defaults.set_task_size`.
+This setting can also be accessed using :py:func:`kvikio.defaults.task_size` (getter) and :py:func:`kvikio.defaults.set` (setter).
 
 GDS Threshold ``KVIKIO_GDS_THRESHOLD``
 --------------------------------------
 In order to improve performance of small IO, ``.pread()`` and ``.pwrite()`` implement a shortcut that circumvent the threadpool and use the POSIX backend directly. Set the environment variable ``KVIKIO_GDS_THRESHOLD`` to the minimum size (in bytes) to use GDS. If not set, the default value is 1048576 (1 MiB).
 
-This setting can also be controlled by :py:func:`kvikio.defaults.gds_threshold`, :py:func:`kvikio.defaults.gds_threshold_reset`, and :py:func:`kvikio.defaults.set_gds_threshold`.
+This setting can also be accessed using :py:func:`kvikio.defaults.gds_threshold` (getter) and :py:func:`kvikio.defaults.set` (setter).
 
 Size of the Bounce Buffer ``KVIKIO_BOUNCE_BUFFER_SIZE``
 -------------------------------------------------------
 KvikIO might have to use intermediate host buffers (one per thread) when copying between files and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to the size (in bytes) of these "bounce" buffers. If not set, the default value is 16777216 (16 MiB).
 
-This setting can also be controlled by :py:func:`kvikio.defaults.bounce_buffer_size`, :py:func:`kvikio.defaults.bounce_buffer_size_reset`, and :py:func:`kvikio.defaults.set_bounce_buffer_size`.
+This setting can also be accessed using :py:func:`kvikio.defaults.bounce_buffer_size` (getter) and :py:func:`kvikio.defaults.set` (setter).
 
-#### HTTP Retries
------------------
+HTTP Retries ``KVIKIO_HTTP_STATUS_CODES``, ``KVIKIO_HTTP_MAX_ATTEMPTS``
+------------------------------------------------------------------------
 
-The behavior when a remote IO read returns a error can be controlled through the `KVIKIO_HTTP_STATUS_CODES` and `KVIKIO_HTTP_MAX_ATTEMPTS` environment variables.
+The behavior when a remote I/O read returns an error can be controlled through the ``KVIKIO_HTTP_STATUS_CODES`` and ``KVIKIO_HTTP_MAX_ATTEMPTS`` environment variables.
 
-`KVIKIO_HTTP_STATUS_CODES` controls the status codes to retry and can be controlled by :py:func:`kvikio.defaults.http_status_codes`, :py:func:`kvikio.defaults.http_status_codes_reset`, and :py:func:`kvikio.defaults.set_http_status_codes`.
+KvikIO will retry a request should any of the HTTP status code in ``KVIKIO_HTTP_STATUS_CODES`` is received. The default values are ``429, 500, 502, 503, 504``. This setting can also be accessed using :py:func:`kvikio.defaults.http_status_codes` (getter) and :py:func:`kvikio.defaults.set` (setter).
 
-`KVIKIO_HTTP_MAX_ATTEMPTS` controls the maximum number of attempts to make before throwing an exception and can be controlled by :py:func:`kvikio.defaults.http_max_attempts`, :py:func:`kvikio.defaults.http_max_attempts_reset`, and :py:func:`kvikio.defaults.set_http_max_attempts`.
+The maximum number of attempts to make before throwing an exception is controlled by ``KVIKIO_HTTP_MAX_ATTEMPTS``. The default value is 3. This setting can also be accessed using :py:func:`kvikio.defaults.http_max_attempts` (getter) and :py:func:`kvikio.defaults.set` (setter).

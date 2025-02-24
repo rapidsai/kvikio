@@ -31,8 +31,16 @@ Defaults
 
 .. autofunction:: compat_mode
 
-.. autofunction:: compat_mode_reset
+.. autofunction:: num_threads
 
-.. autofunction:: get_num_threads
+.. autofunction:: task_size
 
-.. autofunction:: num_threads_reset
+.. autofunction:: gds_threshold
+
+.. autofunction:: bounce_buffer_size
+
+.. autofunction:: http_status_codes
+
+.. autofunction:: kvikio.defaults.http_max_attempts
+
+.. autofunction:: set
