@@ -49,7 +49,7 @@ def set(*config: Any) -> ConfigContextManager:
             raise ValueError(f"Valid arguments are {msg}")
         return ConfigContextManager({config[0]: config[1]})
     else:
-        raise ValueError("")
+        raise ValueError(f"Valid arguments are {msg}")
 
 
 def compat_mode() -> kvikio.CompatMode:
