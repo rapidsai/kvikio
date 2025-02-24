@@ -81,7 +81,7 @@ def compat_mode() -> kvikio.CompatMode:
 def num_threads() -> int:
     """Get the number of threads of the thread pool.
 
-    Set the default value using `num_threads_reset()` or by setting the
+    Set the default value using `set("num_threads", value)` or by setting the
     `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
 
     Returns
@@ -95,7 +95,7 @@ def num_threads() -> int:
 def task_size() -> int:
     """Get the default task size used for parallel IO operations.
 
-    Set the default value using `task_size_reset()` or by setting
+    Set the default value using `set("task_size", value)` or by setting
     the `KVIKIO_TASK_SIZE` environment variable. If not set,
     the default value is 4 MiB.
 
@@ -114,7 +114,7 @@ def gds_threshold() -> int:
     implements a shortcut that circumvent the threadpool and use the POSIX
     backend directly.
 
-    Set the default value using `gds_threshold_reset()` or by setting the
+    Set the default value using `set("gds_threshold", value)` or by setting the
     `KVIKIO_GDS_THRESHOLD` environment variable. If not set, the default
     value is 1 MiB.
 
@@ -129,7 +129,7 @@ def gds_threshold() -> int:
 def bounce_buffer_size() -> int:
     """Get the size of the bounce buffer used to stage data in host memory.
 
-    Set the value using `bounce_buffer_size_reset()` or by setting the
+    Set the value using `set("bounce_buffer_size", value)` or by setting the
     `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the
     value is 16 MiB.
 
@@ -147,7 +147,7 @@ def http_max_attempts() -> int:
     Reads are retried up until ``http_max_attempts`` when the response has certain
     HTTP status codes.
 
-    Set the value using `http_max_attempts_reset()` or by setting the
+    Set the value using `set("http_max_attempts", value)` or by setting the
     ``KVIKIO_HTTP_MAX_ATTEMPTS`` environment variable. If not set, the
     value is 3.
 
@@ -163,7 +163,7 @@ def http_max_attempts() -> int:
 def http_status_codes() -> list[int]:
     """Get the list of HTTP status codes to retry.
 
-    Set the value using ``set_http_status_codes`` or by setting the
+    Set the value using ``set("http_status_codes", value)`` or by setting the
     ``KVIKIO_HTTP_STATUS_CODES`` environment variable. If not set, the
     default value is
 

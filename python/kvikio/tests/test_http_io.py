@@ -58,8 +58,7 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
         if self.error_counter.value < self.max_error_count:
             self.error_counter.value += 1
             self.send_error(http.HTTPStatus.SERVICE_UNAVAILABLE)
-            self.send_header("CurrentErrorCount",
-                             str(self.error_counter.value))
+            self.send_header("CurrentErrorCount", str(self.error_counter.value))
             self.send_header("MaxErrorCount", str(self.max_error_count))
             return None
         else:
@@ -181,19 +180,19 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         tmpdir,
         max_lifetime=60,
         handler=HTTP503Handler,
-        handler_options={"error_counter": ErrorCounter(),
-                         "max_error_count": 100},
+        handler_options={"error_counter": ErrorCounter(), "max_error_count": 100},
     ) as server:
         a = xp.arange(100, dtype="uint8")
         a.tofile(tmpdir / "a")
         b = xp.empty_like(a)
 
-        with pytest.raises(RuntimeError) as m, kvikio.defaults.set("http_max_attempts", 2):
+        with pytest.raises(RuntimeError) as m, kvikio.defaults.set(
+            "http_max_attempts", 2
+        ):
             with kvikio.RemoteFile.open_http(f"{server.url}/a") as f:
                 f.read(b)
 
-        assert m.match(
-            r"KvikIO: HTTP request reached maximum number of attempts \(2\)")
+        assert m.match(r"KvikIO: HTTP request reached maximum number of attempts \(2\)")
         assert m.match("Got HTTP code 503")
         captured = capfd.readouterr()
 

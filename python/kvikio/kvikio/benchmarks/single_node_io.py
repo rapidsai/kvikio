@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import argparse
@@ -259,7 +259,7 @@ def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
     cupy.arange(10)  # Make sure CUDA is initialized
 
-    kvikio.defaults.num_threads_reset(args.nthreads)
+    kvikio.defaults.set("num_threads", args.nthreads)
 
     print("Roundtrip benchmark")
     print("----------------------------------")
