@@ -36,6 +36,16 @@ class ConfigContextManager:
 
 
 def set(*config: Any) -> ConfigContextManager:
+    """Set KvikIO configurations.
+
+    Parameters
+    -------
+    Any
+        The configurations. Can either be a single parameter (dict) consisting of one
+        or more properties, or two parameters key (string) and value (Any)
+        indicating a single property.
+    """
+
     err_msg = (
         "Valid arguments are kvikio.defaults.set(config: dict) or "
         "kvikio.defaults.set(key: str, value: Any)"
