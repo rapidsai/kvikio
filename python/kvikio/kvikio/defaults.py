@@ -38,8 +38,22 @@ class ConfigContextManager:
 def set(*config: Any) -> ConfigContextManager:
     """Set KvikIO configurations.
 
+    Examples:
+
+    - To set one or more properties
+
+      .. code-block:: python
+
+         kvikio.defaults.set({"prop1": value1, "prop2": value2})
+
+    - To set a single property
+
+      .. code-block:: python
+
+         kvikio.defaults.set("prop", value)
+
     Parameters
-    -------
+    ----------
     Any
         The configurations. Can either be a single parameter (dict) consisting of one
         or more properties, or two parameters key (string) and value (Any)
