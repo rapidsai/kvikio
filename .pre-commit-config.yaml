@@ -99,10 +99,6 @@ repos:
               ^[.]pre-commit-config[.]yaml$|
               CMakeLists[.]txt$|
               meta[.]yaml$
-        exclude: |
-          (?x)^(
-            cpp/cmake/Modules/FindCUDAToolkit[.]cmake$
-          )
       - id: verify-alpha-spec
       - id: verify-codeowners
         args: [--fix, --project-prefix=kvikio]
