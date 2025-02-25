@@ -11,12 +11,12 @@ def test_property_setter():
     """Test the method `set`"""
 
     # Attempt to set a nonexistent property
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         kvikio.defaults.set("nonexistent_property", 123)
 
     # Attempt to set a property whose name is mistakenly prefixed by "set_"
     # (coinciding with the setter method).
-    with pytest.raises(TypeError):
+    with pytest.raises(KeyError):
         kvikio.defaults.set("set_task_size", 123)
 
     # Nested context managers

@@ -177,8 +177,7 @@ class defaults {
    * @brief Set the number of threads in the default thread pool. Waits for all currently running
    * tasks to be completed, then destroys all threads in the pool and creates a new thread pool with
    * the new number of threads. Any tasks that were waiting in the queue before the pool was reset
-   * will then be executed by the new threads. If the pool was paused before resetting it, the new
-   * pool will be paused as well.
+   * will then be executed by the new threads.
    *
    * @param nthreads The number of threads to use.
    */

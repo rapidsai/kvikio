@@ -1,14 +1,47 @@
 # Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-
-from typing import Any
+import re
+from typing import Any, Callable, overload
 
 import kvikio._lib.defaults
 
 
+def call_once(func: Callable):
+    """Decorate a function such that it is only called once
+
+    Examples:
+
+    .. code-block:: python
+
+       @call_once
+       foo(args)
+
+    Parameters
+    ----------
+    func: Callable
+        The function to be decorated.
+    """
+    once_flag = True
+    cached_result = None
+
+    def wrapper(*args, **kwargs):
+        nonlocal once_flag
+        nonlocal cached_result
+        if once_flag:
+            once_flag = False
+            cached_result = func(*args, **kwargs)
+        return cached_result
+
+    return wrapper
+
+
 class ConfigContextManager:
     def __init__(self, config: dict):
+        (
+            self._all_getter_property_functions,
+            self._all_setter_property_functions,
+        ) = self._all_property_functions()
         self._old_properties = {}
 
         for key, value in config.items():
@@ -25,17 +58,42 @@ class ConfigContextManager:
     def _get_property(self, property: str) -> Any:
         if property == "num_threads":
             property = "thread_pool_nthreads"
-        func = getattr(kvikio._lib.defaults, property)
+        func = self._all_getter_property_functions[property]
         return func()
 
     def _set_property(self, property: str, value: Any):
         if property == "num_threads":
             property = "thread_pool_nthreads"
-        func = getattr(kvikio._lib.defaults, f"set_{property}")
+        func = self._all_setter_property_functions[property]
         func(value)
 
+    @call_once
+    def _all_property_functions(self) -> tuple[dict[str, Any], dict[str, Any]]:
+        getter_properties = {}
+        setter_properties = {}
+        # Among all attributes of the `kvikio._lib.defaults` module,
+        # get those whose name start with `set_`.
+        # Remove the `set_` prefix to obtain the property name.
+        module_dict = kvikio._lib.defaults.__dict__
+        for attr_name, attr_obj in module_dict.items():
+            if re.match("set_", attr_name):
+                property_name = re.sub("set_", "", attr_name)
+                getter_properties[property_name] = module_dict[property_name]
+                setter_properties[property_name] = attr_obj
+        return getter_properties, setter_properties
 
-def set(*config: Any) -> ConfigContextManager:
+
+@overload
+def set(config: dict[str, Any], /) -> ConfigContextManager:
+    ...
+
+
+@overload
+def set(key: str, value: Any, /) -> ConfigContextManager:
+    ...
+
+
+def set(*config) -> ConfigContextManager:
     """Set KvikIO configurations.
 
     Examples:
@@ -54,7 +112,7 @@ def set(*config: Any) -> ConfigContextManager:
 
     Parameters
     ----------
-    Any
+    config
         The configurations. Can either be a single parameter (dict) consisting of one
         or more properties, or two parameters key (string) and value (Any)
         indicating a single property.
