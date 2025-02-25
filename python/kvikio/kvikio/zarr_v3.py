@@ -73,16 +73,18 @@ def _put(
     if start is not None:
         with kvikio.CuFile(path, "r+b") as f:
             # TODO: seems like this isn't tested
+            # https://github.com/zarr-developers/zarr-python/issues/2859
             f.write(value.as_array_like(), file_offset=start)
         return None
     else:
-        view = memoryview(value.as_numpy_array().tobytes())
+        # view = memoryview(value.as_numpy_array().tobytes())
+        buf = value.as_array_like()
         if exclusive:
             if path.exists():
                 raise FileExistsError(f"File exists: {path}")
         mode = "wb"
         with kvikio.CuFile(path, flags=mode) as f:
-            return f.write(view)
+            return f.write(buf)
 
 
 class GDSStore(zarr.storage.LocalStore):
