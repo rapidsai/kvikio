@@ -37,7 +37,7 @@ def call_once(func: Callable):
 
 
 class ConfigContextManager:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict[str, str]):
         (
             self._all_getter_property_functions,
             self._all_setter_property_functions,
@@ -51,7 +51,7 @@ class ConfigContextManager:
     def __enter__(self):
         return None
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type_unused, value, traceback_unused):
         for key, value in self._old_properties.items():
             self._set_property(key, value)
 
