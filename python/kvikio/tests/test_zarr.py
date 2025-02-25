@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 
@@ -20,10 +20,10 @@ if not kvikio_zarr.supported:
     )
 
 
-# @pytest.fixture
-# def store(tmp_path):
-#     """Fixture that creates a GDS Store"""
-#     return kvikio_zarr.GDSStore(tmp_path / "test-file.zarr")
+@pytest.fixture
+def store(tmp_path):
+    """Fixture that creates a GDS Store"""
+    return kvikio_zarr.GDSStore(tmp_path / "test-file.zarr")
 
 
 def test_direct_store_access(store, xp):
