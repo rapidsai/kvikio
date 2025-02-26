@@ -41,6 +41,6 @@ Defaults
 
 .. autofunction:: http_status_codes
 
-.. autofunction:: kvikio.defaults.http_max_attempts
+.. autofunction:: http_max_attempts
 
 .. autofunction:: set

@@ -11,7 +11,7 @@ from http.server import (
     SimpleHTTPRequestHandler,
     ThreadingHTTPServer,
 )
-from typing import Any
+from typing import Any, Callable
 
 
 class LocalHttpServer:
@@ -79,7 +79,8 @@ class LocalHttpServer:
         else:
             handler = SimpleHTTPRequestHandler
 
-        handler_options = {**self.handler_options, **{"directory": self.root_path}}
+        handler_options = {**self.handler_options,
+                           **{"directory": self.root_path}}
 
         self.process = multiprocessing.Process(
             target=LocalHttpServer._server,
@@ -94,3 +95,32 @@ class LocalHttpServer:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.process.kill()
+
+
+def call_once(func: Callable):
+    """Decorate a function such that it is only called once
+
+    Examples:
+
+    .. code-block:: python
+
+       @call_once
+       foo(args)
+
+    Parameters
+    ----------
+    func: Callable
+        The function to be decorated.
+    """
+    once_flag = True
+    cached_result = None
+
+    def wrapper(*args, **kwargs):
+        nonlocal once_flag
+        nonlocal cached_result
+        if once_flag:
+            once_flag = False
+            cached_result = func(*args, **kwargs)
+        return cached_result
+
+    return wrapper

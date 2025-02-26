@@ -31,6 +31,18 @@ def test_property_setter():
         assert kvikio.defaults.task_size() == 1024
     assert kvikio.defaults.task_size() == task_size_default
 
+    # Multiple context managers
+    task_size_default = kvikio.defaults.task_size()
+    num_threads_default = kvikio.defaults.num_threads()
+    bounce_buffer_size_default = kvikio.defaults.bounce_buffer_size()
+    with kvikio.defaults.set({"task_size": 1024, "num_threads": 16, "bounce_buffer_size": 1024}):
+        assert (kvikio.defaults.task_size() == 1024) and\
+            (kvikio.defaults.num_threads() == 16) and\
+            (kvikio.defaults.bounce_buffer_size() == 1024)
+    assert (kvikio.defaults.task_size() == task_size_default) and\
+        (kvikio.defaults.num_threads() == num_threads_default) and\
+        (kvikio.defaults.bounce_buffer_size() == bounce_buffer_size_default)
+
 
 @pytest.mark.skipif(
     kvikio.defaults.compat_mode() == kvikio.CompatMode.ON,

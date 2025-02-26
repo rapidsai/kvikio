@@ -1,48 +1,19 @@
 # Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import re
 import warnings
 from typing import Any, Callable, overload
 
 import kvikio._lib.defaults
-
-
-def call_once(func: Callable):
-    """Decorate a function such that it is only called once
-
-    Examples:
-
-    .. code-block:: python
-
-       @call_once
-       foo(args)
-
-    Parameters
-    ----------
-    func: Callable
-        The function to be decorated.
-    """
-    once_flag = True
-    cached_result = None
-
-    def wrapper(*args, **kwargs):
-        nonlocal once_flag
-        nonlocal cached_result
-        if once_flag:
-            once_flag = False
-            cached_result = func(*args, **kwargs)
-        return cached_result
-
-    return wrapper
+import kvikio.utils
 
 
 class ConfigContextManager:
     def __init__(self, config: dict[str, str]):
         (
-            self._all_getter_property_functions,
-            self._all_setter_property_functions,
-        ) = self._all_property_functions()
+            self._property_getters,
+            self._property_setters,
+        ) = self._property_getter_and_setter()
         self._old_properties = {}
 
         for key, value in config.items():
@@ -59,29 +30,34 @@ class ConfigContextManager:
     def _get_property(self, property: str) -> Any:
         if property == "num_threads":
             property = "thread_pool_nthreads"
-        func = self._all_getter_property_functions[property]
+        func = self._property_getters[property]
         return func()
 
     def _set_property(self, property: str, value: Any):
         if property == "num_threads":
             property = "thread_pool_nthreads"
-        func = self._all_setter_property_functions[property]
+        func = self._property_setters[property]
         func(value)
 
-    @call_once
-    def _all_property_functions(self) -> tuple[dict[str, Any], dict[str, Any]]:
-        getter_properties = {}
-        setter_properties = {}
-        # Among all attributes of the `kvikio._lib.defaults` module,
-        # get those whose name start with `set_`.
-        # Remove the `set_` prefix to obtain the property name.
-        module_dict = kvikio._lib.defaults.__dict__
-        for attr_name, attr_obj in module_dict.items():
-            if re.match("set_", attr_name):
-                property_name = re.sub("set_", "", attr_name)
-                getter_properties[property_name] = module_dict[property_name]
-                setter_properties[property_name] = attr_obj
-        return getter_properties, setter_properties
+    @kvikio.utils.call_once
+    def _property_getter_and_setter(self) -> tuple[dict[str, Any], dict[str, Any]]:
+        module_dict = vars(kvikio._lib.defaults)
+
+        property_getter_names = ["compat_mode",
+                                 "thread_pool_nthreads",
+                                 "task_size",
+                                 "gds_threshold",
+                                 "bounce_buffer_size",
+                                 "http_max_attempts",
+                                 "http_status_codes"]
+
+        property_getters = {}
+        property_setters = {}
+
+        for name in property_getter_names:
+            property_getters[name] = module_dict[name]
+            property_setters[name] = module_dict["set_" + name]
+        return property_getters, property_setters
 
 
 @overload
@@ -265,19 +241,19 @@ def http_status_codes() -> list[int]:
 
 
 def kvikio_deprecation_notice(msg: str):
-    def decorator_imp(func: Callable):
+    def decorator(func: Callable):
         def wrapper(*args, **kwargs):
             warnings.warn(msg, category=FutureWarning, stacklevel=2)
             return func(*args, **kwargs)
 
         return wrapper
 
-    return decorator_imp
+    return decorator
 
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("compat_mode", value) instead')
 def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
-    """(deprecated) Reset the compatibility mode.
+    """(Deprecated) Reset the compatibility mode.
 
     Use this function to enable/disable compatibility mode explicitly.
 
@@ -293,13 +269,13 @@ def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("compat_mode", value) instead')
 def set_compat_mode(compatmode: kvikio.CompatMode):
-    """(deprecated) Same with compat_mode_reset."""
+    """(Deprecated) Same with compat_mode_reset."""
     compat_mode_reset(compatmode)
 
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("num_threads", value) instead')
 def num_threads_reset(nthreads: int) -> None:
-    """(deprecated) Reset the number of threads in the default thread pool.
+    """(Deprecated) Reset the number of threads in the default thread pool.
 
     Waits for all currently running tasks to be completed, then destroys all threads
     in the pool and creates a new thread pool with the new number of threads. Any
@@ -319,13 +295,13 @@ def num_threads_reset(nthreads: int) -> None:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("num_threads", value) instead')
 def set_num_threads(nthreads: int):
-    """(deprecated) Same with num_threads_reset."""
+    """(Deprecated) Same with num_threads_reset."""
     set("num_threads", nthreads)
 
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("task_size", value) instead')
 def task_size_reset(nbytes: int) -> None:
-    """(deprecated) Reset the default task size used for parallel IO operations.
+    """(Deprecated) Reset the default task size used for parallel IO operations.
 
     Parameters
     ----------
@@ -337,13 +313,13 @@ def task_size_reset(nbytes: int) -> None:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("task_size", value) instead')
 def set_task_size(nbytes: int):
-    """(deprecated) Same with task_size_reset."""
+    """(Deprecated) Same with task_size_reset."""
     set("task_size", nbytes)
 
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("gds_threshold", value) instead')
 def gds_threshold_reset(nbytes: int) -> None:
-    """(deprecated) Reset the default GDS threshold, which is the minimum size to
+    """(Deprecated) Reset the default GDS threshold, which is the minimum size to
     use GDS.
 
     Parameters
@@ -356,7 +332,7 @@ def gds_threshold_reset(nbytes: int) -> None:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("gds_threshold", value) instead')
 def set_gds_threshold(nbytes: int):
-    """(deprecated) Same with gds_threshold_reset."""
+    """(Deprecated) Same with gds_threshold_reset."""
     set("gds_threshold", nbytes)
 
 
@@ -364,7 +340,7 @@ def set_gds_threshold(nbytes: int):
     'Use kvikio.defaults.set("bounce_buffer_size", value) instead'
 )
 def bounce_buffer_size_reset(nbytes: int) -> None:
-    """(deprecated) Reset the size of the bounce buffer used to stage data in host
+    """(Deprecated) Reset the size of the bounce buffer used to stage data in host
     memory.
 
     Parameters
@@ -379,7 +355,7 @@ def bounce_buffer_size_reset(nbytes: int) -> None:
     'Use kvikio.defaults.set("bounce_buffer_size", value) instead'
 )
 def set_bounce_buffer_size(nbytes: int):
-    """(deprecated) Same with bounce_buffer_size_reset."""
+    """(Deprecated) Same with bounce_buffer_size_reset."""
     set("bounce_buffer_size", nbytes)
 
 
@@ -387,7 +363,7 @@ def set_bounce_buffer_size(nbytes: int):
     'Use kvikio.defaults.set("http_max_attempts", value) instead'
 )
 def http_max_attempts_reset(attempts: int) -> None:
-    """(deprecated) Reset the maximum number of attempts per remote IO read.
+    """(Deprecated) Reset the maximum number of attempts per remote IO read.
 
     Parameters
     ----------
@@ -401,7 +377,7 @@ def http_max_attempts_reset(attempts: int) -> None:
     'Use kvikio.defaults.set("http_max_attempts", value) instead'
 )
 def set_http_max_attempts(attempts: int):
-    """(deprecated) Same with http_max_attempts_reset."""
+    """(Deprecated) Same with http_max_attempts_reset."""
     set("http_max_attempts", attempts)
 
 
@@ -409,7 +385,7 @@ def set_http_max_attempts(attempts: int):
     'Use kvikio.defaults.set("http_status_codes", value) instead'
 )
 def http_status_codes_reset(status_codes: list[int]) -> None:
-    """(deprecated) Reset the list of HTTP status codes to retry.
+    """(Deprecated) Reset the list of HTTP status codes to retry.
 
     Parameters
     ----------
@@ -423,5 +399,5 @@ def http_status_codes_reset(status_codes: list[int]) -> None:
     'Use kvikio.defaults.set("http_status_codes", value) instead'
 )
 def set_http_status_codes(status_codes: list[int]):
-    """(deprecated) Same with http_status_codes_reset."""
+    """(Deprecated) Same with http_status_codes_reset."""
     set("http_status_codes", status_codes)
