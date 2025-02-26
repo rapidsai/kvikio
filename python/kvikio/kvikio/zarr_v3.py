@@ -2,6 +2,7 @@
 # See file LICENSE for terms.
 
 import asyncio
+import contextlib
 import os
 from pathlib import Path
 
@@ -16,6 +17,19 @@ from zarr.core.buffer import Buffer, BufferPrototype
 from zarr.core.buffer.core import default_buffer_prototype
 
 import kvikio
+
+try:
+    import nvtx
+except ImportError:
+    HAS_NVTX = False
+else:
+    HAS_NVTX = True
+
+
+if HAS_NVTX:
+    annotate = nvtx.annotate
+else:
+    annotate = contextlib.nullcontext
 
 
 def _get(
@@ -104,8 +118,14 @@ class GDSStore(zarr.storage.LocalStore):
             await self._open()
         assert isinstance(key, str)
         path = self.root / key
+
+        if HAS_NVTX:
+            kwargs = {"message": "kvikio.zarr.get", "domain": "Zarr"}
+        else:
+            kwargs = {}
         try:
-            return await asyncio.to_thread(_get, path, prototype, byte_range)
+            with annotate(**kwargs):
+                return await asyncio.to_thread(_get, path, prototype, byte_range)
         except (FileNotFoundError, IsADirectoryError, NotADirectoryError):
             return None
 
@@ -124,4 +144,11 @@ class GDSStore(zarr.storage.LocalStore):
                 f"instance of {type(value)} instead."
             )
         path = self.root / key
-        await asyncio.to_thread(_put, path, value, start=None, exclusive=exclusive)
+
+        if HAS_NVTX:
+            kwargs = {"message": "kvikio.zarr.get", "domain": "Zarr"}
+        else:
+            kwargs = {}
+
+        with annotate(**kwargs):
+            await asyncio.to_thread(_put, path, value, start=None, exclusive=exclusive)
