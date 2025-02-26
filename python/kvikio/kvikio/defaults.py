@@ -2,6 +2,7 @@
 # See file LICENSE for terms.
 
 import re
+import warnings
 from typing import Any, Callable, overload
 
 import kvikio._lib.defaults
@@ -261,3 +262,166 @@ def http_status_codes() -> list[int]:
         The HTTP status codes to retry.
     """
     return kvikio._lib.defaults.http_status_codes()
+
+
+def kvikio_deprecation_notice(msg: str):
+    def decorator_imp(func: Callable):
+        def wrapper(*args, **kwargs):
+            warnings.warn(msg, category=FutureWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator_imp
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.set("compat_mode", value) instead')
+def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
+    """(deprecated) Reset the compatibility mode.
+
+    Use this function to enable/disable compatibility mode explicitly.
+
+    Parameters
+    ----------
+    compatmode : kvikio.CompatMode
+        Set to kvikio.CompatMode.ON to enable and kvikio.CompatMode.OFF to disable
+        compatibility mode, or kvikio.CompatMode.AUTO to let KvikIO determine: try
+        OFF first, and upon failure, fall back to ON.
+    """
+    set("compat_mode", compatmode)
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.set("compat_mode", value) instead')
+def set_compat_mode(compatmode: kvikio.CompatMode):
+    """(deprecated) Same with compat_mode_reset."""
+    compat_mode_reset(compatmode)
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.set("num_threads", value) instead')
+def num_threads_reset(nthreads: int) -> None:
+    """(deprecated) Reset the number of threads in the default thread pool.
+
+    Waits for all currently running tasks to be completed, then destroys all threads
+    in the pool and creates a new thread pool with the new number of threads. Any
+    tasks that were waiting in the queue before the pool was reset will then be
+    executed by the new threads. If the pool was paused before resetting it, the new
+    pool will be paused as well.
+
+    Parameters
+    ----------
+    nthreads : int
+        The number of threads to use. The default value can be specified by setting
+        the `KVIKIO_NTHREADS` environment variable. If not set, the default value
+        is 1.
+    """
+    set("num_threads", nthreads)
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.set("num_threads", value) instead')
+def set_num_threads(nthreads: int):
+    """(deprecated) Same with num_threads_reset."""
+    set("num_threads", nthreads)
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.set("task_size", value) instead')
+def task_size_reset(nbytes: int) -> None:
+    """(deprecated) Reset the default task size used for parallel IO operations.
+
+    Parameters
+    ----------
+    nbytes : int
+        The default task size in bytes.
+    """
+    set("task_size", nbytes)
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.set("task_size", value) instead')
+def set_task_size(nbytes: int):
+    """(deprecated) Same with task_size_reset."""
+    set("task_size", nbytes)
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.set("gds_threshold", value) instead')
+def gds_threshold_reset(nbytes: int) -> None:
+    """(deprecated) Reset the default GDS threshold, which is the minimum size to
+    use GDS.
+
+    Parameters
+    ----------
+    nbytes : int
+        The default GDS threshold size in bytes.
+    """
+    set("gds_threshold", nbytes)
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.set("gds_threshold", value) instead')
+def set_gds_threshold(nbytes: int):
+    """(deprecated) Same with gds_threshold_reset."""
+    set("gds_threshold", nbytes)
+
+
+@kvikio_deprecation_notice(
+    'Use kvikio.defaults.set("bounce_buffer_size", value) instead'
+)
+def bounce_buffer_size_reset(nbytes: int) -> None:
+    """(deprecated) Reset the size of the bounce buffer used to stage data in host
+    memory.
+
+    Parameters
+    ----------
+    nbytes : int
+        The bounce buffer size in bytes.
+    """
+    set("bounce_buffer_size", nbytes)
+
+
+@kvikio_deprecation_notice(
+    'Use kvikio.defaults.set("bounce_buffer_size", value) instead'
+)
+def set_bounce_buffer_size(nbytes: int):
+    """(deprecated) Same with bounce_buffer_size_reset."""
+    set("bounce_buffer_size", nbytes)
+
+
+@kvikio_deprecation_notice(
+    'Use kvikio.defaults.set("http_max_attempts", value) instead'
+)
+def http_max_attempts_reset(attempts: int) -> None:
+    """(deprecated) Reset the maximum number of attempts per remote IO read.
+
+    Parameters
+    ----------
+    attempts : int
+        The maximum number of attempts to try before raising an error.
+    """
+    set("http_max_attempts", attempts)
+
+
+@kvikio_deprecation_notice(
+    'Use kvikio.defaults.set("http_max_attempts", value) instead'
+)
+def set_http_max_attempts(attempts: int):
+    """(deprecated) Same with http_max_attempts_reset."""
+    set("http_max_attempts", attempts)
+
+
+@kvikio_deprecation_notice(
+    'Use kvikio.defaults.set("http_status_codes", value) instead'
+)
+def http_status_codes_reset(status_codes: list[int]) -> None:
+    """(deprecated) Reset the list of HTTP status codes to retry.
+
+    Parameters
+    ----------
+    status_codes : list[int]
+        The HTTP status codes to retry.
+    """
+    set("http_status_codes", status_codes)
+
+
+@kvikio_deprecation_notice(
+    'Use kvikio.defaults.set("http_status_codes", value) instead'
+)
+def set_http_status_codes(status_codes: list[int]):
+    """(deprecated) Same with http_status_codes_reset."""
+    set("http_status_codes", status_codes)
