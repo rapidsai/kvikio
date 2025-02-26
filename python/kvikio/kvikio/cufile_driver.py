@@ -1,12 +1,11 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import atexit
-from typing import Tuple, Any, overload
+from typing import Any, Tuple, overload
 
-from kvikio._lib import cufile_driver  # type: ignore
 import kvikio.utils
-
+from kvikio._lib import cufile_driver  # type: ignore
 
 properties = cufile_driver.DriverProperties()
 
@@ -46,10 +45,12 @@ class ConfigContextManager:
     def _property_getter_and_setter(self) -> tuple[dict[str, Any], dict[str, Any]]:
         class_dict = vars(cufile_driver.DriverProperties)
 
-        property_getter_names = ["poll_mode",
-                                 "poll_thresh_size",
-                                 "max_device_cache_size",
-                                 "max_pinned_memory_size"]
+        property_getter_names = [
+            "poll_mode",
+            "poll_thresh_size",
+            "max_device_cache_size",
+            "max_pinned_memory_size",
+        ]
 
         property_getters = {}
         property_setters = {}

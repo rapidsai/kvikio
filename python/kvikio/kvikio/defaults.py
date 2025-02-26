@@ -43,13 +43,15 @@ class ConfigContextManager:
     def _property_getter_and_setter(self) -> tuple[dict[str, Any], dict[str, Any]]:
         module_dict = vars(kvikio._lib.defaults)
 
-        property_getter_names = ["compat_mode",
-                                 "thread_pool_nthreads",
-                                 "task_size",
-                                 "gds_threshold",
-                                 "bounce_buffer_size",
-                                 "http_max_attempts",
-                                 "http_status_codes"]
+        property_getter_names = [
+            "compat_mode",
+            "thread_pool_nthreads",
+            "task_size",
+            "gds_threshold",
+            "bounce_buffer_size",
+            "http_max_attempts",
+            "http_status_codes",
+        ]
 
         property_getters = {}
         property_setters = {}

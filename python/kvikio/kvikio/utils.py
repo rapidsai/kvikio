@@ -79,8 +79,7 @@ class LocalHttpServer:
         else:
             handler = SimpleHTTPRequestHandler
 
-        handler_options = {**self.handler_options,
-                           **{"directory": self.root_path}}
+        handler_options = {**self.handler_options, **{"directory": self.root_path}}
 
         self.process = multiprocessing.Process(
             target=LocalHttpServer._server,

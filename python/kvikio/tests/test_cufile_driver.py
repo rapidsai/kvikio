@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import pytest
@@ -39,10 +39,14 @@ def test_property_setter():
 
     # Multiple context managers
     poll_mode_default = kvikio.cufile_driver.properties.poll_mode
-    max_device_cache_size_default = kvikio.cufile_driver.properties.max_device_cache_size
+    max_device_cache_size_default = (
+        kvikio.cufile_driver.properties.max_device_cache_size
+    )
     with kvikio.cufile_driver.set({"poll_mode": True, "max_device_cache_size": 2048}):
-        assert kvikio.cufile_driver.properties.poll_mode and\
-            (kvikio.cufile_driver.properties.max_device_cache_size == 2048)
-    assert (kvikio.cufile_driver.properties.poll_mode == poll_mode_default) and\
-        (kvikio.cufile_driver.properties.max_device_cache_size ==
-         max_device_cache_size_default)
+        assert kvikio.cufile_driver.properties.poll_mode and (
+            kvikio.cufile_driver.properties.max_device_cache_size == 2048
+        )
+    assert (kvikio.cufile_driver.properties.poll_mode == poll_mode_default) and (
+        kvikio.cufile_driver.properties.max_device_cache_size
+        == max_device_cache_size_default
+    )
