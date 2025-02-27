@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Carson Swope
 # Use, modification, and distribution is subject to the MIT License
 # https://github.com/carsonswope/py-nvcomp/blob/main/LICENSE)
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # All rights reserved.
 # SPDX-License-Identifier: MIT
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -198,14 +198,14 @@ cdef class _CascadedManager(_nvcompManager):
 cdef class _GdeflateManager(_nvcompManager):
     def __cinit__(
         self,
-        int chunk_size,
+        size_t uncomp_chunk_size,
         int algo,
         user_stream,
         const int device_id
     ):
         cdef opts = nvcompBatchedGdeflateOpts_t(algo)
         self._impl = <nvcompManagerBase*>new GdeflateManager(
-            chunk_size,
+            uncomp_chunk_size,
             opts,
             <cudaStream_t><void*>0,  # TODO
             device_id
