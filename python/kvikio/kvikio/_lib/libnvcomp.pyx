@@ -150,8 +150,6 @@ cdef class _ANSManager(_nvcompManager):
     def __cinit__(
         self,
         size_t uncomp_chunk_size,
-        user_stream,
-        const int device_id,
     ):
         self._impl = <nvcompManagerBase*>new ANSManager(
             uncomp_chunk_size,
@@ -165,8 +163,6 @@ cdef class _BitcompManager(_nvcompManager):
         size_t uncomp_chunk_size,
         nvcompType_t data_type,
         int bitcomp_algo,
-        user_stream,
-        const int device_id
     ):
         cdef opts = nvcompBatchedBitcompFormatOpts(bitcomp_algo, data_type)
         self._impl = <nvcompManagerBase*>new BitcompManager(
@@ -179,8 +175,6 @@ cdef class _CascadedManager(_nvcompManager):
     def __cinit__(
         self,
         _options,
-        user_stream,
-        const int device_id,
     ):
         self._impl = <nvcompManagerBase*>new CascadedManager(
             _options["chunk_size"],
@@ -193,8 +187,6 @@ cdef class _GdeflateManager(_nvcompManager):
         self,
         size_t uncomp_chunk_size,
         int algo,
-        user_stream,
-        const int device_id
     ):
         cdef opts = nvcompBatchedGdeflateOpts_t(algo)
         self._impl = <nvcompManagerBase*>new GdeflateManager(
@@ -208,8 +200,6 @@ cdef class _LZ4Manager(_nvcompManager):
         self,
         size_t uncomp_chunk_size,
         nvcompType_t data_type,
-        user_stream,
-        const int device_id,
     ):
         # TODO: Doesn't work with user specified streams passed down
         # from anywhere up. I'm not going to rabbit hole on it until
@@ -226,8 +216,6 @@ cdef class _SnappyManager(_nvcompManager):
     def __cinit__(
         self,
         size_t uncomp_chunk_size,
-        user_stream,
-        const int device_id,
     ):
         # TODO: Doesn't work with user specified streams passed down
         # from anywhere up. I'm not going to rabbit hole on it until
