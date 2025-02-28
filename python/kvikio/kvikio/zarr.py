@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 from __future__ import annotations
 
@@ -180,25 +180,11 @@ class NVCompCompressor(CudaCodec):
 
     The derived classes must set `codec_id` and implement
     `get_nvcomp_manager`
-
-    Parameters
-    ----------
-    device_ordinal
-        The device that should do the compression/decompression
     """
-
-    def __init__(self, device_ordinal: int = 0):
-        self.device_ordinal = device_ordinal
 
     @abstractmethod
     def get_nvcomp_manager(self) -> kvikio.nvcomp.nvCompManager:
-        """Abstract method that should return the nvCOMP compressor manager
-
-        Returns
-        -------
-        nvCompManager
-            The nvCOMP compressor manager to use
-        """
+        """Abstract method that should return the nvCOMP compressor manager"""
         pass  # TODO: cache Manager
 
     def encode(self, buf: BufferLike) -> cupy.typing.NDArray:
@@ -229,42 +215,42 @@ class ANS(NVCompCompressor):
     codec_id = "nvcomp_ANS"
 
     def get_nvcomp_manager(self):
-        return kvikio.nvcomp.ANSManager(device_id=self.device_ordinal)
+        return kvikio.nvcomp.ANSManager()
 
 
 class Bitcomp(NVCompCompressor):
     codec_id = "nvcomp_Bitcomp"
 
     def get_nvcomp_manager(self):
-        return kvikio.nvcomp.BitcompManager(device_id=self.device_ordinal)
+        return kvikio.nvcomp.BitcompManager()
 
 
 class Cascaded(NVCompCompressor):
     codec_id = "nvcomp_Cascaded"
 
     def get_nvcomp_manager(self):
-        return kvikio.nvcomp.CascadedManager(device_id=self.device_ordinal)
+        return kvikio.nvcomp.CascadedManager()
 
 
 class Gdeflate(NVCompCompressor):
     codec_id = "nvcomp_Gdeflate"
 
     def get_nvcomp_manager(self):
-        return kvikio.nvcomp.GdeflateManager(device_id=self.device_ordinal)
+        return kvikio.nvcomp.GdeflateManager()
 
 
 class LZ4(NVCompCompressor):
     codec_id = "nvcomp_LZ4"
 
     def get_nvcomp_manager(self):
-        return kvikio.nvcomp.LZ4Manager(device_id=self.device_ordinal)
+        return kvikio.nvcomp.LZ4Manager()
 
 
 class Snappy(NVCompCompressor):
     codec_id = "nvcomp_Snappy"
 
     def get_nvcomp_manager(self):
-        return kvikio.nvcomp.SnappyManager(device_id=self.device_ordinal)
+        return kvikio.nvcomp.SnappyManager()
 
 
 # Expose a list of available nvCOMP compressors and register them as Zarr condecs
@@ -304,7 +290,7 @@ class CompatCompressor:
 def open_cupy_array(
     store: Union[os.PathLike, str],
     mode: Literal["r", "r+", "a", "w", "w-"] = "a",
-    compressor: Codec | CompatCompressor = Snappy(device_ordinal=0),
+    compressor: Codec | CompatCompressor = Snappy(),
     meta_array=cupy.empty(()),
     **kwargs,
 ) -> zarr.Array:
