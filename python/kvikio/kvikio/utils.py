@@ -157,6 +157,8 @@ def kvikio_deprecation_notice(msg: str) -> Callable:
             warnings.warn(msg, category=FutureWarning, stacklevel=2)
             return func(*args, **kwargs)
 
+        # Allow the docstring to be corrected generated for the decorated func in Sphinx
+        wrapper.__doc__ = func.__doc__
         return wrapper
 
     return decorator

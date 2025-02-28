@@ -110,13 +110,27 @@ def set(*config) -> ConfigContextManager:
 
       .. code-block:: python
 
+         # Set the property globally.
          kvikio.cufile_driver.properties.set({"prop1": value1, "prop2": value2})
+
+         # Set the property with a context manager.
+         # The property automatically reverts to its old value
+         # after leaving the `with` block.
+         with kvikio.cufile_driver.properties.set({"prop1": value1, "prop2": value2}):
+             ...
 
     - To set a single property
 
       .. code-block:: python
 
+         # Set the property globally.
          kvikio.cufile_driver.properties.set("prop", value)
+
+         # Set the property with a context manager.
+         # The property automatically reverts to its old value
+         # after leaving the `with` block.
+         with kvikio.cufile_driver.properties.set("prop", value):
+             ...
 
     Parameters
     ----------
@@ -124,6 +138,23 @@ def set(*config) -> ConfigContextManager:
         The configurations. Can either be a single parameter (dict) consisting of one
         or more properties, or two parameters key (string) and value (Any)
         indicating a single property.
+
+        Valid configuration names are:
+
+        - Read-only properties:
+
+          - ``"is_gds_available"``
+          - ``"major_version"``
+          - ``"minor_version"``
+          - ``"allow_compat_mode"``
+          - ``"per_buffer_cache_size"``
+
+        - Settable properties:
+
+          - ``"poll_mode"``
+          - ``"poll_thresh_size"``
+          - ``"max_device_cache_size"``
+          - ``"max_pinned_memory_size"``
 
     Returns
     -------
@@ -156,6 +187,23 @@ def get(config_name: str) -> Any:
     ----------
     config_name: str
         The name of the configuration.
+
+        Valid configuration names are:
+
+        - Read-only properties:
+
+          - ``"is_gds_available"``
+          - ``"major_version"``
+          - ``"minor_version"``
+          - ``"allow_compat_mode"``
+          - ``"per_buffer_cache_size"``
+
+        - Settable properties:
+
+          - ``"poll_mode"``
+          - ``"poll_thresh_size"``
+          - ``"max_device_cache_size"``
+          - ``"max_pinned_memory_size"``
 
     Returns
     -------

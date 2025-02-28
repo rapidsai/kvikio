@@ -114,6 +114,16 @@ def set(*config) -> ConfigContextManager:
         or more properties, or two parameters key (string) and value (Any)
         indicating a single property.
 
+        Valid configuration names are:
+
+        - ``"compat_mode"``
+        - ``"num_threads"``
+        - ``"task_size"``
+        - ``"gds_threshold"``
+        - ``"bounce_buffer_size"``
+        - ``"http_max_attempts"``
+        - ``"http_status_codes"``
+
     Returns
     -------
     ConfigContextManager
@@ -146,6 +156,16 @@ def get(config_name: str) -> Any:
     config_name: str
         The name of the configuration.
 
+        Valid configuration names are:
+
+        - ``"compat_mode"``
+        - ``"num_threads"``
+        - ``"task_size"``
+        - ``"gds_threshold"``
+        - ``"bounce_buffer_size"``
+        - ``"http_max_attempts"``
+        - ``"http_status_codes"``
+
     Returns
     -------
     Any
@@ -157,7 +177,9 @@ def get(config_name: str) -> Any:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.get("compat_mode") instead')
 def compat_mode() -> kvikio.CompatMode:
-    """Check if KvikIO is running in compatibility mode.
+    """Deprecated. Use :meth:`kvikio.defaults.get` instead.
+
+    Check if KvikIO is running in compatibility mode.
 
     Notice, this is not the same as the compatibility mode in cuFile. That is,
     cuFile can run in compatibility mode while KvikIO is not.
@@ -183,7 +205,9 @@ def compat_mode() -> kvikio.CompatMode:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.get("num_threads") instead')
 def num_threads() -> int:
-    """Get the number of threads of the thread pool.
+    """Deprecated. Use :meth:`kvikio.defaults.get` instead.
+
+    Get the number of threads of the thread pool.
 
     Set the default value using `set("num_threads", value)` or by setting the
     `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
@@ -198,7 +222,9 @@ def num_threads() -> int:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.get("task_size") instead')
 def task_size() -> int:
-    """Get the default task size used for parallel IO operations.
+    """Deprecated. Use :meth:`kvikio.defaults.get` instead.
+
+    Get the default task size used for parallel IO operations.
 
     Set the default value using `set("task_size", value)` or by setting
     the `KVIKIO_TASK_SIZE` environment variable. If not set,
@@ -214,7 +240,9 @@ def task_size() -> int:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.get("gds_threshold") instead')
 def gds_threshold() -> int:
-    """Get the default GDS threshold, which is the minimum size to use GDS.
+    """Deprecated. Use :meth:`kvikio.defaults.get` instead.
+
+    Get the default GDS threshold, which is the minimum size to use GDS.
 
     In order to improve performance of small IO, `.pread()` and `.pwrite()`
     implements a shortcut that circumvent the threadpool and use the POSIX
@@ -234,7 +262,9 @@ def gds_threshold() -> int:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.get("bounce_buffer_size") instead')
 def bounce_buffer_size() -> int:
-    """Get the size of the bounce buffer used to stage data in host memory.
+    """Deprecated. Use :meth:`kvikio.defaults.get` instead.
+
+    Get the size of the bounce buffer used to stage data in host memory.
 
     Set the value using `set("bounce_buffer_size", value)` or by setting the
     `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the
@@ -250,7 +280,9 @@ def bounce_buffer_size() -> int:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.get("http_max_attempts") instead')
 def http_max_attempts() -> int:
-    """Get the maximum number of attempts per remote IO read.
+    """Deprecated. Use :meth:`kvikio.defaults.get` instead.
+
+    Get the maximum number of attempts per remote IO read.
 
     Reads are retried up until ``http_max_attempts`` when the response has certain
     HTTP status codes.
@@ -270,7 +302,9 @@ def http_max_attempts() -> int:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.get("http_status_codes") instead')
 def http_status_codes() -> list[int]:
-    """Get the list of HTTP status codes to retry.
+    """Deprecated. Use :meth:`kvikio.defaults.get` instead.
+
+    Get the list of HTTP status codes to retry.
 
     Set the value using ``set("http_status_codes", value)`` or by setting the
     ``KVIKIO_HTTP_STATUS_CODES`` environment variable. If not set, the
@@ -292,7 +326,9 @@ def http_status_codes() -> list[int]:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("compat_mode", value) instead')
 def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
-    """(Deprecated) Reset the compatibility mode.
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Reset the compatibility mode.
 
     Use this function to enable/disable compatibility mode explicitly.
 
@@ -308,13 +344,17 @@ def compat_mode_reset(compatmode: kvikio.CompatMode) -> None:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("compat_mode", value) instead')
 def set_compat_mode(compatmode: kvikio.CompatMode):
-    """(Deprecated) Same with compat_mode_reset."""
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Same with compat_mode_reset."""
     compat_mode_reset(compatmode)
 
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("num_threads", value) instead')
 def num_threads_reset(nthreads: int) -> None:
-    """(Deprecated) Reset the number of threads in the default thread pool.
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Reset the number of threads in the default thread pool.
 
     Waits for all currently running tasks to be completed, then destroys all threads
     in the pool and creates a new thread pool with the new number of threads. Any
@@ -334,13 +374,17 @@ def num_threads_reset(nthreads: int) -> None:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("num_threads", value) instead')
 def set_num_threads(nthreads: int):
-    """(Deprecated) Same with num_threads_reset."""
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Same with num_threads_reset."""
     set("num_threads", nthreads)
 
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("task_size", value) instead')
 def task_size_reset(nbytes: int) -> None:
-    """(Deprecated) Reset the default task size used for parallel IO operations.
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Reset the default task size used for parallel IO operations.
 
     Parameters
     ----------
@@ -352,13 +396,17 @@ def task_size_reset(nbytes: int) -> None:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("task_size", value) instead')
 def set_task_size(nbytes: int):
-    """(Deprecated) Same with task_size_reset."""
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Same with task_size_reset."""
     set("task_size", nbytes)
 
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("gds_threshold", value) instead')
 def gds_threshold_reset(nbytes: int) -> None:
-    """(Deprecated) Reset the default GDS threshold, which is the minimum size to
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Reset the default GDS threshold, which is the minimum size to
     use GDS.
 
     Parameters
@@ -371,7 +419,9 @@ def gds_threshold_reset(nbytes: int) -> None:
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("gds_threshold", value) instead')
 def set_gds_threshold(nbytes: int):
-    """(Deprecated) Same with gds_threshold_reset."""
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Same with gds_threshold_reset."""
     set("gds_threshold", nbytes)
 
 
@@ -379,7 +429,9 @@ def set_gds_threshold(nbytes: int):
     'Use kvikio.defaults.set("bounce_buffer_size", value) instead'
 )
 def bounce_buffer_size_reset(nbytes: int) -> None:
-    """(Deprecated) Reset the size of the bounce buffer used to stage data in host
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Reset the size of the bounce buffer used to stage data in host
     memory.
 
     Parameters
@@ -394,7 +446,9 @@ def bounce_buffer_size_reset(nbytes: int) -> None:
     'Use kvikio.defaults.set("bounce_buffer_size", value) instead'
 )
 def set_bounce_buffer_size(nbytes: int):
-    """(Deprecated) Same with bounce_buffer_size_reset."""
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Same with bounce_buffer_size_reset."""
     set("bounce_buffer_size", nbytes)
 
 
@@ -402,7 +456,9 @@ def set_bounce_buffer_size(nbytes: int):
     'Use kvikio.defaults.set("http_max_attempts", value) instead'
 )
 def http_max_attempts_reset(attempts: int) -> None:
-    """(Deprecated) Reset the maximum number of attempts per remote IO read.
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Reset the maximum number of attempts per remote IO read.
 
     Parameters
     ----------
@@ -416,7 +472,9 @@ def http_max_attempts_reset(attempts: int) -> None:
     'Use kvikio.defaults.set("http_max_attempts", value) instead'
 )
 def set_http_max_attempts(attempts: int):
-    """(Deprecated) Same with http_max_attempts_reset."""
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Same with http_max_attempts_reset."""
     set("http_max_attempts", attempts)
 
 
@@ -424,7 +482,9 @@ def set_http_max_attempts(attempts: int):
     'Use kvikio.defaults.set("http_status_codes", value) instead'
 )
 def http_status_codes_reset(status_codes: list[int]) -> None:
-    """(Deprecated) Reset the list of HTTP status codes to retry.
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Reset the list of HTTP status codes to retry.
 
     Parameters
     ----------
@@ -438,5 +498,7 @@ def http_status_codes_reset(status_codes: list[int]) -> None:
     'Use kvikio.defaults.set("http_status_codes", value) instead'
 )
 def set_http_status_codes(status_codes: list[int]):
-    """(Deprecated) Same with http_status_codes_reset."""
+    """Deprecated. Use :meth:`kvikio.defaults.set` instead.
+
+    Same with http_status_codes_reset."""
     set("http_status_codes", status_codes)
