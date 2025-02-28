@@ -50,7 +50,7 @@ MINIMUM_ZARR_VERSION = "2.15"
 supported = parse(zarr.__version__) >= parse(MINIMUM_ZARR_VERSION)
 
 
-class GDSStore(zarr.storage.DirectoryStore):
+class GDSStore(zarr.storage.DirectoryStore):  # type: ignore[name-defined]
     """GPUDirect Storage (GDS) class using directories and files.
 
     This class works like `zarr.storage.DirectoryStore` but implements
@@ -369,7 +369,10 @@ def open_cupy_array(
                 meta_array=meta_array,
                 **kwargs,
             )
-        except (zarr.errors.ContainsGroupError, zarr.errors.ArrayNotFoundError):
+        except (
+            zarr.errors.ContainsGroupError,
+            zarr.errors.ArrayNotFoundError,  # type: ignore[attr-defined]
+        ):
             # If we are reading, this is a genuine error.
             if mode in ("r", "r+"):
                 raise

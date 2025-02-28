@@ -146,7 +146,7 @@ class GDSStore(zarr.storage.LocalStore):
         path = self.root / key
 
         if HAS_NVTX:
-            kwargs = {"message": "kvikio.zarr.get", "domain": "Zarr"}
+            kwargs = {"message": "kvikio.zarr.set", "domain": "Zarr"}
         else:
             kwargs = {}
 

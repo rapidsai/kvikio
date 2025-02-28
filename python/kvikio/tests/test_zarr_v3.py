@@ -7,7 +7,7 @@ import cupy as cp
 import pytest
 import zarr.core.buffer
 import zarr.storage
-from zarr.core.buffer.cpu import Buffer
+from zarr.core.buffer import Buffer
 from zarr.testing.store import StoreTests
 
 import kvikio.zarr_v3
@@ -58,10 +58,12 @@ class TestKvikIOStore(StoreTests[kvikio.zarr_v3.GDSStore, Buffer]):
 
     @pytest.fixture
     async def store(self, store_kwargs: dict[str, str]) -> kvikio.zarr_v3.GDSStore:
-        return self.store_cls(**store_kwargs)
+        # ignore Argument 1 has incompatible type "**Dict[str, str]"; expected "bool"
+        return self.store_cls(**store_kwargs)  # type: ignore[arg-type]
 
     @pytest.fixture
     async def store_not_open(
         self, store_kwargs: dict[str, str]
     ) -> kvikio.zarr_v3.GDSStore:
-        return self.store_cls(**store_kwargs)
+        # ignore Argument 1 has incompatible type "**Dict[str, str]"; expected "bool"
+        return self.store_cls(**store_kwargs)  # type: ignore[arg-type]
