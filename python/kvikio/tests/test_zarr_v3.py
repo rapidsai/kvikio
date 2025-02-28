@@ -7,10 +7,12 @@ import cupy as cp
 import pytest
 import zarr.core.buffer
 import zarr.storage
-from zarr.core.buffer import Buffer
+from zarr.core.buffer.gpu import Buffer
 from zarr.testing.store import StoreTests
 
-import kvikio.zarr_v3
+import kvikio.zarr
+
+pytest.importorskip("zarr", minversion="3.0.0")
 
 
 @pytest.mark.asyncio
@@ -21,7 +23,7 @@ async def test_basic(tmp_path: pathlib.Path) -> None:
     arr[5:] = 1
 
     assert await src.exists("a/zarr.json")
-    store = kvikio.zarr_v3.GDSStore(tmp_path, read_only=True)
+    store = kvikio.zarr.GDSStore(tmp_path, read_only=True)
     assert await store.exists("a/zarr.json")
 
     # regular works
@@ -36,15 +38,18 @@ async def test_basic(tmp_path: pathlib.Path) -> None:
         cp.testing.assert_array_equal(result, expected)
 
 
-class TestKvikIOStore(StoreTests[kvikio.zarr_v3.GDSStore, Buffer]):
-    store_cls = kvikio.zarr_v3.GDSStore
+class TestKvikIOStore(StoreTests[kvikio.zarr.GDSStore, Buffer]):
+    store_cls = kvikio.zarr.GDSStore
     buffer_cls = Buffer
 
-    async def get(self, store: kvikio.zarr_v3.GDSStore, key: str) -> Buffer:
+    async def get(self, store: kvikio.zarr.GDSStore, key: str) -> Buffer:
         return self.buffer_cls.from_bytes((store.root / key).read_bytes())
 
     async def set(
-        self, store: kvikio.zarr_v3.GDSStore, key: str, value: Buffer
+        self,
+        store: kvikio.zarr.GDSStore,
+        key: str,
+        value: Buffer,  # type: ignore[override]
     ) -> None:
         parent = (store.root / key).parent
         if not parent.exists():
@@ -57,13 +62,13 @@ class TestKvikIOStore(StoreTests[kvikio.zarr_v3.GDSStore, Buffer]):
         return kwargs
 
     @pytest.fixture
-    async def store(self, store_kwargs: dict[str, str]) -> kvikio.zarr_v3.GDSStore:
+    async def store(self, store_kwargs: dict[str, str]) -> kvikio.zarr.GDSStore:
         # ignore Argument 1 has incompatible type "**Dict[str, str]"; expected "bool"
         return self.store_cls(**store_kwargs)  # type: ignore[arg-type]
 
     @pytest.fixture
     async def store_not_open(
         self, store_kwargs: dict[str, str]
-    ) -> kvikio.zarr_v3.GDSStore:
+    ) -> kvikio.zarr.GDSStore:
         # ignore Argument 1 has incompatible type "**Dict[str, str]"; expected "bool"
         return self.store_cls(**store_kwargs)  # type: ignore[arg-type]

@@ -364,7 +364,7 @@ def open_cupy_array(
         # In order to handle "a", we start by trying to open the file in read mode.
         try:
             ret = zarr.open_array(
-                store=kvikio.zarr.GDSStore(path=store),
+                store=kvikio.zarr.GDSStore(path=store),  # type: ignore[call-arg]
                 mode="r+",
                 meta_array=meta_array,
                 **kwargs,
@@ -385,7 +385,7 @@ def open_cupy_array(
             compat_lz4 = CompatCompressor.lz4()
             if ret.compressor == compat_lz4.cpu:
                 ret = zarr.open_array(
-                    store=kvikio.zarr.GDSStore(
+                    store=kvikio.zarr.GDSStore(  # type: ignore[call-arg]
                         path=store,
                         compressor_config_overwrite=compat_lz4.cpu.get_config(),
                         decompressor_config_overwrite=compat_lz4.gpu.get_config(),
@@ -415,7 +415,7 @@ def open_cupy_array(
         decompressor_config_overwrite = None
 
     return zarr.open_array(
-        store=kvikio.zarr.GDSStore(
+        store=kvikio.zarr.GDSStore(  # type: ignore[call-arg]
             path=store,
             compressor_config_overwrite=compressor_config_overwrite,
             decompressor_config_overwrite=decompressor_config_overwrite,

@@ -112,7 +112,7 @@ ignore_missing_imports = true
 exclude = [
     # we type check against zarr-python 3.x
     # and ignore modules using 2.x
-    "python/kvikio/kvikio/zarr.py",
+    "python/kvikio/kvikio/zarr/_zarr_python_2.py",
     "python/kvikio/tests/test_nvcomp_codec.py",
 ]
 
