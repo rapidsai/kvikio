@@ -2,7 +2,6 @@
 # See file LICENSE for terms.
 
 import asyncio
-import contextlib
 import os
 from pathlib import Path
 
@@ -18,19 +17,6 @@ from zarr.core.buffer.core import default_buffer_prototype
 
 import kvikio
 
-try:
-    import nvtx
-except ImportError:
-    HAS_NVTX = False
-else:
-    HAS_NVTX = True
-
-
-if HAS_NVTX:
-    annotate = nvtx.annotate
-else:
-    annotate = contextlib.nullcontext
-
 
 def _get(
     path: Path, prototype: BufferPrototype, byte_range: ByteRequest | None
@@ -42,13 +28,13 @@ def _get(
         case None:
             nbytes = file_size
             file_offset = 0
-        case OffsetByteRequest():  # type: ignore[misc]
+        case OffsetByteRequest():
             nbytes = max(0, file_size - byte_range.offset)
             file_offset = byte_range.offset
-        case RangeByteRequest():  # type: ignore[misc]
+        case RangeByteRequest():
             nbytes = byte_range.end - byte_range.start
             file_offset = byte_range.start
-        case SuffixByteRequest():  # type: ignore[misc]
+        case SuffixByteRequest():
             nbytes = byte_range.suffix
             file_offset = max(0, file_size - byte_range.suffix)
         case _:
@@ -86,12 +72,9 @@ def _put(
     path.parent.mkdir(parents=True, exist_ok=True)
     if start is not None:
         with kvikio.CuFile(path, "r+b") as f:
-            # TODO: seems like this isn't tested
-            # https://github.com/zarr-developers/zarr-python/issues/2859
             f.write(value.as_array_like(), file_offset=start)
         return None
     else:
-        # view = memoryview(value.as_numpy_array().tobytes())
         buf = value.as_array_like()
         if exclusive:
             if path.exists():
@@ -111,7 +94,6 @@ class GDSStore(zarr.storage.LocalStore):
         prototype: BufferPrototype | None = None,
         byte_range: ByteRequest | None = None,
     ) -> Buffer | None:
-        # docstring inherited
         if prototype is None:
             prototype = default_buffer_prototype()
         if not self._is_open:
@@ -119,18 +101,12 @@ class GDSStore(zarr.storage.LocalStore):
         assert isinstance(key, str)
         path = self.root / key
 
-        if HAS_NVTX:
-            kwargs = {"message": "kvikio.zarr.get", "domain": "Zarr"}
-        else:
-            kwargs = {}
         try:
-            with annotate(**kwargs):
-                return await asyncio.to_thread(_get, path, prototype, byte_range)
+            return await asyncio.to_thread(_get, path, prototype, byte_range)
         except (FileNotFoundError, IsADirectoryError, NotADirectoryError):
             return None
 
     async def set(self, key: str, value: Buffer) -> None:
-        # docstring inherited
         return await self._set(key, value)
 
     async def _set(self, key: str, value: Buffer, exclusive: bool = False) -> None:
@@ -145,10 +121,4 @@ class GDSStore(zarr.storage.LocalStore):
             )
         path = self.root / key
 
-        if HAS_NVTX:
-            kwargs = {"message": "kvikio.zarr.set", "domain": "Zarr"}
-        else:
-            kwargs = {}
-
-        with annotate(**kwargs):
-            await asyncio.to_thread(_put, path, value, start=None, exclusive=exclusive)
+        await asyncio.to_thread(_put, path, value, start=None, exclusive=exclusive)
