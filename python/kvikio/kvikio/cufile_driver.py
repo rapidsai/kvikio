@@ -8,8 +8,8 @@ import kvikio.utils
 from kvikio._lib import cufile_driver  # type: ignore
 
 properties = cufile_driver.DriverProperties()
-"""cuFile driver configurations. Use kvikio.cufile_driver.properties.get and
-   kvikio.cufile_driver.properties.set to access the configurations.
+"""cuFile driver configurations. Use kvikio.cufile_driver.get and
+   kvikio.cufile_driver.set to access the configurations.
 """
 
 
@@ -111,12 +111,12 @@ def set(*config) -> ConfigContextManager:
       .. code-block:: python
 
          # Set the property globally.
-         kvikio.cufile_driver.properties.set({"prop1": value1, "prop2": value2})
+         kvikio.cufile_driver.set({"prop1": value1, "prop2": value2})
 
          # Set the property with a context manager.
          # The property automatically reverts to its old value
          # after leaving the `with` block.
-         with kvikio.cufile_driver.properties.set({"prop1": value1, "prop2": value2}):
+         with kvikio.cufile_driver.set({"prop1": value1, "prop2": value2}):
              ...
 
     - To set a single property
@@ -124,12 +124,12 @@ def set(*config) -> ConfigContextManager:
       .. code-block:: python
 
          # Set the property globally.
-         kvikio.cufile_driver.properties.set("prop", value)
+         kvikio.cufile_driver.set("prop", value)
 
          # Set the property with a context manager.
          # The property automatically reverts to its old value
          # after leaving the `with` block.
-         with kvikio.cufile_driver.properties.set("prop", value):
+         with kvikio.cufile_driver.set("prop", value):
              ...
 
     Parameters
@@ -164,8 +164,8 @@ def set(*config) -> ConfigContextManager:
     """
 
     err_msg = (
-        "Valid arguments are kvikio.cufile_driver.properties.set(config: dict) or "
-        "kvikio.cufile_driver.properties.set(key: str, value: Any)"
+        "Valid arguments are kvikio.cufile_driver.set(config: dict) or "
+        "kvikio.cufile_driver.set(key: str, value: Any)"
     )
 
     if len(config) == 1:
