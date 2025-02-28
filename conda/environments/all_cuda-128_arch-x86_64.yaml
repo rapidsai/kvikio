@@ -30,6 +30,7 @@ dependencies:
 - pytest
 - pytest-asyncio
 - pytest-cov
+- pytest-timeout
 - python>=3.10,<3.13
 - rangehttpserver
 - rapids-build-backend>=0.3.0,<0.4.0.dev0

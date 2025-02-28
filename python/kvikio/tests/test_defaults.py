@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 
@@ -84,3 +84,34 @@ def test_bounce_buffer_size():
         kvikio.defaults.bounce_buffer_size_reset(0)
     with pytest.raises(OverflowError, match="negative value"):
         kvikio.defaults.bounce_buffer_size_reset(-1)
+
+
+def test_http_max_attempts():
+    before = kvikio.defaults.http_max_attempts()
+
+    with kvikio.defaults.set_http_max_attempts(5):
+        assert kvikio.defaults.http_max_attempts() == 5
+        kvikio.defaults.http_max_attempts_reset(4)
+        assert kvikio.defaults.http_max_attempts() == 4
+    assert kvikio.defaults.http_max_attempts() == before
+
+    with pytest.raises(ValueError, match="positive integer"):
+        kvikio.defaults.http_max_attempts_reset(0)
+    with pytest.raises(OverflowError, match="negative value"):
+        kvikio.defaults.http_max_attempts_reset(-1)
+
+
+def test_http_status_codes():
+    before = kvikio.defaults.http_status_codes()
+
+    with kvikio.defaults.set_http_status_codes([500]):
+        assert kvikio.defaults.http_status_codes() == [500]
+        kvikio.defaults.http_status_codes_reset([429, 500])
+        assert kvikio.defaults.http_status_codes() == [429, 500]
+    assert kvikio.defaults.http_status_codes() == before
+
+    with pytest.raises(TypeError):
+        kvikio.defaults.http_status_codes_reset(0)
+
+    with pytest.raises(TypeError):
+        kvikio.defaults.http_status_codes_reset(["a"])

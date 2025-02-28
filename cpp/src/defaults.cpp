@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -24,10 +25,10 @@
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
-
 template <>
 bool getenv_or(std::string_view env_var_name, bool default_val)
 {
@@ -66,6 +67,17 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   return detail::parse_compat_mode_str(env_val);
+}
+
+template <>
+std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val)
+{
+  auto* const env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return std::move(default_val); }
+  std::string const int_str(env_val);
+  if (int_str.empty()) { return std::move(default_val); }
+
+  return detail::parse_http_status_codes(env_var_name, int_str);
 }
 
 unsigned int defaults::get_num_threads_from_env()
@@ -108,6 +120,19 @@ defaults::defaults()
         "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer greater than zero");
     }
     _bounce_buffer_size = env;
+  }
+  // Determine the default value of `http_max_attempts`
+  {
+    ssize_t const env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
+    if (env <= 0) {
+      throw std::invalid_argument("KVIKIO_HTTP_MAX_ATTEMPTS has to be a positive integer");
+    }
+    _http_max_attempts = env;
+  }
+  // Determine the default value of `http_status_codes`
+  {
+    _http_status_codes =
+      getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
 }
 
@@ -175,6 +200,21 @@ void defaults::bounce_buffer_size_reset(std::size_t nbytes)
       "size of the bounce buffer must be a positive integer greater than zero");
   }
   instance()->_bounce_buffer_size = nbytes;
+}
+
+std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }
+
+void defaults::http_max_attempts_reset(std::size_t attempts)
+{
+  if (attempts == 0) { throw std::invalid_argument("attempts must be a positive integer"); }
+  instance()->_http_max_attempts = attempts;
+}
+
+std::vector<int> const& defaults::http_status_codes() { return instance()->_http_status_codes; }
+
+void defaults::http_status_codes_reset(std::vector<int> status_codes)
+{
+  instance()->_http_status_codes = std::move(status_codes);
 }
 
 }  // namespace kvikio

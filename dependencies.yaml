@@ -420,8 +420,9 @@ dependencies:
         packages:
           - rapids-dask-dependency==25.4.*,>=0.0.0a0
           - pytest
-          - pytest-cov
           - pytest-asyncio
+          - pytest-cov
+          - pytest-timeout
           - rangehttpserver
           - boto3>=1.21.21
       - output_types: [requirements, pyproject]
