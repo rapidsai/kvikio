@@ -14,6 +14,8 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
         OFF = 0
         ON = 1
         AUTO = 2
+    bool cpp_is_compat_mode_preferred \
+        "kvikio::defaults::is_compat_mode_preferred"() except +
     CompatMode cpp_compat_mode "kvikio::defaults::compat_mode"() except +
     void cpp_set_compat_mode \
         "kvikio::defaults::set_compat_mode"(CompatMode compat_mode) except +
@@ -35,6 +37,10 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     vector[int] cpp_http_status_codes "kvikio::defaults::http_status_codes"() except +
     void cpp_set_http_status_codes \
         "kvikio::defaults::set_http_status_codes"(vector[int] status_codes) except +
+
+
+def is_compat_mode_preferred() -> bool:
+    return cpp_is_compat_mode_preferred()
 
 
 def compat_mode() -> CompatMode:

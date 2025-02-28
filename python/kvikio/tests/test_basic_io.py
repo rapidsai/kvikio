@@ -98,12 +98,11 @@ def test_incorrect_open_mode_error(tmp_path, xp):
 
 
 @pytest.mark.skipif(
-    kvikio.defaults.compat_mode(),
+    kvikio.defaults.is_compat_mode_preferred(),
     reason="cannot test `set_compat_mode` when already running in compatibility mode",
 )
 def test_set_compat_mode_between_io(tmp_path):
     """Test changing `compat_mode`"""
-
     with kvikio.defaults.set("compat_mode", kvikio.CompatMode.OFF):
         f = kvikio.CuFile(tmp_path / "test-file", "w")
         assert not f.closed

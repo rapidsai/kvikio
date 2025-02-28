@@ -230,7 +230,7 @@ def test_set_http_status_code(tmpdir):
         http_server = server.url
         with kvikio.defaults.set("http_status_codes", [429]):
             # this raises on the first 503 error, since it's not in the list.
-            assert kvikio.defaults.http_status_codes() == [429]
+            assert kvikio.defaults.get("http_status_codes") == [429]
             with pytest.raises(RuntimeError, match="503"):
                 with kvikio.RemoteFile.open_http(f"{http_server}/a"):
                     pass

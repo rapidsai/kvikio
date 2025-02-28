@@ -175,6 +175,10 @@ def get(config_name: str) -> Any:
     return context_manager._get_property(config_name)
 
 
+def is_compat_mode_preferred() -> bool:
+    return kvikio._lib.defaults.is_compat_mode_preferred()
+
+
 @kvikio_deprecation_notice('Use kvikio.defaults.get("compat_mode") instead')
 def compat_mode() -> kvikio.CompatMode:
     """Deprecated. Use :meth:`kvikio.defaults.get` instead.
