@@ -5,7 +5,6 @@ from __future__ import annotations
 import contextlib
 import os
 import os.path
-import warnings
 from abc import abstractmethod
 from typing import Any, Literal, Mapping, Optional, Sequence, Union
 
@@ -18,18 +17,6 @@ import zarr
 import zarr.creation
 import zarr.errors
 import zarr.storage
-
-try:
-    import zarr.util
-except ImportError:
-    message = (
-        "Failed to import 'zarr.util' while importing 'kvikio.zarr'.  "
-        "If you have zarr-python>=3.0, try importing 'kvikio.zarr_v3' instead."
-    )
-    warnings.warn(message, UserWarning)
-    raise
-
-
 from numcodecs.abc import Codec
 from numcodecs.compat import ensure_contiguous_ndarray_like
 from numcodecs.registry import register_codec
