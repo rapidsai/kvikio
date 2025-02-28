@@ -5,14 +5,16 @@ import pathlib
 
 import cupy as cp
 import pytest
-import zarr.core.buffer
-import zarr.storage
-from zarr.core.buffer.gpu import Buffer
-from zarr.testing.store import StoreTests
 
 import kvikio.zarr
 
 pytest.importorskip("zarr", minversion="3.0.0")
+
+
+import zarr.core.buffer  # noqa: E402
+import zarr.storage  # noqa: E402
+from zarr.core.buffer.gpu import Buffer  # noqa: E402
+from zarr.testing.store import StoreTests  # noqa: E402
 
 
 @pytest.mark.asyncio
