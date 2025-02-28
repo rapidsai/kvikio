@@ -1,14 +1,18 @@
 # Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import warnings
-from typing import Any, Callable, overload
+
+from typing import Any, overload
 
 import kvikio._lib.defaults
-import kvikio.utils
+from kvikio.utils import call_once, kvikio_deprecation_notice
 
 
 class ConfigContextManager:
+    """Context manager allowing the KvikIO configurations to be set upon entering a
+    `with` block, and automatically reset upon leaving the block.
+    """
+
     def __init__(self, config: dict[str, str]):
         (
             self._property_getters,
@@ -39,7 +43,7 @@ class ConfigContextManager:
         func = self._property_setters[property]
         func(value)
 
-    @kvikio.utils.call_once
+    @call_once
     def _property_getter_and_setter(self) -> tuple[dict[str, Any], dict[str, Any]]:
         module_dict = vars(kvikio._lib.defaults)
 
@@ -81,13 +85,27 @@ def set(*config) -> ConfigContextManager:
 
       .. code-block:: python
 
+         # Set the property globally.
          kvikio.defaults.set({"prop1": value1, "prop2": value2})
+
+         # Set the property with a context manager.
+         # The property automatically reverts to its old value
+         # after leaving the `with` block.
+         with kvikio.defaults.set({"prop1": value1, "prop2": value2}):
+             ...
 
     - To set a single property
 
       .. code-block:: python
 
+         # Set the property globally.
          kvikio.defaults.set("prop", value)
+
+         # Set the property with a context manager.
+         # The property automatically reverts to its old value
+         # after leaving the `with` block.
+         with kvikio.defaults.set("prop", value):
+             ...
 
     Parameters
     ----------
@@ -95,6 +113,12 @@ def set(*config) -> ConfigContextManager:
         The configurations. Can either be a single parameter (dict) consisting of one
         or more properties, or two parameters key (string) and value (Any)
         indicating a single property.
+
+    Returns
+    -------
+    ConfigContextManager
+       A context manager. If used in a `with` statement, the configuration will revert
+       to its old value upon leaving the block.
     """
 
     err_msg = (
@@ -114,6 +138,24 @@ def set(*config) -> ConfigContextManager:
         raise ValueError(err_msg)
 
 
+def get(config_name: str) -> Any:
+    """Get KvikIO configurations.
+
+    Parameters
+    ----------
+    config_name: str
+        The name of the configuration.
+
+    Returns
+    -------
+    Any
+        The value of the configuration.
+    """
+    context_manager = ConfigContextManager({})
+    return context_manager._get_property(config_name)
+
+
+@kvikio_deprecation_notice('Use kvikio.defaults.get("compat_mode") instead')
 def compat_mode() -> kvikio.CompatMode:
     """Check if KvikIO is running in compatibility mode.
 
@@ -139,6 +181,7 @@ def compat_mode() -> kvikio.CompatMode:
     return kvikio._lib.defaults.compat_mode()
 
 
+@kvikio_deprecation_notice('Use kvikio.defaults.get("num_threads") instead')
 def num_threads() -> int:
     """Get the number of threads of the thread pool.
 
@@ -153,6 +196,7 @@ def num_threads() -> int:
     return kvikio._lib.defaults.thread_pool_nthreads()
 
 
+@kvikio_deprecation_notice('Use kvikio.defaults.get("task_size") instead')
 def task_size() -> int:
     """Get the default task size used for parallel IO operations.
 
@@ -168,6 +212,7 @@ def task_size() -> int:
     return kvikio._lib.defaults.task_size()
 
 
+@kvikio_deprecation_notice('Use kvikio.defaults.get("gds_threshold") instead')
 def gds_threshold() -> int:
     """Get the default GDS threshold, which is the minimum size to use GDS.
 
@@ -187,6 +232,7 @@ def gds_threshold() -> int:
     return kvikio._lib.defaults.gds_threshold()
 
 
+@kvikio_deprecation_notice('Use kvikio.defaults.get("bounce_buffer_size") instead')
 def bounce_buffer_size() -> int:
     """Get the size of the bounce buffer used to stage data in host memory.
 
@@ -202,6 +248,7 @@ def bounce_buffer_size() -> int:
     return kvikio._lib.defaults.bounce_buffer_size()
 
 
+@kvikio_deprecation_notice('Use kvikio.defaults.get("http_max_attempts") instead')
 def http_max_attempts() -> int:
     """Get the maximum number of attempts per remote IO read.
 
@@ -221,6 +268,7 @@ def http_max_attempts() -> int:
     return kvikio._lib.defaults.http_max_attempts()
 
 
+@kvikio_deprecation_notice('Use kvikio.defaults.get("http_status_codes") instead')
 def http_status_codes() -> list[int]:
     """Get the list of HTTP status codes to retry.
 
@@ -240,17 +288,6 @@ def http_status_codes() -> list[int]:
         The HTTP status codes to retry.
     """
     return kvikio._lib.defaults.http_status_codes()
-
-
-def kvikio_deprecation_notice(msg: str):
-    def decorator(func: Callable):
-        def wrapper(*args, **kwargs):
-            warnings.warn(msg, category=FutureWarning, stacklevel=2)
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 @kvikio_deprecation_notice('Use kvikio.defaults.set("compat_mode", value) instead')

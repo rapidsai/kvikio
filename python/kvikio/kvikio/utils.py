@@ -6,6 +6,7 @@ import multiprocessing
 import pathlib
 import threading
 import time
+import warnings
 from http.server import (
     BaseHTTPRequestHandler,
     SimpleHTTPRequestHandler,
@@ -96,20 +97,25 @@ class LocalHttpServer:
         self.process.kill()
 
 
-def call_once(func: Callable):
+def call_once(func: Callable) -> Callable:
     """Decorate a function such that it is only called once
 
     Examples:
 
     .. code-block:: python
 
-       @call_once
+       @kvikio.utils.call_once
        foo(args)
 
     Parameters
     ----------
     func: Callable
         The function to be decorated.
+
+    Returns
+    -------
+    Callable
+        A decorated function.
     """
     once_flag = True
     cached_result = None
@@ -123,3 +129,34 @@ def call_once(func: Callable):
         return cached_result
 
     return wrapper
+
+
+def kvikio_deprecation_notice(msg: str) -> Callable:
+    """Decorate a function to print the deprecation notice at runtime.
+
+    Examples:
+
+    .. code-block:: python
+
+       @kvikio.utils.kvikio_deprecation_notice("Use bar(args) instead.")
+       foo(args)
+
+    Parameters
+    ----------
+    msg: str
+        The deprecation notice.
+
+    Returns
+    -------
+    Callable
+        A decorated function.
+    """
+
+    def decorator(func: Callable):
+        def wrapper(*args, **kwargs):
+            warnings.warn(msg, category=FutureWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
