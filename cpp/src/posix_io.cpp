@@ -59,22 +59,24 @@ std::size_t posix_device_read(int fd,
                               void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
-                              std::size_t devPtr_offset)
+                              std::size_t devPtr_offset,
+                              CUstream stream)
 {
   KVIKIO_NVTX_SCOPED_RANGE("posix_device_read()", size);
   return detail::posix_device_io<IOOperationType::READ>(
-    fd, devPtr_base, size, file_offset, devPtr_offset);
+    fd, devPtr_base, size, file_offset, devPtr_offset, stream);
 }
 
 std::size_t posix_device_write(int fd,
                                void const* devPtr_base,
                                std::size_t size,
                                std::size_t file_offset,
-                               std::size_t devPtr_offset)
+                               std::size_t devPtr_offset,
+                               CUstream stream)
 {
   KVIKIO_NVTX_SCOPED_RANGE("posix_device_write()", size);
   return detail::posix_device_io<IOOperationType::WRITE>(
-    fd, devPtr_base, size, file_offset, devPtr_offset);
+    fd, devPtr_base, size, file_offset, devPtr_offset, stream);
 }
 
 }  // namespace kvikio::detail

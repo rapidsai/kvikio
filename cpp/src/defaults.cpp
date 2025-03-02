@@ -23,11 +23,13 @@
 
 #include <BS_thread_pool.hpp>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <thread>
 
 namespace kvikio {
 template <>
@@ -82,13 +84,6 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
   return detail::parse_http_status_codes(env_var_name, int_str);
 }
 
-unsigned int defaults::get_num_threads_from_env()
-{
-  int const ret = getenv_or("KVIKIO_NTHREADS", 1);
-  KVIKIO_EXPECT(ret > 0, "KVIKIO_NTHREADS has to be a positive integer", std::invalid_argument);
-  return ret;
-}
-
 defaults::defaults()
 {
   // Determine the default value of `compat_mode`
@@ -136,6 +131,20 @@ defaults::defaults()
     _http_status_codes =
       getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
+
+  {
+    ssize_t const env = getenv_or("KVIKIO_NUM_SUBTASKS_PER_TASK", 1U);
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_NUM_SUBTASKS_PER_TASK has to be a positive integer", std::invalid_argument);
+    _num_subtasks_per_task = env;
+  }
+
+  {
+    int const env = getenv_or("KVIKIO_NTHREADS", 1);
+    KVIKIO_EXPECT(env > 0, "KVIKIO_NTHREADS has to be a positive integer", std::invalid_argument);
+    _thread_pool = std::make_unique<BS_thread_pool>(
+      static_cast<unsigned int>(env), _bounce_buffer_size, _num_subtasks_per_task);
+  }
 }
 
 defaults* defaults::instance()
@@ -167,7 +176,7 @@ bool defaults::is_compat_mode_preferred(CompatMode compat_mode) noexcept
 
 bool defaults::is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
 
-BS_thread_pool& defaults::thread_pool() { return instance()->_thread_pool; }
+BS_thread_pool& defaults::thread_pool() { return *instance()->_thread_pool; }
 
 unsigned int defaults::thread_pool_nthreads() { return thread_pool().get_thread_count(); }
 
@@ -175,7 +184,8 @@ void defaults::set_thread_pool_nthreads(unsigned int nthreads)
 {
   KVIKIO_EXPECT(
     nthreads > 0, "number of threads must be a positive integer", std::invalid_argument);
-  thread_pool().reset(nthreads);
+  thread_pool().reset(
+    nthreads, instance()->bounce_buffer_size(), instance()->num_subtasks_per_task());
 }
 
 std::size_t defaults::task_size() { return instance()->_task_size; }
@@ -197,6 +207,20 @@ void defaults::set_bounce_buffer_size(std::size_t nbytes)
   KVIKIO_EXPECT(
     nbytes > 0, "size of the bounce buffer must be a positive integer", std::invalid_argument);
   instance()->_bounce_buffer_size = nbytes;
+  thread_pool().reset(
+    instance()->thread_pool_nthreads(), nbytes, instance()->num_subtasks_per_task());
+}
+
+std::size_t defaults::num_subtasks_per_task() { return instance()->_num_subtasks_per_task; }
+
+void defaults::set_num_subtasks_per_task(std::size_t num_subtasks_per_task)
+{
+  KVIKIO_EXPECT(num_subtasks_per_task > 0,
+                "KVIKIO_NUM_SUBTASKS_PER_TASK has to be a positive integer",
+                std::invalid_argument);
+  instance()->_num_subtasks_per_task = num_subtasks_per_task;
+  thread_pool().reset(
+    instance()->thread_pool_nthreads(), instance()->bounce_buffer_size(), num_subtasks_per_task);
 }
 
 std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }

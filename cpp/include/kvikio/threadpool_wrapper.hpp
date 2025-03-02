@@ -20,7 +20,11 @@
 
 #include <BS_thread_pool.hpp>
 
+#include <kvikio/bounce_buffer.hpp>
+#include <kvikio/error.hpp>
 #include <kvikio/nvtx.hpp>
+#include <kvikio/shim/cuda.hpp>
+#include <kvikio/utils.hpp>
 
 namespace kvikio {
 
@@ -33,7 +37,33 @@ class thread_pool_wrapper : public pool_type {
    *
    * @param nthreads The number of threads to use.
    */
-  thread_pool_wrapper(unsigned int nthreads) : pool_type{nthreads, worker_thread_init_func} {}
+  thread_pool_wrapper(unsigned int nthreads,
+                      std::size_t bounce_buffer_size,
+                      std::size_t bounce_buffer_group_size)
+    : pool_type(nthreads, preinitialize(nthreads, bounce_buffer_size, bounce_buffer_group_size))
+  {
+  }
+
+  std::function<void()> preinitialize(unsigned int nthreads,
+                                      std::size_t bounce_buffer_size,
+                                      std::size_t bounce_buffer_group_size)
+  {
+    auto ctx = ensure_valid_current_context();
+    BounceBuffer::preinitialize_for_pool(nthreads, bounce_buffer_size, bounce_buffer_group_size);
+
+    auto worker_thread_init_func = [=] {
+      CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(ctx));
+
+      KVIKIO_NVTX_SCOPED_RANGE("worker thread init", 0, NvtxManager::default_color());
+      // Rename the worker thread in the thread pool to improve clarity from nsys-ui.
+      // Note: This NVTX feature is currently not supported by nsys-ui.
+      NvtxManager::rename_current_thread("thread pool");
+
+      BounceBuffer::instance().initialize_per_thread(bounce_buffer_size, bounce_buffer_group_size);
+    };
+
+    return worker_thread_init_func;
+  }
 
   /**
    * @brief Reset the number of threads in the thread pool, and invoke a pre-defined initialization
@@ -41,17 +71,37 @@ class thread_pool_wrapper : public pool_type {
    *
    * @param nthreads The number of threads to use.
    */
-  void reset(unsigned int nthreads) { pool_type::reset(nthreads, worker_thread_init_func); }
+  void reset(unsigned int nthreads,
+             std::size_t bounce_buffer_size,
+             std::size_t bounce_buffer_group_size)
+  {
+    // Block the calling thread until existing tasks in the thread pool are done.
+    // This avoids race condition where data (such as BounceBuffer::block_pool) still being used by
+    // the worker threads are modified in preinitialize().
+    pool_type::wait();
 
- private:
-  inline static std::function<void()> worker_thread_init_func{[] {
-    KVIKIO_NVTX_SCOPED_RANGE("worker thread init", 0, NvtxManager::default_color());
-    // Rename the worker thread in the thread pool to improve clarity from nsys-ui.
-    // Note: This NVTX feature is currently not supported by nsys-ui.
-    NvtxManager::rename_current_thread("thread pool");
-  }};
+    auto worker_thread_init_func =
+      preinitialize(nthreads, bounce_buffer_size, bounce_buffer_group_size);
+
+    pool_type::reset(nthreads, worker_thread_init_func);
+  }
 };
 
 using BS_thread_pool = thread_pool_wrapper<BS::thread_pool>;
+
+namespace this_thread {
+template <typename T>
+bool is_from_pool();
+
+template <>
+bool is_from_pool<BS_thread_pool>();
+
+template <typename T>
+std::optional<std::size_t> index();
+
+template <>
+std::optional<std::size_t> index<BS_thread_pool>();
+
+}  // namespace this_thread
 
 }  // namespace kvikio

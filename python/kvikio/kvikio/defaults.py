@@ -56,6 +56,7 @@ class ConfigContextManager:
             "http_max_attempts",
             "http_status_codes",
             "http_timeout",
+            "num_subtasks_per_task",
         ]
 
         property_getters = {}

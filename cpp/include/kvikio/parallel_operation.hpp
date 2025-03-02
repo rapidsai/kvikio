@@ -67,14 +67,15 @@ auto make_copyable_lambda(F op)
  *
  * @return A pair of NVTX color and call index.
  */
-inline const std::pair<const nvtx_color_type&, std::uint64_t> get_next_color_and_call_idx() noexcept
+inline NvtxData const get_nvtx_data() noexcept
 {
   static std::atomic_uint64_t call_counter{1ull};
   auto call_idx    = call_counter.fetch_add(1ull, std::memory_order_relaxed);
   auto& nvtx_color = NvtxManager::get_color_by_index(call_idx);
-  return {nvtx_color, call_idx};
+  return {call_idx, nvtx_color};
 }
 
+<<<<<<< HEAD
 /**
  * @brief Submit the task callable to the underlying thread pool.
  *
@@ -96,9 +97,15 @@ std::future<std::size_t> submit_task(F op,
                                       decltype(file_offset),
                                       decltype(devPtr_offset)>);
 
+=======
+template <typename F, typename... Args>
+std::future<std::size_t> submit_task(F op, NvtxData nvtx_data, Args... args)
+{
+  static_assert(std::is_invocable_r_v<std::size_t, F, Args...>);
+>>>>>>> 371de3e (Implement a special bounce buffer that can overlap read with h2d memcpy)
   return defaults::thread_pool().submit_task([=] {
-    KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
-    return op(buf, size, file_offset, devPtr_offset);
+    KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_data.nvtx_payload, nvtx_data.nvtx_color);
+    return op(args...);
   });
 }
 
@@ -139,13 +146,12 @@ std::future<std::size_t> submit_move_only_task(
  */
 template <typename F, typename T>
 std::future<std::size_t> parallel_io(F op,
+                                     NvtxData nvtx_data,
                                      T buf,
                                      std::size_t size,
                                      std::size_t file_offset,
                                      std::size_t task_size,
-                                     std::size_t devPtr_offset,
-                                     std::uint64_t call_idx     = 0,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     std::size_t devPtr_offset)
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   static_assert(std::is_invocable_r_v<std::size_t,
@@ -157,25 +163,128 @@ std::future<std::size_t> parallel_io(F op,
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
-    return detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color);
+    return detail::submit_task(op, nvtx_data, buf, size, file_offset, devPtr_offset);
   }
 
   std::vector<std::future<std::size_t>> tasks;
   tasks.reserve(size / task_size);
 
+<<<<<<< HEAD
   // 1) Submit all tasks but the last one. These are all `task_size` sized tasks.
   while (size > task_size) {
     tasks.push_back(
       detail::submit_task(op, buf, task_size, file_offset, devPtr_offset, call_idx, nvtx_color));
+=======
+  // 1) Submit `task_size` sized tasks
+  while (size >= task_size) {
+    tasks.push_back(detail::submit_task(op, nvtx_data, buf, task_size, file_offset, devPtr_offset));
+>>>>>>> 371de3e (Implement a special bounce buffer that can overlap read with h2d memcpy)
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
   }
 
+<<<<<<< HEAD
   // 2) Submit the last task, which consists of performing the last I/O and waiting the previous
   // tasks.
   auto last_task = [=, tasks = std::move(tasks)]() mutable -> std::size_t {
     auto ret = op(buf, size, file_offset, devPtr_offset);
+=======
+  // 2) Submit a task for the remainder
+  if (size > 0) {
+    tasks.push_back(detail::submit_task(op, nvtx_data, buf, size, file_offset, devPtr_offset));
+  }
+
+  // Finally, we sum the result of all tasks.
+  auto gather_tasks = [](std::vector<std::future<std::size_t>>&& tasks) -> std::size_t {
+    std::size_t ret = 0;
+    for (auto& task : tasks) {
+      ret += task.get();
+    }
+    return ret;
+  };
+  return std::async(std::launch::deferred, gather_tasks, std::move(tasks));
+}
+
+template <typename F, typename T>
+std::future<std::size_t> parallel_io_for_async_memcpy(F op,
+                                                      NvtxData nvtx_data,
+                                                      T buf,
+                                                      std::size_t size,
+                                                      std::size_t file_offset,
+                                                      std::size_t task_size,
+                                                      std::size_t devPtr_offset)
+{
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
+
+  // Single-task guard
+  if (task_size >= size || page_size >= size) {
+    return detail::submit_task(op, nvtx_data, buf, size, file_offset, devPtr_offset, true);
+  }
+
+  std::vector<std::future<std::size_t>> tasks;
+  tasks.reserve((size + task_size - 1) / task_size);
+  auto const num_subtasks_per_task = defaults::num_subtasks_per_task();
+  auto const subtask_size = (task_size + num_subtasks_per_task - 1) / num_subtasks_per_task;
+
+  // 1) Submit `task_size` sized tasks, each composed of subtasks.
+  while (size >= task_size) {
+    auto task = [=]() -> std::size_t {
+      auto current_file_offset{file_offset};
+      auto current_devPtr_offset{devPtr_offset};
+      for (std::size_t subtask_idx = 0; subtask_idx < num_subtasks_per_task; ++subtask_idx) {
+        bool current_sync_stream{false};
+        auto current_subtask_size{subtask_size};
+        if (subtask_idx == num_subtasks_per_task - 1) {
+          current_sync_stream  = true;
+          current_subtask_size = task_size - subtask_size * subtask_idx;
+        }
+        op(buf,
+           current_subtask_size,
+           current_file_offset,
+           current_devPtr_offset,
+           current_sync_stream);
+        current_file_offset += current_subtask_size;
+        current_devPtr_offset += current_subtask_size;
+      }
+      return task_size;
+    };
+    tasks.push_back(detail::submit_task(task, nvtx_data));
+    file_offset += task_size;
+    devPtr_offset += task_size;
+    size -= task_size;
+  }
+
+  // 2) Submit subtasks for the remainder.
+  if (size > 0) {
+    auto task = [=]() -> std::size_t {
+      auto const num_subtasks = (size + subtask_size - 1) / subtask_size;
+      auto current_file_offset{file_offset};
+      auto current_devPtr_offset{devPtr_offset};
+      for (std::size_t subtask_idx = 0; subtask_idx < num_subtasks; ++subtask_idx) {
+        bool current_sync_stream{false};
+        auto current_subtask_size{subtask_size};
+        if (subtask_idx == num_subtasks - 1) {
+          current_sync_stream  = true;
+          current_subtask_size = size - subtask_size * subtask_idx;
+        }
+        op(buf,
+           current_subtask_size,
+           current_file_offset,
+           current_devPtr_offset,
+           current_sync_stream);
+        current_file_offset += current_subtask_size;
+        current_devPtr_offset += current_subtask_size;
+      }
+      return size;
+    };
+    tasks.push_back(detail::submit_task(task, nvtx_data));
+  }
+
+  // Finally, we sum the result of all tasks.
+  auto gather_tasks = [](std::vector<std::future<std::size_t>>&& tasks) -> std::size_t {
+    std::size_t ret = 0;
+>>>>>>> 371de3e (Implement a special bounce buffer that can overlap read with h2d memcpy)
     for (auto& task : tasks) {
       ret += task.get();
     }
