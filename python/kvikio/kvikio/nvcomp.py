@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 from enum import Enum
@@ -62,12 +62,10 @@ class nvCompManager:
     # Default options exist for every option type for every class that inherits
     # from nvCompManager, which takes advantage of the below property-setting
     # code.
-    stream: cp.cuda.Stream = cp.cuda.Stream()
     chunk_size: int = 1 << 16
     data_type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR
     # Some classes have this defined as type, some as data_type.
     type: _lib.pyNvcompType_t = _lib.pyNvcompType_t.pyNVCOMP_TYPE_UCHAR
-    device_id: int = 0
 
     # Bitcomp Defaults
     bitcomp_algo: int = 0
@@ -84,12 +82,6 @@ class nvCompManager:
 
         Special case: Convert data_type to a _lib.pyNvcompType_t
         """
-        # Special case: Throw error if stream or device_id are specified
-        if kwargs.get("stream") is not None:
-            raise NotImplementedError(
-                "stream argument not yet supported: " "Use the default argument"
-            )
-
         # data_type will be passed in as a python object. Convert it to
         # a C++ nvcompType_t here.
         if kwargs.get("data_type"):
@@ -221,13 +213,10 @@ class ANSManager(nvCompManager):
         ----------
         chunk_size: int (optional)
             Defaults to 4096.
-        device_id: int (optional)
-            Specify which device_id on the node to use for allocation and compression.
-            Defaults to 0.
         """
         super().__init__(kwargs)
 
-        self._manager = _lib._ANSManager(self.chunk_size, self.stream, self.device_id)
+        self._manager = _lib._ANSManager(self.chunk_size)
 
 
 class BitcompManager(nvCompManager):
@@ -241,9 +230,6 @@ class BitcompManager(nvCompManager):
         ----------
         chunk_size: int (optional)
             Defaults to 4096.
-        device_id: int (optional)
-            Specify which device_id on the node to use
-            Defaults to 0.
         """
         super().__init__(kwargs)
 
@@ -251,8 +237,6 @@ class BitcompManager(nvCompManager):
             self.chunk_size,
             self.data_type.value,
             self.bitcomp_algo,
-            self.stream,
-            self.device_id,
         )
 
 
@@ -278,9 +262,6 @@ class CascadedManager(nvCompManager):
         use_bp: bool (optional)
             Enable Bitpacking, see [algorithms overview.md](
                 https://github.com/NVIDIA/nvcomp/blob/main/doc/algorithms_overview.md#bitpacking)  # noqa: E501
-        device_id: int (optional)
-            Specify which device_id on the node to use
-            Defaults to 0.
         """
         super().__init__(kwargs)
         default_options = {
@@ -304,9 +285,7 @@ class CascadedManager(nvCompManager):
             "num_deltas": self.num_deltas,
             "use_bp": self.use_bp,
         }
-        self._manager = _lib._CascadedManager(
-            default_options, self.stream, self.device_id
-        )
+        self._manager = _lib._CascadedManager(default_options)
 
 
 class GdeflateManager(nvCompManager):
@@ -322,18 +301,10 @@ class GdeflateManager(nvCompManager):
         algo: int (optional)
             Integer in the range [0, 1, 2]. Only algorithm #0 is currently
             supported.
-        stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on. Not currently
-            supported.
-        device_id: int (optional)
-            Specify which device_id on the node to use
-            Defaults to 0.
         """
         super().__init__(kwargs)
 
-        self._manager = _lib._GdeflateManager(
-            self.chunk_size, self.algo, self.stream, self.device_id
-        )
+        self._manager = _lib._GdeflateManager(self.chunk_size, self.algo)
 
 
 class LZ4Manager(nvCompManager):
@@ -354,17 +325,9 @@ class LZ4Manager(nvCompManager):
         data_type: pyNVCOMP_TYPE (optional)
             The data type returned for decompression.
             Defaults to pyNVCOMP_TYPE.UCHAR
-        stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on. Not currently
-            supported.
-        device_id: int (optional)
-            Specify which device_id on the node to use
-            Defaults to 0.
         """
         super().__init__(kwargs)
-        self._manager = _lib._LZ4Manager(
-            self.chunk_size, self.data_type.value, self.stream, self.device_id
-        )
+        self._manager = _lib._LZ4Manager(self.chunk_size, self.data_type.value)
 
 
 class SnappyManager(nvCompManager):
@@ -377,17 +340,9 @@ class SnappyManager(nvCompManager):
         Parameters
         ----------
         chunk_size: int (optional)
-        stream: cudaStream_t (optional)
-            Which CUDA stream to perform the operation on. Not currently
-            supported.
-        device_id: int (optional)
-            Specify which device_id on the node to use
-            Defaults to 0.
         """
         super().__init__(kwargs)
-        self._manager = _lib._SnappyManager(
-            self.chunk_size, self.stream, self.device_id
-        )
+        self._manager = _lib._SnappyManager(self.chunk_size)
 
 
 class ManagedDecompressionManager(nvCompManager):

@@ -6,12 +6,13 @@ import multiprocessing
 import pathlib
 import threading
 import time
+import warnings
 from http.server import (
     BaseHTTPRequestHandler,
     SimpleHTTPRequestHandler,
     ThreadingHTTPServer,
 )
-from typing import Any
+from typing import Any, Callable
 
 
 class LocalHttpServer:
@@ -94,3 +95,70 @@ class LocalHttpServer:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.process.kill()
+
+
+def call_once(func: Callable) -> Callable:
+    """Decorate a function such that it is only called once
+
+    Examples:
+
+    .. code-block:: python
+
+       @kvikio.utils.call_once
+       foo(args)
+
+    Parameters
+    ----------
+    func: Callable
+        The function to be decorated.
+
+    Returns
+    -------
+    Callable
+        A decorated function.
+    """
+    once_flag = True
+    cached_result = None
+
+    def wrapper(*args, **kwargs):
+        nonlocal once_flag
+        nonlocal cached_result
+        if once_flag:
+            once_flag = False
+            cached_result = func(*args, **kwargs)
+        return cached_result
+
+    return wrapper
+
+
+def kvikio_deprecation_notice(msg: str) -> Callable:
+    """Decorate a function to print the deprecation notice at runtime.
+
+    Examples:
+
+    .. code-block:: python
+
+       @kvikio.utils.kvikio_deprecation_notice("Use bar(args) instead.")
+       foo(args)
+
+    Parameters
+    ----------
+    msg: str
+        The deprecation notice.
+
+    Returns
+    -------
+    Callable
+        A decorated function.
+    """
+
+    def decorator(func: Callable):
+        def wrapper(*args, **kwargs):
+            warnings.warn(msg, category=FutureWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        # Allow the docstring to be corrected generated for the decorated func in Sphinx
+        wrapper.__doc__ = func.__doc__
+        return wrapper
+
+    return decorator

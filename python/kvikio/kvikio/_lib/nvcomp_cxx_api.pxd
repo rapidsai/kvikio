@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Carson Swope
 # Use, modification, and distribution is subject to the MIT License
 # https://github.com/carsonswope/py-nvcomp/blob/main/LICENSE)
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # All rights reserved.
 # SPDX-License-Identifier: MIT
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -139,8 +139,6 @@ cdef extern from "nvcomp/ans.hpp":
         ANSManager(
             size_t uncomp_chunk_size,
             const nvcompBatchedANSOpts_t& format_opts,
-            cudaStream_t user_stream,
-            const int device_id
         ) except +
 
 # C++ Concrete Bitcomp Manager
@@ -155,8 +153,6 @@ cdef extern from "nvcomp/bitcomp.hpp":
         BitcompManager(
             size_t uncomp_chunk_size,
             const nvcompBatchedBitcompFormatOpts& format_opts,
-            cudaStream_t user_stream,
-            const int device_id
         ) except +
 
 # C++ Concrete Cascaded Manager
@@ -174,8 +170,6 @@ cdef extern from "nvcomp/cascaded.hpp" nogil:
         CascadedManager(
             size_t uncomp_chunk_size,
             const nvcompBatchedCascadedOpts_t& options,
-            cudaStream_t user_stream,
-            int device_id
         )
 
 # C++ Concrete Gdeflate Manager
@@ -189,8 +183,6 @@ cdef extern from "nvcomp/gdeflate.hpp":
         GdeflateManager(
             int uncomp_chunk_size,
             const nvcompBatchedGdeflateOpts_t& format_opts,
-            cudaStream_t user_stream,
-            const int device_id
         ) except +
 
 # C++ Concrete LZ4 Manager
@@ -204,8 +196,6 @@ cdef extern from "nvcomp/lz4.hpp":
         LZ4Manager(
             size_t uncomp_chunk_size,
             const nvcompBatchedLZ4Opts_t& format_opts,
-            cudaStream_t user_stream,
-            const int device_id
         ) except +
 
 # C++ Concrete Snappy Manager
@@ -219,6 +209,4 @@ cdef extern from "nvcomp/snappy.hpp":
         SnappyManager(
             size_t uncomp_chunk_size,
             const nvcompBatchedSnappyOpts_t& format_opts,
-            cudaStream_t user_stream,
-            const int device_id
         ) except +

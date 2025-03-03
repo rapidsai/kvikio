@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import multiprocessing as mp
@@ -124,16 +124,20 @@ def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
     with s3_context(
         s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}
     ) as server_address:
-        with kvikio.defaults.set_num_threads(nthreads):
-            with kvikio.defaults.set_task_size(tasksize):
-                with kvikio.defaults.set_bounce_buffer_size(buffer_size):
-                    with kvikio.RemoteFile.open_s3_url(
-                        f"{server_address}/{bucket_name}/{object_name}"
-                    ) as f:
-                        assert f.nbytes() == a.nbytes
-                        b = xp.empty_like(a)
-                        assert f.read(buf=b) == a.nbytes
-                        xp.testing.assert_array_equal(a, b)
+        with kvikio.defaults.set(
+            {
+                "num_threads": nthreads,
+                "task_size": tasksize,
+                "bounce_buffer_size": buffer_size,
+            }
+        ):
+            with kvikio.RemoteFile.open_s3_url(
+                f"{server_address}/{bucket_name}/{object_name}"
+            ) as f:
+                assert f.nbytes() == a.nbytes
+                b = xp.empty_like(a)
+                assert f.read(buf=b) == a.nbytes
+                xp.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize(

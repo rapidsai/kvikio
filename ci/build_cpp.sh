@@ -18,7 +18,7 @@ conda config --set path_conflict prevent
 
 sccache --zero-stats
 
-RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libkvikio
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry build conda/recipes/libkvikio
 
 sccache --show-adv-stats
 

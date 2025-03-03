@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import contextlib
@@ -94,5 +94,5 @@ def xp(request):
 def gds_threshold(request):
     """Fixture to parametrize over GDS threshold values"""
 
-    with kvikio.defaults.set_gds_threshold(request.param):
+    with kvikio.defaults.set("gds_threshold", request.param):
         yield request.param
