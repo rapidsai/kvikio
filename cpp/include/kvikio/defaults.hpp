@@ -99,14 +99,14 @@ class defaults {
   [[nodiscard]] static CompatMode compat_mode();
 
   /**
-   * @brief Reset the value of `kvikio::defaults::compat_mode()`.
+   * @brief Set the value of `kvikio::defaults::compat_mode()`.
    *
    * Changing the compatibility mode affects all the new FileHandles whose `compat_mode` argument is
    * not explicitly set, but it never affects existing FileHandles.
    *
    * @param compat_mode Compatibility mode.
    */
-  static void compat_mode_reset(CompatMode compat_mode);
+  static void set_compat_mode(CompatMode compat_mode);
 
   /**
    * @brief Infer the `AUTO` compatibility mode from the system runtime.
@@ -157,7 +157,7 @@ class defaults {
    *
    * Notice, it is not possible to change the default thread pool. KvikIO will
    * always use the same thread pool however it is possible to change number of
-   * threads in the pool (see `kvikio::default::thread_pool_nthreads_reset()`).
+   * threads in the pool (see `kvikio::default::set_thread_pool_nthreads()`).
    *
    * @return The default thread pool instance.
    */
@@ -166,7 +166,7 @@ class defaults {
   /**
    * @brief Get the number of threads in the default thread pool.
    *
-   * Set the default value using `kvikio::default::thread_pool_nthreads_reset()` or by
+   * Set the default value using `kvikio::default::set_thread_pool_nthreads()` or by
    * setting the `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
    *
    * @return The number of threads.
@@ -174,20 +174,19 @@ class defaults {
   [[nodiscard]] static unsigned int thread_pool_nthreads();
 
   /**
-   * @brief Reset the number of threads in the default thread pool. Waits for all currently running
+   * @brief Set the number of threads in the default thread pool. Waits for all currently running
    * tasks to be completed, then destroys all threads in the pool and creates a new thread pool with
    * the new number of threads. Any tasks that were waiting in the queue before the pool was reset
-   * will then be executed by the new threads. If the pool was paused before resetting it, the new
-   * pool will be paused as well.
+   * will then be executed by the new threads.
    *
    * @param nthreads The number of threads to use.
    */
-  static void thread_pool_nthreads_reset(unsigned int nthreads);
+  static void set_thread_pool_nthreads(unsigned int nthreads);
 
   /**
    * @brief Get the default task size used for parallel IO operations.
    *
-   * Set the default value using `kvikio::default::task_size_reset()` or by setting
+   * Set the default value using `kvikio::default::set_task_size()` or by setting
    * the `KVIKIO_TASK_SIZE` environment variable. If not set, the default value is 4 MiB.
    *
    * @return The default task size in bytes.
@@ -195,11 +194,11 @@ class defaults {
   [[nodiscard]] static std::size_t task_size();
 
   /**
-   * @brief Reset the default task size used for parallel IO operations.
+   * @brief Set the default task size used for parallel IO operations.
    *
    * @param nbytes The default task size in bytes.
    */
-  static void task_size_reset(std::size_t nbytes);
+  static void set_task_size(std::size_t nbytes);
 
   /**
    * @brief Get the default GDS threshold, which is the minimum size to use GDS (in bytes).
@@ -207,7 +206,7 @@ class defaults {
    * In order to improve performance of small IO, `.pread()` and `.pwrite()` implement a shortcut
    * that circumvent the threadpool and use the POSIX backend directly.
    *
-   * Set the default value using `kvikio::default::gds_threshold_reset()` or by setting the
+   * Set the default value using `kvikio::default::set_gds_threshold()` or by setting the
    * `KVIKIO_GDS_THRESHOLD` environment variable. If not set, the default value is 1 MiB.
    *
    * @return The default GDS threshold size in bytes.
@@ -215,15 +214,15 @@ class defaults {
   [[nodiscard]] static std::size_t gds_threshold();
 
   /**
-   * @brief Reset the default GDS threshold, which is the minimum size to use GDS (in bytes).
+   * @brief Set the default GDS threshold, which is the minimum size to use GDS (in bytes).
    * @param nbytes The default GDS threshold size in bytes.
    */
-  static void gds_threshold_reset(std::size_t nbytes);
+  static void set_gds_threshold(std::size_t nbytes);
 
   /**
    * @brief Get the size of the bounce buffer used to stage data in host memory.
    *
-   * Set the value using `kvikio::default::bounce_buffer_size_reset()` or by setting the
+   * Set the value using `kvikio::default::set_bounce_buffer_size()` or by setting the
    * `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the value is 16 MiB.
    *
    * @return The bounce buffer size in bytes.
@@ -231,16 +230,16 @@ class defaults {
   [[nodiscard]] static std::size_t bounce_buffer_size();
 
   /**
-   * @brief Reset the size of the bounce buffer used to stage data in host memory.
+   * @brief Set the size of the bounce buffer used to stage data in host memory.
    *
    * @param nbytes The bounce buffer size in bytes.
    */
-  static void bounce_buffer_size_reset(std::size_t nbytes);
+  static void set_bounce_buffer_size(std::size_t nbytes);
 
   /**
    * @brief Get the maximum number of attempts per remote IO read.
    *
-   * Set the value using `kvikio::default::http_max_attempts_reset()` or by setting
+   * Set the value using `kvikio::default::set_http_max_attempts()` or by setting
    * the `KVIKIO_HTTP_MAX_ATTEMPTS` environment variable. If not set, the value is 3.
    *
    * @return The maximum number of remote IO reads to attempt before raising an
@@ -249,16 +248,16 @@ class defaults {
   [[nodiscard]] static std::size_t http_max_attempts();
 
   /**
-   * @brief Reset the maximum number of attempts per remote IO read.
+   * @brief Set the maximum number of attempts per remote IO read.
    *
    * @param attempts The maximum number of attempts to try before raising an error.
    */
-  static void http_max_attempts_reset(std::size_t attempts);
+  static void set_http_max_attempts(std::size_t attempts);
 
   /**
    * @brief The list of HTTP status codes to retry.
    *
-   * Set the value using `kvikio::default::http_status_codes()` or by setting the
+   * Set the value using `kvikio::default::set_http_status_codes()` or by setting the
    * `KVIKIO_HTTP_STATUS_CODES` environment variable. If not set, the default value is
    *
    * - 429
@@ -272,11 +271,11 @@ class defaults {
   [[nodiscard]] static std::vector<int> const& http_status_codes();
 
   /**
-   * @brief Reset the list of HTTP status codes to retry.
+   * @brief Set the list of HTTP status codes to retry.
    *
    * @param status_codes The HTTP status codes to retry.
    */
-  static void http_status_codes_reset(std::vector<int> status_codes);
+  static void set_http_status_codes(std::vector<int> status_codes);
 };
 
 }  // namespace kvikio
