@@ -40,6 +40,11 @@ async def test_basic(tmp_path: pathlib.Path) -> None:
         cp.testing.assert_array_equal(result, expected)
 
 
+# These tests use zarr-python's StoreTests
+# https://zarr.readthedocs.io/en/stable/api/zarr/testing/store/index.html#zarr.testing.store.StoreTests
+# which provide a set of unit tests each implementation is expected to pass.
+
+
 class TestKvikIOStore(StoreTests[kvikio.zarr.GDSStore, Buffer]):
     store_cls = kvikio.zarr.GDSStore
     buffer_cls = Buffer
