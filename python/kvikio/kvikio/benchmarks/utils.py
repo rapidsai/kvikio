@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def pprint_sys_info() -> None:
     """Pretty print system information"""
 
     version = kvikio.cufile_driver.libcufile_version()
-    props = kvikio.cufile_driver.DriverProperties()
+    props = kvikio.cufile_driver.properties
     try:
         import pynvml
 

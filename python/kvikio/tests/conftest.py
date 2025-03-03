@@ -95,5 +95,5 @@ def xp(request):
 def gds_threshold(request):
     """Fixture to parametrize over GDS threshold values"""
 
-    with kvikio.defaults.set_gds_threshold(request.param):
+    with kvikio.defaults.set("gds_threshold", request.param):
         yield request.param
