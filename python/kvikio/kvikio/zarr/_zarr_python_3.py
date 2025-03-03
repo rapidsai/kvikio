@@ -17,6 +17,10 @@ from zarr.core.buffer.core import default_buffer_prototype
 
 import kvikio
 
+# The GDSStore implementation follows the `LocalStore` implementation
+# at https://github.com/zarr-developers/zarr-python/blob/main/src/zarr/storage/_local.py
+# with differences coming swapping in `cuFile` for the stdlib open file object.
+
 
 def _get(
     path: Path, prototype: BufferPrototype, byte_range: ByteRequest | None
