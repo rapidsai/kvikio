@@ -252,7 +252,7 @@ def test_retry_timeout_ok(tmpdir):
     ) as server:
         http_server = server.url
         b = np.empty_like(a)
-        with kvikio.defaults.set_http_timeout(1):
+        with kvikio.defaults.set({"http_timeout": 1}):
             with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
                 assert f.nbytes() == a.nbytes
                 assert f"{http_server}/a" in str(f)
@@ -295,9 +295,7 @@ def test_timeout_raises(tmpdir, capfd):
     ) as server:
         http_server = server.url
         b = np.empty_like(a)
-        with kvikio.defaults.set_http_max_attempts(2), kvikio.defaults.set_http_timeout(
-            1
-        ):
+        with kvikio.defaults.set({"http_max_attempts": 2, "http_timeout": 1}):
             # TODO: this should raise a TimeoutError
             with pytest.raises(RuntimeError) as m:
                 with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
