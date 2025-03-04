@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ using CUstream  = struct CUstream_st*;
 #define CU_POINTER_ATTRIBUTE_CONTEXT        0
 #define CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL 0
 #define CU_POINTER_ATTRIBUTE_DEVICE_POINTER 0
-#define CU_MEMHOSTREGISTER_PORTABLE         0
+#define CU_MEMHOSTALLOC_PORTABLE            0
 #define CU_STREAM_DEFAULT                   0
 
 CUresult cuInit(...);

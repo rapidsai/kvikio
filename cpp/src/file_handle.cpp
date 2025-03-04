@@ -25,6 +25,7 @@
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/nvtx.hpp>
@@ -79,10 +80,9 @@ void FileHandle::close() noexcept
 
 CUfileHandle_t FileHandle::handle()
 {
-  if (closed()) { throw CUfileException("File handle is closed"); }
-  if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    throw CUfileException("The underlying cuFile handle isn't available in compatibility mode");
-  }
+  KVIKIO_EXPECT(!closed(), "File handle is closed");
+  KVIKIO_EXPECT(!get_compat_mode_manager().is_compat_mode_preferred(),
+                "The underlying cuFile handle isn't available in compatibility mode");
   return _cufile_handle.handle();
 }
 
@@ -142,13 +142,8 @@ std::size_t FileHandle::write(void const* devPtr_base,
                                             size,
                                             convert_size2off(file_offset),
                                             convert_size2off(devPtr_offset));
-  if (ret == -1) {
-    throw std::system_error(errno, std::generic_category(), "Unable to write file");
-  }
-  if (ret < -1) {
-    throw CUfileException(std::string{"cuFile error at: "} + __FILE__ + ":" +
-                          KVIKIO_STRINGIFY(__LINE__) + ": " + CUFILE_ERRSTR(ret));
-  }
+  KVIKIO_EXPECT(ret != -1, "Unable to write file", GenericSystemError);
+  KVIKIO_EXPECT(ret >= 0, std::string{"cuFile error:"} + CUFILE_ERRSTR(ret));
   return ret;
 }
 

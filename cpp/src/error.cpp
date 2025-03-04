@@ -20,6 +20,13 @@
 
 namespace kvikio {
 
+GenericSystemError::GenericSystemError(const std::string& msg) : GenericSystemError(msg.c_str()) {}
+
+GenericSystemError::GenericSystemError(const char* msg)
+  : std::system_error(errno, std::generic_category(), msg)
+{
+}
+
 namespace detail {
 
 void log_error(std::string_view err_msg, int line_number, char const* filename)

@@ -29,6 +29,15 @@ struct CUfileException : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
 
+class GenericSystemError : public std::system_error {
+ public:
+  GenericSystemError(const std::string& msg);
+  GenericSystemError(const char* msg);
+  GenericSystemError(const GenericSystemError& other)            = default;
+  GenericSystemError& operator=(const GenericSystemError& other) = default;
+  virtual ~GenericSystemError() noexcept                         = default;
+};
+
 #ifndef CUDA_DRIVER_TRY
 #define CUDA_DRIVER_TRY(...)                                                   \
   GET_CUDA_DRIVER_TRY_MACRO(__VA_ARGS__, CUDA_DRIVER_TRY_2, CUDA_DRIVER_TRY_1) \
@@ -118,6 +127,47 @@ void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, char const*
 #define KVIKIO_LOG_ERROR(err_msg) kvikio::detail::log_error(err_msg, __LINE__, __FILE__)
 void log_error(std::string_view err_msg, int line_number, char const* filename);
 
+}  // namespace detail
+
+#define KVIKIO_EXPECT(...) \
+  GET_KVIKIO_EXPECT_MACRO(__VA_ARGS__, KVIKIO_EXPECT_3, KVIKIO_EXPECT_2)(__VA_ARGS__)
+
+#define GET_KVIKIO_EXPECT_MACRO(_1, _2, _3, NAME, ...) NAME
+
+#define KVIKIO_EXPECT_3(_condition, _msg, _exception_type)                                   \
+  do {                                                                                       \
+    kvikio::detail::kvikio_assertion<_exception_type>(_condition, _msg, __LINE__, __FILE__); \
+  } while (0)
+
+#define KVIKIO_EXPECT_2(_condition, _msg) KVIKIO_EXPECT_3(_condition, _msg, kvikio::CUfileException)
+
+#define KVIKIO_FAIL(...) \
+  GET_KVIKIO_FAIL_MACRO(__VA_ARGS__, KVIKIO_FAIL_2, KVIKIO_FAIL_1)(__VA_ARGS__)
+
+#define GET_KVIKIO_FAIL_MACRO(_1, _2, NAME, ...) NAME
+
+#define KVIKIO_FAIL_2(_msg, _exception_type)                                            \
+  do {                                                                                  \
+    kvikio::detail::kvikio_assertion<_exception_type>(false, _msg, __LINE__, __FILE__); \
+  } while (0)
+
+#define KVIKIO_FAIL_1(_msg) KVIKIO_FAIL_2(_msg, kvikio::CUfileException)
+
+namespace detail {
+template <typename Exception>
+void kvikio_assertion(bool condition, const char* msg, int line_number, char const* filename)
+{
+  if (!condition) {
+    throw Exception{std::string{"KvikIO failure at: "} + filename + ":" +
+                    std::to_string(line_number) + ": " + msg};
+  }
+}
+
+template <typename Exception>
+void kvikio_assertion(bool condition, const std::string& msg, int line_number, char const* filename)
+{
+  kvikio_assertion<Exception>(condition, msg.c_str(), line_number, filename);
+}
 }  // namespace detail
 
 }  // namespace kvikio
