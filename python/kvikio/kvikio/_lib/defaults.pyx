@@ -38,6 +38,10 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     void cpp_set_http_status_codes \
         "kvikio::defaults::set_http_status_codes"(vector[int] status_codes) except +
 
+    long cpp_http_timeout "kvikio::defaults::http_timeout"() except +
+    void cpp_set_http_timeout\
+        "kvikio::defaults::set_http_timeout"(long timeout_seconds) except +
+
 
 def is_compat_mode_preferred() -> bool:
     return cpp_is_compat_mode_preferred()
@@ -89,6 +93,14 @@ def http_max_attempts() -> int:
 
 def set_http_max_attempts(attempts: int) -> None:
     cpp_set_http_max_attempts(attempts)
+
+
+def http_timeout() -> int:
+    return cpp_http_timeout()
+
+
+def set_http_timeout(timeout: int) -> None:
+    return cpp_set_http_timeout(timeout)
 
 
 def http_status_codes() -> list[int]:

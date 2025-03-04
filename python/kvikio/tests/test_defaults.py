@@ -162,3 +162,11 @@ def test_http_status_codes():
 
     with pytest.raises(TypeError):
         kvikio.defaults.set("http_status_codes", ["a"])
+
+
+def test_http_timeout():
+    before = kvikio.defaults.get("http_timeout")
+
+    with kvikio.defaults.set("http_timeout", 1):
+        assert kvikio.defaults.get("http_timeout") == 1
+    assert kvikio.defaults.get("http_timeout") == before
