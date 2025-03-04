@@ -132,7 +132,7 @@ defaults::defaults()
 
   // Determine the default value of `http_timeout`
   {
-    const long env = getenv_or("KVIKIO_HTTP_TIMEOUT", 60);
+    long const env = getenv_or("KVIKIO_HTTP_TIMEOUT", 60);
     if (env <= 0) {
       throw std::invalid_argument("KVIKIO_HTTP_TIMEOUT has to be a positive integer");
     }
