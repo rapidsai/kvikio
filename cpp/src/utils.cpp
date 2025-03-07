@@ -30,17 +30,15 @@ namespace kvikio {
 
 off_t convert_size2off(std::size_t x)
 {
-  if (x >= static_cast<std::size_t>(std::numeric_limits<off_t>::max())) {
-    throw CUfileException("size_t argument too large to fit off_t");
-  }
+  KVIKIO_EXPECT(x < static_cast<std::size_t>(std::numeric_limits<off_t>::max()),
+                "size_t argument too large to fit off_t");
   return static_cast<off_t>(x);
 }
 
 ssize_t convert_size2ssize(std::size_t x)
 {
-  if (x >= static_cast<std::size_t>(std::numeric_limits<ssize_t>::max())) {
-    throw CUfileException("size_t argument too large to fit ssize_t");
-  }
+  KVIKIO_EXPECT(x < static_cast<std::size_t>(std::numeric_limits<ssize_t>::max()),
+                "size_t argument too large to fit ssize_t");
   return static_cast<ssize_t>(x);
 }
 

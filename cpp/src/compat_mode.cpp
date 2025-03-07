@@ -41,8 +41,9 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
   } else if (tmp == "auto") {
     return CompatMode::AUTO;
   } else {
-    throw std::invalid_argument("Unknown compatibility mode: " + std::string{tmp});
+    KVIKIO_FAIL("Unknown compatibility mode: " + std::string{tmp}, std::invalid_argument);
   }
+  return {};
 }
 
 }  // namespace detail
@@ -83,10 +84,9 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
                                      CompatMode compat_mode_requested_v,
                                      FileHandle* file_handle)
 {
-  if (file_handle == nullptr) {
-    throw std::invalid_argument(
-      "The compatibility mode manager does not have a proper owning file handle.");
-  }
+  KVIKIO_EXPECT(file_handle != nullptr,
+                "The compatibility mode manager does not have a proper owning file handle.",
+                std::invalid_argument);
 
   file_handle->_file_direct_off.open(file_path, flags, false, mode);
   _is_compat_mode_preferred = is_compat_mode_preferred(compat_mode_requested_v);
@@ -136,7 +136,7 @@ void CompatModeManager::validate_compat_mode_for_async() const
     // because even when the stream API is available, it doesn't work if no config file exists.
     if (config_path().empty()) { err_msg += " Missing cuFile configuration file."; }
 
-    throw std::runtime_error(err_msg);
+    KVIKIO_FAIL(err_msg, std::runtime_error);
   }
 }
 

@@ -89,7 +89,7 @@ std::future<std::size_t> parallel_io(F op,
                                      std::uint64_t call_idx     = 0,
                                      nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
-  if (task_size == 0) { throw std::invalid_argument("`task_size` cannot be zero"); }
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
 
   // Single-task guard
   if (task_size >= size || page_size >= size) {
