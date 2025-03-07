@@ -203,7 +203,7 @@ bool DriverProperties::get_nvfs_poll_mode()
 std::size_t DriverProperties::get_nvfs_poll_thresh_size()
 {
   KVIKIO_FAIL("KvikIO not compiled with cuFile.h");
-  return 0;
+  return {};
 }
 
 void DriverProperties::set_nvfs_poll_mode(bool enable)
