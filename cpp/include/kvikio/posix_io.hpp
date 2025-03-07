@@ -102,19 +102,12 @@ ssize_t posix_host_io(int fd, void const* buf, size_t count, off_t offset)
       nbytes = ::pwrite(fd, buffer, byte_remaining, cur_offset);
     }
     if (nbytes == -1) {
-      std::string const name = Operation == IOOperationType::READ ? "pread" : "pwrite";
-      if (errno == EBADF) {
-        throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
-                              KVIKIO_STRINGIFY(__LINE__) + ": Operation not permitted"};
-      }
-      throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+      std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
+      KVIKIO_EXPECT(errno != EBADF, "POSIX error: Operation not permitted");
+      KVIKIO_FAIL("POSIX error on " + name + ": " + strerror(errno));
     }
     if constexpr (Operation == IOOperationType::READ) {
-      if (nbytes == 0) {
-        throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                              KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
-      }
+      KVIKIO_EXPECT(nbytes != 0, "POSIX error on pread: EOF");
     }
     if constexpr (PartialIOStatus == PartialIO::YES) { return nbytes; }
     buffer += nbytes;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)

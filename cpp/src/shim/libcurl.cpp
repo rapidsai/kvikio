@@ -39,13 +39,13 @@ namespace kvikio {
 LibCurl::LibCurl()
 {
   CURLcode err = curl_global_init(CURL_GLOBAL_DEFAULT);
-  if (err != CURLE_OK) {
-    throw std::runtime_error("cannot initialize libcurl - errorcode: " + std::to_string(err));
-  }
+  KVIKIO_EXPECT(err == CURLE_OK,
+                "cannot initialize libcurl - errorcode: " + std::to_string(err),
+                std::runtime_error);
   curl_version_info_data* ver = curl_version_info(::CURLVERSION_NOW);
-  if ((ver->features & CURL_VERSION_THREADSAFE) == 0) {
-    throw std::runtime_error("cannot initialize libcurl - built with thread safety disabled");
-  }
+  KVIKIO_EXPECT((ver->features & CURL_VERSION_THREADSAFE) != 0,
+                "cannot initialize libcurl - built with thread safety disabled",
+                std::runtime_error);
 }
 
 LibCurl::~LibCurl() noexcept
@@ -80,9 +80,8 @@ LibCurl::UniqueHandlePtr LibCurl::get_handle()
   } else {
     // If not, we create a new handle.
     CURL* raw_handle = curl_easy_init();
-    if (raw_handle == nullptr) {
-      throw std::runtime_error("libcurl: call to curl_easy_init() failed");
-    }
+    KVIKIO_EXPECT(
+      raw_handle != nullptr, "libcurl: call to curl_easy_init() failed", std::runtime_error);
     ret = UniqueHandlePtr(raw_handle, curl_easy_cleanup);
   }
   return ret;
@@ -97,9 +96,7 @@ void LibCurl::retain_handle(UniqueHandlePtr handle)
 CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
                        std::string source_file,
                        std::string source_line)
-  : _handle{std::move(handle)},
-    _source_file(std::move(source_file)),
-    _source_line(std::move(source_line))
+  : _handle{std::move(handle)}
 {
   // Need CURLOPT_NOSIGNAL to support threading, see
   // <https://curl.se/libcurl/c/CURLOPT_NOSIGNAL.html>
@@ -169,13 +166,13 @@ void CurlHandle::perform()
       // We want to exit immediately.
       std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
       std::stringstream ss;
-      ss << "curl_easy_perform() error near " << _source_file << ":" << _source_line;
+      ss << "curl_easy_perform() error ";
       if (msg.empty()) {
         ss << "(" << curl_easy_strerror(err) << ")";
       } else {
         ss << "(" << msg << ")";
       }
-      throw std::runtime_error(ss.str());
+      KVIKIO_FAIL(ss.str(), std::runtime_error);
     }
   }
 
@@ -187,6 +184,6 @@ void CurlHandle::perform()
   } else {
     ss << "Got HTTP code " << http_code << ".";
   }
-  throw std::runtime_error(ss.str());
+  KVIKIO_FAIL(ss.str(), std::runtime_error);
 }
 }  // namespace kvikio

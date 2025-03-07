@@ -81,7 +81,7 @@ def test_num_threads():
         assert kvikio.defaults.get("num_threads") == 4
     assert before == kvikio.defaults.get("num_threads")
 
-    with pytest.raises(ValueError, match="positive integer greater than zero"):
+    with pytest.raises(ValueError, match="positive integer"):
         kvikio.defaults.set("num_threads", 0)
     with pytest.raises(OverflowError, match="negative value"):
         kvikio.defaults.set("num_threads", -1)
@@ -97,7 +97,7 @@ def test_task_size():
         assert kvikio.defaults.get("task_size") == 4
     assert before == kvikio.defaults.get("task_size")
 
-    with pytest.raises(ValueError, match="positive integer greater than zero"):
+    with pytest.raises(ValueError, match="positive integer"):
         kvikio.defaults.set("task_size", 0)
     with pytest.raises(OverflowError, match="negative value"):
         kvikio.defaults.set("task_size", -1)
@@ -127,7 +127,7 @@ def test_bounce_buffer_size():
         assert kvikio.defaults.get("bounce_buffer_size") == 4
     assert before == kvikio.defaults.get("bounce_buffer_size")
 
-    with pytest.raises(ValueError, match="positive integer greater than zero"):
+    with pytest.raises(ValueError, match="positive integer"):
         kvikio.defaults.set("bounce_buffer_size", 0)
     with pytest.raises(OverflowError, match="negative value"):
         kvikio.defaults.set("bounce_buffer_size", -1)

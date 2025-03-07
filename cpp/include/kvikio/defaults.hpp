@@ -41,10 +41,9 @@ T getenv_or(std::string_view env_var_name, T default_val)
   std::stringstream sstream(env_val);
   T converted_val;
   sstream >> converted_val;
-  if (sstream.fail()) {
-    throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
-                                std::string{env_val});
-  }
+  KVIKIO_EXPECT(!sstream.fail(),
+                "unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
+                std::invalid_argument);
   return converted_val;
 }
 

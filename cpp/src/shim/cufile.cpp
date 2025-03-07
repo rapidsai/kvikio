@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <kvikio/error.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/shim/utils.hpp>
@@ -95,7 +96,7 @@ cuFileAPI::~cuFileAPI()
   if (version < 1050) { driver_close(); }
 }
 #else
-cuFileAPI::cuFileAPI() { throw std::runtime_error("KvikIO not compiled with cuFile.h"); }
+cuFileAPI::cuFileAPI() { KVIKIO_FAIL("KvikIO not compiled with cuFile.h", std::runtime_error); }
 #endif
 
 cuFileAPI& cuFileAPI::instance()
@@ -107,19 +108,17 @@ cuFileAPI& cuFileAPI::instance()
 void cuFileAPI::driver_open()
 {
   CUfileError_t const error = DriverOpen();
-  if (error.err != CU_FILE_SUCCESS) {
-    throw std::runtime_error(std::string{"Unable to open GDS file driver: "} +
-                             cufileop_status_error(error.err));
-  }
+  KVIKIO_EXPECT(error.err == CU_FILE_SUCCESS,
+                std::string{"Unable to open GDS file driver: "} + cufileop_status_error(error.err),
+                std::runtime_error);
 }
 
 void cuFileAPI::driver_close()
 {
   CUfileError_t const error = DriverClose();
-  if (error.err != CU_FILE_SUCCESS) {
-    throw std::runtime_error(std::string{"Unable to close GDS file driver: "} +
-                             cufileop_status_error(error.err));
-  }
+  KVIKIO_EXPECT(error.err == CU_FILE_SUCCESS,
+                std::string{"Unable to close GDS file driver: "} + cufileop_status_error(error.err),
+                std::runtime_error);
 }
 
 #ifdef KVIKIO_CUFILE_FOUND
