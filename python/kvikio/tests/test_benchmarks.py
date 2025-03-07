@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from packaging.version import parse
 
 import kvikio
 
@@ -34,8 +35,15 @@ def test_single_node_io(run_cmd, tmp_path, api):
 
     if "zarr" in api:
         kz = pytest.importorskip("kvikio.zarr")
+        import zarr
+
         if not kz.supported:
             pytest.skip(f"requires Zarr >={kz.MINIMUM_ZARR_VERSION}")
+
+        if parse(zarr.__version__) >= parse("3.0.0"):
+            pytest.skip(
+                "requires Zarr<3",
+            )
 
     retcode = run_cmd(
         cmd=[
@@ -65,8 +73,15 @@ def test_zarr_io(run_cmd, tmp_path, api):
     """Test benchmarks/zarr_io.py"""
 
     kz = pytest.importorskip("kvikio.zarr")
+    import zarr
+
     if not kz.supported:
         pytest.skip(f"requires Zarr >={kz.MINIMUM_ZARR_VERSION}")
+
+    if parse(zarr.__version__) >= parse("3.0.0"):
+        pytest.skip(
+            "requires Zarr<3",
+        )
 
     retcode = run_cmd(
         cmd=[

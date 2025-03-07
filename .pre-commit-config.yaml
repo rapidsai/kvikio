@@ -36,7 +36,7 @@ repos:
     rev: 'v1.3.0'
     hooks:
       - id: mypy
-        additional_dependencies: [types-cachetools]
+        additional_dependencies: [types-cachetools, zarr]
         args: ["--config-file=python/kvikio/pyproject.toml",
                 "python/kvikio/kvikio",
                 "python/kvikio/tests",
