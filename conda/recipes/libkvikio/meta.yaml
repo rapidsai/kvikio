@@ -78,10 +78,9 @@ outputs:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
-        - libcufile {{ cuda11_libcufile_run_version }}      # [linux64]
-        - libcufile-dev {{ cuda11_libcufile_run_version }}  # [linux64]
+        - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
-        - libcufile-dev  # [linux]
+        - libcufile  # [linux64]
         {% endif %}
     test:
         commands:
@@ -114,7 +113,7 @@ outputs:
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
         - cuda-cudart-dev
-        - libcufile-dev  # [linux]
+        - libcufile-dev  # [linux64]
         {% endif %}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
@@ -123,7 +122,7 @@ outputs:
         - libcufile {{ cuda11_libcufile_run_version }}  # [linux64]
         {% else %}
         - cuda-cudart
-        - libcufile  # [linux]
+        - libcufile  # [linux64]
         {% endif %}
     about:
       home: https://rapids.ai
