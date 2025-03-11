@@ -186,9 +186,9 @@ std::future<std::decay_t<T>> make_ready_future(T&& t)
 template <typename T>
 bool is_future_done(T const& future)
 {
-  if (!future.valid()) {
-    throw std::invalid_argument("The future object does not refer to a valid shared state.");
-  }
+  KVIKIO_EXPECT(future.valid(),
+                "The future object does not refer to a valid shared state.",
+                std::invalid_argument);
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
 
