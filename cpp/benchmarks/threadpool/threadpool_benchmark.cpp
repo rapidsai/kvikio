@@ -15,9 +15,16 @@
  */
 
 #include <cmath>
+#include <cstdint>
+#include <iostream>
 
 #include <benchmark/benchmark.h>
 #include <kvikio/defaults.hpp>
+
+enum ScalingType : int64_t {
+  StrongScaling,
+  WeakScaling,
+};
 
 void task_compute(std::size_t num_compute_iterations)
 {
@@ -28,15 +35,25 @@ void task_compute(std::size_t num_compute_iterations)
   }
 }
 
-void BM_threadpool_compute_strong_scaling(benchmark::State& state)
+void BM_threadpool_compute(benchmark::State& state)
 {
-  std::size_t const num_compute_iterations{100'000};
-  std::size_t const num_compute_tasks{10'000};
-  for (auto _ : state) {
-    state.PauseTiming();
-    kvikio::defaults::set_thread_pool_nthreads(state.range(0));
+  auto num_threads        = state.range(0);
+  auto compute_bench_type = state.range(1);
 
-    state.ResumeTiming();
+  std::string label;
+  std::size_t num_compute_tasks;
+  if (compute_bench_type == ScalingType::StrongScaling) {
+    num_compute_tasks = 1'0000;
+    label             = "strong_scaling";
+  } else {
+    num_compute_tasks = 1000 * num_threads;
+    label             = "weak_scaling";
+  }
+  state.SetLabel(label);
+  std::size_t const num_compute_iterations{100'000};
+  kvikio::defaults::set_thread_pool_nthreads(num_threads);
+
+  for (auto _ : state) {
     for (std::size_t i = 0u; i < num_compute_tasks; ++i) {
       [[maybe_unused]] auto fut = kvikio::defaults::thread_pool().submit_task(
         [num_compute_iterations = num_compute_iterations] {
@@ -45,41 +62,20 @@ void BM_threadpool_compute_strong_scaling(benchmark::State& state)
     }
     kvikio::defaults::thread_pool().wait();
   }
-}
 
-void BM_threadpool_compute_weak_scaling(benchmark::State& state)
-{
-  std::size_t const num_compute_iterations{100'000};
-  for (auto _ : state) {
-    state.PauseTiming();
-    kvikio::defaults::set_thread_pool_nthreads(state.range(0));
-    std::size_t const num_compute_tasks = 1000 * state.range(0);
-
-    state.ResumeTiming();
-    for (std::size_t i = 0u; i < num_compute_tasks; ++i) {
-      [[maybe_unused]] auto fut = kvikio::defaults::thread_pool().submit_task(
-        [num_compute_iterations = num_compute_iterations] {
-          task_compute(num_compute_iterations);
-        });
-    }
-    kvikio::defaults::thread_pool().wait();
-  }
+  state.counters["threads"] = num_threads;
 }
 
 int main(int argc, char** argv)
 {
   benchmark::Initialize(&argc, argv);
 
-  benchmark::RegisterBenchmark("BM_threadpool_compute_strong_scaling",
-                               BM_threadpool_compute_strong_scaling)
-    ->RangeMultiplier(2)
-    ->Range(1, 64)
+  benchmark::RegisterBenchmark("BM_threadpool_compute:strong_scaling", BM_threadpool_compute)
+    ->ArgsProduct({{1, 2, 4, 8, 16, 32, 64}, {ScalingType::StrongScaling}})
     ->Unit(benchmark::kMillisecond);
 
-  benchmark::RegisterBenchmark("BM_threadpool_compute_weak_scaling",
-                               BM_threadpool_compute_weak_scaling)
-    ->RangeMultiplier(2)
-    ->Range(1, 64)
+  benchmark::RegisterBenchmark("BM_threadpool_compute:weak_scaling", BM_threadpool_compute)
+    ->ArgsProduct({{1, 2, 4, 8, 16, 32, 64}, {ScalingType::WeakScaling}})
     ->Unit(benchmark::kMillisecond);
 
   benchmark::RunSpecifiedBenchmarks();
