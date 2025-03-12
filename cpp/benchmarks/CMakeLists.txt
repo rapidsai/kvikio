@@ -12,21 +12,51 @@
 # the License.
 # =============================================================================
 
-add_executable(THREADPOOL_BENCHMARK "threadpool/threadpool_benchmark.cpp")
-set_target_properties(THREADPOOL_BENCHMARK PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
-target_include_directories(THREADPOOL_BENCHMARK PRIVATE ../include ${cuFile_INCLUDE_DIRS})
-target_link_libraries(THREADPOOL_BENCHMARK PUBLIC benchmark::benchmark kvikio)
+#[=======================================================================[.rst:
+kvikio_add_benchmark
+--------------------
 
-if(CMAKE_COMPILER_IS_GNUCXX)
-  set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
-  target_compile_options(
-    THREADPOOL_BENCHMARK PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
+Create a KvikIO benchmark.
+
+.. code-block:: cmake
+
+   kvikio_add_benchmark(NAME <name> SOURCES <sources>)
+
+   ``NAME``
+   Benchmark name. Single-value argument.
+
+   ``SOURCES``
+   List of source files for the benchmark. Multi-value argument.
+#]=======================================================================]
+function(kvikio_add_benchmark)
+  cmake_parse_arguments(
+    _KVIKIO # prefix
+    "" # optional
+    "NAME" # single value
+    "SOURCES" # multi-value
+    ${ARGN}
   )
-endif()
 
-install(
-  TARGETS THREADPOOL_BENCHMARK
-  COMPONENT testing
-  DESTINATION bin/benchmarks/libkvikio
-  EXCLUDE_FROM_ALL
-)
+  if(DEFINED _KVIKIO_UNPARSED_ARGUMENTS)
+    message(FATAL_ERROR "Unknown argument: ${_KVIKIO_UNPARSED_ARGUMENTS}")
+  endif()
+
+  add_executable(${_KVIKIO_NAME} ${_KVIKIO_SOURCES})
+  set_target_properties(${_KVIKIO_NAME} PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
+  target_include_directories(${_KVIKIO_NAME} PRIVATE ../include ${cuFile_INCLUDE_DIRS})
+  target_link_libraries(${_KVIKIO_NAME} PUBLIC benchmark::benchmark kvikio)
+
+  if(CMAKE_COMPILER_IS_GNUCXX)
+    set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
+    target_compile_options(${_KVIKIO_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
+  endif()
+
+  install(
+    TARGETS ${_KVIKIO_NAME}
+    COMPONENT testing
+    DESTINATION bin/benchmarks/libkvikio
+    EXCLUDE_FROM_ALL
+  )
+endfunction()
+
+kvikio_add_benchmark(NAME THREADPOOL_BENCHMARK SOURCES "threadpool/threadpool_benchmark.cpp")
