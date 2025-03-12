@@ -15,19 +15,18 @@
 add_executable(THREADPOOL_BENCHMARK "threadpool/threadpool_benchmark.cpp")
 set_target_properties(THREADPOOL_BENCHMARK PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
 target_include_directories(THREADPOOL_BENCHMARK PRIVATE ../include ${cuFile_INCLUDE_DIRS})
-target_link_libraries(THREADPOOL_BENCHMARK
-PUBLIC benchmark::benchmark benchmark::benchmark_main kvikio)
+target_link_libraries(THREADPOOL_BENCHMARK PUBLIC benchmark::benchmark kvikio)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
-target_compile_options(
+  set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
+  target_compile_options(
     THREADPOOL_BENCHMARK PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
-)
+  )
 endif()
 
 install(
-TARGETS THREADPOOL_BENCHMARK
-COMPONENT testing
-DESTINATION bin/benchmarks/libkvikio
-EXCLUDE_FROM_ALL
+  TARGETS THREADPOOL_BENCHMARK
+  COMPONENT testing
+  DESTINATION bin/benchmarks/libkvikio
+  EXCLUDE_FROM_ALL
 )
