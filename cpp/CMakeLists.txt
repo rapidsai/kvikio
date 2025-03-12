@@ -39,6 +39,7 @@ rapids_cmake_build_type(Release)
 # * build options ----------------------------------------------------------------------------------
 
 option(BUILD_SHARED_LIBS "Build KvikIO shared library" ON)
+option(KvikIO_BUILD_BENCHMARKS "Configure CMake to build benchmarks" ON)
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
@@ -202,6 +203,17 @@ set_target_properties(
              POSITION_INDEPENDENT_CODE ON
              INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
+
+# ##################################################################################################
+# * add benchmarks --------------------------------------------------------------------------------
+
+if(KvikIO_BUILD_BENCHMARKS)
+  # Find or install GoogleBench
+  include(${rapids-cmake-dir}/cpm/gbench.cmake)
+  rapids_cpm_gbench(BUILD_STATIC)
+
+  add_subdirectory(benchmarks)
+endif()
 
 # ##################################################################################################
 # * add examples -----------------------------------------------------------------------------------
