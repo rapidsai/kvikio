@@ -44,6 +44,10 @@ function(kvikio_add_benchmark)
   add_executable(${_KVIKIO_NAME} ${_KVIKIO_SOURCES})
   set_target_properties(${_KVIKIO_NAME} PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
 
+<<<<<<< HEAD
+=======
+  target_include_directories(${_KVIKIO_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+>>>>>>> e54d507 (Add a simple threadpool.)
   target_link_libraries(${_KVIKIO_NAME} PUBLIC benchmark::benchmark kvikio::kvikio)
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -59,4 +63,10 @@ function(kvikio_add_benchmark)
   )
 endfunction()
 
+<<<<<<< HEAD
 kvikio_add_benchmark(NAME THREADPOOL_BENCHMARK SOURCES "threadpool/threadpool_benchmark.cpp")
+=======
+kvikio_add_benchmark(
+  NAME THREADPOOL_BENCHMARK SOURCES "threadpool/threadpool_benchmark.cpp" "utils/utils.cpp"
+)
+>>>>>>> e54d507 (Add a simple threadpool.)

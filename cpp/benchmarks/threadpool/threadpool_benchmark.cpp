@@ -28,6 +28,7 @@
 
 #include <benchmark/benchmark.h>
 #include <kvikio/defaults.hpp>
+#include <utils/utils.hpp>
 
 namespace kvikio {
 enum class ScalingType : uint8_t {
@@ -87,6 +88,8 @@ int main(int argc, char** argv)
     ->UseRealTime()
     ->Unit(benchmark::kMillisecond)
     ->MinTime(2);
+
+  kvikio::utils::explain_default_metrics();
 
   benchmark::RunSpecifiedBenchmarks();
   benchmark::Shutdown();
