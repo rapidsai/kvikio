@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
+// This benchmark assesses the performance of the thread pool.
+// In the "strong scaling" study, the total amount of tasks is fixed, and the time to complete
+// these tasks is evaluated as a function of thread count.
+// In the "weak scaling" study, the expected tasks per thread is fixed, and the total amount of
+// tasks is then proportional to the thread count. Again, the time is evaluated as a function of
+// thread count.
+
 #include <cmath>
 #include <cstdint>
 
