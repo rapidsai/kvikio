@@ -44,8 +44,6 @@ function(kvikio_add_benchmark)
   add_executable(${_KVIKIO_NAME} ${_KVIKIO_SOURCES})
   set_target_properties(${_KVIKIO_NAME} PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
 
-  get_target_property(KVIKIO_INCLUDES kvikio::kvikio INCLUDE_DIRECTORIES)
-  target_include_directories(${_KVIKIO_NAME} PRIVATE "${KVIKIO_INCLUDES}")
   target_link_libraries(${_KVIKIO_NAME} PUBLIC benchmark::benchmark kvikio::kvikio)
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
