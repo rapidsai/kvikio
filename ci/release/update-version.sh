@@ -60,3 +60,7 @@ done
 
 # The example of a downstream project
 sed_runner "s/find_and_configure_kvikio(.*)/find_and_configure_kvikio(\"${NEXT_SHORT_TAG}\")/g" "cpp/examples/downstream/cmake/get_kvikio.cmake"
+
+# Java files
+NEXT_FULL_JAVA_TAG="${NEXT_SHORT_TAG}.${PATCH_PEP440}-SNAPSHOT"
+sed_runner "s|<version>.*-SNAPSHOT</version>|<version>${NEXT_FULL_JAVA_TAG}</version>|g" java/pom.xml
