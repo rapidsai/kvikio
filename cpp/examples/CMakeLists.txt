@@ -20,7 +20,6 @@ get_target_property(KVIKIO_INCLUDES kvikio::kvikio INCLUDE_DIRECTORIES)
 if(CUDAToolkit_FOUND)
   add_executable(BASIC_IO_EXAMPLE basic_io.cpp)
   set_target_properties(BASIC_IO_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
-  target_include_directories(BASIC_IO_EXAMPLE PRIVATE "${KVIKIO_INCLUDES}")
   target_link_libraries(BASIC_IO_EXAMPLE PRIVATE kvikio::kvikio CUDA::cudart)
 
   if(CMAKE_COMPILER_IS_GNUCXX)
