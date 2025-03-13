@@ -21,7 +21,8 @@
 #include <benchmark/benchmark.h>
 #include <kvikio/defaults.hpp>
 
-enum ScalingType : int64_t {
+namespace kvikio {
+enum class ScalingType : uint8_t {
   StrongScaling,
   WeakScaling,
 };
@@ -35,21 +36,19 @@ void task_compute(std::size_t num_compute_iterations)
   }
 }
 
+template <ScalingType scaling_type>
 void BM_threadpool_compute(benchmark::State& state)
 {
-  auto num_threads        = state.range(0);
-  auto compute_bench_type = state.range(1);
+  auto num_threads = state.range(0);
 
   std::string label;
   std::size_t num_compute_tasks;
-  if (compute_bench_type == ScalingType::StrongScaling) {
+  if constexpr (scaling_type == ScalingType::StrongScaling) {
     num_compute_tasks = 1'0000;
-    label             = "strong_scaling";
   } else {
     num_compute_tasks = 1000 * num_threads;
-    label             = "weak_scaling";
   }
-  state.SetLabel(label);
+
   std::size_t const num_compute_iterations{100'000};
   kvikio::defaults::set_thread_pool_nthreads(num_threads);
 
@@ -65,17 +64,22 @@ void BM_threadpool_compute(benchmark::State& state)
 
   state.counters["threads"] = num_threads;
 }
+}  // namespace kvikio
 
 int main(int argc, char** argv)
 {
   benchmark::Initialize(&argc, argv);
 
-  benchmark::RegisterBenchmark("BM_threadpool_compute:strong_scaling", BM_threadpool_compute)
-    ->ArgsProduct({{1, 2, 4, 8, 16, 32, 64}, {ScalingType::StrongScaling}})
+  benchmark::RegisterBenchmark("BM_threadpool_compute:strong_scaling",
+                               kvikio::BM_threadpool_compute<kvikio::ScalingType::StrongScaling>)
+    ->RangeMultiplier(2)
+    ->Range(1, 64)
     ->Unit(benchmark::kMillisecond);
 
-  benchmark::RegisterBenchmark("BM_threadpool_compute:weak_scaling", BM_threadpool_compute)
-    ->ArgsProduct({{1, 2, 4, 8, 16, 32, 64}, {ScalingType::WeakScaling}})
+  benchmark::RegisterBenchmark("BM_threadpool_compute:weak_scaling",
+                               kvikio::BM_threadpool_compute<kvikio::ScalingType::WeakScaling>)
+    ->RangeMultiplier(2)
+    ->Range(1, 64)
     ->Unit(benchmark::kMillisecond);
 
   benchmark::RunSpecifiedBenchmarks();
