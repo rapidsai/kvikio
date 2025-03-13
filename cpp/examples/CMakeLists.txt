@@ -21,7 +21,7 @@ if(CUDAToolkit_FOUND)
   set_target_properties(BASIC_IO_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
   target_link_libraries(BASIC_IO_EXAMPLE PRIVATE kvikio::kvikio CUDA::cudart)
 
-  if(CMAKE_COMPILER_IS_GNUCXX)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
     target_compile_options(
       BASIC_IO_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
@@ -44,7 +44,7 @@ add_executable(BASIC_NO_CUDA_EXAMPLE basic_no_cuda.cpp)
 set_target_properties(BASIC_NO_CUDA_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
 target_link_libraries(BASIC_NO_CUDA_EXAMPLE PRIVATE kvikio::kvikio)
 
-if(CMAKE_COMPILER_IS_GNUCXX)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
   target_compile_options(
     BASIC_NO_CUDA_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
