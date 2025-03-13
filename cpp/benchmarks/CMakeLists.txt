@@ -42,7 +42,7 @@ function(kvikio_add_benchmark)
   endif()
 
   add_executable(${_KVIKIO_NAME} ${_KVIKIO_SOURCES})
-  set_target_properties(${_KVIKIO_NAME} PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
+  set_target_properties(${_KVIKIO_NAME} PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
   target_include_directories(${_KVIKIO_NAME} PRIVATE ../include ${cuFile_INCLUDE_DIRS})
   target_link_libraries(${_KVIKIO_NAME} PUBLIC benchmark::benchmark kvikio)
 
