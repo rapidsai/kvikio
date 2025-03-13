@@ -43,7 +43,6 @@ endif()
 
 add_executable(BASIC_NO_CUDA_EXAMPLE basic_no_cuda.cpp)
 set_target_properties(BASIC_NO_CUDA_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
-target_include_directories(BASIC_NO_CUDA_EXAMPLE PRIVATE "${KVIKIO_INCLUDES}")
 target_link_libraries(BASIC_NO_CUDA_EXAMPLE PRIVATE kvikio::kvikio)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
