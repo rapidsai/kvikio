@@ -13,7 +13,6 @@
 # =============================================================================
 
 set(TEST_INSTALL_PATH bin/tests/libkvikio)
-get_target_property(KVIKIO_INCLUDES kvikio::kvikio INCLUDE_DIRECTORIES)
 
 # Example: basic_io
 
