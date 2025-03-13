@@ -48,7 +48,7 @@ function(kvikio_add_benchmark)
   target_include_directories(${_KVIKIO_NAME} PRIVATE "${KVIKIO_INCLUDES}")
   target_link_libraries(${_KVIKIO_NAME} PUBLIC benchmark::benchmark kvikio::kvikio)
 
-  if(CMAKE_COMPILER_IS_GNUCXX)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
     target_compile_options(${_KVIKIO_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
   endif()
