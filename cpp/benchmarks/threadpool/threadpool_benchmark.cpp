@@ -16,7 +16,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <iostream>
 
 #include <benchmark/benchmark.h>
 #include <kvikio/defaults.hpp>
@@ -44,9 +43,9 @@ void BM_threadpool_compute(benchmark::State& state)
   std::string label;
   std::size_t num_compute_tasks;
   if constexpr (scaling_type == ScalingType::StrongScaling) {
-    num_compute_tasks = 1'0000;
+    num_compute_tasks = 10'000;
   } else {
-    num_compute_tasks = 1000 * num_threads;
+    num_compute_tasks = 1'000 * num_threads;
   }
 
   std::size_t const num_compute_iterations{100'000};
