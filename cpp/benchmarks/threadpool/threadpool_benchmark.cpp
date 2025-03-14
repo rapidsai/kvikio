@@ -52,7 +52,7 @@ void BM_threadpool_compute(benchmark::State& state)
   std::size_t const num_compute_tasks =
     (scaling_type == ScalingType::STRONG_SCALING) ? 10'000 : (1'000 * num_threads);
 
-  std::size_t const num_compute_iterations{1'000};
+  std::size_t constexpr num_compute_iterations{1'000};
   kvikio::defaults::set_thread_pool_nthreads(num_threads);
 
   for (auto _ : state) {
