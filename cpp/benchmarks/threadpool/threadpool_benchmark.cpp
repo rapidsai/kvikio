@@ -58,10 +58,8 @@ void BM_threadpool_compute(benchmark::State& state)
   for (auto _ : state) {
     // Submit a total of "num_compute_tasks" tasks to the thread pool.
     for (auto i = std::size_t{0}; i < num_compute_tasks; ++i) {
-      [[maybe_unused]] auto fut = kvikio::defaults::thread_pool().submit_task(
-        [num_compute_iterations] {
-          task_compute(num_compute_iterations);
-        });
+      [[maybe_unused]] auto fut =
+        kvikio::defaults::thread_pool().submit_task([] { task_compute(num_compute_iterations); });
     }
     kvikio::defaults::thread_pool().wait();
   }
