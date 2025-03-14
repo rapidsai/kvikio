@@ -36,6 +36,7 @@ endif()
 
 unset(kvikio_FOUND)
 
+set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 if(USE_NVCOMP_RUNTIME_WHEEL)
