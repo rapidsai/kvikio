@@ -40,7 +40,7 @@ CUstream StreamsByThread::get(CUcontext ctx, std::thread::id thd_id)
   // Create a new stream if `ctx` doesn't have one.
   if (auto search = _instance._streams.find(key); search == _instance._streams.end()) {
     CUstream stream{};
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_NON_BLOCKING));
     _instance._streams[key] = stream;
     return stream;
   } else {
