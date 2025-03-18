@@ -25,24 +25,51 @@
 #include <kvikio/function_wrapper.hpp>
 
 /**
+ * @file
  * @brief A simple, header-only thread pool that executes tasks in an embarrassingly parallel
- * manner.
+ * manner. Inspired by the BS threadpool that KvikIO has been using.
  */
+
 namespace kvikio {
-class this_thread {
+/**
+ * @brief Utility class for the calling thread.
+ */
+class ThisThread {
  public:
+  /**
+   * @brief Check if the calling thread is from ThreadPoolSimple.
+   *
+   * @return Boolean answer.
+   */
   static bool is_from_pool() { return get_thread_idx().has_value(); }
 
+  /**
+   * @brief Get the index of the calling thread.
+   *
+   * If the calling thread is not from ThreadPoolSimple, return std::nullopt. Otherwise, return the
+   * thread index ranging from 0 to (N-1) where N is the thread count.
+   *
+   * @return Index of the calling thread.
+   */
   static std::optional<std::size_t> get_thread_idx() { return this_thread_idx; }
 
  private:
   friend class ThreadPoolSimple;
 
+  /**
+   * @brief Set the index of the calling thread.
+   *
+   * @param thread_idx Index of the calling thread.
+   */
   static void set_thread_idx(std::size_t thread_idx) { this_thread_idx = thread_idx; }
 
   inline static thread_local std::optional<std::size_t> this_thread_idx{std::nullopt};
 };
 
+/**
+ * @brief Struct to hold per-thread data.
+ *
+ */
 struct Worker {
   std::thread thread;
   std::condition_variable task_available_cv;
@@ -52,8 +79,46 @@ struct Worker {
   bool should_stop{false};
 };
 
+/**
+ * @brief A simple thread pool that executes tasks in an embarrassingly parallel manner.
+ *
+ * Each worker thread has their own task queue, mutex and condition variables. The per-thread mutex
+ * and condition variables are shared with the main thread for synchronization. Tasks are submitted
+ * on the main thread to the worker threads in a round-robin fashion, unless the target thread index
+ * is specified by the user.
+ *
+ * Example:
+ * ```cpp
+ * // Create a thread pool with 4 threads, and pass an optional callable with which to initialize
+ * // each worker thread.
+ * kvikio::ThreadPoolSimple thread_pool{4, [] {
+ *     // Initialize worker thread
+ * }};
+ *
+ * // Submit the task to the thread pool. The worker thread is selected automatically in a
+ * // round-robin fashion.
+ * auto fut = thread_pool.submit_task([] {
+ *     // Task logic
+ * });
+ *
+ * // Submit the task to a specific thread.
+ * auto fut = thread_pool.submit_task_to_thread([] {
+ *     // Task logic
+ * });
+ *
+ * // Wait until the result is ready.
+ * auto result = fut.get();
+ * ```
+ */
 class ThreadPoolSimple {
  public:
+  /**
+   * @brief Constructor. Create a thread pool.
+   *
+   * @tparam F Type of the user-defined worker thread initialization.
+   * @param num_threads Number of threads.
+   * @param worker_thread_init_func User-defined worker thread initialization.
+   */
   template <typename F>
   ThreadPoolSimple(unsigned int num_threads, F&& worker_thread_init_func)
     : _num_threads{num_threads}, _worker_thread_init_func{std::forward<F>(worker_thread_init_func)}
@@ -61,10 +126,30 @@ class ThreadPoolSimple {
     create_threads();
   }
 
+  /**
+   * @brief Constructor, without user-defined worker thread initialization.
+   *
+   * @param num_threads Number of threads.
+   */
   ThreadPoolSimple(unsigned int num_threads) : ThreadPoolSimple(num_threads, FunctionWrapper{}) {}
 
-  ~ThreadPoolSimple() { destroy_threads(); }
+  /**
+   * @brief Destructor. Wait until all worker threads complete their tasks, then join the threads.
+   */
+  ~ThreadPoolSimple()
+  {
+    wait();
+    destroy_threads();
+  }
 
+  /**
+   * @brief Wait until all worker threads complete their tasks. Then join the threads, and
+   * reinitialize the thread pool with new threads.
+   *
+   * @tparam F Type of the user-defined worker thread initialization.
+   * @param num_threads Number of threads.
+   * @param worker_thread_init_func User-defined worker thread initialization.
+   */
   template <typename F>
   void reset(unsigned int num_threads, F&& worker_thread_init_func)
   {
@@ -76,8 +161,16 @@ class ThreadPoolSimple {
     create_threads();
   }
 
+  /**
+   * @brief Overload of reset(), without user-defined worker thread initialization.
+   *
+   * @param num_threads Number of threads.
+   */
   void reset(unsigned int num_threads) { reset(num_threads, FunctionWrapper{}); }
 
+  /**
+   * @brief Block the calling thread until all worker threads complete their tasks.
+   */
   void wait()
   {
     for (unsigned int thread_idx = 0; thread_idx < _num_threads; ++thread_idx) {
@@ -90,11 +183,28 @@ class ThreadPoolSimple {
     }
   }
 
+  /**
+   * @brief Get the number of threads from the thread pool.
+   *
+   * @return Thread count.
+   */
   unsigned int num_thread() const { return _num_threads; }
 
+  /**
+   * @brief Submit the task to the thread pool for execution. The worker thread is selected
+   * automatically in a round-robin fashion.
+   *
+   * @tparam F Type of the task callable.
+   * @tparam R Return type of the task callable.
+   * @param task  Task callable. The task can either be copyable or move-only.
+   * @return An std::future<R> object. R can be void or other types.
+   */
   template <typename F, typename R = std::invoke_result_t<std::decay_t<F>>>
   [[nodiscard]] std::future<R> submit_task(F&& task)
   {
+    // The call index is atomically incremented on each submit_task call, and will wrap around once
+    // it reaches the maximum value the integer type `std::size_t` can hold (this overflow
+    // behavior is well-defined in C++).
     auto tid =
       std::atomic_fetch_add_explicit(&_task_submission_counter, 1, std::memory_order_relaxed);
     tid %= _num_threads;
@@ -102,6 +212,15 @@ class ThreadPoolSimple {
     return submit_task_to_thread(std::forward<F>(task), tid);
   }
 
+  /**
+   * @brief Submit the task to a specific thread for execution.
+   *
+   * @tparam F Type of the task callable.
+   * @tparam R Return type of the task callable.
+   * @param task Task callable. The task can either be copyable or move-only.
+   * @param thread_idx Index of the thread to which the task is submitted.
+   * @return An std::future<R> object. R can be void or other types.
+   */
   template <typename F, typename R = std::invoke_result_t<std::decay_t<F>>>
   [[nodiscard]] std::future<R> submit_task_to_thread(F&& task, std::size_t thread_idx)
   {
@@ -134,9 +253,14 @@ class ThreadPoolSimple {
   }
 
  private:
+  /**
+   * @brief Worker thread loop.
+   *
+   * @param thread_idx Worker thread index.
+   */
   void run_worker(std::size_t thread_idx)
   {
-    this_thread::set_thread_idx(thread_idx);
+    ThisThread::set_thread_idx(thread_idx);
 
     auto& task_available_cv = _workers[thread_idx].task_available_cv;
     auto& task_done_cv      = _workers[thread_idx].task_done_cv;
@@ -163,6 +287,9 @@ class ThreadPoolSimple {
     }
   }
 
+  /**
+   * @brief Create worker threads.
+   */
   void create_threads()
   {
     _workers = std::make_unique<Worker[]>(_num_threads);
@@ -171,6 +298,10 @@ class ThreadPoolSimple {
     }
   }
 
+  /**
+   * @brief Notify each work thread of the intention to stop and join the threads. Pre-condition:
+   * Each worker thread has finished all the tasks in their task queue.
+   */
   void destroy_threads()
   {
     for (unsigned int thread_idx = 0; thread_idx < _num_threads; ++thread_idx) {
