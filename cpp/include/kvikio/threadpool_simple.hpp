@@ -68,7 +68,6 @@ class ThisThread {
 
 /**
  * @brief Struct to hold per-thread data.
- *
  */
 struct Worker {
   std::thread thread;
