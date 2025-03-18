@@ -187,7 +187,7 @@ class ThreadPoolSimple {
    *
    * @return Thread count.
    */
-  unsigned int num_thread() const { return _num_threads; }
+  unsigned int num_threads() const { return _num_threads; }
 
   /**
    * @brief Submit the task to the thread pool for execution. The worker thread is selected
