@@ -24,7 +24,7 @@ namespace kvikio {
  * GPUDirect Storage access.
  *
  * @param devPtr_base  device pointer to allocated
- * @param length  size of memory region from the above specified devPtr
+ * @param size  size of memory region from the above specified devPtr
  * @param flags   should be zero or `CU_FILE_RDMA_REGISTER` (experimental)
  * @param errors_to_ignore  CuFile errors to ignore such as `CU_FILE_MEMORY_ALREADY_REGISTERED`
  * or `CU_FILE_INVALID_MAPPING_SIZE`
