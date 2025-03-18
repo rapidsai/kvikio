@@ -18,6 +18,14 @@
 #include <memory>
 
 namespace kvikio {
+/**
+ * @brief Type-erased function wrapper that can hold either a copyable or move-only callable. This
+ * class avoids the limitation and inconvenience of std::function whose target has to be copyable.
+ *
+ * @todo Use small object optimization to avoid heap allocation.
+ * @note This class will be deprecated in the far future when C++23 is adopted that offers
+ * std::move_only_function.
+ */
 class SimpleFunctionWrapper {
  private:
   struct inner_base {
@@ -43,6 +51,13 @@ class SimpleFunctionWrapper {
   std::unique_ptr<inner_base> _callable;
 
  public:
+  /**
+   * @brief Constructor. Create a function wrapper that can hold either a copyable or move-only
+   * callable.
+   *
+   * @tparam F Callable type.
+   * @param f Callable.
+   */
   template <typename F>
   SimpleFunctionWrapper(F&& f) : _callable(std::make_unique<inner<F>>(std::forward<F>(f)))
   {
@@ -60,6 +75,12 @@ class SimpleFunctionWrapper {
 
   void operator()() { return _callable->operator()(); }
 
+  /**
+   * @brief Conversion function that tells whether the wrapper has a target (true) or is empty
+   * (false).
+   *
+   * @return Boolean answer.
+   */
   operator bool() { return _callable != nullptr; }
 };
 
