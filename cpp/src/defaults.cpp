@@ -103,7 +103,7 @@ defaults::defaults()
   }
   // Determine the default value of `gds_threshold`
   {
-    ssize_t const env = getenv_or("KVIKIO_GDS_THRESHOLD", 4 * 1024);
+    ssize_t const env = getenv_or("KVIKIO_GDS_THRESHOLD", 16 * 1024);
     KVIKIO_EXPECT(
       env >= 0, "KVIKIO_GDS_THRESHOLD has to be a positive integer", std::invalid_argument);
     _gds_threshold = env;
