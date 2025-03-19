@@ -25,6 +25,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <thread>
+#include <vector>
 
 #include <benchmark/benchmark.h>
 #include <kvikio/defaults.hpp>
@@ -97,6 +99,39 @@ void BM_simple_threadpool_compute(benchmark::State& state)
 
   state.counters["threads"] = num_threads;
 }
+
+template <ScalingType scaling_type>
+void BM_static_task_compute(benchmark::State& state)
+{
+  auto const num_threads = state.range(0);
+
+  for (auto _ : state) {
+    std::vector<std::thread> threads(num_threads);
+    for (auto&& thread : threads) {
+      thread = std::thread([=] {
+        std::size_t num_tasks_this_thread{};
+        if constexpr (scaling_type == ScalingType::STRONG_SCALING) {
+          auto const p = constant::ntasks_strong_scaling / num_threads;
+          auto const q = constant::ntasks_strong_scaling % num_threads;
+          num_tasks_this_thread =
+            (static_cast<decltype(q)>(state.thread_index()) < q) ? (p + 1) : p;
+        } else {
+          num_tasks_this_thread = constant::ntasks_weak_scaling;
+        }
+
+        for (std::size_t i = 0; i < num_tasks_this_thread; ++i) {
+          task_compute(constant::num_compute_iterations);
+        }
+      });
+    }
+
+    for (auto&& thread : threads) {
+      thread.join();
+    }
+  }
+
+  state.counters["threads"] = num_threads;
+}
 }  // namespace kvikio
 
 int main(int argc, char** argv)
@@ -132,6 +167,22 @@ int main(int argc, char** argv)
   benchmark::RegisterBenchmark(
     "simple_threadpool_compute:weak_scaling",
     kvikio::BM_simple_threadpool_compute<kvikio::ScalingType::WEAK_SCALING>)
+    ->RangeMultiplier(2)
+    ->Range(1, 64)
+    ->UseRealTime()
+    ->Unit(benchmark::kMillisecond)
+    ->MinTime(2);
+
+  benchmark::RegisterBenchmark("static_task_compute:strong_scaling",
+                               kvikio::BM_static_task_compute<kvikio::ScalingType::STRONG_SCALING>)
+    ->RangeMultiplier(2)
+    ->Range(1, 64)
+    ->UseRealTime()
+    ->Unit(benchmark::kMillisecond)
+    ->MinTime(2);
+
+  benchmark::RegisterBenchmark("static_task_compute:weak_scaling",
+                               kvikio::BM_static_task_compute<kvikio::ScalingType::WEAK_SCALING>)
     ->RangeMultiplier(2)
     ->Range(1, 64)
     ->UseRealTime()
