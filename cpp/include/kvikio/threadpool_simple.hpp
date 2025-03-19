@@ -28,8 +28,9 @@
 
 /**
  * @file
- * @brief A simple, header-only thread pool that executes tasks in an embarrassingly parallel
- * manner. Inspired by the BS threadpool that KvikIO has been using.
+ * @brief A simple, header-only thread pool that uses per-thread task queues. Synchronization only
+ * exists between the pairs of the main thread and each worker thread, but not among the worker
+ * threads themselves. Inspired by the BS threadpool that KvikIO has been using.
  */
 
 namespace kvikio {
@@ -81,12 +82,12 @@ struct Worker {
 };
 
 /**
- * @brief A simple thread pool that executes tasks in an embarrassingly parallel manner.
+ * @brief A simple thread pool that uses per-thread task queues.
  *
- * Each worker thread has their own task queue, mutex and condition variables. The per-thread mutex
- * and condition variables are shared with the main thread for synchronization. Tasks are submitted
- * on the main thread to the worker threads in a round-robin fashion, unless the target thread index
- * is specified by the user.
+ * Each worker thread has their own task queue, mutex and condition variable. The per-thread
+ * synchronization primitives (mutex and condition variable) are shared with the main thread. Tasks
+ * are submitted to the worker threads in a round-robin fashion, unless the target thread index is
+ * specified by the user.
  *
  * Example:
  * ```cpp
