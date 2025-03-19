@@ -48,6 +48,8 @@ class cudaAPI {
   decltype(cuStreamSynchronize)* StreamSynchronize{nullptr};
   decltype(cuStreamCreate)* StreamCreate{nullptr};
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
+  decltype(cuDeviceGetCount)* DeviceGetCount{nullptr};
+  decltype(cuDevicePrimaryCtxGetState)* DevicePrimaryCtxGetState{nullptr};
 
  private:
   cudaAPI();

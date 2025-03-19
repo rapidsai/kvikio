@@ -192,4 +192,6 @@ bool is_future_done(T const& future)
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
 
+CUcontext ensure_valid_current_context();
+
 }  // namespace kvikio

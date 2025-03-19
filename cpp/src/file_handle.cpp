@@ -29,6 +29,8 @@
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/nvtx.hpp>
+#include <kvikio/stream.hpp>
+#include "kvikio/shim/cuda.hpp"
 
 namespace kvikio {
 
@@ -108,8 +110,11 @@ std::size_t FileHandle::read(void* devPtr_base,
 {
   KVIKIO_NVTX_SCOPED_RANGE("FileHandle::read()", size);
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    return detail::posix_device_read(
-      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
+    auto stream = detail::StreamsByThread::get();
+    auto res    = detail::posix_device_read(
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, stream);
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    return res;
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -132,8 +137,11 @@ std::size_t FileHandle::write(void const* devPtr_base,
   _nbytes = 0;  // Invalidate the computed file size
 
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    return detail::posix_device_write(
-      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
+    auto stream = detail::StreamsByThread::get();
+    auto res    = detail::posix_device_write(
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, stream);
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    return res;
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -154,8 +162,9 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            std::size_t gds_threshold,
                                            bool sync_default_stream)
 {
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pread()", size, nvtx_color);
+  auto const nvtx_data = detail::get_nvtx_data();
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pread()", size, nvtx_data.nvtx_color);
+
   if (is_host_memory(buf)) {
     auto op = [this](void* hostPtr_base,
                      std::size_t size,
@@ -166,7 +175,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset);
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
+    return parallel_io(op, nvtx_data, buf, size, file_offset, task_size, 0);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -174,7 +183,9 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
-    auto bytes_read = detail::posix_device_read(_file_direct_off.fd(), buf, size, file_offset, 0);
+    auto stream = detail::StreamsByThread::get();
+    auto bytes_read =
+      detail::posix_device_read(_file_direct_off.fd(), buf, size, file_offset, 0, stream);
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_read);
@@ -187,16 +198,22 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
-  auto task = [this, ctx](void* devPtr_base,
-                          std::size_t size,
-                          std::size_t file_offset,
-                          std::size_t devPtr_offset) -> std::size_t {
+  auto subtask = [this, ctx, nvtx_data](void* devPtr_base,
+                                        std::size_t size,
+                                        std::size_t file_offset,
+                                        std::size_t devPtr_offset,
+                                        bool sync_stream) -> std::size_t {
+    KVIKIO_NVTX_SCOPED_RANGE("subtask", nvtx_data.nvtx_payload, nvtx_data.nvtx_color);
     PushAndPopContext c(ctx);
-    return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    auto stream = detail::StreamsByThread::get();
+    auto res    = read_async_v2(devPtr_base, size, file_offset, devPtr_offset, stream);
+    if (sync_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream)); }
+
+    return res;
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(
-    task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
+  return parallel_io_for_async_memcpy(
+    subtask, nvtx_data, devPtr_base, size, file_offset, task_size, devPtr_offset);
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -206,8 +223,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             std::size_t gds_threshold,
                                             bool sync_default_stream)
 {
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pwrite()", size, nvtx_color);
+  auto const nvtx_data = detail::get_nvtx_data();
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pwrite()", size, nvtx_data.nvtx_color);
   if (is_host_memory(buf)) {
     auto op = [this](void const* hostPtr_base,
                      std::size_t size,
@@ -218,7 +235,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset);
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
+    return parallel_io(op, nvtx_data, buf, size, file_offset, task_size, 0);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -226,7 +243,9 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
-    auto bytes_write = detail::posix_device_write(_file_direct_off.fd(), buf, size, file_offset, 0);
+    auto stream = detail::StreamsByThread::get();
+    auto bytes_write =
+      detail::posix_device_write(_file_direct_off.fd(), buf, size, file_offset, 0, stream);
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_write);
@@ -247,8 +266,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     return write(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(
-    op, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
+  return parallel_io(op, nvtx_data, devPtr_base, size, file_offset, task_size, devPtr_offset);
 }
 
 void FileHandle::read_async(void* devPtr_base,
@@ -282,6 +300,23 @@ StreamFuture FileHandle::read_async(
     ret.get_args();
   read_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_);
   return ret;
+}
+
+std::size_t FileHandle::read_async_v2(void* devPtr_base,
+                                      std::size_t size,
+                                      std::size_t file_offset,
+                                      std::size_t devPtr_offset,
+                                      CUstream stream)
+{
+  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::read_async_v2", size);
+  if (get_compat_mode_manager().is_compat_mode_preferred()) {
+    detail::posix_device_read(
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, stream);
+    return size;
+  } else {
+    KVIKIO_FAIL("Unimplemented", std::runtime_error);
+    return {};
+  }
 }
 
 void FileHandle::write_async(void* devPtr_base,

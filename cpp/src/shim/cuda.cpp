@@ -29,6 +29,7 @@ cudaAPI::cudaAPI()
   // if a project uses the `_v2` CUDA Driver API or the newest Runtime API, the symbols
   // loaded should also be the `_v2` symbols. Thus, we use KVIKIO_STRINGIFY() to get
   // the name of the symbol through cude.h.
+  get_symbol(Init, lib, KVIKIO_STRINGIFY(cuInit));
   get_symbol(MemHostAlloc, lib, KVIKIO_STRINGIFY(cuMemHostAlloc));
   get_symbol(MemFreeHost, lib, KVIKIO_STRINGIFY(cuMemFreeHost));
   get_symbol(MemcpyHtoDAsync, lib, KVIKIO_STRINGIFY(cuMemcpyHtoDAsync));
@@ -47,6 +48,8 @@ cudaAPI::cudaAPI()
   get_symbol(StreamSynchronize, lib, KVIKIO_STRINGIFY(cuStreamSynchronize));
   get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
   get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
+  get_symbol(DeviceGetCount, lib, KVIKIO_STRINGIFY(cuDeviceGetCount));
+  get_symbol(DevicePrimaryCtxGetState, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxGetState));
 }
 #else
 cudaAPI::cudaAPI() { KVIKIO_FAIL("KvikIO not compiled with CUDA support", std::runtime_error); }

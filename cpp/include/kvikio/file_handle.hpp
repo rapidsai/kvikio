@@ -364,6 +364,12 @@ class FileHandle {
                                         off_t devPtr_offset = 0,
                                         CUstream stream     = nullptr);
 
+  std::size_t read_async_v2(void* devPtr_base,
+                            std::size_t size,
+                            std::size_t file_offset   = 0,
+                            std::size_t devPtr_offset = 0,
+                            CUstream stream           = nullptr);
+
   /**
    * @brief Writes specified bytes from the device memory into the file asynchronously.
    *

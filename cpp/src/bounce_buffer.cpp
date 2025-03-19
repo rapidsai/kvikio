@@ -16,13 +16,18 @@
 
 #include <mutex>
 #include <stack>
+#include <stdexcept>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
+#include <kvikio/utils.hpp>
 
 namespace kvikio {
+
+AllocRetain::AllocRetain() : _size{defaults::bounce_buffer_size()} {}
 
 AllocRetain::Alloc::Alloc(AllocRetain* manager, void* alloc, std::size_t size)
   : _manager(manager), _alloc{alloc}, _size{size}
@@ -103,6 +108,96 @@ AllocRetain& AllocRetain::instance()
 {
   static AllocRetain _instance;
   return _instance;
+}
+
+void Block::allocate(std::size_t bytes)
+{
+  _bytes = bytes;
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(
+    reinterpret_cast<void**>(&_buffer), _bytes, CU_MEMHOSTALLOC_PORTABLE));
+}
+
+void Block::deallocate()
+{
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_buffer));
+  _bytes  = 0u;
+  _buffer = nullptr;
+}
+
+BlockView Block::make_view(std::size_t start_byte_idx, std::size_t bytes)
+{
+  KVIKIO_EXPECT(start_byte_idx + bytes <= _bytes, "Block view out of bound.", std::runtime_error);
+  return BlockView(_buffer + start_byte_idx, bytes);
+}
+
+std::size_t Block::size() const noexcept { return _bytes; }
+
+std::byte* Block::data() const noexcept { return _buffer; }
+
+BlockView::BlockView(std::byte* buffer, std::size_t bytes) : _buffer(buffer), _bytes(bytes) {}
+
+std::size_t BlockView::size() const noexcept { return _bytes; }
+
+std::byte* BlockView::data() const noexcept { return _buffer; }
+
+BounceBuffer& BounceBuffer::instance()
+{
+  thread_local BounceBuffer _instance;
+  return _instance;
+}
+
+BlockView BounceBuffer::get()
+{
+  thread_local std::size_t current_idx{0};
+  if (this_thread::is_from_pool<BS_thread_pool>()) {
+    if (current_idx >= _blockviews_pool.size()) { current_idx -= _blockviews_pool.size(); }
+    return _blockviews_pool[current_idx++];
+  } else {
+    if (_blockviews.size() == 0) {
+      initialize_per_thread(defaults::bounce_buffer_size(), defaults::num_subtasks_per_task());
+    }
+    if (current_idx >= _blockviews.size()) { current_idx -= _blockviews.size(); }
+    return _blockviews[current_idx++];
+  }
+}
+
+void BounceBuffer::preinitialize_for_pool(unsigned int num_threads,
+                                          std::size_t requested_bytes_per_block,
+                                          std::size_t num_blocks)
+{
+  // Round up to the multiples of page size
+  std::size_t bytes_per_block = (requested_bytes_per_block + page_size - 1) & (~page_size + 1);
+  auto total_bytes            = bytes_per_block * num_blocks * num_threads;
+
+  block_pool.deallocate();
+  block_pool.allocate(total_bytes);
+}
+
+void BounceBuffer::initialize_per_thread(std::size_t requested_bytes_per_block,
+                                         std::size_t num_blocks)
+{
+  _requested_bytes_per_block = requested_bytes_per_block;
+  _num_blocks                = num_blocks;
+
+  // Round up to the multiples of page size
+  std::size_t bytes_per_block = (_requested_bytes_per_block + page_size - 1) & (~page_size + 1);
+  auto bytes_per_thread       = bytes_per_block * _num_blocks;
+
+  if (this_thread::is_from_pool<BS_thread_pool>()) {
+    _blockviews_pool.clear();
+    std::size_t my_offset = this_thread::index<BS_thread_pool>().value() * bytes_per_thread;
+    for (std::size_t i = 0; i < _num_blocks; ++i) {
+      _blockviews_pool.emplace_back(
+        block_pool.make_view(my_offset + bytes_per_block * i, bytes_per_block));
+    }
+  } else {
+    _blockviews.clear();
+    _block.deallocate();
+    _block.allocate(bytes_per_thread);
+    for (std::size_t i = 0; i < _num_blocks; ++i) {
+      _blockviews.emplace_back(_block.make_view(bytes_per_block * i, bytes_per_block));
+    }
+  }
 }
 
 }  // namespace kvikio

@@ -153,6 +153,7 @@ set(SOURCES
     "src/shim/cufile.cpp"
     "src/shim/utils.cpp"
     "src/stream.cpp"
+    "src/threadpool_wrapper.cpp"
     "src/utils.cpp"
 )
 

@@ -62,16 +62,16 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  */
 class defaults {
  private:
-  BS_thread_pool _thread_pool{get_num_threads_from_env()};
+  std::unique_ptr<BS_thread_pool> _thread_pool;
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
+  std::size_t _num_subtasks_per_task;
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
-
-  static unsigned int get_num_threads_from_env();
+  std::function<void()> _worker_thread_init_func;
 
   defaults();
 
@@ -235,6 +235,9 @@ class defaults {
    * @param nbytes The bounce buffer size in bytes.
    */
   static void set_bounce_buffer_size(std::size_t nbytes);
+
+  [[nodiscard]] static std::size_t num_subtasks_per_task();
+  static void set_num_subtasks_per_task(std::size_t num_subtasks_per_task);
 
   /**
    * @brief Get the maximum number of attempts per remote IO read.

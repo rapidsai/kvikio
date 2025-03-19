@@ -37,10 +37,13 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     vector[int] cpp_http_status_codes "kvikio::defaults::http_status_codes"() except +
     void cpp_set_http_status_codes \
         "kvikio::defaults::set_http_status_codes"(vector[int] status_codes) except +
-
     long cpp_http_timeout "kvikio::defaults::http_timeout"() except +
     void cpp_set_http_timeout\
         "kvikio::defaults::set_http_timeout"(long timeout_seconds) except +
+    size_t cpp_num_subtasks_per_task\
+        "kvikio::defaults::num_subtasks_per_task"() except +
+    void cpp_set_num_subtasks_per_task\
+        "kvikio::defaults::set_num_subtasks_per_task"(size_t) except +
 
 
 def is_compat_mode_preferred() -> bool:
@@ -109,3 +112,11 @@ def http_status_codes() -> list[int]:
 
 def set_http_status_codes(status_codes: list[int]) -> None:
     return cpp_set_http_status_codes(status_codes)
+
+
+def num_subtasks_per_task() -> int:
+    return cpp_num_subtasks_per_task()
+
+
+def set_num_subtasks_per_task(num_subtasks_per_task: int) -> None:
+    cpp_set_num_subtasks_per_task(num_subtasks_per_task)
