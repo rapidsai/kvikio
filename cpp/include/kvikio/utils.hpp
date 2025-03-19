@@ -152,7 +152,6 @@ class PushAndPopContext {
 std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr,
                                                            CUcontext* ctx = nullptr);
 
-<<<<<<< HEAD
 /**
  * @brief Create a shared state in a future object that is immediately ready.
  *
@@ -184,10 +183,6 @@ std::future<std::decay_t<T>> make_ready_future(T&& t)
  * @param future Instance of the future.
  * @return Boolean answer indicating if the future is ready or not.
  */
-=======
-CUcontext ensure_valid_current_context();
-
->>>>>>> 371de3e (Implement a special bounce buffer that can overlap read with h2d memcpy)
 template <typename T>
 bool is_future_done(T const& future)
 {
@@ -196,5 +191,7 @@ bool is_future_done(T const& future)
                 std::invalid_argument);
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
+
+CUcontext ensure_valid_current_context();
 
 }  // namespace kvikio
