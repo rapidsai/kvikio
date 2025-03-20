@@ -1,6 +1,6 @@
 # Copyright (c) 2023-2025, NVIDIA CORPORATION.
 
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') %}
 {% set py_version = environ['CONDA_PY'] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
@@ -73,7 +73,7 @@ requirements:
     - python
     - numpy >=1.23,<3.0a0
     - cupy >=12.0.0
-    - zarr >=2.0.0,<3.0.0a0
+    - zarr >=2.0.0,<4.0.0a0
     # See https://github.com/zarr-developers/numcodecs/pull/475
     - numcodecs !=0.12.0
     - packaging

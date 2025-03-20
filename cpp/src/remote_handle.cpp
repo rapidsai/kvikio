@@ -25,6 +25,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/remote_handle.hpp>
@@ -151,7 +152,7 @@ std::string S3Endpoint::unwrap_or_default(std::optional<std::string> aws_arg,
   char const* env = std::getenv(env_var.c_str());
   if (env == nullptr) {
     if (err_msg.empty()) { return std::string(); }
-    throw std::invalid_argument(err_msg);
+    KVIKIO_FAIL(err_msg, std::invalid_argument);
   }
   return std::string(env);
 }
@@ -182,7 +183,8 @@ std::pair<std::string, std::string> S3Endpoint::parse_s3_url(std::string const& 
   std::regex const pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
   std::smatch matches;
   if (std::regex_match(s3_url, matches, pattern)) { return {matches[1].str(), matches[2].str()}; }
-  throw std::invalid_argument("Input string does not match the expected S3 URL format.");
+  KVIKIO_FAIL("Input string does not match the expected S3 URL format.", std::invalid_argument);
+  return {};
 }
 
 S3Endpoint::S3Endpoint(std::string url,
@@ -193,9 +195,9 @@ S3Endpoint::S3Endpoint(std::string url,
 {
   // Regular expression to match http[s]://
   std::regex pattern{R"(^https?://.*)", std::regex_constants::icase};
-  if (!std::regex_search(_url, pattern)) {
-    throw std::invalid_argument("url must start with http:// or https://");
-  }
+  KVIKIO_EXPECT(std::regex_search(_url, pattern),
+                "url must start with http:// or https://",
+                std::invalid_argument);
 
   auto const region =
     unwrap_or_default(std::move(aws_region),
@@ -260,10 +262,10 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   curl.perform();
   curl_off_t cl;
   curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
-  if (cl < 0) {
-    throw std::runtime_error("cannot get size of " + endpoint->str() +
-                             ", content-length not provided by the server");
-  }
+  KVIKIO_EXPECT(
+    cl >= 0,
+    "cannot get size of " + endpoint->str() + ", content-length not provided by the server",
+    std::runtime_error);
   _nbytes   = cl;
   _endpoint = std::move(endpoint);
 }
@@ -347,7 +349,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
     std::stringstream ss;
     ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
        << " bytes file (" << _endpoint->str() << ")";
-    throw std::invalid_argument(ss.str());
+    KVIKIO_FAIL(ss.str(), std::invalid_argument);
   }
   bool const is_host_mem = is_host_memory(buf);
   auto curl              = create_curl_handle();
@@ -380,7 +382,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
     if (ctx.overflow_error) {
       std::stringstream ss;
       ss << "maybe the server doesn't support file ranges? [" << e.what() << "]";
-      throw std::overflow_error(ss.str());
+      KVIKIO_FAIL(ss.str(), std::overflow_error);
     }
     throw;
   }
@@ -392,6 +394,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t file_offset,
                                              std::size_t task_size)
 {
+  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::pread()", size);
   auto task = [this](void* devPtr_base,
                      std::size_t size,
@@ -399,7 +402,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                      std::size_t devPtr_offset) -> std::size_t {
     return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
   };
-  return parallel_io(task, buf, size, file_offset, task_size, 0);
+  return parallel_io(task, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
 }
 
 }  // namespace kvikio

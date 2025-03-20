@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -18,11 +18,10 @@ set(TEST_INSTALL_PATH bin/tests/libkvikio)
 
 if(CUDAToolkit_FOUND)
   add_executable(BASIC_IO_EXAMPLE basic_io.cpp)
-  set_target_properties(BASIC_IO_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
-  target_include_directories(BASIC_IO_EXAMPLE PRIVATE ../include ${cuFile_INCLUDE_DIRS})
-  target_link_libraries(BASIC_IO_EXAMPLE PRIVATE kvikio CUDA::cudart)
+  set_target_properties(BASIC_IO_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
+  target_link_libraries(BASIC_IO_EXAMPLE PRIVATE kvikio::kvikio CUDA::cudart)
 
-  if(CMAKE_COMPILER_IS_GNUCXX)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
     target_compile_options(
       BASIC_IO_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
@@ -42,11 +41,10 @@ endif()
 # Example: basic_no_cuda
 
 add_executable(BASIC_NO_CUDA_EXAMPLE basic_no_cuda.cpp)
-set_target_properties(BASIC_NO_CUDA_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../lib")
-target_include_directories(BASIC_NO_CUDA_EXAMPLE PRIVATE ../include)
-target_link_libraries(BASIC_NO_CUDA_EXAMPLE PRIVATE kvikio)
+set_target_properties(BASIC_NO_CUDA_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
+target_link_libraries(BASIC_NO_CUDA_EXAMPLE PRIVATE kvikio::kvikio)
 
-if(CMAKE_COMPILER_IS_GNUCXX)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
   target_compile_options(
     BASIC_NO_CUDA_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import os
@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from packaging.version import parse
 
 import kvikio
 
@@ -28,13 +29,21 @@ pytest.importorskip("dask")
         "zarr",
     ],
 )
+@pytest.mark.timeout(30, method="thread")
 def test_single_node_io(run_cmd, tmp_path, api):
     """Test benchmarks/single_node_io.py"""
 
     if "zarr" in api:
         kz = pytest.importorskip("kvikio.zarr")
+        import zarr
+
         if not kz.supported:
             pytest.skip(f"requires Zarr >={kz.MINIMUM_ZARR_VERSION}")
+
+        if parse(zarr.__version__) >= parse("3.0.0"):
+            pytest.skip(
+                "requires Zarr<3",
+            )
 
     retcode = run_cmd(
         cmd=[
@@ -59,12 +68,20 @@ def test_single_node_io(run_cmd, tmp_path, api):
         "posix",
     ],
 )
+@pytest.mark.timeout(30, method="thread")
 def test_zarr_io(run_cmd, tmp_path, api):
     """Test benchmarks/zarr_io.py"""
 
     kz = pytest.importorskip("kvikio.zarr")
+    import zarr
+
     if not kz.supported:
         pytest.skip(f"requires Zarr >={kz.MINIMUM_ZARR_VERSION}")
+
+    if parse(zarr.__version__) >= parse("3.0.0"):
+        pytest.skip(
+            "requires Zarr<3",
+        )
 
     retcode = run_cmd(
         cmd=[
@@ -89,6 +106,7 @@ def test_zarr_io(run_cmd, tmp_path, api):
         "numpy",
     ],
 )
+@pytest.mark.timeout(30, method="thread")
 def test_http_io(run_cmd, api):
     """Test benchmarks/http_io.py"""
 
@@ -118,6 +136,7 @@ def test_http_io(run_cmd, api):
         "numpy",
     ],
 )
+@pytest.mark.timeout(30, method="thread")
 def test_s3_io(run_cmd, api):
     """Test benchmarks/s3_io.py"""
 

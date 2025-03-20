@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ namespace kvikio::test {
  */
 class TempDir {
  public:
-  TempDir(const bool cleanup = true) : _cleanup{cleanup}
+  TempDir(bool const cleanup = true) : _cleanup{cleanup}
   {
     std::string tpl{std::filesystem::temp_directory_path() / "kvikio.XXXXXX"};
     if (mkdtemp(tpl.data()) == nullptr) {
@@ -91,17 +91,17 @@ class TempDir {
     }
   }
 
-  TempDir(const TempDir&)              = delete;
+  TempDir(TempDir const&)              = delete;
   TempDir& operator=(TempDir const&)   = delete;
-  TempDir(const TempDir&&)             = delete;
+  TempDir(TempDir const&&)             = delete;
   TempDir&& operator=(TempDir const&&) = delete;
 
-  const std::filesystem::path& path() { return _dir_path; }
+  std::filesystem::path const& path() { return _dir_path; }
 
   operator std::string() { return path(); }
 
  private:
-  const bool _cleanup;
+  bool const _cleanup;
   std::filesystem::path _dir_path{};
 };
 
@@ -120,7 +120,7 @@ class DevBuffer {
   {
     KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes));
   }
-  DevBuffer(const std::vector<std::int64_t>& host_buffer) : DevBuffer{host_buffer.size()}
+  DevBuffer(std::vector<std::int64_t> const& host_buffer) : DevBuffer{host_buffer.size()}
   {
     KVIKIO_CHECK_CUDA(cudaMemcpy(ptr, host_buffer.data(), nbytes, cudaMemcpyHostToDevice));
   }
@@ -149,7 +149,7 @@ class DevBuffer {
     return DevBuffer{host_buffer};
   }
 
-  [[nodiscard]] static DevBuffer zero_like(const DevBuffer& prototype)
+  [[nodiscard]] static DevBuffer zero_like(DevBuffer const& prototype)
   {
     DevBuffer ret{prototype.nelem};
     KVIKIO_CHECK_CUDA(cudaMemset(ret.ptr, 0, ret.nbytes));
@@ -176,7 +176,7 @@ class DevBuffer {
 /**
  * @brief Check that two buffers are equal
  */
-inline void expect_equal(const DevBuffer& a, const DevBuffer& b)
+inline void expect_equal(DevBuffer const& a, DevBuffer const& b)
 {
   EXPECT_EQ(a.nbytes, b.nbytes);
   auto a_vec = a.to_vector();

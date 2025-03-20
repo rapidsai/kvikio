@@ -78,7 +78,7 @@ class BatchHandle {
   /**
    * @brief BatchHandle support move semantic but isn't copyable
    */
-  BatchHandle(const BatchHandle&)            = delete;
+  BatchHandle(BatchHandle const&)            = delete;
   BatchHandle& operator=(BatchHandle const&) = delete;
   BatchHandle(BatchHandle&& o) noexcept;
   ~BatchHandle() noexcept;
@@ -96,7 +96,7 @@ class BatchHandle {
    * @param operations The vector of batch operations, which must not exceed the
    * `max_num_events`.
    */
-  void submit(const std::vector<BatchOp>& operations);
+  void submit(std::vector<BatchOp> const& operations);
 
   /**
    * @brief Get status of submitted operations
@@ -127,7 +127,7 @@ class BatchHandle {
 
   void close() noexcept;
 
-  void submit(const std::vector<BatchOp>& operations);
+  void submit(std::vector<BatchOp> const& operations);
 
   std::vector<CUfileIOEvents_t> status(unsigned min_nr,
                                        unsigned max_nr,

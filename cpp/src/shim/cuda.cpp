@@ -16,6 +16,7 @@
 
 #include <stdexcept>
 
+#include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
@@ -48,7 +49,7 @@ cudaAPI::cudaAPI()
   get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
 }
 #else
-cudaAPI::cudaAPI() { throw std::runtime_error("KvikIO not compiled with CUDA support"); }
+cudaAPI::cudaAPI() { KVIKIO_FAIL("KvikIO not compiled with CUDA support", std::runtime_error); }
 #endif
 
 cudaAPI& cudaAPI::instance()
@@ -62,7 +63,7 @@ bool is_cuda_available()
 {
   try {
     cudaAPI::instance();
-  } catch (const std::runtime_error&) {
+  } catch (std::runtime_error const&) {
     return false;
   }
   return true;

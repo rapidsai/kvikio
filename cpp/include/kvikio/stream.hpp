@@ -66,7 +66,7 @@ class StreamFuture {
   /**
    * @brief StreamFuture support move semantic but isn't copyable
    */
-  StreamFuture(const StreamFuture&)        = delete;
+  StreamFuture(StreamFuture const&)        = delete;
   StreamFuture& operator=(StreamFuture& o) = delete;
   StreamFuture(StreamFuture&& o) noexcept;
   StreamFuture& operator=(StreamFuture&& o) noexcept;

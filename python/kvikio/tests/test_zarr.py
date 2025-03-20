@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 
@@ -6,6 +6,7 @@ import math
 
 import numpy
 import pytest
+from packaging.version import parse
 
 cupy = pytest.importorskip("cupy")
 zarr = pytest.importorskip("zarr")
@@ -16,6 +17,12 @@ numcodecs = pytest.importorskip("numcodecs")
 if not kvikio_zarr.supported:
     pytest.skip(
         f"requires Zarr >={kvikio_zarr.MINIMUM_ZARR_VERSION}",
+        allow_module_level=True,
+    )
+
+if parse(zarr.__version__) >= parse("3.0.0"):
+    pytest.skip(
+        "requires Zarr<3",
         allow_module_level=True,
     )
 

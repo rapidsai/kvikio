@@ -80,7 +80,7 @@ When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. In
 
 The environment variable `KVIKIO_COMPAT_MODE` has three options (case-insensitive):
   - `ON` (aliases: `TRUE`, `YES`, `1`): Enable the compatibility mode.
-  - `OFF` (aliases: `FALSE`, `NO`, `0`): Disable the compatibility mode, and enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met and cuFile is properly configured. However, if the system is not suited for cuFile, I/O operations under the `OFF` option may error out, crash or hang.
+  - `OFF` (aliases: `FALSE`, `NO`, `0`): Disable the compatibility mode, and enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met and cuFile is properly configured. However, if the system is not suited for cuFile, I/O operations under the `OFF` option may error out.
   - `AUTO`: Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile are not met.
 
 Under `AUTO`, KvikIO falls back to the compatibility mode:
@@ -107,10 +107,30 @@ To improve performance of small IO requests, `.pread()` and `.pwrite()` implemen
 This setting can also be controlled by `defaults::gds_threshold()` and `defaults::gds_threshold_reset()`.
 
 #### Size of the Bounce Buffer (KVIKIO_GDS_THRESHOLD)
-KvikIO might have to use intermediate host buffers (one per thread) when copying between files and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to the size (in bytes) of these "bounce" buffers. If not set, the default value is 16777216 (16 MiB).
+KvikIO might have to use intermediate host buffers (one per thread) when copying between files and device memory. Set the environment variable `KVIKIO_BOUNCE_BUFFER_SIZE` to the size (in bytes) of these "bounce" buffers. If not set, the default value is 16777216 (16 MiB).
 
 This setting can also be controlled by `defaults::bounce_buffer_size()` and `defaults::bounce_buffer_size_reset()`.
 
+#### HTTP Retries
+
+The behavior when a remote IO read returns a error can be controlled through the `KVIKIO_HTTP_STATUS_CODES` and `KVIKIO_HTTP_MAX_ATTEMPTS` environment variables.
+`KVIKIO_HTTP_STATUS_CODES` controls the status codes to retry, and `KVIKIO_HTTP_MAX_ATTEMPTS` controls the maximum number of attempts to make before throwing an exception.
+
+When a response with a status code in the list of retryable codes is received, KvikIO will wait for some period of time before retrying the request.
+It will keep retrying until reaching the maximum number of attempts.
+
+By default, KvikIO will retry responses with the following status codes:
+
+- 429
+- 500
+- 502
+- 503
+- 504
+
+KvikIO will, by default, make three attempts per read.
+Note that if you're reading a large file that has been split into multiple reads through the KvikIO's task size setting, then *each* task will be retried up to the maximum number of attempts.
+
+These settings can also be controlled by `defaults::http_max_attempts()`, `defaults::http_max_attempts_reset()`, `defaults::http_status_codes()`, and `defaults::http_status_codes_reset()`.
 
 ## Example
 
