@@ -20,6 +20,7 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
@@ -27,14 +28,24 @@ namespace kvikio {
 AllocRetain::Alloc::Alloc(AllocRetain* manager, void* alloc, std::size_t size)
   : _manager(manager), _alloc{alloc}, _size{size}
 {
+  KVIKIO_NVTX_FUNC_RANGE();
 }
 
-AllocRetain::Alloc::~Alloc() noexcept { _manager->put(_alloc, _size); }
+AllocRetain::Alloc::~Alloc() noexcept
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  _manager->put(_alloc, _size);
+}
 
-void* AllocRetain::Alloc::get() noexcept { return _alloc; }
+void* AllocRetain::Alloc::get() noexcept
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  return _alloc;
+}
 
 void* AllocRetain::Alloc::get(std::ptrdiff_t offset) noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   return static_cast<char*>(_alloc) + offset;
 }
 
@@ -42,6 +53,7 @@ std::size_t AllocRetain::Alloc::size() noexcept { return _size; }
 
 std::size_t AllocRetain::_clear()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   std::size_t ret = _free_allocs.size() * _size;
   while (!_free_allocs.empty()) {
     CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
@@ -52,6 +64,7 @@ std::size_t AllocRetain::_clear()
 
 void AllocRetain::_ensure_alloc_size()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const bounce_buffer_size = defaults::bounce_buffer_size();
   if (_size != bounce_buffer_size) {
     _clear();
@@ -61,6 +74,7 @@ void AllocRetain::_ensure_alloc_size()
 
 AllocRetain::Alloc AllocRetain::get()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   std::lock_guard const lock(_mutex);
   _ensure_alloc_size();
 
@@ -81,6 +95,7 @@ AllocRetain::Alloc AllocRetain::get()
 
 void AllocRetain::put(void* alloc, std::size_t size)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   std::lock_guard const lock(_mutex);
   _ensure_alloc_size();
 
@@ -95,6 +110,7 @@ void AllocRetain::put(void* alloc, std::size_t size)
 
 std::size_t AllocRetain::clear()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   std::lock_guard const lock(_mutex);
   return _clear();
 }

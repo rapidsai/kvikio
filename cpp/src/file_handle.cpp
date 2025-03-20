@@ -106,7 +106,7 @@ std::size_t FileHandle::read(void* devPtr_base,
                              std::size_t devPtr_offset,
                              bool sync_default_stream)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::read()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
     return detail::posix_device_read(
       _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
@@ -128,7 +128,7 @@ std::size_t FileHandle::write(void const* devPtr_base,
                               std::size_t devPtr_offset,
                               bool sync_default_stream)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::write()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   _nbytes = 0;  // Invalidate the computed file size
 
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
@@ -155,7 +155,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            bool sync_default_stream)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pread()", size, nvtx_color);
+  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
     auto op = [this](void* hostPtr_base,
                      std::size_t size,
@@ -207,7 +207,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             bool sync_default_stream)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("FileHandle::pwrite()", size, nvtx_color);
+  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
     auto op = [this](void const* hostPtr_base,
                      std::size_t size,

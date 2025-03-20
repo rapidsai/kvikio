@@ -309,7 +309,7 @@ std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle - callback_host_memory()", nbytes);
+  KVIKIO_NVTX_FUNC_RANGE(nbytes);
   std::memcpy(ctx->buf + ctx->offset, data, nbytes);
   ctx->offset += nbytes;
   return nbytes;
@@ -333,7 +333,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle - callback_device_memory()", nbytes);
+  KVIKIO_NVTX_FUNC_RANGE(nbytes);
 
   ctx->bounce_buffer->write(data, nbytes);
   ctx->offset += nbytes;
@@ -343,7 +343,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::read()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (file_offset + size > _nbytes) {
     std::stringstream ss;
@@ -395,7 +395,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t task_size)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::pread()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   auto task = [this](void* devPtr_base,
                      std::size_t size,
                      std::size_t file_offset,
