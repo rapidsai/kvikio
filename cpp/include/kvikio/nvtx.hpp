@@ -50,12 +50,16 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
   }(message)
 
 // Implementation of KVIKIO_NVTX_FUNC_RANGE()
+// todo: Although supported by many compilers, __PRETTY_FUNCTION__ is non-standard. Replacement may
+// be considered once reflection is standardized.
 #define KVIKIO_NVTX_FUNC_RANGE_IMPL_0() KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(__PRETTY_FUNCTION__)
 #define KVIKIO_NVTX_FUNC_RANGE_IMPL_1(payload) \
   KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(__PRETTY_FUNCTION__, payload)
 #define KVIKIO_NVTX_FUNC_RANGE_IMPL_2(payload, color) \
   KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(__PRETTY_FUNCTION__, payload, color)
 #define KVIKIO_NVTX_FUNC_RANGE_SELECTOR(_0, _1, _2, NAME, ...) NAME
+// todo: Although supported by gcc and clang, ##__VA_ARGS__ is non-standard, and should be replaced
+// by __VA_OPT__ (since C++20) in the future.
 #define KVIKIO_NVTX_FUNC_RANGE_IMPL(...)                         \
   KVIKIO_NVTX_FUNC_RANGE_SELECTOR(_0,                            \
                                   ##__VA_ARGS__,                 \
