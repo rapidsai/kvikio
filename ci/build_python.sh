@@ -13,6 +13,7 @@ export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
 
+# This file is used throughout to define the version
 rapids-generate-version > ./VERSION
 
 rapids-logger "Begin py build"
