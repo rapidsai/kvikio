@@ -33,7 +33,10 @@ class thread_pool_wrapper : public pool_type {
    *
    * @param nthreads The number of threads to use.
    */
-  thread_pool_wrapper(unsigned int nthreads) : pool_type{nthreads, worker_thread_init_func} {}
+  thread_pool_wrapper(unsigned int nthreads) : pool_type{nthreads, worker_thread_init_func}
+  {
+    KVIKIO_NVTX_FUNC_RANGE();
+  }
 
   /**
    * @brief Reset the number of threads in the thread pool, and invoke a pre-defined initialization
@@ -41,7 +44,11 @@ class thread_pool_wrapper : public pool_type {
    *
    * @param nthreads The number of threads to use.
    */
-  void reset(unsigned int nthreads) { pool_type::reset(nthreads, worker_thread_init_func); }
+  void reset(unsigned int nthreads)
+  {
+    KVIKIO_NVTX_FUNC_RANGE();
+    pool_type::reset(nthreads, worker_thread_init_func);
+  }
 
  private:
   inline static std::function<void()> worker_thread_init_func{[] {

@@ -31,6 +31,7 @@ namespace kvikio::detail {
 
 CUstream StreamsByThread::get(CUcontext ctx, std::thread::id thd_id)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   static StreamsByThread _instance;
 
   // If no current context, we return the null/default stream
@@ -50,6 +51,7 @@ CUstream StreamsByThread::get(CUcontext ctx, std::thread::id thd_id)
 
 CUstream StreamsByThread::get()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   CUcontext ctx{nullptr};
   CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
   return get(ctx, std::this_thread::get_id());

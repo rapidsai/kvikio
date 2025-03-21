@@ -117,6 +117,7 @@ std::size_t AllocRetain::clear()
 
 AllocRetain& AllocRetain::instance()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   static AllocRetain _instance;
   return _instance;
 }
