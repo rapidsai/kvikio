@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>
+#include <iostream>
 #include <stdexcept>
 #include <utility>
 
@@ -29,6 +30,7 @@
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/nvtx.hpp>
+#include "kvikio/posix_io.hpp"
 
 namespace kvikio {
 
@@ -108,8 +110,11 @@ std::size_t FileHandle::read(void* devPtr_base,
 {
   KVIKIO_NVTX_SCOPED_RANGE("FileHandle::read()", size);
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    return detail::posix_device_read(
-      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
+    auto stream = detail::StreamsByThread::get(detail::MemcpyDirection::H2D);
+    auto res    = detail::posix_device_read(
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, stream);
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    return res;
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -132,8 +137,11 @@ std::size_t FileHandle::write(void const* devPtr_base,
   _nbytes = 0;  // Invalidate the computed file size
 
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    return detail::posix_device_write(
-      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
+    auto stream = detail::StreamsByThread::get(detail::MemcpyDirection::D2H);
+    auto res    = detail::posix_device_write(
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, stream);
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    return res;
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -174,7 +182,10 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
-    auto bytes_read = detail::posix_device_read(_file_direct_off.fd(), buf, size, file_offset, 0);
+    auto stream = detail::StreamsByThread::get(detail::MemcpyDirection::H2D);
+    auto bytes_read =
+      detail::posix_device_read(_file_direct_off.fd(), buf, size, file_offset, 0, stream);
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_read);
@@ -192,11 +203,25 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                           std::size_t file_offset,
                           std::size_t devPtr_offset) -> std::size_t {
     PushAndPopContext c(ctx);
-    return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    auto stream = detail::StreamsByThread::get(detail::MemcpyDirection::H2D);
+
+    if (get_compat_mode_manager().is_compat_mode_preferred()) {
+      auto stream = detail::StreamsByThread::get(detail::MemcpyDirection::H2D);
+      auto res    = detail::posix_device_read(
+        _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, stream);
+      return res;
+    } else {
+      return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    }
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
   return parallel_io(
-    task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
+    task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color, [ctx] {
+      std::cout << ">>> SYNC" << std::endl;
+      PushAndPopContext c(ctx);
+      CUstream stream = detail::StreamsByThread::get(detail::MemcpyDirection::H2D);
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    });
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -226,7 +251,10 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
-    auto bytes_write = detail::posix_device_write(_file_direct_off.fd(), buf, size, file_offset, 0);
+    auto stream = detail::StreamsByThread::get(detail::MemcpyDirection::D2H);
+    auto bytes_write =
+      detail::posix_device_write(_file_direct_off.fd(), buf, size, file_offset, 0, stream);
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_write);

@@ -374,7 +374,8 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
       PushAndPopContext c(get_context_from_pointer(buf));
       // We use a bounce buffer to avoid many small memory copies to device. Libcurl has a
       // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
-      BounceBufferH2D bounce_buffer(detail::StreamsByThread::get(), buf);
+      BounceBufferH2D bounce_buffer(detail::StreamsByThread::get(detail::MemcpyDirection::H2D),
+                                    buf);
       ctx.bounce_buffer = &bounce_buffer;
       curl.perform();
     }

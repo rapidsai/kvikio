@@ -19,7 +19,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <map>
-#include <thread>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/error.hpp>
@@ -45,6 +44,11 @@ enum class PartialIO : uint8_t {
   NO,   ///< POSIX read/write is called repeatedly until all requested bytes are processed.
 };
 
+enum class MemcpyDirection : uint8_t {
+  H2D,
+  D2H,
+};
+
 /**
  * @brief Singleton class to retrieve a CUDA stream for device-host copying
  *
@@ -53,7 +57,7 @@ enum class PartialIO : uint8_t {
  */
 class StreamsByThread {
  private:
-  std::map<std::pair<CUcontext, std::thread::id>, CUstream> _streams;
+  std::map<std::pair<CUcontext, MemcpyDirection>, CUstream> _streams;
 
  public:
   StreamsByThread() = default;
@@ -66,9 +70,9 @@ class StreamsByThread {
   // cuDevicePrimaryCtxReset() or cudaDeviceReset() before program termination.
   ~StreamsByThread() = default;
 
-  KVIKIO_EXPORT static CUstream get(CUcontext ctx, std::thread::id thd_id);
+  KVIKIO_EXPORT static CUstream get(CUcontext ctx, MemcpyDirection memcpy_direction);
 
-  static CUstream get();
+  static CUstream get(MemcpyDirection memcpy_direction);
 
   StreamsByThread(StreamsByThread const&)            = delete;
   StreamsByThread& operator=(StreamsByThread const&) = delete;
@@ -133,16 +137,14 @@ std::size_t posix_device_io(int fd,
                             void const* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
-                            std::size_t devPtr_offset)
+                            std::size_t devPtr_offset,
+                            CUstream stream)
 {
   auto alloc              = AllocRetain::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t byte_remaining    = convert_size2off(size);
   off_t const chunk_size2 = convert_size2off(alloc.size());
-
-  // Get a stream for the current CUDA context and thread
-  CUstream stream = StreamsByThread::get();
 
   while (byte_remaining > 0) {
     off_t const nbytes_requested = std::min(chunk_size2, byte_remaining);
@@ -151,7 +153,6 @@ std::size_t posix_device_io(int fd,
       nbytes_got = posix_host_io<IOOperationType::READ, PartialIO::YES>(
         fd, alloc.get(), nbytes_requested, cur_file_offset);
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
       CUDA_DRIVER_TRY(
         cudaAPI::instance().MemcpyDtoHAsync(alloc.get(), devPtr, nbytes_requested, stream));
@@ -227,7 +228,8 @@ std::size_t posix_device_read(int fd,
                               void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
-                              std::size_t devPtr_offset);
+                              std::size_t devPtr_offset,
+                              CUstream stream);
 
 /**
  * @brief Write device memory to disk using POSIX
@@ -246,6 +248,7 @@ std::size_t posix_device_write(int fd,
                                void const* devPtr_base,
                                std::size_t size,
                                std::size_t file_offset,
-                               std::size_t devPtr_offset);
+                               std::size_t devPtr_offset,
+                               CUstream stream);
 
 }  // namespace kvikio::detail

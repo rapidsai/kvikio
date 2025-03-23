@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <functional>
 #include <future>
 #include <memory>
 #include <numeric>
@@ -28,6 +29,7 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/nvtx.hpp>
+#include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -144,8 +146,9 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t file_offset,
                                      std::size_t task_size,
                                      std::size_t devPtr_offset,
-                                     std::uint64_t call_idx     = 0,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     std::uint64_t call_idx        = 0,
+                                     nvtx_color_type nvtx_color    = NvtxManager::default_color(),
+                                     std::function<void()> sync_op = {})
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   static_assert(std::is_invocable_r_v<std::size_t,
@@ -156,7 +159,7 @@ std::future<std::size_t> parallel_io(F op,
                                       decltype(devPtr_offset)>);
 
   // Single-task guard
-  if (task_size >= size || page_size >= size) {
+  if (task_size >= size) {
     return detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color);
   }
 
@@ -179,6 +182,9 @@ std::future<std::size_t> parallel_io(F op,
     for (auto& task : tasks) {
       ret += task.get();
     }
+
+    if (sync_op) { std::invoke(sync_op); }
+
     return ret;
   };
   return detail::submit_move_only_task(std::move(last_task), call_idx, nvtx_color);
