@@ -14,6 +14,11 @@ else
   conda config --set channel_priority strict
 fi
 
+# Remove `rapidsai` channel for non-release builds
+if ! rapids-is-release-build; then
+  conda config --remove channels rapidsai
+fi
+
 source rapids-configure-sccache
 
 source rapids-date-string
