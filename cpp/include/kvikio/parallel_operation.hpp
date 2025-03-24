@@ -156,7 +156,7 @@ std::future<std::size_t> parallel_io(F op,
                                       decltype(devPtr_offset)>);
 
   // Single-task guard
-  if (task_size >= size || page_size >= size) {
+  if (task_size >= size || get_page_size() >= size) {
     return detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color);
   }
 

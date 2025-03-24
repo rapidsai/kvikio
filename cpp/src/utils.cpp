@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <unistd.h>
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -27,6 +28,12 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
+
+std::size_t get_page_size()
+{
+  static auto const page_size = static_cast<std::size_t>(sysconf(_SC_PAGESIZE));
+  return page_size;
+}
 
 off_t convert_size2off(std::size_t x)
 {
