@@ -67,7 +67,7 @@ class defaults {
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
-  std::size_t _num_subtasks_per_task;
+  std::size_t _task_group_size;
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
@@ -236,8 +236,8 @@ class defaults {
    */
   static void set_bounce_buffer_size(std::size_t nbytes);
 
-  [[nodiscard]] static std::size_t num_subtasks_per_task();
-  static void set_num_subtasks_per_task(std::size_t num_subtasks_per_task);
+  [[nodiscard]] static std::size_t task_group_size();
+  static void set_task_group_size(std::size_t task_group_size);
 
   /**
    * @brief Get the maximum number of attempts per remote IO read.

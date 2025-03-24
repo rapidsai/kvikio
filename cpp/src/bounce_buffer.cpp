@@ -154,7 +154,7 @@ BlockView BounceBuffer::get()
     return _blockviews_pool[current_idx++];
   } else {
     if (_blockviews.size() == 0) {
-      initialize_per_thread(defaults::bounce_buffer_size(), defaults::num_subtasks_per_task());
+      initialize_per_thread(defaults::bounce_buffer_size(), defaults::task_group_size());
     }
     if (current_idx >= _blockviews.size()) { current_idx -= _blockviews.size(); }
     return _blockviews[current_idx++];

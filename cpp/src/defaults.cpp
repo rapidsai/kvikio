@@ -133,17 +133,16 @@ defaults::defaults()
   }
 
   {
-    ssize_t const env = getenv_or("KVIKIO_NUM_SUBTASKS_PER_TASK", 1U);
-    KVIKIO_EXPECT(
-      env > 0, "KVIKIO_NUM_SUBTASKS_PER_TASK has to be a positive integer", std::invalid_argument);
-    _num_subtasks_per_task = env;
+    ssize_t const env = getenv_or("TASK_GROUP_SIZE", 1U);
+    KVIKIO_EXPECT(env > 0, "TASK_GROUP_SIZE has to be a positive integer", std::invalid_argument);
+    _task_group_size = env;
   }
 
   {
     int const env = getenv_or("KVIKIO_NTHREADS", 1);
     KVIKIO_EXPECT(env > 0, "KVIKIO_NTHREADS has to be a positive integer", std::invalid_argument);
     _thread_pool = std::make_unique<BS_thread_pool>(
-      static_cast<unsigned int>(env), _bounce_buffer_size, _num_subtasks_per_task);
+      static_cast<unsigned int>(env), _bounce_buffer_size, _task_group_size);
   }
 }
 
@@ -184,8 +183,7 @@ void defaults::set_thread_pool_nthreads(unsigned int nthreads)
 {
   KVIKIO_EXPECT(
     nthreads > 0, "number of threads must be a positive integer", std::invalid_argument);
-  thread_pool().reset(
-    nthreads, instance()->bounce_buffer_size(), instance()->num_subtasks_per_task());
+  thread_pool().reset(nthreads, instance()->bounce_buffer_size(), instance()->task_group_size());
 }
 
 std::size_t defaults::task_size() { return instance()->_task_size; }
@@ -207,20 +205,18 @@ void defaults::set_bounce_buffer_size(std::size_t nbytes)
   KVIKIO_EXPECT(
     nbytes > 0, "size of the bounce buffer must be a positive integer", std::invalid_argument);
   instance()->_bounce_buffer_size = nbytes;
-  thread_pool().reset(
-    instance()->thread_pool_nthreads(), nbytes, instance()->num_subtasks_per_task());
+  thread_pool().reset(instance()->thread_pool_nthreads(), nbytes, instance()->task_group_size());
 }
 
-std::size_t defaults::num_subtasks_per_task() { return instance()->_num_subtasks_per_task; }
+std::size_t defaults::task_group_size() { return instance()->_task_group_size; }
 
-void defaults::set_num_subtasks_per_task(std::size_t num_subtasks_per_task)
+void defaults::set_task_group_size(std::size_t task_group_size)
 {
-  KVIKIO_EXPECT(num_subtasks_per_task > 0,
-                "KVIKIO_NUM_SUBTASKS_PER_TASK has to be a positive integer",
-                std::invalid_argument);
-  instance()->_num_subtasks_per_task = num_subtasks_per_task;
+  KVIKIO_EXPECT(
+    task_group_size > 0, "TASK_GROUP_SIZE has to be a positive integer", std::invalid_argument);
+  instance()->_task_group_size = task_group_size;
   thread_pool().reset(
-    instance()->thread_pool_nthreads(), instance()->bounce_buffer_size(), num_subtasks_per_task);
+    instance()->thread_pool_nthreads(), instance()->bounce_buffer_size(), task_group_size);
 }
 
 std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }
