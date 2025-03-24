@@ -4,16 +4,13 @@
 set -euo pipefail
 
 rapids-configure-conda-channels
-# `rapids-configure-conda-channels` should only insert `rapidsai` channel into release builds
-conda config --remove channels rapidsai
-
 
 # Setting channel priority per-repo until all RAPIDS can build using strict channel priority
 # This will be replaced when we port this recipe to `rattler-build`
-if [[ "$RAPIDS_CUDA_VERSION" == 11.8* && "$RAPIDS_CONDA_ARCH" == "linux64" ]]; then
-  rapids-logger "Not setting strict priority because of libcufile version constraints"
+if [[ "$RAPIDS_CUDA_VERSION" == 11.* ]]; then
+  rapids-logger "Channel priority disabled for CUDA 11 builds"
 else
-  rapids-logger "Setting strict channel priority for conda builds"
+  rapids-logger "Setting strict channel priority for CUDA 12 builds"
   conda config --set channel_priority strict
 fi
 
