@@ -18,7 +18,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <map>
-#include <thread>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/error.hpp>
@@ -29,14 +28,14 @@
 
 namespace kvikio::detail {
 
-CUstream StreamsByThread::get(CUcontext ctx, std::thread::id thd_id)
+CUstream StreamsByThread::get(CUcontext ctx, MemcpyDirection memcpy_direction)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   static StreamsByThread _instance;
 
   // If no current context, we return the null/default stream
   if (ctx == nullptr) { return nullptr; }
-  auto key = std::make_pair(ctx, thd_id);
+  auto key = std::make_pair(ctx, memcpy_direction);
 
   // Create a new stream if `ctx` doesn't have one.
   if (auto search = _instance._streams.find(key); search == _instance._streams.end()) {
@@ -49,34 +48,36 @@ CUstream StreamsByThread::get(CUcontext ctx, std::thread::id thd_id)
   }
 }
 
-CUstream StreamsByThread::get()
+CUstream StreamsByThread::get(MemcpyDirection memcpy_direction)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   CUcontext ctx{nullptr};
   CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
-  return get(ctx, std::this_thread::get_id());
+  return get(ctx, memcpy_direction);
 }
 
 std::size_t posix_device_read(int fd,
                               void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
-                              std::size_t devPtr_offset)
+                              std::size_t devPtr_offset,
+                              CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_device_io<IOOperationType::READ>(
-    fd, devPtr_base, size, file_offset, devPtr_offset);
+    fd, devPtr_base, size, file_offset, devPtr_offset, stream);
 }
 
 std::size_t posix_device_write(int fd,
                                void const* devPtr_base,
                                std::size_t size,
                                std::size_t file_offset,
-                               std::size_t devPtr_offset)
+                               std::size_t devPtr_offset,
+                               CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_device_io<IOOperationType::WRITE>(
-    fd, devPtr_base, size, file_offset, devPtr_offset);
+    fd, devPtr_base, size, file_offset, devPtr_offset, stream);
 }
 
 }  // namespace kvikio::detail
