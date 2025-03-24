@@ -133,31 +133,29 @@ std::size_t posix_device_io(int fd,
                             void const* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
-                            std::size_t devPtr_offset)
+                            std::size_t devPtr_offset,
+                            CUstream stream)
 {
-  auto alloc              = AllocRetain::instance().get();
+  auto alloc              = BounceBuffer::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t byte_remaining    = convert_size2off(size);
   off_t const chunk_size2 = convert_size2off(alloc.size());
-
-  // Get a stream for the current CUDA context and thread
-  CUstream stream = StreamsByThread::get();
 
   while (byte_remaining > 0) {
     off_t const nbytes_requested = std::min(chunk_size2, byte_remaining);
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (Operation == IOOperationType::READ) {
       nbytes_got = posix_host_io<IOOperationType::READ, PartialIO::YES>(
-        fd, alloc.get(), nbytes_requested, cur_file_offset);
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+        fd, alloc.data(), nbytes_requested, cur_file_offset);
+      CUDA_DRIVER_TRY(
+        cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.data(), nbytes_got, stream));
     } else {  // Is a write operation
       CUDA_DRIVER_TRY(
-        cudaAPI::instance().MemcpyDtoHAsync(alloc.get(), devPtr, nbytes_requested, stream));
+        cudaAPI::instance().MemcpyDtoHAsync(alloc.data(), devPtr, nbytes_requested, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       posix_host_io<IOOperationType::WRITE, PartialIO::NO>(
-        fd, alloc.get(), nbytes_requested, cur_file_offset);
+        fd, alloc.data(), nbytes_requested, cur_file_offset);
     }
     cur_file_offset += nbytes_got;
     devPtr += nbytes_got;
@@ -227,7 +225,8 @@ std::size_t posix_device_read(int fd,
                               void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
-                              std::size_t devPtr_offset);
+                              std::size_t devPtr_offset,
+                              CUstream stream);
 
 /**
  * @brief Write device memory to disk using POSIX
@@ -246,6 +245,7 @@ std::size_t posix_device_write(int fd,
                                void const* devPtr_base,
                                std::size_t size,
                                std::size_t file_offset,
-                               std::size_t devPtr_offset);
+                               std::size_t devPtr_offset,
+                               CUstream stream);
 
 }  // namespace kvikio::detail

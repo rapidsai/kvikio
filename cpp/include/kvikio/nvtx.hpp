@@ -123,6 +123,11 @@ class NvtxManager {
   NvtxManager() = default;
 };
 
+struct NvtxData {
+  std::uint64_t nvtx_payload{0ull};
+  nvtx_color_type nvtx_color{NvtxManager::default_color()};
+};
+
 /**
  * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain
  * from the lifetime of a function.

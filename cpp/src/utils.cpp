@@ -173,4 +173,37 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
 }
 
+CUcontext ensure_valid_current_context()
+{
+  CUDA_DRIVER_TRY(cudaAPI::instance().Init(0));
+
+  // If the context stack is non-empty, return the top.
+  CUcontext ctx{};
+  CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
+  if (ctx != nullptr) { return ctx; }
+
+  // Otherwise, search all devices and return the first active primary context.
+  int num_devices{};
+  CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetCount(&num_devices));
+  for (int device_idx = 0; device_idx < num_devices; ++device_idx) {
+    CUdevice dev{};
+    unsigned int flags{};
+    int active{};
+    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, device_idx));
+    CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxGetState(dev, &flags, &active));
+    if (active) {
+      CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
+      CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(ctx));
+      return ctx;
+    }
+  }
+
+  // Otherwise, retain the primary context on device 0.
+  CUdevice dev{};
+  CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, 0));
+  CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
+  CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(ctx));
+  return ctx;
+}
+
 }  // namespace kvikio

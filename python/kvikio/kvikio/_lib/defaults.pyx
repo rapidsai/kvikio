@@ -37,10 +37,13 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     vector[int] cpp_http_status_codes "kvikio::defaults::http_status_codes"() except +
     void cpp_set_http_status_codes \
         "kvikio::defaults::set_http_status_codes"(vector[int] status_codes) except +
-
     long cpp_http_timeout "kvikio::defaults::http_timeout"() except +
     void cpp_set_http_timeout\
         "kvikio::defaults::set_http_timeout"(long timeout_seconds) except +
+    size_t cpp_task_group_size\
+        "kvikio::defaults::task_group_size"() except +
+    void cpp_set_task_group_size\
+        "kvikio::defaults::set_task_group_size"(size_t) except +
 
 
 def is_compat_mode_preferred() -> bool:
@@ -109,3 +112,11 @@ def http_status_codes() -> list[int]:
 
 def set_http_status_codes(status_codes: list[int]) -> None:
     return cpp_set_http_status_codes(status_codes)
+
+
+def task_group_size() -> int:
+    return cpp_task_group_size()
+
+
+def set_task_group_size(task_group_size: int) -> None:
+    cpp_set_task_group_size(task_group_size)

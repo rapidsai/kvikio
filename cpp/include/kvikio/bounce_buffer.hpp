@@ -15,9 +15,11 @@
  */
 #pragma once
 
+#include <mutex>
 #include <stack>
+#include <vector>
 
-#include <kvikio/defaults.hpp>
+#include <kvikio/shim/utils.hpp>
 
 namespace kvikio {
 
@@ -33,7 +35,7 @@ class AllocRetain {
   // Stack of free allocations
   std::stack<void*> _free_allocs{};
   // The size of each allocation in `_free_allocs`
-  std::size_t _size{defaults::bounce_buffer_size()};
+  std::size_t _size{};  // Decouple this class from the defaults singleton.
 
  public:
   /**
@@ -57,7 +59,7 @@ class AllocRetain {
     std::size_t size() noexcept;
   };
 
-  AllocRetain() = default;
+  AllocRetain();
 
   // Notice, we do not clear the allocations at destruction thus the allocations leaks
   // at exit. We do this because `AllocRetain::instance()` stores the allocations in a
@@ -100,6 +102,74 @@ class AllocRetain {
   AllocRetain& operator=(AllocRetain const&) = delete;
   AllocRetain(AllocRetain&& o)               = delete;
   AllocRetain& operator=(AllocRetain&& o)    = delete;
+};
+
+class BlockView;
+
+class Block {
+ private:
+  std::byte* _buffer{nullptr};
+  std::size_t _bytes{0u};
+
+ public:
+  Block()                        = default;
+  ~Block()                       = default;
+  Block(Block const&)            = delete;
+  Block& operator=(Block const&) = delete;
+  Block(Block&&)                 = default;
+  Block& operator=(Block&&)      = default;
+
+  void allocate(std::size_t bytes);
+  void deallocate();
+
+  BlockView make_view(std::size_t start_byte_idx, std::size_t bytes);
+  std::size_t size() const noexcept;
+  std::byte* data() const noexcept;
+};
+
+class BlockView {
+ private:
+  std::byte* _buffer{nullptr};
+  std::size_t _bytes{0u};
+
+ public:
+  BlockView(std::byte* buffer, std::size_t bytes);
+  BlockView(BlockView const&)            = default;
+  BlockView& operator=(BlockView const&) = default;
+  BlockView(BlockView&&)                 = default;
+  BlockView& operator=(BlockView&&)      = default;
+
+  std::size_t size() const noexcept;
+  std::byte* data() const noexcept;
+};
+
+class BounceBuffer {
+ private:
+  BounceBuffer() = default;
+
+  std::size_t _requested_bytes_per_block{1024u * 1024u * 16u};
+  std::size_t _num_blocks{4u};
+
+  inline static Block block_pool;
+  std::vector<BlockView> _blockviews_pool;
+
+  Block _block;
+  std::vector<BlockView> _blockviews;
+
+ public:
+  static BounceBuffer& instance();
+
+  static void preinitialize_for_pool(unsigned int num_threads,
+                                     std::size_t requested_bytes_per_block,
+                                     std::size_t num_blocks);
+  void initialize_per_thread(std::size_t requested_bytes_per_block, std::size_t num_blocks);
+
+  BlockView get();
+
+  BounceBuffer(BounceBuffer const&)            = delete;
+  BounceBuffer& operator=(BounceBuffer const&) = delete;
+  BounceBuffer(BounceBuffer&&)                 = delete;
+  BounceBuffer& operator=(BounceBuffer&&)      = delete;
 };
 
 }  // namespace kvikio

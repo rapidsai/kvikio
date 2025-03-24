@@ -394,7 +394,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t file_offset,
                                              std::size_t task_size)
 {
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+  auto const nvtx_data = detail::get_nvtx_data();
   KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::pread()", size);
   auto task = [this](void* devPtr_base,
                      std::size_t size,
@@ -402,7 +402,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                      std::size_t devPtr_offset) -> std::size_t {
     return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
   };
-  return parallel_io(task, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
+  return parallel_io(task, nvtx_data, buf, size, file_offset, task_size, 0);
 }
 
 }  // namespace kvikio
