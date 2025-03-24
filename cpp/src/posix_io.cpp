@@ -31,6 +31,7 @@ namespace kvikio::detail {
 
 CUstream StreamsByThread::get(CUcontext ctx, std::thread::id thd_id)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   static StreamsByThread _instance;
 
   // If no current context, we return the null/default stream
@@ -50,6 +51,7 @@ CUstream StreamsByThread::get(CUcontext ctx, std::thread::id thd_id)
 
 CUstream StreamsByThread::get()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   CUcontext ctx{nullptr};
   CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
   return get(ctx, std::this_thread::get_id());
@@ -61,7 +63,7 @@ std::size_t posix_device_read(int fd,
                               std::size_t file_offset,
                               std::size_t devPtr_offset)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("posix_device_read()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_device_io<IOOperationType::READ>(
     fd, devPtr_base, size, file_offset, devPtr_offset);
 }
@@ -72,7 +74,7 @@ std::size_t posix_device_write(int fd,
                                std::size_t file_offset,
                                std::size_t devPtr_offset)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("posix_device_write()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_device_io<IOOperationType::WRITE>(
     fd, devPtr_base, size, file_offset, devPtr_offset);
 }

@@ -33,6 +33,7 @@ namespace kvikio {
 template <>
 bool getenv_or(std::string_view env_var_name, bool default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   try {
@@ -66,6 +67,7 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   return detail::parse_compat_mode_str(env_val);
@@ -74,6 +76,7 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto* const env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return std::move(default_val); }
   std::string const int_str(env_val);
@@ -84,6 +87,7 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
 
 unsigned int defaults::get_num_threads_from_env()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   int const ret = getenv_or("KVIKIO_NTHREADS", 1);
   KVIKIO_EXPECT(ret > 0, "KVIKIO_NTHREADS has to be a positive integer", std::invalid_argument);
   return ret;
@@ -91,6 +95,7 @@ unsigned int defaults::get_num_threads_from_env()
 
 defaults::defaults()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Determine the default value of `compat_mode`
   {
     _compat_mode = getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
