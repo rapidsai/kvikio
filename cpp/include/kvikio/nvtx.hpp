@@ -50,9 +50,33 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
   }(message)
 
 // Implementation of KVIKIO_NVTX_FUNC_RANGE()
-#define KVIKIO_NVTX_FUNC_RANGE_IMPL() NVTX3_FUNC_RANGE_IN(kvikio::libkvikio_domain)
+// todo: Although supported by many compilers, __PRETTY_FUNCTION__ is non-standard. Replacement may
+// be considered once reflection is standardized.
+#define KVIKIO_NVTX_FUNC_RANGE_IMPL_0() KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(__PRETTY_FUNCTION__)
+#define KVIKIO_NVTX_FUNC_RANGE_IMPL_1(payload) \
+  KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(__PRETTY_FUNCTION__, payload)
+#define KVIKIO_NVTX_FUNC_RANGE_IMPL_2(payload, color) \
+  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(__PRETTY_FUNCTION__, payload, color)
+#define KVIKIO_NVTX_FUNC_RANGE_SELECTOR(_0, _1, _2, NAME, ...) NAME
+// todo: Although supported by gcc and clang, ##__VA_ARGS__ is non-standard, and should be replaced
+// by __VA_OPT__ (since C++20) in the future.
+#define KVIKIO_NVTX_FUNC_RANGE_IMPL(...)                         \
+  KVIKIO_NVTX_FUNC_RANGE_SELECTOR(_0,                            \
+                                  ##__VA_ARGS__,                 \
+                                  KVIKIO_NVTX_FUNC_RANGE_IMPL_2, \
+                                  KVIKIO_NVTX_FUNC_RANGE_IMPL_1, \
+                                  KVIKIO_NVTX_FUNC_RANGE_IMPL_0) \
+  (__VA_ARGS__)
 
 // Implementation of KVIKIO_NVTX_SCOPED_RANGE(...)
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(message)                             \
+  kvikio::nvtx_scoped_range_type KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__) \
+  {                                                                          \
+    nvtx3::event_attributes                                                  \
+    {                                                                        \
+      KVIKIO_REGISTER_STRING(message), kvikio::NvtxManager::default_color()  \
+    }                                                                        \
+  }
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload_v, color)                                \
   kvikio::nvtx_scoped_range_type KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                      \
   {                                                                                               \
@@ -64,9 +88,11 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(message, payload) \
   KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload, kvikio::NvtxManager::default_color())
 #define KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(_1, _2, _3, NAME, ...) NAME
-#define KVIKIO_NVTX_SCOPED_RANGE_IMPL(...)                                         \
-  KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(                                               \
-    __VA_ARGS__, KVIKIO_NVTX_SCOPED_RANGE_IMPL_3, KVIKIO_NVTX_SCOPED_RANGE_IMPL_2) \
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL(...)                           \
+  KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(__VA_ARGS__,                     \
+                                    KVIKIO_NVTX_SCOPED_RANGE_IMPL_3, \
+                                    KVIKIO_NVTX_SCOPED_RANGE_IMPL_2, \
+                                    KVIKIO_NVTX_SCOPED_RANGE_IMPL_1) \
   (__VA_ARGS__)
 
 // Implementation of KVIKIO_NVTX_MARKER(message, payload)
@@ -124,22 +150,39 @@ class NvtxManager {
 };
 
 /**
- * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain
- * from the lifetime of a function.
+ * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain from the lifetime
+ * of a function. Can be used inside a regular function or a lambda expression.
  *
- * Takes no argument. The name of the immediately enclosing function returned by `__func__` is used
- * as the message.
+ * The function name contains detailed information such as namespace, return type, parameter type,
+ * etc.
+ *
+ * @param payload (Optional) NVTX payload.
+ * @param color (Optional) NVTX color. If unspecified, a default NVTX color is used.
  *
  * Example:
  * ```
  * void some_function(){
- *    KVIKIO_NVTX_FUNC_RANGE();  // The name `some_function` is used as the message
+ *    // No argument
+ *    KVIKIO_NVTX_FUNC_RANGE();
+ *    ...
+ * }
+ *
+ * void some_function(){
+ *    // Specify payload
+ *    KVIKIO_NVTX_FUNC_RANGE(4096);
+ *    ...
+ * }
+ *
+ * void some_function(){
+ *    // Specify payload and color
+ *    auto const nvtx3::rgb color{0, 255, 0};
+ *    KVIKIO_NVTX_FUNC_RANGE(4096, color);
  *    ...
  * }
  * ```
  */
 #ifdef KVIKIO_CUDA_FOUND
-#define KVIKIO_NVTX_FUNC_RANGE() KVIKIO_NVTX_FUNC_RANGE_IMPL()
+#define KVIKIO_NVTX_FUNC_RANGE(...) KVIKIO_NVTX_FUNC_RANGE_IMPL(__VA_ARGS__)
 #else
 #define KVIKIO_NVTX_FUNC_RANGE(...) \
   do {                              \
@@ -152,7 +195,7 @@ class NvtxManager {
  *
  * @param message String literal for NVTX annotation. To improve profile-time performance, the
  * string literal is registered in NVTX.
- * @param payload NVTX payload.
+ * @param payload (Optional) NVTX payload.
  * @param color (Optional) NVTX color. If unspecified, a default NVTX color is used.
  *
  * Example:
