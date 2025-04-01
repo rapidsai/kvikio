@@ -10,6 +10,7 @@ context:
   py_version: ${{ env.get("RAPIDS_PY_VERSION") }}
   py_buildstring: ${{ py_version | version_to_buildstring }}
   head_rev: ${{ git.head_rev(".")[:8] }}
+  linux64: ${{ linux and x86_64 }}
 
 package:
   name: kvikio
