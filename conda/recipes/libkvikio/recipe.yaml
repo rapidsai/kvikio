@@ -64,8 +64,8 @@ cache:
           - cudatoolkit
           - if: linux64
             then:
-              - libcufile ${{ cuda11_libcufile_host_version }}
-              - libcufile-dev ${{ cuda11_libcufile_host_version }}
+              - libcufile =${{ cuda11_libcufile_host_version }}
+              - libcufile-dev =${{ cuda11_libcufile_host_version }}
         else:
           - if: linux64
             then: libcufile-dev
@@ -138,7 +138,7 @@ outputs:
             - cudatoolkit
             - if: linux64
               then:
-                - libcufile-dev ${{ cuda11_libcufile_host_version }}
+                - libcufile-dev =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart-dev
             - if: linux64
@@ -150,7 +150,7 @@ outputs:
             - cudatoolkit
             - if: linux64
               then:
-                - libcufile ${{ cuda11_libcufile_host_version }}
+                - libcufile =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart
             - if: linux64

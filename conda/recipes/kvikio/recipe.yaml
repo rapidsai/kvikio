@@ -62,7 +62,7 @@ requirements:
       then:
         - cudatoolkit
         - if: linux64
-          then: libcufile-dev ${{ cuda11_libcufile_host_version }}
+          then: libcufile-dev =${{ cuda11_libcufile_host_version }}
       else:
         - cuda-cudart-dev
         - if: linux64
