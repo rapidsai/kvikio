@@ -66,7 +66,7 @@ requirements:
           then: libcufile-dev =${{ cuda11_libcufile_host_version }}
       else:
         - cuda-cudart-dev
-        - if: linux64
+        - if: linux
           then: libcufile-dev
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
@@ -86,7 +86,7 @@ requirements:
           then: libcufile ${{ cuda11_libcufile_run_version }}
       else:
         - cuda-cudart
-        - if: linux64
+        - if: linux
           then: libcufile
   ignore_run_exports:
     by_name:
