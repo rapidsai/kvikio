@@ -75,6 +75,7 @@ requirements:
     # See https://github.com/zarr-developers/numcodecs/pull/475
     - numcodecs !=0.12.0
     - numpy >=1.23,<3.0a0
+    - nvcomp ${{ nvcomp_version }}
     - packaging
     - python
     - zarr >=2.0.0,<4.0.0a0
