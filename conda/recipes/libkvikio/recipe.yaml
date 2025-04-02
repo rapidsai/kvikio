@@ -101,8 +101,12 @@ outputs:
                 - libcufile ${{ cuda11_libcufile_run_version }}
                 - libcufile-dev ${{ cuda11_libcufile_run_version }}
           else:
-            - if: linux64
-              then: libcufile
+            - if: arm64
+              then:
+                - if: ${{ cuda_version }} > 12.2
+                  then: libcufile
+                  else: libcufile-dev
+              else: libcufile
       ignore_run_exports:
         by_name:
           - cuda-version
@@ -144,8 +148,12 @@ outputs:
                 - libcufile-dev =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart-dev
-            - if: linux
-              then: libcufile-dev
+            - if: arm64
+              then:
+                - if: ${{ cuda_version }} > 12.2
+                  then: libcufile
+                  else: libcufile-dev
+              else: libcufile
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - if: cuda_major == "11"
@@ -156,8 +164,12 @@ outputs:
                 - libcufile =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart
-            - if: linux64
-              then: libcufile
+            - if: arm64
+              then:
+                - if: ${{ cuda_version }} > 12.2
+                  then: libcufile
+                  else: libcufile-dev
+              else: libcufile
       ignore_run_exports:
         by_name:
           - cuda-cudart
