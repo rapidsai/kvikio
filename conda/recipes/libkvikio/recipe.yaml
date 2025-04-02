@@ -66,9 +66,7 @@ cache:
             then:
               - libcufile =${{ cuda11_libcufile_host_version }}
               - libcufile-dev =${{ cuda11_libcufile_host_version }}
-        else:
-          - if: linux64
-            then: libcufile-dev
+        else: libcufile-dev
 
 outputs:
   - package:
