@@ -113,8 +113,9 @@ defaults::defaults()
       env >= 0, "KVIKIO_GDS_THRESHOLD has to be a positive integer", std::invalid_argument);
     _gds_threshold = env;
   }
+  // Determine the default value of `split_gds_io`
   {
-    _split_gds_io = getenv_or("KVIKIO_SPLIT_GDS_IO", true);
+    _split_gds_io = getenv_or("KVIKIO_SPLIT_GDS_IO", false);
   }
   // Determine the default value of `bounce_buffer_size`
   {

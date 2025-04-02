@@ -52,6 +52,7 @@ class ConfigContextManager:
             "thread_pool_nthreads",
             "task_size",
             "gds_threshold",
+            "split_gds_io",
             "bounce_buffer_size",
             "http_max_attempts",
             "http_status_codes",
@@ -121,6 +122,7 @@ def set(*config) -> ConfigContextManager:
         - ``"num_threads"``
         - ``"task_size"``
         - ``"gds_threshold"``
+        - ``"split_gds_io"``
         - ``"bounce_buffer_size"``
         - ``"http_max_attempts"``
         - ``"http_status_codes"``
@@ -164,6 +166,7 @@ def get(config_name: str) -> Any:
         - ``"num_threads"``
         - ``"task_size"``
         - ``"gds_threshold"``
+        - ``"split_gds_io"``
         - ``"bounce_buffer_size"``
         - ``"http_max_attempts"``
         - ``"http_status_codes"``

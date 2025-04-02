@@ -221,6 +221,7 @@ class defaults {
   static void set_gds_threshold(std::size_t nbytes);
 
   [[nodiscard]] static bool split_gds_io();
+
   static void set_split_gds_io(bool flag);
 
   /**
