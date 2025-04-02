@@ -103,7 +103,7 @@ outputs:
           else:
             - if: arm64
               then:
-                - if: ${{ cuda_version }} > 12.1
+                - if: cuda_version > 12.1
                   then: libcufile
                   else: libcufile-dev
               else: libcufile
@@ -150,7 +150,7 @@ outputs:
             - cuda-cudart-dev
             - if: arm64
               then:
-                - if: ${{ cuda_version }} > 12.1
+                - if: cuda_version > 12.1
                   then: libcufile
                   else: libcufile-dev
               else: libcufile
@@ -166,7 +166,7 @@ outputs:
             - cuda-cudart
             - if: arm64
               then:
-                - if: ${{ cuda_version }} > 12.1
+                - if: cuda_version > 12.1
                   then: libcufile
                   else: libcufile-dev
               else: libcufile
