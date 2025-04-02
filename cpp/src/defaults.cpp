@@ -113,6 +113,9 @@ defaults::defaults()
       env >= 0, "KVIKIO_GDS_THRESHOLD has to be a positive integer", std::invalid_argument);
     _gds_threshold = env;
   }
+  {
+    _split_gds_io = getenv_or("KVIKIO_SPLIT_GDS_IO", true);
+  }
   // Determine the default value of `bounce_buffer_size`
   {
     ssize_t const env = getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
@@ -194,6 +197,10 @@ void defaults::set_task_size(std::size_t nbytes)
 std::size_t defaults::gds_threshold() { return instance()->_gds_threshold; }
 
 void defaults::set_gds_threshold(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
+
+bool defaults::split_gds_io() { return instance()->_split_gds_io; }
+
+void defaults::set_split_gds_io(bool flag) { instance()->_split_gds_io = flag; }
 
 std::size_t defaults::bounce_buffer_size() { return instance()->_bounce_buffer_size; }
 
