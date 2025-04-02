@@ -67,7 +67,7 @@ cache:
               - libcufile =${{ cuda11_libcufile_host_version }}
               - libcufile-dev =${{ cuda11_libcufile_host_version }}
         else:
-          - if: linux
+          - if: linux64
             then: libcufile-dev
 
 outputs:
@@ -101,8 +101,8 @@ outputs:
                 - libcufile ${{ cuda11_libcufile_run_version }}
                 - libcufile-dev ${{ cuda11_libcufile_run_version }}
           else:
-            - if: linux
-              then: libcufile-dev
+            - if: linux64
+              then: libcufile
       ignore_run_exports:
         by_name:
           - cuda-version
@@ -156,7 +156,7 @@ outputs:
                 - libcufile =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart
-            - if: linux
+            - if: linux64
               then: libcufile
       ignore_run_exports:
         by_name:
