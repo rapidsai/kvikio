@@ -194,21 +194,23 @@ std::future<std::size_t> FileHandle::pread(void* buf,
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
 
-    auto task = [this, ctx](void* devPtr_base,
-                            std::size_t size,
-                            std::size_t file_offset,
-                            std::size_t devPtr_offset) -> std::size_t {
-      PushAndPopContext c(ctx);
-      auto bytes_read = cuFileAPI::instance().Read(_cufile_handle.handle(),
-                                                   devPtr_base,
-                                                   size,
-                                                   convert_size2off(file_offset),
-                                                   convert_size2off(devPtr_offset));
-      CUFILE_CHECK_BYTES_DONE(bytes_read);
-      return static_cast<std::size_t>(bytes_read);
-    };
+    if (!defaults::split_gds_io()) {
+      auto task = [this, ctx](void* devPtr_base,
+                              std::size_t size,
+                              std::size_t file_offset,
+                              std::size_t devPtr_offset) -> std::size_t {
+        PushAndPopContext c(ctx);
+        auto bytes_read = cuFileAPI::instance().Read(_cufile_handle.handle(),
+                                                     devPtr_base,
+                                                     size,
+                                                     convert_size2off(file_offset),
+                                                     convert_size2off(devPtr_offset));
+        CUFILE_CHECK_BYTES_DONE(bytes_read);
+        return static_cast<std::size_t>(bytes_read);
+      };
 
-    return detail::submit_task(task, buf, size, file_offset, 0);
+      return detail::submit_task(task, buf, size, file_offset, 0);
+    }
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
@@ -268,22 +270,24 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
 
-    auto task = [this, ctx](void const* devPtr_base,
-                            std::size_t size,
-                            std::size_t file_offset,
-                            std::size_t devPtr_offset) -> std::size_t {
-      PushAndPopContext c(ctx);
-      auto bytes_write = cuFileAPI::instance().Write(_cufile_handle.handle(),
-                                                     devPtr_base,
-                                                     size,
-                                                     convert_size2off(file_offset),
-                                                     convert_size2off(devPtr_offset));
-      KVIKIO_EXPECT(bytes_write != -1, "Unable to write file", GenericSystemError);
-      KVIKIO_EXPECT(bytes_write >= 0, std::string{"cuFile error:"} + CUFILE_ERRSTR(bytes_write));
-      return bytes_write;
-    };
+    if (!defaults::split_gds_io()) {
+      auto task = [this, ctx](void const* devPtr_base,
+                              std::size_t size,
+                              std::size_t file_offset,
+                              std::size_t devPtr_offset) -> std::size_t {
+        PushAndPopContext c(ctx);
+        auto bytes_write = cuFileAPI::instance().Write(_cufile_handle.handle(),
+                                                       devPtr_base,
+                                                       size,
+                                                       convert_size2off(file_offset),
+                                                       convert_size2off(devPtr_offset));
+        KVIKIO_EXPECT(bytes_write != -1, "Unable to write file", GenericSystemError);
+        KVIKIO_EXPECT(bytes_write >= 0, std::string{"cuFile error:"} + CUFILE_ERRSTR(bytes_write));
+        return bytes_write;
+      };
 
-    return detail::submit_task(task, buf, size, file_offset, 0);
+      return detail::submit_task(task, buf, size, file_offset, 0);
+    }
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
