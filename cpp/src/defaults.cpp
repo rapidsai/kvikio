@@ -25,6 +25,7 @@
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
 
@@ -32,6 +33,7 @@ namespace kvikio {
 template <>
 bool getenv_or(std::string_view env_var_name, bool default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   try {
@@ -57,13 +59,15 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
   // Match value
   if (str == "true" || str == "on" || str == "yes") { return true; }
   if (str == "false" || str == "off" || str == "no") { return false; }
-  throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
-                              std::string{env_val});
+  KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
+              std::invalid_argument);
+  return {};
 }
 
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   return detail::parse_compat_mode_str(env_val);
@@ -72,6 +76,7 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto* const env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return std::move(default_val); }
   std::string const int_str(env_val);
@@ -82,15 +87,15 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
 
 unsigned int defaults::get_num_threads_from_env()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   int const ret = getenv_or("KVIKIO_NTHREADS", 1);
-  if (ret <= 0) {
-    throw std::invalid_argument("KVIKIO_NTHREADS has to be a positive integer greater than zero");
-  }
+  KVIKIO_EXPECT(ret > 0, "KVIKIO_NTHREADS has to be a positive integer", std::invalid_argument);
   return ret;
 }
 
 defaults::defaults()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Determine the default value of `compat_mode`
   {
     _compat_mode = getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
@@ -98,37 +103,39 @@ defaults::defaults()
   // Determine the default value of `task_size`
   {
     ssize_t const env = getenv_or("KVIKIO_TASK_SIZE", 4 * 1024 * 1024);
-    if (env <= 0) {
-      throw std::invalid_argument(
-        "KVIKIO_TASK_SIZE has to be a positive integer greater than zero");
-    }
+    KVIKIO_EXPECT(env > 0, "KVIKIO_TASK_SIZE has to be a positive integer", std::invalid_argument);
     _task_size = env;
   }
   // Determine the default value of `gds_threshold`
   {
-    ssize_t const env = getenv_or("KVIKIO_GDS_THRESHOLD", 1024 * 1024);
-    if (env < 0) {
-      throw std::invalid_argument("KVIKIO_GDS_THRESHOLD has to be a positive integer");
-    }
+    ssize_t const env = getenv_or("KVIKIO_GDS_THRESHOLD", 16 * 1024);
+    KVIKIO_EXPECT(
+      env >= 0, "KVIKIO_GDS_THRESHOLD has to be a positive integer", std::invalid_argument);
     _gds_threshold = env;
   }
   // Determine the default value of `bounce_buffer_size`
   {
     ssize_t const env = getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
-    if (env <= 0) {
-      throw std::invalid_argument(
-        "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer greater than zero");
-    }
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer", std::invalid_argument);
     _bounce_buffer_size = env;
   }
   // Determine the default value of `http_max_attempts`
   {
     ssize_t const env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
-    if (env <= 0) {
-      throw std::invalid_argument("KVIKIO_HTTP_MAX_ATTEMPTS has to be a positive integer");
-    }
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_HTTP_MAX_ATTEMPTS has to be a positive integer", std::invalid_argument);
     _http_max_attempts = env;
   }
+
+  // Determine the default value of `http_timeout`
+  {
+    long const env = getenv_or("KVIKIO_HTTP_TIMEOUT", 60);
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_HTTP_TIMEOUT has to be a positive integer", std::invalid_argument);
+    _http_timeout = env;
+  }
+
   // Determine the default value of `http_status_codes`
   {
     _http_status_codes =
@@ -171,9 +178,8 @@ unsigned int defaults::thread_pool_nthreads() { return thread_pool().get_thread_
 
 void defaults::set_thread_pool_nthreads(unsigned int nthreads)
 {
-  if (nthreads == 0) {
-    throw std::invalid_argument("number of threads must be a positive integer greater than zero");
-  }
+  KVIKIO_EXPECT(
+    nthreads > 0, "number of threads must be a positive integer", std::invalid_argument);
   thread_pool().reset(nthreads);
 }
 
@@ -181,9 +187,7 @@ std::size_t defaults::task_size() { return instance()->_task_size; }
 
 void defaults::set_task_size(std::size_t nbytes)
 {
-  if (nbytes == 0) {
-    throw std::invalid_argument("task size must be a positive integer greater than zero");
-  }
+  KVIKIO_EXPECT(nbytes > 0, "task size must be a positive integer", std::invalid_argument);
   instance()->_task_size = nbytes;
 }
 
@@ -195,10 +199,8 @@ std::size_t defaults::bounce_buffer_size() { return instance()->_bounce_buffer_s
 
 void defaults::set_bounce_buffer_size(std::size_t nbytes)
 {
-  if (nbytes == 0) {
-    throw std::invalid_argument(
-      "size of the bounce buffer must be a positive integer greater than zero");
-  }
+  KVIKIO_EXPECT(
+    nbytes > 0, "size of the bounce buffer must be a positive integer", std::invalid_argument);
   instance()->_bounce_buffer_size = nbytes;
 }
 
@@ -206,7 +208,7 @@ std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempt
 
 void defaults::set_http_max_attempts(std::size_t attempts)
 {
-  if (attempts == 0) { throw std::invalid_argument("attempts must be a positive integer"); }
+  KVIKIO_EXPECT(attempts > 0, "attempts must be a positive integer", std::invalid_argument);
   instance()->_http_max_attempts = attempts;
 }
 
@@ -215,6 +217,14 @@ std::vector<int> const& defaults::http_status_codes() { return instance()->_http
 void defaults::set_http_status_codes(std::vector<int> status_codes)
 {
   instance()->_http_status_codes = std::move(status_codes);
+}
+
+long defaults::http_timeout() { return instance()->_http_timeout; }
+void defaults::set_http_timeout(long timeout_seconds)
+{
+  KVIKIO_EXPECT(
+    timeout_seconds > 0, "timeout_seconds must be a positive integer", std::invalid_argument);
+  instance()->_http_timeout = timeout_seconds;
 }
 
 }  // namespace kvikio

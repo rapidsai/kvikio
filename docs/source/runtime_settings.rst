@@ -46,8 +46,10 @@ This setting can also be accessed using :py:func:`kvikio.defaults.bounce_buffer_
 HTTP Retries ``KVIKIO_HTTP_STATUS_CODES``, ``KVIKIO_HTTP_MAX_ATTEMPTS``
 ------------------------------------------------------------------------
 
-The behavior when a remote I/O read returns an error can be controlled through the ``KVIKIO_HTTP_STATUS_CODES`` and ``KVIKIO_HTTP_MAX_ATTEMPTS`` environment variables.
+The behavior when a remote I/O read returns an error can be controlled through the `KVIKIO_HTTP_STATUS_CODES`, `KVIKIO_HTTP_MAX_ATTEMPTS`, and `KVIKIO_HTTP_TIMEOUT` environment variables.
 
 KvikIO will retry a request should any of the HTTP status code in ``KVIKIO_HTTP_STATUS_CODES`` is received. The default values are ``429, 500, 502, 503, 504``. This setting can also be accessed using :py:func:`kvikio.defaults.http_status_codes` (getter) and :py:func:`kvikio.defaults.set` (setter).
 
 The maximum number of attempts to make before throwing an exception is controlled by ``KVIKIO_HTTP_MAX_ATTEMPTS``. The default value is 3. This setting can also be accessed using :py:func:`kvikio.defaults.http_max_attempts` (getter) and :py:func:`kvikio.defaults.set` (setter).
+
+The maximum duration of each HTTP request is controlled by ``KVIKIO_HTTP_TIMEOUT``. The default value is 60, which is the duration in seconds to allow. This setting can also be accessed using :py:func:`kvikio.defaults.http_timoeout` (getter) and :py:func:`kvikio.defaults.set` (setter).

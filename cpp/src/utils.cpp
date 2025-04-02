@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <unistd.h>
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -28,19 +29,23 @@
 
 namespace kvikio {
 
+std::size_t get_page_size()
+{
+  static auto const page_size = static_cast<std::size_t>(sysconf(_SC_PAGESIZE));
+  return page_size;
+}
+
 off_t convert_size2off(std::size_t x)
 {
-  if (x >= static_cast<std::size_t>(std::numeric_limits<off_t>::max())) {
-    throw CUfileException("size_t argument too large to fit off_t");
-  }
+  KVIKIO_EXPECT(x < static_cast<std::size_t>(std::numeric_limits<off_t>::max()),
+                "size_t argument too large to fit off_t");
   return static_cast<off_t>(x);
 }
 
 ssize_t convert_size2ssize(std::size_t x)
 {
-  if (x >= static_cast<std::size_t>(std::numeric_limits<ssize_t>::max())) {
-    throw CUfileException("size_t argument too large to fit ssize_t");
-  }
+  KVIKIO_EXPECT(x < static_cast<std::size_t>(std::numeric_limits<ssize_t>::max()),
+                "size_t argument too large to fit ssize_t");
   return static_cast<ssize_t>(x);
 }
 

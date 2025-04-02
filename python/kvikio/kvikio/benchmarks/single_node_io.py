@@ -25,7 +25,13 @@ def get_zarr_compressors() -> Dict[str, Any]:
         import kvikio.zarr
     except ImportError:
         return {}
-    return {c.__name__.lower(): c for c in kvikio.zarr.nvcomp_compressors}
+    try:
+        compressors = kvikio.zarr.nvcomp_compressors
+    except AttributeError:
+        # zarr-python 3.x
+        return {}
+    else:
+        return {c.__name__.lower(): c for c in compressors}
 
 
 def create_data(nbytes):

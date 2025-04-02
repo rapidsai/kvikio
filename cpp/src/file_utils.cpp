@@ -23,6 +23,7 @@
 
 #include <kvikio/error.hpp>
 #include <kvikio/file_utils.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
@@ -32,10 +33,15 @@ FileWrapper::FileWrapper(std::string const& file_path,
                          bool o_direct,
                          mode_t mode)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   open(file_path, flags, o_direct, mode);
 }
 
-FileWrapper::~FileWrapper() noexcept { close(); }
+FileWrapper::~FileWrapper() noexcept
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  close();
+}
 
 FileWrapper::FileWrapper(FileWrapper&& o) noexcept : _fd(std::exchange(o._fd, -1)) {}
 
@@ -50,6 +56,7 @@ void FileWrapper::open(std::string const& file_path,
                        bool o_direct,
                        mode_t mode)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (!opened()) { _fd = open_fd(file_path, flags, o_direct, mode); }
 }
 
@@ -57,6 +64,7 @@ bool FileWrapper::opened() const noexcept { return _fd != -1; }
 
 void FileWrapper::close() noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (opened()) {
     if (::close(_fd) != 0) { KVIKIO_LOG_ERROR("File cannot be closed"); }
     _fd = -1;
@@ -81,6 +89,7 @@ CUFileHandleWrapper& CUFileHandleWrapper::operator=(CUFileHandleWrapper&& o) noe
 
 std::optional<CUfileError_t> CUFileHandleWrapper::register_handle(int fd) noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   std::optional<CUfileError_t> error_code;
   if (registered()) { return error_code; }
 
@@ -100,6 +109,7 @@ CUfileHandle_t CUFileHandleWrapper::handle() const noexcept { return _handle; }
 
 void CUFileHandleWrapper::unregister_handle() noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (registered()) {
     cuFileAPI::instance().HandleDeregister(_handle);
     _registered = false;
@@ -108,8 +118,9 @@ void CUFileHandleWrapper::unregister_handle() noexcept
 
 int open_fd_parse_flags(std::string const& flags, bool o_direct)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   int file_flags = -1;
-  if (flags.empty()) { throw std::invalid_argument("Unknown file open flag"); }
+  KVIKIO_EXPECT(!flags.empty(), "Unknown file open flag", std::invalid_argument);
   switch (flags[0]) {
     case 'r':
       file_flags = O_RDONLY;
@@ -120,15 +131,15 @@ int open_fd_parse_flags(std::string const& flags, bool o_direct)
       if (flags[1] == '+') { file_flags = O_RDWR; }
       file_flags |= O_CREAT | O_TRUNC;
       break;
-    case 'a': throw std::invalid_argument("Open flag 'a' isn't supported");
-    default: throw std::invalid_argument("Unknown file open flag");
+    case 'a': KVIKIO_FAIL("Open flag 'a' isn't supported", std::invalid_argument);
+    default: KVIKIO_FAIL("Unknown file open flag", std::invalid_argument);
   }
   file_flags |= O_CLOEXEC;
   if (o_direct) {
 #if defined(O_DIRECT)
     file_flags |= O_DIRECT;
 #else
-    throw std::invalid_argument("'o_direct' flag unsupported on this platform");
+    KVIKIO_FAIL("'o_direct' flag unsupported on this platform", std::invalid_argument);
 #endif
   }
   return file_flags;
@@ -136,28 +147,27 @@ int open_fd_parse_flags(std::string const& flags, bool o_direct)
 
 int open_fd(std::string const& file_path, std::string const& flags, bool o_direct, mode_t mode)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
-  if (fd == -1) { throw std::system_error(errno, std::generic_category(), "Unable to open file"); }
+  KVIKIO_EXPECT(fd != -1, "Unable to open file", GenericSystemError);
   return fd;
 }
 
 [[nodiscard]] int open_flags(int fd)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   int ret = fcntl(fd, F_GETFL);  // NOLINT(cppcoreguidelines-pro-type-vararg)
-  if (ret == -1) {
-    throw std::system_error(errno, std::generic_category(), "Unable to retrieve open flags");
-  }
+  KVIKIO_EXPECT(ret != -1, "Unable to retrieve open flags", GenericSystemError);
   return ret;
 }
 
 [[nodiscard]] std::size_t get_file_size(int file_descriptor)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   struct stat st {};
   int ret = fstat(file_descriptor, &st);
-  if (ret == -1) {
-    throw std::system_error(errno, std::generic_category(), "Unable to query file size");
-  }
+  KVIKIO_EXPECT(ret != -1, "Unable to query file size", GenericSystemError);
   return static_cast<std::size_t>(st.st_size);
 }
 

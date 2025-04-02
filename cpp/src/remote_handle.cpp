@@ -60,6 +60,7 @@ class BounceBufferH2D {
       _dev{convert_void2deviceptr(device_buffer)},
       _host_buffer{AllocRetain::instance().get()}
   {
+    KVIKIO_NVTX_FUNC_RANGE();
   }
 
   /**
@@ -67,6 +68,7 @@ class BounceBufferH2D {
    */
   ~BounceBufferH2D() noexcept
   {
+    KVIKIO_NVTX_FUNC_RANGE();
     try {
       flush();
     } catch (CUfileException const& e) {
@@ -85,6 +87,7 @@ class BounceBufferH2D {
    */
   void write_to_device(void const* src, std::size_t size)
   {
+    KVIKIO_NVTX_FUNC_RANGE();
     if (size > 0) {
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(_dev + _dev_offset, src, size, _stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
@@ -97,6 +100,7 @@ class BounceBufferH2D {
    */
   void flush()
   {
+    KVIKIO_NVTX_FUNC_RANGE();
     write_to_device(_host_buffer.get(), _host_offset);
     _host_offset = 0;
   }
@@ -112,6 +116,7 @@ class BounceBufferH2D {
    */
   void write(char const* data, std::size_t size)
   {
+    KVIKIO_NVTX_FUNC_RANGE();
     if (_host_buffer.size() - _host_offset < size) {  // Not enough space left in the bounce buffer
       flush();
       assert(_host_offset == 0);
@@ -134,10 +139,15 @@ HttpEndpoint::HttpEndpoint(std::string url) : _url{std::move(url)} {}
 
 std::string HttpEndpoint::str() const { return _url; }
 
-void HttpEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_str()); }
+void HttpEndpoint::setopt(CurlHandle& curl)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  curl.setopt(CURLOPT_URL, _url.c_str());
+}
 
 void S3Endpoint::setopt(CurlHandle& curl)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   curl.setopt(CURLOPT_URL, _url.c_str());
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
@@ -147,12 +157,13 @@ std::string S3Endpoint::unwrap_or_default(std::optional<std::string> aws_arg,
                                           std::string const& env_var,
                                           std::string const& err_msg)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (aws_arg.has_value()) { return std::move(*aws_arg); }
 
   char const* env = std::getenv(env_var.c_str());
   if (env == nullptr) {
     if (err_msg.empty()) { return std::string(); }
-    throw std::invalid_argument(err_msg);
+    KVIKIO_FAIL(err_msg, std::invalid_argument);
   }
   return std::string(env);
 }
@@ -162,6 +173,7 @@ std::string S3Endpoint::url_from_bucket_and_object(std::string const& bucket_nam
                                                    std::optional<std::string> const& aws_region,
                                                    std::optional<std::string> aws_endpoint_url)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const endpoint_url = unwrap_or_default(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
   std::stringstream ss;
   if (endpoint_url.empty()) {
@@ -179,11 +191,13 @@ std::string S3Endpoint::url_from_bucket_and_object(std::string const& bucket_nam
 
 std::pair<std::string, std::string> S3Endpoint::parse_s3_url(std::string const& s3_url)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Regular expression to match s3://<bucket>/<object>
   std::regex const pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
   std::smatch matches;
   if (std::regex_match(s3_url, matches, pattern)) { return {matches[1].str(), matches[2].str()}; }
-  throw std::invalid_argument("Input string does not match the expected S3 URL format.");
+  KVIKIO_FAIL("Input string does not match the expected S3 URL format.", std::invalid_argument);
+  return {};
 }
 
 S3Endpoint::S3Endpoint(std::string url,
@@ -192,11 +206,12 @@ S3Endpoint::S3Endpoint(std::string url,
                        std::optional<std::string> aws_secret_access_key)
   : _url{std::move(url)}
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Regular expression to match http[s]://
   std::regex pattern{R"(^https?://.*)", std::regex_constants::icase};
-  if (!std::regex_search(_url, pattern)) {
-    throw std::invalid_argument("url must start with http:// or https://");
-  }
+  KVIKIO_EXPECT(std::regex_search(_url, pattern),
+                "url must start with http:// or https://",
+                std::invalid_argument);
 
   auto const region =
     unwrap_or_default(std::move(aws_region),
@@ -242,6 +257,7 @@ S3Endpoint::S3Endpoint(std::string const& bucket_name,
       std::move(aws_access_key),
       std::move(aws_secret_access_key))
 {
+  KVIKIO_NVTX_FUNC_RANGE();
 }
 
 std::string S3Endpoint::str() const { return _url; }
@@ -249,10 +265,12 @@ std::string S3Endpoint::str() const { return _url; }
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
   : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
 {
+  KVIKIO_NVTX_FUNC_RANGE();
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto curl = create_curl_handle();
 
   endpoint->setopt(curl);
@@ -261,10 +279,10 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   curl.perform();
   curl_off_t cl;
   curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
-  if (cl < 0) {
-    throw std::runtime_error("cannot get size of " + endpoint->str() +
-                             ", content-length not provided by the server");
-  }
+  KVIKIO_EXPECT(
+    cl >= 0,
+    "cannot get size of " + endpoint->str() + ", content-length not provided by the server",
+    std::runtime_error);
   _nbytes   = cl;
   _endpoint = std::move(endpoint);
 }
@@ -302,13 +320,14 @@ struct CallbackContext {
  */
 std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto ctx                 = reinterpret_cast<CallbackContext*>(context);
   std::size_t const nbytes = size * nmemb;
   if (ctx->size < ctx->offset + nbytes) {
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle - callback_host_memory()", nbytes);
+  KVIKIO_NVTX_FUNC_RANGE(nbytes);
   std::memcpy(ctx->buf + ctx->offset, data, nbytes);
   ctx->offset += nbytes;
   return nbytes;
@@ -326,13 +345,14 @@ std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb
  */
 std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto ctx                 = reinterpret_cast<CallbackContext*>(context);
   std::size_t const nbytes = size * nmemb;
   if (ctx->size < ctx->offset + nbytes) {
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle - callback_device_memory()", nbytes);
+  KVIKIO_NVTX_FUNC_RANGE(nbytes);
 
   ctx->bounce_buffer->write(data, nbytes);
   ctx->offset += nbytes;
@@ -342,13 +362,13 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::read()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (file_offset + size > _nbytes) {
     std::stringstream ss;
     ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
        << " bytes file (" << _endpoint->str() << ")";
-    throw std::invalid_argument(ss.str());
+    KVIKIO_FAIL(ss.str(), std::invalid_argument);
   }
   bool const is_host_mem = is_host_memory(buf);
   auto curl              = create_curl_handle();
@@ -381,7 +401,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
     if (ctx.overflow_error) {
       std::stringstream ss;
       ss << "maybe the server doesn't support file ranges? [" << e.what() << "]";
-      throw std::overflow_error(ss.str());
+      KVIKIO_FAIL(ss.str(), std::overflow_error);
     }
     throw;
   }
@@ -394,7 +414,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t task_size)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::pread()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   auto task = [this](void* devPtr_base,
                      std::size_t size,
                      std::size_t file_offset,

@@ -4,6 +4,7 @@
 import contextlib
 import multiprocessing as mp
 import subprocess
+from multiprocessing.connection import Connection
 from typing import Iterable
 
 import pytest
@@ -13,7 +14,7 @@ import kvikio.defaults
 mp = mp.get_context("spawn")  # type: ignore
 
 
-def command_server(conn):
+def command_server(conn: Connection) -> None:
     """Server to run commands given through `conn`"""
     while True:
         # Get the next command to run

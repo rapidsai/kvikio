@@ -18,6 +18,7 @@ def test_open_and_close():
     kvikio.cufile_driver.driver_close()
 
 
+@pytest.mark.cufile
 def test_property_accessor():
     """Test the method `get` and `set`"""
 

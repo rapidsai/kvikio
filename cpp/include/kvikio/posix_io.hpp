@@ -102,19 +102,12 @@ ssize_t posix_host_io(int fd, void const* buf, size_t count, off_t offset)
       nbytes = ::pwrite(fd, buffer, byte_remaining, cur_offset);
     }
     if (nbytes == -1) {
-      std::string const name = Operation == IOOperationType::READ ? "pread" : "pwrite";
-      if (errno == EBADF) {
-        throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
-                              KVIKIO_STRINGIFY(__LINE__) + ": Operation not permitted"};
-      }
-      throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+      std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
+      KVIKIO_EXPECT(errno != EBADF, "POSIX error: Operation not permitted");
+      KVIKIO_FAIL("POSIX error on " + name + ": " + strerror(errno));
     }
     if constexpr (Operation == IOOperationType::READ) {
-      if (nbytes == 0) {
-        throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                              KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
-      }
+      KVIKIO_EXPECT(nbytes != 0, "POSIX error on pread: EOF");
     }
     if constexpr (PartialIOStatus == PartialIO::YES) { return nbytes; }
     buffer += nbytes;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -190,7 +183,7 @@ std::size_t posix_device_io(int fd,
 template <PartialIO PartialIOStatus>
 std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t file_offset)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("posix_host_read()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_host_io<IOOperationType::READ, PartialIOStatus>(
     fd, buf, size, convert_size2off(file_offset));
 }
@@ -212,7 +205,7 @@ std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t fil
 template <PartialIO PartialIOStatus>
 std::size_t posix_host_write(int fd, void const* buf, std::size_t size, std::size_t file_offset)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("posix_host_write()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_host_io<IOOperationType::WRITE, PartialIOStatus>(
     fd, buf, size, convert_size2off(file_offset));
 }

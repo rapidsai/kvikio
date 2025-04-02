@@ -41,10 +41,9 @@ T getenv_or(std::string_view env_var_name, T default_val)
   std::stringstream sstream(env_val);
   T converted_val;
   sstream >> converted_val;
-  if (sstream.fail()) {
-    throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
-                                std::string{env_val});
-  }
+  KVIKIO_EXPECT(!sstream.fail(),
+                "unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
+                std::invalid_argument);
   return converted_val;
 }
 
@@ -69,6 +68,7 @@ class defaults {
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
   std::size_t _http_max_attempts;
+  long _http_timeout;
   std::vector<int> _http_status_codes;
 
   static unsigned int get_num_threads_from_env();
@@ -253,6 +253,23 @@ class defaults {
    * @param attempts The maximum number of attempts to try before raising an error.
    */
   static void set_http_max_attempts(std::size_t attempts);
+
+  /**
+   * @brief The maximum time, in seconds, the transfer is allowed to complete.
+   *
+   * Set the value using `kvikio::default::set_http_timeout()` or by setting the
+   * `KVIKIO_HTTP_TIMEOUT` environment variable. If not set, the value is 60.
+   *
+   * @return The maximum time the transfer is allowed to complete.
+   */
+  [[nodiscard]] static long http_timeout();
+
+  /**
+   * @brief Reset the http timeout.
+   *
+   * @param timeout_seconds The maximum time the transfer is allowed to complete.
+   */
+  static void set_http_timeout(long timeout_seconds);
 
   /**
    * @brief The list of HTTP status codes to retry.

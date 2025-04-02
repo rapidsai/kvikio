@@ -23,12 +23,12 @@
 #include <tuple>
 #include <type_traits>
 
+#include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
 
-// cuFile defines a page size to 4 KiB
-inline constexpr std::size_t page_size = 4096;
+std::size_t get_page_size();
 
 [[nodiscard]] off_t convert_size2off(std::size_t x);
 
@@ -43,9 +43,9 @@ template <typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
 [[nodiscard]] std::int64_t convert_to_64bit(T value)
 {
   if constexpr (std::numeric_limits<T>::max() > std::numeric_limits<std::int64_t>::max()) {
-    if (value > std::numeric_limits<std::int64_t>::max()) {
-      throw std::overflow_error("convert_to_64bit(x): x too large to fit std::int64_t");
-    }
+    KVIKIO_EXPECT(value <= std::numeric_limits<std::int64_t>::max(),
+                  "convert_to_64bit(x): x too large to fit std::int64_t",
+                  std::overflow_error);
   }
   return std::int64_t(value);
 }
@@ -151,9 +151,43 @@ class PushAndPopContext {
 std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr,
                                                            CUcontext* ctx = nullptr);
 
+/**
+ * @brief Create a shared state in a future object that is immediately ready.
+ *
+ * A partial implementation of the namesake function from the concurrency TS
+ * (https://en.cppreference.com/w/cpp/experimental/make_ready_future). The cases of
+ * std::reference_wrapper and void are not implemented.
+ *
+ * @tparam T Type of the value provided.
+ * @param t Object provided.
+ * @return A future holding a decayed copy of the object provided.
+ */
+template <typename T>
+std::future<std::decay_t<T>> make_ready_future(T&& t)
+{
+  std::promise<std::decay_t<T>> p;
+  auto fut = p.get_future();
+  p.set_value(std::forward<T>(t));
+  return fut;
+}
+
+/**
+ * @brief Check the status of the future object. True indicates that the result is available in the
+ * future's shared state. False otherwise.
+ *
+ * The future shall not be created using `std::async(std::launch::deferred)`. Otherwise, this
+ * function always returns true.
+ *
+ * @tparam T Type of the future.
+ * @param future Instance of the future.
+ * @return Boolean answer indicating if the future is ready or not.
+ */
 template <typename T>
 bool is_future_done(T const& future)
 {
+  KVIKIO_EXPECT(future.valid(),
+                "The future object does not refer to a valid shared state.",
+                std::invalid_argument);
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
 
