@@ -11,6 +11,8 @@ if __name__ == "__main__":
     for num_threads in num_threads_range:
         config = {"create_file": False,
                   "skip_mmap": True,
+                  "compat_mode": False,
+                  "drop_file_cache": True,
                   "num_threads": num_threads}
         tm = file_vs_host.TestManager(config)
         tm.perform_test()

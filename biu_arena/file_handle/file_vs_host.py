@@ -20,7 +20,7 @@ class TestManager:
 
         self.config = {}
         self.config["num_elements"] = config.get(
-            "num_elements", 8 * 1024 * self.Mi / 8)
+            "num_elements", 32 * 1024 * self.Mi / 8)
         self.config["num_threads"] = config.get("num_threads", 72)
         self.config["task_size"] = config.get("task_size", 4 * 1024 * 1024)
         self.config["repetition"] = config.get("repetition", 11)
@@ -45,7 +45,7 @@ class TestManager:
         self.compat_mode = self.config["compat_mode"]
 
         kvikio.defaults.set(
-            {"compat_mode": True,
+            {"compat_mode": self.compat_mode,
              "num_threads": self.num_threads,
              "task_size": self.task_size})
 
@@ -85,6 +85,21 @@ class TestManager:
             def func():
                 fut = file_handle.pread(dev_buf)
                 fut.get()
+
+            def init_func():
+                if self.drop_file_cache:
+                    self._drop_file_cache()
+
+            self.bench_func(func, "Python read file", init_func)
+
+    def simple_read_from_file(self):
+        with nvtx.annotate("simple_read_from_file"):
+            print("--> Simple read from file to device memory")
+            file_handle = kvikio.CuFile(self.filename, "r")
+            dev_buf = cupy.empty_like(self.host_data)
+
+            def func():
+                file_handle.raw_read(dev_buf)
 
             def init_func():
                 if self.drop_file_cache:
@@ -156,6 +171,8 @@ class TestManager:
             return
 
         self.read_from_file()
+
+        self.simple_read_from_file()
 
         if not self.skip_mmap:
             self.read_from_mmap()
