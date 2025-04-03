@@ -28,9 +28,10 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     size_t cpp_gds_threshold "kvikio::defaults::gds_threshold"() except +
     void cpp_set_gds_threshold \
         "kvikio::defaults::set_gds_threshold"(size_t nbytes) except +
-    bool cpp_split_gds_io "kvikio::defaults::split_gds_io"() except +
-    void cpp_set_split_gds_io \
-        "kvikio::defaults::set_split_gds_io"(bool flag) except +
+    bool cpp_use_cufile_internal_threadpool \
+        "kvikio::defaults::use_cufile_internal_threadpool"() except +
+    void cpp_set_use_cufile_internal_threadpool \
+        "kvikio::defaults::set_use_cufile_internal_threadpool"(bool flag) except +
     size_t cpp_bounce_buffer_size "kvikio::defaults::bounce_buffer_size"() except +
     void cpp_set_bounce_buffer_size \
         "kvikio::defaults::set_bounce_buffer_size"(size_t nbytes) except +
@@ -82,12 +83,12 @@ def set_gds_threshold(nbytes: int) -> None:
     cpp_set_gds_threshold(nbytes)
 
 
-def split_gds_io() -> bool:
-    return cpp_split_gds_io()
+def use_cufile_internal_threadpool() -> bool:
+    return cpp_use_cufile_internal_threadpool()
 
 
-def set_split_gds_io(flag: bool) -> None:
-    cpp_set_split_gds_io(flag)
+def set_use_cufile_internal_threadpool(flag: bool) -> None:
+    cpp_set_use_cufile_internal_threadpool(flag)
 
 
 def bounce_buffer_size() -> int:

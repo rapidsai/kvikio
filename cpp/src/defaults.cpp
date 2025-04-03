@@ -113,9 +113,9 @@ defaults::defaults()
       env >= 0, "KVIKIO_GDS_THRESHOLD has to be a positive integer", std::invalid_argument);
     _gds_threshold = env;
   }
-  // Determine the default value of `split_gds_io`
+  // Determine the default value of `use_cufile_internal_threadpool`
   {
-    _split_gds_io = getenv_or("KVIKIO_SPLIT_GDS_IO", false);
+    _use_cufile_internal_threadpool = getenv_or("KVIKIO_USE_CUFILE_INTERNAL_THREADPOOL", true);
   }
   // Determine the default value of `bounce_buffer_size`
   {
@@ -199,9 +199,15 @@ std::size_t defaults::gds_threshold() { return instance()->_gds_threshold; }
 
 void defaults::set_gds_threshold(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
 
-bool defaults::split_gds_io() { return instance()->_split_gds_io; }
+bool defaults::use_cufile_internal_threadpool()
+{
+  return instance()->_use_cufile_internal_threadpool;
+}
 
-void defaults::set_split_gds_io(bool flag) { instance()->_split_gds_io = flag; }
+void defaults::set_use_cufile_internal_threadpool(bool flag)
+{
+  instance()->_use_cufile_internal_threadpool = flag;
+}
 
 std::size_t defaults::bounce_buffer_size() { return instance()->_bounce_buffer_size; }
 

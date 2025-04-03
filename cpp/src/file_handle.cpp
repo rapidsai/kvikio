@@ -194,7 +194,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
 
-    if (!defaults::split_gds_io()) {
+    if (defaults::use_cufile_internal_threadpool()) {
       auto task = [this, ctx](void* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
@@ -270,7 +270,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
     }
 
-    if (!defaults::split_gds_io()) {
+    if (defaults::use_cufile_internal_threadpool()) {
       auto task = [this, ctx](void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
