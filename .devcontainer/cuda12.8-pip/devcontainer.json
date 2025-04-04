@@ -1,56 +1,64 @@
 {
-  "build": {
-    "context": "${localWorkspaceFolder}/.devcontainer",
-    "dockerfile": "${localWorkspaceFolder}/.devcontainer/Dockerfile",
-    "args": {
-      "CUDA": "12.8",
-      "PYTHON_PACKAGE_MANAGER": "pip",
-      "BASE": "rapidsai/devcontainers:25.06-cpp-cuda12.8-ubuntu22.04"
-    }
-  },
-  "runArgs": [
-    "--rm",
-    "--name",
-    "${localEnv:USER:anon}-rapids-${localWorkspaceFolderBasename}-25.06-cuda12.8-pip",
-    "-v",
-    "/run/udev:/run/udev",
-    "-v",
-    "/usr/local/cuda/gds:/mnt/cuda/gds",
-    "-v",
-    "/mnt/nvme_ubuntu_test:/mnt/nvme",
-    "-v",
-    "/home/biubiuty/biubiu/MagnumIO:/mnt/MagnumIO",
-    "-v",
-    "${localEnv:HOME}/biubiu/fio:/mnt/fio",
-    "-v",
-    "${localEnv:HOME}/.ssh:/home/coder/.ssh",
-    "--privileged",
-    "--cap-add=SYS_ADMIN"
-  ],
-  "hostRequirements": {"gpu": "optional"},
-  "features": {
-    "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils:25.6": {}
-  },
-  "overrideFeatureInstallOrder": [
-    "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils"
-  ],
-  "initializeCommand": ["/bin/bash", "-c", "mkdir -m 0755 -p ${localWorkspaceFolder}/../.{aws,cache,config/pip,local/share/${localWorkspaceFolderBasename}-cuda12.8-venvs}"],
-  "postAttachCommand": ["/bin/bash", "-c", "if [ ${CODESPACES:-false} = 'true' ]; then . devcontainer-utils-post-attach-command; . rapids-post-attach-command; fi"],
-  "workspaceFolder": "/home/coder",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/home/coder/kvikio,type=bind,consistency=consistent",
-  "mounts": [
-    "source=${localWorkspaceFolder}/../.aws,target=/home/coder/.aws,type=bind,consistency=consistent",
-    "source=${localWorkspaceFolder}/../.cache,target=/home/coder/.cache,type=bind,consistency=consistent",
-    "source=${localWorkspaceFolder}/../.config,target=/home/coder/.config,type=bind,consistency=consistent",
-    "source=${localWorkspaceFolder}/../.local/share/${localWorkspaceFolderBasename}-cuda12.8-venvs,target=/home/coder/.local/share/venvs,type=bind,consistency=consistent"
-  ],
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-python.flake8",
-        "nvidia.nsight-vscode-edition"
-      ]
-    }
-  },
-  "postCreateCommand":"/bin/bash /home/coder/kvikio/.devcontainer/cuda12.8-pip/post_create_command.sh"
+    "build": {
+        "context": "${localWorkspaceFolder}/.devcontainer",
+        "dockerfile": "${localWorkspaceFolder}/.devcontainer/Dockerfile",
+        "args": {
+            "CUDA": "12.8",
+            "PYTHON_PACKAGE_MANAGER": "pip",
+            "BASE": "rapidsai/devcontainers:25.06-cpp-cuda12.8-ubuntu22.04"
+        }
+    },
+    "runArgs": [
+        "--rm",
+        "--name",
+        "${localEnv:USER:anon}-rapids-${localWorkspaceFolderBasename}-25.06-cuda12.8-pip",
+        "-v",
+        "/run/udev:/run/udev",
+        "-v",
+        "/usr/local/cuda/gds:/mnt/cuda/gds",
+        "-v",
+        "/nvme/1/tialiu:/mnt/nvme",
+        "-v",
+        "${localEnv:HOME}/biubiu:/mnt/biubiu",
+        "-v",
+        "${localEnv:HOME}/.ssh:/home/coder/.ssh",
+        "--privileged",
+        "--cap-add=SYS_ADMIN"
+    ],
+    "hostRequirements": {
+        "gpu": "optional"
+    },
+    "features": {
+        "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils:25.6": {}
+    },
+    "overrideFeatureInstallOrder": [
+        "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils"
+    ],
+    "initializeCommand": [
+        "/bin/bash",
+        "-c",
+        "mkdir -m 0755 -p ${localWorkspaceFolder}/../.{aws,cache,config/pip,local/share/${localWorkspaceFolderBasename}-cuda12.8-venvs}"
+    ],
+    "postAttachCommand": [
+        "/bin/bash",
+        "-c",
+        "if [ ${CODESPACES:-false} = 'true' ]; then . devcontainer-utils-post-attach-command; . rapids-post-attach-command; fi"
+    ],
+    "workspaceFolder": "/home/coder",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/coder/kvikio,type=bind,consistency=consistent",
+    "mounts": [
+        "source=${localWorkspaceFolder}/../.aws,target=/home/coder/.aws,type=bind,consistency=consistent",
+        "source=${localWorkspaceFolder}/../.cache,target=/home/coder/.cache,type=bind,consistency=consistent",
+        "source=${localWorkspaceFolder}/../.config,target=/home/coder/.config,type=bind,consistency=consistent",
+        "source=${localWorkspaceFolder}/../.local/share/${localWorkspaceFolderBasename}-cuda12.8-venvs,target=/home/coder/.local/share/venvs,type=bind,consistency=consistent"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.flake8",
+                "nvidia.nsight-vscode-edition"
+            ]
+        }
+    },
+    "postCreateCommand": "/bin/bash /home/coder/kvikio/.devcontainer/cuda12.8-pip/post_create_command.sh"
 }

@@ -17,7 +17,7 @@ enable_testing()
 include(rapids-test)
 rapids_test_init()
 
-file(GLOB SOURCES "*.cpp")
+file(GLOB SOURCES "test_basic_io.cpp" "test_defaults.cpp" "main.cpp")
 add_executable(cpp_tests ${SOURCES})
 set_target_properties(
   cpp_tests
@@ -31,6 +31,9 @@ set_target_properties(
              CUDA_STANDARD_REQUIRED ON
 )
 target_link_libraries(cpp_tests PRIVATE kvikio::kvikio GTest::gmock GTest::gtest CUDA::cudart)
+
+add_executable(biu_check biu.cpp)
+target_link_libraries(biu_check PRIVATE CUDA::cudart)
 
 rapids_test_add(
   NAME cpp_tests
