@@ -1,4 +1,3 @@
-#include <cuda_runtime.h>
 #include <cufile.h>
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -6,39 +5,16 @@
 #include <iostream>
 #include <sstream>
 
-// #define CHECK_CUDA(err_code) check_cuda(err_code, __FILE__, __LINE__)
-// inline void check_cuda(cudaError_t err_code, const char* file, int line)
-// {
-//   if (err_code == cudaSuccess) { return; }
-//   int current_device;
-//   cudaGetDevice(&current_device);
-//   std::stringstream ss;
-//   ss << "CUDA runtime error: device = " << current_device << ", " << cudaGetErrorName(err_code)
-//      << "(" << err_code << "): " << cudaGetErrorString(err_code) << " at " << file << ":" << line
-//      << std::endl;
-//   throw std::runtime_error(ss.str());
-// }
-
-// #define CHECK_CUFILE(err_code) check_cufile(err_code, __FILE__, __LINE__)
-// void check_cufile(CUfileError_t err_code, const char* file, int line)
-// {
-//   auto cufile_err_code = err_code.err;     // CUfileOpError
-//   auto cuda_err_code   = err_code.cu_err;  // CUresult
-
-//   if (cufile_err_code == CU_FILE_SUCCESS) { return; }
-
-//   std::stringstream ss;
-//   if (cufile_err_code == CU_FILE_CUDA_DRIVER_ERROR) {
-//     char const* msg{};
-//     cuGetErrorString(cuda_err_code, &msg);
-//     ss << "CUDA driver error: " << msg;
-//   }
-
-//   ss << "cuFile error: "
-//      << cufileop_status_error(static_cast<CUfileOpError>(std::abs(cufile_err_code))) << " at "
-//      << file << ":" << line << std::endl;
-//   throw std::runtime_error(ss.str());
-// }
+#define CHECK_CUFILE(err_code) check_cufile(err_code, __FILE__, __LINE__)
+void check_cufile(CUfileError_t err_code, const char* file, int line)
+{
+  auto cufile_err_code = err_code.err;  // CUfileOpError
+  if (cufile_err_code != CU_FILE_SUCCESS) {
+    std::stringstream ss;
+    ss << "cuFile error at" << file << ":" << line << std::endl;
+    throw std::runtime_error(ss.str());
+  }
+}
 
 #define EXPECT(condition) expect(condition, __FILE__, __LINE__)
 inline void expect(bool condition, const char* file, int line)
@@ -53,20 +29,17 @@ class TestManager {
  public:
   TestManager()
   {
-    // CHECK_CUDA(cudaSetDevice(0));
-
     load_library();
 
-    std::string file_path{"/mnt/nvme/biu.bin"};
     int flags{O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT};
     mode_t mode{S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH};
-    _fd = open(file_path.c_str(), flags, mode);
+    _fd = open(_file_path.c_str(), flags, mode);
     EXPECT(_fd != -1);
 
     CUfileDescr_t desc{};
     desc.type      = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     desc.handle.fd = _fd;
-    _func_handle_register(&_handle, &desc);
+    CHECK_CUFILE(_func_handle_register(&_handle, &desc));
   }
 
   ~TestManager()
@@ -75,8 +48,6 @@ class TestManager {
     EXPECT(close(_fd) == 0);
     std::cout << "test done" << std::endl;
   }
-
-  void run() {}
 
  private:
   void load_library()
@@ -100,6 +71,7 @@ class TestManager {
   int _fd{};
   CUfileHandle_t _handle{};
   std::string _cufile_lib_path{"/usr/local/cuda/targets/sbsa-linux/lib/libcufile.so.0"};
+  std::string _file_path{"/mnt/nvme/biu.bin"};
 
   std::decay_t<decltype(cuFileHandleRegister)> _func_handle_register;
   std::decay_t<decltype(cuFileHandleDeregister)> _func_handle_deregister;
@@ -108,6 +80,5 @@ class TestManager {
 int main()
 {
   TestManager tm;
-  tm.run();
   return 0;
 }

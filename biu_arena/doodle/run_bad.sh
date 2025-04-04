@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-mkdir -p biu_check_bad_tmp
+rm -rf biu_check_bad_tmp
+mkdir biu_check_bad_tmp
 
 g++ -isystem /usr/local/cuda/targets/sbsa-linux/include \
 -g -MD -MT biu_check_bad_tmp/biu.cpp.o -MF biu_check_bad_tmp/biu.cpp.o.d -o biu_check_bad_tmp/biu.cpp.o -c /home/coder/kvikio/cpp/tests/biu.cpp
