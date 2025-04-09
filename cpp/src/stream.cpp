@@ -17,6 +17,7 @@
 #include <sys/types.h>
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 #include <tuple>
 #include <utility>
 
@@ -33,9 +34,10 @@ StreamFuture::StreamFuture(
 {
   // Notice, we allocate the arguments using malloc() as specified in the cuFile docs:
   // <https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html#cufilewriteasync>
-  if ((_val = static_cast<ArgByVal*>(std::malloc(sizeof(ArgByVal)))) == nullptr) {
-    throw std::bad_alloc{};
-  }
+  KVIKIO_EXPECT((_val = static_cast<ArgByVal*>(std::malloc(sizeof(ArgByVal)))) != nullptr,
+                "Bad memory allocation",
+                std::runtime_error);
+
   *_val = {
     .size = size, .file_offset = file_offset, .devPtr_offset = devPtr_offset, .bytes_done = 0};
 }
@@ -59,9 +61,8 @@ StreamFuture& StreamFuture::operator=(StreamFuture&& o) noexcept
 
 std::tuple<void*, std::size_t*, off_t*, off_t*, ssize_t*, CUstream> StreamFuture::get_args() const
 {
-  if (_val == nullptr) {
-    throw kvikio::CUfileException("cannot get arguments from an uninitialized StreamFuture");
-  }
+  KVIKIO_EXPECT(_val != nullptr, "cannot get arguments from an uninitialized StreamFuture");
+
   return {_devPtr_base,
           &_val->size,
           &_val->file_offset,
@@ -72,9 +73,7 @@ std::tuple<void*, std::size_t*, off_t*, off_t*, ssize_t*, CUstream> StreamFuture
 
 std::size_t StreamFuture::check_bytes_done()
 {
-  if (_val == nullptr) {
-    throw kvikio::CUfileException("cannot check bytes done on an uninitialized StreamFuture");
-  }
+  KVIKIO_EXPECT(_val != nullptr, "cannot check bytes done on an uninitialized StreamFuture");
 
   if (!_stream_synchronized) {
     _stream_synchronized = true;
@@ -92,7 +91,7 @@ StreamFuture::~StreamFuture() noexcept
   if (_val != nullptr) {
     try {
       check_bytes_done();
-    } catch (const kvikio::CUfileException& e) {
+    } catch (kvikio::CUfileException const& e) {
       std::cerr << e.what() << std::endl;
     }
     std::free(_val);

@@ -16,7 +16,9 @@
 #pragma once
 
 #include <cstring>
-#include <exception>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 #include <system_error>
 
 #include <kvikio/shim/cuda.hpp>
@@ -28,10 +30,46 @@ struct CUfileException : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
 
+class GenericSystemError : public std::system_error {
+ public:
+  GenericSystemError(const std::string& msg);
+  GenericSystemError(const char* msg);
+  GenericSystemError(const GenericSystemError& other)            = default;
+  GenericSystemError& operator=(const GenericSystemError& other) = default;
+  virtual ~GenericSystemError() noexcept                         = default;
+};
+
 #ifndef CUDA_DRIVER_TRY
+/**
+ * @addtogroup utility_error
+ * @{
+ */
+
+/**
+ * @brief Error checking macro for CUDA driver API functions.
+ *
+ * Invoke a CUDA driver API function call. If the call does not return CUDA_SUCCESS, throw an
+ * exception detailing the CUDA error that occurred.
+ *
+ * Example:
+ * ```
+ * // Throws kvikio::CUfileException
+ * CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
+ *
+ * // Throws std::runtime_error
+ * CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream), std::runtime_error);
+ * ```
+ *
+ * @param ... This macro accepts either one or two arguments:
+ *   - The first argument must be a CUDA driver API error code.
+ *   - When given, the second argument is the exception to be thrown. When not
+ *     specified, defaults to kvikio::CUfileException.
+ */
 #define CUDA_DRIVER_TRY(...)                                                   \
   GET_CUDA_DRIVER_TRY_MACRO(__VA_ARGS__, CUDA_DRIVER_TRY_2, CUDA_DRIVER_TRY_1) \
   (__VA_ARGS__)
+/** @} */
+
 #define GET_CUDA_DRIVER_TRY_MACRO(_1, _2, NAME, ...) NAME
 #define CUDA_DRIVER_TRY_2(_call, _exception_type)                                  \
   do {                                                                             \
@@ -41,9 +79,36 @@ struct CUfileException : public std::runtime_error {
 #endif
 
 #ifndef CUFILE_TRY
+/**
+ * @addtogroup utility_error
+ * @{
+ */
+
+/**
+ * @brief Error checking macro for cuFile API functions.
+ *
+ * Invoke a cuFile API function call. If the call does not return CU_FILE_SUCCESS, throw an
+ * exception detailing the cuFile error that occurred.
+ *
+ * Example:
+ * ```
+ * // Throws kvikio::CUfileException
+ * CUFILE_TRY(cuFileAPI::instance().ReadAsync(...));
+ *
+ * // Throws std::runtime_error
+ * CUFILE_TRY(cuFileAPI::instance().ReadAsync(...), std::runtime_error);
+ * ```
+ *
+ * @param ... This macro accepts either one or two arguments:
+ *   - The first argument must be a cuFile API error code.
+ *   - When given, the second argument is the exception to be thrown. When not
+ *     specified, defaults to kvikio::CUfileException.
+ */
 #define CUFILE_TRY(...)                                         \
   GET_CUFILE_TRY_MACRO(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
   (__VA_ARGS__)
+/** @} */
+
 #define GET_CUFILE_TRY_MACRO(_1, _2, NAME, ...) NAME
 #define CUFILE_TRY_2(_call, _exception_type)                                  \
   do {                                                                        \
@@ -67,29 +132,28 @@ struct CUfileException : public std::runtime_error {
 
 namespace detail {
 template <typename Exception>
-void cuda_driver_try_2(CUresult error, int line_number, const char* filename)
+void cuda_driver_try_2(CUresult error, int line_number, char const* filename)
 {
   if (error == CUDA_ERROR_STUB_LIBRARY) {
     throw Exception{std::string{"CUDA error at: "} + std::string(filename) + ":" +
-                    KVIKIO_STRINGIFY(line_number) +
+                    std::to_string(line_number) +
                     ": CUDA_ERROR_STUB_LIBRARY("
                     "The CUDA driver loaded is a stub library)"};
   }
   if (error != CUDA_SUCCESS) {
-    const char* err_name     = nullptr;
-    const char* err_str      = nullptr;
+    char const* err_name     = nullptr;
+    char const* err_str      = nullptr;
     CUresult err_name_status = cudaAPI::instance().GetErrorName(error, &err_name);
     CUresult err_str_status  = cudaAPI::instance().GetErrorString(error, &err_str);
     if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }
     if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }
-    throw Exception{std::string{"CUDA error at: "} + filename + ":" +
-                    KVIKIO_STRINGIFY(line_number) + ": " + std::string(err_name) + "(" +
-                    std::string(err_str) + ")"};
+    throw Exception{std::string{"CUDA error at: "} + filename + ":" + std::to_string(line_number) +
+                    ": " + std::string(err_name) + "(" + std::string(err_str) + ")"};
   }
 }
 
 template <typename Exception>
-void cufile_try_2(CUfileError_t error, int line_number, const char* filename)
+void cufile_try_2(CUfileError_t error, int line_number, char const* filename)
 {
   if (error.err != CU_FILE_SUCCESS) {
     if (error.err == CU_FILE_CUDA_DRIVER_ERROR) {
@@ -97,13 +161,13 @@ void cufile_try_2(CUfileError_t error, int line_number, const char* filename)
       CUDA_DRIVER_TRY(cuda_error);
     }
     throw Exception{std::string{"cuFile error at: "} + filename + ":" +
-                    KVIKIO_STRINGIFY(line_number) + ": " +
+                    std::to_string(line_number) + ": " +
                     cufileop_status_error((CUfileOpError)std::abs(error.err))};
   }
 }
 
 template <typename Exception>
-void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, const char* filename)
+void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, char const* filename)
 {
   if (nbytes_done < 0) {
     auto const err = std::abs(nbytes_done);
@@ -111,10 +175,114 @@ void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, const char*
                        ? std::string(cufileop_status_error((CUfileOpError)err))
                        : std::string(std::strerror(err));
     throw Exception{std::string{"cuFile error at: "} + filename + ":" +
-                    KVIKIO_STRINGIFY(line_number) + ": " + msg};
+                    std::to_string(line_number) + ": " + msg};
   }
 }
 
+#define KVIKIO_LOG_ERROR(err_msg) kvikio::detail::log_error(err_msg, __LINE__, __FILE__)
+void log_error(std::string_view err_msg, int line_number, char const* filename);
+
+}  // namespace detail
+
+/**
+ * @addtogroup utility_error
+ * @{
+ */
+
+/**
+ * @brief Macro for checking pre-conditions or conditions that throws an exception when
+ * a condition is violated.
+ *
+ * Defaults to throwing kvikio::CUfileException, but a custom exception may also be
+ * specified.
+ *
+ * Example:
+ * ```
+ * // Throws kvikio::CUfileException
+ * KVIKIO_EXPECT(p != nullptr, "Unexpected null pointer");
+ *
+ * // Throws std::runtime_error
+ * KVIKIO_EXPECT(p != nullptr, "Unexpected nullptr", std::runtime_error);
+ * ```
+ *
+ * @param ... This macro accepts either two or three arguments:
+ *   - The first argument must be an expression that evaluates to true or
+ *     false, and is the condition being checked.
+ *   - The second argument is a string literal used to construct the `what` of
+ *     the exception.
+ *   - When given, the third argument is the exception to be thrown. When not
+ *     specified, defaults to kvikio::CUfileException.
+ */
+#define KVIKIO_EXPECT(...) \
+  GET_KVIKIO_EXPECT_MACRO(__VA_ARGS__, KVIKIO_EXPECT_3, KVIKIO_EXPECT_2)(__VA_ARGS__)
+/** @} */
+
+#define GET_KVIKIO_EXPECT_MACRO(_1, _2, _3, NAME, ...) NAME
+
+#define KVIKIO_EXPECT_3(_condition, _msg, _exception_type)                                   \
+  do {                                                                                       \
+    kvikio::detail::kvikio_assertion<_exception_type>(_condition, _msg, __LINE__, __FILE__); \
+  } while (0)
+
+#define KVIKIO_EXPECT_2(_condition, _msg) KVIKIO_EXPECT_3(_condition, _msg, kvikio::CUfileException)
+
+/**
+ * @addtogroup utility_error
+ * @{
+ */
+
+/**
+ * @brief Indicates that an erroneous code path has been taken.
+ *
+ * Example usage:
+ * ```
+ * // Throws kvikio::CUfileException
+ * KVIKIO_FAIL("Unsupported code path");
+ *
+ * // Throws std::runtime_error
+ * KVIKIO_FAIL("Unsupported code path", std::runtime_error);
+ * ```
+ *
+ * @param ... This macro accepts either one or two arguments:
+ *   - The first argument is a string literal used to construct the `what` of
+ *     the exception.
+ *   - When given, the second argument is the exception to be thrown. When not
+ *     specified, defaults to kvikio::CUfileException.
+ */
+#define KVIKIO_FAIL(...) \
+  GET_KVIKIO_FAIL_MACRO(__VA_ARGS__, KVIKIO_FAIL_2, KVIKIO_FAIL_1)(__VA_ARGS__)
+/** @} */
+
+#define GET_KVIKIO_FAIL_MACRO(_1, _2, NAME, ...) NAME
+
+#define KVIKIO_FAIL_2(_msg, _exception_type)                                            \
+  do {                                                                                  \
+    kvikio::detail::kvikio_assertion<_exception_type>(false, _msg, __LINE__, __FILE__); \
+  } while (0)
+
+#define KVIKIO_FAIL_1(_msg) KVIKIO_FAIL_2(_msg, kvikio::CUfileException)
+
+namespace detail {
+template <typename Exception>
+void kvikio_assertion(bool condition, const char* msg, int line_number, char const* filename)
+{
+  if (!condition) {
+    std::stringstream ss;
+    ss << "KvikIO failure at: " << filename << ":" << line_number << ": ";
+    if (msg == nullptr) {
+      ss << "(no message)";
+    } else {
+      ss << msg;
+    }
+    throw Exception{ss.str()};
+  };
+}
+
+template <typename Exception>
+void kvikio_assertion(bool condition, const std::string& msg, int line_number, char const* filename)
+{
+  kvikio_assertion<Exception>(condition, msg.c_str(), line_number, filename);
+}
 }  // namespace detail
 
 }  // namespace kvikio

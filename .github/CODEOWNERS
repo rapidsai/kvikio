@@ -5,19 +5,20 @@ cpp/               @rapidsai/kvikio-cpp-codeowners
 python/            @rapidsai/kvikio-python-codeowners
 
 #cmake code owners
-**/CMakeLists.txt  @rapidsai/kvikio-cmake-codeowners
+CMakeLists.txt     @rapidsai/kvikio-cmake-codeowners
 **/cmake/          @rapidsai/kvikio-cmake-codeowners
+*.cmake            @rapidsai/kvikio-cmake-codeowners
 build.sh           @rapidsai/kvikio-cmake-codeowners
 python/setup.py    @rapidsai/kvikio-cmake-codeowners @rapidsai/kvikio-python-codeowners
 
 #CI code owners
 /.github/                @rapidsai/ci-codeowners
 /ci/                     @rapidsai/ci-codeowners
-/.pre-commit-config.yaml @rapidsai/ci-codeowners
 
 #packaging code owners
-/.devcontainer/    @rapidsai/packaging-codeowners
-/conda/            @rapidsai/packaging-codeowners
-/dependencies.yaml @rapidsai/packaging-codeowners
-/build.sh          @rapidsai/packaging-codeowners
-pyproject.toml     @rapidsai/packaging-codeowners
+/.pre-commit-config.yaml @rapidsai/packaging-codeowners
+/.devcontainer/          @rapidsai/packaging-codeowners
+/conda/                  @rapidsai/packaging-codeowners
+dependencies.yaml        @rapidsai/packaging-codeowners
+/build.sh                @rapidsai/packaging-codeowners
+pyproject.toml           @rapidsai/packaging-codeowners

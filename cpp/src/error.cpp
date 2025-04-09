@@ -14,4 +14,26 @@
  * limitations under the License.
  */
 
+#include <iostream>
+
 #include <kvikio/error.hpp>
+
+namespace kvikio {
+
+GenericSystemError::GenericSystemError(const std::string& msg) : GenericSystemError(msg.c_str()) {}
+
+GenericSystemError::GenericSystemError(const char* msg)
+  : std::system_error(errno, std::generic_category(), msg)
+{
+}
+
+namespace detail {
+
+void log_error(std::string_view err_msg, int line_number, char const* filename)
+{
+  std::cerr << "KvikIO error at: " << filename << ":" << line_number << ": " << err_msg << "\n";
+}
+
+}  // namespace detail
+
+}  // namespace kvikio

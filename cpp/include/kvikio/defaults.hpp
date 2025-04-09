@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-// Enable documentation of the enum.
-/**
- * @file
- */
-
 #pragma once
 
 #include <cstddef>
@@ -27,51 +22,28 @@
 #include <stdexcept>
 #include <string>
 
-#include <BS_thread_pool.hpp>
-
+#include <kvikio/compat_mode.hpp>
+#include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 
+/**
+ * @brief KvikIO namespace.
+ */
 namespace kvikio {
-/**
- * @brief I/O compatibility mode.
- */
-enum class CompatMode : uint8_t {
-  OFF,  ///< Enforce cuFile I/O. GDS will be activated if the system requirements for cuFile are met
-        ///< and cuFile is properly configured. However, if the system is not suited for cuFile, I/O
-        ///< operations under the OFF option may error out, crash or hang.
-  ON,   ///< Enforce POSIX I/O.
-  AUTO,  ///< Try cuFile I/O first, and fall back to POSIX I/O if the system requirements for cuFile
-         ///< are not met.
-};
-
-namespace detail {
-/**
- * @brief Parse a string into a CompatMode enum.
- *
- * @param compat_mode_str Compatibility mode in string format(case-insensitive). Valid values
- * include:
- *   - `ON` (alias: `TRUE`, `YES`, `1`)
- *   - `OFF` (alias: `FALSE`, `NO`, `0`)
- *   - `AUTO`
- * @return A CompatMode enum.
- */
-CompatMode parse_compat_mode_str(std::string_view compat_mode_str);
-
-}  // namespace detail
 
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
-  const auto* env_val = std::getenv(env_var_name.data());
+  auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
 
   std::stringstream sstream(env_val);
   T converted_val;
   sstream >> converted_val;
-  if (sstream.fail()) {
-    throw std::invalid_argument("unknown config value " + std::string{env_var_name} + "=" +
-                                std::string{env_val});
-  }
+  KVIKIO_EXPECT(!sstream.fail(),
+                "unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
+                std::invalid_argument);
   return converted_val;
 }
 
@@ -81,17 +53,23 @@ bool getenv_or(std::string_view env_var_name, bool default_val);
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 
+template <>
+std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val);
+
 /**
  * @brief Singleton class of default values used throughout KvikIO.
  *
  */
 class defaults {
  private:
-  BS::thread_pool _thread_pool{get_num_threads_from_env()};
+  BS_thread_pool _thread_pool{get_num_threads_from_env()};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
+  std::size_t _http_max_attempts;
+  long _http_timeout;
+  std::vector<int> _http_status_codes;
 
   static unsigned int get_num_threads_from_env();
 
@@ -121,14 +99,14 @@ class defaults {
   [[nodiscard]] static CompatMode compat_mode();
 
   /**
-   * @brief Reset the value of `kvikio::defaults::compat_mode()`.
+   * @brief Set the value of `kvikio::defaults::compat_mode()`.
    *
    * Changing the compatibility mode affects all the new FileHandles whose `compat_mode` argument is
    * not explicitly set, but it never affects existing FileHandles.
    *
    * @param compat_mode Compatibility mode.
    */
-  static void compat_mode_reset(CompatMode compat_mode);
+  static void set_compat_mode(CompatMode compat_mode);
 
   /**
    * @brief Infer the `AUTO` compatibility mode from the system runtime.
@@ -179,16 +157,16 @@ class defaults {
    *
    * Notice, it is not possible to change the default thread pool. KvikIO will
    * always use the same thread pool however it is possible to change number of
-   * threads in the pool (see `kvikio::default::thread_pool_nthreads_reset()`).
+   * threads in the pool (see `kvikio::default::set_thread_pool_nthreads()`).
    *
-   * @return The the default thread pool instance.
+   * @return The default thread pool instance.
    */
-  [[nodiscard]] static BS::thread_pool& thread_pool();
+  [[nodiscard]] static BS_thread_pool& thread_pool();
 
   /**
    * @brief Get the number of threads in the default thread pool.
    *
-   * Set the default value using `kvikio::default::thread_pool_nthreads_reset()` or by
+   * Set the default value using `kvikio::default::set_thread_pool_nthreads()` or by
    * setting the `KVIKIO_NTHREADS` environment variable. If not set, the default value is 1.
    *
    * @return The number of threads.
@@ -196,20 +174,19 @@ class defaults {
   [[nodiscard]] static unsigned int thread_pool_nthreads();
 
   /**
-   * @brief Reset the number of threads in the default thread pool. Waits for all currently running
+   * @brief Set the number of threads in the default thread pool. Waits for all currently running
    * tasks to be completed, then destroys all threads in the pool and creates a new thread pool with
    * the new number of threads. Any tasks that were waiting in the queue before the pool was reset
-   * will then be executed by the new threads. If the pool was paused before resetting it, the new
-   * pool will be paused as well.
+   * will then be executed by the new threads.
    *
    * @param nthreads The number of threads to use.
    */
-  static void thread_pool_nthreads_reset(unsigned int nthreads);
+  static void set_thread_pool_nthreads(unsigned int nthreads);
 
   /**
    * @brief Get the default task size used for parallel IO operations.
    *
-   * Set the default value using `kvikio::default::task_size_reset()` or by setting
+   * Set the default value using `kvikio::default::set_task_size()` or by setting
    * the `KVIKIO_TASK_SIZE` environment variable. If not set, the default value is 4 MiB.
    *
    * @return The default task size in bytes.
@@ -217,11 +194,11 @@ class defaults {
   [[nodiscard]] static std::size_t task_size();
 
   /**
-   * @brief Reset the default task size used for parallel IO operations.
+   * @brief Set the default task size used for parallel IO operations.
    *
    * @param nbytes The default task size in bytes.
    */
-  static void task_size_reset(std::size_t nbytes);
+  static void set_task_size(std::size_t nbytes);
 
   /**
    * @brief Get the default GDS threshold, which is the minimum size to use GDS (in bytes).
@@ -229,7 +206,7 @@ class defaults {
    * In order to improve performance of small IO, `.pread()` and `.pwrite()` implement a shortcut
    * that circumvent the threadpool and use the POSIX backend directly.
    *
-   * Set the default value using `kvikio::default::gds_threshold_reset()` or by setting the
+   * Set the default value using `kvikio::default::set_gds_threshold()` or by setting the
    * `KVIKIO_GDS_THRESHOLD` environment variable. If not set, the default value is 1 MiB.
    *
    * @return The default GDS threshold size in bytes.
@@ -237,15 +214,15 @@ class defaults {
   [[nodiscard]] static std::size_t gds_threshold();
 
   /**
-   * @brief Reset the default GDS threshold, which is the minimum size to use GDS (in bytes).
+   * @brief Set the default GDS threshold, which is the minimum size to use GDS (in bytes).
    * @param nbytes The default GDS threshold size in bytes.
    */
-  static void gds_threshold_reset(std::size_t nbytes);
+  static void set_gds_threshold(std::size_t nbytes);
 
   /**
    * @brief Get the size of the bounce buffer used to stage data in host memory.
    *
-   * Set the value using `kvikio::default::bounce_buffer_size_reset()` or by setting the
+   * Set the value using `kvikio::default::set_bounce_buffer_size()` or by setting the
    * `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the value is 16 MiB.
    *
    * @return The bounce buffer size in bytes.
@@ -253,11 +230,69 @@ class defaults {
   [[nodiscard]] static std::size_t bounce_buffer_size();
 
   /**
-   * @brief Reset the size of the bounce buffer used to stage data in host memory.
+   * @brief Set the size of the bounce buffer used to stage data in host memory.
    *
    * @param nbytes The bounce buffer size in bytes.
    */
-  static void bounce_buffer_size_reset(std::size_t nbytes);
+  static void set_bounce_buffer_size(std::size_t nbytes);
+
+  /**
+   * @brief Get the maximum number of attempts per remote IO read.
+   *
+   * Set the value using `kvikio::default::set_http_max_attempts()` or by setting
+   * the `KVIKIO_HTTP_MAX_ATTEMPTS` environment variable. If not set, the value is 3.
+   *
+   * @return The maximum number of remote IO reads to attempt before raising an
+   * error.
+   */
+  [[nodiscard]] static std::size_t http_max_attempts();
+
+  /**
+   * @brief Set the maximum number of attempts per remote IO read.
+   *
+   * @param attempts The maximum number of attempts to try before raising an error.
+   */
+  static void set_http_max_attempts(std::size_t attempts);
+
+  /**
+   * @brief The maximum time, in seconds, the transfer is allowed to complete.
+   *
+   * Set the value using `kvikio::default::set_http_timeout()` or by setting the
+   * `KVIKIO_HTTP_TIMEOUT` environment variable. If not set, the value is 60.
+   *
+   * @return The maximum time the transfer is allowed to complete.
+   */
+  [[nodiscard]] static long http_timeout();
+
+  /**
+   * @brief Reset the http timeout.
+   *
+   * @param timeout_seconds The maximum time the transfer is allowed to complete.
+   */
+  static void set_http_timeout(long timeout_seconds);
+
+  /**
+   * @brief The list of HTTP status codes to retry.
+   *
+   * Set the value using `kvikio::default::set_http_status_codes()` or by setting the
+   * `KVIKIO_HTTP_STATUS_CODES` environment variable. If not set, the default value is
+   *
+   * - 429
+   * - 500
+   * - 502
+   * - 503
+   * - 504
+   *
+   * @return The list of HTTP status codes to retry.
+   */
+  [[nodiscard]] static std::vector<int> const& http_status_codes();
+
+  /**
+   * @brief Set the list of HTTP status codes to retry.
+   *
+   * @param status_codes The HTTP status codes to retry.
+   */
+  static void set_http_status_codes(std::vector<int> status_codes);
 };
 
 }  // namespace kvikio

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 ##########################
 # KvikIO Version Updater #
 ##########################
@@ -12,24 +12,22 @@ NEXT_FULL_TAG=$1
 
 # Get current version
 CURRENT_TAG=$(git tag --merged HEAD | grep -xE '^v.*' | sort --version-sort | tail -n 1 | tr -d 'v')
-CURRENT_MAJOR=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[1]}')
-CURRENT_MINOR=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[2]}')
-CURRENT_PATCH=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[3]}')
-CURRENT_SHORT_TAG=${CURRENT_MAJOR}.${CURRENT_MINOR}
 
 # Get <major>.<minor> for next version
-NEXT_MAJOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[1]}')
-NEXT_MINOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[2]}')
+NEXT_MAJOR=$(echo "$NEXT_FULL_TAG" | awk '{split($0, a, "."); print a[1]}')
+NEXT_MINOR=$(echo "$NEXT_FULL_TAG" | awk '{split($0, a, "."); print a[2]}')
+NEXT_PATCH=$(echo "$NEXT_FULL_TAG" | awk '{split($0, a, "."); print a[3]}')
 NEXT_SHORT_TAG=${NEXT_MAJOR}.${NEXT_MINOR}
 
 # Need to distutils-normalize the original version
 NEXT_SHORT_TAG_PEP440=$(python -c "from packaging.version import Version; print(Version('${NEXT_SHORT_TAG}'))")
+PATCH_PEP440=$(python -c "from packaging.version import Version; print(Version('${NEXT_PATCH}'))")
 
 echo "Preparing release $CURRENT_TAG => $NEXT_FULL_TAG"
 
 # Inplace sed replace; workaround for Linux and Mac
 function sed_runner() {
-    sed -i.bak ''"$1"'' $2 && rm -f ${2}.bak
+    sed -i.bak ''"$1"'' "$2" && rm -f "${2}".bak
 }
 
 # Centralized version file update
@@ -64,3 +62,7 @@ done
 
 # The example of a downstream project
 sed_runner "s/find_and_configure_kvikio(.*)/find_and_configure_kvikio(\"${NEXT_SHORT_TAG}\")/g" "cpp/examples/downstream/cmake/get_kvikio.cmake"
+
+# Java files
+NEXT_FULL_JAVA_TAG="${NEXT_SHORT_TAG}.${PATCH_PEP440}-SNAPSHOT"
+sed_runner "s|<version>.*-SNAPSHOT</version>|<version>${NEXT_FULL_JAVA_TAG}</version>|g" java/pom.xml

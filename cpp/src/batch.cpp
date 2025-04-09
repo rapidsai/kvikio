@@ -52,17 +52,15 @@ void BatchHandle::close() noexcept
   cuFileAPI::instance().BatchIODestroy(_handle);
 }
 
-void BatchHandle::submit(const std::vector<BatchOp>& operations)
+void BatchHandle::submit(std::vector<BatchOp> const& operations)
 {
-  if (convert_size2ssize(operations.size()) > _max_num_events) {
-    throw CUfileException("Cannot submit more than the max_num_events)");
-  }
+  KVIKIO_EXPECT(convert_size2ssize(operations.size()) <= _max_num_events,
+                "Cannot submit more than the max_num_events)");
   std::vector<CUfileIOParams_t> io_batch_params;
   io_batch_params.reserve(operations.size());
-  for (const auto& op : operations) {
-    if (op.file_handle.is_compat_mode_preferred()) {
-      throw CUfileException("Cannot submit a FileHandle opened in compatibility mode");
-    }
+  for (auto const& op : operations) {
+    KVIKIO_EXPECT(!op.file_handle.get_compat_mode_manager().is_compat_mode_preferred(),
+                  "Cannot submit a FileHandle opened in compatibility mode");
 
     io_batch_params.push_back(CUfileIOParams_t{.mode   = CUFILE_BATCH,
                                                .u      = {.batch = {.devPtr_base   = op.devPtr_base,
@@ -95,14 +93,14 @@ void BatchHandle::cancel() { CUFILE_TRY(cuFileAPI::instance().BatchIOCancel(_han
 
 BatchHandle::BatchHandle(int max_num_events)
 {
-  throw CUfileException("BatchHandle requires cuFile's batch API, please build with CUDA v12.1+");
+  KVIKIO_FAIL("BatchHandle requires cuFile's batch API, please build with CUDA v12.1+");
 }
 
 bool BatchHandle::closed() const noexcept { return true; }
 
 void BatchHandle::close() noexcept {}
 
-void BatchHandle::submit(const std::vector<BatchOp>& operations) {}
+void BatchHandle::submit(std::vector<BatchOp> const& operations) {}
 
 std::vector<CUfileIOEvents_t> BatchHandle::status(unsigned min_nr,
                                                   unsigned max_nr,

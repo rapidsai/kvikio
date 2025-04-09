@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import argparse
@@ -25,7 +25,13 @@ def get_zarr_compressors() -> Dict[str, Any]:
         import kvikio.zarr
     except ImportError:
         return {}
-    return {c.__name__.lower(): c for c in kvikio.zarr.nvcomp_compressors}
+    try:
+        compressors = kvikio.zarr.nvcomp_compressors
+    except AttributeError:
+        # zarr-python 3.x
+        return {}
+    else:
+        return {c.__name__.lower(): c for c in compressors}
 
 
 def create_data(nbytes):
@@ -259,7 +265,7 @@ def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
     cupy.arange(10)  # Make sure CUDA is initialized
 
-    kvikio.defaults.num_threads_reset(args.nthreads)
+    kvikio.defaults.set("num_threads", args.nthreads)
 
     print("Roundtrip benchmark")
     print("----------------------------------")

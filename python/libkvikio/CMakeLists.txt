@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
 include(../../cpp/cmake/rapids_config.cmake)
 include(rapids-cpm)
@@ -36,6 +36,7 @@ endif()
 
 unset(kvikio_FOUND)
 
+set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 if(USE_NVCOMP_RUNTIME_WHEEL)

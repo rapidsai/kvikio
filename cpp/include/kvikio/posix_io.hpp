@@ -23,6 +23,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
@@ -69,7 +70,7 @@ class StreamsByThread {
 
   static CUstream get();
 
-  StreamsByThread(const StreamsByThread&)            = delete;
+  StreamsByThread(StreamsByThread const&)            = delete;
   StreamsByThread& operator=(StreamsByThread const&) = delete;
   StreamsByThread(StreamsByThread&& o)               = delete;
   StreamsByThread& operator=(StreamsByThread&& o)    = delete;
@@ -88,11 +89,11 @@ class StreamsByThread {
  * @return The number of bytes read or written (always gather than zero)
  */
 template <IOOperationType Operation, PartialIO PartialIOStatus>
-ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset)
+ssize_t posix_host_io(int fd, void const* buf, size_t count, off_t offset)
 {
   off_t cur_offset      = offset;
   size_t byte_remaining = count;
-  char* buffer          = const_cast<char*>(static_cast<const char*>(buf));
+  char* buffer          = const_cast<char*>(static_cast<char const*>(buf));
   while (byte_remaining > 0) {
     ssize_t nbytes = 0;
     if constexpr (Operation == IOOperationType::READ) {
@@ -101,19 +102,12 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset)
       nbytes = ::pwrite(fd, buffer, byte_remaining, cur_offset);
     }
     if (nbytes == -1) {
-      const std::string name = Operation == IOOperationType::READ ? "pread" : "pwrite";
-      if (errno == EBADF) {
-        throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
-                              KVIKIO_STRINGIFY(__LINE__) + ": Operation not permitted"};
-      }
-      throw CUfileException{std::string{"POSIX error on " + name + " at: "} + __FILE__ + ":" +
-                            KVIKIO_STRINGIFY(__LINE__) + ": " + strerror(errno)};
+      std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
+      KVIKIO_EXPECT(errno != EBADF, "POSIX error: Operation not permitted");
+      KVIKIO_FAIL("POSIX error on " + name + ": " + strerror(errno));
     }
     if constexpr (Operation == IOOperationType::READ) {
-      if (nbytes == 0) {
-        throw CUfileException{std::string{"POSIX error on pread at: "} + __FILE__ + ":" +
-                              KVIKIO_STRINGIFY(__LINE__) + ": EOF"};
-      }
+      KVIKIO_EXPECT(nbytes != 0, "POSIX error on pread: EOF");
     }
     if constexpr (PartialIOStatus == PartialIO::YES) { return nbytes; }
     buffer += nbytes;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -136,7 +130,7 @@ ssize_t posix_host_io(int fd, const void* buf, size_t count, off_t offset)
  */
 template <IOOperationType Operation>
 std::size_t posix_device_io(int fd,
-                            const void* devPtr_base,
+                            void const* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
                             std::size_t devPtr_offset)
@@ -145,13 +139,13 @@ std::size_t posix_device_io(int fd,
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t byte_remaining    = convert_size2off(size);
-  const off_t chunk_size2 = convert_size2off(alloc.size());
+  off_t const chunk_size2 = convert_size2off(alloc.size());
 
   // Get a stream for the current CUDA context and thread
   CUstream stream = StreamsByThread::get();
 
   while (byte_remaining > 0) {
-    const off_t nbytes_requested = std::min(chunk_size2, byte_remaining);
+    off_t const nbytes_requested = std::min(chunk_size2, byte_remaining);
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (Operation == IOOperationType::READ) {
       nbytes_got = posix_host_io<IOOperationType::READ, PartialIO::YES>(
@@ -209,7 +203,7 @@ std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t fil
  * @return Size of bytes that were successfully read.
  */
 template <PartialIO PartialIOStatus>
-std::size_t posix_host_write(int fd, const void* buf, std::size_t size, std::size_t file_offset)
+std::size_t posix_host_write(int fd, void const* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_SCOPED_RANGE("posix_host_write()", size);
   return detail::posix_host_io<IOOperationType::WRITE, PartialIOStatus>(
@@ -230,7 +224,7 @@ std::size_t posix_host_write(int fd, const void* buf, std::size_t size, std::siz
  * @return Size of bytes that were successfully read.
  */
 std::size_t posix_device_read(int fd,
-                              const void* devPtr_base,
+                              void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
                               std::size_t devPtr_offset);
@@ -249,7 +243,7 @@ std::size_t posix_device_read(int fd,
  * @return Size of bytes that were successfully written.
  */
 std::size_t posix_device_write(int fd,
-                               const void* devPtr_base,
+                               void const* devPtr_base,
                                std::size_t size,
                                std::size_t file_offset,
                                std::size_t devPtr_offset);

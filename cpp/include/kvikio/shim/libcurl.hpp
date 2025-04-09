@@ -22,11 +22,14 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include <curl/curl.h>
+
+#include <kvikio/error.hpp>
 
 namespace kvikio {
 
@@ -89,8 +92,6 @@ class CurlHandle {
  private:
   char _errbuf[CURL_ERROR_SIZE];
   LibCurl::UniqueHandlePtr _handle;
-  std::string _source_file;
-  std::string _source_line;
 
  public:
   /**
@@ -132,9 +133,9 @@ class CurlHandle {
     CURLcode err = curl_easy_setopt(handle(), option, value);
     if (err != CURLE_OK) {
       std::stringstream ss;
-      ss << "curl_easy_setopt() error near " << _source_file << ":" << _source_line;
-      ss << "(" << curl_easy_strerror(err) << ")";
-      throw std::runtime_error(ss.str());
+      ss << "curl_easy_setopt() error "
+         << "(" << curl_easy_strerror(err) << ")";
+      KVIKIO_FAIL(ss.str(), std::runtime_error);
     }
   }
 
@@ -159,9 +160,9 @@ class CurlHandle {
     CURLcode err = curl_easy_getinfo(handle(), info, output);
     if (err != CURLE_OK) {
       std::stringstream ss;
-      ss << "curl_easy_getinfo() error near " << _source_file << ":" << _source_line;
-      ss << "(" << curl_easy_strerror(err) << ")";
-      throw std::runtime_error(ss.str());
+      ss << "curl_easy_getinfo() error "
+         << "(" << curl_easy_strerror(err) << ")";
+      KVIKIO_FAIL(ss.str(), std::runtime_error);
     }
   }
 };

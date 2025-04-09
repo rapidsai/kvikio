@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -36,7 +36,7 @@ repos:
     rev: 'v1.3.0'
     hooks:
       - id: mypy
-        additional_dependencies: [types-cachetools]
+        additional_dependencies: [types-cachetools, zarr]
         args: ["--config-file=python/kvikio/pyproject.toml",
                 "python/kvikio/kvikio",
                 "python/kvikio/tests",
@@ -62,10 +62,6 @@ repos:
           - cmakelang==0.6.13
         verbose: true
         require_serial: true
-        exclude: |
-          (?x)^(
-            cpp/cmake/Modules/FindCUDAToolkit[.]cmake$
-          )
       - id: cmake-lint
         name: cmake-lint
         entry: ./cpp/scripts/run-cmake-format.sh cmake-lint
@@ -77,10 +73,6 @@ repos:
           - cmakelang==0.6.13
         verbose: true
         require_serial: true
-        exclude: |
-          (?x)^(
-            cpp/cmake/Modules/FindCUDAToolkit[.]cmake$
-          )
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.4
     hooks:
@@ -90,18 +82,15 @@ repos:
             ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v0.4.0
+    rev: v0.6.0
     hooks:
       - id: verify-copyright
         files: |
           (?x)
               [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
+              ^[.]pre-commit-config[.]yaml$|
               CMakeLists[.]txt$|
               meta[.]yaml$
-        exclude: |
-          (?x)^(
-            cpp/cmake/Modules/FindCUDAToolkit[.]cmake$
-          )
       - id: verify-alpha-spec
         args: ["--fix", "--mode=release"]
   - repo: https://github.com/rapidsai/dependency-file-generator
@@ -109,6 +98,13 @@ repos:
     hooks:
       - id: rapids-dependency-file-generator
         args: ["--clean"]
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: ["--severity=warning"]
+        files: ^ci/
+
 
 default_language_version:
       python: python3
