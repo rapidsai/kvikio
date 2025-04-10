@@ -113,6 +113,10 @@ defaults::defaults()
       env >= 0, "KVIKIO_GDS_THRESHOLD has to be a positive integer", std::invalid_argument);
     _gds_threshold = env;
   }
+  // Determine the default value of `use_cufile_internal_threadpool`
+  {
+    _use_cufile_internal_threadpool = getenv_or("KVIKIO_USE_CUFILE_INTERNAL_THREADPOOL", true);
+  }
   // Determine the default value of `bounce_buffer_size`
   {
     ssize_t const env = getenv_or("KVIKIO_BOUNCE_BUFFER_SIZE", 16 * 1024 * 1024);
@@ -194,6 +198,16 @@ void defaults::set_task_size(std::size_t nbytes)
 std::size_t defaults::gds_threshold() { return instance()->_gds_threshold; }
 
 void defaults::set_gds_threshold(std::size_t nbytes) { instance()->_gds_threshold = nbytes; }
+
+bool defaults::use_cufile_internal_threadpool()
+{
+  return instance()->_use_cufile_internal_threadpool;
+}
+
+void defaults::set_use_cufile_internal_threadpool(bool flag)
+{
+  instance()->_use_cufile_internal_threadpool = flag;
+}
 
 std::size_t defaults::bounce_buffer_size() { return instance()->_bounce_buffer_size; }
 

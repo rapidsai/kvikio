@@ -66,6 +66,7 @@ class defaults {
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
+  bool _use_cufile_internal_threadpool;
   std::size_t _bounce_buffer_size;
   std::size_t _http_max_attempts;
   long _http_timeout;
@@ -218,6 +219,10 @@ class defaults {
    * @param nbytes The default GDS threshold size in bytes.
    */
   static void set_gds_threshold(std::size_t nbytes);
+
+  [[nodiscard]] static bool use_cufile_internal_threadpool();
+
+  static void set_use_cufile_internal_threadpool(bool flag);
 
   /**
    * @brief Get the size of the bounce buffer used to stage data in host memory.
