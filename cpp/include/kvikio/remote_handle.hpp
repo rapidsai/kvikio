@@ -128,7 +128,7 @@ class S3Endpoint : public RemoteEndpoint {
    */
   static std::string url_from_bucket_and_object(std::string const& bucket_name,
                                                 std::string const& object_name,
-                                                std::optional<std::string> const& aws_region,
+                                                std::optional<std::string> aws_region,
                                                 std::optional<std::string> aws_endpoint_url);
 
   /**
