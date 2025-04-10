@@ -29,7 +29,6 @@
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/remote_handle.hpp>
-#include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -151,6 +150,13 @@ void S3Endpoint::setopt(CurlHandle& curl)
   curl.setopt(CURLOPT_URL, _url.c_str());
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
+  if (!_aws_token.empty()) {
+    _curl_header_list = curl_slist_append(NULL, _aws_token.c_str());
+    if (!_curl_header_list) {
+      throw std::runtime_error("Failed to create curl header for AWS token");
+    }
+    curl.setopt(CURLOPT_HTTPHEADER, _curl_header_list);
+  }
 }
 
 std::string S3Endpoint::unwrap_or_default(std::optional<std::string> aws_arg,
@@ -243,6 +249,16 @@ S3Endpoint::S3Endpoint(std::string url,
     ss << access_key << ":" << secret_access_key;
     _aws_userpwd = ss.str();
   }
+  if (access_key.compare(0, 4, std::string("ASIA")) == 0) {
+    char const* env = std::getenv("AWS_SESSION_TOKEN");
+    if (env == nullptr) {
+      throw std::invalid_argument("When using temporary credentials, AWS_SESSION_TOKEN must be set.");
+    }
+    auto token = std::string(env);
+    std::stringstream ss;
+    ss << "x-amz-security-token: " << token;
+    _aws_token = ss.str();
+  }
 }
 
 S3Endpoint::S3Endpoint(std::string const& bucket_name,
@@ -253,7 +269,7 @@ S3Endpoint::S3Endpoint(std::string const& bucket_name,
                        std::optional<std::string> aws_endpoint_url)
   : S3Endpoint(
       url_from_bucket_and_object(bucket_name, object_name, aws_region, std::move(aws_endpoint_url)),
-      std::move(aws_region),
+      aws_region,
       std::move(aws_access_key),
       std::move(aws_secret_access_key))
 {
@@ -272,7 +288,6 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto curl = create_curl_handle();
-
   endpoint->setopt(curl);
   curl.setopt(CURLOPT_NOBODY, 1L);
   curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);

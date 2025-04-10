@@ -30,6 +30,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
+#include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -92,6 +93,8 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _url;
   std::string _aws_sigv4;
   std::string _aws_userpwd;
+  std::string _aws_token;
+  struct curl_slist *_curl_header_list;
 
   /**
    * @brief Unwrap an optional parameter, obtaining a default from the environment.
