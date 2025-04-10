@@ -170,7 +170,7 @@ std::string S3Endpoint::unwrap_or_default(std::optional<std::string> aws_arg,
 
 std::string S3Endpoint::url_from_bucket_and_object(std::string const& bucket_name,
                                                    std::string const& object_name,
-                                                   std::optional<std::string> const& aws_region,
+                                                   std::optional<std::string> aws_region,
                                                    std::optional<std::string> aws_endpoint_url)
 {
   KVIKIO_NVTX_FUNC_RANGE();
@@ -253,7 +253,7 @@ S3Endpoint::S3Endpoint(std::string const& bucket_name,
                        std::optional<std::string> aws_endpoint_url)
   : S3Endpoint(
       url_from_bucket_and_object(bucket_name, object_name, aws_region, std::move(aws_endpoint_url)),
-      std::move(aws_region),
+      aws_region,
       std::move(aws_access_key),
       std::move(aws_secret_access_key))
 {
