@@ -1,14 +1,18 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # cython: language_level=3
 
 
-from cpython.buffer cimport PyBuffer_IsContiguous
+from cpython.buffer cimport (
+    PyBUF_FULL_RO,
+    PyBuffer_IsContiguous,
+    PyBuffer_Release,
+    PyObject_GetBuffer,
+)
 from cpython.mem cimport PyMem_Free, PyMem_Malloc
-from cpython.memoryview cimport PyMemoryView_FromObject, PyMemoryView_GET_BUFFER
 from cpython.ref cimport Py_INCREF
-from cpython.tuple cimport PyTuple_New, PyTuple_SET_ITEM
+from cpython.tuple cimport PyTuple_New, PyTuple_SetItem
 from cython cimport auto_pickle, boundscheck, initializedcheck, nonecheck, wraparound
 from cython.view cimport array
 from libc.stdint cimport uintptr_t
@@ -75,7 +79,7 @@ cdef class Array:
     def __cinit__(self, obj):
         cdef dict iface = getattr(obj, "__cuda_array_interface__", None)
         self.cuda = (iface is not None)
-        cdef const Py_buffer* pybuf
+        cdef Py_buffer pybuf
         cdef str typestr
         cdef tuple data, shape, strides
         cdef Py_ssize_t i
@@ -125,8 +129,7 @@ cdef class Array:
                 self.shape_mv = None
                 self.strides_mv = None
         else:
-            mv = PyMemoryView_FromObject(obj)
-            pybuf = PyMemoryView_GET_BUFFER(mv)
+            PyObject_GetBuffer(obj, &pybuf, PyBUF_FULL_RO)
 
             if pybuf.suboffsets != NULL:
                 raise NotImplementedError("Suboffsets are not supported")
@@ -144,7 +147,7 @@ cdef class Array:
                     pybuf.shape,
                     self.ndim * sizeof(Py_ssize_t)
                 )
-                if not PyBuffer_IsContiguous(pybuf, b"C"):
+                if not PyBuffer_IsContiguous(&pybuf, b"C"):
                     self.strides_mv = new_Py_ssize_t_array(self.ndim)
                     memcpy(
                         &self.strides_mv[0],
@@ -156,6 +159,7 @@ cdef class Array:
             else:
                 self.shape_mv = None
                 self.strides_mv = None
+            PyBuffer_Release(&pybuf)
 
     cpdef bint _c_contiguous(self):
         return _c_contiguous(
@@ -203,7 +207,7 @@ cdef class Array:
         for i in range(self.ndim):
             o = self.shape_mv[i]
             Py_INCREF(o)
-            PyTuple_SET_ITEM(shape, i, o)
+            PyTuple_SetItem(shape, i, o)
         return shape
 
     @property
@@ -219,13 +223,13 @@ cdef class Array:
             for i from self.ndim > i >= 0 by 1:
                 o = self.strides_mv[i]
                 Py_INCREF(o)
-                PyTuple_SET_ITEM(strides, i, o)
+                PyTuple_SetItem(strides, i, o)
         else:
             s = self.itemsize
             for i from self.ndim > i >= 0 by 1:
                 o = s
                 Py_INCREF(o)
-                PyTuple_SET_ITEM(strides, i, o)
+                PyTuple_SetItem(strides, i, o)
                 s *= self.shape_mv[i]
         return strides
 
