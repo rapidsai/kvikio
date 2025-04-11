@@ -22,6 +22,7 @@
 #include <utility>
 
 #include <kvikio/error.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/stream.hpp>
@@ -32,6 +33,7 @@ StreamFuture::StreamFuture(
   void* devPtr_base, std::size_t size, off_t file_offset, off_t devPtr_offset, CUstream stream)
   : _devPtr_base{devPtr_base}, _stream{stream}
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Notice, we allocate the arguments using malloc() as specified in the cuFile docs:
   // <https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html#cufilewriteasync>
   KVIKIO_EXPECT((_val = static_cast<ArgByVal*>(std::malloc(sizeof(ArgByVal)))) != nullptr,
@@ -61,6 +63,7 @@ StreamFuture& StreamFuture::operator=(StreamFuture&& o) noexcept
 
 std::tuple<void*, std::size_t*, off_t*, off_t*, ssize_t*, CUstream> StreamFuture::get_args() const
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(_val != nullptr, "cannot get arguments from an uninitialized StreamFuture");
 
   return {_devPtr_base,
@@ -73,6 +76,7 @@ std::tuple<void*, std::size_t*, off_t*, off_t*, ssize_t*, CUstream> StreamFuture
 
 std::size_t StreamFuture::check_bytes_done()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(_val != nullptr, "cannot check bytes done on an uninitialized StreamFuture");
 
   if (!_stream_synchronized) {
@@ -88,6 +92,7 @@ std::size_t StreamFuture::check_bytes_done()
 
 StreamFuture::~StreamFuture() noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (_val != nullptr) {
     try {
       check_bytes_done();
