@@ -252,7 +252,8 @@ S3Endpoint::S3Endpoint(std::string url,
   if (access_key.compare(0, 4, std::string("ASIA")) == 0) {
     char const* env = std::getenv("AWS_SESSION_TOKEN");
     if (env == nullptr) {
-      throw std::invalid_argument("When using temporary credentials, AWS_SESSION_TOKEN must be set.");
+      throw std::invalid_argument(
+        "When using temporary credentials, AWS_SESSION_TOKEN must be set.");
     }
     auto token = std::string(env);
     std::stringstream ss;
@@ -288,6 +289,7 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto curl = create_curl_handle();
+
   endpoint->setopt(curl);
   curl.setopt(CURLOPT_NOBODY, 1L);
   curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
