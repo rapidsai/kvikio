@@ -22,9 +22,9 @@ export SKBUILD_CMAKE_ARGS="-DUSE_NVCOMP_RUNTIME_WHEEL=ON"
 python -m auditwheel repair \
     --exclude libkvikio.so \
     --exclude libnvcomp.so.4 \
-    -w ${package_dir}/final_dist \
+    -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" \
     ${package_dir}/dist/*
 
-./ci/validate_wheel.sh ${package_dir} final_dist
+./ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python ${package_dir}/final_dist
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
