@@ -3,22 +3,6 @@
 
 set -euo pipefail
 
-rapids-configure-conda-channels
-
-# Setting channel priority per-repo until all RAPIDS can build using strict channel priority
-# This will be replaced when we port this recipe to `rattler-build`
-if [[ "$RAPIDS_CUDA_VERSION" == 11.* ]]; then
-  rapids-logger "Channel priority disabled for CUDA 11 builds"
-else
-  rapids-logger "Setting strict channel priority for CUDA 12 builds"
-  conda config --set channel_priority strict
-fi
-
-# Remove `rapidsai` channel for non-release builds
-if ! rapids-is-release-build; then
-  conda config --remove channels rapidsai
-fi
-
 source rapids-configure-sccache
 
 source rapids-date-string
@@ -29,17 +13,33 @@ rapids-print-env
 
 rapids-generate-version > ./VERSION
 
-rapids-logger "Begin py build"
+RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION)
+export RAPIDS_PACKAGE_VERSION
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-conda config --set path_conflict prevent
+
+# populates `RATTLER_CHANNELS` array and `RATTLER_ARGS` array
+source rapids-rattler-channel-string
+
+rapids-logger "Prepending channel ${CPP_CHANNEL} to RATTLER_CHANNELS"
+
+RATTLER_CHANNELS=("--channel" "${CPP_CHANNEL}" "${RATTLER_CHANNELS[@]}")
 
 sccache --zero-stats
 
-RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry build \
-  --channel "${CPP_CHANNEL}" \
-  conda/recipes/kvikio
+rapids-logger "Building kvikio"
+
+# --no-build-id allows for caching with `sccache`
+# more info is available at
+# https://rattler.build/latest/tips_and_tricks/#using-sccache-or-ccache-with-rattler-build
+rattler-build build --recipe conda/recipes/kvikio \
+                    "${RATTLER_ARGS[@]}" \
+                    "${RATTLER_CHANNELS[@]}"
 
 sccache --show-adv-stats
+
+# remove build_cache directory to avoid uploading the entire source tree
+# tracked in https://github.com/prefix-dev/rattler-build/issues/1424
+rm -rf "$RAPIDS_CONDA_BLD_OUTPUT_DIR"/build_cache
 
 rapids-upload-conda-to-s3 python

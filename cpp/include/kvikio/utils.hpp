@@ -28,8 +28,7 @@
 
 namespace kvikio {
 
-// cuFile defines a page size to 4 KiB
-inline constexpr std::size_t page_size = 4096;
+std::size_t get_page_size();
 
 [[nodiscard]] off_t convert_size2off(std::size_t x);
 
