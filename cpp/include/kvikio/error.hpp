@@ -293,7 +293,7 @@ void kvikio_assertion(bool condition, const std::string& msg, int line_number, c
 /**
  * @brief Error checking macro for Linux system call.
  *
- * This macro handles a potential Linux system call error based on:
+ * This macro handles Linux system call errors based on:
  * - The return value of a Linux system call.
  * - The global error number errno.
  * For most system calls, a return value of type int and value -1 indicates an error, and the
