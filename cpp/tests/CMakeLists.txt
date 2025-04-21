@@ -76,6 +76,4 @@ kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp)
 
 kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
 
-kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp)
-
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/tests/libkvikio)

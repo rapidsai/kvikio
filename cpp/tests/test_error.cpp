@@ -21,6 +21,11 @@
 #include <gtest/gtest.h>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
+#include "gmock/gmock.h"
+
+using ::testing::AllOf;
+using ::testing::HasSubstr;
+using ::testing::ThrowsMessage;
 
 TEST(ErrorTest, linux_macro_for_int_return_value)
 {
@@ -33,9 +38,9 @@ TEST(ErrorTest, linux_macro_for_int_return_value)
   // If the file does not exist, open() returns (int)-1, and the error number is ENOENT (No such
   // file or directory).
   EXPECT_THAT([=] { LINUX_TRY(open_nonexistent_file()); },
-              ::testing::ThrowsMessage<kvikio::GenericSystemError>(::testing::HasSubstr("ENOENT")));
-  EXPECT_THAT([=] { LINUX_TRY(open_nonexistent_file(), -1); },
-              ::testing::ThrowsMessage<kvikio::GenericSystemError>(::testing::HasSubstr("ENOENT")));
+              ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("ENOENT")));
+  EXPECT_THAT([=] { LINUX_TRY(open_nonexistent_file(), "open failed.", -1); },
+              ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("ENOENT")));
 }
 
 TEST(ErrorTest, linux_macro_for_voidp_return_value)
@@ -49,6 +54,7 @@ TEST(ErrorTest, linux_macro_for_voidp_return_value)
 
   // If the mapping fails, mmap() returns (void*)-1, and the error number is EINVAL (invalid
   // argument).
-  EXPECT_THAT([=] { LINUX_TRY(map_anonymous_with_0_length(), reinterpret_cast<void*>(-1)); },
-              ::testing::ThrowsMessage<kvikio::GenericSystemError>(::testing::HasSubstr("EINVAL")));
+  EXPECT_THAT(
+    [=] { LINUX_TRY(map_anonymous_with_0_length(), "mmap failed.", reinterpret_cast<void*>(-1)); },
+    ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("EINVAL")));
 }

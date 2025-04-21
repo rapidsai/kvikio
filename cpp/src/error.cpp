@@ -35,11 +35,12 @@ void log_error(std::string_view err_msg, int line_number, char const* filename)
   std::cerr << "KvikIO error at: " << filename << ":" << line_number << ": " << err_msg << "\n";
 }
 
-void handle_linux_call_error(int line_number, char const* filename)
+void handle_linux_call_error(int line_number, char const* filename, std::string_view extra_msg)
 {
   auto err_name = strerrorname_np(errno);
   KVIKIO_EXPECT(err_name != nullptr, "Error name should not be null.");
   std::stringstream ss;
+  if (!extra_msg.empty()) { ss << extra_msg << " "; }
   ss << "Linux system/library function call error at: " << filename << ":" << line_number << ". "
      << err_name;
 
