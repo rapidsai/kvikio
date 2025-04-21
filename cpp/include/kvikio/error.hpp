@@ -285,4 +285,69 @@ void kvikio_assertion(bool condition, const std::string& msg, int line_number, c
 }
 }  // namespace detail
 
+/**
+ * @addtogroup utility_error
+ * @{
+ */
+
+/**
+ * @brief Error checking macro for Linux system call.
+ *
+ * This macro handles a potential Linux system call error based on:
+ * - The return value of a Linux system call.
+ * - The global error number errno.
+ * For most system calls, a return value of type int and value -1 indicates an error, and the
+ * overload LINUX_TRY(some_system_call(...)) suffices. Exceptions do exist, in which case
+ * the other overload LINUX_TRY(some_system_call(...), error_value) comes to the rescue.
+ *
+ * If an error occurs, this macro throws an exception (kvikio::GenericSystemError) detailing the
+ * error.
+ *
+ * Example:
+ * ```
+ * // By default, (int)-1 indicates an error.
+ * LINUX_TRY(open(file_name, flags, mode));
+ *
+ * // For some system calls, (void*)-1 indicates an error.
+ * LINUX_TRY(mmap(addr, length,prot, flags, fd, offset), reinterpret_cast<void*>(-1));
+ * ```
+ *
+ * @param ... This macro accepts either one or two arguments:
+ *   - The first argument must be an error code from a Linux system call.
+ *   - When given, the second argument is the error code indicating an error. When not specified,
+ *     defaults to -1.
+ *
+ * @note Most system calls return -1 when failed.
+ */
+#define LINUX_TRY(...) GET_LINUX_TRY_MACRO(__VA_ARGS__, LINUX_TRY_2, LINUX_TRY_1)(__VA_ARGS__)
+/** @} */
+
+#define GET_LINUX_TRY_MACRO(_1, _2, NAME, ...) NAME
+#define LINUX_TRY_1(_return_value)                                       \
+  do {                                                                   \
+    kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value); \
+  } while (0)
+#define LINUX_TRY_2(_return_value, _error_value)                                       \
+  do {                                                                                 \
+    kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value, _error_value); \
+  } while (0)
+
+namespace detail {
+void handle_linux_call_error(int line_number, char const* filename);
+
+inline void check_linux_call(int line_number,
+                             char const* filename,
+                             int return_value,
+                             int error_value = -1)
+{
+  if (return_value == error_value) { handle_linux_call_error(line_number, filename); }
+}
+
+template <typename T>
+void check_linux_call(int line_number, char const* filename, T return_value, T error_value)
+{
+  if (return_value == error_value) { handle_linux_call_error(line_number, filename); }
+}
+}  // namespace detail
+
 }  // namespace kvikio

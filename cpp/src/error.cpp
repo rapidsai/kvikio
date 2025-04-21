@@ -15,6 +15,7 @@
  */
 
 #include <iostream>
+#include <sstream>
 
 #include <kvikio/error.hpp>
 
@@ -32,6 +33,19 @@ namespace detail {
 void log_error(std::string_view err_msg, int line_number, char const* filename)
 {
   std::cerr << "KvikIO error at: " << filename << ":" << line_number << ": " << err_msg << "\n";
+}
+
+void handle_linux_call_error(int line_number, char const* filename)
+{
+  auto err_name = strerrorname_np(errno);
+  KVIKIO_EXPECT(err_name != nullptr, "Error name should not be null.");
+  std::stringstream ss;
+  ss << "Linux system/library function call error at: " << filename << ":" << line_number << ". "
+     << err_name;
+
+  // std::system_error::what() automatically contains the detailed error description
+  // equivalent to calling strerrordesc_np(errno)
+  throw kvikio::GenericSystemError(ss.str());
 }
 
 }  // namespace detail
