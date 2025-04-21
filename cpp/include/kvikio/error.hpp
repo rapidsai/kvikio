@@ -317,7 +317,7 @@ void kvikio_assertion(bool condition, const std::string& msg, int line_number, c
  *   - The first argument must be an error code from a Linux system call.
  *   - When given, the second argument is the extra message for the exception. When not specified,
  *     defaults to empty.
- *   - When given, the second argument is the error code indicating an error. When not specified,
+ *   - When given, the third argument is the error code indicating an error. When not specified,
  *     defaults to -1.
  *
  * @note Most system calls return -1 when failed.
