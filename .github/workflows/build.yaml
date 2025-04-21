@@ -76,8 +76,8 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       script: ci/build_wheel_cpp.sh
+      package-name: libkvikio
       package-type: cpp
-      wheel-name: libkvikio
   wheel-build-python:
     needs: wheel-build-cpp
     secrets: inherit
@@ -88,8 +88,8 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       script: ci/build_wheel_python.sh
+      package-name: kvikio
       package-type: python
-      wheel-name: kvikio
   wheel-publish-cpp:
     needs: wheel-build-cpp
     secrets: inherit
