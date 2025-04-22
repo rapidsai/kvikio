@@ -58,7 +58,7 @@ cdef string _to_string(str s):
         return string()
 
 cdef pair[string, string] _to_string_pair(str s1, str s2):
-    """Convert two Python string object to a C++ pair"""
+    """Wrap two Python string objects in a C++ pair"""
     return pair[string, string](_to_string(s1), _to_string(s2))
 
 # Helper function to cast an endpoint to its base class `RemoteEndpoint`
@@ -136,9 +136,7 @@ cdef class RemoteFile:
         cdef pair[string, string] bucket_and_object = cpp_parse_s3_url(_to_string(url))
         return RemoteFile._from_endpoint(
             cast_to_remote_endpoint(
-                make_unique[cpp_S3Endpoint](
-                    bucket_and_object
-                )
+                make_unique[cpp_S3Endpoint](bucket_and_object)
             ),
             nbytes
         )
