@@ -21,7 +21,6 @@
 #include <gtest/gtest.h>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
-#include "gmock/gmock.h"
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
@@ -37,9 +36,9 @@ TEST(ErrorTest, syscall_check_for_int_return_value)
   // If the file does not exist, open() returns (int)-1, and the error number is ENOENT (No such
   // file or directory).
   EXPECT_THAT([=] { SYSCALL_CHECK(open_nonexistent_file()); },
-              ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("ENOENT")));
+              ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("No such file or directory")));
   EXPECT_THAT([=] { SYSCALL_CHECK(open_nonexistent_file(), "open failed.", -1); },
-              ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("ENOENT")));
+              ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("No such file or directory")));
 }
 
 TEST(ErrorTest, syscall_check_for_voidp_return_value)
@@ -57,5 +56,5 @@ TEST(ErrorTest, syscall_check_for_voidp_return_value)
     [=] {
       SYSCALL_CHECK(map_anonymous_with_0_length(), "mmap failed.", reinterpret_cast<void*>(-1));
     },
-    ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("EINVAL")));
+    ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("Invalid argument")));
 }
