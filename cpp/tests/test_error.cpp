@@ -50,11 +50,8 @@ TEST(ErrorTest, syscall_check_for_voidp_return_value)
     return mmap(nullptr, length, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, fd, offset);
   };
 
-  // If the mapping fails, mmap() returns (void*)-1, and the error number is EINVAL (invalid
-  // argument).
-  EXPECT_THAT(
-    [=] {
-      SYSCALL_CHECK(map_anonymous_with_0_length(), "mmap failed.", reinterpret_cast<void*>(-1));
-    },
-    ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("Invalid argument")));
+  // If the mapping fails, mmap() returns MAP_FAILED i.e. (void*)-1, and the error number is EINVAL
+  // (invalid argument).
+  EXPECT_THAT([=] { SYSCALL_CHECK(map_anonymous_with_0_length(), "mmap failed.", MAP_FAILED); },
+              ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("Invalid argument")));
 }
