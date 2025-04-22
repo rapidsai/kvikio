@@ -293,49 +293,50 @@ void kvikio_assertion(bool condition, const std::string& msg, int line_number, c
 /**
  * @brief Error checking macro for Linux system call.
  *
- * This macro handles Linux system call errors based on:
- * - The return value of a Linux system call.
- * - The global error number errno.
- * For most system calls, a return value of type int and value -1 indicates an error, and the
- * overload LINUX_TRY(some_system_call(...)) suffices. Exceptions do exist, in which case
- * the other overload LINUX_TRY(some_system_call(...), error_value) comes to the rescue.
+ * Error checking for a Linux system call typically involves the following steps:
+ * - Check the return value of the system call. A value of -1 indicates failure for the overwhelming
+ *   majority of system calls.
+ * - If failure, check the global error number errno. Use Linux utility functions to obtain detailed
+ *   error information.
  *
- * If an error occurs, this macro throws an exception (kvikio::GenericSystemError) detailing the
- * error.
+ * This macro performs these steps. A simple SYSCALL_CHECK(some_system_call(...)) is designed for
+ * the common cases where an integer of -1 indicates a failure, whereas a more complex
+ * SYSCALL_CHECK(some_system_call(...), "extra msg", error_value) for the remaining rare cases, such
+ * as `(void*)-1` for mmap. At any rate, if a failure occurs, this macro throws an exception
+ * (kvikio::GenericSystemError) with detailed error information.
  *
  * Example:
  * ```
- * // By default, (int)-1 indicates an error.
- * LINUX_TRY(open(file_name, flags, mode));
+ * // Common case: (int)-1 indicates an error.
+ * SYSCALL_CHECK(open(file_name, flags, mode));
  *
- * // For some system calls, (void*)-1 indicates an error.
- * LINUX_TRY(mmap(addr, length,prot, flags, fd, offset), "mmap failed",
+ * // Rare case: (void*)-1 indicates an error.
+ * SYSCALL_CHECK(mmap(addr, length,prot, flags, fd, offset), "mmap failed",
  * reinterpret_cast<void*>(-1));
  * ```
  *
  * @param ... This macro accepts the following arguments:
- *   - The first argument must be an error code from a Linux system call.
+ *   - The first argument must be the return value of a Linux system call.
  *   - When given, the second argument is the extra message for the exception. When not specified,
  *     defaults to empty.
- *   - When given, the third argument is the error code indicating an error. When not specified,
- *     defaults to -1.
- *
- * @note Most system calls return -1 when failed.
+ *   - When given, the third argument is the error code value used to indicate an error. When not
+ *     specified, defaults to -1.
  */
-#define LINUX_TRY(...) \
-  GET_LINUX_TRY_MACRO(__VA_ARGS__, LINUX_TRY_3, LINUX_TRY_2, LINUX_TRY_1)(__VA_ARGS__)
+#define SYSCALL_CHECK(...)                                                                \
+  GET_SYSCALL_CHECK_MACRO(__VA_ARGS__, SYSCALL_CHECK_3, SYSCALL_CHECK_2, SYSCALL_CHECK_1) \
+  (__VA_ARGS__)
 /** @} */
 
-#define GET_LINUX_TRY_MACRO(_1, _2, _3, NAME, ...) NAME
-#define LINUX_TRY_1(_return_value)                                       \
+#define GET_SYSCALL_CHECK_MACRO(_1, _2, _3, NAME, ...) NAME
+#define SYSCALL_CHECK_1(_return_value)                                   \
   do {                                                                   \
     kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value); \
   } while (0)
-#define LINUX_TRY_2(_return_value, _extra_msg)                                       \
+#define SYSCALL_CHECK_2(_return_value, _extra_msg)                                   \
   do {                                                                               \
     kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value, _extra_msg); \
   } while (0)
-#define LINUX_TRY_3(_return_value, _extra_msg, _error_value)                                       \
+#define SYSCALL_CHECK_3(_return_value, _extra_msg, _error_value)                                   \
   do {                                                                                             \
     kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value, _extra_msg, _error_value); \
   } while (0)

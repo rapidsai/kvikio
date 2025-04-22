@@ -23,11 +23,10 @@
 #include <kvikio/file_handle.hpp>
 #include "gmock/gmock.h"
 
-using ::testing::AllOf;
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 
-TEST(ErrorTest, linux_macro_for_int_return_value)
+TEST(ErrorTest, syscall_check_for_int_return_value)
 {
   auto open_nonexistent_file = []() -> auto {
     int flag    = O_RDONLY;
@@ -37,13 +36,13 @@ TEST(ErrorTest, linux_macro_for_int_return_value)
 
   // If the file does not exist, open() returns (int)-1, and the error number is ENOENT (No such
   // file or directory).
-  EXPECT_THAT([=] { LINUX_TRY(open_nonexistent_file()); },
+  EXPECT_THAT([=] { SYSCALL_CHECK(open_nonexistent_file()); },
               ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("ENOENT")));
-  EXPECT_THAT([=] { LINUX_TRY(open_nonexistent_file(), "open failed.", -1); },
+  EXPECT_THAT([=] { SYSCALL_CHECK(open_nonexistent_file(), "open failed.", -1); },
               ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("ENOENT")));
 }
 
-TEST(ErrorTest, linux_macro_for_voidp_return_value)
+TEST(ErrorTest, syscall_check_for_voidp_return_value)
 {
   auto map_anonymous_with_0_length = []() -> auto {
     std::size_t length = 0;
@@ -55,6 +54,8 @@ TEST(ErrorTest, linux_macro_for_voidp_return_value)
   // If the mapping fails, mmap() returns (void*)-1, and the error number is EINVAL (invalid
   // argument).
   EXPECT_THAT(
-    [=] { LINUX_TRY(map_anonymous_with_0_length(), "mmap failed.", reinterpret_cast<void*>(-1)); },
+    [=] {
+      SYSCALL_CHECK(map_anonymous_with_0_length(), "mmap failed.", reinterpret_cast<void*>(-1));
+    },
     ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("EINVAL")));
 }

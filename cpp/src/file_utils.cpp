@@ -150,7 +150,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
   KVIKIO_NVTX_FUNC_RANGE();
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
-  LINUX_TRY(fd, "Unable to open file.");
+  SYSCALL_CHECK(fd, "Unable to open file.");
   return fd;
 }
 
@@ -158,7 +158,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
 {
   KVIKIO_NVTX_FUNC_RANGE();
   int ret = fcntl(fd, F_GETFL);  // NOLINT(cppcoreguidelines-pro-type-vararg)
-  LINUX_TRY(ret, "Unable to retrieve open flags.");
+  SYSCALL_CHECK(ret, "Unable to retrieve open flags.");
   return ret;
 }
 
@@ -167,7 +167,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
   KVIKIO_NVTX_FUNC_RANGE();
   struct stat st {};
   int ret = fstat(file_descriptor, &st);
-  LINUX_TRY(ret, "Unable to query file size.");
+  SYSCALL_CHECK(ret, "Unable to query file size.");
   return static_cast<std::size_t>(st.st_size);
 }
 
