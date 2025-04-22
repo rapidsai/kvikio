@@ -25,7 +25,7 @@ import kvikio
 
 
 @functools.cache
-def ZARR_3_0_7():
+def _is_ge_zarr_3_0_7():
     return packaging.version.parse(zarr.__version__) >= packaging.version.parse("3.0.7")
 
 
@@ -61,7 +61,7 @@ def _get(
     nbytes = min(nbytes, file_size)
     file_offset = min(file_offset, file_size)
 
-    if ZARR_3_0_7():
+    if _is_ge_zarr_3_0_7():
         dtype = "B"
     else:
         dtype = "b"
