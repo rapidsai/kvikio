@@ -293,15 +293,16 @@ void kvikio_assertion(bool condition, const std::string& msg, int line_number, c
 /**
  * @brief Error checking macro for Linux system call.
  *
- * Error checking for a Linux system call typically involves the following steps:
+ * Error checking for a Linux system call typically involves:
  * - Check the return value of the system call. A value of -1 indicates failure for the overwhelming
  *   majority of system calls.
- * - If failure, check the global error number errno. Use Linux utility functions to obtain detailed
- *   error information.
+ * - If failure, check the global error number <a
+ *   href="https://man7.org/linux/man-pages/man3/errno.3.html" target="_blank">errno</a>. Use
+ *   Linux utility functions to obtain detailed error information.
  *
- * This macro performs these steps. A simple SYSCALL_CHECK(some_system_call(...)) is designed for
- * the common cases where an integer of -1 indicates a failure, whereas a more complex
- * SYSCALL_CHECK(some_system_call(...), "extra msg", error_value) for the remaining rare cases, such
+ * This macro is used to perform the steps above. A simple SYSCALL_CHECK(ret) is
+ * designed for the common cases where an integer of -1 indicates a failure, whereas a more complex
+ * SYSCALL_CHECK(ret, "extra msg", error_value) for the remaining rare cases, such
  * as `(void*)-1` for mmap. At any rate, if a failure occurs, this macro throws an exception
  * (kvikio::GenericSystemError) with detailed error information.
  *
