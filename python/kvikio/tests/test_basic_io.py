@@ -77,7 +77,9 @@ def test_no_file_error(tmp_path):
     """Test "No such file" error"""
 
     filename = tmp_path / "test-file"
-    with pytest.raises(RuntimeError, match="Unable to open file: No such file"):
+    with pytest.raises(
+        RuntimeError, match="Unable to open file.*No such file or directory"
+    ):
         kvikio.CuFile(filename, "r")
 
 
