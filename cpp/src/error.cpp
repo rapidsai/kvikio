@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cerrno>
 #include <iostream>
 #include <sstream>
 
