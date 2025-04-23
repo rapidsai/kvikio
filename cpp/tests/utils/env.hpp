@@ -54,6 +54,11 @@ class EnvVarContext {
    */
   ~EnvVarContext();
 
+  EnvVarContext(EnvVarContext const&)            = delete;
+  EnvVarContext(EnvVarContext&&)                 = delete;
+  EnvVarContext& operator=(EnvVarContext const&) = delete;
+  EnvVarContext& operator=(EnvVarContext&&)      = delete;
+
  private:
   std::unordered_map<std::string, EnvVarState> _env_var_map;
 };
