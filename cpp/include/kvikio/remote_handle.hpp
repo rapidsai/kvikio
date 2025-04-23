@@ -93,8 +93,7 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _url;
   std::string _aws_sigv4;
   std::string _aws_userpwd;
-  std::string _aws_token;
-  struct curl_slist *_curl_header_list;
+  struct curl_slist* _curl_header_list;
 
   /**
    * @brief Unwrap an optional parameter, obtaining a default from the environment.
@@ -156,11 +155,14 @@ class S3Endpoint : public RemoteEndpoint {
    * `AWS_ACCESS_KEY_ID` environment variable is used.
    * @param aws_secret_access_key The AWS secret access key to use. If nullopt, the value of the
    * `AWS_SECRET_ACCESS_KEY` environment variable is used.
+   * @param aws_session_token The AWS session token to use. If nullopt, the value of the
+   * `AWS_SESSION_TOKEN` environment variable is used.
    */
   S3Endpoint(std::string url,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
-             std::optional<std::string> aws_secret_access_key = std::nullopt);
+             std::optional<std::string> aws_secret_access_key = std::nullopt,
+             std::optional<std::string> aws_session_token     = std::nullopt);
 
   /**
    * @brief Create a S3 endpoint from a bucket and object name.
@@ -183,6 +185,7 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
              std::optional<std::string> aws_secret_access_key = std::nullopt,
+             std::optional<std::string> aws_session_token     = std::nullopt,
              std::optional<std::string> aws_endpoint_url      = std::nullopt);
 
   void setopt(CurlHandle& curl) override;
