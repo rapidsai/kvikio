@@ -16,8 +16,10 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace kvikio::test {
 /**
@@ -43,7 +45,7 @@ class EnvVarContext {
    * @param env_var_entries User-specified environment variables. Each entry includes the variable
    * name and value.
    */
-  EnvVarContext(std::unordered_map<std::string, std::string> const& env_var_entries);
+  EnvVarContext(std::initializer_list<std::pair<std::string, std::string>> env_var_entries);
 
   /**
    * @brief Restore the environment variables to previous values

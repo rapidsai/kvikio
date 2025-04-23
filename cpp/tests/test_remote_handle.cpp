@@ -22,13 +22,10 @@
 
 TEST(RemoteHandleTest, s3_endpoint_constructor)
 {
-  std::unordered_map<std::string, std::string> env_var_entries{
-    {"AWS_DEFAULT_REGION", "my_aws_default_region"},
-    {"AWS_ACCESS_KEY_ID", "my_aws_access_key_id"},
-    {"AWS_SECRET_ACCESS_KEY", "my_aws_secrete_access_key"},
-    {"AWS_ENDPOINT_URL", "https://my_aws_endpoint_url"}};
-
-  kvikio::test::EnvVarContext env_var_ctx{env_var_entries};
+  kvikio::test::EnvVarContext env_var_ctx{{{"AWS_DEFAULT_REGION", "my_aws_default_region"},
+                                           {"AWS_ACCESS_KEY_ID", "my_aws_access_key_id"},
+                                           {"AWS_SECRET_ACCESS_KEY", "my_aws_secrete_access_key"},
+                                           {"AWS_ENDPOINT_URL", "https://my_aws_endpoint_url"}}};
   std::string url        = "https://my_aws_endpoint_url/bucket_name/object_name";
   std::string aws_region = "my_aws_region";
   // Use the overload where the full url and the optional aws_region are specified.

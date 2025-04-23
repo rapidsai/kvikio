@@ -16,12 +16,14 @@
 
 #include "env.hpp"
 #include <cstdlib>
-#include <unordered_map>
+#include <sstream>
+#include <utility>
 
 #include <kvikio/error.hpp>
 
 namespace kvikio::test {
-EnvVarContext::EnvVarContext(std::unordered_map<std::string, std::string> const& env_var_entries)
+EnvVarContext::EnvVarContext(
+  std::initializer_list<std::pair<std::string, std::string>> env_var_entries)
 {
   for (auto const& [key, current_value] : env_var_entries) {
     EnvVarState env_var_state;
@@ -31,6 +33,11 @@ EnvVarContext::EnvVarContext(std::unordered_map<std::string, std::string> const&
       env_var_state.previous_value = res;
     }
     SYSCALL_CHECK(setenv(key.c_str(), current_value.c_str(), 1 /* allow overwrite */));
+    if (_env_var_map.find(key) != _env_var_map.end()) {
+      std::stringstream ss;
+      ss << "Environment variable " << key << " has already been set in this context.";
+      KVIKIO_FAIL(ss.str());
+    }
     _env_var_map.insert({key, std::move(env_var_state)});
   }
 }
