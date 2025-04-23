@@ -27,8 +27,7 @@ EnvVarContext::EnvVarContext(
 {
   for (auto const& [key, current_value] : env_var_entries) {
     EnvVarState env_var_state;
-    auto res = std::getenv(key.c_str());
-    if (res) {
+    if (auto const res = std::getenv(key.c_str()); res != nullptr) {
       env_var_state.existed_before = true;
       env_var_state.previous_value = res;
     }
