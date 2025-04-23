@@ -187,7 +187,7 @@ class S3Endpoint : public RemoteEndpoint {
 
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-  ~S3Endpoint() override = default;
+  ~S3Endpoint() override;
 };
 
 /**

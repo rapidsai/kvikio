@@ -277,6 +277,8 @@ S3Endpoint::S3Endpoint(std::string const& bucket_name,
   KVIKIO_NVTX_FUNC_RANGE();
 }
 
+S3Endpoint::~S3Endpoint() { curl_slist_free_all(_curl_header_list); }
+
 std::string S3Endpoint::str() const { return _url; }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
