@@ -256,8 +256,7 @@ S3Endpoint::S3Endpoint(std::string url,
                         "When using temporary credentials, AWS_SESSION_TOKEN must be set.");
     std::stringstream ss;
     ss << "x-amz-security-token: " << session_token;
-    auto aws_token_header = ss.str();
-    _curl_header_list     = curl_slist_append(NULL, aws_token_header.c_str());
+    _curl_header_list     = curl_slist_append(NULL, ss.str().c_str());
     if (!_curl_header_list) {
       throw std::runtime_error("Failed to create curl header for AWS token");
     }
