@@ -244,10 +244,12 @@ S3Endpoint::S3Endpoint(std::string url,
     ss << access_key << ":" << secret_access_key;
     _aws_userpwd = ss.str();
   }
-  // Create a Custom Curl header for the session token.
-  // The _curl_header_list created by curl_slist_append must be manually freed
-  // (see https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html)
+  // Access key IDs beginning with ASIA are temporary credentials that are created using AWS STS
+  // operations. They need a session token to work.
   if (access_key.compare(0, 4, std::string("ASIA")) == 0) {
+    // Create a Custom Curl header for the session token.
+    // The _curl_header_list created by curl_slist_append must be manually freed
+    // (see https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html)
     auto session_token =
       unwrap_or_default(std::move(aws_session_token),
                         "AWS_SESSION_TOKEN",
