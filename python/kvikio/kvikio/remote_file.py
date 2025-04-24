@@ -81,6 +81,7 @@ class RemoteFile:
           - `AWS_DEFAULT_REGION`
           - `AWS_ACCESS_KEY_ID`
           - `AWS_SECRET_ACCESS_KEY`
+          - `AWS_SESSION_TOKEN` (when using temporary credentials)
 
         Additionally, to overwrite the AWS endpoint, set `AWS_ENDPOINT_URL`.
         See <https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html>
@@ -115,6 +116,7 @@ class RemoteFile:
           - `AWS_DEFAULT_REGION`
           - `AWS_ACCESS_KEY_ID`
           - `AWS_SECRET_ACCESS_KEY`
+          - `AWS_SESSION_TOKEN` (when using temporary credentials)
 
         Additionally, if `url` is a S3 url, it is possible to overwrite the AWS endpoint
         by setting `AWS_ENDPOINT_URL`.
