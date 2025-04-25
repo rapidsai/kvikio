@@ -66,7 +66,9 @@ files:
       table: project
     includes:
       - depends_on_cupy
-      - depends_on_nvcomp
+      # TODO: restore runtime dependency when we no longer vender nvcomp (when
+      # nvcomp supports Python 3.13)
+      # - depends_on_nvcomp
       - depends_on_libkvikio
       - run
   py_rapids_build_libkvikio:

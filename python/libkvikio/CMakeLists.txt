@@ -41,7 +41,17 @@ set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 if(USE_NVCOMP_RUNTIME_WHEEL)
   set(KvikIO_EXPORT_NVCOMP OFF)
+else()
+  # vendor nvcomp but not the entire kvikio-export set because that's huge
+  include(cmake/thirdparty/get_nvcomp.cmake)
+  include(cmake/Modules/WheelHelpers.cmake)
+  # Set the output directory so libnvcomp.so ends up in the right place
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${SKBUILD_PLATLIB_DIR}/libkvikio/lib64/)
+  install_aliased_imported_targets(
+    TARGETS nvcomp::nvcomp DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+  )
 endif()
+
 set(CUDA_STATIC_RUNTIME ON)
 
 add_subdirectory(../../cpp kvikio-cpp)
