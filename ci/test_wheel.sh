@@ -6,12 +6,12 @@ set -eou pipefail
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 # Download and install the libkvikio and kvikio wheels built in the previous step
-RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp ./dist
-RAPIDS_PY_WHEEL_NAME="kvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./dist
+LIBKVIKIO_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
+KVIKIO_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="kvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github python)
 
 rapids-pip-retry install -v \
-  "$(echo ./dist/libkvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)" \
-  "$(echo ./dist/kvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
+  "$(echo "${LIBKVIKIO_WHEELHOUSE}"/libkvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)" \
+  "$(echo "${KVIKIO_WHEELHOUSE}"/kvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
 # If running CUDA 11.8 on arm64, we skip tests marked "cufile" since
 # cuFile didn't support arm until 12.4
