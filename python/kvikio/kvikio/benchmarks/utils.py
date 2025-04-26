@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import os.path
 import pathlib
@@ -14,6 +15,12 @@ from dask.utils import format_bytes
 import kvikio
 import kvikio.cufile_driver
 import kvikio.defaults
+
+has_pynvml = False
+with contextlib.suppress(ImportError):
+    import pynvml
+
+    has_pynvml = True
 
 
 def drop_vm_cache() -> None:
@@ -29,19 +36,28 @@ def pprint_sys_info() -> None:
 
     version = kvikio.cufile_driver.libcufile_version()
     props = kvikio.cufile_driver.properties
-    try:
-        import pynvml
 
-        pynvml.nvmlInit()
-        dev = pynvml.nvmlDeviceGetHandleByIndex(0)
-    except ImportError:
-        gpu_name = "Unknown (install nvidia-ml-py)"
-        mem_total = gpu_name
-        bar1_total = gpu_name
-    else:
-        gpu_name = f"{pynvml.nvmlDeviceGetName(dev)} (dev #0)"
-        mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
-        bar1_total = format_bytes(pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total)
+    gpu_name = mem_total = bar1_total = "Unknown (install nvidia-ml-py)"
+    if has_pynvml:
+        dev = None
+        with contextlib.suppress(pynvml.NVMLError):
+            pynvml.nvmlInit()
+            dev = pynvml.nvmlDeviceGetHandleByIndex(0)
+
+        if dev is not None:
+            is_mig = False
+            with contextlib.suppress(pynvml.NVMLError):
+                pynvml.nvmlDeviceGetMigMode(dev)
+                is_mig = True
+
+            if not is_mig:
+                with contextlib.suppress(pynvml.NVMLError):
+                    gpu_name = f"{pynvml.nvmlDeviceGetName(dev)} (dev #0)"
+                    mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
+                    bar1_total = format_bytes(
+                        pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total
+                    )
+
     if version == (0, 0):
         libcufile_version = "unknown (earlier than cuFile 1.8)"
     else:
