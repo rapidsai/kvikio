@@ -176,6 +176,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
 
 std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_path)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   std::string const flags{"r"};
   bool const o_direct{false};
   mode_t const mode{FileHandle::m644};
@@ -187,6 +188,7 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_
 
 std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto file_size = get_file_size(fd);
 
   std::size_t offset{0u};
