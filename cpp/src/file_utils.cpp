@@ -198,7 +198,10 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
   SYSCALL_CHECK(mincore(addr, file_size, is_in_page_cache.data()));
   std::size_t num_pages_in_page_cache{0u};
   for (std::size_t page_idx = 0; page_idx < is_in_page_cache.size(); ++page_idx) {
-    if (static_cast<int>(is_in_page_cache[page_idx])) { ++num_pages_in_page_cache; }
+    // The least significant bit of each byte will be set if the corresponding page is currently
+    // resident in memory, and be clear otherwise. The settings of the other bits in each byte are
+    // undefined
+    if (static_cast<int>(is_in_page_cache[page_idx]) & 0x1) { ++num_pages_in_page_cache; }
   }
 
   SYSCALL_CHECK(munmap(addr, file_size));
