@@ -1,6 +1,7 @@
 # Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+import io
 import os
 import random
 from contextlib import contextmanager
@@ -294,3 +295,49 @@ def test_bounce_buffer_free(tmp_path):
                 f.write(cupy.arange(10))
                 assert kvikio.buffer.bounce_buffer_free() == 2048
                 assert kvikio.buffer.bounce_buffer_free() == 0
+
+
+def test_get_page_cache_info(tmp_path):
+    """Test getting the page cache information for a file"""
+    with pytest.raises(RuntimeError, match="Unable to open file"):
+        nonexistent_file = tmp_path / "nonexistent_file"
+        kvikio.get_page_cache_info(nonexistent_file)
+
+    with pytest.raises(ValueError):
+        invalid_argument = 123.456
+        kvikio.get_page_cache_info(invalid_argument)
+
+    with pytest.raises(ValueError):
+        invalid_argument = ["path_in_a_list"]
+        kvikio.get_page_cache_info(invalid_argument)
+
+    test_file = tmp_path / "test_file"
+    with kvikio.CuFile(test_file, "w") as f:
+        num_elements = 10000
+        f.write(cupy.linspace(1.0, float(num_elements), num=num_elements))
+
+    # Pass an os.PathLike argument
+    arg = test_file
+    assert isinstance(arg, os.PathLike)
+    num_pages_in_page_cache, num_pages = kvikio.get_page_cache_info(arg)
+    assert num_pages_in_page_cache >= 0 and num_pages_in_page_cache <= num_pages
+
+    # Pass a string argument
+    arg = str(test_file)
+    assert isinstance(arg, str)
+    num_pages_in_page_cache, num_pages = kvikio.get_page_cache_info(arg)
+    assert num_pages_in_page_cache >= 0 and num_pages_in_page_cache <= num_pages
+
+    # Pass a file descriptor argument
+    with open(test_file, "rb") as f:
+        arg = f.fileno()
+        assert isinstance(arg, int)
+        num_pages_in_page_cache, num_pages = kvikio.get_page_cache_info(arg)
+        assert num_pages_in_page_cache >= 0 and num_pages_in_page_cache <= num_pages
+
+    # Pass a file object argument
+    with open(test_file, "rb") as f:
+        arg = f
+        assert isinstance(arg, io.IOBase)
+        num_pages_in_page_cache, num_pages = kvikio.get_page_cache_info(arg)
+        assert num_pages_in_page_cache >= 0 and num_pages_in_page_cache <= num_pages

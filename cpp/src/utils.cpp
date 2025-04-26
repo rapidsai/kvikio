@@ -28,7 +28,6 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
-
 std::size_t get_page_size()
 {
   static auto const page_size = static_cast<std::size_t>(sysconf(_SC_PAGESIZE));

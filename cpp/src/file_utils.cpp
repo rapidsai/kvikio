@@ -15,13 +15,16 @@
  */
 
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdexcept>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <kvikio/error.hpp>
+#include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cufile.hpp>
@@ -171,4 +174,34 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
   return static_cast<std::size_t>(st.st_size);
 }
 
+std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_path)
+{
+  std::string const flags{"r"};
+  bool const o_direct{false};
+  mode_t const mode{FileHandle::m644};
+  auto fd     = open_fd(file_path, flags, o_direct, mode);
+  auto result = get_page_cache_info(fd);
+  SYSCALL_CHECK(close(fd));
+  return result;
+}
+
+std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
+{
+  auto file_size = get_file_size(fd);
+
+  std::size_t offset{0u};
+  auto addr = mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, offset);
+  SYSCALL_CHECK(addr, "mmap failed.", MAP_FAILED);
+
+  std::size_t num_pages = (file_size + get_page_size() - 1) / get_page_size();
+  std::vector<unsigned char> is_in_page_cache(num_pages, {});
+  SYSCALL_CHECK(mincore(addr, file_size, is_in_page_cache.data()));
+  std::size_t num_pages_in_page_cache{0u};
+  for (std::size_t page_idx = 0; page_idx < is_in_page_cache.size(); ++page_idx) {
+    if (static_cast<int>(is_in_page_cache[page_idx])) { ++num_pages_in_page_cache; }
+  }
+
+  SYSCALL_CHECK(munmap(addr, file_size));
+  return {num_pages_in_page_cache, num_pages};
+}
 }  // namespace kvikio
