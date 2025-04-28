@@ -178,7 +178,7 @@ cdef class CuFile:
             stream,
         ))
 
-cdef extern from "<kvikio/file_utils.hpp>" namespace "kvikio" nogil:
+cdef extern from "<kvikio/file_utils.hpp>" nogil:
     pair[size_t, size_t] cpp_get_page_cache_info_str \
         "kvikio::get_page_cache_info"(string file_path) except +
 
