@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <kvikio/defaults.hpp>
 
-TEST(Defaults, parse_compat_mode_str)
+TEST(DefaultsTest, parse_compat_mode_str)
 {
   {
     std::vector<std::string> inputs{
@@ -52,7 +52,7 @@ TEST(Defaults, parse_compat_mode_str)
   }
 }
 
-TEST(Defaults, parse_http_status_codes)
+TEST(DefaultsTest, parse_http_status_codes)
 {
   {
     std::vector<std::string> inputs{

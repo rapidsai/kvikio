@@ -2,9 +2,11 @@
 # See file LICENSE for terms.
 
 import asyncio
+import functools
 import os
 from pathlib import Path
 
+import packaging
 import zarr.storage
 from zarr.abc.store import (
     ByteRequest,
@@ -20,6 +22,11 @@ import kvikio
 # The GDSStore implementation follows the `LocalStore` implementation
 # at https://github.com/zarr-developers/zarr-python/blob/main/src/zarr/storage/_local.py
 # with differences coming swapping in `cuFile` for the stdlib open file object.
+
+
+@functools.cache
+def _is_ge_zarr_3_0_7():
+    return packaging.version.parse(zarr.__version__) >= packaging.version.parse("3.0.7")
 
 
 def _get(
@@ -54,7 +61,12 @@ def _get(
     nbytes = min(nbytes, file_size)
     file_offset = min(file_offset, file_size)
 
-    raw = prototype.nd_buffer.create(shape=(nbytes,), dtype="b").as_ndarray_like()
+    if _is_ge_zarr_3_0_7():
+        dtype = "B"
+    else:
+        dtype = "b"
+
+    raw = prototype.nd_buffer.create(shape=(nbytes,), dtype=dtype).as_ndarray_like()
     buf = prototype.buffer.from_array_like(raw)
 
     with kvikio.CuFile(path) as f:
