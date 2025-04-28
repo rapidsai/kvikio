@@ -43,11 +43,9 @@ def _load_wheel_installation(soname: str):
     return None
 
 
-def load_library_nvcomp():
-    return _load_library("libnvcomp.so.4")
-
-
 def load_library():
+    # TODO: remove this nvcomp load when `nvcomp` is re-de-vendored
+    _load_library("libnvcomp.so.4")
     return _load_library("libkvikio.so")
 
 
