@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # If libkvikio was installed as a wheel, we must request it to load the library symbols.
@@ -9,6 +9,8 @@ except ModuleNotFoundError:
     pass
 else:
     libkvikio.load_library()
+    # TODO: remove this after nvcomp is devendored
+    libkvikio.load_library_nvcomp()
     del libkvikio
 
 

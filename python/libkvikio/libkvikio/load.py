@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,13 +43,20 @@ def _load_wheel_installation(soname: str):
     return None
 
 
+def load_library_nvcomp():
+    return _load_library("libnvcomp.so.4")
+
+
 def load_library():
+    return _load_library("libkvikio.so")
+
+
+def _load_library(soname):
     """Dynamically load libkvikio.so and its dependencies"""
     prefer_system_installation = (
         os.getenv("RAPIDS_LIBKVIKIO_PREFER_SYSTEM_LIBRARY", "false").lower() != "false"
     )
 
-    soname = "libkvikio.so"
     libkvikio_lib = None
     if prefer_system_installation:
         # Prefer a system library if one is present to
