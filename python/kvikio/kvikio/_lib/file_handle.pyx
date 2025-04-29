@@ -1,11 +1,13 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
 # cython: language_level=3
 
+import io
+import os
 import pathlib
-from typing import Optional
+from typing import Optional, Union
 
 from posix cimport fcntl
 
@@ -175,3 +177,28 @@ cdef class CuFile:
             dev_offset,
             stream,
         ))
+
+cdef extern from "<kvikio/file_utils.hpp>" nogil:
+    pair[size_t, size_t] cpp_get_page_cache_info_str \
+        "kvikio::get_page_cache_info"(string file_path) except +
+
+    pair[size_t, size_t] cpp_get_page_cache_info_int \
+        "kvikio::get_page_cache_info"(int fd) except +
+
+
+def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase]) \
+        -> tuple[int, int]:
+    if isinstance(file, os.PathLike) or isinstance(file, str):
+        # file is a path or a string object
+        path_bytes = str(pathlib.Path(file)).encode()
+        return cpp_get_page_cache_info_str(path_bytes)
+    elif isinstance(file, int):
+        # file is a file descriptor
+        return cpp_get_page_cache_info_int(file)
+    elif isinstance(file, io.IOBase):
+        # file is a file object
+        # pass its file descriptor to the underlying C++ function
+        return cpp_get_page_cache_info_int(file.fileno())
+    else:
+        raise ValueError("The type of `file` must be `os.PathLike`, `str`, `int`, "
+                         "or `io.IOBase`")
