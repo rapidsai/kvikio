@@ -68,6 +68,7 @@ files:
       - depends_on_cupy
       # TODO: restore runtime dependency when we no longer vendor nvcomp
       # (when nvcomp supports Python 3.13)
+      # https://github.com/rapidsai/build-planning/issues/171
       # - depends_on_nvcomp
       - depends_on_libkvikio
       - run

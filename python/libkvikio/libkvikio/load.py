@@ -45,6 +45,7 @@ def _load_wheel_installation(soname: str):
 
 def load_library():
     # TODO: remove this nvcomp load when `nvcomp` is re-de-vendored
+    # https://github.com/rapidsai/build-planning/issues/171
     _load_library("libnvcomp.so.4")
     return _load_library("libkvikio.so")
 
