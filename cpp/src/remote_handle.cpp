@@ -169,8 +169,8 @@ std::string S3Endpoint::unwrap_or_default(std::optional<std::string> aws_arg,
   return std::string(env);
 }
 
-std::string S3Endpoint::url_from_bucket_and_object(std::string const& bucket_name,
-                                                   std::string const& object_name,
+std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
+                                                   std::string object_name,
                                                    std::optional<std::string> aws_region,
                                                    std::optional<std::string> aws_endpoint_url)
 {
@@ -264,19 +264,20 @@ S3Endpoint::S3Endpoint(std::string url,
   }
 }
 
-S3Endpoint::S3Endpoint(std::string const& bucket_name,
-                       std::string const& object_name,
+S3Endpoint::S3Endpoint(std::pair<std::string, std::string> bucket_and_object_names,
                        std::optional<std::string> aws_region,
                        std::optional<std::string> aws_access_key,
                        std::optional<std::string> aws_secret_access_key,
                        std::optional<std::string> aws_session_token,
                        std::optional<std::string> aws_endpoint_url)
-  : S3Endpoint(
-      url_from_bucket_and_object(bucket_name, object_name, aws_region, std::move(aws_endpoint_url)),
-      aws_region,
-      std::move(aws_access_key),
-      std::move(aws_secret_access_key),
-      std::move(aws_session_token))
+  : S3Endpoint(url_from_bucket_and_object(std::move(bucket_and_object_names.first),
+                                          std::move(bucket_and_object_names.second),
+                                          aws_region,
+                                          std::move(aws_endpoint_url)),
+               aws_region,
+               std::move(aws_access_key),
+               std::move(aws_secret_access_key),
+               std::move(aws_session_token)))
 {
   KVIKIO_NVTX_FUNC_RANGE();
 }

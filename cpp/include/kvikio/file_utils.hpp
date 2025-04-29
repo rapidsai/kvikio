@@ -162,4 +162,22 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
  */
 [[nodiscard]] std::size_t get_file_size(int file_descriptor);
 
+/**
+ * @brief Obtain the page cache residency information for a given file
+ *
+ * @param file_path Path to a file.
+ * @return A pair containing the number of pages resident in the page cache and the total number of
+ * pages.
+ */
+std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_path);
+
+/**
+ * @brief Obtain the page cache residency information for a given file
+ *
+ * @param fd File descriptor.
+ * @return A pair containing the number of pages resident in the page cache and the total number of
+ * pages.
+ * @sa `get_page_cache_info(std::string const&)` overload.
+ */
+std::pair<std::size_t, std::size_t> get_page_cache_info(int fd);
 }  // namespace kvikio
