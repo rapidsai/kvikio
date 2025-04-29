@@ -277,7 +277,7 @@ S3Endpoint::S3Endpoint(std::pair<std::string, std::string> bucket_and_object_nam
                aws_region,
                std::move(aws_access_key),
                std::move(aws_secret_access_key),
-               std::move(aws_session_token)))
+               std::move(aws_session_token))
 {
   KVIKIO_NVTX_FUNC_RANGE();
 }

@@ -33,11 +33,11 @@
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
+struct curl_slist;
+
 namespace kvikio {
 
-// Forward declarations
-class CurlHandle;
-struct curl_slist;
+class CurlHandle;  // Prototype
 
 /**
  * @brief Abstract base class for remote endpoints.
