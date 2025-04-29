@@ -35,7 +35,9 @@
 
 namespace kvikio {
 
-class CurlHandle;  // Prototype
+// Forward declarations
+class CurlHandle;
+struct curl_slist;
 
 /**
  * @brief Abstract base class for remote endpoints.
@@ -93,7 +95,7 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _url;
   std::string _aws_sigv4;
   std::string _aws_userpwd;
-  struct curl_slist* _curl_header_list;
+  curl_slist* _curl_header_list{};
 
   /**
    * @brief Unwrap an optional parameter, obtaining a default from the environment.

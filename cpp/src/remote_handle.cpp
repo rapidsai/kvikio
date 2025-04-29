@@ -258,9 +258,9 @@ S3Endpoint::S3Endpoint(std::string url,
     std::stringstream ss;
     ss << "x-amz-security-token: " << session_token;
     _curl_header_list = curl_slist_append(NULL, ss.str().c_str());
-    if (!_curl_header_list) {
-      throw std::runtime_error("Failed to create curl header for AWS token");
-    }
+    KVIKIO_EXPECT(_curl_header_list != nullptr,
+                  "Failed to create curl header for AWS token",
+                  std::runtime_error);
   }
 }
 
