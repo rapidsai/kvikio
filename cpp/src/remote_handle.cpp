@@ -268,8 +268,8 @@ S3Endpoint::S3Endpoint(std::pair<std::string, std::string> bucket_and_object_nam
                        std::optional<std::string> aws_region,
                        std::optional<std::string> aws_access_key,
                        std::optional<std::string> aws_secret_access_key,
-                       std::optional<std::string> aws_session_token,
-                       std::optional<std::string> aws_endpoint_url)
+                       std::optional<std::string> aws_endpoint_url,
+                       std::optional<std::string> aws_session_token)
   : S3Endpoint(url_from_bucket_and_object(std::move(bucket_and_object_names.first),
                                           std::move(bucket_and_object_names.second),
                                           aws_region,
