@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -9,6 +9,7 @@ from typing import Optional
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport make_unique, unique_ptr
+from libcpp.pair cimport pair
 from libcpp.string cimport string
 from libcpp.utility cimport move, pair
 
@@ -25,7 +26,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
 
     cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint"(cpp_RemoteEndpoint):
         cpp_S3Endpoint(string url) except +
-        cpp_S3Endpoint(string bucket_name, string object_name) except +
+        cpp_S3Endpoint(pair[string, string] bucket_and_object_names) except +
 
     pair[string, string] cpp_parse_s3_url \
         "kvikio::S3Endpoint::parse_s3_url"(string url) except +
@@ -55,6 +56,10 @@ cdef string _to_string(str s):
         return s.encode()
     else:
         return string()
+
+cdef pair[string, string] _to_string_pair(str s1, str s2):
+    """Wrap two Python string objects in a C++ pair"""
+    return pair[string, string](_to_string(s1), _to_string(s2))
 
 # Helper function to cast an endpoint to its base class `RemoteEndpoint`
 cdef extern from *:
@@ -105,7 +110,7 @@ cdef class RemoteFile:
         return RemoteFile._from_endpoint(
             cast_to_remote_endpoint(
                 make_unique[cpp_S3Endpoint](
-                    _to_string(bucket_name), _to_string(object_name)
+                    _to_string_pair(bucket_name, object_name)
                 )
             ),
             nbytes
@@ -131,9 +136,7 @@ cdef class RemoteFile:
         cdef pair[string, string] bucket_and_object = cpp_parse_s3_url(_to_string(url))
         return RemoteFile._from_endpoint(
             cast_to_remote_endpoint(
-                make_unique[cpp_S3Endpoint](
-                    bucket_and_object.first, bucket_and_object.second
-                )
+                make_unique[cpp_S3Endpoint](bucket_and_object)
             ),
             nbytes
         )
