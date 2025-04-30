@@ -45,11 +45,12 @@ def pprint_sys_info() -> None:
             dev = pynvml.nvmlDeviceGetHandleByIndex(0)
 
         if dev is not None:
-            try:
+            is_mig = False
+            with contextlib.suppress(pynvml.NVMLError):
                 pynvml.nvmlDeviceGetMigMode(dev)
-            except pynvml.NVMLError:
-                pass
-            else:
+                is_mig = True
+
+            if not is_mig:
                 with contextlib.suppress(pynvml.NVMLError):
                     gpu_name = f"{pynvml.nvmlDeviceGetName(dev)} (dev #0)"
                     mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
