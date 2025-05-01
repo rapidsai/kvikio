@@ -180,13 +180,15 @@ class S3Endpoint : public RemoteEndpoint {
    * the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If nullopt, the value of the
    * `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular AWS
    * url scheme is used: "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
+   * @param aws_session_token The AWS session token to use. If nullopt, the value of the
+   * `AWS_SESSION_TOKEN` environment variable is used.
    */
   S3Endpoint(std::pair<std::string, std::string> bucket_and_object_names,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
              std::optional<std::string> aws_secret_access_key = std::nullopt,
-             std::optional<std::string> aws_session_token     = std::nullopt,
-             std::optional<std::string> aws_endpoint_url      = std::nullopt);
+             std::optional<std::string> aws_endpoint_url      = std::nullopt,
+             std::optional<std::string> aws_session_token     = std::nullopt);
 
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
