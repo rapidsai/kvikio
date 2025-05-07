@@ -44,7 +44,7 @@ option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
 option(KvikIO_CUDA_SUPPORT "Configure CMake to build with CUDA support" ON)
-option(KvikIO_EXPORT_NVCOMP "Export NVCOMP as a dependency" ON)
+option(KvikIO_EXPORT_NVCOMP "(Deprecated) Export NVCOMP as a dependency" ON)
 
 # ##################################################################################################
 # * conda environment ------------------------------------------------------------------------------
