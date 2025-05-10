@@ -14,7 +14,7 @@ from http.server import (
 )
 from typing import Any, Callable
 
-from libkvikio._version import __version__
+from kvikio._version import __version__
 
 
 class LocalHttpServer:
