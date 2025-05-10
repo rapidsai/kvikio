@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 from typing import Any, Mapping, Optional, Sequence
@@ -9,6 +9,9 @@ from numcodecs.compat import ensure_contiguous_ndarray_like
 
 from kvikio._lib.libnvcomp_ll import SUPPORTED_ALGORITHMS
 from kvikio.numcodecs import BufferLike, CudaCodec
+from kvikio.utils import kvikio_deprecate_module
+
+kvikio_deprecate_module("Use official nvCOMP Python API instead.")
 
 
 class NvCompBatchCodec(CudaCodec):

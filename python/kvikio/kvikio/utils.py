@@ -14,6 +14,8 @@ from http.server import (
 )
 from typing import Any, Callable
 
+from libkvikio._version import __version__
+
 
 class LocalHttpServer:
     """Local http server - slow but convenient"""
@@ -131,8 +133,12 @@ def call_once(func: Callable) -> Callable:
     return wrapper
 
 
-def kvikio_deprecation_notice(msg: str) -> Callable:
-    """Decorate a function to print the deprecation notice at runtime.
+def kvikio_deprecation_notice(
+    msg: str = "This function is deprecated.",
+    deprecated_since_version: str = __version__,
+) -> Callable:
+    """Decorate a function to print the deprecation notice at runtime,
+       and also add the notice to Sphinx documentation.
 
     Examples:
 
@@ -146,6 +152,9 @@ def kvikio_deprecation_notice(msg: str) -> Callable:
     msg: str
         The deprecation notice.
 
+    deprecated_since_version: str
+        The KvikIO version since which the function becomes deprecated.
+
     Returns
     -------
     Callable
@@ -157,8 +166,29 @@ def kvikio_deprecation_notice(msg: str) -> Callable:
             warnings.warn(msg, category=FutureWarning, stacklevel=2)
             return func(*args, **kwargs)
 
-        # Allow the docstring to be corrected generated for the decorated func in Sphinx
-        wrapper.__doc__ = func.__doc__
+        # Allow the docstring to be correctly generated for the decorated func in Sphinx
+        valid_docstring = "" if func.__doc__ is None else func.__doc__
+        wrapper.__doc__ = "{:} {:} {:}\n\n    {:}".format(
+            ".. deprecated::", deprecated_since_version, msg, valid_docstring
+        )
+
         return wrapper
 
     return decorator
+
+
+def kvikio_deprecate_module(
+    msg: str = "", deprecated_since_version: str = __version__
+) -> None:
+    """Mark a module as deprecated.
+
+    Parameters
+    ----------
+    msg: str
+        The deprecation notice.
+
+    deprecated_since_version: str
+        The KvikIO version since which the module becomes deprecated.
+    """
+    full_msg = f"This module is deprecated since {deprecated_since_version}. {msg}"
+    warnings.warn(full_msg, category=FutureWarning, stacklevel=2)
