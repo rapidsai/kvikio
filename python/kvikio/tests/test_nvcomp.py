@@ -8,8 +8,6 @@ cupy = pytest.importorskip("cupy")
 kvikio = pytest.importorskip("kvikio")
 libnvcomp = pytest.importorskip("kvikio.nvcomp")
 
-# Do not treat the deprecation notice as error
-pytestmark = pytest.mark.filterwarnings("ignore", category=FutureWarning)
 
 # TODO: don't hardcode the following expected values
 LEN = {

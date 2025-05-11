@@ -15,9 +15,6 @@ from numpy.testing import assert_equal
 
 from kvikio.nvcomp_codec import NvCompBatchCodec
 
-# Do not treat the deprecation notice as error
-pytestmark = pytest.mark.filterwarnings("ignore", category=FutureWarning)
-
 NVCOMP_CODEC_ID = "nvcomp_batch"
 
 LZ4_ALGO = "LZ4"
@@ -160,8 +157,7 @@ def test_comp_decomp(algo: str, shape_chunks):
     "algo, options",
     [
         ("lz4", {"data_type": 4}),  # NVCOMP_TYPE_INT data type.
-        # low-throughput, high compression ratio algo
-        ("gdeflate", {"algo": 1}),
+        ("gdeflate", {"algo": 1}),  # low-throughput, high compression ratio algo
     ],
 )
 @skip_if_zarr_v3()
