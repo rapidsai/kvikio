@@ -2,7 +2,6 @@
 # See file LICENSE for terms.
 
 import pytest
-pytestmark = pytest.mark.filterwarnings("ignore::FutureWarning")
 
 np = pytest.importorskip("numpy")
 cupy = pytest.importorskip("cupy")
