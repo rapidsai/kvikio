@@ -16,11 +16,12 @@ def test_function_deprecation():
 
     with pytest.warns(FutureWarning, match="my deprecation notice"):
         func()
-        assert ".. deprecated:: my_version" in getattr(func, "__doc__")
+
+    assert ".. deprecated:: my_version" in getattr(func, "__doc__")
 
 
 def test_module_deprecation():
-    """ "Test the utility function used to deprecate modules"""
+    """Test the utility function used to deprecate modules"""
 
     with pytest.warns(FutureWarning, match="my_version.*my deprecation notice"):
         kvikio.utils.kvikio_deprecate_module(
