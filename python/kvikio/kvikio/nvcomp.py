@@ -10,7 +10,7 @@ import kvikio._lib.libnvcomp as _lib
 from kvikio._lib.arr import asarray
 from kvikio.utils import kvikio_deprecate_module
 
-kvikio_deprecate_module("Use official nvCOMP Python API instead.")
+kvikio_deprecate_module("Use official nvCOMP Python API instead.", since="25.06")
 
 _dtype_map = {
     cp.dtype("int8"): _lib.pyNvcompType_t.pyNVCOMP_TYPE_CHAR,
