@@ -14,8 +14,6 @@ from http.server import (
 )
 from typing import Any, Callable
 
-from kvikio._version import __version__
-
 
 class LocalHttpServer:
     """Local http server - slow but convenient"""
@@ -177,7 +175,7 @@ def kvikio_deprecation_notice(
     return decorator
 
 
-def kvikio_deprecate_module(msg: str = "", *, since: str = __version__) -> None:
+def kvikio_deprecate_module(msg: str = "", *, since: str) -> None:
     """Mark a module as deprecated.
 
     Parameters

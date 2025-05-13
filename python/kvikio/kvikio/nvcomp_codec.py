@@ -11,7 +11,9 @@ from kvikio._lib.libnvcomp_ll import SUPPORTED_ALGORITHMS
 from kvikio.numcodecs import BufferLike, CudaCodec
 from kvikio.utils import kvikio_deprecate_module
 
-kvikio_deprecate_module("Use official nvCOMP Python API instead.", since="25.06")
+kvikio_deprecate_module(
+    "Use the official nvCOMP API from 'nvidia.nvcomp' instead.", since="25.06"
+)
 
 
 class NvCompBatchCodec(CudaCodec):
