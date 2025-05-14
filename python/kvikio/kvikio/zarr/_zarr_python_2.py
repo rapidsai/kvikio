@@ -23,11 +23,11 @@ from numcodecs.registry import register_codec
 from packaging.version import parse
 
 import kvikio
-import kvikio.nvcomp
-import kvikio.nvcomp_codec
+import kvikio._nvcomp
+import kvikio._nvcomp_codec
 import kvikio.zarr
+from kvikio._nvcomp_codec import NvCompBatchCodec
 from kvikio.numcodecs import BufferLike, CudaCodec
-from kvikio.nvcomp_codec import NvCompBatchCodec
 
 MINIMUM_ZARR_VERSION = "2.15"
 
@@ -337,7 +337,8 @@ def open_cupy_array(
         # In order to handle "a", we start by trying to open the file in read mode.
         try:
             ret = zarr.open_array(
-                store=kvikio.zarr.GDSStore(path=store),  # type: ignore[call-arg]
+                # type: ignore[call-arg]
+                store=kvikio.zarr.GDSStore(path=store),
                 mode="r+",
                 meta_array=meta_array,
                 **kwargs,
