@@ -160,6 +160,7 @@ filterwarnings = [
     "error",
     "ignore:Jitify is performing a one-time only warm-up to populate the persistent cache",
     "ignore::DeprecationWarning:botocore.*",
+    "ignore:This module is deprecated since.*Use the official nvCOMP API from 'nvidia.nvcomp' instead.:FutureWarning:.*nvcomp|.*nvcomp_codec",
 ]
 markers = [
     "cufile: tests to skip if cuFile isn't available e.g. run with `pytest -m 'not cufile'`"
