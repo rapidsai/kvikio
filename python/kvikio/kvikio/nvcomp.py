@@ -2,7 +2,7 @@
 # See file LICENSE for terms.
 
 
-from kvikio._nvcomp import (
+from kvikio._nvcomp import (  # noqa: F401
     ANSManager,
     BitcompManager,
     CascadedManager,
