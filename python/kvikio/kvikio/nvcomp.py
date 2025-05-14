@@ -2,7 +2,17 @@
 # See file LICENSE for terms.
 
 
-from kvikio._nvcomp import *
+from kvikio._nvcomp import (
+    ANSManager,
+    BitcompManager,
+    CascadedManager,
+    GdeflateManager,
+    LZ4Manager,
+    ManagedDecompressionManager,
+    SnappyManager,
+    cp_to_nvcomp_dtype,
+    nvCompManager,
+)
 from kvikio.utils import kvikio_deprecate_module
 
 kvikio_deprecate_module(

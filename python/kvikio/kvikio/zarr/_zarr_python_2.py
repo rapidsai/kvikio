@@ -337,8 +337,7 @@ def open_cupy_array(
         # In order to handle "a", we start by trying to open the file in read mode.
         try:
             ret = zarr.open_array(
-                # type: ignore[call-arg]
-                store=kvikio.zarr.GDSStore(path=store),
+                store=kvikio.zarr.GDSStore(path=store),  # type: ignore[call-arg]
                 mode="r+",
                 meta_array=meta_array,
                 **kwargs,

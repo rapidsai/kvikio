@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 from typing import Any, Mapping, Optional, Sequence
@@ -76,8 +76,7 @@ class NvCompBatchCodec(CudaCodec):
         max_chunk_size = max(buf_sizes)
 
         # Get temp and output buffer sizes.
-        temp_size = self._algo.get_compress_temp_size(
-            num_chunks, max_chunk_size)
+        temp_size = self._algo.get_compress_temp_size(num_chunks, max_chunk_size)
         comp_chunk_size = self._algo.get_compress_chunk_size(max_chunk_size)
 
         # Prepare data and size buffers.
@@ -90,8 +89,7 @@ class NvCompBatchCodec(CudaCodec):
 
         comp_chunks = cp.empty((num_chunks, comp_chunk_size), dtype=cp.uint8)
         # Array of pointers to each compressed chunk.
-        comp_chunk_ptrs = cp.array(
-            [c.data.ptr for c in comp_chunks], dtype=cp.uintp)
+        comp_chunk_ptrs = cp.array([c.data.ptr for c in comp_chunks], dtype=cp.uintp)
         # Resulting compressed chunk sizes.
         comp_chunk_sizes = cp.empty(num_chunks, dtype=cp.uint64)
 
@@ -147,8 +145,7 @@ class NvCompBatchCodec(CudaCodec):
         # of the same kind.
         is_host_buffer = not hasattr(bufs[0], "__cuda_array_interface__")
         if is_host_buffer:
-            bufs = [cp.asarray(ensure_contiguous_ndarray_like(b))
-                    for b in bufs]
+            bufs = [cp.asarray(ensure_contiguous_ndarray_like(b)) for b in bufs]
 
         # Prepare compressed chunks buffers.
         comp_chunks = cp.array([b.data.ptr for b in bufs], dtype=cp.uintp)
@@ -168,8 +165,7 @@ class NvCompBatchCodec(CudaCodec):
         is_equal_chunks = sorted_chunk_sizes.shape[0] == 1
 
         # Get temp buffer size.
-        temp_size = self._algo.get_decompress_temp_size(
-            num_chunks, max_chunk_size)
+        temp_size = self._algo.get_decompress_temp_size(num_chunks, max_chunk_size)
 
         temp_buf = cp.empty(temp_size, dtype=cp.uint8)
 
@@ -181,8 +177,7 @@ class NvCompBatchCodec(CudaCodec):
         uncomp_chunks = cp.empty((num_chunks, max_chunk_size), dtype=cp.uint8)
         p_start = uncomp_chunks.data.ptr
         uncomp_chunk_ptrs = cp.uint64(p_start) + (
-            cp.arange(0, num_chunks * max_chunk_size,
-                      max_chunk_size, dtype=cp.uint64)
+            cp.arange(0, num_chunks * max_chunk_size, max_chunk_size, dtype=cp.uint64)
         )
 
         # TODO(akamenev): currently we provide the following 2 buffers to decompress()
@@ -220,8 +215,7 @@ class NvCompBatchCodec(CudaCodec):
                 if hasattr(o, "__cuda_array_interface__"):
                     cp.copyto(o, ret.view(dtype=o.dtype), casting="no")
                 else:
-                    cp.asnumpy(ret.view(dtype=o.dtype),
-                               out=o, stream=self._stream)
+                    cp.asnumpy(ret.view(dtype=o.dtype), out=o, stream=self._stream)
                 res.append(o)
         self._stream.synchronize()
 
