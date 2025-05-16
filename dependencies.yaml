@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.9"]
+      cuda: ["11.8", "12.8"]
       arch: [aarch64, x86_64]
     includes:
       - build-universal
