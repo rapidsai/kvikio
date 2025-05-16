@@ -1,0 +1,79 @@
+/*
+ * Copyright (c) 2025, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#pragma once
+
+#include <cstddef>
+#include <future>
+
+#include <kvikio/file_handle.hpp>
+
+namespace kvikio {
+
+class MmapHandle {
+ private:
+  void* _buf{};
+  void* _external_buf{};
+  std::size_t _offset{};
+  std::size_t _size{};
+  std::size_t _file_size{};  // The size of the underlying file, zero means unknown.
+
+  std::size_t _map_offset{};
+  std::size_t _map_size{};
+  void* _map_addr{};
+
+  std::ptrdiff_t _offset_delta{};
+
+  bool _initialized{};
+  int _map_protection_flag{};
+  FileWrapper _file_wrapper{};
+
+  void map();
+  void unmap();
+
+ public:
+  MmapHandle(std::string const& file_path,
+             std::string const& flags = "r",
+             std::size_t offset       = 0,
+             std::size_t size         = 0,
+             void* external_buf       = nullptr,
+             mode_t mode              = FileHandle::m644);
+
+  MmapHandle(MmapHandle const&)            = delete;
+  MmapHandle& operator=(MmapHandle const&) = delete;
+  MmapHandle(MmapHandle&& o) noexcept;
+  MmapHandle& operator=(MmapHandle&& o) noexcept;
+  ~MmapHandle() noexcept;
+
+  [[nodiscard]] bool closed() const noexcept;
+
+  void close() noexcept;
+
+  std::pair<void*, std::size_t> read(std::size_t size,
+                                     std::size_t file_offset,
+                                     bool prefault = false);
+
+  std::pair<void*, std::future<std::size_t>> pread(std::size_t size,
+                                                   std::size_t file_offset = 0,
+                                                   bool prefault           = false);
+
+  std::future<std::size_t> pread(void* buf,
+                                 std::size_t size,
+                                 std::size_t file_offset = 0,
+                                 bool prefault           = false);
+
+  static void do_prefault(void* buf, std::size_t size);
+};
+}  // namespace kvikio

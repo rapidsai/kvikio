@@ -147,6 +147,7 @@ set(SOURCES
     "src/error.cpp"
     "src/file_handle.cpp"
     "src/file_utils.cpp"
+    "src/mmap.cpp"
     "src/nvtx.cpp"
     "src/posix_io.cpp"
     "src/shim/cuda.cpp"
