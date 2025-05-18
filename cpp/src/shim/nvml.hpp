@@ -17,6 +17,7 @@
 
 #include <sstream>
 
+#include <kvikio/shim/cuda.hpp>
 #include "nvml_h_wrapper.hpp"
 
 /**
@@ -81,6 +82,11 @@ class NvmlAPI {
    */
   decltype(&nvmlDeviceGetFieldValues) DeviceGetFieldValues{nullptr};
 
+  /**
+   * @brief Wrapper for nvmlDeviceGetHandleByUUID.
+   */
+  decltype(&nvmlDeviceGetHandleByUUID) DeviceGetHandleByUUID{nullptr};
+
  private:
   NvmlAPI();
 };
@@ -114,14 +120,6 @@ bool is_nvml_available();
 constexpr bool is_nvml_available() { return false; }
 #endif
 
-/**
- * @brief Check if the current device has at least one active NVLink-C2C interconnect.
- *
- * @return Boolean answer.
- */
-#ifdef KVIKIO_CUDA_FOUND
-bool is_c2c_available();
-#else
-constexpr bool is_c2c_available() { return false; }
-#endif
+nvmlDevice_t convert_device_handle_from_cuda_to_nvml(CUdevice cuda_device_handle);
+
 }  // namespace kvikio

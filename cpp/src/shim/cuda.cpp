@@ -39,6 +39,8 @@ cudaAPI::cudaAPI()
   get_symbol(CtxPopCurrent, lib, KVIKIO_STRINGIFY(cuCtxPopCurrent));
   get_symbol(CtxGetCurrent, lib, KVIKIO_STRINGIFY(cuCtxGetCurrent));
   get_symbol(CtxGetDevice, lib, KVIKIO_STRINGIFY(cuCtxGetDevice));
+  get_symbol(DeviceGetUuid, lib, KVIKIO_STRINGIFY(cuDeviceGetUuid_v2));
+  get_symbol(DriverGetVersion, lib, KVIKIO_STRINGIFY(cuDriverGetVersion));
   get_symbol(MemGetAddressRange, lib, KVIKIO_STRINGIFY(cuMemGetAddressRange));
   get_symbol(GetErrorName, lib, KVIKIO_STRINGIFY(cuGetErrorName));
   get_symbol(GetErrorString, lib, KVIKIO_STRINGIFY(cuGetErrorString));

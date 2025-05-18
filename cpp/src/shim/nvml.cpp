@@ -31,8 +31,12 @@
  */
 
 #include "nvml.hpp"
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+
 #include <kvikio/error.hpp>
-#include "kvikio/shim/cuda.hpp"
+#include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
 
@@ -45,6 +49,7 @@ NvmlAPI::NvmlAPI()
   get_symbol(ErrorString, lib_handle, "nvmlErrorString");
   get_symbol(DeviceGetHandleByIndex, lib_handle, "nvmlDeviceGetHandleByIndex_v2");
   get_symbol(DeviceGetFieldValues, lib_handle, "nvmlDeviceGetFieldValues");
+  get_symbol(DeviceGetHandleByUUID, lib_handle, "nvmlDeviceGetHandleByUUID");
   CHECK_NVML(Init());
 }
 #else
@@ -70,23 +75,39 @@ bool is_nvml_available()
 #endif
 
 #ifdef KVIKIO_CUDA_FOUND
-bool is_c2c_available()
+nvmlDevice_t convert_device_handle_from_cuda_to_nvml(CUdevice cuda_device_handle)
 {
-  // todo: remove this once CUDA 11 support is dropped
-#if CUDA_VERSION < 12000
-  return false;
+  // CUDA UUID is a 16-byte array, e.g.: 0x0011 0x2233 0x4455 0x6677 0x8899 0xaabb 0xccdd 0xeeff.
+  // There is no prefix to distinguish GPU from MIG.
+
+  // NVML UUID is a string with prefix and hyphens.
+  // e.g.: GPU-00112233-4455-6677-8899-aabbccddeeff.
+  // The prefix can be GPU or MIG.
+
+  CUuuid uuid{};
+  CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetUuid(&uuid, cuda_device_handle));
+  std::stringstream ss;
+  for (std::size_t i = 0; i < sizeof(uuid.bytes); ++i) {
+    if (i == 4 || i == 6 || i == 8 || i == 10) { ss << '-'; }
+    ss << std::hex << std::setfill('0') << std::setw(2) << (static_cast<int>(uuid.bytes[i]) & 0xff);
+  }
+
+  nvmlDevice_t nvml_device_handle{};
+  try {
+    std::string const gpu_uuid = "GPU-" + ss.str();
+    CHECK_NVML(NvmlAPI::instance().DeviceGetHandleByUUID(gpu_uuid.c_str(), &nvml_device_handle));
+  } catch (...) {
+    std::string const mig_uuid = "MIG-" + ss.str();
+    CHECK_NVML(NvmlAPI::instance().DeviceGetHandleByUUID(mig_uuid.c_str(), &nvml_device_handle));
+  }
+
+  return nvml_device_handle;
+}
 #else
-  nvmlDevice_t device_handle_nvml{};
-  CUdevice device_handle_cuda{};
-  cudaAPI::instance().CtxGetDevice(&device_handle_cuda);
-  CHECK_NVML(NvmlAPI::instance().DeviceGetHandleByIndex(device_handle_cuda, &device_handle_nvml));
-
-  nvmlFieldValue_t field{};
-  field.fieldId = NVML_FI_DEV_C2C_LINK_COUNT;
-  CHECK_NVML(NvmlAPI::instance().DeviceGetFieldValues(device_handle_nvml, 1, &field));
-
-  return (field.nvmlReturn == nvmlReturn_t::NVML_SUCCESS) && (field.value.uiVal > 0);
-#endif
+nvmlDevice_t convert_device_handle_from_cuda_to_nvml(CUdevice cuda_device_handle)
+{
+  KVIKIO_FAIL("KvikIO not compiled with CUDA support.", std::runtime_error);
+  return nvmlDevice_t{};
 }
 #endif
 
