@@ -18,10 +18,14 @@
 #ifdef KVIKIO_CUDA_FOUND
 #include <nvml.h>
 #else
-using nvmlReturn_t = int;
+enum nvmlReturn_t {
+  NVML_SUCCESS,
+};
+using nvmlDevice_t = int;
 nvmlReturn_t nvmlInit_v2(...);
 nvmlReturn_t nvmlShutdown(...);
 nvmlReturn_t nvmlErrorString(...);
 nvmlReturn_t nvmlDeviceGetHandleByIndex_v2(...);
 nvmlReturn_t nvmlDeviceGetFieldValues(...);
+nvmlReturn_t nvmlDeviceGetHandleByUUID(...);
 #endif

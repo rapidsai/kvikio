@@ -87,7 +87,7 @@ class NvmlAPI {
  */
 inline void check_nvml(nvmlReturn_t err_code, const char* file, int line)
 {
-  if (err_code == nvmlReturn_enum::NVML_SUCCESS) { return; }
+  if (err_code == nvmlReturn_t::NVML_SUCCESS) { return; }
   std::stringstream ss;
   ss << "NVML error: " << err_code << " " << NvmlAPI::instance().ErrorString(err_code) << " in "
      << file << " at line " << line << std::endl;

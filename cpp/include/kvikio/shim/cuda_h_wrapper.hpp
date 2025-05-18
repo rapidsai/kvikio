@@ -66,6 +66,7 @@ CUresult cuCtxPushCurrent(...);
 CUresult cuCtxPopCurrent(...);
 CUresult cuCtxGetCurrent(...);
 CUresult cuCtxGetDevice(...);
+CUresult cuDeviceGetUuid_v2(...);
 CUresult cuDriverGetVersion(...);
 CUresult cuMemGetAddressRange(...);
 CUresult cuGetErrorName(...);
