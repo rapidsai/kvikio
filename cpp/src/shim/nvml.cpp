@@ -31,6 +31,7 @@
  */
 
 #include "nvml.hpp"
+
 #include <iomanip>
 #include <iostream>
 #include <sstream>

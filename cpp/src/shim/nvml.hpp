@@ -15,10 +15,11 @@
  */
 #pragma once
 
+#include "nvml_h_wrapper.hpp"
+
 #include <sstream>
 
 #include <kvikio/shim/cuda.hpp>
-#include "nvml_h_wrapper.hpp"
 
 /**
  * @brief Macro for checking the error code of the NVML API call.
@@ -37,8 +38,8 @@ namespace kvikio {
 /**
  * @brief Singleton class to manage dynamic loading of the NVML library.
  *
- * NVML initialization is costly. Using this singleton ensures it is performed only once per
- * process. NVML shutdown is not performed in the destructor, but a wrapper is provided anyway to be
+ * @note NVML initialization is costly, and is performed in the constructor of this singleton class.
+ * NVML shutdown is not performed in the destructor, but a wrapper is provided anyway to be
  * explicitly called on users' discretion.
  */
 class NvmlAPI {
@@ -49,42 +50,26 @@ class NvmlAPI {
   NvmlAPI& operator=(NvmlAPI&&)      = delete;
 
   /**
-   * @brief Get the NvmlAPI singleton instance.
+   * @brief Get the NvmlAPI singleton instance
    *
-   * @return The NvmlAPI singleton instance.
+   * @return The NvmlAPI singleton instance
    *
    * @throws std::runtime_error if the NVML shared library exists but the symbols fail to load.
    */
   static NvmlAPI& instance();
 
   /**
-   * @brief Wrapper for nvmlInit_v2.
+   * @brief Call nvmlShutdown
+   *
+   * @throws std::runtime_error if the shutdown is not successful.
    */
+  void shutdown();
+
   decltype(&nvmlInit_v2) Init{nullptr};
-
-  /**
-   * @brief Wrapper for nvmlShutdown.
-   */
   decltype(&nvmlShutdown) Shutdown{nullptr};
-
-  /**
-   * @brief Wrapper for nvmlErrorString.
-   */
   decltype(&nvmlErrorString) ErrorString{nullptr};
-
-  /**
-   * @brief Wrapper for nvmlDeviceGetHandleByIndex_v2.
-   */
   decltype(&nvmlDeviceGetHandleByIndex_v2) DeviceGetHandleByIndex{nullptr};
-
-  /**
-   * @brief Wrapper for nvmlDeviceGetFieldValues.
-   */
   decltype(&nvmlDeviceGetFieldValues) DeviceGetFieldValues{nullptr};
-
-  /**
-   * @brief Wrapper for nvmlDeviceGetHandleByUUID.
-   */
   decltype(&nvmlDeviceGetHandleByUUID) DeviceGetHandleByUUID{nullptr};
 
  private:
@@ -109,6 +94,17 @@ inline void check_nvml(nvmlReturn_t err_code, const char* file, int line)
   throw std::runtime_error(ss.str());
 }
 
+/**
+ * @brief Given a CUDA device handle, get its corresponding NVML device handle.
+ *
+ * On a multi-GPU system, CUDA and NVML enumerate devices in different ways. This utility function
+ * performs the CUDA-to-NVML conversion on the device handle. The conversion is implemented using
+ * the invariant UUID, which is the most recommended. The other, less optimal way would be using
+ * PCIe bus.
+ *
+ * @param cuda_device_handle CUDA device handle
+ * @return NVML device handle
+ */
 nvmlDevice_t convert_device_handle_from_cuda_to_nvml(CUdevice cuda_device_handle);
 
 }  // namespace kvikio

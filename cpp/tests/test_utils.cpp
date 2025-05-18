@@ -15,9 +15,8 @@
  */
 
 #include <cuda_runtime.h>
-
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include <kvikio/utils.hpp>
 
 TEST(UtilsTest, c2c_available)
