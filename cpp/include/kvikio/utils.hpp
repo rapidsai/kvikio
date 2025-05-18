@@ -192,6 +192,17 @@ bool is_future_done(T const& future)
 }
 
 /**
+ * @brief Check whether the NVML shared library exists.
+ *
+ * @return Boolean answer.
+ */
+#ifdef KVIKIO_CUDA_FOUND
+bool is_nvml_available();
+#else
+constexpr bool is_nvml_available() { return false; }
+#endif
+
+/**
  * @brief Type of the device ID. On a multi-GPU system, CUDA and NVML enumerate devices in different
  * ways.
  */

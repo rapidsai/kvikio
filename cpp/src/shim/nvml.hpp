@@ -109,17 +109,6 @@ inline void check_nvml(nvmlReturn_t err_code, const char* file, int line)
   throw std::runtime_error(ss.str());
 }
 
-/**
- * @brief Check whether the NVML shared library exists.
- *
- * @return Boolean answer.
- */
-#ifdef KVIKIO_CUDA_FOUND
-bool is_nvml_available();
-#else
-constexpr bool is_nvml_available() { return false; }
-#endif
-
 nvmlDevice_t convert_device_handle_from_cuda_to_nvml(CUdevice cuda_device_handle);
 
 }  // namespace kvikio

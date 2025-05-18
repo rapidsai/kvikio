@@ -22,6 +22,10 @@
 
 TEST(UtilsTest, c2c_available)
 {
+  if (!kvikio::is_nvml_available()) {
+    GTEST_SKIP() << "Skipping tests that require the NVML library.";
+  }
+
   cudaFree(nullptr);
   EXPECT_NO_THROW(kvikio::is_c2c_available(0));
 }
