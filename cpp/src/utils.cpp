@@ -201,9 +201,11 @@ bool is_c2c_available(int device_idx, DeviceIdType device_id_type)
 
   nvmlFieldValue_t field{};
   field.fieldId = NVML_FI_DEV_C2C_LINK_COUNT;
-  CHECK_NVML(NvmlAPI::instance().DeviceGetFieldValues(device_handle_nvml, 1, &field));
+  int const num_field_values{1};
+  CHECK_NVML(
+    NvmlAPI::instance().DeviceGetFieldValues(device_handle_nvml, num_field_values, &field));
 
-  return (field.nvmlReturn == nvmlReturn_t::NVML_SUCCESS) && (field.value.uiVal > 0);
+  return (field.nvmlReturn == nvmlReturn_t::NVML_SUCCESS) && (field.value.uiVal > 0u);
 }
 #endif
 
