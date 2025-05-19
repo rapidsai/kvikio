@@ -50,7 +50,7 @@ void* load_library(std::vector<std::string> const& names, int mode)
 bool is_running_in_wsl() noexcept
 {
   try {
-    struct utsname buf {};
+    struct utsname buf{};
     int err = ::uname(&buf);
     if (err == 0) {
       std::string const name(static_cast<char*>(buf.release));
