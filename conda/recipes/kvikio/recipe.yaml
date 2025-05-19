@@ -71,6 +71,7 @@ requirements:
     - python =${{ py_version }}
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - scikit-build-core >=0.10.0
+    - cuda-nvml-dev
     - if: cuda_major == "11"
       then:
         - cudatoolkit
@@ -91,6 +92,7 @@ requirements:
     - packaging
     - python
     - zarr >=2.0.0,<4.0.0a0
+    - cuda-nvml-dev
     - if: cuda_major == "11"
       then:
         - cudatoolkit
