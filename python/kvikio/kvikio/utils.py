@@ -166,7 +166,7 @@ def kvikio_deprecation_notice(
         # Allow the docstring to be correctly generated for the decorated func in Sphinx
         func_doc = getattr(func, "__doc__")
         valid_docstring = "" if func_doc is None else func_doc
-        wrapper.__doc__ = "{:} {:} {:}\n\n    {:}".format(
+        wrapper.__doc__ = "{:} {:} {:}\n\n{:}".format(
             ".. deprecated::", since, msg, valid_docstring
         )
 
