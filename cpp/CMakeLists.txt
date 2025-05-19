@@ -77,6 +77,12 @@ if(KvikIO_CUDA_SUPPORT)
   )
   include(cmake/thirdparty/get_nvtx.cmake)
 
+  if(NOT TARGET CUDA::nvml)
+    message(FATAL_ERROR "Cannot find NVML")
+  else()
+    get_target_property(KVIKIO_NVML_INCLUDE_DIR CUDA::nvml INTERFACE_INCLUDE_DIRECTORIES)
+  endif()
+
   if(NOT TARGET CUDA::cuFile)
     message(
       WARNING "Cannot find cuFile - KvikIO will still work but won't use GPUDirect Storage (GDS)"
@@ -176,6 +182,7 @@ target_include_directories(
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
          "$<BUILD_INTERFACE:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:${CUDAToolkit_INCLUDE_DIRS}>>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
+  PRIVATE "$<BUILD_INTERFACE:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:${KVIKIO_NVML_INCLUDE_DIR}>>"
 )
 
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
