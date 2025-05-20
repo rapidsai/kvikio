@@ -59,7 +59,6 @@ cache:
     host:
       - cuda-version =${{ cuda_version }}
       - libcurl ${{ libcurl_version }}
-      - cuda-nvml-dev
       - if: cuda_major == "11"
         then:
           - cudatoolkit
@@ -67,7 +66,9 @@ cache:
             then:
               - libcufile =${{ cuda11_libcufile_host_version }}
               - libcufile-dev =${{ cuda11_libcufile_host_version }}
-        else: libcufile-dev
+        else:
+          - libcufile-dev
+          - cuda-nvml-dev
 
 outputs:
   - package:
@@ -92,7 +93,6 @@ outputs:
         - libcurl ${{ libcurl_version }}
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - cuda-nvml-dev
         - if: cuda_major == "11"
           then:
             - cudatoolkit
@@ -101,17 +101,19 @@ outputs:
                 - libcufile ${{ cuda11_libcufile_run_version }}
                 - libcufile-dev ${{ cuda11_libcufile_run_version }}
           else:
+            - cuda-nvml-dev
             - if: linux
               then: libcufile-dev
       ignore_run_exports:
         by_name:
           - cuda-version
           - libcufile
-          - cuda-nvml-dev
           - libcurl
           - if: cuda_major == "11"
             then:
               - cudatoolkit
+            else:
+              - cuda-nvml-dev
     tests:
       - script:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
@@ -137,7 +139,6 @@ outputs:
       host:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - cuda-nvml-dev
         - if: cuda_major == "11"
           then:
             - cudatoolkit
@@ -146,11 +147,11 @@ outputs:
                 - libcufile-dev =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart-dev
+            - cuda-nvml-dev
             - if: linux
               then: libcufile-dev
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - cuda-nvml-dev
         - if: cuda_major == "11"
           then:
             - cudatoolkit
@@ -159,18 +160,20 @@ outputs:
                 - libcufile =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart
+            - cuda-nvml-dev
             - if: linux
               then: libcufile
       ignore_run_exports:
         by_name:
           - cuda-cudart
           - cuda-version
-          - cuda-nvml-dev
           - libcufile
           - libcurl
           - if: cuda_major == "11"
             then:
               - cudatoolkit
+            else:
+              - cuda-nvml-dev
     about:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license.text }}

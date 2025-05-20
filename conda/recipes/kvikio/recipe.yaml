@@ -71,7 +71,6 @@ requirements:
     - python =${{ py_version }}
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - scikit-build-core >=0.10.0
-    - cuda-nvml-dev
     - if: cuda_major == "11"
       then:
         - cudatoolkit
@@ -79,6 +78,7 @@ requirements:
           then: libcufile-dev =${{ cuda11_libcufile_host_version }}
       else:
         - cuda-cudart-dev
+        - cuda-nvml-dev
         - if: linux
           then: libcufile-dev
   run:
@@ -92,7 +92,6 @@ requirements:
     - packaging
     - python
     - zarr >=2.0.0,<4.0.0a0
-    - cuda-nvml-dev
     - if: cuda_major == "11"
       then:
         - cudatoolkit
@@ -100,6 +99,7 @@ requirements:
           then: libcufile ${{ cuda11_libcufile_run_version }}
       else:
         - cuda-cudart
+        - cuda-nvml-dev
         - if: linux
           then: libcufile
   ignore_run_exports:

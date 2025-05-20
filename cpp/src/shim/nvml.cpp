@@ -41,7 +41,7 @@
 
 namespace kvikio {
 
-#ifdef KVIKIO_CUDA_FOUND
+#ifdef KVIKIO_NVML_FOUND
 NvmlAPI::NvmlAPI()
 {
   auto lib_handle = load_library("libnvidia-ml.so.1");
@@ -63,7 +63,7 @@ NvmlAPI& NvmlAPI::instance()
   return instance;
 }
 
-#ifdef KVIKIO_CUDA_FOUND
+#ifdef KVIKIO_NVML_FOUND
 bool is_nvml_available()
 {
   try {
@@ -75,7 +75,7 @@ bool is_nvml_available()
 }
 #endif
 
-#ifdef KVIKIO_CUDA_FOUND
+#ifdef KVIKIO_NVML_FOUND
 nvmlDevice_t convert_device_handle_from_cuda_to_nvml(CUdevice cuda_device_handle)
 {
   // CUDA UUID is a 16-byte array, e.g.: 0x0011 0x2233 0x4455 0x6677 0x8899 0xaabb 0xccdd 0xeeff.

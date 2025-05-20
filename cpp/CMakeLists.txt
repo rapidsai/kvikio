@@ -69,6 +69,9 @@ if(KvikIO_REMOTE_SUPPORT)
 endif()
 
 set(cuFile_FOUND 0)
+# todo: Let nvml_FOUND be 0 if CUDA version is less than 12. This is to circumvent a potential CUDA
+# 11 build issue. Remove nvml_FOUND and KVIKIO_NVML_FOUND once CUDA 11 support is dropped.
+set(nvml_FOUND 0)
 if(KvikIO_CUDA_SUPPORT)
   rapids_find_package(
     CUDAToolkit REQUIRED
@@ -77,10 +80,13 @@ if(KvikIO_CUDA_SUPPORT)
   )
   include(cmake/thirdparty/get_nvtx.cmake)
 
-  if(NOT TARGET CUDA::nvml)
-    message(FATAL_ERROR "Cannot find NVML")
-  else()
-    get_target_property(KVIKIO_NVML_INCLUDE_DIR CUDA::nvml INTERFACE_INCLUDE_DIRECTORIES)
+  if(CUDAToolkit_VERSION_MAJOR VERSION_GREATER_EQUAL 12)
+    if(NOT TARGET CUDA::nvml)
+      message(FATAL_ERROR "Cannot find NVML")
+    else()
+      set(nvml_FOUND 1)
+      get_target_property(KVIKIO_NVML_INCLUDE_DIR CUDA::nvml INTERFACE_INCLUDE_DIRECTORIES)
+    endif()
   endif()
 
   if(NOT TARGET CUDA::cuFile)
@@ -196,6 +202,7 @@ target_compile_definitions(
   kvikio
   PUBLIC $<$<BOOL:${KvikIO_REMOTE_SUPPORT}>:KVIKIO_LIBCURL_FOUND>
          $<$<BOOL:${KvikIO_CUDA_SUPPORT}>:KVIKIO_CUDA_FOUND>
+         $<$<BOOL:${nvml_FOUND}>:KVIKIO_NVML_FOUND>
          $<$<BOOL:${cuFile_FOUND}>:KVIKIO_CUFILE_FOUND>
          $<$<BOOL:${cuFile_BATCH_API_FOUND}>:KVIKIO_CUFILE_BATCH_API_FOUND>
          $<$<BOOL:${cuFile_STREAM_API_FOUND}>:KVIKIO_CUFILE_STREAM_API_FOUND>

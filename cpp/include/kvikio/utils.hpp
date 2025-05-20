@@ -196,7 +196,7 @@ bool is_future_done(T const& future)
  *
  * @return Boolean answer.
  */
-#ifdef KVIKIO_CUDA_FOUND
+#ifdef KVIKIO_NVML_FOUND
 bool is_nvml_available();
 #else
 constexpr bool is_nvml_available() { return false; }
@@ -216,7 +216,7 @@ enum class DeviceIdType : uint8_t {
  *
  * @return Boolean answer.
  */
-#ifdef KVIKIO_CUDA_FOUND
+#ifdef KVIKIO_NVML_FOUND
 bool is_c2c_available(int device_idx, DeviceIdType device_id_type = DeviceIdType::CUDA);
 #else
 constexpr bool is_c2c_available(int device_idx, DeviceIdType device_id_type = DeviceIdType::CUDA)

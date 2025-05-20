@@ -181,7 +181,7 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
 }
 
-#ifdef KVIKIO_CUDA_FOUND
+#ifdef KVIKIO_NVML_FOUND
 bool is_c2c_available(int device_idx, DeviceIdType device_id_type)
 {
   // todo: Remove the version checking once CUDA 11 support is dropped.

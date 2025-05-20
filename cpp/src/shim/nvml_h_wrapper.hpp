@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#ifdef KVIKIO_CUDA_FOUND
+#ifdef KVIKIO_NVML_FOUND
 #include <nvml.h>
 #else
 enum nvmlReturn_t {
