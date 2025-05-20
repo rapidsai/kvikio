@@ -85,6 +85,9 @@ if(KvikIO_CUDA_SUPPORT)
       message(FATAL_ERROR "Cannot find NVML")
     else()
       set(nvml_FOUND 1)
+      # KvikIO uses an NVML shim that dynamically loads the NVML shared library at runtime. At build
+      # time only the header location is needed and therefore is extracted here. The shared library
+      # is not linked against KvikIO.
       get_target_property(KVIKIO_NVML_INCLUDE_DIR CUDA::nvml INTERFACE_INCLUDE_DIRECTORIES)
     endif()
   endif()
