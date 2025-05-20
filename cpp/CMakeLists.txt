@@ -187,7 +187,6 @@ target_include_directories(
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
          "$<BUILD_INTERFACE:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:${CUDAToolkit_INCLUDE_DIRS}>>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
-  PRIVATE "$<BUILD_INTERFACE:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:${KVIKIO_NVML_INCLUDE_DIR}>>"
 )
 
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`. Also
