@@ -124,12 +124,15 @@ void cuFileAPI::driver_close()
 #ifdef KVIKIO_CUFILE_FOUND
 bool is_cufile_library_available() noexcept
 {
-  try {
-    cuFileAPI::instance();
-  } catch (...) {
-    return false;
-  }
-  return true;
+  static auto result = []() -> bool {
+    try {
+      cuFileAPI::instance();
+    } catch (...) {
+      return false;
+    }
+    return true;
+  }();
+  return result;
 }
 #endif
 

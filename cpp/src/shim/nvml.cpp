@@ -50,12 +50,15 @@ NvmlAPI& NvmlAPI::instance()
 #ifdef KVIKIO_NVML_FOUND
 bool is_nvml_available()
 {
-  try {
-    NvmlAPI::instance();
-  } catch (std::runtime_error const&) {
-    return false;
-  }
-  return true;
+  static auto result = []() -> bool {
+    try {
+      NvmlAPI::instance();
+    } catch (std::runtime_error const&) {
+      return false;
+    }
+    return true;
+  }();
+  return result;
 }
 #endif
 

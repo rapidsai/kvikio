@@ -64,12 +64,15 @@ cudaAPI& cudaAPI::instance()
 #ifdef KVIKIO_CUDA_FOUND
 bool is_cuda_available()
 {
-  try {
-    cudaAPI::instance();
-  } catch (std::runtime_error const&) {
-    return false;
-  }
-  return true;
+  static auto result = []() -> bool {
+    try {
+      cudaAPI::instance();
+    } catch (std::runtime_error const&) {
+      return false;
+    }
+    return true;
+  }();
+  return result;
 }
 #endif
 
