@@ -85,6 +85,10 @@ if(KvikIO_CUDA_SUPPORT)
       message(FATAL_ERROR "Cannot find NVML")
     else()
       set(nvml_FOUND 1)
+      # KvikIO uses an NVML shim that dynamically loads the NVML shared library at runtime. At build
+      # time only the header location is needed and therefore is extracted here. The shared library
+      # is not linked against KvikIO.
+      get_target_property(KVIKIO_NVML_INCLUDE_DIR CUDA::nvml INTERFACE_INCLUDE_DIRECTORIES)
     endif()
   endif()
 
@@ -190,14 +194,11 @@ target_include_directories(
   PRIVATE "$<BUILD_INTERFACE:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:${KVIKIO_NVML_INCLUDE_DIR}>>"
 )
 
-# Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`. Also
-# note that KvikIO uses an NVML shim that dynamically loads the NVML shared library at runtime. At
-# build time only the header location is needed. The shared library is not linked against KvikIO.
-# `BUILD_LOCAL_INTERFACE` here serves this purpose.
+# Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
 target_link_libraries(
   kvikio
   PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
-  PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl> $<BUILD_LOCAL_INTERFACE:CUDA::nvml>
+  PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
 
 target_compile_definitions(
