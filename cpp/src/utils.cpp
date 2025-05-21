@@ -216,4 +216,11 @@ bool is_c2c_available(int device_idx, DeviceIdType device_id_type)
 }
 #endif
 
+void nvml_shutdown()
+{
+#ifdef KVIKIO_NVML_FOUND
+  NvmlAPI::instance().Shutdown();
+#endif
+}
+
 }  // namespace kvikio

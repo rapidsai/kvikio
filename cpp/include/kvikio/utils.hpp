@@ -225,4 +225,12 @@ constexpr bool is_c2c_available(int device_idx, DeviceIdType device_id_type = De
 }
 #endif
 
+/**
+ * @brief Shut down NVML
+ *
+ * The NVML shim singleton does not perform shutdown in the destructor. If a cleanup is desired,
+ * call this function before the return of `main()`.
+ */
+void nvml_shutdown();
+
 }  // namespace kvikio
