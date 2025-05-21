@@ -40,7 +40,7 @@ namespace kvikio {
  *
  * @note NVML initialization is costly, and is performed in the constructor of this singleton class.
  * NVML shutdown is not performed in the destructor, but a wrapper is provided anyway to be
- * explicitly called on users' discretion.
+ * explicitly called at users' discretion.
  */
 class NvmlAPI {
  public:
@@ -63,7 +63,7 @@ class NvmlAPI {
    *
    * @throws std::runtime_error if the shutdown is not successful.
    */
-  void shutdown();
+  static void shutdown();
 
   decltype(&nvmlInit_v2) Init{nullptr};
   decltype(&nvmlShutdown) Shutdown{nullptr};

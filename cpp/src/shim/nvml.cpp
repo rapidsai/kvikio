@@ -38,7 +38,7 @@ NvmlAPI::NvmlAPI()
   CHECK_NVML(Init());
 }
 #else
-NvmlAPI::NvmlAPI() { KVIKIO_FAIL("KvikIO not compiled with CUDA support.", std::runtime_error); }
+NvmlAPI::NvmlAPI() { KVIKIO_FAIL("KvikIO not compiled with NVML support.", std::runtime_error); }
 #endif
 
 NvmlAPI& NvmlAPI::instance()
@@ -46,6 +46,8 @@ NvmlAPI& NvmlAPI::instance()
   static NvmlAPI instance;
   return instance;
 }
+
+void NvmlAPI::shutdown() { CHECK_NVML(instance().Shutdown()); }
 
 #ifdef KVIKIO_NVML_FOUND
 bool is_nvml_available()
@@ -94,7 +96,7 @@ nvmlDevice_t convert_device_handle_from_cuda_to_nvml(CUdevice cuda_device_handle
 #else
 nvmlDevice_t convert_device_handle_from_cuda_to_nvml(CUdevice cuda_device_handle)
 {
-  KVIKIO_FAIL("KvikIO not compiled with CUDA support.", std::runtime_error);
+  KVIKIO_FAIL("KvikIO not compiled with NVML support.", std::runtime_error);
   return nvmlDevice_t{};
 }
 #endif

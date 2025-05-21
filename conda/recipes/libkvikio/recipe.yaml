@@ -112,8 +112,6 @@ outputs:
           - if: cuda_major == "11"
             then:
               - cudatoolkit
-            else:
-              - cuda-nvml-dev
     tests:
       - script:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
@@ -172,8 +170,6 @@ outputs:
           - if: cuda_major == "11"
             then:
               - cudatoolkit
-            else:
-              - cuda-nvml-dev
     about:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license.text }}
