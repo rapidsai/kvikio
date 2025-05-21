@@ -184,12 +184,6 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
 #ifdef KVIKIO_NVML_FOUND
 bool is_c2c_available(int device_idx, DeviceIdType device_id_type)
 {
-  // todo: Remove the version checking once CUDA 11 support is dropped.
-  // Version format: 1000 * major + 10 * minor
-  int cuda_driver_version{};
-  cudaAPI::instance().DriverGetVersion(&cuda_driver_version);
-  if (cuda_driver_version <= 12000) { return false; }
-
   nvmlDevice_t device_handle_nvml{};
   if (device_id_type == DeviceIdType::CUDA) {
     CUdevice device_handle_cuda{};
