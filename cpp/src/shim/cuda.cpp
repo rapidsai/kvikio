@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "utils.hpp"
+
 #include <stdexcept>
 
 #include <kvikio/error.hpp>
@@ -62,18 +64,7 @@ cudaAPI& cudaAPI::instance()
 }
 
 #ifdef KVIKIO_CUDA_FOUND
-bool is_cuda_available()
-{
-  static auto result = []() -> bool {
-    try {
-      cudaAPI::instance();
-    } catch (std::runtime_error const&) {
-      return false;
-    }
-    return true;
-  }();
-  return result;
-}
+bool is_cuda_available() { return detail::is_available<cudaAPI>(); }
 #endif
 
 }  // namespace kvikio

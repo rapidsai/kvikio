@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "utils.hpp"
+
 #include <stdexcept>
 #include <string>
 
@@ -122,18 +124,7 @@ void cuFileAPI::driver_close()
 }
 
 #ifdef KVIKIO_CUFILE_FOUND
-bool is_cufile_library_available() noexcept
-{
-  static auto result = []() -> bool {
-    try {
-      cuFileAPI::instance();
-    } catch (...) {
-      return false;
-    }
-    return true;
-  }();
-  return result;
-}
+bool is_cufile_library_available() noexcept { return detail::is_available<cuFileAPI>(); }
 #endif
 
 bool is_cufile_available() noexcept

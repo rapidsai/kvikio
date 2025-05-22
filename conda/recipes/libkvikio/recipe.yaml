@@ -145,7 +145,6 @@ outputs:
                 - libcufile-dev =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart-dev
-            - cuda-nvml-dev
             - if: linux
               then: libcufile-dev
       run:
@@ -158,7 +157,6 @@ outputs:
                 - libcufile =${{ cuda11_libcufile_host_version }}
           else:
             - cuda-cudart
-            - cuda-nvml-dev
             - if: linux
               then: libcufile
       ignore_run_exports:

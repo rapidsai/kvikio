@@ -15,6 +15,7 @@
  */
 
 #include "nvml.hpp"
+#include "utils.hpp"
 
 #include <iomanip>
 #include <iostream>
@@ -22,6 +23,7 @@
 
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
+#include <kvikio/shim/utils.hpp>
 
 namespace kvikio {
 
@@ -50,18 +52,7 @@ NvmlAPI& NvmlAPI::instance()
 void NvmlAPI::shutdown() { CHECK_NVML(instance().Shutdown()); }
 
 #ifdef KVIKIO_NVML_FOUND
-bool is_nvml_available()
-{
-  static auto result = []() -> bool {
-    try {
-      NvmlAPI::instance();
-    } catch (std::runtime_error const&) {
-      return false;
-    }
-    return true;
-  }();
-  return result;
-}
+bool is_nvml_available() { return detail::is_available<NvmlAPI>(); }
 #endif
 
 #ifdef KVIKIO_NVML_FOUND

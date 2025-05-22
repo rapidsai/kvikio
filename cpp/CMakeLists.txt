@@ -186,12 +186,13 @@ target_include_directories(
   kvikio
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
          "$<BUILD_INTERFACE:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:${CUDAToolkit_INCLUDE_DIRS}>>"
+  PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`. Also
 # note that KvikIO uses an NVML shim that dynamically loads the NVML shared library at runtime. At
-# build time only the header location is needed. The shared library is not linked against KvikIO.
+# build time only the header location is needed. KvikIO is not linked against the shared library.
 # Adding the target `CUDA::toolkit` here serves this purpose.
 target_link_libraries(
   kvikio

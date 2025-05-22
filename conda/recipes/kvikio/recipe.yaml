@@ -78,7 +78,6 @@ requirements:
           then: libcufile-dev =${{ cuda11_libcufile_host_version }}
       else:
         - cuda-cudart-dev
-        - cuda-nvml-dev
         - if: linux
           then: libcufile-dev
   run:
