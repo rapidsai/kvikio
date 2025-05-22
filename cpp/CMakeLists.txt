@@ -186,7 +186,6 @@ target_include_directories(
   kvikio
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
          "$<BUILD_INTERFACE:$<$<BOOL:${KvikIO_CUDA_SUPPORT}>:${CUDAToolkit_INCLUDE_DIRS}>>"
-  PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
