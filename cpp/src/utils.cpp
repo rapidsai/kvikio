@@ -26,6 +26,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
+#include "shim/nvml.hpp"
 
 namespace kvikio {
 
@@ -178,6 +179,35 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
   std::size_t offset = dev - base_ptr;
   // NOLINTNEXTLINE(performance-no-int-to-ptr, cppcoreguidelines-pro-type-reinterpret-cast)
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
+}
+
+#ifdef KVIKIO_NVML_FOUND
+bool is_c2c_available(int device_idx, DeviceIdType device_id_type)
+{
+  nvmlDevice_t device_handle_nvml{};
+  if (device_id_type == DeviceIdType::CUDA) {
+    CUdevice device_handle_cuda{};
+    cudaAPI::instance().CtxGetDevice(&device_handle_cuda);
+    device_handle_nvml = convert_device_handle_from_cuda_to_nvml(device_handle_cuda);
+  } else {
+    CHECK_NVML(NvmlAPI::instance().DeviceGetHandleByIndex(device_idx, &device_handle_nvml));
+  }
+
+  nvmlFieldValue_t field{};
+  field.fieldId = NVML_FI_DEV_C2C_LINK_COUNT;
+  int const num_field_values{1};
+  CHECK_NVML(
+    NvmlAPI::instance().DeviceGetFieldValues(device_handle_nvml, num_field_values, &field));
+
+  return (field.nvmlReturn == nvmlReturn_t::NVML_SUCCESS) && (field.value.uiVal > 0u);
+}
+#endif
+
+void nvml_shutdown()
+{
+#ifdef KVIKIO_NVML_FOUND
+  NvmlAPI::instance().Shutdown();
+#endif
 }
 
 }  // namespace kvikio

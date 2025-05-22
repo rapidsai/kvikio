@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "utils.hpp"
+
 #include <stdexcept>
 
 #include <kvikio/error.hpp>
@@ -38,6 +40,9 @@ cudaAPI::cudaAPI()
   get_symbol(CtxPushCurrent, lib, KVIKIO_STRINGIFY(cuCtxPushCurrent));
   get_symbol(CtxPopCurrent, lib, KVIKIO_STRINGIFY(cuCtxPopCurrent));
   get_symbol(CtxGetCurrent, lib, KVIKIO_STRINGIFY(cuCtxGetCurrent));
+  get_symbol(CtxGetDevice, lib, KVIKIO_STRINGIFY(cuCtxGetDevice));
+  get_symbol(DeviceGetUuid, lib, KVIKIO_STRINGIFY(cuDeviceGetUuid_v2));
+  get_symbol(DriverGetVersion, lib, KVIKIO_STRINGIFY(cuDriverGetVersion));
   get_symbol(MemGetAddressRange, lib, KVIKIO_STRINGIFY(cuMemGetAddressRange));
   get_symbol(GetErrorName, lib, KVIKIO_STRINGIFY(cuGetErrorName));
   get_symbol(GetErrorString, lib, KVIKIO_STRINGIFY(cuGetErrorString));
@@ -59,15 +64,7 @@ cudaAPI& cudaAPI::instance()
 }
 
 #ifdef KVIKIO_CUDA_FOUND
-bool is_cuda_available()
-{
-  try {
-    cudaAPI::instance();
-  } catch (std::runtime_error const&) {
-    return false;
-  }
-  return true;
-}
+bool is_cuda_available() { return detail::is_available<cudaAPI>(); }
 #endif
 
 }  // namespace kvikio
