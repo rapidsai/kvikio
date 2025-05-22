@@ -194,13 +194,6 @@ bool is_c2c_available(int device_idx, DeviceIdType device_id_type)
   }
 
   nvmlFieldValue_t field{};
-
-  // todo: This is to fix the compile error for CUDA 11. Remove this part once CUDA 11 support is
-  // dropped.
-#ifndef NVML_FI_DEV_C2C_LINK_COUNT
-#define NVML_FI_DEV_C2C_LINK_COUNT 0
-#endif
-
   field.fieldId = NVML_FI_DEV_C2C_LINK_COUNT;
   int const num_field_values{1};
   CHECK_NVML(
