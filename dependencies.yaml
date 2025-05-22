@@ -256,7 +256,6 @@ dependencies:
               cuda: "12.*"
             packages:
               - libcufile-dev
-              - cuda-nvml-dev
           - matrix:
               arch: aarch64
               cuda: "11.*"
