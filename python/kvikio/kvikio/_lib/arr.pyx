@@ -133,13 +133,13 @@ cdef class Array:
             try:
                 if pybuf.suboffsets != NULL:
                     raise NotImplementedError("Suboffsets are not supported")
-    
+
                 self.ptr = <uintptr_t>pybuf.buf
                 self.obj = pybuf.obj
                 self.readonly = <bint>pybuf.readonly
                 self.ndim = <Py_ssize_t>pybuf.ndim
                 self.itemsize = <Py_ssize_t>pybuf.itemsize
-    
+
                 if self.ndim > 0:
                     self.shape_mv = new_Py_ssize_t_array(self.ndim)
                     memcpy(
