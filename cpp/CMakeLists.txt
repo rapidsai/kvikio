@@ -69,6 +69,9 @@ if(KvikIO_REMOTE_SUPPORT)
 endif()
 
 set(cuFile_FOUND 0)
+# todo: Let nvml_FOUND be 0 if CUDA version is less than 12. This is to circumvent a potential CUDA
+# 11 build issue. Remove nvml_FOUND and KVIKIO_NVML_FOUND once CUDA 11 support is dropped.
+set(nvml_FOUND 0)
 if(KvikIO_CUDA_SUPPORT)
   rapids_find_package(
     CUDAToolkit REQUIRED
@@ -76,6 +79,14 @@ if(KvikIO_CUDA_SUPPORT)
     INSTALL_EXPORT_SET kvikio-exports
   )
   include(cmake/thirdparty/get_nvtx.cmake)
+
+  if(CUDAToolkit_VERSION_MAJOR VERSION_GREATER_EQUAL 12)
+    if(NOT TARGET CUDA::nvml)
+      message(FATAL_ERROR "Cannot find NVML")
+    else()
+      set(nvml_FOUND 1)
+    endif()
+  endif()
 
   if(NOT TARGET CUDA::cuFile)
     message(
@@ -151,6 +162,7 @@ set(SOURCES
     "src/posix_io.cpp"
     "src/shim/cuda.cpp"
     "src/shim/cufile.cpp"
+    "src/shim/nvml.cpp"
     "src/shim/utils.cpp"
     "src/stream.cpp"
     "src/utils.cpp"
@@ -177,17 +189,21 @@ target_include_directories(
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
-# Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
+# Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`. Also
+# note that KvikIO uses an NVML shim that dynamically loads the NVML shared library at runtime. At
+# build time only the header location is needed. KvikIO is not linked against the shared library.
+# Adding the target `CUDA::toolkit` here serves this purpose.
 target_link_libraries(
   kvikio
   PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
-  PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
+  PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl> CUDA::toolkit
 )
 
 target_compile_definitions(
   kvikio
   PUBLIC $<$<BOOL:${KvikIO_REMOTE_SUPPORT}>:KVIKIO_LIBCURL_FOUND>
          $<$<BOOL:${KvikIO_CUDA_SUPPORT}>:KVIKIO_CUDA_FOUND>
+         $<$<BOOL:${nvml_FOUND}>:KVIKIO_NVML_FOUND>
          $<$<BOOL:${cuFile_FOUND}>:KVIKIO_CUFILE_FOUND>
          $<$<BOOL:${cuFile_BATCH_API_FOUND}>:KVIKIO_CUFILE_BATCH_API_FOUND>
          $<$<BOOL:${cuFile_STREAM_API_FOUND}>:KVIKIO_CUFILE_STREAM_API_FOUND>

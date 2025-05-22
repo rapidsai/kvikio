@@ -98,6 +98,7 @@ requirements:
           then: libcufile ${{ cuda11_libcufile_run_version }}
       else:
         - cuda-cudart
+        - cuda-nvml-dev
         - if: linux
           then: libcufile
   ignore_run_exports:
