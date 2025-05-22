@@ -17,6 +17,12 @@
 #include <stdexcept>
 
 namespace kvikio::detail {
+/**
+ * @brief Check if a shared library wrapped in a singleton shim class is available
+ *
+ * @tparam SingletonClass Singleton shim class
+ * @return Boolean answer
+ */
 template <typename SingletonClass>
 bool is_available()
 {
