@@ -130,36 +130,37 @@ cdef class Array:
                 self.strides_mv = None
         else:
             PyObject_GetBuffer(obj, &pybuf, PyBUF_FULL_RO)
+            try:
+                if pybuf.suboffsets != NULL:
+                    raise NotImplementedError("Suboffsets are not supported")
 
-            if pybuf.suboffsets != NULL:
-                raise NotImplementedError("Suboffsets are not supported")
+                self.ptr = <uintptr_t>pybuf.buf
+                self.obj = pybuf.obj
+                self.readonly = <bint>pybuf.readonly
+                self.ndim = <Py_ssize_t>pybuf.ndim
+                self.itemsize = <Py_ssize_t>pybuf.itemsize
 
-            self.ptr = <uintptr_t>pybuf.buf
-            self.obj = pybuf.obj
-            self.readonly = <bint>pybuf.readonly
-            self.ndim = <Py_ssize_t>pybuf.ndim
-            self.itemsize = <Py_ssize_t>pybuf.itemsize
-
-            if self.ndim > 0:
-                self.shape_mv = new_Py_ssize_t_array(self.ndim)
-                memcpy(
-                    &self.shape_mv[0],
-                    pybuf.shape,
-                    self.ndim * sizeof(Py_ssize_t)
-                )
-                if not PyBuffer_IsContiguous(&pybuf, b"C"):
-                    self.strides_mv = new_Py_ssize_t_array(self.ndim)
+                if self.ndim > 0:
+                    self.shape_mv = new_Py_ssize_t_array(self.ndim)
                     memcpy(
-                        &self.strides_mv[0],
-                        pybuf.strides,
+                        &self.shape_mv[0],
+                        pybuf.shape,
                         self.ndim * sizeof(Py_ssize_t)
                     )
+                    if not PyBuffer_IsContiguous(&pybuf, b"C"):
+                        self.strides_mv = new_Py_ssize_t_array(self.ndim)
+                        memcpy(
+                            &self.strides_mv[0],
+                            pybuf.strides,
+                            self.ndim * sizeof(Py_ssize_t)
+                        )
+                    else:
+                        self.strides_mv = None
                 else:
+                    self.shape_mv = None
                     self.strides_mv = None
-            else:
-                self.shape_mv = None
-                self.strides_mv = None
-            PyBuffer_Release(&pybuf)
+            finally:
+                PyBuffer_Release(&pybuf)
 
     cpdef bint _c_contiguous(self):
         return _c_contiguous(
