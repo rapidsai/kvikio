@@ -51,7 +51,7 @@ def pprint_sys_info() -> None:
             except pynvml.NVMLError_NotSupported:
                 mem_total = "Device has no memory resource"
             try:
-                bar1_total = pynvml.nvmlDeviceGetBAR1MemoryInfo(handle).bar1Total
+                bar1_total = pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total
             except pynvml.NVMLError_NotSupported:
                 bar1_total = "Device has no BAR1 support"
 
