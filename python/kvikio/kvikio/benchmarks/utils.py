@@ -45,15 +45,15 @@ def pprint_sys_info() -> None:
             dev = pynvml.nvmlDeviceGetHandleByIndex(0)
 
         if dev is not None:
+            gpu_name = f"{pynvml.nvmlDeviceGetName(dev)} (dev #0)"
             try:
-                pynvml.nvmlDeviceGetMigMode(dev)
-            except pynvml.NVMLError:
-                with contextlib.suppress(pynvml.NVMLError):
-                    gpu_name = f"{pynvml.nvmlDeviceGetName(dev)} (dev #0)"
-                    mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
-                    bar1_total = format_bytes(
-                        pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total
-                    )
+                mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
+            except pynvml.NVMLError_NotSupported:
+                mem_total = "Device has no memory resource"
+            try:
+                bar1_total = pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total
+            except pynvml.NVMLError_NotSupported:
+                bar1_total = "Device has no BAR1 support"
 
     if version == (0, 0):
         libcufile_version = "unknown (earlier than cuFile 1.8)"

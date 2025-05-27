@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+source rapids-init-pip
+
 package_name="libkvikio"
 package_dir="python/libkvikio"
 
