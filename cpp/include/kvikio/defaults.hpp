@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <initializer_list>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -26,6 +27,7 @@
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
+#include "kvikio/error.hpp"
 
 /**
  * @brief KvikIO namespace.
@@ -55,6 +57,56 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val);
+
+/**
+ * @brief
+ *
+ * @tparam T
+ * @param env_var_names
+ * @param default_val
+ * @return A tuple of (`env_var_name`, `result`, `has_found`), where:
+ *   - If the environment variable is not set by any of the alias, `has_found` is false, and
+ * `result` is the `default_val`.
+ *   - If the environment variable is set by `env_var_name`, `has_found` is true, and `result` is
+ * the set value.
+ */
+template <typename T>
+std::tuple<std::string_view, T, bool> getenv_or(
+  std::initializer_list<std::string_view> env_var_names, T default_val)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  KVIKIO_EXPECT(env_var_names.size() > 0,
+                "`env_var_names` must contain at least one environment variable name.",
+                std::invalid_argument);
+  std::string_view env_name_target;
+  std::string_view env_val_target;
+  bool has_already_been_set{false};
+  for (auto const& env_var_name : env_var_names) {
+    auto const* env_val = std::getenv(env_var_name.data());
+    if (env_val == nullptr) { continue; }
+    KVIKIO_EXPECT(std::strlen(env_val) != 0,
+                  std::string{env_var_name} + " must not have an empty value.",
+                  std::invalid_argument);
+    KVIKIO_EXPECT(has_already_been_set == false,
+                  "Environment variable " + std::string{env_var_name} +
+                    " has already been set using its alias.",
+                  std::invalid_argument);
+    has_already_been_set = true;
+    env_name_target      = env_var_name;
+    env_val_target       = env_val;
+  }
+
+  if (env_val_target.empty()) { return {env_val_target, default_val, false}; }
+
+  std::stringstream sstream(env_val_target.data());
+  T res;
+  sstream >> res;
+  KVIKIO_EXPECT(
+    !sstream.fail(),
+    std::string{"Unknown config value "} + env_name_target.data() + "=" + env_val_target.data(),
+    std::invalid_argument);
+  return {env_name_target, res, true};
+}
 
 /**
  * @brief Singleton class of default values used throughout KvikIO.
@@ -182,6 +234,20 @@ class defaults {
    * @param nthreads The number of threads to use.
    */
   static void set_thread_pool_nthreads(unsigned int nthreads);
+
+  /**
+   * @brief Alias of `thread_pool_nthreads`
+   *
+   * @return The number of threads
+   */
+  [[nodiscard]] static unsigned int num_threads();
+
+  /**
+   * @brief Alias of `set_thread_pool_nthreads`
+   *
+   * @param nthreads The number of threads to use
+   */
+  static void set_num_threads(unsigned int nthreads);
 
   /**
    * @brief Get the default task size used for parallel IO operations.
