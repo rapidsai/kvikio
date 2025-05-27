@@ -59,16 +59,23 @@ template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val);
 
 /**
- * @brief
+ * @brief Get the environment variable value from a candidate list
  *
- * @tparam T
- * @param env_var_names
- * @param default_val
+ * @tparam T Type of the environment variable value
+ * @param env_var_names Name of the environment variable
+ * @param default_val Default value of the environment variable, if none of the alias has been found
  * @return A tuple of (`env_var_name`, `result`, `has_found`), where:
  *   - If the environment variable is not set by any of the alias, `has_found` is false, and
  * `result` is the `default_val`.
  *   - If the environment variable is set by `env_var_name`, `has_found` is true, and `result` is
  * the set value.
+ *
+ * @throws std::invalid_argument if:
+ *   - `env_var_names` is empty
+ *   - An environment variable from `env_var_names` has an empty value, e.g. by setting `export
+ * KVIKIO_NTHREADS=`
+ *   - Multiple alias have been set
+ *   - An invalid value is given
  */
 template <typename T>
 std::tuple<std::string_view, T, bool> getenv_or(
