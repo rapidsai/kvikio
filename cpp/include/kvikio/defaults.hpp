@@ -24,10 +24,10 @@
 #include <string>
 
 #include <kvikio/compat_mode.hpp>
+#include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
-#include "kvikio/error.hpp"
 
 /**
  * @brief KvikIO namespace.
