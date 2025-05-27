@@ -100,10 +100,9 @@ TEST(DefaultsTest, alias_for_getenv_or)
   {
     kvikio::test::EnvVarContext env_var_ctx{
       {{"KVIKIO_TEST_ALIAS_1", "10"}, {"KVIKIO_TEST_ALIAS_2", "20"}}};
-    EXPECT_THAT(
-      [=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS_1", "KVIKIO_TEST_ALIAS_2"}, 123); },
-      ThrowsMessage<std::invalid_argument>(HasSubstr(
-        "Environment variable KVIKIO_TEST_ALIAS_2 has already been set using its alias")));
+    EXPECT_THAT([=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS_1", "KVIKIO_TEST_ALIAS_2"}, 123); },
+                ThrowsMessage<std::invalid_argument>(HasSubstr(
+                  "Environment variable KVIKIO_TEST_ALIAS_2 has already been set by its alias")));
   }
 
   // Env var has invalid value

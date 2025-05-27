@@ -63,18 +63,19 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  *
  * @tparam T Type of the environment variable value
  * @param env_var_names Name of the environment variable
- * @param default_val Default value of the environment variable, if none of the alias has been found
+ * @param default_val Default value of the environment variable, if none of the candidates has been
+ * found
  * @return A tuple of (`env_var_name`, `result`, `has_found`), where:
- *   - If the environment variable is not set by any of the alias, `has_found` is false, and
- * `result` is the `default_val`.
- *   - If the environment variable is set by `env_var_name`, `has_found` is true, and `result` is
- * the set value.
+ *   - If the environment variable is not set by any of the candidates, `has_found` will be false,
+ * `result` be `default_val`, and `env_var_name` be empty.
+ *   - If the environment variable is set by `env_var_name`, then `has_found` will be true, and
+ * `result` be the set value.
  *
  * @throws std::invalid_argument if:
  *   - `env_var_names` is empty
  *   - An environment variable from `env_var_names` has an empty value, e.g. by setting `export
  * KVIKIO_NTHREADS=`
- *   - Multiple alias have been set
+ *   - Multiple candidates have been set at the same time
  *   - An invalid value is given
  */
 template <typename T>
@@ -94,10 +95,10 @@ std::tuple<std::string_view, T, bool> getenv_or(
     KVIKIO_EXPECT(std::strlen(env_val) != 0,
                   std::string{env_var_name} + " must not have an empty value.",
                   std::invalid_argument);
-    KVIKIO_EXPECT(has_already_been_set == false,
-                  "Environment variable " + std::string{env_var_name} +
-                    " has already been set using its alias.",
-                  std::invalid_argument);
+    KVIKIO_EXPECT(
+      has_already_been_set == false,
+      "Environment variable " + std::string{env_var_name} + " has already been set by its alias.",
+      std::invalid_argument);
     has_already_been_set = true;
     env_name_target      = env_var_name;
     env_val_target       = env_val;
