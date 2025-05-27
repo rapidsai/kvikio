@@ -51,13 +51,13 @@ std::ptrdiff_t pointer_diff(void* p1, void* p2)
 
 MmapHandle::MmapHandle(std::string const& file_path,
                        std::string const& flags,
-                       std::size_t size,
-                       std::size_t file_offset,
+                       std::size_t initial_size,
+                       std::size_t initial_file_offset,
                        void* external_buf,
                        mode_t mode)
   : _external_buf{external_buf},
-    _size(size),
-    _initial_file_offset(file_offset),
+    _initial_size(initial_size),
+    _initial_file_offset(initial_file_offset),
     _initialized{true},
     _file_wrapper(file_path, flags, false /* o_direct */, mode)
 {
@@ -116,16 +116,18 @@ MmapHandle::~MmapHandle() noexcept
 
 void MmapHandle::map()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
+
   // Case 1: External buffer is not specified
   //
   //     |--> file start                 |<--page_size-->|
   //     |
   // (0) |...............|...............|...............|...............|..........
   //
-  // (1) |<-------_initial_file_offset-------->|<----_size----->|
+  // (1) |<-------_initial_file_offset-------->|<--_initial_size--->|
   //                                           |--> _buf
   //
-  // (2) |<---------_map_offset--------->|<------_map_size----->|
+  // (2) |<---------_map_offset--------->|<--------_map_size------->|
   //                                     |--> _map_addr
   //
   // (3) |<------------file_offset---------------->|<--size->|
@@ -137,7 +139,7 @@ void MmapHandle::map()
   //     |
   // (0) |...............|...............|...............|...............|..........
   //
-  // (1) |<-------_initial_file_offset-------->|<------------_size------------->|
+  // (1) |<-------_initial_file_offset-------->|<--------_initial_size--------->|
   //                                           |--> _buf/_external_buf
   //
   // (2) |<-----------------_map_offset----------------->|<------_map_size----->|
@@ -151,20 +153,20 @@ void MmapHandle::map()
   KVIKIO_EXPECT(
     _initial_file_offset < _file_size, "Offset is past the end of file", std::overflow_error);
 
-  KVIKIO_EXPECT(_initial_file_offset + _size <= _file_size,
+  KVIKIO_EXPECT(_initial_file_offset + _initial_size <= _file_size,
                 "Mapped region is past the end of file",
                 std::overflow_error);
 
-  // Adjust _size to a valid value
-  if (_size == 0 || (_initial_file_offset + _size) > _file_size) {
-    _size = _file_size - _initial_file_offset;
+  // Adjust _initial_size to a valid value
+  if (_initial_size == 0 || (_initial_file_offset + _initial_size) > _file_size) {
+    _initial_size = _file_size - _initial_file_offset;
   }
 
   if (!has_external_buf()) {
     // Case 1: External buffer is not specified
     _map_offset   = align_down(_initial_file_offset, page_size);
     _offset_delta = _initial_file_offset - _map_offset;
-    _map_size     = _size + _offset_delta;
+    _map_size     = _initial_size + _offset_delta;
     _map_addr =
       mmap(nullptr, _map_size, _map_protection_flag, MAP_PRIVATE, _file_wrapper.fd(), _map_offset);
     _buf = detail::pointer_add(_map_addr, _offset_delta);
@@ -173,12 +175,12 @@ void MmapHandle::map()
     _map_offset   = align_up(_initial_file_offset, page_size);
     _offset_delta = _map_offset - _initial_file_offset;
 
-    if (_size <= _offset_delta) {
+    if (_initial_size <= _offset_delta) {
       _map_offset = 0;
       return;
     }
 
-    _map_size = _size - _offset_delta;
+    _map_size = _initial_size - _offset_delta;
     _buf      = _external_buf;
     auto res  = mmap(_map_addr,
                     _map_size,
@@ -194,6 +196,7 @@ void MmapHandle::map()
 
 void MmapHandle::unmap()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (_map_addr != nullptr) {
     auto ret = munmap(_map_addr, _map_size);
     SYSCALL_CHECK(ret);
@@ -202,7 +205,7 @@ void MmapHandle::unmap()
 
 bool MmapHandle::has_external_buf() const noexcept { return _external_buf != nullptr; }
 
-std::size_t MmapHandle::requested_size() const noexcept { return _size; }
+std::size_t MmapHandle::requested_size() const noexcept { return _initial_size; }
 
 bool MmapHandle::closed() const noexcept { return !_initialized; }
 
@@ -225,11 +228,12 @@ std::pair<void*, std::size_t> MmapHandle::read(std::size_t size,
                                                std::size_t file_offset,
                                                bool prefault)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(size > 0, "Read size must be greater than 0", std::invalid_argument);
-  KVIKIO_EXPECT(
-    file_offset >= _initial_file_offset && file_offset + size <= _initial_file_offset + _size,
-    "Read is out of bound",
-    std::invalid_argument);
+  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
+                  file_offset + size <= _initial_file_offset + _initial_size,
+                "Read is out of bound",
+                std::invalid_argument);
 
   auto start_addr   = detail::pointer_add(_buf, file_offset - _initial_file_offset);
   auto aligned_addr = align_up(start_addr, get_page_size());

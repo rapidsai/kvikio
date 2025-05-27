@@ -26,7 +26,7 @@ class MmapHandle {
  private:
   void* _buf{};
   void* _external_buf{};
-  std::size_t _size{};
+  std::size_t _initial_size{};
   std::size_t _initial_file_offset{};
   std::size_t _file_size{};
 
@@ -47,11 +47,11 @@ class MmapHandle {
 
  public:
   MmapHandle(std::string const& file_path,
-             std::string const& flags = "r",
-             std::size_t size         = 0,
-             std::size_t file_offset  = 0,
-             void* external_buf       = nullptr,
-             mode_t mode              = FileHandle::m644);
+             std::string const& flags        = "r",
+             std::size_t initial_size        = 0,
+             std::size_t initial_file_offset = 0,
+             void* external_buf              = nullptr,
+             mode_t mode                     = FileHandle::m644);
 
   MmapHandle(MmapHandle const&)            = delete;
   MmapHandle& operator=(MmapHandle const&) = delete;
