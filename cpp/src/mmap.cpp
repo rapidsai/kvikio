@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <future>
 #include <stdexcept>
+#include <type_traits>
 
 #include <kvikio/error.hpp>
 #include <kvikio/mmap.hpp>
@@ -35,18 +36,28 @@ void do_not_optimize_away_read(T const& value)
   asm volatile("" : : "r,m"(value) : "memory");
 }
 
-std::byte* to_byte_p(void* p) { return static_cast<std::byte*>(p); }
+template <typename Integer>
+void* pointer_add(void* p, Integer v)
+{
+  static_assert(std::is_integral_v<Integer>);
+  return static_cast<std::byte*>(p) + v;
+}
+
+std::ptrdiff_t pointer_diff(void* p1, void* p2)
+{
+  return static_cast<std::byte*>(p1) - static_cast<std::byte*>(p2);
+}
 }  // namespace detail
 
 MmapHandle::MmapHandle(std::string const& file_path,
                        std::string const& flags,
-                       std::size_t offset,
                        std::size_t size,
+                       std::size_t file_offset,
                        void* external_buf,
                        mode_t mode)
   : _external_buf{external_buf},
-    _offset(offset),
     _size(size),
+    _initial_file_offset(file_offset),
     _initialized{true},
     _file_wrapper(file_path, flags, false /* o_direct */, mode)
 {
@@ -111,7 +122,7 @@ void MmapHandle::map()
   //     |
   // (0) |...............|...............|...............|...............|..........
   //
-  // (1) |<------------_offset---------------->|<----_size----->|
+  // (1) |<-------_initial_file_offset-------->|<----_size----->|
   //                                           |--> _buf
   //
   // (2) |<---------_map_offset--------->|<------_map_size----->|
@@ -126,7 +137,7 @@ void MmapHandle::map()
   //     |
   // (0) |...............|...............|...............|...............|..........
   //
-  // (1) |<------------_offset---------------->|<------------_size------------->|
+  // (1) |<-------_initial_file_offset-------->|<------------_size------------->|
   //                                           |--> _buf/_external_buf
   //
   // (2) |<-----------------_map_offset----------------->|<------_map_size----->|
@@ -137,23 +148,30 @@ void MmapHandle::map()
 
   auto const page_size = get_page_size();
 
-  KVIKIO_EXPECT(_offset < _file_size, "Offset is past the end of file", std::overflow_error);
+  KVIKIO_EXPECT(
+    _initial_file_offset < _file_size, "Offset is past the end of file", std::overflow_error);
+
+  KVIKIO_EXPECT(_initial_file_offset + _size <= _file_size,
+                "Mapped region is past the end of file",
+                std::overflow_error);
 
   // Adjust _size to a valid value
-  if (_size == 0 || (_offset + _size) > _file_size) { _size = _file_size - _offset; }
+  if (_size == 0 || (_initial_file_offset + _size) > _file_size) {
+    _size = _file_size - _initial_file_offset;
+  }
 
-  if (_external_buf == nullptr) {
+  if (!has_external_buf()) {
     // Case 1: External buffer is not specified
-    _map_offset   = align_down(_offset, page_size);
-    _offset_delta = _offset - _map_offset;
+    _map_offset   = align_down(_initial_file_offset, page_size);
+    _offset_delta = _initial_file_offset - _map_offset;
     _map_size     = _size + _offset_delta;
     _map_addr =
       mmap(nullptr, _map_size, _map_protection_flag, MAP_PRIVATE, _file_wrapper.fd(), _map_offset);
-    _buf = detail::to_byte_p(_map_addr) + _offset_delta;
+    _buf = detail::pointer_add(_map_addr, _offset_delta);
   } else {
     // Case 2: External buffer is specified
-    _map_offset   = align_up(_offset, page_size);
-    _offset_delta = _map_offset - _offset;
+    _map_offset   = align_up(_initial_file_offset, page_size);
+    _offset_delta = _map_offset - _initial_file_offset;
 
     if (_size <= _offset_delta) {
       _map_offset = 0;
@@ -182,6 +200,10 @@ void MmapHandle::unmap()
   }
 }
 
+bool MmapHandle::has_external_buf() const noexcept { return _external_buf != nullptr; }
+
+std::size_t MmapHandle::requested_size() const noexcept { return _size; }
+
 bool MmapHandle::closed() const noexcept { return !_initialized; }
 
 void MmapHandle::close() noexcept
@@ -204,20 +226,23 @@ std::pair<void*, std::size_t> MmapHandle::read(std::size_t size,
                                                bool prefault)
 {
   KVIKIO_EXPECT(size > 0, "Read size must be greater than 0", std::invalid_argument);
-  KVIKIO_EXPECT(file_offset >= _offset && file_offset + size <= _offset + _size,
-                "Read is out of bound",
-                std::invalid_argument);
+  KVIKIO_EXPECT(
+    file_offset >= _initial_file_offset && file_offset + size <= _initial_file_offset + _size,
+    "Read is out of bound",
+    std::invalid_argument);
 
-  if (prefault) {
-    if (_external_buf != nullptr && _offset_delta > 0 && file_offset < _map_offset) {
-      auto read_size = std::min(size, _map_offset - file_offset);
-      void* addr     = detail::to_byte_p(_buf) + file_offset - _offset;
-      detail::posix_host_io<detail::IOOperationType::READ, detail::PartialIO::NO>(
-        _file_wrapper.fd(), addr, read_size, file_offset);
-    }
+  auto start_addr   = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+  auto aligned_addr = align_up(start_addr, get_page_size());
+
+  if (has_external_buf() && _offset_delta > 0 && file_offset < _map_offset) {
+    auto read_size = std::min(size, _map_offset - file_offset);
+    detail::posix_host_io<detail::IOOperationType::READ, detail::PartialIO::NO>(
+      _file_wrapper.fd(), start_addr, read_size, file_offset);
   }
 
-  return {detail::to_byte_p(_buf), size};
+  if (prefault) { perform_prefault(aligned_addr, size); }
+
+  return {start_addr, size};
 }
 
 std::pair<void*, std::future<std::size_t>> MmapHandle::pread(std::size_t size,
@@ -272,19 +297,26 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   //     task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
 }
 
-void MmapHandle::do_prefault(void* buf, std::size_t size)
+void MmapHandle::perform_prefault(void* buf, std::size_t size)
 {
   auto const page_size = get_page_size();
-  auto aligned_addr    = detail::to_byte_p(align_up(buf, page_size));
+  auto aligned_addr    = align_up(buf, page_size);
 
-  if (aligned_addr - detail::to_byte_p(buf) > 0) {
-    detail::do_not_optimize_away_read(*detail::to_byte_p(buf));
-    size -= page_size;
+  // If buf is not aligned, read the byte at buf.
+  auto num_bytes = detail::pointer_diff(aligned_addr, buf);
+  if (num_bytes > 0) {
+    detail::do_not_optimize_away_read(*static_cast<std::byte*>(buf));
+    if (size >= num_bytes) { size -= num_bytes; }
   }
-  while (size > 0) {
-    detail::do_not_optimize_away_read(*aligned_addr);
-    aligned_addr += page_size;
-    size -= page_size;
+
+  while (size >= 0) {
+    detail::do_not_optimize_away_read(*static_cast<std::byte*>(aligned_addr));
+    if (size >= page_size) {
+      aligned_addr = detail::pointer_add(aligned_addr, page_size);
+      size -= page_size;
+    } else {
+      break;
+    }
   }
 }
 }  // namespace kvikio

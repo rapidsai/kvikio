@@ -26,9 +26,9 @@ class MmapHandle {
  private:
   void* _buf{};
   void* _external_buf{};
-  std::size_t _offset{};
   std::size_t _size{};
-  std::size_t _file_size{};  // The size of the underlying file, zero means unknown.
+  std::size_t _initial_file_offset{};
+  std::size_t _file_size{};
 
   std::size_t _map_offset{};
   std::size_t _map_size{};
@@ -43,11 +43,13 @@ class MmapHandle {
   void map();
   void unmap();
 
+  bool has_external_buf() const noexcept;
+
  public:
   MmapHandle(std::string const& file_path,
              std::string const& flags = "r",
-             std::size_t offset       = 0,
              std::size_t size         = 0,
+             std::size_t file_offset  = 0,
              void* external_buf       = nullptr,
              mode_t mode              = FileHandle::m644);
 
@@ -57,13 +59,15 @@ class MmapHandle {
   MmapHandle& operator=(MmapHandle&& o) noexcept;
   ~MmapHandle() noexcept;
 
+  std::size_t requested_size() const noexcept;
+
   [[nodiscard]] bool closed() const noexcept;
 
   void close() noexcept;
 
   std::pair<void*, std::size_t> read(std::size_t size,
-                                     std::size_t file_offset,
-                                     bool prefault = false);
+                                     std::size_t file_offset = 0,
+                                     bool prefault           = false);
 
   std::pair<void*, std::future<std::size_t>> pread(std::size_t size,
                                                    std::size_t file_offset = 0,
@@ -74,6 +78,6 @@ class MmapHandle {
                                  std::size_t file_offset = 0,
                                  bool prefault           = false);
 
-  static void do_prefault(void* buf, std::size_t size);
+  static void perform_prefault(void* buf, std::size_t size);
 };
 }  // namespace kvikio
