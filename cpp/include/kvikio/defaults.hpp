@@ -92,9 +92,6 @@ std::tuple<std::string_view, T, bool> getenv_or(
   for (auto const& env_var_name : env_var_names) {
     auto const* env_val = std::getenv(env_var_name.data());
     if (env_val == nullptr) { continue; }
-    KVIKIO_EXPECT(std::strlen(env_val) != 0,
-                  std::string{env_var_name} + " must not have an empty value.",
-                  std::invalid_argument);
     KVIKIO_EXPECT(
       has_already_been_set == false,
       "Environment variable " + std::string{env_var_name} + " has already been set by its alias.",
@@ -104,15 +101,9 @@ std::tuple<std::string_view, T, bool> getenv_or(
     env_val_target       = env_val;
   }
 
-  if (env_val_target.empty()) { return {env_val_target, default_val, false}; }
+  if (env_name_target.empty()) { return {env_name_target, default_val, false}; }
 
-  std::stringstream sstream(env_val_target.data());
-  T res;
-  sstream >> res;
-  KVIKIO_EXPECT(
-    !sstream.fail(),
-    std::string{"Unknown config value "} + env_name_target.data() + "=" + env_val_target.data(),
-    std::invalid_argument);
+  auto res = getenv_or<T>(env_name_target, default_val);
   return {env_name_target, res, true};
 }
 

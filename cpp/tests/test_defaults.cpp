@@ -15,11 +15,13 @@
  */
 
 #include <stdexcept>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <kvikio/defaults.hpp>
 
+#include "kvikio/compat_mode.hpp"
 #include "utils/env.hpp"
 
 using ::testing::HasSubstr;
@@ -91,9 +93,9 @@ TEST(DefaultsTest, alias_for_getenv_or)
   // Env var has an empty value
   {
     kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", ""}}};
-    EXPECT_THAT([=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, 123); },
-                ThrowsMessage<std::invalid_argument>(
-                  HasSubstr("KVIKIO_TEST_ALIAS must not have an empty value")));
+    EXPECT_THAT(
+      [=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, 123); },
+      ThrowsMessage<std::invalid_argument>(HasSubstr("unknown config value KVIKIO_TEST_ALIAS=")));
   }
 
   // Env var has already been set by its alias
@@ -110,7 +112,7 @@ TEST(DefaultsTest, alias_for_getenv_or)
     kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", "abc"}}};
     EXPECT_THAT([=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, 123); },
                 ThrowsMessage<std::invalid_argument>(
-                  HasSubstr("Unknown config value KVIKIO_TEST_ALIAS=abc")));
+                  HasSubstr("unknown config value KVIKIO_TEST_ALIAS=abc")));
   }
 
   // 1st alias has a set value
@@ -140,5 +142,58 @@ TEST(DefaultsTest, alias_for_getenv_or)
     EXPECT_TRUE(env_var_name.empty());
     EXPECT_EQ(result, 123.456);
     EXPECT_FALSE(has_found);
+  }
+
+  // Special type: bool
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", "yes"}}};
+    auto const [env_var_name, result, has_found] = kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, false);
+    EXPECT_EQ(env_var_name, std::string_view{"KVIKIO_TEST_ALIAS"});
+    EXPECT_TRUE(result);
+    EXPECT_TRUE(has_found);
+  }
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", "OFF"}}};
+    auto const [env_var_name, result, has_found] = kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, false);
+    EXPECT_EQ(env_var_name, std::string_view{"KVIKIO_TEST_ALIAS"});
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(has_found);
+  }
+
+  // Special type: CompatMode
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", "yes"}}};
+    auto const [env_var_name, result, has_found] =
+      kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, kvikio::CompatMode::AUTO);
+    EXPECT_EQ(env_var_name, std::string_view{"KVIKIO_TEST_ALIAS"});
+    EXPECT_EQ(result, kvikio::CompatMode::ON);
+    EXPECT_TRUE(has_found);
+  }
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", "FALSE"}}};
+    auto const [env_var_name, result, has_found] =
+      kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, kvikio::CompatMode::AUTO);
+    EXPECT_EQ(env_var_name, std::string_view{"KVIKIO_TEST_ALIAS"});
+    EXPECT_EQ(result, kvikio::CompatMode::OFF);
+    EXPECT_TRUE(has_found);
+  }
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", "aUtO"}}};
+    auto const [env_var_name, result, has_found] =
+      kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, kvikio::CompatMode::ON);
+    EXPECT_EQ(env_var_name, std::string_view{"KVIKIO_TEST_ALIAS"});
+    EXPECT_EQ(result, kvikio::CompatMode::AUTO);
+    EXPECT_TRUE(has_found);
+  }
+
+  // Special type: std::vector<int>
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", "109, 108, 107"}}};
+    auto const [env_var_name, result, has_found] =
+      kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, std::vector<int>{111, 112, 113});
+    EXPECT_EQ(env_var_name, std::string_view{"KVIKIO_TEST_ALIAS"});
+    std::vector<int> expected{109, 108, 107};
+    EXPECT_EQ(result, expected);
+    EXPECT_TRUE(has_found);
   }
 }
