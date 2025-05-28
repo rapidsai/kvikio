@@ -82,7 +82,6 @@ template <typename T>
 std::tuple<std::string_view, T, bool> getenv_or(
   std::initializer_list<std::string_view> env_var_names, T default_val)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(env_var_names.size() > 0,
                 "`env_var_names` must contain at least one environment variable name.",
                 std::invalid_argument);
@@ -93,7 +92,7 @@ std::tuple<std::string_view, T, bool> getenv_or(
     auto const* env_val = std::getenv(env_var_name.data());
     if (env_val == nullptr) { continue; }
     KVIKIO_EXPECT(
-      has_already_been_set == false,
+      !has_already_been_set,
       "Environment variable " + std::string{env_var_name} + " has already been set by its alias.",
       std::invalid_argument);
     has_already_been_set = true;
