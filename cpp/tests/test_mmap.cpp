@@ -104,24 +104,22 @@ TEST_F(MmapTest, eof_in_constructor)
   });
 }
 
-TEST_F(MmapTest, read_without_prefault)
+TEST_F(MmapTest, read)
 {
-  kvikio::MmapHandle mmap_handle(_filepath, "r");
-  auto const [buf, read_size] = mmap_handle.read(mmap_handle.requested_size());
-  auto result_buf             = static_cast<value_type*>(buf);
-  for (std::size_t i = 0; i < _host_buf.size(); ++i) {
-    EXPECT_EQ(_host_buf[i], result_buf[i]);
-  }
-  EXPECT_EQ(read_size, _host_buf.size() * sizeof(value_type));
-}
+  auto do_test = [&](std::size_t num_elements_to_skip, bool prefault) {
+    auto offset = num_elements_to_skip * sizeof(value_type);
+    kvikio::MmapHandle mmap_handle(_filepath, "r");
+    auto const [buf, read_size] =
+      mmap_handle.read(mmap_handle.requested_size() - offset, offset, prefault);
+    auto result_buf = static_cast<value_type*>(buf);
+    for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
+      EXPECT_EQ(_host_buf[i], result_buf[i - num_elements_to_skip]);
+    }
+    EXPECT_EQ(read_size, (_host_buf.size() - num_elements_to_skip) * sizeof(value_type));
+  };
 
-TEST_F(MmapTest, read_with_prefault)
-{
-  kvikio::MmapHandle mmap_handle(_filepath, "r");
-  auto const [buf, read_size] = mmap_handle.read(mmap_handle.requested_size(), 0, true);
-  auto result_buf             = static_cast<value_type*>(buf);
-  for (std::size_t i = 0; i < _host_buf.size(); ++i) {
-    EXPECT_EQ(_host_buf[i], result_buf[i]);
+  for (const auto& num_elements_to_skip : {0, 1, 100, 1000, 99999}) {
+    do_test(num_elements_to_skip, true);
+    do_test(num_elements_to_skip, false);
   }
-  EXPECT_EQ(read_size, _host_buf.size() * sizeof(value_type));
 }
