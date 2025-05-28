@@ -19,9 +19,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <kvikio/error.hpp>
+#include <kvikio/file_handle.hpp>
 #include <kvikio/mmap.hpp>
-#include "kvikio/file_handle.hpp"
-#include "kvikio/utils.hpp"
+#include <kvikio/utils.hpp>
+
 #include "utils/utils.hpp"
 
 using ::testing::HasSubstr;
