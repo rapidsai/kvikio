@@ -62,7 +62,7 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  * @brief Get the environment variable value from a candidate list
  *
  * @tparam T Type of the environment variable value
- * @param env_var_names Name of the environment variable
+ * @param env_var_names Candidate list containing the names of environment variable
  * @param default_val Default value of the environment variable, if none of the candidates has been
  * found
  * @return A tuple of (`env_var_name`, `result`, `has_found`), where:
@@ -73,10 +73,8 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  *
  * @throws std::invalid_argument if:
  *   - `env_var_names` is empty
- *   - An environment variable from `env_var_names` has an empty value, e.g. by setting `export
- * KVIKIO_NTHREADS=`
  *   - Multiple candidates have been set at the same time
- *   - An invalid value is given
+ *   - An invalid value is given, e.g. value that cannot be converted to type T
  */
 template <typename T>
 std::tuple<std::string_view, T, bool> getenv_or(
