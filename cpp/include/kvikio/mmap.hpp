@@ -73,11 +73,6 @@ class MmapHandle {
                                                    std::size_t file_offset = 0,
                                                    bool prefault           = false);
 
-  std::future<std::size_t> pread(void* buf,
-                                 std::size_t size,
-                                 std::size_t file_offset = 0,
-                                 bool prefault           = false);
-
   static void perform_prefault(void* buf, std::size_t size);
 };
 }  // namespace kvikio

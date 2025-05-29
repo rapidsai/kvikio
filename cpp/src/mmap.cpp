@@ -122,16 +122,18 @@ void MmapHandle::map()
   //
   //     |--> file start                 |<--page_size-->|
   //     |
-  // (0) |...............|...............|...............|...............|..........
+  // (0) |...............|...............|...............|...............|............
   //
-  // (1) |<-------_initial_file_offset-------->|<--_initial_size--->|
-  //                                           |--> _buf
+  // (1) |<--_initial_file_offset-->|<---------------_initial_size--------------->|
+  //                                |--> _buf
   //
-  // (2) |<---------_map_offset--------->|<--------_map_size------->|
-  //                                     |--> _map_addr
+  // (2) |<-_map_offset->|<----------------------_map_size----------------------->|
+  //                     |--> _map_addr
   //
-  // (3) |<------------file_offset---------------->|<--size->|
-  //                                           |--> _buf
+  // (3) |<---------------------file_offset--------------------->|<--size-->|
+  //                                |--> _buf
+  //                                                             |--> start_addr
+  //                                                     |--> start_aligned_addr
   //
   // Case 2: External buffer is specified
   //
@@ -139,15 +141,21 @@ void MmapHandle::map()
   //     |
   // (0) |...............|...............|...............|...............|..........
   //
-  // (1) |<-------_initial_file_offset-------->|<--------_initial_size--------->|
-  //                                           |--> _buf/_external_buf
+  // (1) |<-_initial_file_offset->|<---------------_initial_size--------------->|
+  //                              |--> _buf_external_buf
   //
-  // (2) |<-----------------_map_offset----------------->|<------_map_size----->|
-  //                                                     |--> _map_addr
+  // (2) |<-------_map_offset----------->|<--------------_map_size------------->|
+  //                                     |--> _map_addr
   //
-  // (3) |<------------file_offset---------------->|<--size->|
-  //                                           |--> _buf/_external_buf
-
+  // (3) |<-------file_offset-------->|<--size->|
+  //                             |--> _buf/_external_buf
+  //                                  |--> start_addr
+  //                     |--> start_aligned_addr
+  //
+  // (3) |<------------------------file_offset-------------------->|<--size->|
+  //                             |--> _buf/_external_buf
+  //                                                               |--> start_addr
+  //                                                     |--> start_aligned_addr
   auto const page_size = get_page_size();
 
   KVIKIO_EXPECT(
@@ -177,6 +185,7 @@ void MmapHandle::map()
 
     if (_initial_size <= _offset_delta) {
       _map_offset = 0;
+      _map_size   = 0;
       return;
     }
 
@@ -235,8 +244,9 @@ std::pair<void*, std::size_t> MmapHandle::read(std::size_t size,
                 "Read is out of bound",
                 std::invalid_argument);
 
-  auto start_addr   = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  auto aligned_addr = align_up(start_addr, get_page_size());
+  auto start_addr         = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+  auto start_aligned_addr = align_down(start_addr, get_page_size());
+  auto adjusted_size      = detail::pointer_diff(start_addr, start_aligned_addr) + size;
 
   if (has_external_buf() && _offset_delta > 0 && file_offset < _map_offset) {
     auto read_size = std::min(size, _map_offset - file_offset);
@@ -244,7 +254,7 @@ std::pair<void*, std::size_t> MmapHandle::read(std::size_t size,
       _file_wrapper.fd(), start_addr, read_size, file_offset);
   }
 
-  if (prefault) { perform_prefault(aligned_addr, size); }
+  if (prefault) { perform_prefault(start_aligned_addr, adjusted_size); }
 
   return {start_addr, size};
 }
@@ -253,52 +263,36 @@ std::pair<void*, std::future<std::size_t>> MmapHandle::pread(std::size_t size,
                                                              std::size_t file_offset,
                                                              bool prefault)
 {
-  std::promise<std::size_t> p;
-  return {nullptr, p.get_future()};
-}
-
-std::future<std::size_t> MmapHandle::pread(void* buf,
-                                           std::size_t size,
-                                           std::size_t file_offset,
-                                           bool prefault)
-{
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
-  if (!is_host_memory(buf)) { KVIKIO_FAIL("File-backed mapping for device is not supported yet."); }
 
-  std::promise<std::size_t> p;
-  return p.get_future();
+  KVIKIO_EXPECT(size > 0, "Read size must be greater than 0", std::invalid_argument);
+  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
+                  file_offset + size <= _initial_file_offset + _initial_size,
+                "Read is out of bound",
+                std::invalid_argument);
 
-  //   CUcontext ctx = get_context_from_pointer(buf);
+  auto start_addr   = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+  auto aligned_addr = align_up(start_addr, get_page_size());
+  auto num_bytes    = detail::pointer_diff(aligned_addr, start_addr);
 
-  //   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
-  //   if (size < gds_threshold) {
-  //     PushAndPopContext c(ctx);
-  //     auto bytes_read = detail::posix_device_read(_file_direct_off.fd(), buf, size,
-  //     file_offset, 0);
-  //     // Maintain API consistency while making this trivial case synchronous.
-  //     // The result in the future is immediately available after the call.
-  //     return make_ready_future(bytes_read);
-  //   }
+  if (has_external_buf() && _offset_delta > 0 && file_offset < _map_offset) {
+    auto read_size = std::min(size, _map_offset - file_offset);
+    detail::posix_host_io<detail::IOOperationType::READ, detail::PartialIO::NO>(
+      _file_wrapper.fd(), start_addr, read_size, file_offset);
+  }
 
-  //   // Let's synchronize once instead of in each task.
-  //   if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
-  //     PushAndPopContext c(ctx);
-  //     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
-  //   }
+  if (prefault) {
+    auto op = [](void* aligned_start_addr,
+                 std::size_t size,
+                 [[maybe_unused]] std::size_t aligned_file_offset,
+                 std::size_t aligned_host_offset) -> std::size_t {
+      perform_prefault(detail::pointer_add(aligned_start_addr, aligned_host_offset), size);
+      return size;
+    };
 
-  //   // Regular case that use the threadpool and run the tasks in parallel
-  //   auto task = [this, ctx](void* devPtr_base,
-  //                           std::size_t size,
-  //                           std::size_t file_offset,
-  //                           std::size_t devPtr_offset) -> std::size_t {
-  //     PushAndPopContext c(ctx);
-  //     return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */
-  //     false);
-  //   };
-  //   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  //   return parallel_io(
-  //     task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
+    return parallel_io(op, aligned_addr, size, file_offset, task_size, 0, call_idx, nvtx_color);
+  }
 }
 
 void MmapHandle::perform_prefault(void* buf, std::size_t size)
