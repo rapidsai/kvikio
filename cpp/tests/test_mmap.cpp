@@ -65,7 +65,7 @@ class MmapTest : public testing::Test {
 
 TEST_F(MmapTest, file_open_flag_in_constructor)
 {
-  // Emtpy file open flag
+  // Empty file open flag
   EXPECT_THAT(
     [=] {
       {
