@@ -98,13 +98,35 @@ TEST(DefaultsTest, alias_for_getenv_or)
       ThrowsMessage<std::invalid_argument>(HasSubstr("unknown config value KVIKIO_TEST_ALIAS=")));
   }
 
-  // Env var has already been set by its alias
+  // Env var and alias have an empty value
+  {
+    kvikio::test::EnvVarContext env_var_ctx{
+      {{"KVIKIO_TEST_ALIAS_1", ""}, {"KVIKIO_TEST_ALIAS_2", ""}}};
+    EXPECT_THAT(
+      [=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS_2"}, 123); },
+      ThrowsMessage<std::invalid_argument>(HasSubstr("unknown config value KVIKIO_TEST_ALIAS_2=")));
+  }
+
+  // Env var has already been set by its alias with the same value
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS_1", "10"},
+                                             {"KVIKIO_TEST_ALIAS_2", "10"},
+                                             {"KVIKIO_TEST_ALIAS_3", "10"}}};
+    auto const [env_var_name, result, has_found] =
+      kvikio::getenv_or({"KVIKIO_TEST_ALIAS_1", "KVIKIO_TEST_ALIAS_3"}, 123);
+    EXPECT_EQ(env_var_name, std::string_view{"KVIKIO_TEST_ALIAS_3"});
+    EXPECT_EQ(result, 10);
+    EXPECT_TRUE(has_found);
+  }
+
+  // Env var has already been set by its alias with a different value
   {
     kvikio::test::EnvVarContext env_var_ctx{
       {{"KVIKIO_TEST_ALIAS_1", "10"}, {"KVIKIO_TEST_ALIAS_2", "20"}}};
     EXPECT_THAT([=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS_1", "KVIKIO_TEST_ALIAS_2"}, 123); },
                 ThrowsMessage<std::invalid_argument>(HasSubstr(
-                  "Environment variable KVIKIO_TEST_ALIAS_2 has already been set by its alias")));
+                  "Environment variable KVIKIO_TEST_ALIAS_2 (20) has already been set by its alias "
+                  "KVIKIO_TEST_ALIAS_1 (10) with a different value")));
   }
 
   // Env var has invalid value

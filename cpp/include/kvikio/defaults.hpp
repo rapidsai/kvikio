@@ -85,17 +85,21 @@ std::tuple<std::string_view, T, bool> getenv_or(
                 std::invalid_argument);
   std::string_view env_name_target;
   std::string_view env_val_target;
-  bool has_already_been_set{false};
+
   for (auto const& env_var_name : env_var_names) {
     auto const* env_val = std::getenv(env_var_name.data());
     if (env_val == nullptr) { continue; }
-    KVIKIO_EXPECT(
-      !has_already_been_set,
-      "Environment variable " + std::string{env_var_name} + " has already been set by its alias.",
-      std::invalid_argument);
-    has_already_been_set = true;
-    env_name_target      = env_var_name;
-    env_val_target       = env_val;
+
+    if (!env_name_target.empty() && env_val_target != env_val) {
+      std::stringstream ss;
+      ss << "Environment variable " << env_var_name << " (" << env_val
+         << ") has already been set by its alias " << env_name_target << " (" << env_val_target
+         << ") with a different value.";
+      KVIKIO_FAIL(ss.str(), std::invalid_argument);
+    }
+
+    env_name_target = env_var_name;
+    env_val_target  = env_val;
   }
 
   if (env_name_target.empty()) { return {env_name_target, default_val, false}; }
