@@ -69,11 +69,12 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  *   - If the environment variable is not set by any of the candidates, `has_found` will be false,
  * `result` be `default_val`, and `env_var_name` be empty.
  *   - If the environment variable is set by `env_var_name`, then `has_found` will be true, and
- * `result` be the set value.
+ * `result` be the set value. If more than one candidates have been set with the same value,
+ * `env_var_name` will be assigned the last candidate.
  *
  * @throws std::invalid_argument if:
  *   - `env_var_names` is empty
- *   - Multiple candidates have been set at the same time
+ *   - More than one candidates have been set with different values
  *   - An invalid value is given, e.g. value that cannot be converted to type T
  */
 template <typename T>
