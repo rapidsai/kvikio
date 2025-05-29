@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <future>
 
+#include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
 
 namespace kvikio {
@@ -45,6 +46,9 @@ class MmapHandle {
 
   bool has_external_buf() const noexcept;
 
+  std::tuple<void*, void*, std::size_t, std::size_t> prepare_read(std::size_t size,
+                                                                  std::size_t file_offset);
+
  public:
   MmapHandle(std::string const& file_path,
              std::string const& flags        = "r",
@@ -69,10 +73,19 @@ class MmapHandle {
                                      std::size_t file_offset = 0,
                                      bool prefault           = false);
 
-  std::pair<void*, std::future<std::size_t>> pread(std::size_t size,
-                                                   std::size_t file_offset = 0,
-                                                   bool prefault           = false);
+  std::pair<void*, std::future<std::size_t>> pread(
+    std::size_t size,
+    std::size_t file_offset       = 0,
+    bool prefault                 = false,
+    std::size_t aligned_task_size = defaults::task_size());
 
-  static void perform_prefault(void* buf, std::size_t size);
+  static std::size_t perform_prefault(void* buf, std::size_t size);
+
+  static std::future<std::size_t> perform_prefault_parallel(
+    void* buf,
+    std::size_t size,
+    std::size_t aligned_task_size = defaults::task_size(),
+    std::uint64_t call_idx        = 0,
+    nvtx_color_type nvtx_color    = NvtxManager::default_color());
 };
 }  // namespace kvikio

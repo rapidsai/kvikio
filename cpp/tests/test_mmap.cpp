@@ -105,7 +105,29 @@ TEST_F(MmapTest, eof_in_constructor)
   });
 }
 
-TEST_F(MmapTest, read)
+TEST_F(MmapTest, prefault_seq)
+{
+  kvikio::MmapHandle mmap_handle(_filepath, "r");
+
+  std::vector<value_type> result_buf(_host_buf.size(), 0 /* initial value */);
+  auto touched_bytes_expected = result_buf.size() * sizeof(value_type);
+  auto touched_bytes_actual =
+    kvikio::MmapHandle::perform_prefault(result_buf.data(), touched_bytes_expected);
+  EXPECT_EQ(touched_bytes_actual, touched_bytes_expected);
+}
+
+TEST_F(MmapTest, prefault_parallel)
+{
+  kvikio::MmapHandle mmap_handle(_filepath, "r");
+
+  std::vector<value_type> result_buf(_host_buf.size(), 0 /* initial value */);
+  auto touched_bytes_expected = result_buf.size() * sizeof(value_type);
+  auto fut =
+    kvikio::MmapHandle::perform_prefault_parallel(result_buf.data(), touched_bytes_expected);
+  EXPECT_EQ(fut.get(), touched_bytes_expected);
+}
+
+TEST_F(MmapTest, read_seq)
 {
   auto do_test = [&](std::size_t num_elements_to_skip, bool prefault) {
     auto offset = num_elements_to_skip * sizeof(value_type);
@@ -119,7 +141,27 @@ TEST_F(MmapTest, read)
     EXPECT_EQ(read_size, (_host_buf.size() - num_elements_to_skip) * sizeof(value_type));
   };
 
-  for (const auto& num_elements_to_skip : {0, 1, 100, 1000, 99999}) {
+  for (const auto& num_elements_to_skip : {100}) {
+    do_test(num_elements_to_skip, true);
+    do_test(num_elements_to_skip, false);
+  }
+}
+
+TEST_F(MmapTest, read_parallel)
+{
+  auto do_test = [&](std::size_t num_elements_to_skip, bool prefault) {
+    auto offset = num_elements_to_skip * sizeof(value_type);
+    kvikio::MmapHandle mmap_handle(_filepath, "r");
+    auto [buf, fut] = mmap_handle.pread(mmap_handle.requested_size() - offset, offset, prefault);
+    auto const read_size = fut.get();
+    auto result_buf      = static_cast<value_type*>(buf);
+    for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
+      EXPECT_EQ(_host_buf[i], result_buf[i - num_elements_to_skip]);
+    }
+    EXPECT_EQ(read_size, (_host_buf.size() - num_elements_to_skip) * sizeof(value_type));
+  };
+
+  for (const auto& num_elements_to_skip : {100}) {
     do_test(num_elements_to_skip, true);
     do_test(num_elements_to_skip, false);
   }

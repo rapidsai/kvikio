@@ -17,11 +17,13 @@
 #include <cstddef>
 #include <cstdlib>
 #include <future>
+#include <iostream>
 #include <stdexcept>
 #include <type_traits>
 
 #include <kvikio/error.hpp>
 #include <kvikio/mmap.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
@@ -233,11 +235,9 @@ void MmapHandle::close() noexcept
   _map_addr    = nullptr;
 }
 
-std::pair<void*, std::size_t> MmapHandle::read(std::size_t size,
-                                               std::size_t file_offset,
-                                               bool prefault)
+std::tuple<void*, void*, std::size_t, std::size_t> MmapHandle::prepare_read(std::size_t size,
+                                                                            std::size_t file_offset)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(size > 0, "Read size must be greater than 0", std::invalid_argument);
   KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
                   file_offset + size <= _initial_file_offset + _initial_size,
@@ -247,74 +247,150 @@ std::pair<void*, std::size_t> MmapHandle::read(std::size_t size,
   auto start_addr         = detail::pointer_add(_buf, file_offset - _initial_file_offset);
   auto start_aligned_addr = align_down(start_addr, get_page_size());
   auto adjusted_size      = detail::pointer_diff(start_addr, start_aligned_addr) + size;
+  std::size_t posix_size{0};
 
   if (has_external_buf() && _offset_delta > 0 && file_offset < _map_offset) {
     auto read_size = std::min(size, _map_offset - file_offset);
-    detail::posix_host_io<detail::IOOperationType::READ, detail::PartialIO::NO>(
+    posix_size     = detail::posix_host_io<detail::IOOperationType::READ, detail::PartialIO::NO>(
       _file_wrapper.fd(), start_addr, read_size, file_offset);
   }
 
-  if (prefault) { perform_prefault(start_aligned_addr, adjusted_size); }
+  return {start_addr, start_aligned_addr, adjusted_size, static_cast<std::size_t>(posix_size)};
+}
 
-  return {start_addr, size};
+std::pair<void*, std::size_t> MmapHandle::read(std::size_t size,
+                                               std::size_t file_offset,
+                                               bool prefault)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+
+  auto const [start_addr, start_aligned_addr, adjusted_size, posix_size] =
+    prepare_read(size, file_offset);
+
+  std::size_t total_bytes{posix_size};
+
+  if (prefault) {
+    total_bytes += perform_prefault(start_aligned_addr, adjusted_size);
+    total_bytes -= detail::pointer_diff(start_addr, start_aligned_addr);
+  } else {
+    total_bytes = size;
+  }
+
+  return {start_addr, total_bytes};
 }
 
 std::pair<void*, std::future<std::size_t>> MmapHandle::pread(std::size_t size,
                                                              std::size_t file_offset,
-                                                             bool prefault)
+                                                             bool prefault,
+                                                             std::size_t aligned_task_size)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
 
-  KVIKIO_EXPECT(size > 0, "Read size must be greater than 0", std::invalid_argument);
-  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
-                  file_offset + size <= _initial_file_offset + _initial_size,
-                "Read is out of bound",
-                std::invalid_argument);
+  auto const [start_addr, start_aligned_addr, adjusted_size, posix_size] =
+    prepare_read(size, file_offset);
 
-  auto start_addr   = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  auto aligned_addr = align_up(start_addr, get_page_size());
-  auto num_bytes    = detail::pointer_diff(aligned_addr, start_addr);
-
-  if (has_external_buf() && _offset_delta > 0 && file_offset < _map_offset) {
-    auto read_size = std::min(size, _map_offset - file_offset);
-    detail::posix_host_io<detail::IOOperationType::READ, detail::PartialIO::NO>(
-      _file_wrapper.fd(), start_addr, read_size, file_offset);
-  }
-
+  std::future<std::size_t> fut_prefault;
   if (prefault) {
-    auto op = [](void* aligned_start_addr,
-                 std::size_t size,
-                 [[maybe_unused]] std::size_t aligned_file_offset,
-                 std::size_t aligned_host_offset) -> std::size_t {
-      perform_prefault(detail::pointer_add(aligned_start_addr, aligned_host_offset), size);
-      return size;
-    };
+    fut_prefault = perform_prefault_parallel(
+      start_aligned_addr, adjusted_size, aligned_task_size, call_idx, nvtx_color);
 
-    return parallel_io(op, aligned_addr, size, file_offset, task_size, 0, call_idx, nvtx_color);
+    auto fut_gather = detail::submit_move_only_task(
+      [fut_prefault       = std::move(fut_prefault),
+       posix_size         = posix_size,
+       start_addr         = start_addr,
+       start_aligned_addr = start_aligned_addr]() mutable -> std::size_t {
+        return posix_size + fut_prefault.get() -
+               detail::pointer_diff(start_addr, start_aligned_addr);
+      },
+      call_idx,
+      nvtx_color);
+
+    return {start_addr, std::move(fut_gather)};
+  } else {
+    return {start_addr, make_ready_future(size)};
   }
 }
 
-void MmapHandle::perform_prefault(void* buf, std::size_t size)
+std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
 {
   auto const page_size = get_page_size();
   auto aligned_addr    = align_up(buf, page_size);
+
+  std::size_t touched_bytes{0};
 
   // If buf is not aligned, read the byte at buf.
   auto num_bytes = detail::pointer_diff(aligned_addr, buf);
   if (num_bytes > 0) {
     detail::do_not_optimize_away_read(*static_cast<std::byte*>(buf));
+    touched_bytes += num_bytes;
     if (size >= num_bytes) { size -= num_bytes; }
   }
 
-  while (size >= 0) {
+  while (size > 0) {
     detail::do_not_optimize_away_read(*static_cast<std::byte*>(aligned_addr));
     if (size >= page_size) {
       aligned_addr = detail::pointer_add(aligned_addr, page_size);
       size -= page_size;
+      touched_bytes += page_size;
     } else {
+      touched_bytes += size;
       break;
     }
   }
+  return touched_bytes;
 }
+
+std::future<std::size_t> MmapHandle::perform_prefault_parallel(void* buf,
+                                                               std::size_t size,
+                                                               std::size_t aligned_task_size,
+                                                               std::uint64_t call_idx,
+                                                               nvtx_color_type nvtx_color)
+{
+  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
+
+  auto const page_size = get_page_size();
+
+  KVIKIO_EXPECT((aligned_task_size & (page_size - 1)) == 0,
+                "Task size must be a multiple of page size.",
+                std::invalid_argument);
+
+  auto aligned_addr = align_up(buf, page_size);
+  std::size_t touched_bytes{0};
+
+  // If buf is not aligned, read the byte at buf.
+  auto num_bytes = detail::pointer_diff(aligned_addr, buf);
+  if (num_bytes > 0) {
+    detail::do_not_optimize_away_read(*static_cast<std::byte*>(buf));
+    touched_bytes += num_bytes;
+    if (size >= num_bytes) { size -= num_bytes; }
+  }
+
+  auto op = [page_size = page_size](
+              void* aligned_addr, std::size_t size, std::size_t, std::size_t) -> std::size_t {
+    std::size_t touched_bytes{0};
+    while (size > 0) {
+      detail::do_not_optimize_away_read(*static_cast<std::byte*>(aligned_addr));
+      if (size >= page_size) {
+        aligned_addr = detail::pointer_add(aligned_addr, page_size);
+        size -= page_size;
+        touched_bytes += page_size;
+      } else {
+        touched_bytes += size;
+        break;
+      }
+    }
+    return touched_bytes;
+  };
+
+  auto fut = parallel_io(op, aligned_addr, size, 0, aligned_task_size, 0, call_idx, nvtx_color);
+
+  return detail::submit_move_only_task(
+    [fut = std::move(fut), touched_bytes = touched_bytes]() mutable -> std::size_t {
+      return touched_bytes + fut.get();
+    },
+    call_idx,
+    nvtx_color);
+}
+
 }  // namespace kvikio
