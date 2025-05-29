@@ -79,8 +79,8 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  *
  * @throws std::invalid_argument if:
  *   - `env_var_names` is empty.
- *   - The environment variable is not defined to be string type and is set to an empty value. In
- *     other words, string-type environment variables are allowed to hold an empty value.
+ *   - The environment variable is not defined to be string type and is assigned an empty value (in
+ *     other words, string-type environment variables are allowed to hold an empty value).
  *   - More than one candidates have been set with different values.
  *   - An invalid value is given, e.g. value that cannot be converted to type T.
  */
