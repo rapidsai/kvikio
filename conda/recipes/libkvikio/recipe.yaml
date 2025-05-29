@@ -59,14 +59,7 @@ cache:
     host:
       - cuda-version =${{ cuda_version }}
       - libcurl ${{ libcurl_version }}
-      - if: cuda_major == "11"
-        then:
-          - cudatoolkit
-          - if: linux64
-            then:
-              - libcufile =${{ cuda11_libcufile_host_version }}
-              - libcufile-dev =${{ cuda11_libcufile_host_version }}
-        else: libcufile-dev
+      - libcufile-dev
 
 outputs:
   - package:
@@ -91,24 +84,18 @@ outputs:
         - libcurl ${{ libcurl_version }}
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-            - if: linux64
-              then:
-                - libcufile ${{ cuda11_libcufile_run_version }}
-                - libcufile-dev ${{ cuda11_libcufile_run_version }}
-          else:
-            - if: linux
-              then: libcufile-dev
+        - if: linux
+          then: libcufile-dev
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-version
           - libcufile
           - libcurl
-          - if: cuda_major == "11"
-            then:
-              - cudatoolkit
     tests:
       - script:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
@@ -134,37 +121,25 @@ outputs:
       host:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-            - if: linux64
-              then:
-                - libcufile-dev =${{ cuda11_libcufile_host_version }}
-          else:
-            - cuda-cudart-dev
-            - if: linux
-              then: libcufile-dev
+        - cuda-cudart-dev
+        - if: linux
+          then: libcufile-dev
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-            - if: linux64
-              then:
-                - libcufile =${{ cuda11_libcufile_host_version }}
-          else:
-            - cuda-cudart
-            - if: linux
-              then: libcufile
+        - cuda-cudart
+        - if: linux
+          then: libcufile
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
           - libcufile
           - libcurl
-          - if: cuda_major == "11"
-            then:
-              - cudatoolkit
     about:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license.text }}
