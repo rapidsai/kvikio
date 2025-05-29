@@ -22,6 +22,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/error.hpp>
@@ -43,9 +44,13 @@ T getenv_or(std::string_view env_var_name, T default_val)
   std::stringstream sstream(env_val);
   T converted_val;
   sstream >> converted_val;
-  KVIKIO_EXPECT(!sstream.fail(),
-                "unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
-                std::invalid_argument);
+
+  if constexpr (!std::is_same_v<T, std::string>) {
+    KVIKIO_EXPECT(!sstream.fail(),
+                  "unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
+                  std::invalid_argument);
+  }
+
   return converted_val;
 }
 
@@ -73,9 +78,11 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  * `env_var_name` will be assigned the last candidate.
  *
  * @throws std::invalid_argument if:
- *   - `env_var_names` is empty
- *   - More than one candidates have been set with different values
- *   - An invalid value is given, e.g. value that cannot be converted to type T
+ *   - `env_var_names` is empty.
+ *   - The environment variable is not defined to be string type and is set to an empty value. In
+ *     other words, string-type environment variables are allowed to hold an empty value.
+ *   - More than one candidates have been set with different values.
+ *   - An invalid value is given, e.g. value that cannot be converted to type T.
  */
 template <typename T>
 std::tuple<std::string_view, T, bool> getenv_or(

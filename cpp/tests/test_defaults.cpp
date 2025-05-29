@@ -90,7 +90,7 @@ TEST(DefaultsTest, alias_for_getenv_or)
                   "`env_var_names` must contain at least one environment variable name")));
   }
 
-  // Env var has an empty value
+  // Non-string env var has an empty value
   {
     kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", ""}}};
     EXPECT_THAT(
@@ -98,13 +98,34 @@ TEST(DefaultsTest, alias_for_getenv_or)
       ThrowsMessage<std::invalid_argument>(HasSubstr("unknown config value KVIKIO_TEST_ALIAS=")));
   }
 
-  // Env var and alias have an empty value
+  // Non-string env var and alias have an empty value
   {
     kvikio::test::EnvVarContext env_var_ctx{
       {{"KVIKIO_TEST_ALIAS_1", ""}, {"KVIKIO_TEST_ALIAS_2", ""}}};
     EXPECT_THAT(
-      [=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS_2"}, 123); },
+      [=] { kvikio::getenv_or({"KVIKIO_TEST_ALIAS_1", "KVIKIO_TEST_ALIAS_2"}, 123); },
       ThrowsMessage<std::invalid_argument>(HasSubstr("unknown config value KVIKIO_TEST_ALIAS_2=")));
+  }
+
+  // String env var has an empty value
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{{"KVIKIO_TEST_ALIAS", ""}}};
+    auto const [env_var_name, result, has_found] =
+      kvikio::getenv_or({"KVIKIO_TEST_ALIAS"}, std::string{"abc"});
+    EXPECT_EQ(env_var_name, "KVIKIO_TEST_ALIAS");
+    EXPECT_TRUE(result.empty());
+    EXPECT_TRUE(has_found);
+  }
+
+  // String env var and alias have an empty value
+  {
+    kvikio::test::EnvVarContext env_var_ctx{
+      {{"KVIKIO_TEST_ALIAS_1", ""}, {"KVIKIO_TEST_ALIAS_2", ""}}};
+    auto const [env_var_name, result, has_found] =
+      kvikio::getenv_or({"KVIKIO_TEST_ALIAS_1", "KVIKIO_TEST_ALIAS_2"}, std::string{"abc"});
+    EXPECT_EQ(env_var_name, "KVIKIO_TEST_ALIAS_2");
+    EXPECT_TRUE(result.empty());
+    EXPECT_TRUE(has_found);
   }
 
   // Env var has already been set by its alias with the same value
@@ -113,7 +134,7 @@ TEST(DefaultsTest, alias_for_getenv_or)
                                              {"KVIKIO_TEST_ALIAS_2", "10"},
                                              {"KVIKIO_TEST_ALIAS_3", "10"}}};
     auto const [env_var_name, result, has_found] =
-      kvikio::getenv_or({"KVIKIO_TEST_ALIAS_1", "KVIKIO_TEST_ALIAS_3"}, 123);
+      kvikio::getenv_or({"KVIKIO_TEST_ALIAS_1", "KVIKIO_TEST_ALIAS_2", "KVIKIO_TEST_ALIAS_3"}, 123);
     EXPECT_EQ(env_var_name, std::string_view{"KVIKIO_TEST_ALIAS_3"});
     EXPECT_EQ(result, 10);
     EXPECT_TRUE(has_found);
