@@ -72,7 +72,7 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  * found
  * @return A tuple of (`env_var_name`, `result`, `has_found`), where:
  *   - If the environment variable is not set by any of the candidates, `has_found` will be false,
- * `result` be `default_val`, and `env_var_name` be empty.
+ * `result` will be `default_val`, and `env_var_name` will be empty.
  *   - If the environment variable is set by `env_var_name`, then `has_found` will be true, and
  * `result` be the set value. If more than one candidates have been set with the same value,
  * `env_var_name` will be assigned the last candidate.
