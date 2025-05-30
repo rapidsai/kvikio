@@ -50,6 +50,7 @@ class MmapHandle {
                                                                   std::size_t file_offset);
 
  public:
+  MmapHandle() noexcept = default;
   MmapHandle(std::string const& file_path,
              std::string const& flags        = "r",
              std::size_t initial_size        = 0,

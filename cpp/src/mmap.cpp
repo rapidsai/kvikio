@@ -32,10 +32,11 @@ namespace kvikio {
 
 namespace detail {
 
-template <typename T>
-void do_not_optimize_away_read(T const& value)
+void do_not_optimize_away_read(void* addr)
 {
-  asm volatile("" : : "r,m"(value) : "memory");
+  auto addr_byte = static_cast<std::byte*>(addr);
+  std::byte tmp{};
+  asm volatile("" : "+r,m"(tmp = *addr_byte) : : "memory");
 }
 
 template <typename Integer>
@@ -84,6 +85,8 @@ MmapHandle::MmapHandle(std::string const& file_path,
 MmapHandle::MmapHandle(MmapHandle&& o) noexcept
   : _buf{std::exchange(o._buf, {})},
     _external_buf{std::exchange(o._external_buf, {})},
+    _initial_size{std::exchange(o._initial_size, {})},
+    _initial_file_offset{std::exchange(o._initial_file_offset, {})},
     _file_size{std::exchange(o._file_size, {})},
     _map_offset{std::exchange(o._map_offset, {})},
     _map_size{std::exchange(o._map_size, {})},
@@ -99,6 +102,8 @@ MmapHandle& MmapHandle::operator=(MmapHandle&& o) noexcept
 {
   _buf                 = std::exchange(o._buf, {});
   _external_buf        = std::exchange(o._external_buf, {});
+  _initial_size        = std::exchange(o._initial_size, {});
+  _initial_file_offset = std::exchange(o._initial_file_offset, {});
   _file_size           = std::exchange(o._file_size, {});
   _map_offset          = std::exchange(o._map_offset, {});
   _map_size            = std::exchange(o._map_size, {});
@@ -107,6 +112,7 @@ MmapHandle& MmapHandle::operator=(MmapHandle&& o) noexcept
   _initialized         = std::exchange(o._initialized, {});
   _map_protection_flag = std::exchange(o._map_protection_flag, {});
   _file_wrapper        = std::exchange(o._file_wrapper, {});
+
   return *this;
 }
 
@@ -290,9 +296,8 @@ std::pair<void*, std::future<std::size_t>> MmapHandle::pread(std::size_t size,
   auto const [start_addr, start_aligned_addr, adjusted_size, posix_size] =
     prepare_read(size, file_offset);
 
-  std::future<std::size_t> fut_prefault;
   if (prefault) {
-    fut_prefault = perform_prefault_parallel(
+    std::future<std::size_t> fut_prefault = perform_prefault_parallel(
       start_aligned_addr, adjusted_size, aligned_task_size, call_idx, nvtx_color);
 
     auto fut_gather = detail::submit_move_only_task(
@@ -322,13 +327,13 @@ std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
   // If buf is not aligned, read the byte at buf.
   auto num_bytes = detail::pointer_diff(aligned_addr, buf);
   if (num_bytes > 0) {
-    detail::do_not_optimize_away_read(*static_cast<std::byte*>(buf));
+    detail::do_not_optimize_away_read(buf);
     touched_bytes += num_bytes;
     if (size >= num_bytes) { size -= num_bytes; }
   }
 
   while (size > 0) {
-    detail::do_not_optimize_away_read(*static_cast<std::byte*>(aligned_addr));
+    detail::do_not_optimize_away_read(aligned_addr);
     if (size >= page_size) {
       aligned_addr = detail::pointer_add(aligned_addr, page_size);
       size -= page_size;
@@ -361,7 +366,7 @@ std::future<std::size_t> MmapHandle::perform_prefault_parallel(void* buf,
   // If buf is not aligned, read the byte at buf.
   auto num_bytes = detail::pointer_diff(aligned_addr, buf);
   if (num_bytes > 0) {
-    detail::do_not_optimize_away_read(*static_cast<std::byte*>(buf));
+    detail::do_not_optimize_away_read(buf);
     touched_bytes += num_bytes;
     if (size >= num_bytes) { size -= num_bytes; }
   }
@@ -370,7 +375,7 @@ std::future<std::size_t> MmapHandle::perform_prefault_parallel(void* buf,
               void* aligned_addr, std::size_t size, std::size_t, std::size_t) -> std::size_t {
     std::size_t touched_bytes{0};
     while (size > 0) {
-      detail::do_not_optimize_away_read(*static_cast<std::byte*>(aligned_addr));
+      detail::do_not_optimize_away_read(aligned_addr);
       if (size >= page_size) {
         aligned_addr = detail::pointer_add(aligned_addr, page_size);
         size -= page_size;
