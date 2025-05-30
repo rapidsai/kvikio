@@ -88,10 +88,7 @@ outputs:
           then: libcufile-dev
       ignore_run_exports:
         from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
           - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-version
           - libcufile
@@ -133,7 +130,6 @@ outputs:
         from_package:
           - ${{ compiler("c") }}
           - ${{ compiler("cxx") }}
-          - ${{ compiler("cuda") }}
           - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
