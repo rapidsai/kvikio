@@ -89,8 +89,6 @@ requirements:
     - if: linux
       then: libcufile
   ignore_run_exports:
-    from_package:
-      - ${{ compiler("cuda") }}
     by_name:
       - cuda-cudart
       - cuda-version
