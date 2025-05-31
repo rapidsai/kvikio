@@ -32,6 +32,11 @@ namespace kvikio {
 
 namespace detail {
 
+/**
+ * @brief Prevent the compiler from optimizing away the read of a byte from a given address
+ *
+ * @param addr The address to read from
+ */
 void do_not_optimize_away_read(void* addr)
 {
   auto addr_byte = static_cast<std::byte*>(addr);
@@ -39,6 +44,16 @@ void do_not_optimize_away_read(void* addr)
   asm volatile("" : "+r,m"(tmp = *addr_byte) : : "memory");
 }
 
+/**
+ * @brief Change an address `p` by a signed difference of `v`
+ *
+ * @tparam Integer Signed integer type
+ * @param p An address
+ * @param v Change of `p` in bytes
+ * @return A new address as a result of applying `v` on `p`
+ *
+ * @note This function exploits UB in C++.
+ */
 template <typename Integer>
 void* pointer_add(void* p, Integer v)
 {
@@ -46,11 +61,59 @@ void* pointer_add(void* p, Integer v)
   return static_cast<std::byte*>(p) + v;
 }
 
+/**
+ * @brief The distance in bytes between pointer `p1` and `p2`
+ *
+ * @param p1 The first pointer
+ * @param p2 The second pointer
+ * @return Signed result of (`p1` - `p2`). Both pointers are cast to std::byte* before subtraction.
+ *
+ * @note This function exploits UB in C++.
+ */
 std::ptrdiff_t pointer_diff(void* p1, void* p2)
 {
   return static_cast<std::byte*>(p1) - static_cast<std::byte*>(p2);
 }
 }  // namespace detail
+
+// Case 1: External buffer is not specified
+//
+//     |--> file start                 |<--page_size-->|
+//     |
+// (0) |...............|...............|...............|...............|............
+//
+// (1) |<--_initial_file_offset-->|<---------------_initial_size--------------->|
+//                                |--> _buf
+//
+// (2) |<-_map_offset->|<----------------------_map_size----------------------->|
+//                     |--> _map_addr
+//
+// (3) |<---------------------file_offset--------------------->|<--size-->|
+//                                |--> _buf
+//                                                             |--> start_addr
+//                                                     |--> start_aligned_addr
+//
+// Case 2: External buffer is specified
+//
+//     |--> file start                 |<--page_size-->|
+//     |
+// (0) |...............|...............|...............|...............|..........
+//
+// (1) |<-_initial_file_offset->|<---------------_initial_size--------------->|
+//                              |--> _buf_external_buf
+//
+// (2) |<-------_map_offset----------->|<--------------_map_size------------->|
+//                                     |--> _map_addr
+//
+// (3) |<-------file_offset-------->|<--size->|
+//                             |--> _buf/_external_buf
+//                                  |--> start_addr
+//                     |--> start_aligned_addr
+//
+// (3) |<------------------------file_offset-------------------->|<--size->|
+//                             |--> _buf/_external_buf
+//                                                               |--> start_addr
+//                                                     |--> start_aligned_addr
 
 MmapHandle::MmapHandle(std::string const& file_path,
                        std::string const& flags,
@@ -126,44 +189,6 @@ void MmapHandle::map()
 {
   KVIKIO_NVTX_FUNC_RANGE();
 
-  // Case 1: External buffer is not specified
-  //
-  //     |--> file start                 |<--page_size-->|
-  //     |
-  // (0) |...............|...............|...............|...............|............
-  //
-  // (1) |<--_initial_file_offset-->|<---------------_initial_size--------------->|
-  //                                |--> _buf
-  //
-  // (2) |<-_map_offset->|<----------------------_map_size----------------------->|
-  //                     |--> _map_addr
-  //
-  // (3) |<---------------------file_offset--------------------->|<--size-->|
-  //                                |--> _buf
-  //                                                             |--> start_addr
-  //                                                     |--> start_aligned_addr
-  //
-  // Case 2: External buffer is specified
-  //
-  //     |--> file start                 |<--page_size-->|
-  //     |
-  // (0) |...............|...............|...............|...............|..........
-  //
-  // (1) |<-_initial_file_offset->|<---------------_initial_size--------------->|
-  //                              |--> _buf_external_buf
-  //
-  // (2) |<-------_map_offset----------->|<--------------_map_size------------->|
-  //                                     |--> _map_addr
-  //
-  // (3) |<-------file_offset-------->|<--size->|
-  //                             |--> _buf/_external_buf
-  //                                  |--> start_addr
-  //                     |--> start_aligned_addr
-  //
-  // (3) |<------------------------file_offset-------------------->|<--size->|
-  //                             |--> _buf/_external_buf
-  //                                                               |--> start_addr
-  //                                                     |--> start_aligned_addr
   auto const page_size = get_page_size();
 
   KVIKIO_EXPECT(
