@@ -371,8 +371,10 @@ std::future<std::size_t> MmapHandle::perform_prefault_parallel(void* buf,
     if (size >= num_bytes) { size -= num_bytes; }
   }
 
-  auto op = [page_size = page_size](
-              void* aligned_addr, std::size_t size, std::size_t, std::size_t) -> std::size_t {
+  auto op =
+    [page_size = page_size](
+      void* aligned_addr, std::size_t size, std::size_t, std::size_t buf_offset) -> std::size_t {
+    aligned_addr = detail::pointer_add(aligned_addr, buf_offset);
     std::size_t touched_bytes{0};
     while (size > 0) {
       detail::do_not_optimize_away_read(aligned_addr);
