@@ -23,6 +23,10 @@
 
 namespace kvikio {
 
+/**
+ * @brief
+ *
+ */
 class MmapHandle {
  private:
   void* _buf{};
@@ -41,16 +45,52 @@ class MmapHandle {
   int _map_protection_flag{};
   FileWrapper _file_wrapper{};
 
+  /**
+   * @brief
+   *
+   */
   void map();
+
+  /**
+   * @brief
+   *
+   */
   void unmap();
 
+  /**
+   * @brief
+   *
+   * @return Boolean answer
+   */
   bool has_external_buf() const noexcept;
 
+  /**
+   * @brief
+   *
+   * @param size
+   * @param file_offset
+   * @return
+   */
   std::tuple<void*, void*, std::size_t, std::size_t> prepare_read(std::size_t size,
                                                                   std::size_t file_offset);
 
  public:
+  /**
+   * @brief Construct a new Mmap Handle object
+   *
+   */
   MmapHandle() noexcept = default;
+
+  /**
+   * @brief Construct a new Mmap Handle object
+   *
+   * @param file_path
+   * @param flags
+   * @param initial_size
+   * @param initial_file_offset
+   * @param external_buf
+   * @param mode
+   */
   MmapHandle(std::string const& file_path,
              std::string const& flags        = "r",
              std::size_t initial_size        = 0,
@@ -64,24 +104,72 @@ class MmapHandle {
   MmapHandle& operator=(MmapHandle&& o) noexcept;
   ~MmapHandle() noexcept;
 
+  /**
+   * @brief
+   *
+   * @return std::size_t
+   */
   std::size_t requested_size() const noexcept;
 
+  /**
+   * @brief
+   *
+   * @return Boolean answer
+   */
   [[nodiscard]] bool closed() const noexcept;
 
+  /**
+   * @brief
+   *
+   */
   void close() noexcept;
 
+  /**
+   * @brief
+   *
+   * @param size
+   * @param file_offset
+   * @param prefault
+   * @return
+   */
   std::pair<void*, std::size_t> read(std::size_t size,
                                      std::size_t file_offset = 0,
                                      bool prefault           = false);
 
+  /**
+   * @brief
+   *
+   * @param size
+   * @param file_offset
+   * @param prefault
+   * @param aligned_task_size
+   * @return
+   */
   std::pair<void*, std::future<std::size_t>> pread(
     std::size_t size,
     std::size_t file_offset       = 0,
     bool prefault                 = false,
     std::size_t aligned_task_size = defaults::task_size());
 
+  /**
+   * @brief
+   *
+   * @param buf
+   * @param size
+   * @return
+   */
   static std::size_t perform_prefault(void* buf, std::size_t size);
 
+  /**
+   * @brief
+   *
+   * @param buf
+   * @param size
+   * @param aligned_task_size
+   * @param call_idx
+   * @param nvtx_color
+   * @return
+   */
   static std::future<std::size_t> perform_prefault_parallel(
     void* buf,
     std::size_t size,
