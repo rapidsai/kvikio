@@ -15,9 +15,4 @@ rapids-pip-retry install -v \
   "$(echo "${LIBKVIKIO_WHEELHOUSE}"/libkvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)" \
   "$(echo "${KVIKIO_WHEELHOUSE}"/kvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
-# If running CUDA 11.8 on arm64, we skip tests marked "cufile" since
-# cuFile didn't support arm until 12.4
-[[ "${CUDA_VERSION}" == "11.8.0" && "${RUNNER_ARCH}" == "ARM64" ]] \
-  && PYTEST_MARK=( -m 'not cufile' ) || PYTEST_MARK=()
-
-python -m pytest --cache-clear --verbose "${PYTEST_MARK[@]}" ./python/kvikio/tests
+python -m pytest --cache-clear --verbose ./python/kvikio/tests
