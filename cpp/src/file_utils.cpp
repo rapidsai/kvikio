@@ -18,7 +18,10 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cstdlib>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -208,5 +211,26 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
 
   SYSCALL_CHECK(munmap(addr, file_size));
   return {num_pages_in_page_cache, num_pages};
+}
+
+bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+
+  if (clear_dirty_pages) { sync(); }
+
+  std::string pseudo_file{"/proc/sys/vm/drop_caches"};
+  auto fd = open(pseudo_file.c_str(), O_WRONLY);
+  if (fd == -1) {
+    // Insufficient permission to modify /proc/sys/vm/drop_caches
+    return false;
+  }
+
+  std::string new_value = (reclaim_dentries_and_inodes ? "3" : "1");
+  SYSCALL_CHECK(write(fd, new_value.c_str(), new_value.length()),
+                "Failed to write to " + pseudo_file);
+
+  SYSCALL_CHECK(close(fd), "Failed to close " + pseudo_file);
+  return true;
 }
 }  // namespace kvikio
