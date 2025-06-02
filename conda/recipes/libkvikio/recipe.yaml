@@ -83,6 +83,7 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - libcurl ${{ libcurl_version }}
+        - libnuma
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - if: linux
