@@ -88,7 +88,6 @@ outputs:
         - if: linux
           then:
             - libcufile-dev
-            - libnuma
       ignore_run_exports:
         by_name:
           - cuda-version
@@ -128,13 +127,13 @@ outputs:
         - if: linux
           then:
             - libcufile
-            - libnuma
       ignore_run_exports:
         by_name:
           - cuda-cudart
           - cuda-version
           - libcufile
           - libcurl
+          - libnuma
     about:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license.text }}
