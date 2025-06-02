@@ -210,6 +210,7 @@ void MmapHandle::map()
     _map_size     = _initial_size + _offset_delta;
     _map_addr =
       mmap(nullptr, _map_size, _map_protection_flag, MAP_PRIVATE, _file_wrapper.fd(), _map_offset);
+    SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
     _buf = detail::pointer_add(_map_addr, _offset_delta);
   } else {
     // Case 2: External buffer is specified
@@ -224,16 +225,16 @@ void MmapHandle::map()
 
     _map_size = _initial_size - _offset_delta;
     _buf      = _external_buf;
+    _map_addr = align_up(_buf, page_size);
     auto res  = mmap(_map_addr,
                     _map_size,
                     _map_protection_flag,
-                    MAP_PRIVATE | MAP_FIXED,
+                    MAP_PRIVATE | MAP_FIXED_NOREPLACE,
                     _file_wrapper.fd(),
                     _map_offset);
+    SYSCALL_CHECK(res, "Cannot create memory mapping", MAP_FAILED);
     KVIKIO_EXPECT(res == _map_addr, "Invalid mapped memory address");
   }
-
-  SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
 }
 
 void MmapHandle::unmap()

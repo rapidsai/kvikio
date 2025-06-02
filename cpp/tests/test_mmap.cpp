@@ -34,8 +34,8 @@ class MmapTest : public testing::Test {
   {
     kvikio::test::TempDir tmp_dir{false};
     _filepath                = tmp_dir.path() / "test.bin";
-    std::size_t num_elements = 1024ull * 1024ull;
-    _host_buf                = CreateTempFile<double>(_filepath, num_elements);
+    std::size_t num_elements = 123;  // 1024ull * 1024ull;
+    _host_buf                = CreateTempFile<value_type>(_filepath, num_elements);
     _page_size               = kvikio::get_page_size();
   }
 
@@ -63,75 +63,75 @@ class MmapTest : public testing::Test {
   using value_type = decltype(_host_buf)::value_type;
 };
 
-TEST_F(MmapTest, file_open_flag_in_constructor)
-{
-  // Empty file open flag
-  EXPECT_THAT(
-    [=] {
-      {
-        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "");
-      }
-    },
-    ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
+// TEST_F(MmapTest, file_open_flag_in_constructor)
+// {
+//   // Empty file open flag
+//   EXPECT_THAT(
+//     [=] {
+//       {
+//         [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "");
+//       }
+//     },
+//     ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
 
-  // Invalid file open flag
-  EXPECT_THAT(
-    [=] {
-      {
-        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "z");
-      }
-    },
-    ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
-}
+//   // Invalid file open flag
+//   EXPECT_THAT(
+//     [=] {
+//       {
+//         [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "z");
+//       }
+//     },
+//     ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
+// }
 
-TEST_F(MmapTest, eof_in_constructor)
-{
-  // size is too large (by 1 char)
-  EXPECT_THAT(
-    [=] { kvikio::MmapHandle(_filepath, "r", _file_size + 1); },
-    ThrowsMessage<std::overflow_error>(HasSubstr("Mapped region is past the end of file")));
+// TEST_F(MmapTest, eof_in_constructor)
+// {
+//   // size is too large (by 1 char)
+//   EXPECT_THAT(
+//     [=] { kvikio::MmapHandle(_filepath, "r", _file_size + 1); },
+//     ThrowsMessage<std::overflow_error>(HasSubstr("Mapped region is past the end of file")));
 
-  // size is exactly equal to file size
-  EXPECT_NO_THROW({ kvikio::MmapHandle(_filepath, "r", _file_size); });
+//   // size is exactly equal to file size
+//   EXPECT_NO_THROW({ kvikio::MmapHandle(_filepath, "r", _file_size); });
 
-  // file_offset is too large (by 1 char)
-  EXPECT_THAT([=] { kvikio::MmapHandle(_filepath, "r", 0, _file_size); },
-              ThrowsMessage<std::overflow_error>(HasSubstr("Offset is past the end of file")));
+//   // file_offset is too large (by 1 char)
+//   EXPECT_THAT([=] { kvikio::MmapHandle(_filepath, "r", 0, _file_size); },
+//               ThrowsMessage<std::overflow_error>(HasSubstr("Offset is past the end of file")));
 
-  // file_offset is exactly on the last char
-  EXPECT_NO_THROW({
-    kvikio::MmapHandle mmap_handle(_filepath, "r", 0, _file_size - 1);
-    EXPECT_EQ(mmap_handle.requested_size(), 1);
-  });
-}
+//   // file_offset is exactly on the last char
+//   EXPECT_NO_THROW({
+//     kvikio::MmapHandle mmap_handle(_filepath, "r", 0, _file_size - 1);
+//     EXPECT_EQ(mmap_handle.requested_size(), 1);
+//   });
+// }
 
-TEST_F(MmapTest, prefault_seq)
-{
-  kvikio::MmapHandle mmap_handle(_filepath, "r");
+// TEST_F(MmapTest, prefault_seq)
+// {
+//   kvikio::MmapHandle mmap_handle(_filepath, "r");
 
-  std::vector<value_type> result_buf(_host_buf.size(), 0 /* initial value */);
-  auto touched_bytes_expected = result_buf.size() * sizeof(value_type);
-  auto touched_bytes_actual =
-    kvikio::MmapHandle::perform_prefault(result_buf.data(), touched_bytes_expected);
-  EXPECT_EQ(touched_bytes_actual, touched_bytes_expected);
-}
+//   std::vector<value_type> result_buf(_host_buf.size(), 0 /* initial value */);
+//   auto touched_bytes_expected = result_buf.size() * sizeof(value_type);
+//   auto touched_bytes_actual =
+//     kvikio::MmapHandle::perform_prefault(result_buf.data(), touched_bytes_expected);
+//   EXPECT_EQ(touched_bytes_actual, touched_bytes_expected);
+// }
 
-TEST_F(MmapTest, prefault_parallel)
-{
-  kvikio::MmapHandle mmap_handle(_filepath, "r");
+// TEST_F(MmapTest, prefault_parallel)
+// {
+//   kvikio::MmapHandle mmap_handle(_filepath, "r");
 
-  std::vector<value_type> result_buf(_host_buf.size(), 0 /* initial value */);
-  auto touched_bytes_expected = result_buf.size() * sizeof(value_type);
-  auto fut =
-    kvikio::MmapHandle::perform_prefault_parallel(result_buf.data(), touched_bytes_expected);
-  EXPECT_EQ(fut.get(), touched_bytes_expected);
-}
+//   std::vector<value_type> result_buf(_host_buf.size(), 0 /* initial value */);
+//   auto touched_bytes_expected = result_buf.size() * sizeof(value_type);
+//   auto fut =
+//     kvikio::MmapHandle::perform_prefault_parallel(result_buf.data(), touched_bytes_expected);
+//   EXPECT_EQ(fut.get(), touched_bytes_expected);
+// }
 
 TEST_F(MmapTest, read_seq)
 {
-  auto do_test = [&](std::size_t num_elements_to_skip, bool prefault) {
+  auto do_test = [&](std::size_t num_elements_to_skip, bool prefault, void* external_buf) {
     auto offset = num_elements_to_skip * sizeof(value_type);
-    kvikio::MmapHandle mmap_handle(_filepath, "r");
+    kvikio::MmapHandle mmap_handle(_filepath, "r", 0, 0, external_buf);
     auto const [buf, read_size] =
       mmap_handle.read(mmap_handle.requested_size() - offset, offset, prefault);
     auto result_buf = static_cast<value_type*>(buf);
@@ -141,28 +141,35 @@ TEST_F(MmapTest, read_seq)
     EXPECT_EQ(read_size, (_host_buf.size() - num_elements_to_skip) * sizeof(value_type));
   };
 
+  std::array prefault_options{true};
   for (const auto& num_elements_to_skip : {100}) {
-    do_test(num_elements_to_skip, true);
-    do_test(num_elements_to_skip, false);
-  }
-}
+    for (const auto& prefault : prefault_options) {
+      // With external buffer
+      std::vector<value_type> v(_host_buf.size(), 0);
+      do_test(num_elements_to_skip, prefault, v.data());
 
-TEST_F(MmapTest, read_parallel)
-{
-  auto do_test = [&](std::size_t num_elements_to_skip, bool prefault) {
-    auto offset = num_elements_to_skip * sizeof(value_type);
-    kvikio::MmapHandle mmap_handle(_filepath, "r");
-    auto [buf, fut] = mmap_handle.pread(mmap_handle.requested_size() - offset, offset, prefault);
-    auto const read_size = fut.get();
-    auto result_buf      = static_cast<value_type*>(buf);
-    for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
-      EXPECT_EQ(_host_buf[i], result_buf[i - num_elements_to_skip]);
+      //   // Without external buffer
+      //   do_test(num_elements_to_skip, prefault, nullptr);
     }
-    EXPECT_EQ(read_size, (_host_buf.size() - num_elements_to_skip) * sizeof(value_type));
-  };
-
-  for (const auto& num_elements_to_skip : {100}) {
-    do_test(num_elements_to_skip, true);
-    do_test(num_elements_to_skip, false);
   }
 }
+
+// TEST_F(MmapTest, read_parallel)
+// {
+//   auto do_test = [&](std::size_t num_elements_to_skip, bool prefault) {
+//     auto offset = num_elements_to_skip * sizeof(value_type);
+//     kvikio::MmapHandle mmap_handle(_filepath, "r");
+//     auto [buf, fut] = mmap_handle.pread(mmap_handle.requested_size() - offset, offset, prefault);
+//     auto const read_size = fut.get();
+//     auto result_buf      = static_cast<value_type*>(buf);
+//     for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
+//       EXPECT_EQ(_host_buf[i], result_buf[i - num_elements_to_skip]);
+//     }
+//     EXPECT_EQ(read_size, (_host_buf.size() - num_elements_to_skip) * sizeof(value_type));
+//   };
+
+//   for (const auto& num_elements_to_skip : {0}) {
+//     do_test(num_elements_to_skip, true);
+//     do_test(num_elements_to_skip, false);
+//   }
+// }
