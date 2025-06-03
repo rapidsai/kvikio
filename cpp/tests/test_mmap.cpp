@@ -63,47 +63,47 @@ class MmapTest : public testing::Test {
   using value_type = decltype(_host_buf)::value_type;
 };
 
-// TEST_F(MmapTest, file_open_flag_in_constructor)
-// {
-//   // Empty file open flag
-//   EXPECT_THAT(
-//     [=] {
-//       {
-//         [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "");
-//       }
-//     },
-//     ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
+TEST_F(MmapTest, file_open_flag_in_constructor)
+{
+  // Empty file open flag
+  EXPECT_THAT(
+    [=] {
+      {
+        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "");
+      }
+    },
+    ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
 
-//   // Invalid file open flag
-//   EXPECT_THAT(
-//     [=] {
-//       {
-//         [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "z");
-//       }
-//     },
-//     ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
-// }
+  // Invalid file open flag
+  EXPECT_THAT(
+    [=] {
+      {
+        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "z");
+      }
+    },
+    ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
+}
 
-// TEST_F(MmapTest, eof_in_constructor)
-// {
-//   // size is too large (by 1 char)
-//   EXPECT_THAT(
-//     [=] { kvikio::MmapHandle(_filepath, "r", _file_size + 1); },
-//     ThrowsMessage<std::overflow_error>(HasSubstr("Mapped region is past the end of file")));
+TEST_F(MmapTest, eof_in_constructor)
+{
+  // size is too large (by 1 char)
+  EXPECT_THAT(
+    [=] { kvikio::MmapHandle(_filepath, "r", _file_size + 1); },
+    ThrowsMessage<std::overflow_error>(HasSubstr("Mapped region is past the end of file")));
 
-//   // size is exactly equal to file size
-//   EXPECT_NO_THROW({ kvikio::MmapHandle(_filepath, "r", _file_size); });
+  // size is exactly equal to file size
+  EXPECT_NO_THROW({ kvikio::MmapHandle(_filepath, "r", _file_size); });
 
-//   // file_offset is too large (by 1 char)
-//   EXPECT_THAT([=] { kvikio::MmapHandle(_filepath, "r", 0, _file_size); },
-//               ThrowsMessage<std::overflow_error>(HasSubstr("Offset is past the end of file")));
+  // file_offset is too large (by 1 char)
+  EXPECT_THAT([=] { kvikio::MmapHandle(_filepath, "r", 0, _file_size); },
+              ThrowsMessage<std::overflow_error>(HasSubstr("Offset is past the end of file")));
 
-//   // file_offset is exactly on the last char
-//   EXPECT_NO_THROW({
-//     kvikio::MmapHandle mmap_handle(_filepath, "r", 0, _file_size - 1);
-//     EXPECT_EQ(mmap_handle.initial_size(), 1);
-//   });
-// }
+  // file_offset is exactly on the last char
+  EXPECT_NO_THROW({
+    kvikio::MmapHandle mmap_handle(_filepath, "r", 0, _file_size - 1);
+    EXPECT_EQ(mmap_handle.initial_size(), 1);
+  });
+}
 
 TEST_F(MmapTest, read_seq)
 {
