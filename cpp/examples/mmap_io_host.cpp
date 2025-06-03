@@ -23,6 +23,7 @@
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/mmap.hpp>
+#include "kvikio/defaults.hpp"
 
 std::string parse_cmd(int argc, char* argv[]) { return (argc > 1) ? argv[1] : "/tmp"; }
 
@@ -34,7 +35,6 @@ class Timer {
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::micro> time_elapsed = end - _start;
     auto result                                            = time_elapsed.count();
-    std::cout << "    Elapsed time: " << result << " us\n";
     return result;
   }
 
@@ -50,6 +50,7 @@ class IoHostManager {
       _data_size(1024ull * 1024ull * 1024ull),
       _num_repetition(10)
   {
+    kvikio::defaults::set_num_threads(8);
     std::vector<std::byte> v(_data_size, {});
     kvikio::FileHandle file_handle(_test_filepath, "w");
     auto fut = file_handle.pwrite(v.data(), v.size());
@@ -84,7 +85,8 @@ class IoHostManager {
 
   void use_mmap_io_seq()
   {
-    std::cout << "Mmap I/O (sequential prefault)\n";
+    std::cout << "Mmap I/O (sequential)\n";
+    std::vector<std::byte> v(_data_size, {});
     double ave_init_time{0.0};
     double ave_io_time{0.0};
 
@@ -98,7 +100,7 @@ class IoHostManager {
       ave_init_time += timer.elapsed_time();
 
       timer.start();
-      mmap_handle.read(_data_size, 0, true);
+      mmap_handle.read(v.data(), _data_size);
       ave_io_time += timer.elapsed_time();
     }
 
@@ -108,7 +110,8 @@ class IoHostManager {
 
   void use_mmap_io_parallel()
   {
-    std::cout << "Mmap I/O (parallel prefault)\n";
+    std::cout << "Mmap I/O (parallel)\n";
+    std::vector<std::byte> v(_data_size, {});
     double ave_init_time{0.0};
     double ave_io_time{0.0};
 
@@ -122,8 +125,8 @@ class IoHostManager {
       ave_init_time += timer.elapsed_time();
 
       timer.start();
-      auto res = mmap_handle.pread(_data_size, 0, true);
-      res.second.get();
+      auto fut = mmap_handle.pread(v.data(), _data_size);
+      fut.get();
       ave_io_time += timer.elapsed_time();
     }
 
@@ -148,7 +151,7 @@ class IoHostManager {
 int main()
 {
   //   auto test_dir = parse_cmd(argc, argv);
-  IoHostManager io_host_manager{"/mnt/nvme", true};
+  IoHostManager io_host_manager{"/mnt/nvme", false};
 
   io_host_manager.use_mmap_io_seq();
 
