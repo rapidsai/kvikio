@@ -18,6 +18,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -169,7 +171,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
 [[nodiscard]] std::size_t get_file_size(int file_descriptor)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  struct stat st{};
+  struct stat st {};
   int ret = fstat(file_descriptor, &st);
   SYSCALL_CHECK(ret, "Unable to query file size.");
   return static_cast<std::size_t>(st.st_size);
