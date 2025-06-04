@@ -458,3 +458,9 @@ def get_page_cache_info(
         and the total number of pages.
     """
     return file_handle.get_page_cache_info(file)
+
+
+def clear_page_cache(
+    reclaim_dentries_and_inodes: bool = True, clear_dirty_pages: bool = True
+) -> bool:
+    return file_handle.clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)

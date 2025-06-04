@@ -14,7 +14,7 @@ else:
 
 from kvikio._lib.defaults import CompatMode  # noqa: F401
 from kvikio._version import __git_commit__, __version__
-from kvikio.cufile import CuFile, get_page_cache_info
+from kvikio.cufile import CuFile, clear_page_cache, get_page_cache_info
 from kvikio.remote_file import RemoteFile, is_remote_file_available
 
 __all__ = [
@@ -22,6 +22,7 @@ __all__ = [
     "__version__",
     "CuFile",
     "get_page_cache_info",
+    "clear_page_cache",
     "RemoteFile",
     "is_remote_file_available",
 ]

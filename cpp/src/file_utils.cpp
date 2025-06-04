@@ -214,21 +214,12 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
 bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-
   if (clear_dirty_pages) { sync(); }
-
-  std::string pseudo_file{"/proc/sys/vm/drop_caches"};
-  auto fd = open(pseudo_file.c_str(), O_WRONLY);
-  if (fd == -1) {
-    // Insufficient permission to modify /proc/sys/vm/drop_caches
-    return false;
-  }
-
-  std::string new_value = (reclaim_dentries_and_inodes ? "3" : "1");
-  SYSCALL_CHECK(write(fd, new_value.c_str(), new_value.length()),
-                "Failed to write to " + pseudo_file);
-
-  SYSCALL_CHECK(close(fd), "Failed to close " + pseudo_file);
-  return true;
+  std::string param = reclaim_dentries_and_inodes ? "3" : "1";
+  std::stringstream ss;
+  ss << "echo " << param << " | sudo tee /proc/sys/vm/drop_caches 1>/dev/null";
+  auto ret = system(ss.str().c_str());
+  SYSCALL_CHECK(ret);
+  return ret == 0;
 }
 }  // namespace kvikio
