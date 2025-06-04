@@ -208,8 +208,22 @@ void MmapHandle::close() noexcept
 std::size_t MmapHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE();
+
+  auto const is_buf_host_mem = is_host_memory(buf);
+  CUcontext ctx{};
+  if (!is_buf_host_mem) { ctx = get_context_from_pointer(buf); }
+
   auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  std::memcpy(buf, src_buf, size);
+
+  if (is_buf_host_mem) {
+    std::memcpy(buf, src_buf, size);
+  } else {
+    PushAndPopContext c(ctx);
+    CUstream stream = detail::StreamsByThread::get();
+    CUDA_DRIVER_TRY(
+      cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(buf), src_buf, size, stream));
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+  }
   return size;
 }
 
@@ -221,15 +235,29 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
 
+  auto const is_buf_host_mem = is_host_memory(buf);
+  CUcontext ctx{};
+  if (!is_buf_host_mem) { ctx = get_context_from_pointer(buf); }
+
   auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
   std::size_t actual_task_size =
     (task_size == 0) ? std::max<std::size_t>(1, size / defaults::num_threads()) : task_size;
 
-  auto op = [global_src_buf = src_buf](
+  auto op = [global_src_buf = src_buf, is_buf_host_mem = is_buf_host_mem, ctx = ctx](
               void* buf, std::size_t size, std::size_t, std::size_t buf_offset) -> std::size_t {
     auto const src_buf = detail::pointer_add(global_src_buf, buf_offset);
     auto const dst_buf = detail::pointer_add(buf, buf_offset);
-    std::memcpy(dst_buf, src_buf, size);
+
+    if (is_buf_host_mem) {
+      std::memcpy(dst_buf, src_buf, size);
+    } else {
+      PushAndPopContext c(ctx);
+      CUstream stream = detail::StreamsByThread::get();
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+        convert_void2deviceptr(dst_buf), src_buf, size, stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    }
+
     return size;
   };
 

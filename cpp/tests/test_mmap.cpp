@@ -18,12 +18,12 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/mmap.hpp>
 #include <kvikio/utils.hpp>
 
-#include "kvikio/defaults.hpp"
 #include "utils/utils.hpp"
 
 using ::testing::HasSubstr;
@@ -37,6 +37,7 @@ class MmapTest : public testing::Test {
     _filepath                = tmp_dir.path() / "test.bin";
     std::size_t num_elements = 1024ull * 1024ull;
     _host_buf                = CreateTempFile<value_type>(_filepath, num_elements);
+    _dev_buf                 = kvikio::test::DevBuffer{_host_buf};
     _page_size               = kvikio::get_page_size();
   }
 
@@ -46,9 +47,7 @@ class MmapTest : public testing::Test {
   std::vector<T> CreateTempFile(std::string const& filepath, std::size_t num_elements)
   {
     std::vector<T> v(num_elements);
-    for (std::size_t i = 0; i < v.size(); ++i) {
-      v[i] = static_cast<T>(i);
-    }
+    std::iota(v.begin(), v.end(), 0);
     kvikio::FileHandle f(filepath, "w");
     auto fut = f.pwrite(v.data(), v.size() * sizeof(T));
     fut.get();
@@ -59,7 +58,8 @@ class MmapTest : public testing::Test {
   std::filesystem::path _filepath;
   std::size_t _file_size;
   std::size_t _page_size;
-  std::vector<double> _host_buf;
+  std::vector<std::int64_t> _host_buf;
+  kvikio::test::DevBuffer _dev_buf;
 
   using value_type = decltype(_host_buf)::value_type;
 };
@@ -113,12 +113,26 @@ TEST_F(MmapTest, read_seq)
     auto const offset             = num_elements_to_skip * sizeof(value_type);
     auto const expected_read_size = mmap_handle.initial_size() - offset;
 
-    std::vector<value_type> out_buf(expected_read_size, {});
-    auto const read_size = mmap_handle.read(out_buf.data(), expected_read_size, offset);
-    for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
-      EXPECT_EQ(_host_buf[i], out_buf[i - num_elements_to_skip]);
+    // host
+    {
+      std::vector<value_type> out_host_buf(expected_read_size, {});
+      auto const read_size = mmap_handle.read(out_host_buf.data(), expected_read_size, offset);
+      for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+      }
+      EXPECT_EQ(read_size, expected_read_size);
     }
-    EXPECT_EQ(read_size, expected_read_size);
+
+    // device
+    {
+      kvikio::test::DevBuffer out_device_buf(expected_read_size);
+      auto const read_size = mmap_handle.read(out_device_buf.ptr, expected_read_size, offset);
+      auto out_host_buf    = out_device_buf.to_vector();
+      for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+      }
+      EXPECT_EQ(read_size, expected_read_size);
+    }
   };
 
   for (const auto& num_elements_to_skip : {0, 10, 100, 1000, 9999}) {
@@ -133,13 +147,28 @@ TEST_F(MmapTest, read_parallel)
     auto const offset             = num_elements_to_skip * sizeof(value_type);
     auto const expected_read_size = mmap_handle.initial_size() - offset;
 
-    std::vector<value_type> out_buf(expected_read_size, {});
-    auto fut             = mmap_handle.pread(out_buf.data(), expected_read_size, offset, task_size);
-    auto const read_size = fut.get();
-    for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
-      EXPECT_EQ(_host_buf[i], out_buf[i - num_elements_to_skip]);
+    // host
+    {
+      std::vector<value_type> out_host_buf(expected_read_size, {});
+      auto fut = mmap_handle.pread(out_host_buf.data(), expected_read_size, offset, task_size);
+      auto const read_size = fut.get();
+      for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+      }
+      EXPECT_EQ(read_size, expected_read_size);
     }
-    EXPECT_EQ(read_size, expected_read_size);
+
+    // device
+    {
+      kvikio::test::DevBuffer out_device_buf(expected_read_size);
+      auto fut             = mmap_handle.pread(out_device_buf.ptr, expected_read_size, offset);
+      auto const read_size = fut.get();
+      auto out_host_buf    = out_device_buf.to_vector();
+      for (std::size_t i = num_elements_to_skip; i < _host_buf.size(); ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+      }
+      EXPECT_EQ(read_size, expected_read_size);
+    }
   };
 
   std::vector<std::size_t> task_sizes{0, 256, 1024, kvikio::defaults::mmap_task_size()};
