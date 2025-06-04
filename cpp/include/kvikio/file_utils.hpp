@@ -193,7 +193,7 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd);
  * @return Whether the page cache has been successfully cleared
  *
  * @note This function creates a child process and executes the cache clearing shell command with
- * `sudo`. Superuser privilege is therefore needed for the function to return `true`.
+ * `sudo`. Superuser privilege is therefore generally needed for the function to return `true`.
  *
  * @throws kvikio::GenericSystemError if somehow the child process could not be created, or its
  * status could not be retrieved
