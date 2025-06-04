@@ -86,9 +86,8 @@ outputs:
         - libnuma
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: linux
-          then:
-            - libcufile-dev
+        - ${{ pin_compatible("libnuma", upper_bound="x", lower_bound="x") }}
+        - libcufile-dev
       ignore_run_exports:
         by_name:
           - cuda-version
@@ -120,14 +119,11 @@ outputs:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
         - cuda-version =${{ cuda_version }}
         - cuda-cudart-dev
-        - if: linux
-          then: libcufile-dev
+        - libcufile-dev
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - cuda-cudart
-        - if: linux
-          then:
-            - libcufile
+        - libcufile
       ignore_run_exports:
         by_name:
           - cuda-cudart
