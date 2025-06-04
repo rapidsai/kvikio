@@ -13,70 +13,51 @@ from libcpp.string cimport string
 from libcpp.utility cimport move, pair
 
 from kvikio._lib.arr cimport parse_buffer_argument
-
+from kvikio._lib.future cimport (
+    IOFuture,
+    IOFutureStream,
+    _wrap_io_future,
+    _wrap_stream_future,
+    cpp_StreamFuture,
+    future,
+)
 
 cdef extern from "<kvikio/mmap.hpp>" namespace "kvikio" nogil:
     cdef cppclass CppMmapHandle "kvikio::MmapHandle":
         CppMmapHandle() noexcept
-        CppMmapHandle(string file_path,
-                      string flags,
-                      size_t initial_size,
-                      size_t initial_file_offset,
-                      void* external_buf,
-                      fcntl.mode_t mode) except +
-        pair[void*, size_t] read(size_t size,
-                                 size_t file_offset,
-                                 bool prefault) except +
+        CppMmapHandle(string file_path, string flags, size_t initial_size,
+                      size_t initial_file_offset, fcntl.mode_t mode) except +
+        size_t read(void* buf, size_t size, size_t file_offset) except +
+        future[size_t] pread(void* buf, size_t size, size_t file_offset,
+                             size_t task_size) except +
 
 cdef class MmapHandle:
     cdef CppMmapHandle _handle
 
-    def __init__(self,
-                 file_path,
-                 flags="r",
-                 initial_size=0,
-                 initial_file_offset=0,
-                 external_buf=None,
-                 mode=stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH):
+    def __init__(self, file_path: os.PathLike,
+                 flags: str="r",
+                 initial_size: int=0,
+                 initial_file_offset: int=0,
+                 mode: int=stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH):
         path_bytes = str(pathlib.Path(file_path)).encode()
         flags_bytes = str(flags).encode()
-        if external_buf is None:
-            self._handle = move(CppMmapHandle(path_bytes,
-                                              flags_bytes,
-                                              initial_size,
-                                              initial_file_offset,
-                                              NULL,
-                                              mode))
-        else:
-            self._external_buf_non_null(path_bytes,
-                                        flags_bytes,
-                                        initial_size,
-                                        initial_file_offset,
-                                        external_buf,
-                                        mode)
-
-    def _external_buf_non_null(self,
-                               path_bytes,
-                               flags_bytes,
-                               initial_size,
-                               initial_file_offset,
-                               external_buf,
-                               mode):
-        """This function is used to work around a limitation where cdef cannot be
-        placed in an if-else construct.
-        """
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(external_buf,
-                                                                  initial_size,
-                                                                  True)
         self._handle = move(CppMmapHandle(path_bytes,
                                           flags_bytes,
-                                          info.second,
+                                          initial_size,
                                           initial_file_offset,
-                                          <void*>info.first,
                                           mode))
 
-    # def read(self, size, file_offset=0, prefault=False):
-    #     cdef pair[void*, size_t]
-    #     std::pair<void*, std::size_t> read(std::size_t size,
-    #                                         std::size_t file_offset = 0,
-    #                                         bool prefault           = false);
+    def read(self, buf, size: int, file_offset: int=0) -> int:
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+        return self._handle.read(<void*>info.first,
+                                 info.second,
+                                 file_offset)
+
+    def pread(self, buf, size: int, file_offset: int=0, task_size: int=0) -> IOFuture:
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+        return _wrap_io_future(
+            self._handle.pread(<void*>info.first,
+                               info.second,
+                               file_offset,
+                               task_size)
+            )
