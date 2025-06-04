@@ -213,12 +213,17 @@ std::size_t MmapHandle::read(void* buf, std::size_t size, std::size_t file_offse
   return size;
 }
 
-std::future<std::size_t> MmapHandle::pread(void* buf, std::size_t size, std::size_t file_offset)
+std::future<std::size_t> MmapHandle::pread(void* buf,
+                                           std::size_t size,
+                                           std::size_t file_offset,
+                                           std::size_t task_size)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
+
   auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  auto const approx_bytes_per_worker = std::max<std::size_t>(1, size / defaults::num_threads());
+  std::size_t actual_task_size =
+    (task_size == 0) ? std::max<std::size_t>(1, size / defaults::num_threads()) : task_size;
 
   auto op = [global_src_buf = src_buf](
               void* buf, std::size_t size, std::size_t, std::size_t buf_offset) -> std::size_t {
@@ -228,14 +233,8 @@ std::future<std::size_t> MmapHandle::pread(void* buf, std::size_t size, std::siz
     return size;
   };
 
-  return parallel_io(op,
-                     buf,
-                     size,
-                     file_offset,
-                     approx_bytes_per_worker,
-                     0 /* global_buf_offset */,
-                     call_idx,
-                     nvtx_color);
+  return parallel_io(
+    op, buf, size, file_offset, actual_task_size, 0 /* global_buf_offset */, call_idx, nvtx_color);
 }
 
 }  // namespace kvikio

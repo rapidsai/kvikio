@@ -128,6 +128,9 @@ class MmapHandle {
    * @param aligned_task_size
    * @return
    */
-  std::future<std::size_t> pread(void* buf, std::size_t size, std::size_t file_offset = 0);
+  std::future<std::size_t> pread(void* buf,
+                                 std::size_t size,
+                                 std::size_t file_offset = 0,
+                                 std::size_t task_size   = defaults::mmap_task_size());
 };
 }  // namespace kvikio
