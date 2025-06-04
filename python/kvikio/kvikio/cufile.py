@@ -463,4 +463,22 @@ def get_page_cache_info(
 def clear_page_cache(
     reclaim_dentries_and_inodes: bool = True, clear_dirty_pages: bool = True
 ) -> bool:
+    """Clear the page cache
+
+    Parameters
+    ----------
+    reclaim_dentries_and_inodes: bool, optional
+        Whether to free reclaimable slab objects which include dentries and inodes.
+
+        - If `true`, equivalent to executing `echo 3 > /proc/sys/vm/drop_caches`;
+        - If `false`, equivalent to executing `echo 1 > /proc/sys/vm/drop_caches`.
+    clear_dirty_pages: bool, optional
+        Whether to trigger the writeback process to clear the dirty pages. If `true`,
+        `sync` will be called prior to cache dropping.
+
+    Returns
+    -------
+    bool
+        Whether the page cache has been successfully cleared.
+    """
     return file_handle.clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)
