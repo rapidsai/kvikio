@@ -180,8 +180,6 @@ void MmapHandle::unmap()
   }
 }
 
-std::size_t MmapHandle::initial_size() const noexcept { return _initial_size; }
-
 bool MmapHandle::closed() const noexcept { return !_initialized; }
 
 void MmapHandle::close() noexcept
@@ -204,6 +202,16 @@ void MmapHandle::close() noexcept
   _map_core_flags       = {};
   _file_wrapper         = {};
 }
+
+std::size_t MmapHandle::initial_size() const noexcept { return _initial_size; }
+
+std::size_t MmapHandle::file_size() const
+{
+  if (closed()) { return 0; }
+  return get_file_size(_file_wrapper.fd());
+}
+
+std::size_t MmapHandle::nbytes() const { return file_size(); }
 
 std::size_t MmapHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
