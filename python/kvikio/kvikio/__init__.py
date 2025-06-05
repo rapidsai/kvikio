@@ -20,9 +20,9 @@ from kvikio.remote_file import RemoteFile, is_remote_file_available
 __all__ = [
     "__git_commit__",
     "__version__",
+    "clear_page_cache",
     "CuFile",
     "get_page_cache_info",
-    "clear_page_cache",
-    "RemoteFile",
     "is_remote_file_available",
+    "RemoteFile",
 ]
