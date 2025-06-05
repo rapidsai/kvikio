@@ -19,7 +19,7 @@ authors = [
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 dependencies = [
-    "cupy-cuda11x>=12.0.0",
+    "cupy-cuda12x>=12.0.0",
     "libkvikio==25.8.*,>=0.0.0a0",
     "numcodecs !=0.12.0",
     "numpy>=1.23,<3.0a0",
@@ -41,7 +41,7 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "boto3>=1.21.21",
-    "cuda-python>=11.8.5,<12.0a0",
+    "cuda-python>=12.6.2,<13.0a0",
     "moto[server]>=4.0.8",
     "pytest",
     "pytest-asyncio",
