@@ -209,6 +209,7 @@ dependencies:
               cuda: "12.*"
             packages:
               - libcufile-dev
+              - libnuma
   depends_on_cupy:
     common:
       - output_types: conda
