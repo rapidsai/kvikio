@@ -30,4 +30,4 @@ function(find_and_configure_kvikio MIN_VERSION)
 
 endfunction()
 
-find_and_configure_kvikio("25.04")
+find_and_configure_kvikio("25.06")

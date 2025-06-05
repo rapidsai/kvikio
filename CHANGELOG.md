@@ -1,3 +1,53 @@
+# kvikio 25.06.00 (5 Jun 2025)
+
+## 🚨 Breaking Changes
+
+- Fix the S3 endpoint constructor ambiguity ([#700](https://github.com/rapidsai/kvikio/pull/700)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Add support for temporary AWS credentials to access S3 ([#693](https://github.com/rapidsai/kvikio/pull/693)) [@joosthooz](https://github.com/joosthooz)
+
+## 🐛 Bug Fixes
+
+- [pytest] disable no-data-collected warning ([#746](https://github.com/rapidsai/kvikio/pull/746)) [@madsbk](https://github.com/madsbk)
+- Revert &quot;Provide API to detect C2C platform and add NVML shim&quot; ([#731](https://github.com/rapidsai/kvikio/pull/731)) [@vyasr](https://github.com/vyasr)
+- Check whether memory resource/BAR1 are supported ([#729](https://github.com/rapidsai/kvikio/pull/729)) [@pentschev](https://github.com/pentschev)
+- Use `try...finally...` to ensure buffer is released ([#728](https://github.com/rapidsai/kvikio/pull/728)) [@jakirkham](https://github.com/jakirkham)
+- Fix benchmark code on MIG ([#703](https://github.com/rapidsai/kvikio/pull/703)) [@jakirkham](https://github.com/jakirkham)
+- Fix the S3 endpoint constructor ambiguity ([#700](https://github.com/rapidsai/kvikio/pull/700)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- zarr-python 3.0.7 compatibility ([#699](https://github.com/rapidsai/kvikio/pull/699)) [@TomAugspurger](https://github.com/TomAugspurger)
+- Vendor RAPIDS.cmake ([#695](https://github.com/rapidsai/kvikio/pull/695)) [@bdice](https://github.com/bdice)
+- Fix setting region in C++ constructor instead of via the env var ([#691](https://github.com/rapidsai/kvikio/pull/691)) [@joosthooz](https://github.com/joosthooz)
+
+## 📖 Documentation
+
+- Fix doc build error ([#723](https://github.com/rapidsai/kvikio/pull/723)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Fix comment typo in buffer_register ([#669](https://github.com/rapidsai/kvikio/pull/669)) [@JigaoLuo](https://github.com/JigaoLuo)
+
+## 🚀 New Features
+
+- Provide API to detect C2C platform and add NVML shim ([#721](https://github.com/rapidsai/kvikio/pull/721)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Deprecate nvCOMP python API ([#714](https://github.com/rapidsai/kvikio/pull/714)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Add the feature to check page cache residency information for a file ([#704](https://github.com/rapidsai/kvikio/pull/704)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Add support for temporary AWS credentials to access S3 ([#693](https://github.com/rapidsai/kvikio/pull/693)) [@joosthooz](https://github.com/joosthooz)
+
+## 🛠️ Improvements
+
+- use &#39;rapids-init-pip&#39; in wheel CI, other CI changes ([#725](https://github.com/rapidsai/kvikio/pull/725)) [@jameslamb](https://github.com/jameslamb)
+- Finish CUDA 12.9 migration and use branch-25.06 workflows ([#719](https://github.com/rapidsai/kvikio/pull/719)) [@bdice](https://github.com/bdice)
+- Update to clang 20 ([#718](https://github.com/rapidsai/kvikio/pull/718)) [@bdice](https://github.com/bdice)
+- Quote head_rev in conda recipes ([#717](https://github.com/rapidsai/kvikio/pull/717)) [@bdice](https://github.com/bdice)
+- Build and test with CUDA 12.9.0 ([#715](https://github.com/rapidsai/kvikio/pull/715)) [@bdice](https://github.com/bdice)
+- feat: add support for Python 3.13 ([#708](https://github.com/rapidsai/kvikio/pull/708)) [@gforsyth](https://github.com/gforsyth)
+- refactor(wheels): vendor nvcomp as temporary workaround ([#702](https://github.com/rapidsai/kvikio/pull/702)) [@gforsyth](https://github.com/gforsyth)
+- Download build artifacts from Github for CI ([#698](https://github.com/rapidsai/kvikio/pull/698)) [@VenkateshJaya](https://github.com/VenkateshJaya)
+- Improve unit tests; add a dedicated macro for Linux system calls ([#697](https://github.com/rapidsai/kvikio/pull/697)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Remove usage of APIs outside the limited API ([#692](https://github.com/rapidsai/kvikio/pull/692)) [@vyasr](https://github.com/vyasr)
+- Port all conda recipes to `rattler-build` ([#678](https://github.com/rapidsai/kvikio/pull/678)) [@gforsyth](https://github.com/gforsyth)
+- Make page size portable by querying it at runtime ([#677](https://github.com/rapidsai/kvikio/pull/677)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- chore(conda): enable strict channel priority for conda build ([#674](https://github.com/rapidsai/kvikio/pull/674)) [@gforsyth](https://github.com/gforsyth)
+- Moving wheel builds to specified location and uploading build artifacts to Github ([#672](https://github.com/rapidsai/kvikio/pull/672)) [@VenkateshJaya](https://github.com/VenkateshJaya)
+- Improve NVTX annotation for functions ([#671](https://github.com/rapidsai/kvikio/pull/671)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Use latest release of cmake-maven-plugin ([#652](https://github.com/rapidsai/kvikio/pull/652)) [@bdice](https://github.com/bdice)
+
 # kvikio 25.04.00 (9 Apr 2025)
 
 ## 🚨 Breaking Changes

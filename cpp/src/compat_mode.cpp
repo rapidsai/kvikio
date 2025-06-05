@@ -22,6 +22,7 @@
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
@@ -29,6 +30,7 @@ namespace kvikio {
 namespace detail {
 CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Convert to lowercase
   std::string tmp{compat_mode_str};
   std::transform(
@@ -50,6 +52,7 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 
 CompatMode CompatModeManager::infer_compat_mode_if_auto(CompatMode compat_mode) noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (compat_mode == CompatMode::AUTO) {
     return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
   }
@@ -84,6 +87,7 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
                                      CompatMode compat_mode_requested_v,
                                      FileHandle* file_handle)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(file_handle != nullptr,
                 "The compatibility mode manager does not have a proper owning file handle.",
                 std::invalid_argument);
@@ -127,6 +131,7 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
 
 void CompatModeManager::validate_compat_mode_for_async() const
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (!_is_compat_mode_preferred && _is_compat_mode_preferred_for_async &&
       _compat_mode_requested == CompatMode::OFF) {
     std::string err_msg;

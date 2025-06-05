@@ -15,14 +15,18 @@
  */
 
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdexcept>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <kvikio/error.hpp>
+#include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
+#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
@@ -32,10 +36,15 @@ FileWrapper::FileWrapper(std::string const& file_path,
                          bool o_direct,
                          mode_t mode)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   open(file_path, flags, o_direct, mode);
 }
 
-FileWrapper::~FileWrapper() noexcept { close(); }
+FileWrapper::~FileWrapper() noexcept
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  close();
+}
 
 FileWrapper::FileWrapper(FileWrapper&& o) noexcept : _fd(std::exchange(o._fd, -1)) {}
 
@@ -50,6 +59,7 @@ void FileWrapper::open(std::string const& file_path,
                        bool o_direct,
                        mode_t mode)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (!opened()) { _fd = open_fd(file_path, flags, o_direct, mode); }
 }
 
@@ -57,6 +67,7 @@ bool FileWrapper::opened() const noexcept { return _fd != -1; }
 
 void FileWrapper::close() noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (opened()) {
     if (::close(_fd) != 0) { KVIKIO_LOG_ERROR("File cannot be closed"); }
     _fd = -1;
@@ -81,6 +92,7 @@ CUFileHandleWrapper& CUFileHandleWrapper::operator=(CUFileHandleWrapper&& o) noe
 
 std::optional<CUfileError_t> CUFileHandleWrapper::register_handle(int fd) noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   std::optional<CUfileError_t> error_code;
   if (registered()) { return error_code; }
 
@@ -100,6 +112,7 @@ CUfileHandle_t CUFileHandleWrapper::handle() const noexcept { return _handle; }
 
 void CUFileHandleWrapper::unregister_handle() noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (registered()) {
     cuFileAPI::instance().HandleDeregister(_handle);
     _registered = false;
@@ -108,6 +121,7 @@ void CUFileHandleWrapper::unregister_handle() noexcept
 
 int open_fd_parse_flags(std::string const& flags, bool o_direct)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   int file_flags = -1;
   KVIKIO_EXPECT(!flags.empty(), "Unknown file open flag", std::invalid_argument);
   switch (flags[0]) {
@@ -136,25 +150,63 @@ int open_fd_parse_flags(std::string const& flags, bool o_direct)
 
 int open_fd(std::string const& file_path, std::string const& flags, bool o_direct, mode_t mode)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
-  KVIKIO_EXPECT(fd != -1, "Unable to open file", GenericSystemError);
+  SYSCALL_CHECK(fd, "Unable to open file.");
   return fd;
 }
 
 [[nodiscard]] int open_flags(int fd)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   int ret = fcntl(fd, F_GETFL);  // NOLINT(cppcoreguidelines-pro-type-vararg)
-  KVIKIO_EXPECT(ret != -1, "Unable to retrieve open flags", GenericSystemError);
+  SYSCALL_CHECK(ret, "Unable to retrieve open flags.");
   return ret;
 }
 
 [[nodiscard]] std::size_t get_file_size(int file_descriptor)
 {
-  struct stat st {};
+  KVIKIO_NVTX_FUNC_RANGE();
+  struct stat st{};
   int ret = fstat(file_descriptor, &st);
-  KVIKIO_EXPECT(ret != -1, "Unable to query file size", GenericSystemError);
+  SYSCALL_CHECK(ret, "Unable to query file size.");
   return static_cast<std::size_t>(st.st_size);
 }
 
+std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_path)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  std::string const flags{"r"};
+  bool const o_direct{false};
+  mode_t const mode{FileHandle::m644};
+  auto fd     = open_fd(file_path, flags, o_direct, mode);
+  auto result = get_page_cache_info(fd);
+  SYSCALL_CHECK(close(fd));
+  return result;
+}
+
+std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto file_size = get_file_size(fd);
+
+  std::size_t offset{0u};
+  auto addr = mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, offset);
+  SYSCALL_CHECK(addr, "mmap failed.", MAP_FAILED);
+
+  std::size_t num_pages = (file_size + get_page_size() - 1) / get_page_size();
+  std::vector<unsigned char> is_in_page_cache(num_pages, {});
+  SYSCALL_CHECK(mincore(addr, file_size, is_in_page_cache.data()));
+  std::size_t num_pages_in_page_cache{0u};
+  for (std::size_t page_idx = 0; page_idx < is_in_page_cache.size(); ++page_idx) {
+    // The least significant bit of each byte will be set if the corresponding page is currently
+    // resident in memory, and be clear otherwise. The settings of the other bits in each byte are
+    // undefined
+    if (static_cast<int>(is_in_page_cache[page_idx]) & 0x1) { ++num_pages_in_page_cache; }
+  }
+
+  SYSCALL_CHECK(munmap(addr, file_size));
+  return {num_pages_in_page_cache, num_pages};
+}
 }  // namespace kvikio

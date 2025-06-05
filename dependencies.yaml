@@ -66,7 +66,10 @@ files:
       table: project
     includes:
       - depends_on_cupy
-      - depends_on_nvcomp
+      # TODO: restore runtime dependency when we no longer vendor nvcomp
+      # (when nvcomp supports Python 3.13)
+      # https://github.com/rapidsai/build-planning/issues/171
+      # - depends_on_nvcomp
       - depends_on_libkvikio
       - run
   py_rapids_build_libkvikio:
@@ -171,7 +174,7 @@ dependencies:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==25.4.*
+          - libkvikio==25.6.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -179,12 +182,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.4.*
+              - libkvikio-cu12==25.6.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu11==25.4.*
+              - libkvikio-cu11==25.6.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
@@ -232,6 +235,10 @@ dependencies:
               cuda: "12.8"
             packages:
               - cuda-version=12.8
+          - matrix:
+              cuda: "12.9"
+            packages:
+              - cuda-version=12.9
   cuda:
     specific:
       - output_types: conda
@@ -326,7 +333,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &libkvikio_unsuffixed libkvikio==25.4.*
+          - &libkvikio_unsuffixed libkvikio==25.6.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -340,12 +347,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.4.*
+              - libkvikio-cu12==25.6.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu11==25.4.*
+              - libkvikio-cu11==25.6.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   docs:
     common:
@@ -375,8 +382,12 @@ dependencies:
             packages:
               - python=3.12
           - matrix:
+              py: "3.13"
             packages:
-              - python>=3.10,<3.13
+              - python=3.13
+          - matrix:
+            packages:
+              - python>=3.10,<3.14
   rapids_build_skbuild:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -401,14 +412,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.4.*
-          - libkvikio-tests==25.4.*,>=0.0.0a0
+          - libkvikio==25.6.*,>=0.0.0a0
+          - libkvikio-tests==25.6.*,>=0.0.0a0
   test_kvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.4.*
-          - kvikio==25.4.*
+          - libkvikio==25.6.*,>=0.0.0a0
+          - kvikio==25.6.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -418,7 +429,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-dask-dependency==25.4.*
+          - rapids-dask-dependency==25.6.*,>=0.0.0a0
           - pytest
           - pytest-asyncio
           - pytest-cov
