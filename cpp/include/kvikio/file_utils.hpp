@@ -180,4 +180,23 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_
  * @sa `get_page_cache_info(std::string const&)` overload.
  */
 std::pair<std::size_t, std::size_t> get_page_cache_info(int fd);
+
+/**
+ * @brief Clear the page cache
+ *
+ * @param reclaim_dentries_and_inodes Whether to free reclaimable slab objects which include
+ * dentries and inodes.
+ * - If `true`, equivalent to executing `echo 3 > /proc/sys/vm/drop_caches`;
+ * - If `false`, equivalent to executing `echo 1 > /proc/sys/vm/drop_caches`.
+ * @param clear_dirty_pages Whether to trigger the writeback process to clear the dirty pages. If
+ * `true`, `sync` will be called prior to cache clearing.
+ * @return Whether the page cache has been successfully cleared
+ *
+ * @note This function creates a child process and executes the cache clearing shell command with
+ * `sudo`. Superuser privilege is therefore generally needed for the function to return `true`.
+ *
+ * @throws kvikio::GenericSystemError if somehow the child process could not be created, or its
+ * status could not be retrieved
+ */
+bool clear_page_cache(bool reclaim_dentries_and_inodes = true, bool clear_dirty_pages = true);
 }  // namespace kvikio
