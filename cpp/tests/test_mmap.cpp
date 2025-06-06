@@ -1,0 +1,185 @@
+/*
+ * Copyright (c) 2025, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <vector>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include <kvikio/defaults.hpp>
+#include <kvikio/error.hpp>
+#include <kvikio/file_handle.hpp>
+#include <kvikio/mmap.hpp>
+#include <kvikio/utils.hpp>
+
+#include "utils/utils.hpp"
+
+using ::testing::HasSubstr;
+using ::testing::ThrowsMessage;
+
+class MmapTest : public testing::Test {
+ protected:
+  void SetUp() override
+  {
+    kvikio::test::TempDir tmp_dir{false};
+    _filepath                = tmp_dir.path() / "test.bin";
+    std::size_t num_elements = 1024ull * 1024ull;
+    _host_buf                = CreateTempFile<value_type>(_filepath, num_elements);
+    _dev_buf                 = kvikio::test::DevBuffer{_host_buf};
+    _page_size               = kvikio::get_page_size();
+  }
+
+  void TearDown() override {}
+
+  template <typename T>
+  std::vector<T> CreateTempFile(std::string const& filepath, std::size_t num_elements)
+  {
+    std::vector<T> v(num_elements);
+    std::iota(v.begin(), v.end(), 0);
+    kvikio::FileHandle f(filepath, "w");
+    auto fut = f.pwrite(v.data(), v.size() * sizeof(T));
+    fut.get();
+    _file_size = f.nbytes();
+    return v;
+  }
+
+  std::filesystem::path _filepath;
+  std::size_t _file_size;
+  std::size_t _page_size;
+  std::vector<std::int64_t> _host_buf;
+  kvikio::test::DevBuffer _dev_buf;
+
+  using value_type = decltype(_host_buf)::value_type;
+};
+
+TEST_F(MmapTest, file_open_flag_in_constructor)
+{
+  // Empty file open flag
+  EXPECT_THAT(
+    [=] {
+      {
+        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "");
+      }
+    },
+    ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
+
+  // Invalid file open flag
+  EXPECT_THAT(
+    [=] {
+      {
+        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "z");
+      }
+    },
+    ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
+}
+
+TEST_F(MmapTest, eof_in_constructor)
+{
+  // size is too large (by 1 char)
+  EXPECT_THAT(
+    [&] { kvikio::MmapHandle(_filepath, "r", _file_size + 1); },
+    ThrowsMessage<std::overflow_error>(HasSubstr("Mapped region is past the end of file")));
+
+  // size is exactly equal to file size
+  EXPECT_NO_THROW({ kvikio::MmapHandle(_filepath, "r", _file_size); });
+
+  // file_offset is too large (by 1 char)
+  EXPECT_THAT([=] { kvikio::MmapHandle(_filepath, "r", 0, _file_size); },
+              ThrowsMessage<std::overflow_error>(HasSubstr("Offset is past the end of file")));
+
+  // file_offset is exactly on the last char
+  EXPECT_NO_THROW({
+    kvikio::MmapHandle mmap_handle(_filepath, "r", 0, _file_size - 1);
+    EXPECT_EQ(mmap_handle.initial_size(), 1);
+  });
+}
+
+TEST_F(MmapTest, read_seq)
+{
+  auto do_test = [&](std::size_t num_elements_to_skip, std::size_t num_elements_to_read) {
+    kvikio::MmapHandle mmap_handle(_filepath, "r", 0, 0);
+    auto const offset             = num_elements_to_skip * sizeof(value_type);
+    auto const expected_read_size = num_elements_to_read * sizeof(value_type);
+
+    // host
+    {
+      std::vector<value_type> out_host_buf(expected_read_size, {});
+      auto const read_size = mmap_handle.read(out_host_buf.data(), expected_read_size, offset);
+      for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+      }
+      EXPECT_EQ(read_size, expected_read_size);
+    }
+
+    // device
+    {
+      kvikio::test::DevBuffer out_device_buf(expected_read_size);
+      auto const read_size = mmap_handle.read(out_device_buf.ptr, expected_read_size, offset);
+      auto out_host_buf    = out_device_buf.to_vector();
+      for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+      }
+      EXPECT_EQ(read_size, expected_read_size);
+    }
+  };
+
+  for (const auto& num_elements_to_read : {10, 9999}) {
+    for (const auto& num_elements_to_skip : {0, 10, 100, 1000, 9999}) {
+      do_test(num_elements_to_skip, num_elements_to_read);
+    }
+  }
+}
+
+TEST_F(MmapTest, read_parallel)
+{
+  auto do_test =
+    [&](std::size_t num_elements_to_skip, std::size_t num_elements_to_read, std::size_t task_size) {
+      kvikio::MmapHandle mmap_handle(_filepath, "r", 0, 0);
+      auto const offset             = num_elements_to_skip * sizeof(value_type);
+      auto const expected_read_size = num_elements_to_read * sizeof(value_type);
+
+      // host
+      {
+        std::vector<value_type> out_host_buf(expected_read_size, {});
+        auto fut = mmap_handle.pread(out_host_buf.data(), expected_read_size, offset, task_size);
+        auto const read_size = fut.get();
+        for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
+          EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+        }
+        EXPECT_EQ(read_size, expected_read_size);
+      }
+
+      // device
+      {
+        kvikio::test::DevBuffer out_device_buf(expected_read_size);
+        auto fut             = mmap_handle.pread(out_device_buf.ptr, expected_read_size, offset);
+        auto const read_size = fut.get();
+        auto out_host_buf    = out_device_buf.to_vector();
+        for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
+          EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+        }
+        EXPECT_EQ(read_size, expected_read_size);
+      }
+    };
+
+  std::vector<std::size_t> task_sizes{0, 256, 1024, kvikio::defaults::mmap_task_size()};
+  for (const auto& task_size : task_sizes) {
+    for (const auto& num_elements_to_read : {10, 9999}) {
+      for (const auto& num_elements_to_skip : {0, 10, 100, 1000, 9999}) {
+        do_test(num_elements_to_skip, num_elements_to_read, task_size);
+      }
+    }
+  }
+}
