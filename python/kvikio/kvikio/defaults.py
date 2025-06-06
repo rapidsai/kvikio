@@ -51,6 +51,7 @@ class ConfigContextManager:
             "compat_mode",
             "thread_pool_nthreads",
             "task_size",
+            "mmap_task_size",
             "gds_threshold",
             "bounce_buffer_size",
             "http_max_attempts",
@@ -120,6 +121,7 @@ def set(*config) -> ConfigContextManager:
         - ``"compat_mode"``
         - ``"num_threads"``
         - ``"task_size"``
+        - ``"mmap_task_size"``
         - ``"gds_threshold"``
         - ``"bounce_buffer_size"``
         - ``"http_max_attempts"``
@@ -163,6 +165,7 @@ def get(config_name: str) -> Any:
         - ``"compat_mode"``
         - ``"num_threads"``
         - ``"task_size"``
+        - ``"mmap_task_size"``
         - ``"gds_threshold"``
         - ``"bounce_buffer_size"``
         - ``"http_max_attempts"``
