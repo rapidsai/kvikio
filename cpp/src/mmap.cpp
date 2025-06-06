@@ -205,6 +205,8 @@ void MmapHandle::close() noexcept
 
 std::size_t MmapHandle::initial_size() const noexcept { return _initial_size; }
 
+std::size_t MmapHandle::initial_file_offset() const noexcept { return _initial_file_offset; }
+
 std::size_t MmapHandle::file_size() const
 {
   if (closed()) { return 0; }
