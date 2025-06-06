@@ -99,6 +99,13 @@ class MmapHandle {
   std::size_t initial_size() const noexcept;
 
   /**
+   * @brief
+   *
+   * @return std::size_t
+   */
+  std::size_t initial_file_offset() const noexcept;
+
+  /**
    * @brief Get the file size
    *
    * @return The number of bytes
