@@ -47,13 +47,13 @@ cdef class MmapHandle:
                                           initial_file_offset,
                                           mode))
 
-    def initial_size() -> int:
+    def initial_size(self) -> int:
         return self._handle.initial_size()
 
-    def initial_file_offset() -> int:
+    def initial_file_offset(self) -> int:
         return self._handle.initial_file_offset()
 
-    def file_size() -> int:
+    def file_size(self) -> int:
         return self._handle.file_size()
 
     def close(self) -> None:
