@@ -16,10 +16,9 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <regex>
-#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 #include <BS_thread_pool.hpp>
 
@@ -28,50 +27,35 @@
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
-#include <string_view>
 
 namespace kvikio {
+
 template <>
 bool getenv_or(std::string_view env_var_name, bool default_val)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  auto const* env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return default_val; }
-  try {
-    // Try parsing `env_var_name` as a integer
-    return static_cast<bool>(std::stoi(env_val));
-  } catch (std::invalid_argument const&) {
-  }
-  // Convert to lowercase
-  std::string str{env_val};
-  // Special considerations regarding the case conversion:
-  // - std::tolower() is not an addressable function. Passing it to std::transform() as
-  //   a function pointer, if the compile turns out successful, causes the program behavior
-  //   "unspecified (possibly ill-formed)", hence the lambda. ::tolower() is addressable
-  //   and does not have this problem, but the following item still applies.
-  // - To avoid UB in std::tolower() or ::tolower(), the character must be cast to unsigned char.
-  std::transform(
-    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
-  // Trim whitespaces
-  std::stringstream trimmer;
-  trimmer << str;
-  str.clear();
-  trimmer >> str;
-  // Match value
-  if (str == "true" || str == "on" || str == "yes") { return true; }
-  if (str == "false" || str == "off" || str == "no") { return false; }
-  KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
-              std::invalid_argument);
-  return {};
+
+  return getenv_or<bool>(env_var_name,
+                         default_val,
+                         {},
+                         {{true, {"true", "on", "yes", "1"}}, {false, {"false", "off", "no", "0"}}},
+                         false,
+                         {});
 }
 
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  auto* env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return default_val; }
-  return detail::parse_compat_mode_str(env_val);
+
+  return getenv_or<CompatMode>(env_var_name,
+                               default_val,
+                               {},
+                               {{CompatMode::ON, {"true", "on", "yes", "1"}},
+                                {CompatMode::OFF, {"false", "off", "no", "0"}},
+                                {CompatMode::AUTO, {"auto"}}},
+                               false,
+                               {});
 }
 
 template <>

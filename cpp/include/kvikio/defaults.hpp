@@ -18,7 +18,9 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <functional>
 #include <initializer_list>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -36,22 +38,99 @@
 namespace kvikio {
 
 template <typename T>
-T getenv_or(std::string_view env_var_name, T default_val)
+std::optional<T> from_string(std::string const& env_val)
 {
+  std::stringstream ss(env_val);
+  T converted_val;
+  ss >> converted_val;
+
+  if (!ss.fail()) { return converted_val; }
+
+  // An exception: for string, empty value is allowed
+  if constexpr (std::is_same_v<T, std::string>) { return std::optional<std::string>{""}; }
+
+  // For all other cases, return std::nullopt
+  return {};
+}
+
+template <typename T>
+[[nodiscard]] T getenv_or(std::string_view env_var_name,
+                          T default_val,
+                          std::function<std::optional<T>(std::string const&)> conversion_callback,
+                          std::map<T, std::vector<std::string>> const& dictionary,
+                          bool case_sensitive,
+                          std::function<std::optional<T>(std::string const&)> extra_callback)
+{
+  // Step 0: If the name does not exist, use default value
   auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
 
-  std::stringstream sstream(env_val);
-  T converted_val;
-  sstream >> converted_val;
-
-  if constexpr (!std::is_same_v<T, std::string>) {
-    KVIKIO_EXPECT(!sstream.fail(),
-                  "unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
-                  std::invalid_argument);
+  // Step 1: try to convert to type T
+  std::optional<T> converted_val;
+  if (conversion_callback) {
+    converted_val = std::invoke(conversion_callback, env_val);
+    if (converted_val.has_value()) { return converted_val.value(); }
   }
 
-  return converted_val;
+  // Step 2: look up in the user-provided dictionary
+  std::string str{env_val};
+  if (!dictionary.empty()) {
+    // Convert to lowercase
+    if (!case_sensitive) {
+      // Special considerations regarding the case conversion:
+      // - std::tolower() is not an addressable function. Passing it to std::transform() as
+      //   a function pointer, if the compile turns out successful, causes the program behavior
+      //   "unspecified (possibly ill-formed)", hence the lambda. ::tolower() is addressable
+      //   and does not have this problem, but the following item still applies.
+      // - To avoid UB in std::tolower() or ::tolower(), the character must be cast to unsigned
+      // char.
+      std::transform(
+        str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
+    }
+
+    // Trim whitespaces
+    std::stringstream trimmer;
+    trimmer << str;
+    str.clear();
+    trimmer >> str;
+
+    // Convert the dictionary to an easier format
+    // Example:
+    // dictionary is (v_1, {a, b}), (v_2, {d})
+    // then flat_dictionary is (a, v_1), (b, v_1), (d, v_2)
+    // and there must be no duplicate among a, b, d
+    std::map<std::string, T> flat_dictionary;
+    for (auto const& [dst, src_list] : dictionary) {
+      for (auto const& src : src_list) {
+        if (auto const it = flat_dictionary.find(src); it == flat_dictionary.end()) {
+          flat_dictionary[src] = dst;
+        } else {
+          KVIKIO_FAIL("Duplicate environment variable values.");
+        }
+      }
+    }
+
+    // Look up in the dictionary
+    if (auto it = flat_dictionary.find(str); it != flat_dictionary.end()) {
+      return flat_dictionary[str];
+    }
+  }
+
+  // Step 3: use extra user-provided callback
+  if (extra_callback) {
+    auto const result = std::invoke(extra_callback, str);
+    return result.value();
+  }
+
+  KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + str,
+              std::invalid_argument);
+  return {};
+}
+
+template <typename T>
+T getenv_or(std::string_view env_var_name, T default_val)
+{
+  return getenv_or(env_var_name, default_val, from_string<T>, {}, true, {});
 }
 
 template <>
@@ -86,34 +165,43 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  */
 template <typename T>
 std::tuple<std::string_view, T, bool> getenv_or(
-  std::initializer_list<std::string_view> env_var_names, T default_val)
+  std::initializer_list<std::string_view> env_var_names,
+  T default_val,
+  std::function<std::optional<T>(std::string const&)> conversion_callback = from_string<T>,
+  std::map<T, std::vector<std::string>> dictionary                        = {},
+  bool case_sensitive                                                     = false,
+  std::function<std::optional<T>(std::string const&)> callback            = {})
 {
   KVIKIO_EXPECT(env_var_names.size() > 0,
                 "`env_var_names` must contain at least one environment variable name.",
                 std::invalid_argument);
   std::string_view env_name_target;
-  std::string_view env_val_target;
+  std::string_view env_val_str_target;
+  T env_val_target;
 
-  for (auto const& env_var_name : env_var_names) {
-    auto const* env_val = std::getenv(env_var_name.data());
-    if (env_val == nullptr) { continue; }
+  for (auto const& current_env_var_name : env_var_names) {
+    auto const* current_env_val_str = std::getenv(current_env_var_name.data());
+    if (current_env_val_str == nullptr) { continue; }
 
-    if (!env_name_target.empty() && env_val_target != env_val) {
+    auto current_env_val = getenv_or<T>(
+      env_name_target, default_val, conversion_callback, dictionary, case_sensitive, callback);
+
+    if (!env_name_target.empty() && env_val_target != current_env_val) {
       std::stringstream ss;
-      ss << "Environment variable " << env_var_name << " (" << env_val
-         << ") has already been set by its alias " << env_name_target << " (" << env_val_target
+      ss << "Environment variable " << current_env_var_name << " (" << current_env_val_str
+         << ") has already been set by its alias " << env_name_target << " (" << env_val_str_target
          << ") with a different value.";
       KVIKIO_FAIL(ss.str(), std::invalid_argument);
     }
 
-    env_name_target = env_var_name;
-    env_val_target  = env_val;
+    env_name_target    = current_env_var_name;
+    env_val_target     = current_env_val;
+    env_val_str_target = current_env_val_str;
   }
 
   if (env_name_target.empty()) { return {env_name_target, default_val, false}; }
 
-  auto res = getenv_or<T>(env_name_target, default_val);
-  return {env_name_target, res, true};
+  return {env_name_target, env_val_target, true};
 }
 
 /**
@@ -130,6 +218,7 @@ class defaults {
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
+  std::size_t _mmap_task_size;
 
   static unsigned int get_num_threads_from_env();
 
@@ -367,6 +456,10 @@ class defaults {
    * @param status_codes The HTTP status codes to retry.
    */
   static void set_http_status_codes(std::vector<int> status_codes);
+
+  [[nodiscard]] static std::size_t mmap_task_size();
+
+  static void set_mmap_task_size(std::size_t nbytes);
 };
 
 }  // namespace kvikio
