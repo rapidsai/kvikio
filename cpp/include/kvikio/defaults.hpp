@@ -21,6 +21,7 @@
 #include <functional>
 #include <initializer_list>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -37,6 +38,7 @@
  */
 namespace kvikio {
 
+namespace detail {
 template <typename T>
 std::optional<T> from_string(std::string const& env_val)
 {
@@ -54,12 +56,12 @@ std::optional<T> from_string(std::string const& env_val)
 }
 
 template <typename T>
-[[nodiscard]] T getenv_or(std::string_view env_var_name,
-                          T default_val,
-                          std::function<std::optional<T>(std::string const&)> conversion_callback,
-                          std::map<T, std::vector<std::string>> const& dictionary,
-                          bool case_sensitive,
-                          std::function<std::optional<T>(std::string const&)> extra_callback)
+[[nodiscard]] T process_single_env_var(
+  std::string_view env_var_name,
+  T default_val,
+  std::function<std::optional<T>(std::string const&)> user_callback,
+  std::map<T, std::vector<std::string>> const& dictionary,
+  bool case_sensitive)
 {
   // Step 0: If the name does not exist, use default value
   auto const* env_val = std::getenv(env_var_name.data());
@@ -67,8 +69,8 @@ template <typename T>
 
   // Step 1: try to convert to type T
   std::optional<T> converted_val;
-  if (conversion_callback) {
-    converted_val = std::invoke(conversion_callback, env_val);
+  if (user_callback) {
+    converted_val = std::invoke(user_callback, env_val);
     if (converted_val.has_value()) { return converted_val.value(); }
   }
 
@@ -116,21 +118,18 @@ template <typename T>
     }
   }
 
-  // Step 3: use extra user-provided callback
-  if (extra_callback) {
-    auto const result = std::invoke(extra_callback, str);
-    return result.value();
-  }
-
   KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + str,
               std::invalid_argument);
+
   return {};
 }
+}  // namespace detail
 
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
-  return getenv_or(env_var_name, default_val, from_string<T>, {}, true, {});
+  return detail::process_single_env_var(
+    env_var_name, default_val, detail::from_string<T>, {}, false);
 }
 
 template <>
@@ -167,10 +166,9 @@ template <typename T>
 std::tuple<std::string_view, T, bool> getenv_or(
   std::initializer_list<std::string_view> env_var_names,
   T default_val,
-  std::function<std::optional<T>(std::string const&)> conversion_callback = from_string<T>,
+  std::function<std::optional<T>(std::string const&)> conversion_callback = detail::from_string<T>,
   std::map<T, std::vector<std::string>> dictionary                        = {},
-  bool case_sensitive                                                     = false,
-  std::function<std::optional<T>(std::string const&)> callback            = {})
+  bool case_sensitive                                                     = false)
 {
   KVIKIO_EXPECT(env_var_names.size() > 0,
                 "`env_var_names` must contain at least one environment variable name.",
@@ -183,8 +181,8 @@ std::tuple<std::string_view, T, bool> getenv_or(
     auto const* current_env_val_str = std::getenv(current_env_var_name.data());
     if (current_env_val_str == nullptr) { continue; }
 
-    auto current_env_val = getenv_or<T>(
-      env_name_target, default_val, conversion_callback, dictionary, case_sensitive, callback);
+    auto current_env_val = detail::process_single_env_var(
+      current_env_var_name, default_val, conversion_callback, dictionary, case_sensitive);
 
     if (!env_name_target.empty() && env_val_target != current_env_val) {
       std::stringstream ss;

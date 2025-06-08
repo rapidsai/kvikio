@@ -34,40 +34,38 @@ template <>
 bool getenv_or(std::string_view env_var_name, bool default_val)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-
-  return getenv_or<bool>(env_var_name,
-                         default_val,
-                         {},
-                         {{true, {"true", "on", "yes", "1"}}, {false, {"false", "off", "no", "0"}}},
-                         false,
-                         {});
+  return detail::process_single_env_var<bool>(
+    env_var_name,
+    default_val,
+    {},
+    {{true, {"true", "on", "yes", "1"}}, {false, {"false", "off", "no", "0"}}},
+    false);
 }
 
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-
-  return getenv_or<CompatMode>(env_var_name,
-                               default_val,
-                               {},
-                               {{CompatMode::ON, {"true", "on", "yes", "1"}},
-                                {CompatMode::OFF, {"false", "off", "no", "0"}},
-                                {CompatMode::AUTO, {"auto"}}},
-                               false,
-                               {});
+  return detail::process_single_env_var<CompatMode>(env_var_name,
+                                                    default_val,
+                                                    {},
+                                                    {{CompatMode::ON, {"true", "on", "yes", "1"}},
+                                                     {CompatMode::OFF, {"false", "off", "no", "0"}},
+                                                     {CompatMode::AUTO, {"auto"}}},
+                                                    false);
 }
 
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  auto* const env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return std::move(default_val); }
-  std::string const int_str(env_val);
-  if (int_str.empty()) { return std::move(default_val); }
-
-  return detail::parse_http_status_codes(env_var_name, int_str);
+  auto callback = [=](std::string const& env_val) -> std::optional<std::vector<int>> {
+    std::string const int_str(env_val);
+    if (int_str.empty()) { return default_val; }
+    return detail::parse_http_status_codes(env_var_name, int_str);
+  };
+  return detail::process_single_env_var<std::vector<int>>(
+    env_var_name, default_val, callback, {}, false);
 }
 
 unsigned int defaults::get_num_threads_from_env()
