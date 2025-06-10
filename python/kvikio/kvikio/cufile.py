@@ -470,8 +470,8 @@ def clear_page_cache(
     reclaim_dentries_and_inodes: bool, optional
         Whether to free reclaimable slab objects which include dentries and inodes.
 
-        - If `true`, equivalent to executing `echo 3 > /proc/sys/vm/drop_caches`;
-        - If `false`, equivalent to executing `echo 1 > /proc/sys/vm/drop_caches`.
+        - If `true`, equivalent to executing `/sbin/sysctl vm.drop_caches=3`;
+        - If `false`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
     clear_dirty_pages: bool, optional
         Whether to trigger the writeback process to clear the dirty pages. If `true`,
         `sync` will be called prior to cache dropping.
