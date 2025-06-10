@@ -83,12 +83,8 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - libcurl ${{ libcurl_version }}
-        - libnuma
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        # Needed until libnuma run-exports are fixed:
-        # https://github.com/conda-forge/numactl-feedstock/pull/18
-        - ${{ pin_compatible("libnuma", upper_bound="x", lower_bound="x") }}
         - libcufile-dev
       ignore_run_exports:
         by_name:
