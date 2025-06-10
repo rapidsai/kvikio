@@ -227,7 +227,7 @@ bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
     auto const redirected_cmd =
       std::string{"( "}.append(cmd).append(" 3>&2 2>&1 1>&3) 2>/dev/null");
     std::unique_ptr<FILE, int (*)(FILE*)> pipe(popen(redirected_cmd.c_str(), "r"), pclose);
-    KVIKIO_EXPECT(pipe != nullptr, "popen() failed");
+    KVIKIO_EXPECT(pipe != nullptr, "popen() failed", GenericSystemError);
 
     std::array<char, 128> buffer;
     std::string error_out;
