@@ -142,3 +142,39 @@ def test_read_parallel(
 
         assert fut.get() == expected_data.nbytes
         xp.testing.assert_array_equal(actual_data, expected_data)
+
+
+def test_read_default_arguments(tmp_path, xp):
+    filename = tmp_path / "read-only-test-file"
+    expected_data = xp.arange(1024 * 1024)
+    expected_data.tofile(filename)
+    actual_data = xp.zeros_like(expected_data)
+
+    mmap_handle = kvikio.MmapHandle(filename, "r")
+
+    read_size = mmap_handle.read(actual_data)
+    assert read_size == expected_data.nbytes
+    xp.testing.assert_array_equal(actual_data, expected_data)
+
+    fut = mmap_handle.pread(actual_data)
+    assert fut.get() == expected_data.nbytes
+    xp.testing.assert_array_equal(actual_data, expected_data)
+
+
+def test_closed_handle(tmp_path, xp):
+    filename = tmp_path / "read-only-test-file"
+    expected_data = xp.arange(1024 * 1024)
+    expected_data.tofile(filename)
+    actual_data = xp.zeros_like(expected_data)
+
+    mmap_handle = kvikio.MmapHandle(filename, "r")
+    mmap_handle.close()
+
+    assert mmap_handle.closed()
+    assert mmap_handle.file_size() == 0
+
+    with pytest.raises(RuntimeError, match=r".*Cannot read from a closed MmapHandle.*"):
+        mmap_handle.read(actual_data)
+
+    with pytest.raises(RuntimeError, match=r".*Cannot read from a closed MmapHandle.*"):
+        mmap_handle.pread(actual_data)

@@ -18,6 +18,8 @@ from libcpp.utility cimport move, pair
 from kvikio._lib.arr cimport parse_buffer_argument
 from kvikio._lib.future cimport IOFuture, _wrap_io_future, future
 
+from kvikio._lib import defaults
+
 
 cdef extern from "<kvikio/mmap.hpp>" namespace "kvikio" nogil:
     cdef cppclass CppMmapHandle "kvikio::MmapHandle":
@@ -31,7 +33,7 @@ cdef extern from "<kvikio/mmap.hpp>" namespace "kvikio" nogil:
         bool closed()
         size_t read(void* buf, optional[size_t] size, size_t file_offset) except +
         future[size_t] pread(void* buf, optional[size_t] size, size_t file_offset,
-                             size_t task_size) except +
+                             size_t mmap_task_size) except +
 
 cdef class MmapHandle:
     cdef CppMmapHandle _handle
@@ -84,14 +86,20 @@ cdef class MmapHandle:
                                  file_offset)
 
     def pread(self, buf, size: Optional[int] = None, file_offset: int = 0,
-              task_size: int = 0) -> IOFuture:
+              mmap_task_size: Optional[int] = None) -> IOFuture:
         cdef optional[size_t] cpp_size
         if size is None:
             cpp_size = nullopt
         else:
             cpp_size = <size_t>(size)
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+
+        if mmap_task_size is None:
+            cpp_mmap_task_size = defaults.mmap_task_size()
+        else:
+            cpp_mmap_task_size = mmap_task_size
+
         return _wrap_io_future(self._handle.pread(<void*>info.first,
                                cpp_size,
                                file_offset,
-                               task_size))
+                               cpp_mmap_task_size))
