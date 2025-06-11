@@ -11,21 +11,134 @@ cupy = pytest.importorskip("cupy")
 numpy = pytest.importorskip("numpy")
 
 
-@pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
-@pytest.mark.parametrize("num_threads", [1, 3, 4, 16])
-@pytest.mark.parametrize("mmap_task_size", [1024])
-def test_read(tmp_path, xp, size, num_threads, mmap_task_size):
-    """Test mmap read"""
-    filename = tmp_path / "test-file"
+def test_no_file(tmp_path):
+    with pytest.raises(RuntimeError, match=r".*Unable to open file.*"):
+        nonexistent_file = tmp_path / "nonexistent_file"
+        kvikio.MmapHandle(nonexistent_file)
 
-    with kvikio.defaults.set(
-        {"num_threads": num_threads, "mmap_task_size": mmap_task_size}
-    ):
-        a = numpy.arange(size)
-        a.tofile(filename)
-        os.sync()
 
-        b = xp.empty_like(a)
-        mmap_handle = kvikio.MmapHandle(filename, "r")
-        assert mmap_handle.read(b) == b.nbytes
-        xp.testing.assert_array_equal(a, b)
+def test_invalid_file_open_flag(tmp_path):
+    filename = tmp_path / "read-only-test-file"
+    expected_data = numpy.arange(1024)
+    expected_data.tofile(filename)
+
+    with pytest.raises(ValueError, match=r".*Unknown file open flag.*"):
+        kvikio.MmapHandle(filename, "")
+
+    with pytest.raises(ValueError, match=r".*Unknown file open flag.*"):
+        kvikio.MmapHandle(filename, "z")
+
+
+def test_constructor_invalid_range(tmp_path, xp):
+    filename = tmp_path / "read-only-test-file"
+    test_data = xp.arange(1024 * 1024)
+    test_data.tofile(filename)
+
+    with pytest.raises(IndexError, match=r".*Offset is past the end of file.*"):
+        kvikio.MmapHandle(filename, "r", None, test_data.nbytes * 2)
+
+    with pytest.raises(IndexError, match=r".*Mapped region is past the end of file.*"):
+        kvikio.MmapHandle(filename, "r", test_data.nbytes * 2)
+
+    with pytest.raises(ValueError, match=r".*Mapped region should not be zero byte.*"):
+        kvikio.MmapHandle(filename, "r", 0)
+
+
+def test_read_invalid_range(tmp_path, xp):
+    filename = tmp_path / "read-only-test-file"
+    test_data = xp.arange(1024 * 1024)
+    test_data.tofile(filename)
+    output_data = xp.zeros_like(test_data)
+
+    initial_size = 1024
+    initial_file_offset = 512
+
+    with pytest.raises(IndexError, match=r".*Offset is past the end of file.*"):
+        mmap_handle = kvikio.MmapHandle(
+            filename, "r", initial_size, initial_file_offset
+        )
+        mmap_handle.read(output_data, initial_size, test_data.nbytes)
+
+    with pytest.raises(IndexError, match=r".*Read is out of bound.*"):
+        mmap_handle = kvikio.MmapHandle(
+            filename, "r", initial_size, initial_file_offset
+        )
+        mmap_handle.read(output_data, initial_size, initial_file_offset - 128)
+
+    with pytest.raises(ValueError, match=r".*Read size must be greater than 0.*"):
+        mmap_handle = kvikio.MmapHandle(
+            filename, "r", initial_size, initial_file_offset
+        )
+        mmap_handle.read(output_data, 0, initial_file_offset)
+
+    with pytest.raises(IndexError, match=r".*Read is out of bound.*"):
+        mmap_handle = kvikio.MmapHandle(
+            filename, "r", initial_size, initial_file_offset
+        )
+        mmap_handle.read(output_data, initial_size + 128, initial_file_offset)
+
+
+@pytest.mark.parametrize("num_elements_to_read", [None, 10, 9999])
+@pytest.mark.parametrize("num_elements_to_skip", [0, 10, 100, 1000, 9999])
+def test_read_seq(tmp_path, xp, num_elements_to_read, num_elements_to_skip):
+    filename = tmp_path / "read-only-test-file"
+    test_data = xp.arange(1024 * 1024)
+    test_data.tofile(filename)
+
+    if num_elements_to_read is None:
+        initial_size = None
+        actual_num_elements_to_read = int(
+            os.path.getsize(filename) / test_data.itemsize
+        )
+    else:
+        initial_size = num_elements_to_read * test_data.itemsize
+        actual_num_elements_to_read = num_elements_to_read
+
+    initial_file_offset = num_elements_to_skip * test_data.itemsize
+    expected_data = test_data[
+        num_elements_to_skip : (num_elements_to_skip + actual_num_elements_to_read)
+    ]
+    actual_data = xp.zeros_like(expected_data)
+
+    mmap_handle = kvikio.MmapHandle(filename, "r", initial_size, initial_file_offset)
+    read_size = mmap_handle.read(actual_data, initial_size, initial_file_offset)
+
+    assert read_size == expected_data.nbytes
+    xp.testing.assert_array_equal(actual_data, expected_data)
+
+
+@pytest.mark.parametrize("num_elements_to_read", [None, 10, 9999])
+@pytest.mark.parametrize("num_elements_to_skip", [0, 10, 100, 1000, 9999])
+@pytest.mark.parametrize("mmap_task_size", [0, 1024, 12345])
+def test_read_parallel(
+    tmp_path, xp, num_elements_to_read, num_elements_to_skip, mmap_task_size
+):
+    filename = tmp_path / "read-only-test-file"
+    test_data = xp.arange(1024 * 1024)
+    test_data.tofile(filename)
+
+    if num_elements_to_read is None:
+        initial_size = None
+        actual_num_elements_to_read = int(
+            os.path.getsize(filename) / test_data.itemsize
+        )
+    else:
+        initial_size = num_elements_to_read * test_data.itemsize
+        actual_num_elements_to_read = num_elements_to_read
+
+    initial_file_offset = num_elements_to_skip * test_data.itemsize
+    expected_data = test_data[
+        num_elements_to_skip : (num_elements_to_skip + actual_num_elements_to_read)
+    ]
+    actual_data = xp.zeros_like(expected_data)
+
+    with kvikio.defaults.set("mmap_task_size", mmap_task_size):
+        mmap_handle = kvikio.MmapHandle(
+            filename, "r", initial_size, initial_file_offset
+        )
+        fut = mmap_handle.pread(
+            actual_data, initial_size, initial_file_offset, mmap_task_size
+        )
+
+        assert fut.get() == expected_data.nbytes
+        xp.testing.assert_array_equal(actual_data, expected_data)

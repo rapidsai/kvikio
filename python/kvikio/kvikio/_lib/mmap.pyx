@@ -11,7 +11,7 @@ from posix cimport fcntl, stat
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
-from libcpp.optional cimport optional
+from libcpp.optional cimport nullopt, optional
 from libcpp.string cimport string
 from libcpp.utility cimport move, pair
 
@@ -41,10 +41,12 @@ cdef class MmapHandle:
                  initial_size: Optional[int] = None,
                  initial_file_offset: int = 0,
                  mode: int = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH):
+        if not os.path.exists(file_path):
+            raise RuntimeError("Unable to open file")
+
         cdef optional[size_t] cpp_initial_size
         if initial_size is None:
-            cpp_initial_size = <size_t>(
-                os.path.getsize(file_path) - initial_file_offset)
+            cpp_initial_size = nullopt
         else:
             cpp_initial_size = <size_t>(initial_size)
         path_bytes = str(pathlib.Path(file_path)).encode()
@@ -73,7 +75,7 @@ cdef class MmapHandle:
     def read(self, buf, size: Optional[int] = None, file_offset: int = 0) -> int:
         cdef optional[size_t] cpp_size
         if size is None:
-            cpp_size = <size_t>(self.file_size() - file_offset)
+            cpp_size = nullopt
         else:
             cpp_size = <size_t>(size)
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
@@ -85,7 +87,7 @@ cdef class MmapHandle:
               task_size: int = 0) -> IOFuture:
         cdef optional[size_t] cpp_size
         if size is None:
-            cpp_size = <size_t>(self.file_size() - file_offset)
+            cpp_size = nullopt
         else:
             cpp_size = <size_t>(size)
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
@@ -93,4 +95,3 @@ cdef class MmapHandle:
                                cpp_size,
                                file_offset,
                                task_size))
-#
