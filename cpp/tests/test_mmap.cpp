@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <optional>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -88,28 +89,32 @@ TEST_F(MmapTest, file_open_flag_in_constructor)
 TEST_F(MmapTest, eof_in_constructor)
 {
   // size is too large (by 1 char)
-  EXPECT_THAT(
-    [&] { kvikio::MmapHandle(_filepath, "r", _file_size + 1); },
-    ThrowsMessage<std::overflow_error>(HasSubstr("Mapped region is past the end of file")));
+  EXPECT_THAT([&] { kvikio::MmapHandle(_filepath, "r", _file_size + 1); },
+              ThrowsMessage<std::out_of_range>(HasSubstr("Mapped region is past the end of file")));
 
   // size is exactly equal to file size
   EXPECT_NO_THROW({ kvikio::MmapHandle(_filepath, "r", _file_size); });
 
   // file_offset is too large (by 1 char)
-  EXPECT_THAT([=] { kvikio::MmapHandle(_filepath, "r", 0, _file_size); },
-              ThrowsMessage<std::overflow_error>(HasSubstr("Offset is past the end of file")));
+  EXPECT_THAT([=] { kvikio::MmapHandle(_filepath, "r", std::nullopt, _file_size); },
+              ThrowsMessage<std::out_of_range>(HasSubstr("Offset is past the end of file")));
 
   // file_offset is exactly on the last char
   EXPECT_NO_THROW({
-    kvikio::MmapHandle mmap_handle(_filepath, "r", 0, _file_size - 1);
+    kvikio::MmapHandle mmap_handle(_filepath, "r", std::nullopt, _file_size - 1);
     EXPECT_EQ(mmap_handle.initial_size(), 1);
   });
+
+  // size is 0
+  EXPECT_THAT(
+    [=] { kvikio::MmapHandle(_filepath, "r", 0); },
+    ThrowsMessage<std::invalid_argument>(HasSubstr("Mapped region should not be zero byte")));
 }
 
 TEST_F(MmapTest, read_seq)
 {
   auto do_test = [&](std::size_t num_elements_to_skip, std::size_t num_elements_to_read) {
-    kvikio::MmapHandle mmap_handle(_filepath, "r", 0, 0);
+    kvikio::MmapHandle mmap_handle(_filepath, "r");
     auto const offset             = num_elements_to_skip * sizeof(value_type);
     auto const expected_read_size = num_elements_to_read * sizeof(value_type);
 
@@ -146,7 +151,7 @@ TEST_F(MmapTest, read_parallel)
 {
   auto do_test =
     [&](std::size_t num_elements_to_skip, std::size_t num_elements_to_read, std::size_t task_size) {
-      kvikio::MmapHandle mmap_handle(_filepath, "r", 0, 0);
+      kvikio::MmapHandle mmap_handle(_filepath, "r");
       auto const offset             = num_elements_to_skip * sizeof(value_type);
       auto const expected_read_size = num_elements_to_read * sizeof(value_type);
 
