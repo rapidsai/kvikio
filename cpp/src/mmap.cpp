@@ -210,14 +210,16 @@ std::size_t MmapHandle::nbytes() const { return file_size(); }
 
 std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::size_t file_offset)
 {
-  // Argument validation
   KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
+
+  // Argument validation
+  KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
   auto actual_size = size.has_value() ? size.value() : _file_size - file_offset;
   KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
   KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
                   file_offset + actual_size <= _initial_file_offset + _initial_size,
                 "Read is out of bound",
-                std::invalid_argument);
+                std::out_of_range);
 
   KVIKIO_NVTX_FUNC_RANGE();
 
@@ -244,14 +246,16 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                                            std::size_t file_offset,
                                            std::size_t task_size)
 {
-  // Argument validation
   KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
+
+  // Argument validation
+  KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
   auto actual_size = size.has_value() ? size.value() : _file_size - file_offset;
   KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
   KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
                   file_offset + actual_size <= _initial_file_offset + _initial_size,
                 "Read is out of bound",
-                std::invalid_argument);
+                std::out_of_range);
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(actual_size, nvtx_color);
