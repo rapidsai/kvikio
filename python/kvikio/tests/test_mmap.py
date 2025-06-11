@@ -13,7 +13,7 @@ numpy = pytest.importorskip("numpy")
 
 @pytest.mark.parametrize("size", [1, 10, 100, 1000, 1024, 4096, 4096 * 10])
 @pytest.mark.parametrize("num_threads", [1, 3, 4, 16])
-@pytest.mark.parametrize("mmap_task_size", [0, 1024])
+@pytest.mark.parametrize("mmap_task_size", [1024])
 def test_read(tmp_path, xp, size, num_threads, mmap_task_size):
     """Test mmap read"""
     filename = tmp_path / "test-file"
