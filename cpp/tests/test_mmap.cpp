@@ -163,7 +163,7 @@ TEST_F(MmapTest, read_seq)
 
     // host
     {
-      std::vector<value_type> out_host_buf(expected_read_size, {});
+      std::vector<value_type> out_host_buf(num_elements_to_read, {});
       auto const read_size = mmap_handle.read(out_host_buf.data(), expected_read_size, offset);
       for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
         EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
@@ -173,7 +173,7 @@ TEST_F(MmapTest, read_seq)
 
     // device
     {
-      kvikio::test::DevBuffer out_device_buf(expected_read_size);
+      kvikio::test::DevBuffer out_device_buf(num_elements_to_read);
       auto const read_size = mmap_handle.read(out_device_buf.ptr, expected_read_size, offset);
       auto out_host_buf    = out_device_buf.to_vector();
       for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
@@ -200,7 +200,7 @@ TEST_F(MmapTest, read_parallel)
 
       // host
       {
-        std::vector<value_type> out_host_buf(expected_read_size, {});
+        std::vector<value_type> out_host_buf(num_elements_to_read, {});
         auto fut = mmap_handle.pread(out_host_buf.data(), expected_read_size, offset, task_size);
         auto const read_size = fut.get();
         for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
@@ -211,7 +211,7 @@ TEST_F(MmapTest, read_parallel)
 
       // device
       {
-        kvikio::test::DevBuffer out_device_buf(expected_read_size);
+        kvikio::test::DevBuffer out_device_buf(num_elements_to_read);
         auto fut             = mmap_handle.pread(out_device_buf.ptr, expected_read_size, offset);
         auto const read_size = fut.get();
         auto out_host_buf    = out_device_buf.to_vector();
@@ -230,4 +230,74 @@ TEST_F(MmapTest, read_parallel)
       }
     }
   }
+}
+
+TEST_F(MmapTest, read_with_default_arguments)
+{
+  std::size_t num_elements = _file_size / sizeof(value_type);
+  kvikio::MmapHandle mmap_handle(_filepath, "r");
+
+  // host
+  {
+    std::vector<value_type> out_host_buf(num_elements, {});
+
+    {
+      auto const read_size = mmap_handle.read(out_host_buf.data());
+      for (std::size_t i = 0; i < num_elements; ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i]);
+      }
+      EXPECT_EQ(read_size, _file_size);
+    }
+
+    {
+      auto fut             = mmap_handle.pread(out_host_buf.data());
+      auto const read_size = fut.get();
+      for (std::size_t i = 0; i < num_elements; ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i]);
+      }
+      EXPECT_EQ(read_size, _file_size);
+    }
+  }
+
+  // device
+  {
+    kvikio::test::DevBuffer out_device_buf(num_elements);
+
+    {
+      auto const read_size = mmap_handle.read(out_device_buf.ptr);
+      auto out_host_buf    = out_device_buf.to_vector();
+      for (std::size_t i = 0; i < num_elements; ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i]);
+      }
+      EXPECT_EQ(read_size, _file_size);
+    }
+
+    {
+      auto fut             = mmap_handle.pread(out_device_buf.ptr);
+      auto const read_size = fut.get();
+      auto out_host_buf    = out_device_buf.to_vector();
+      for (std::size_t i = 0; i < num_elements; ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i]);
+      }
+      EXPECT_EQ(read_size, _file_size);
+    }
+  }
+}
+
+TEST_F(MmapTest, closed_handle)
+{
+  kvikio::MmapHandle mmap_handle(_filepath, "r");
+  mmap_handle.close();
+
+  EXPECT_TRUE(mmap_handle.closed());
+  EXPECT_EQ(mmap_handle.file_size(), 0);
+
+  std::size_t num_elements = _file_size / sizeof(value_type);
+  std::vector<value_type> out_host_buf(num_elements, {});
+
+  EXPECT_THAT([&] { mmap_handle.read(out_host_buf.data()); },
+              ThrowsMessage<std::runtime_error>(HasSubstr("Cannot read from a closed MmapHandle")));
+
+  EXPECT_THAT([&] { mmap_handle.pread(out_host_buf.data()); },
+              ThrowsMessage<std::runtime_error>(HasSubstr("Cannot read from a closed MmapHandle")));
 }

@@ -244,7 +244,7 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
 std::future<std::size_t> MmapHandle::pread(void* buf,
                                            std::optional<std::size_t> size,
                                            std::size_t file_offset,
-                                           std::size_t task_size)
+                                           std::size_t mmap_task_size)
 {
   KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
 
@@ -265,8 +265,9 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   if (!is_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
   auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  std::size_t actual_task_size =
-    (task_size == 0) ? std::max<std::size_t>(1, actual_size / defaults::num_threads()) : task_size;
+  std::size_t actual_mmap_task_size =
+    (mmap_task_size == 0) ? std::max<std::size_t>(1, actual_size / defaults::num_threads())
+                          : mmap_task_size;
 
   auto op = [global_src_buf = src_buf, is_buf_host_mem = is_buf_host_mem, ctx = ctx](
               void* buf, std::size_t size, std::size_t, std::size_t buf_offset) -> std::size_t {
@@ -290,7 +291,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                      buf,
                      actual_size,
                      file_offset,
-                     actual_task_size,
+                     actual_mmap_task_size,
                      0 /* global_buf_offset */,
                      call_idx,
                      nvtx_color);
