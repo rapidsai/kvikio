@@ -12,9 +12,7 @@ context:
   # 1. Linux x86_64, which always uses libcufile
   # 2. Linux aarch64 with CUDA >= 12.2, which uses libcufile
   # 3. Linux aarch64 with CUDA < 12.2, which does not use libcufile
-  should_use_cufile: ${{ x86_64 or (aarch64 and cuda_version >= "12.2") }}
-  # TODO: This needs to be set on the CLI or by variants
-  cuda_version_constraint: "12.2"
+  should_use_cufile: ${{ x86_64 or (aarch64 and cuda_version_constraint >= "12.2") }}
 
 recipe:
   name: libkvikio-split

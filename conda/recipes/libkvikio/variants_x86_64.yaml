@@ -1,0 +1,11 @@
+c_compiler_version:
+  - 13
+
+cxx_compiler_version:
+  - 13
+
+cuda_version_constraint:
+  - RAPIDS_CUDA_VERSION
+
+should_use_cufile:
+  - true

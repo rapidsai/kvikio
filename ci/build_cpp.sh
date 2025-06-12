@@ -25,10 +25,15 @@ export RAPIDS_ARTIFACTS_DIR
 # populates `RATTLER_CHANNELS` array and `RATTLER_ARGS` array
 source rapids-rattler-channel-string
 
+# Use sed to replace the RAPIDS_CUDA_VERSION string in the variants file with
+# the value of that variable in this shell.
+sed -i "s/RAPIDS_CUDA_VERSION/${RAPIDS_CUDA_VERSION}/g" "conda/recipes/libkvikio/variants_$(arch).yaml"
+
 # --no-build-id allows for caching with `sccache`
 # more info is available at
 # https://rattler.build/latest/tips_and_tricks/#using-sccache-or-ccache-with-rattler-build
 rattler-build build --recipe conda/recipes/libkvikio \
+                    --variant-config conda/recipes/libkvikio/variants_$(arch).yaml \
                     "${RATTLER_ARGS[@]}" \
                     "${RATTLER_CHANNELS[@]}"
 
