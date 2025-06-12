@@ -59,7 +59,7 @@ cache:
     host:
       - cuda-version =${{ cuda_version }}
       - libcurl ${{ libcurl_version }}
-      - if: (linux and x86_64) or (linux and aarch64 and cuda_version >= "12.2")
+      - if: ${{ linux64 }} or (linux and aarch64 and cuda_version >= "12.2")
         then:
         - libcufile-dev
       - libnuma
@@ -87,7 +87,7 @@ outputs:
         - libcurl ${{ libcurl_version }}
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: linux and x86_64
+        - if: ${{ linux64 }}
           then:
           - libcufile-dev
       ignore_run_exports:
@@ -121,7 +121,7 @@ outputs:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
         - cuda-version =${{ cuda_version }}
         - cuda-cudart-dev
-        - if: linux and x86_64
+        - if: ${{ linux64 }}
           then:
           - libcufile-dev
       run:
