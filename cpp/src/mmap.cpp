@@ -34,6 +34,17 @@
 namespace kvikio {
 
 namespace detail {
+/**
+ * @brief Prevent the compiler from optimizing away the read of a byte from a given address
+ *
+ * @param addr The address to read from
+ */
+void do_not_optimize_away_read(void* addr)
+{
+  auto addr_byte = static_cast<std::byte*>(addr);
+  std::byte tmp{};
+  asm volatile("" : "+r,m"(tmp = *addr_byte) : : "memory");
+}
 
 /**
  * @brief Change an address `p` by a signed difference of `v`
@@ -269,7 +280,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
     (mmap_task_size == 0) ? std::max<std::size_t>(1, actual_size / defaults::num_threads())
                           : mmap_task_size;
 
-  auto op = [global_src_buf = src_buf, is_buf_host_mem = is_buf_host_mem, ctx = ctx](
+  auto op = [this, global_src_buf = src_buf, is_buf_host_mem = is_buf_host_mem, ctx = ctx](
               void* buf, std::size_t size, std::size_t, std::size_t buf_offset) -> std::size_t {
     auto const src_buf = detail::pointer_add(global_src_buf, buf_offset);
     auto const dst_buf = detail::pointer_add(buf, buf_offset);
@@ -277,14 +288,22 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
     if (is_buf_host_mem) {
       std::memcpy(dst_buf, src_buf, size);
     } else {
+      perform_prefault(src_buf, size);
       PushAndPopContext c(ctx);
       CUstream stream = detail::StreamsByThread::get();
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
         convert_void2deviceptr(dst_buf), src_buf, size, stream));
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     }
 
     return size;
+  };
+
+  auto last_task_callback = [is_buf_host_mem = is_buf_host_mem, ctx = ctx] {
+    if (!is_buf_host_mem) {
+      PushAndPopContext c(ctx);
+      CUstream stream = detail::StreamsByThread::get();
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    }
   };
 
   return parallel_io(op,
@@ -294,7 +313,39 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                      actual_mmap_task_size,
                      0 /* global_buf_offset */,
                      call_idx,
-                     nvtx_color);
+                     nvtx_color,
+                     last_task_callback);
+}
+
+std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
+{
+  auto const page_size = get_page_size();
+  auto aligned_addr    = align_up(buf, page_size);
+
+  std::size_t touched_bytes{0};
+
+  // If buf is not aligned, read the byte at buf.
+  auto num_bytes = detail::pointer_diff(aligned_addr, buf);
+  if (num_bytes > 0) {
+    detail::do_not_optimize_away_read(buf);
+    touched_bytes += num_bytes;
+    if (size >= num_bytes) { size -= num_bytes; }
+  }
+
+  if (num_bytes >= size) { return touched_bytes; }
+
+  while (size > 0) {
+    detail::do_not_optimize_away_read(aligned_addr);
+    if (size >= page_size) {
+      aligned_addr = detail::pointer_add(aligned_addr, page_size);
+      size -= page_size;
+      touched_bytes += page_size;
+    } else {
+      touched_bytes += size;
+      break;
+    }
+  }
+  return touched_bytes;
 }
 
 }  // namespace kvikio
