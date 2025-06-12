@@ -42,15 +42,7 @@ class MmapHandle {
   int _map_core_flags{};
   FileWrapper _file_wrapper{};
 
-  /**
-   * @brief
-   *
-   * @param size
-   * @param file_offset
-   * @return
-   */
-  std::tuple<void*, void*, void*, std::size_t> prepare_read(std::size_t size,
-                                                            std::size_t file_offset);
+  std::size_t perform_prefault(void* buf, std::size_t size);
 
  public:
   /**
