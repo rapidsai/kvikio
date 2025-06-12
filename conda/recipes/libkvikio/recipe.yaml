@@ -8,7 +8,13 @@ context:
   cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
   date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
   head_rev: '${{ git.head_rev(".")[:8] }}'
-  linux64: ${{ linux and x86_64 }}
+  # We need to support three cases:
+  # 1. Linux x86_64, which always uses libcufile
+  # 2. Linux aarch64 with CUDA >= 12.2, which uses libcufile
+  # 3. Linux aarch64 with CUDA < 12.2, which does not use libcufile
+  should_use_cufile: ${{ x86_64 or (aarch64 and cuda_version >= "12.2") }}
+  # TODO: This needs to be set on the CLI or by variants
+  cuda_version_constraint: "12.2"
 
 recipe:
   name: libkvikio-split
@@ -52,14 +58,14 @@ cache:
       - ${{ compiler("c") }}
       - ${{ compiler("cxx") }}
       - ${{ compiler("cuda") }}
-      - cuda-version =${{ cuda_version }}
+      - cuda-version =${{ cuda_version_constraint }}
       - cmake ${{ cmake_version }}
       - ninja
       - ${{ stdlib("c") }}
     host:
-      - cuda-version =${{ cuda_version }}
+      - cuda-version =${{ cuda_version_constraint }}
       - libcurl ${{ libcurl_version }}
-      - if: ${{ linux64 }} or (linux and aarch64 and cuda_version >= "12.2")
+      - if: should_use_cufile
         then:
         - libcufile-dev
       - libnuma
@@ -83,18 +89,28 @@ outputs:
         - cmake ${{ cmake_version }}
         - ${{ compiler("c") }}
       host:
-        - cuda-version =${{ cuda_version }}
+        - cuda-version =${{ cuda_version_constraint }}
         - libcurl ${{ libcurl_version }}
       run:
-        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - if: ${{ linux64 }}
+        - if: x86_64
+          then:
+          - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+          else:
+          - if: aarch64 and cuda_version_constraint >= "12.2"
+            then:
+            - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2") }}
+            else:
+            - ${{ pin_compatible("cuda-version", upper_bound="12.2.0a0", lower_bound="12.0") }}
+        - if: should_use_cufile
           then:
           - libcufile-dev
       ignore_run_exports:
         by_name:
           - cuda-version
-          - libcufile
           - libcurl
+          - if: should_use_cufile
+            then:
+            - libcufile
     tests:
       - script:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
@@ -119,22 +135,31 @@ outputs:
         - ${{ compiler("c") }}
       host:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
-        - cuda-version =${{ cuda_version }}
+        - cuda-version =${{ cuda_version_constraint }}
         - cuda-cudart-dev
-        - if: ${{ linux64 }}
+        - if: should_use_cufile
           then:
           - libcufile-dev
       run:
-        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - if: x86_64
+          then:
+          - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+          else:
+          - if: aarch64 and cuda_version_constraint >= "12.2"
+            then:
+            - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2") }}
+            else:
+            - ${{ pin_compatible("cuda-version", upper_bound="12.2.0a0", lower_bound="12.0") }}
         - cuda-cudart
-        - libcufile
       ignore_run_exports:
         by_name:
           - cuda-cudart
           - cuda-version
-          - libcufile
           - libcurl
           - libnuma
+          - if: should_use_cufile
+            then:
+            - libcufile
     about:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license.text }}
