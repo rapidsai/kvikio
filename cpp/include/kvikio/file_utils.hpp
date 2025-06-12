@@ -182,18 +182,25 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_
 std::pair<std::size_t, std::size_t> get_page_cache_info(int fd);
 
 /**
- * @brief
+ * @brief Clear the page cache
  *
- * @param reclaim_dentries_and_inodes Whether to free reclaimable slab objects includes dentries and
- * inodes.
- * - If `true`, equivalent to executing `echo 3 > /proc/sys/vm/drop_caches`;
- * - If `false`, equivalent to executing `echo 1 > /proc/sys/vm/drop_caches`.
+ * @param reclaim_dentries_and_inodes Whether to free reclaimable slab objects which include
+ * dentries and inodes.
+ * - If `true`, equivalent to executing `/sbin/sysctl vm.drop_caches=3`;
+ * - If `false`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
  * @param clear_dirty_pages Whether to trigger the writeback process to clear the dirty pages. If
- * `true`, `sync` will be called prior to cache dropping.
+ * `true`, `sync` will be called prior to cache clearing.
  * @return Whether the page cache has been successfully cleared
  *
- * @throws kvikio::GenericSystemError if the pseudo-file "/proc/sys/vm/drop_caches" for some reason
- * cannot be written to or closed.
+ * @note This function creates a child process and executes the cache clearing shell command in the
+ * following order
+ * - Execute the command without `sudo` prefix. This is for the superuser and also for specially
+ * configured systems where unprivileged users cannot execute `/usr/bin/sudo` but can execute
+ * `/sbin/sysctl`. If this step succeeds, the function returns `true` immediately.
+ * - Execute the command with `sudo` prefix. This is for the general case where selective
+ * unprivileged users have permission to run `/sbin/sysctl` with `sudo` prefix.
+ *
+ * @throws kvikio::GenericSystemError if somehow the child process could not be created.
  */
 bool clear_page_cache(bool reclaim_dentries_and_inodes = true, bool clear_dirty_pages = true);
 }  // namespace kvikio
