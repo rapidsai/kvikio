@@ -19,7 +19,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <future>
-#include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <type_traits>
 
@@ -29,6 +29,7 @@
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
+#include "kvikio/file_utils.hpp"
 
 namespace kvikio {
 
@@ -68,17 +69,37 @@ std::ptrdiff_t pointer_diff(void* p1, void* p2)
 
 MmapHandle::MmapHandle(std::string const& file_path,
                        std::string const& flags,
-                       std::size_t initial_size,
+                       std::optional<std::size_t> initial_size,
                        std::size_t initial_file_offset,
                        mode_t mode)
-  : _initial_size(initial_size),
-    _initial_file_offset(initial_file_offset),
+  : _initial_file_offset(initial_file_offset),
     _initialized{true},
     _map_core_flags{MAP_PRIVATE},
     _file_wrapper(file_path, flags, false /* o_direct */, mode)
 {
   KVIKIO_NVTX_FUNC_RANGE();
+
   _file_size = get_file_size(_file_wrapper.fd());
+  if (_file_size == 0) { return; }
+
+  KVIKIO_EXPECT(
+    _initial_file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
+
+  // An initial size of std::nullopt is a shorthand for "starting from _initial_file_offset to the
+  // end of file".
+  _initial_size =
+    initial_size.has_value() ? initial_size.value() : (_file_size - _initial_file_offset);
+
+  KVIKIO_EXPECT(_initial_size > 0, "Mapped region should not be zero byte", std::invalid_argument);
+  KVIKIO_EXPECT(_initial_file_offset + _initial_size <= _file_size,
+                "Mapped region is past the end of file",
+                std::out_of_range);
+
+  auto const page_size    = get_page_size();
+  _map_offset             = align_down(_initial_file_offset, page_size);
+  auto const offset_delta = _initial_file_offset - _map_offset;
+  _map_size               = _initial_size + offset_delta;
+
   switch (flags[0]) {
     case 'r': {
       _map_protection_flags = PROT_READ;
@@ -92,7 +113,10 @@ MmapHandle::MmapHandle(std::string const& file_path,
     }
   }
 
-  if (_file_size > 0) { map(); }
+  _map_addr = mmap(
+    nullptr, _map_size, _map_protection_flags, _map_core_flags, _file_wrapper.fd(), _map_offset);
+  SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
+  _buf = detail::pointer_add(_map_addr, offset_delta);
 }
 
 MmapHandle::MmapHandle(MmapHandle&& o) noexcept
@@ -147,49 +171,16 @@ MmapHandle::~MmapHandle() noexcept
 //                                |--> _buf
 //                                                             |--> start_addr
 //                                                     |--> start_aligned_addr
-void MmapHandle::map()
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto const page_size = get_page_size();
-
-  KVIKIO_EXPECT(
-    _initial_file_offset < _file_size, "Offset is past the end of file", std::overflow_error);
-
-  // Adjust _initial_size to a valid value for the special case
-  if (_initial_size == 0) { _initial_size = _file_size - _initial_file_offset; }
-
-  KVIKIO_EXPECT(_initial_file_offset + _initial_size <= _file_size,
-                "Mapped region is past the end of file",
-                std::overflow_error);
-
-  _map_offset             = align_down(_initial_file_offset, page_size);
-  auto const offset_delta = _initial_file_offset - _map_offset;
-  _map_size               = _initial_size + offset_delta;
-  _map_addr               = mmap(
-    nullptr, _map_size, _map_protection_flags, _map_core_flags, _file_wrapper.fd(), _map_offset);
-  SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
-  _buf = detail::pointer_add(_map_addr, offset_delta);
-}
-
-void MmapHandle::unmap()
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  if (_map_addr != nullptr) {
-    auto ret = munmap(_map_addr, _map_size);
-    SYSCALL_CHECK(ret);
-  }
-}
-
-std::size_t MmapHandle::initial_size() const noexcept { return _initial_size; }
 
 bool MmapHandle::closed() const noexcept { return !_initialized; }
 
 void MmapHandle::close() noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (closed()) { return; }
+  if (closed() || _map_addr == nullptr) { return; }
   try {
-    unmap();
+    auto ret = munmap(_map_addr, _map_size);
+    SYSCALL_CHECK(ret);
   } catch (...) {
   }
   _buf                  = {};
@@ -205,34 +196,102 @@ void MmapHandle::close() noexcept
   _file_wrapper         = {};
 }
 
-std::size_t MmapHandle::read(void* buf, std::size_t size, std::size_t file_offset)
+std::size_t MmapHandle::initial_size() const noexcept { return _initial_size; }
+
+std::size_t MmapHandle::initial_file_offset() const noexcept { return _initial_file_offset; }
+
+std::size_t MmapHandle::file_size() const
 {
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  std::memcpy(buf, src_buf, size);
-  return size;
+  if (closed()) { return 0; }
+  return get_file_size(_file_wrapper.fd());
 }
 
-std::future<std::size_t> MmapHandle::pread(void* buf, std::size_t size, std::size_t file_offset)
-{
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
-  auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  auto const approx_bytes_per_worker = std::max<std::size_t>(1, size / defaults::num_threads());
+std::size_t MmapHandle::nbytes() const { return file_size(); }
 
-  auto op = [global_src_buf = src_buf](
+std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::size_t file_offset)
+{
+  KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
+
+  // Argument validation
+  KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
+  auto actual_size = size.has_value() ? size.value() : _file_size - file_offset;
+  KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
+  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
+                  file_offset + actual_size <= _initial_file_offset + _initial_size,
+                "Read is out of bound",
+                std::out_of_range);
+
+  KVIKIO_NVTX_FUNC_RANGE();
+
+  auto const is_buf_host_mem = is_host_memory(buf);
+  CUcontext ctx{};
+  if (!is_buf_host_mem) { ctx = get_context_from_pointer(buf); }
+
+  auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+
+  if (is_buf_host_mem) {
+    std::memcpy(buf, src_buf, actual_size);
+  } else {
+    PushAndPopContext c(ctx);
+    CUstream stream = detail::StreamsByThread::get();
+    CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+      convert_void2deviceptr(buf), src_buf, actual_size, stream));
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+  }
+  return actual_size;
+}
+
+std::future<std::size_t> MmapHandle::pread(void* buf,
+                                           std::optional<std::size_t> size,
+                                           std::size_t file_offset,
+                                           std::size_t mmap_task_size)
+{
+  KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
+
+  // Argument validation
+  KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
+  auto actual_size = size.has_value() ? size.value() : _file_size - file_offset;
+  KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
+  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
+                  file_offset + actual_size <= _initial_file_offset + _initial_size,
+                "Read is out of bound",
+                std::out_of_range);
+
+  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+  KVIKIO_NVTX_FUNC_RANGE(actual_size, nvtx_color);
+
+  auto const is_buf_host_mem = is_host_memory(buf);
+  CUcontext ctx{};
+  if (!is_buf_host_mem) { ctx = get_context_from_pointer(buf); }
+
+  auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+  std::size_t actual_mmap_task_size =
+    (mmap_task_size == 0) ? std::max<std::size_t>(1, actual_size / defaults::num_threads())
+                          : mmap_task_size;
+
+  auto op = [global_src_buf = src_buf, is_buf_host_mem = is_buf_host_mem, ctx = ctx](
               void* buf, std::size_t size, std::size_t, std::size_t buf_offset) -> std::size_t {
     auto const src_buf = detail::pointer_add(global_src_buf, buf_offset);
     auto const dst_buf = detail::pointer_add(buf, buf_offset);
-    std::memcpy(dst_buf, src_buf, size);
+
+    if (is_buf_host_mem) {
+      std::memcpy(dst_buf, src_buf, size);
+    } else {
+      PushAndPopContext c(ctx);
+      CUstream stream = detail::StreamsByThread::get();
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+        convert_void2deviceptr(dst_buf), src_buf, size, stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    }
+
     return size;
   };
 
   return parallel_io(op,
                      buf,
-                     size,
+                     actual_size,
                      file_offset,
-                     approx_bytes_per_worker,
+                     actual_mmap_task_size,
                      0 /* global_buf_offset */,
                      call_idx,
                      nvtx_color);

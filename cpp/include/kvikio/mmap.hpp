@@ -20,6 +20,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
+#include <optional>
 
 namespace kvikio {
 
@@ -40,18 +41,6 @@ class MmapHandle {
   int _map_protection_flags{};
   int _map_core_flags{};
   FileWrapper _file_wrapper{};
-
-  /**
-   * @brief
-   *
-   */
-  void map();
-
-  /**
-   * @brief
-   *
-   */
-  void unmap();
 
   /**
    * @brief
@@ -80,10 +69,10 @@ class MmapHandle {
    * @param mode
    */
   MmapHandle(std::string const& file_path,
-             std::string const& flags        = "r",
-             std::size_t initial_size        = 0,
-             std::size_t initial_file_offset = 0,
-             mode_t mode                     = FileHandle::m644);
+             std::string const& flags                = "r",
+             std::optional<std::size_t> initial_size = std::nullopt,
+             std::size_t initial_file_offset         = 0,
+             mode_t mode                             = FileHandle::m644);
 
   MmapHandle(MmapHandle const&)            = delete;
   MmapHandle& operator=(MmapHandle const&) = delete;
@@ -97,6 +86,27 @@ class MmapHandle {
    * @return std::size_t
    */
   std::size_t initial_size() const noexcept;
+
+  /**
+   * @brief
+   *
+   * @return std::size_t
+   */
+  std::size_t initial_file_offset() const noexcept;
+
+  /**
+   * @brief Get the file size
+   *
+   * @return The number of bytes
+   */
+  [[nodiscard]] std::size_t file_size() const;
+
+  /**
+   * @brief Get the file size
+   *
+   * @return The number of bytes
+   */
+  [[nodiscard]] std::size_t nbytes() const;
 
   /**
    * @brief
@@ -118,16 +128,21 @@ class MmapHandle {
    * @param file_offset
    * @return
    */
-  std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0);
+  std::size_t read(void* buf,
+                   std::optional<std::size_t> size = std::nullopt,
+                   std::size_t file_offset         = 0);
 
   /**
    * @brief
    *
    * @param size
    * @param file_offset
-   * @param aligned_task_size
+   * @param mmap_task_size
    * @return
    */
-  std::future<std::size_t> pread(void* buf, std::size_t size, std::size_t file_offset = 0);
+  std::future<std::size_t> pread(void* buf,
+                                 std::optional<std::size_t> size = std::nullopt,
+                                 std::size_t file_offset         = 0,
+                                 std::size_t mmap_task_size      = defaults::mmap_task_size());
 };
 }  // namespace kvikio
