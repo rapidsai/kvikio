@@ -33,7 +33,7 @@ sed -i "s/RAPIDS_CUDA_VERSION/${RAPIDS_CUDA_VERSION}/g" "conda/recipes/libkvikio
 # more info is available at
 # https://rattler.build/latest/tips_and_tricks/#using-sccache-or-ccache-with-rattler-build
 rattler-build build --recipe conda/recipes/libkvikio \
-                    --variant-config conda/recipes/libkvikio/variants_$(arch).yaml \
+                    --variant-config "conda/recipes/libkvikio/variants_$(arch).yaml" \
                     "${RATTLER_ARGS[@]}" \
                     "${RATTLER_CHANNELS[@]}"
 
