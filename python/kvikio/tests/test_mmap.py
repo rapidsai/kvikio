@@ -144,7 +144,7 @@ def test_read_parallel(
         xp.testing.assert_array_equal(actual_data, expected_data)
 
 
-def test_read_default_arguments(tmp_path, xp):
+def test_read_with_default_arguments(tmp_path, xp):
     filename = tmp_path / "read-only-test-file"
     expected_data = xp.arange(1024 * 1024)
     expected_data.tofile(filename)
