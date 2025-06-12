@@ -41,10 +41,11 @@ using CUdeviceptr = unsigned int;
 #endif
 static_assert(sizeof(CUdeviceptr) == sizeof(void*));
 
-using CUresult  = int;
-using CUdevice  = int;
-using CUcontext = struct CUctx_st*;
-using CUstream  = struct CUstream_st*;
+using CUresult           = int;
+using CUdevice           = int;
+using CUcontext          = struct CUctx_st*;
+using CUstream           = struct CUstream_st*;
+using CUmemcpyAttributes = int;
 
 #define CUDA_ERROR_STUB_LIBRARY             0
 #define CUDA_SUCCESS                        0
@@ -74,5 +75,6 @@ CUresult cuDevicePrimaryCtxRelease(...);
 CUresult cuStreamCreate(...);
 CUresult cuStreamDestroy(...);
 CUresult cuStreamSynchronize(...);
+CUresult cuMemcpyBatchAsync(...);
 
 #endif

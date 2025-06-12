@@ -291,8 +291,17 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
       perform_prefault(src_buf, size);
       PushAndPopContext c(ctx);
       CUstream stream = detail::StreamsByThread::get();
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-        convert_void2deviceptr(dst_buf), src_buf, size, stream));
+
+      auto dst = convert_void2deviceptr(dst_buf);
+      auto src = convert_void2deviceptr(src_buf);
+      CUmemcpyAttributes attrs{};
+      std::size_t attrs_idxs[] = {0};
+
+#ifdef KVIKIO_CUDA_FOUND
+      attrs.srcAccessOrder = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
+#endif
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(
+        &dst, &src, &size, 1 /* count */, &attrs, attrs_idxs, 1 /* num_attrs */, nullptr, stream));
     }
 
     return size;
