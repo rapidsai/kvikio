@@ -1,7 +1,7 @@
 zip_keys:
   - c_compiler_version
   - cxx_compiler_version
-  - cuda_version_constraint
+  - cuda_version
   - should_use_cufile
 
 c_compiler_version:
@@ -12,7 +12,7 @@ cxx_compiler_version:
   - 12
   - 13
 
-cuda_version_constraint:
+cuda_version:
   - 12.1 # The last version to not support cufile
   - RAPIDS_CUDA_VERSION
 

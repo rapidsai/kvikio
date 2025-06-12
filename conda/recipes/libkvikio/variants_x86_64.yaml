@@ -4,7 +4,7 @@ c_compiler_version:
 cxx_compiler_version:
   - 13
 
-cuda_version_constraint:
+cuda_version:
   - RAPIDS_CUDA_VERSION
 
 should_use_cufile:
