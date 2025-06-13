@@ -25,10 +25,42 @@ export RAPIDS_ARTIFACTS_DIR
 # populates `RATTLER_CHANNELS` array and `RATTLER_ARGS` array
 source rapids-rattler-channel-string
 
+# Construct the extra variants according to the architecture
+if [[ "$(arch)" == "x86_64" ]]; then
+    cat > variants.yaml << EOF
+    c_compiler_version:
+      - 13
+
+    cxx_compiler_version:
+      - 13
+
+    cuda_version:
+      - ${RAPIDS_CUDA_VERSION}
+EOF
+else
+    cat > variants.yaml << EOF
+    zip_keys:
+    - [c_compiler_version, cxx_compiler_version, cuda_version]
+
+    c_compiler_version:
+    - 12
+    - 13
+
+    cxx_compiler_version:
+    - 12
+    - 13
+
+    cuda_version:
+    - 12.1 # The last version to not support cufile
+    - ${RAPIDS_CUDA_VERSION}
+EOF
+fi
+
 # --no-build-id allows for caching with `sccache`
 # more info is available at
 # https://rattler.build/latest/tips_and_tricks/#using-sccache-or-ccache-with-rattler-build
 rattler-build build --recipe conda/recipes/libkvikio \
+                    --variant-config variants.yaml \
                     "${RATTLER_ARGS[@]}" \
                     "${RATTLER_CHANNELS[@]}"
 
