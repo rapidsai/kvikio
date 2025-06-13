@@ -57,3 +57,23 @@ install(
   DESTINATION ${TEST_INSTALL_PATH}
   EXCLUDE_FROM_ALL
 )
+
+# Example: mmap_io_host
+
+add_executable(MMAP_IO_HOST_EXAMPLE mmap_io_host.cpp)
+set_target_properties(MMAP_IO_HOST_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
+target_link_libraries(MMAP_IO_HOST_EXAMPLE PRIVATE kvikio::kvikio)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
+  target_compile_options(
+    MMAP_IO_HOST_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
+  )
+endif()
+
+install(
+  TARGETS MMAP_IO_HOST_EXAMPLE
+  COMPONENT testing
+  DESTINATION ${TEST_INSTALL_PATH}
+  EXCLUDE_FROM_ALL
+)
