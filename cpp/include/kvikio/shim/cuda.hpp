@@ -48,6 +48,7 @@ class cudaAPI {
   decltype(cuStreamSynchronize)* StreamSynchronize{nullptr};
   decltype(cuStreamCreate)* StreamCreate{nullptr};
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
+  decltype(cuMemcpyBatchAsync)* MemcpyBatchAsync{nullptr};
 
  private:
   cudaAPI();
