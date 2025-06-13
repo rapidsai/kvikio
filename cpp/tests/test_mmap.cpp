@@ -301,3 +301,35 @@ TEST_F(MmapTest, closed_handle)
   EXPECT_THAT([&] { mmap_handle.pread(out_host_buf.data()); },
               ThrowsMessage<std::runtime_error>(HasSubstr("Cannot read from a closed MmapHandle")));
 }
+
+TEST_F(MmapTest, cpp_move)
+{
+  auto do_test = [&](kvikio::MmapHandle& mmap_handle) {
+    std::size_t num_elements = _file_size / sizeof(value_type);
+    std::vector<value_type> out_host_buf(num_elements, {});
+
+    EXPECT_NO_THROW({ mmap_handle.read(out_host_buf.data()); });
+    auto fut             = mmap_handle.pread(out_host_buf.data());
+    auto const read_size = fut.get();
+    for (std::size_t i = 0; i < num_elements; ++i) {
+      EXPECT_EQ(_host_buf[i], out_host_buf[i]);
+    }
+    EXPECT_EQ(read_size, _file_size);
+  };
+
+  {
+    kvikio::MmapHandle mmap_handle{};
+    EXPECT_TRUE(mmap_handle.closed());
+    mmap_handle = kvikio::MmapHandle(_filepath, "r");
+    EXPECT_TRUE(!mmap_handle.closed());
+    do_test(mmap_handle);
+  }
+
+  {
+    kvikio::MmapHandle mmap_handle_1(_filepath, "r");
+    kvikio::MmapHandle mmap_handle_2{std::move(mmap_handle_1)};
+    EXPECT_TRUE(mmap_handle_1.closed());
+    EXPECT_TRUE(!mmap_handle_2.closed());
+    do_test(mmap_handle_2);
+  }
+}
