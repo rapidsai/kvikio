@@ -11,6 +11,10 @@ CuFile
 .. autoclass:: IOFuture
     :members:
 
+.. autofunction:: get_page_cache_info
+
+.. autofunction:: clear_page_cache
+
 CuFile driver
 -------------
 .. currentmodule:: kvikio.cufile_driver
