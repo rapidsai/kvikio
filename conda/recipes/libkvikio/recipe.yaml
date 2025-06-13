@@ -99,7 +99,7 @@ outputs:
           else:
           - if: aarch64 and cuda_version >= "12.2"
             then:
-            - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2") }}
+            - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2.0a0") }}
             else:
             - ${{ pin_compatible("cuda-version", upper_bound="12.2.0a0", lower_bound="12.0") }}
         - if: should_use_cufile
@@ -148,7 +148,7 @@ outputs:
           else:
           - if: aarch64 and cuda_version >= "12.2"
             then:
-            - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2") }}
+            - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2.0a0") }}
             else:
             - ${{ pin_compatible("cuda-version", upper_bound="12.2.0a0", lower_bound="12.0") }}
         - cuda-cudart

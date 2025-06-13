@@ -6,6 +6,3 @@ cxx_compiler_version:
 
 cuda_version:
   - RAPIDS_CUDA_VERSION
-
-should_use_cufile:
-  - true
