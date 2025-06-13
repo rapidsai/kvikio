@@ -146,6 +146,13 @@ defaults::defaults()
     _http_status_codes =
       getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
+  // Determine the default value of `mmap_task_size`
+  {
+    ssize_t const env = getenv_or("KVIKIO_MMAP_TASK_SIZE", 4 * 1024 * 1024);
+    KVIKIO_EXPECT(
+      env >= 0, "KVIKIO_MMAP_TASK_SIZE has to be a non-negative integer", std::invalid_argument);
+    _mmap_task_size = env;
+  }
 }
 
 defaults* defaults::instance()
@@ -236,4 +243,7 @@ void defaults::set_http_timeout(long timeout_seconds)
   instance()->_http_timeout = timeout_seconds;
 }
 
+std::size_t defaults::mmap_task_size() { return instance()->_mmap_task_size; }
+
+void defaults::set_mmap_task_size(std::size_t nbytes) { instance()->_mmap_task_size = nbytes; }
 }  // namespace kvikio

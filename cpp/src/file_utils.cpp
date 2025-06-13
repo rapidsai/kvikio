@@ -165,6 +165,18 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
   return ret;
 }
 
+[[nodiscard]] std::size_t get_file_size(std::string const& file_path)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  std::string const flags{"r"};
+  bool const o_direct{false};
+  mode_t const mode{FileHandle::m644};
+  auto fd     = open_fd(file_path, flags, o_direct, mode);
+  auto result = get_file_size(fd);
+  SYSCALL_CHECK(close(fd));
+  return result;
+}
+
 [[nodiscard]] std::size_t get_file_size(int file_descriptor)
 {
   KVIKIO_NVTX_FUNC_RANGE();
