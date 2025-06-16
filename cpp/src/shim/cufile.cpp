@@ -147,6 +147,8 @@ int cufile_version() noexcept
     return 0;
   }
 }
+#else
+int cufile_version() noexcept { return 0; }
 #endif
 
 bool is_batch_api_available() noexcept { return cufile_version() >= 1060; }
