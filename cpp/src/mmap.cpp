@@ -307,14 +307,6 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
     return size;
   };
 
-  auto last_task_callback = [is_buf_host_mem = is_buf_host_mem, ctx = ctx] {
-    if (!is_buf_host_mem) {
-      PushAndPopContext c(ctx);
-      CUstream stream = detail::StreamsByThread::get();
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    }
-  };
-
   return parallel_io(op,
                      buf,
                      actual_size,
@@ -322,8 +314,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                      actual_mmap_task_size,
                      0 /* global_buf_offset */,
                      call_idx,
-                     nvtx_color,
-                     last_task_callback);
+                     nvtx_color);
 }
 
 std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
