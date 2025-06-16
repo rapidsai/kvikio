@@ -17,7 +17,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <functional>
 #include <future>
 #include <memory>
 #include <numeric>
@@ -146,8 +145,7 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t task_size,
                                      std::size_t devPtr_offset,
                                      std::uint64_t call_idx     = 0,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color(),
-                                     std::function<void()> last_task_callback = {})
+                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   static_assert(std::is_invocable_r_v<std::size_t,
@@ -181,7 +179,6 @@ std::future<std::size_t> parallel_io(F op,
     for (auto& task : tasks) {
       ret += task.get();
     }
-    if (last_task_callback) { std::invoke(last_task_callback); }
     return ret;
   };
   return detail::submit_move_only_task(std::move(last_task), call_idx, nvtx_color);
