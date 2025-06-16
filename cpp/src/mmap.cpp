@@ -302,6 +302,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
 #endif
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(
         &dst, &src, &size, 1 /* count */, &attrs, attrs_idxs, 1 /* num_attrs */, nullptr, stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     }
 
     return size;
