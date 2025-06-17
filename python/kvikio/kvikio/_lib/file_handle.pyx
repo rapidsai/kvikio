@@ -185,6 +185,10 @@ cdef extern from "<kvikio/file_utils.hpp>" nogil:
     pair[size_t, size_t] cpp_get_page_cache_info_int \
         "kvikio::get_page_cache_info"(int fd) except +
 
+    bool cpp_clear_page_cache "kvikio::clear_page_cache" \
+        (bool reclaim_dentries_and_inodes, bool clear_dirty_pages) \
+        except +
+
 
 def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase]) \
         -> tuple[int, int]:
@@ -202,3 +206,7 @@ def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase]) \
     else:
         raise ValueError("The type of `file` must be `os.PathLike`, `str`, `int`, "
                          "or `io.IOBase`")
+
+
+def clear_page_cache(reclaim_dentries_and_inodes: bool, clear_dirty_pages: bool):
+    return cpp_clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)
