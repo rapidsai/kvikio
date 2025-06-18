@@ -288,7 +288,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
     if (is_buf_host_mem) {
       std::memcpy(dst_buf, src_buf, size);
     } else {
-      //   perform_prefault(src_buf, size);
+      perform_prefault(src_buf, size);
       PushAndPopContext c(ctx);
       CUstream stream = detail::StreamsByThread::get();
 
