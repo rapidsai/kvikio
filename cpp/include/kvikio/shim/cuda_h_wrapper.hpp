@@ -61,20 +61,23 @@ CUresult cuMemHostAlloc(...);
 CUresult cuMemFreeHost(...);
 CUresult cuMemcpyHtoDAsync(...);
 CUresult cuMemcpyDtoHAsync(...);
+CUresult cuMemcpyBatchAsync(...);
 CUresult cuPointerGetAttribute(...);
 CUresult cuPointerGetAttributes(...);
 CUresult cuCtxPushCurrent(...);
 CUresult cuCtxPopCurrent(...);
 CUresult cuCtxGetCurrent(...);
+CUresult cuCtxGetDevice(...);
 CUresult cuMemGetAddressRange(...);
 CUresult cuGetErrorName(...);
 CUresult cuGetErrorString(...);
 CUresult cuDeviceGet(...);
+CUresult cuDeviceGetCount(...);
+CUresult cuDeviceGetAttribute(...);
 CUresult cuDevicePrimaryCtxRetain(...);
 CUresult cuDevicePrimaryCtxRelease(...);
 CUresult cuStreamCreate(...);
 CUresult cuStreamDestroy(...);
 CUresult cuStreamSynchronize(...);
-CUresult cuMemcpyBatchAsync(...);
 
 #endif

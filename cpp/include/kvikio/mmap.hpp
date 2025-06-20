@@ -44,6 +44,16 @@ class MmapHandle {
 
   std::size_t perform_prefault(void* buf, std::size_t size);
 
+  std::size_t validate_and_adjust_read_args(std::optional<std::size_t> const& size,
+                                            std::size_t& file_offset);
+
+  void read_impl(void* global_dst_buf,
+                 void* global_src_buf,
+                 std::size_t size,
+                 std::size_t buf_offset,
+                 bool is_dst_buf_host_mem,
+                 CUcontext ctx);
+
  public:
   /**
    * @brief Construct a new Mmap Handle object

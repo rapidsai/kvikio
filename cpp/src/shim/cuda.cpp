@@ -33,21 +33,24 @@ cudaAPI::cudaAPI()
   get_symbol(MemFreeHost, lib, KVIKIO_STRINGIFY(cuMemFreeHost));
   get_symbol(MemcpyHtoDAsync, lib, KVIKIO_STRINGIFY(cuMemcpyHtoDAsync));
   get_symbol(MemcpyDtoHAsync, lib, KVIKIO_STRINGIFY(cuMemcpyDtoHAsync));
+  get_symbol(MemcpyBatchAsync, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
   get_symbol(PointerGetAttribute, lib, KVIKIO_STRINGIFY(cuPointerGetAttribute));
   get_symbol(PointerGetAttributes, lib, KVIKIO_STRINGIFY(cuPointerGetAttributes));
   get_symbol(CtxPushCurrent, lib, KVIKIO_STRINGIFY(cuCtxPushCurrent));
   get_symbol(CtxPopCurrent, lib, KVIKIO_STRINGIFY(cuCtxPopCurrent));
   get_symbol(CtxGetCurrent, lib, KVIKIO_STRINGIFY(cuCtxGetCurrent));
+  get_symbol(CtxGetDevice, lib, KVIKIO_STRINGIFY(cuCtxGetDevice));
   get_symbol(MemGetAddressRange, lib, KVIKIO_STRINGIFY(cuMemGetAddressRange));
   get_symbol(GetErrorName, lib, KVIKIO_STRINGIFY(cuGetErrorName));
   get_symbol(GetErrorString, lib, KVIKIO_STRINGIFY(cuGetErrorString));
   get_symbol(DeviceGet, lib, KVIKIO_STRINGIFY(cuDeviceGet));
+  get_symbol(DeviceGetCount, lib, KVIKIO_STRINGIFY(cuDeviceGetCount));
+  get_symbol(DeviceGetAttribute, lib, KVIKIO_STRINGIFY(cuDeviceGetAttribute));
   get_symbol(DevicePrimaryCtxRetain, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRetain));
   get_symbol(DevicePrimaryCtxRelease, lib, KVIKIO_STRINGIFY(cuDevicePrimaryCtxRelease));
   get_symbol(StreamSynchronize, lib, KVIKIO_STRINGIFY(cuStreamSynchronize));
   get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
   get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
-  get_symbol(MemcpyBatchAsync, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
 }
 #else
 cudaAPI::cudaAPI() { KVIKIO_FAIL("KvikIO not compiled with CUDA support", std::runtime_error); }

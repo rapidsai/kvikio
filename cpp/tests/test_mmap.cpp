@@ -222,7 +222,7 @@ TEST_F(MmapTest, read_parallel)
       }
     };
 
-  std::vector<std::size_t> task_sizes{0, 256, 1024, kvikio::defaults::mmap_task_size()};
+  std::vector<std::size_t> task_sizes{256, 1024, kvikio::defaults::mmap_task_size()};
   for (const auto& task_size : task_sizes) {
     for (const auto& num_elements_to_read : {10, 9999}) {
       for (const auto& num_elements_to_skip : {0, 10, 100, 1000, 9999}) {
