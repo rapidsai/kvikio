@@ -15,13 +15,13 @@
  */
 #include <sys/mman.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <future>
 #include <optional>
 #include <stdexcept>
 #include <type_traits>
+#include <unordered_map>
 
 #include <kvikio/error.hpp>
 #include <kvikio/mmap.hpp>
@@ -54,7 +54,9 @@ void do_not_optimize_away_read(void* addr)
  * @param v Change of `p` in bytes
  * @return A new address as a result of applying `v` on `p`
  *
- * @note This function exploits UB in C++.
+ * @note It is UB in C++ when the initial pointer and the resulting pointer do not point to the
+ * elements from the same array. This UB is considered acceptable here due to lack of a better
+ * alternative.
  */
 template <typename Integer>
 void* pointer_add(void* p, Integer v)
@@ -70,12 +72,48 @@ void* pointer_add(void* p, Integer v)
  * @param p2 The second pointer
  * @return Signed result of (`p1` - `p2`). Both pointers are cast to std::byte* before subtraction.
  *
- * @note This function exploits UB in C++.
+ * @note It is UB in C++ when the two pointers engaged in subtraction do not point to the elements
+ * from the same array. This UB is considered acceptable here due to lack of a better alternative.
  */
 std::ptrdiff_t pointer_diff(void* p1, void* p2)
 {
   return static_cast<std::byte*>(p1) - static_cast<std::byte*>(p2);
 }
+
+/**
+ * @brief Whether the current device supports address translation service (ATS), whereby the CPU and
+ * GPU share a single page table.
+ *
+ * @return Boolean answer
+ */
+bool is_ats_available()
+{
+  // Memoize the ATS availability record of all devices
+  static auto ats_availability = []() -> auto {
+    std::unordered_map<CUdevice, int> result;
+    int num_devices{};
+    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetCount(&num_devices));
+    for (int device_ordinal = 0; device_ordinal < num_devices; ++device_ordinal) {
+      CUdevice device_handle{};
+      CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&device_handle, device_ordinal));
+      int attr{};
+      CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetAttribute(
+        &attr,
+        CUdevice_attribute::CU_DEVICE_ATTRIBUTE_PAGEABLE_MEMORY_ACCESS_USES_HOST_PAGE_TABLES,
+        device_handle));
+      result[device_handle] = attr;
+    }
+    return result;
+  }();
+
+  // Get current device
+  CUdevice device_handle{};
+  CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetDevice(&device_handle));
+
+  // Look up the record
+  return ats_availability[device_handle];
+}
+
 }  // namespace detail
 
 MmapHandle::MmapHandle(std::string const& file_path,
@@ -221,34 +259,17 @@ std::size_t MmapHandle::nbytes() const { return file_size(); }
 
 std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::size_t file_offset)
 {
-  KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
-
-  // Argument validation
-  KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
-  auto actual_size = size.has_value() ? size.value() : _file_size - file_offset;
-  KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
-  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
-                  file_offset + actual_size <= _initial_file_offset + _initial_size,
-                "Read is out of bound",
-                std::out_of_range);
-
   KVIKIO_NVTX_FUNC_RANGE();
 
-  auto const is_buf_host_mem = is_host_memory(buf);
+  auto actual_size = validate_and_adjust_read_args(size, file_offset);
+
+  auto const is_dst_buf_host_mem = is_host_memory(buf);
   CUcontext ctx{};
-  if (!is_buf_host_mem) { ctx = get_context_from_pointer(buf); }
+  if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
-  auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-
-  if (is_buf_host_mem) {
-    std::memcpy(buf, src_buf, actual_size);
-  } else {
-    PushAndPopContext c(ctx);
-    CUstream stream = detail::StreamsByThread::get();
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-      convert_void2deviceptr(buf), src_buf, actual_size, stream));
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-  }
+  // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
+  auto const src_mapped_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+  read_impl(buf, src_mapped_buf, actual_size, 0, is_dst_buf_host_mem, ctx);
   return actual_size;
 }
 
@@ -257,54 +278,27 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                                            std::size_t file_offset,
                                            std::size_t mmap_task_size)
 {
-  KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
-
-  // Argument validation
-  KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
-  auto actual_size = size.has_value() ? size.value() : _file_size - file_offset;
-  KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
-  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
-                  file_offset + actual_size <= _initial_file_offset + _initial_size,
-                "Read is out of bound",
-                std::out_of_range);
+  KVIKIO_EXPECT(mmap_task_size <= defaults::bounce_buffer_size(),
+                "bounce buffer size cannot be less than mmap_task_size.");
+  auto actual_size = validate_and_adjust_read_args(size, file_offset);
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(actual_size, nvtx_color);
 
-  auto const is_buf_host_mem = is_host_memory(buf);
+  auto const is_dst_buf_host_mem = is_host_memory(buf);
   CUcontext ctx{};
-  if (!is_buf_host_mem) { ctx = get_context_from_pointer(buf); }
+  if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
-  auto const src_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  std::size_t actual_mmap_task_size =
-    (mmap_task_size == 0) ? std::max<std::size_t>(1, actual_size / defaults::num_threads())
-                          : mmap_task_size;
-
-  auto op = [this, global_src_buf = src_buf, is_buf_host_mem = is_buf_host_mem, ctx = ctx](
-              void* buf, std::size_t size, std::size_t, std::size_t buf_offset) -> std::size_t {
-    auto const src_buf = detail::pointer_add(global_src_buf, buf_offset);
-    auto const dst_buf = detail::pointer_add(buf, buf_offset);
-
-    if (is_buf_host_mem) {
-      std::memcpy(dst_buf, src_buf, size);
-    } else {
-      perform_prefault(src_buf, size);
-      PushAndPopContext c(ctx);
-      CUstream stream = detail::StreamsByThread::get();
-
-      auto dst = convert_void2deviceptr(dst_buf);
-      auto src = convert_void2deviceptr(src_buf);
-      CUmemcpyAttributes attrs{};
-      std::size_t attrs_idxs[] = {0};
-
-#ifdef KVIKIO_CUDA_FOUND
-      attrs.srcAccessOrder = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-#endif
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(
-        &dst, &src, &size, 1 /* count */, &attrs, attrs_idxs, 1 /* num_attrs */, nullptr, stream));
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    }
-
+  // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
+  auto const src_mapped_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+  auto op =
+    [this, src_mapped_buf = src_mapped_buf, is_dst_buf_host_mem = is_dst_buf_host_mem, ctx = ctx](
+      void* dst_buf,
+      std::size_t size,
+      std::size_t,  // file_offset will be taken into account by dst_buf, hence no longer used here
+      std::size_t buf_offset  // buf_offset will be incremented for each individual task
+      ) -> std::size_t {
+    read_impl(dst_buf, src_mapped_buf, size, buf_offset, is_dst_buf_host_mem, ctx);
     return size;
   };
 
@@ -312,14 +306,87 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                      buf,
                      actual_size,
                      file_offset,
-                     actual_mmap_task_size,
-                     0 /* global_buf_offset */,
+                     mmap_task_size,
+                     0,  // dst buffer offset initial value
                      call_idx,
                      nvtx_color);
 }
 
+std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,
+                                                      std::size_t& file_offset)
+{
+  KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
+  KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
+  auto actual_size = size.has_value() ? size.value() : _file_size - file_offset;
+  KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
+  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
+                  file_offset + actual_size <= _initial_file_offset + _initial_size,
+                "Read is out of bound",
+                std::out_of_range);
+  return actual_size;
+}
+
+void MmapHandle::read_impl(void* dst_buf,
+                           void* src_mapped_buf,
+                           std::size_t size,
+                           std::size_t buf_offset,
+                           bool is_dst_buf_host_mem,
+                           CUcontext ctx)
+{
+  auto const src = detail::pointer_add(src_mapped_buf, buf_offset);
+  auto const dst = detail::pointer_add(dst_buf, buf_offset);
+
+  if (is_dst_buf_host_mem) {
+    // std::memcpy implicitly performs prefault for the mapped memory.
+    std::memcpy(dst, src, size);
+    return;
+  }
+
+  PushAndPopContext c(ctx);
+  CUstream stream = detail::StreamsByThread::get();
+
+  auto dst_devptr = convert_void2deviceptr(dst);
+  CUdeviceptr src_devptr{};
+  // Empirically, take the following steps to achieve good performance:
+  // - On C2C:
+  //   - Explicitly prefault
+  //   - Copy from the mapped memory (pageable) to the device buffer
+  // - On PCIe:
+  //   - std::memcpy from the mapped memory to the pinned bounce buffer (which implicitly
+  //     prefaults)
+  //   - Copy from the bounce buffer to the device buffer
+
+  if (detail::is_ats_available()) {
+    perform_prefault(src, size);
+    src_devptr = convert_void2deviceptr(src);
+  } else {
+    auto alloc = AllocRetain::instance().get();
+    std::memcpy(alloc.get(), src, size);
+    src_devptr = convert_void2deviceptr(alloc.get());
+  }
+
+  // Perform H2D batch copy
+  CUmemcpyAttributes attrs{};
+  std::size_t attrs_idxs[] = {0};
+
+#ifdef KVIKIO_CUDA_FOUND
+  attrs.srcAccessOrder = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
+#endif
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
+                                                       &src_devptr,
+                                                       &size,
+                                                       1 /* count */,
+                                                       &attrs,
+                                                       attrs_idxs,
+                                                       1 /* num_attrs */,
+                                                       nullptr,
+                                                       stream));
+  CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+}
+
 std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const page_size = get_page_size();
   auto aligned_addr    = align_up(buf, page_size);
 

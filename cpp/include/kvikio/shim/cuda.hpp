@@ -34,21 +34,24 @@ class cudaAPI {
   decltype(cuMemFreeHost)* MemFreeHost{nullptr};
   decltype(cuMemcpyHtoDAsync)* MemcpyHtoDAsync{nullptr};
   decltype(cuMemcpyDtoHAsync)* MemcpyDtoHAsync{nullptr};
+  decltype(cuMemcpyBatchAsync)* MemcpyBatchAsync{nullptr};
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};
   decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};
   decltype(cuCtxPushCurrent)* CtxPushCurrent{nullptr};
   decltype(cuCtxPopCurrent)* CtxPopCurrent{nullptr};
   decltype(cuCtxGetCurrent)* CtxGetCurrent{nullptr};
+  decltype(cuCtxGetDevice)* CtxGetDevice{nullptr};
   decltype(cuMemGetAddressRange)* MemGetAddressRange{nullptr};
   decltype(cuGetErrorName)* GetErrorName{nullptr};
   decltype(cuGetErrorString)* GetErrorString{nullptr};
   decltype(cuDeviceGet)* DeviceGet{nullptr};
+  decltype(cuDeviceGetCount)* DeviceGetCount{nullptr};
+  decltype(cuDeviceGetAttribute)* DeviceGetAttribute{nullptr};
   decltype(cuDevicePrimaryCtxRetain)* DevicePrimaryCtxRetain{nullptr};
   decltype(cuDevicePrimaryCtxRelease)* DevicePrimaryCtxRelease{nullptr};
   decltype(cuStreamSynchronize)* StreamSynchronize{nullptr};
   decltype(cuStreamCreate)* StreamCreate{nullptr};
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
-  decltype(cuMemcpyBatchAsync)* MemcpyBatchAsync{nullptr};
 
  private:
   cudaAPI();

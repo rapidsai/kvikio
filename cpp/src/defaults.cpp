@@ -150,7 +150,7 @@ defaults::defaults()
   {
     ssize_t const env = getenv_or("KVIKIO_MMAP_TASK_SIZE", 4 * 1024 * 1024);
     KVIKIO_EXPECT(
-      env >= 0, "KVIKIO_MMAP_TASK_SIZE has to be a non-negative integer", std::invalid_argument);
+      env > 0, "KVIKIO_MMAP_TASK_SIZE has to be a positive integer", std::invalid_argument);
     _mmap_task_size = env;
   }
 }
