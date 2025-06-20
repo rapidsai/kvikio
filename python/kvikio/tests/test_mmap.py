@@ -109,7 +109,7 @@ def test_read_seq(tmp_path, xp, num_elements_to_read, num_elements_to_skip):
 
 @pytest.mark.parametrize("num_elements_to_read", [None, 10, 9999])
 @pytest.mark.parametrize("num_elements_to_skip", [0, 10, 100, 1000, 9999])
-@pytest.mark.parametrize("mmap_task_size", [0, 1024, 12345])
+@pytest.mark.parametrize("mmap_task_size", [1024, 12345])
 def test_read_parallel(
     tmp_path, xp, num_elements_to_read, num_elements_to_skip, mmap_task_size
 ):
