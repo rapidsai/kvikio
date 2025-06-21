@@ -342,11 +342,6 @@ void MmapHandle::read_impl(void* dst_buf,
     return;
   }
 
-  PushAndPopContext c(ctx);
-  CUstream stream = detail::StreamsByThread::get();
-
-  auto dst_devptr = convert_void2deviceptr(dst);
-  CUdeviceptr src_devptr{};
   // Empirically, take the following steps to achieve good performance:
   // - On C2C:
   //   - Explicitly prefault
@@ -356,32 +351,40 @@ void MmapHandle::read_impl(void* dst_buf,
   //     prefaults)
   //   - Copy from the bounce buffer to the device buffer
 
+  PushAndPopContext c(ctx);
+  CUstream stream = detail::StreamsByThread::get();
+
+  auto h2d_batch_cpy_sync =
+    [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
+      CUmemcpyAttributes attrs{};
+      std::size_t attrs_idxs[] = {0};
+#ifdef KVIKIO_CUDA_FOUND
+      attrs.srcAccessOrder = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
+#endif
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
+                                                           &src_devptr,
+                                                           &size,
+                                                           1 /* count */,
+                                                           &attrs,
+                                                           attrs_idxs,
+                                                           1 /* num_attrs */,
+                                                           nullptr,
+                                                           stream));
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    };
+
+  auto dst_devptr = convert_void2deviceptr(dst);
+  CUdeviceptr src_devptr{};
   if (detail::is_ats_available()) {
     perform_prefault(src, size);
     src_devptr = convert_void2deviceptr(src);
+    h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
   } else {
     auto alloc = AllocRetain::instance().get();
     std::memcpy(alloc.get(), src, size);
     src_devptr = convert_void2deviceptr(alloc.get());
+    h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
   }
-
-  // Perform H2D batch copy
-  CUmemcpyAttributes attrs{};
-  std::size_t attrs_idxs[] = {0};
-
-#ifdef KVIKIO_CUDA_FOUND
-  attrs.srcAccessOrder = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-#endif
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
-                                                       &src_devptr,
-                                                       &size,
-                                                       1 /* count */,
-                                                       &attrs,
-                                                       attrs_idxs,
-                                                       1 /* num_attrs */,
-                                                       nullptr,
-                                                       stream));
-  CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
 }
 
 std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
