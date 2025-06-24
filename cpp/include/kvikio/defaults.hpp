@@ -369,8 +369,21 @@ class defaults {
    */
   static void set_http_status_codes(std::vector<int> status_codes);
 
+  /**
+   * @brief Get the default mmap task size used for parallel memory-mapped I/O.
+   *
+   * Set the default value using `kvikio::default::set_mmap_task_size()` or by setting
+   * the `KVIKIO_MMAP_TASK_SIZE` environment variable. If not set, the default value is 4 MiB.
+   *
+   * @return The default mmap task size in bytes.
+   */
   [[nodiscard]] static std::size_t mmap_task_size();
 
+  /**
+   * @brief Set the default mmap task size used for parallel memory-mapped I/O.
+   *
+   * @param nbytes The default mmap task size in bytes.
+   */
   static void set_mmap_task_size(std::size_t nbytes);
 };
 

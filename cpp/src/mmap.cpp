@@ -116,6 +116,26 @@ bool is_ats_available()
 
 }  // namespace detail
 
+//     |--> file start                 |<--page_size-->|
+//     |
+// (0) |...............|...............|...............|...............|............
+//
+// (1) |<--_initial_file_offset-->|<---------------_initial_size--------------->|
+//                                |--> _buf
+//
+// (2) |<-_map_offset->|<----------------------_map_size----------------------->|
+//                     |--> _map_addr
+//
+// (3) |<---------------------file_offset--------------------->|<--size-->|
+//                                |--> _buf
+//                                                             |--> start_addr
+//                                                     |--> start_aligned_addr
+// (0): Layout of the file-backed memory mapping if the whole file were mapped
+// (1): At mapping handle construction time, the member `_initial_file_offset` and `_initial_size`
+// determine the mapped region (2): `_map_addr` is the page aligned address returned by `mmap`.
+// `_map_offset` is the adjusted offset
+// (3): At read time, the argument `file_offset` and `size` determine the region to be read. This
+// region must be a subset of the one defined at mapping handle construction time
 MmapHandle::MmapHandle(std::string const& file_path,
                        std::string const& flags,
                        std::optional<std::size_t> initial_size,
@@ -205,21 +225,6 @@ MmapHandle::~MmapHandle() noexcept
   KVIKIO_NVTX_FUNC_RANGE();
   close();
 }
-
-//     |--> file start                 |<--page_size-->|
-//     |
-// (0) |...............|...............|...............|...............|............
-//
-// (1) |<--_initial_file_offset-->|<---------------_initial_size--------------->|
-//                                |--> _buf
-//
-// (2) |<-_map_offset->|<----------------------_map_size----------------------->|
-//                     |--> _map_addr
-//
-// (3) |<---------------------file_offset--------------------->|<--size-->|
-//                                |--> _buf
-//                                                             |--> start_addr
-//                                                     |--> start_aligned_addr
 
 bool MmapHandle::closed() const noexcept { return !_initialized; }
 
@@ -333,6 +338,7 @@ void MmapHandle::read_impl(void* dst_buf,
                            bool is_dst_buf_host_mem,
                            CUcontext ctx)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const src = detail::pointer_add(src_mapped_buf, buf_offset);
   auto const dst = detail::pointer_add(dst_buf, buf_offset);
 
@@ -358,9 +364,7 @@ void MmapHandle::read_impl(void* dst_buf,
     [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
       CUmemcpyAttributes attrs{};
       std::size_t attrs_idxs[] = {0};
-#ifdef KVIKIO_CUDA_FOUND
-      attrs.srcAccessOrder = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-#endif
+      attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
                                                            &src_devptr,
                                                            &size,

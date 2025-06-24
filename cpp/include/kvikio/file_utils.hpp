@@ -154,12 +154,18 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
  */
 [[nodiscard]] int open_flags(int fd);
 
-[[nodiscard]] std::size_t get_file_size(std::string const& file_path);
-
 /**
  * @brief Get file size from file descriptor `fstat(3)`
  *
  * @param file_descriptor Open file descriptor
+ * @return The number of bytes
+ */
+[[nodiscard]] std::size_t get_file_size(std::string const& file_path);
+
+/**
+ * @brief Get file size given the file path
+ *
+ * @param file_path Path to a file
  * @return The number of bytes
  */
 [[nodiscard]] std::size_t get_file_size(int file_descriptor);
