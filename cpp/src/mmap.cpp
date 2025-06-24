@@ -363,9 +363,7 @@ void MmapHandle::read_impl(void* dst_buf,
     [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
       CUmemcpyAttributes attrs{};
       std::size_t attrs_idxs[] = {0};
-#ifdef KVIKIO_CUDA_FOUND
-      attrs.srcAccessOrder = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-#endif
+      attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
                                                            &src_devptr,
                                                            &size,
