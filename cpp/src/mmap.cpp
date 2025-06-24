@@ -338,6 +338,7 @@ void MmapHandle::read_impl(void* dst_buf,
                            bool is_dst_buf_host_mem,
                            CUcontext ctx)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const src = detail::pointer_add(src_mapped_buf, buf_offset);
   auto const dst = detail::pointer_add(dst_buf, buf_offset);
 
