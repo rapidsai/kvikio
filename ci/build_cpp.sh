@@ -28,7 +28,7 @@ source rapids-rattler-channel-string
 # Construct the extra variants according to the architecture
 cat > variants.yaml << EOF
 cuda_version:
-  - ${RAPIDS_CUDA_VERSION}
+  - ${RAPIDS_CUDA_VERSION%.*}
 EOF
 if [[ "$(arch)" == "aarch64" ]]; then
   cat >> variants.yaml << EOF
