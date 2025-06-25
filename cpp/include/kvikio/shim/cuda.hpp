@@ -29,6 +29,8 @@ namespace kvikio {
  */
 class cudaAPI {
  public:
+  int driver_version{0};
+
   decltype(cuInit)* Init{nullptr};
   decltype(cuMemHostAlloc)* MemHostAlloc{nullptr};
   decltype(cuMemFreeHost)* MemFreeHost{nullptr};
@@ -52,6 +54,7 @@ class cudaAPI {
   decltype(cuStreamSynchronize)* StreamSynchronize{nullptr};
   decltype(cuStreamCreate)* StreamCreate{nullptr};
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
+  decltype(cuDriverGetVersion)* DriverGetVersion{nullptr};
 
  private:
   cudaAPI();
