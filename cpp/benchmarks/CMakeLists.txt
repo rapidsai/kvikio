@@ -47,7 +47,6 @@ function(kvikio_add_benchmark)
     PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
                CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               # For std:: support of __int128_t. Can be removed once using cuda::std
                CXX_EXTENSIONS ON
                CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
