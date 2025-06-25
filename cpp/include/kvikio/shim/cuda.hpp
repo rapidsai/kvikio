@@ -36,7 +36,13 @@ class cudaAPI {
   decltype(cuMemFreeHost)* MemFreeHost{nullptr};
   decltype(cuMemcpyHtoDAsync)* MemcpyHtoDAsync{nullptr};
   decltype(cuMemcpyDtoHAsync)* MemcpyDtoHAsync{nullptr};
+
+#if CUDA_VERSION >= 12080
   decltype(cuMemcpyBatchAsync)* MemcpyBatchAsync{nullptr};
+#else
+  void (*MemcpyBatchAsync)(){nullptr};
+#endif
+
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};
   decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};
   decltype(cuCtxPushCurrent)* CtxPushCurrent{nullptr};
