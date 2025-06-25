@@ -61,7 +61,8 @@ cudaAPI::cudaAPI()
     // Rethrow the exception if the CUDA driver version is satisfied but cuMemcpyBatchAsync is not
     // found.
     if (driver_version >= 12080) { throw; }
-    // If the CUDA driver version is not satisfied, reset the function pointer.
+    // If the CUDA driver version is not satisfied, reset the function pointer. At the call site,
+    // use the conventional cuMemcpyXtoXAsync API as the fallback.
     MemcpyBatchAsync = nullptr;
   }
 }
