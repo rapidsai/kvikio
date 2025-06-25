@@ -362,6 +362,7 @@ void MmapHandle::read_impl(void* dst_buf,
 
   auto h2d_batch_cpy_sync =
     [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
+#if CUDA_VERSION >= 12080
       if (cudaAPI::instance().MemcpyBatchAsync) {
         CUmemcpyAttributes attrs{};
         std::size_t attrs_idxs[] = {0};
@@ -380,6 +381,10 @@ void MmapHandle::read_impl(void* dst_buf,
         CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
           dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
       }
+#else
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+        dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
+#endif
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     };
 

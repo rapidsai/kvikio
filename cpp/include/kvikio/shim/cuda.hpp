@@ -39,10 +39,6 @@ class cudaAPI {
 
 #if CUDA_VERSION >= 12080
   decltype(cuMemcpyBatchAsync)* MemcpyBatchAsync{nullptr};
-#else
-  CUresult (*MemcpyBatchAsync)(
-    CUdeviceptr*, CUdeviceptr*, size_t*, size_t, void*, size_t*, size_t, size_t*, CUstream){
-    nullptr};
 #endif
 
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};

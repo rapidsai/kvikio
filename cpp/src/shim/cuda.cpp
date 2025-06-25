@@ -54,6 +54,7 @@ cudaAPI::cudaAPI()
 
   CUDA_DRIVER_TRY(DriverGetVersion(&driver_version));
 
+#if CUDA_VERSION >= 12080
   // cuMemcpyBatchAsync was introduced in CUDA 12.8.
   try {
     get_symbol(MemcpyBatchAsync, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
@@ -65,6 +66,7 @@ cudaAPI::cudaAPI()
     // use the conventional cuMemcpyXtoXAsync API as the fallback.
     MemcpyBatchAsync = nullptr;
   }
+#endif
 }
 #else
 cudaAPI::cudaAPI() { KVIKIO_FAIL("KvikIO not compiled with CUDA support", std::runtime_error); }
