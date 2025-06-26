@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <functional>
 #include <stdexcept>
 
 #include <kvikio/error.hpp>
@@ -33,7 +34,6 @@ cudaAPI::cudaAPI()
   get_symbol(MemFreeHost, lib, KVIKIO_STRINGIFY(cuMemFreeHost));
   get_symbol(MemcpyHtoDAsync, lib, KVIKIO_STRINGIFY(cuMemcpyHtoDAsync));
   get_symbol(MemcpyDtoHAsync, lib, KVIKIO_STRINGIFY(cuMemcpyDtoHAsync));
-  get_symbol(MemcpyBatchAsync, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
   get_symbol(PointerGetAttribute, lib, KVIKIO_STRINGIFY(cuPointerGetAttribute));
   get_symbol(PointerGetAttributes, lib, KVIKIO_STRINGIFY(cuPointerGetAttributes));
   get_symbol(CtxPushCurrent, lib, KVIKIO_STRINGIFY(cuCtxPushCurrent));
@@ -51,6 +51,25 @@ cudaAPI::cudaAPI()
   get_symbol(StreamSynchronize, lib, KVIKIO_STRINGIFY(cuStreamSynchronize));
   get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
   get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
+  get_symbol(DriverGetVersion, lib, KVIKIO_STRINGIFY(cuDriverGetVersion));
+
+  CUDA_DRIVER_TRY(DriverGetVersion(&driver_version));
+
+#if CUDA_VERSION >= 12080
+  // cuMemcpyBatchAsync was introduced in CUDA 12.8.
+  try {
+    decltype(cuMemcpyBatchAsync)* fp;
+    get_symbol(fp, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
+    MemcpyBatchAsync.set(fp);
+  } catch (std::runtime_error const&) {
+    // Rethrow the exception if the CUDA driver version at runtime is satisfied but
+    // cuMemcpyBatchAsync is not found.
+    if (driver_version >= 12080) { throw; }
+    // If the CUDA driver version at runtime is not satisfied, reset the wrapper. At the call site,
+    // use the conventional cuMemcpyXtoXAsync API as the fallback.
+    MemcpyBatchAsync.reset();
+  }
+#endif
 }
 #else
 cudaAPI::cudaAPI() { KVIKIO_FAIL("KvikIO not compiled with CUDA support", std::runtime_error); }

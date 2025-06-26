@@ -78,6 +78,7 @@ CUresult cuDevicePrimaryCtxRelease(...);
 CUresult cuStreamCreate(...);
 CUresult cuStreamDestroy(...);
 CUresult cuStreamSynchronize(...);
+CUresult cuDriverGetVersion(...);
 
 enum CUdevice_attribute {
   CU_DEVICE_ATTRIBUTE_PAGEABLE_MEMORY_ACCESS_USES_HOST_PAGE_TABLES,

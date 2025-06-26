@@ -362,18 +362,30 @@ void MmapHandle::read_impl(void* dst_buf,
 
   auto h2d_batch_cpy_sync =
     [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
-      CUmemcpyAttributes attrs{};
-      std::size_t attrs_idxs[] = {0};
-      attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
-                                                           &src_devptr,
-                                                           &size,
-                                                           1 /* count */,
-                                                           &attrs,
-                                                           attrs_idxs,
-                                                           1 /* num_attrs */,
-                                                           nullptr,
-                                                           stream));
+#if CUDA_VERSION >= 12080
+      if (cudaAPI::instance().MemcpyBatchAsync) {
+        CUmemcpyAttributes attrs{};
+        std::size_t attrs_idxs[] = {0};
+        attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
+        CUDA_DRIVER_TRY(
+          cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
+                                               &src_devptr,
+                                               &size,
+                                               static_cast<std::size_t>(1) /* count */,
+                                               &attrs,
+                                               attrs_idxs,
+                                               static_cast<std::size_t>(1) /* num_attrs */,
+                                               static_cast<std::size_t*>(nullptr),
+                                               stream));
+      } else {
+        // Fall back to the conventional H2D copy if the batch copy API is not available.
+        CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+          dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
+      }
+#else
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+        dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
+#endif
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     };
 
