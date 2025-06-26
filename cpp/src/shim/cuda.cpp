@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <functional>
 #include <stdexcept>
 
 #include <kvikio/error.hpp>
@@ -57,14 +58,16 @@ cudaAPI::cudaAPI()
 #if CUDA_VERSION >= 12080
   // cuMemcpyBatchAsync was introduced in CUDA 12.8.
   try {
-    get_symbol(MemcpyBatchAsync, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
+    decltype(cuMemcpyBatchAsync)* fp;
+    get_symbol(fp, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
+    MemcpyBatchAsync.set(fp);
   } catch (std::runtime_error const&) {
-    // Rethrow the exception if the CUDA driver version is satisfied but cuMemcpyBatchAsync is not
-    // found.
+    // Rethrow the exception if the CUDA driver version at runtime is satisfied but
+    // cuMemcpyBatchAsync is not found.
     if (driver_version >= 12080) { throw; }
-    // If the CUDA driver version is not satisfied, reset the function pointer. At the call site,
+    // If the CUDA driver version at runtime is not satisfied, reset the wrapper. At the call site,
     // use the conventional cuMemcpyXtoXAsync API as the fallback.
-    MemcpyBatchAsync = nullptr;
+    MemcpyBatchAsync.reset();
   }
 #endif
 }

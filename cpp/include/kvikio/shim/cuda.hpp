@@ -15,10 +15,66 @@
  */
 #pragma once
 
+#include <any>
+#include <functional>
+
 #include <kvikio/shim/cuda_h_wrapper.hpp>
 #include <kvikio/shim/utils.hpp>
+#include <stdexcept>
 
 namespace kvikio {
+
+namespace detail {
+/**
+ * @brief Non-templated class to hold any callable that returns CUresult
+ */
+class AnyCallable {
+ private:
+  std::any _callable;
+
+ public:
+  /**
+   * @brief Assign a callable to the object
+   *
+   * @tparam Callable A callable that must return CUresult
+   * @param c The callable object
+   */
+  template <typename Callable>
+  void set(Callable&& c)
+  {
+    _callable = std::function(c);
+  }
+
+  /**
+   * @brief Destroy the contained callable
+   */
+  void reset() { _callable.reset(); }
+
+  /**
+   * @brief Invoke the container callable
+   *
+   * @tparam Args Types of the argument. Must exactly match the parameter types of the contained
+   * callable. For example, if the parameter is `std::size_t*`, an argument of `nullptr` must be
+   * explicitly cast to `std::size_t*`.
+   * @param args Arguments to be passed
+   * @return CUDA driver API error code
+   * @exception std::bad_any_cast if any argument type does not exactly match the parameter type of
+   * the contained callable.
+   */
+  template <typename... Args>
+  CUresult operator()(Args... args)
+  {
+    using T = std::function<CUresult(Args...)>;
+    return std::any_cast<T&>(_callable)(args...);
+  }
+
+  /**
+   * @brief Check if the object holds a callable
+   */
+  operator bool() const { return _callable.has_value(); }
+};
+
+}  // namespace detail
 
 /**
  * @brief Shim layer of the cuda C-API
@@ -37,9 +93,7 @@ class cudaAPI {
   decltype(cuMemcpyHtoDAsync)* MemcpyHtoDAsync{nullptr};
   decltype(cuMemcpyDtoHAsync)* MemcpyDtoHAsync{nullptr};
 
-#if CUDA_VERSION >= 12080
-  decltype(cuMemcpyBatchAsync)* MemcpyBatchAsync{nullptr};
-#endif
+  detail::AnyCallable MemcpyBatchAsync{};
 
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};
   decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};

@@ -367,15 +367,16 @@ void MmapHandle::read_impl(void* dst_buf,
         CUmemcpyAttributes attrs{};
         std::size_t attrs_idxs[] = {0};
         attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-        CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
-                                                             &src_devptr,
-                                                             &size,
-                                                             1 /* count */,
-                                                             &attrs,
-                                                             attrs_idxs,
-                                                             1 /* num_attrs */,
-                                                             nullptr,
-                                                             stream));
+        CUDA_DRIVER_TRY(
+          cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
+                                               &src_devptr,
+                                               &size,
+                                               static_cast<std::size_t>(1) /* count */,
+                                               &attrs,
+                                               attrs_idxs,
+                                               static_cast<std::size_t>(1) /* num_attrs */,
+                                               static_cast<std::size_t*>(nullptr),
+                                               stream));
       } else {
         // Fall back to the conventional H2D copy if the batch copy API is not available.
         CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
