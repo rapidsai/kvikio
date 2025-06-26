@@ -158,6 +158,7 @@ fi
 if (( NUMARGS == 0 )) || hasArg kvikio; then
     echo "building kvikio..."
     cd "${REPODIR}"/python/kvikio
-    SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_LIBRARY_PATH=${LIBKVIKIO_BUILD_DIR};$(IFS=';'; echo "${EXTRA_CMAKE_ARGS[*]}")" \
+    _EXTRA_CMAKE_ARGS=$(IFS=';'; echo "${EXTRA_CMAKE_ARGS[*]}")
+    SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_LIBRARY_PATH=${LIBKVIKIO_BUILD_DIR};$_EXTRA_CMAKE_ARGS" \
         python -m pip install "${PYTHON_ARGS_FOR_INSTALL[@]}" .
 fi
