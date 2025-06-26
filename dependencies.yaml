@@ -112,7 +112,6 @@ channels:
   - rapidsai
   - rapidsai-nightly
   - conda-forge
-  - nvidia
 dependencies:
   build-universal:
     common:
