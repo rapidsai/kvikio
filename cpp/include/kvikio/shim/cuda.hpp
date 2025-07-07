@@ -65,6 +65,9 @@ class AnyCallable {
   CUresult operator()(Args... args)
   {
     using T = std::function<CUresult(Args...)>;
+    if (!_callable.has_value()) {
+      throw std::runtime_error("No callable has been assigned to the wrapper yet.");
+    }
     return std::any_cast<T&>(_callable)(args...);
   }
 

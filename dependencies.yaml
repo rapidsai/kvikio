@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.8"]
+      cuda: ["12.9"]
       arch: [aarch64, x86_64]
     includes:
       - build-universal
@@ -112,7 +112,6 @@ channels:
   - rapidsai
   - rapidsai-nightly
   - conda-forge
-  - nvidia
 dependencies:
   build-universal:
     common:
