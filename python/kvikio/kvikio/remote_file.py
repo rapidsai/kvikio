@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import functools
+import urllib.parse
 from typing import Optional
 
 from kvikio.cufile import IOFuture
@@ -130,12 +131,12 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        url_lowercase = url.lower()
-        if url_lowercase.startswith("http://") or url_lowercase.startswith("https://"):
+        parsed_result = urllib.parse.urlparse(url.lower())
+        if parsed_result.scheme in ("http", "https"):
             return RemoteFile(
                 _get_remote_module().RemoteFile.open_s3_from_http_url(url, nbytes)
             )
-        if url_lowercase.startswith("s3://"):
+        if parsed_result.scheme == "s3":
             return RemoteFile(
                 _get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes)
             )
