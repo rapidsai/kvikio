@@ -18,7 +18,11 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <array>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -208,5 +212,44 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
 
   SYSCALL_CHECK(munmap(addr, file_size));
   return {num_pages_in_page_cache, num_pages};
+}
+
+bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  if (clear_dirty_pages) { sync(); }
+  std::string param = reclaim_dentries_and_inodes ? "3" : "1";
+
+  auto exec_cmd = [](std::string_view cmd) -> bool {
+    // Prevent the output from the command from mixing with the original process' output.
+    fflush(nullptr);
+    // popen only handles stdout. Switch stderr and stdout to only capture stderr.
+    auto const redirected_cmd =
+      std::string{"( "}.append(cmd).append(" 3>&2 2>&1 1>&3) 2>/dev/null");
+    std::unique_ptr<FILE, int (*)(FILE*)> pipe(popen(redirected_cmd.c_str(), "r"), pclose);
+    KVIKIO_EXPECT(pipe != nullptr, "popen() failed", GenericSystemError);
+
+    std::array<char, 128> buffer;
+    std::string error_out;
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+      error_out += buffer.data();
+    }
+    return error_out.empty();
+  };
+
+  std::array cmds{
+    // Special case:
+    // - Unprivileged users who cannot execute `/usr/bin/sudo` but can execute `/sbin/sysctl`, and
+    // - Superuser
+    std::string{"/sbin/sysctl vm.drop_caches=" + param},
+    // General case:
+    // - Unprivileged users who can execute `sudo`, and
+    // - Superuser
+    std::string{"sudo /sbin/sysctl vm.drop_caches=" + param}};
+
+  for (auto const& cmd : cmds) {
+    if (exec_cmd(cmd)) { return true; }
+  }
+  return false;
 }
 }  // namespace kvikio
