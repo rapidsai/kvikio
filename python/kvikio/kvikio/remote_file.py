@@ -130,12 +130,12 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        url = url.lower()
-        if url.startswith("http://") or url.startswith("https://"):
+        url_lowercase = url.lower()
+        if url_lowercase.startswith("http://") or url_lowercase.startswith("https://"):
             return RemoteFile(
                 _get_remote_module().RemoteFile.open_s3_from_http_url(url, nbytes)
             )
-        if url.startswith("s3://"):
+        if url_lowercase.startswith("s3://"):
             return RemoteFile(
                 _get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes)
             )

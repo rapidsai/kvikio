@@ -80,8 +80,8 @@ def s3_context(s3_base, bucket, files=None):
 
 
 def test_read_access(s3_base):
-    bucket_name = "bucket"
-    object_name = "data"
+    bucket_name = "Bucket"
+    object_name = "Data"
     data = b"file content"
     with s3_context(
         s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(data)}
@@ -118,8 +118,8 @@ def test_read_access(s3_base):
 @pytest.mark.parametrize("tasksize", [99, 999])
 @pytest.mark.parametrize("buffer_size", [101, 1001])
 def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
-    bucket_name = "test_read"
-    object_name = "a1"
+    bucket_name = "Test_Read"
+    object_name = "Aa1"
     a = xp.arange(size)
     with s3_context(
         s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}
@@ -150,8 +150,8 @@ def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
     ],
 )
 def test_read_with_file_offset(s3_base, xp, start, end):
-    bucket_name = "test_read_with_file_offset"
-    object_name = "a1"
+    bucket_name = "Test_Read_With_File_Offset"
+    object_name = "Aa1"
     a = xp.arange(end, dtype=xp.int64)
     with s3_context(
         s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}
