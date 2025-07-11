@@ -191,4 +191,12 @@ bool is_future_done(T const& future)
   return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }
 
+[[nodiscard]] std::size_t align_up(std::size_t value, std::size_t alignment) noexcept;
+
+[[nodiscard]] void* align_up(void* addr, std::size_t alignment) noexcept;
+
+[[nodiscard]] std::size_t align_down(std::size_t value, std::size_t alignment) noexcept;
+
+[[nodiscard]] void* align_down(void* addr, std::size_t alignment) noexcept;
+
 }  // namespace kvikio
