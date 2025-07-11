@@ -36,7 +36,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
             unique_ptr[cpp_RemoteEndpoint] endpoint, size_t nbytes
         ) except +
         cpp_RemoteHandle(unique_ptr[cpp_RemoteEndpoint] endpoint) except +
-        int nbytes() except +
+        size_t nbytes() except +
         const cpp_RemoteEndpoint& endpoint() except +
         size_t read(
             void* buf,
