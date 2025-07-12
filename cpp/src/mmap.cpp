@@ -205,6 +205,7 @@ MmapHandle::MmapHandle(MmapHandle&& o) noexcept
 
 MmapHandle& MmapHandle::operator=(MmapHandle&& o) noexcept
 {
+  close();
   _buf                  = std::exchange(o._buf, {});
   _initial_size         = std::exchange(o._initial_size, {});
   _initial_file_offset  = std::exchange(o._initial_file_offset, {});
