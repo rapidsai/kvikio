@@ -26,7 +26,7 @@ cdef extern from "<kvikio/mmap.hpp>" namespace "kvikio" nogil:
         CppMmapHandle() noexcept
         CppMmapHandle(string file_path, string flags, optional[size_t] initial_size,
                       size_t initial_file_offset, fcntl.mode_t mode,
-                      int map_flags) except +
+                      optional[int] map_flags) except +
         size_t initial_size()
         size_t initial_file_offset()
         size_t file_size() except +
@@ -53,14 +53,22 @@ cdef class MmapHandle:
             cpp_initial_size = nullopt
         else:
             cpp_initial_size = <size_t>(initial_size)
+
         path_bytes = str(pathlib.Path(file_path)).encode()
         flags_bytes = str(flags).encode()
+
+        cdef optional[int] cpp_map_flags
+        if map_flags is None:
+            cpp_map_flags = nullopt
+        else:
+            cpp_map_flags = <int>(map_flags)
+
         self._handle = move(CppMmapHandle(path_bytes,
                                           flags_bytes,
                                           cpp_initial_size,
                                           initial_file_offset,
                                           mode,
-                                          map_flags))
+                                          cpp_map_flags))
 
     def initial_size(self) -> int:
         return self._handle.initial_size()
