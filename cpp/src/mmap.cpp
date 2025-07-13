@@ -140,10 +140,10 @@ MmapHandle::MmapHandle(std::string const& file_path,
                        std::string const& flags,
                        std::optional<std::size_t> initial_size,
                        std::size_t initial_file_offset,
-                       mode_t mode)
+                       mode_t mode,
+                       std::optional<int> map_flags)
   : _initial_file_offset(initial_file_offset),
     _initialized{true},
-    _map_core_flags{MAP_PRIVATE},
     _file_wrapper(file_path, flags, false /* o_direct */, mode)
 {
   KVIKIO_NVTX_FUNC_RANGE();
@@ -171,7 +171,7 @@ MmapHandle::MmapHandle(std::string const& file_path,
 
   switch (flags[0]) {
     case 'r': {
-      _map_protection_flags = PROT_READ;
+      _map_protection = PROT_READ;
       break;
     }
     case 'w': {
@@ -182,8 +182,10 @@ MmapHandle::MmapHandle(std::string const& file_path,
     }
   }
 
-  _map_addr = mmap(
-    nullptr, _map_size, _map_protection_flags, _map_core_flags, _file_wrapper.fd(), _map_offset);
+  _map_flags = map_flags.has_value() ? map_flags.value() : MAP_PRIVATE;
+
+  _map_addr =
+    mmap(nullptr, _map_size, _map_protection, _map_flags, _file_wrapper.fd(), _map_offset);
   SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
   _buf = detail::pointer_add(_map_addr, offset_delta);
 }
@@ -197,8 +199,8 @@ MmapHandle::MmapHandle(MmapHandle&& o) noexcept
     _map_size{std::exchange(o._map_size, {})},
     _map_addr{std::exchange(o._map_addr, {})},
     _initialized{std::exchange(o._initialized, {})},
-    _map_protection_flags{std::exchange(o._map_protection_flags, {})},
-    _map_core_flags{std::exchange(o._map_core_flags, {})},
+    _map_protection{std::exchange(o._map_protection, {})},
+    _map_flags{std::exchange(o._map_flags, {})},
     _file_wrapper{std::exchange(o._file_wrapper, {})}
 {
 }
@@ -206,17 +208,17 @@ MmapHandle::MmapHandle(MmapHandle&& o) noexcept
 MmapHandle& MmapHandle::operator=(MmapHandle&& o) noexcept
 {
   close();
-  _buf                  = std::exchange(o._buf, {});
-  _initial_size         = std::exchange(o._initial_size, {});
-  _initial_file_offset  = std::exchange(o._initial_file_offset, {});
-  _file_size            = std::exchange(o._file_size, {});
-  _map_offset           = std::exchange(o._map_offset, {});
-  _map_size             = std::exchange(o._map_size, {});
-  _map_addr             = std::exchange(o._map_addr, {});
-  _initialized          = std::exchange(o._initialized, {});
-  _map_protection_flags = std::exchange(o._map_protection_flags, {});
-  _map_core_flags       = std::exchange(o._map_core_flags, {});
-  _file_wrapper         = std::exchange(o._file_wrapper, {});
+  _buf                 = std::exchange(o._buf, {});
+  _initial_size        = std::exchange(o._initial_size, {});
+  _initial_file_offset = std::exchange(o._initial_file_offset, {});
+  _file_size           = std::exchange(o._file_size, {});
+  _map_offset          = std::exchange(o._map_offset, {});
+  _map_size            = std::exchange(o._map_size, {});
+  _map_addr            = std::exchange(o._map_addr, {});
+  _initialized         = std::exchange(o._initialized, {});
+  _map_protection      = std::exchange(o._map_protection, {});
+  _map_flags           = std::exchange(o._map_flags, {});
+  _file_wrapper        = std::exchange(o._file_wrapper, {});
 
   return *this;
 }
@@ -238,17 +240,17 @@ void MmapHandle::close() noexcept
     SYSCALL_CHECK(ret);
   } catch (...) {
   }
-  _buf                  = {};
-  _initial_size         = {};
-  _initial_file_offset  = {};
-  _file_size            = {};
-  _map_offset           = {};
-  _map_size             = {};
-  _map_addr             = {};
-  _initialized          = {};
-  _map_protection_flags = {};
-  _map_core_flags       = {};
-  _file_wrapper         = {};
+  _buf                 = {};
+  _initial_size        = {};
+  _initial_file_offset = {};
+  _file_size           = {};
+  _map_offset          = {};
+  _map_size            = {};
+  _map_addr            = {};
+  _initialized         = {};
+  _map_protection      = {};
+  _map_flags           = {};
+  _file_wrapper        = {};
 }
 
 std::size_t MmapHandle::initial_size() const noexcept { return _initial_size; }

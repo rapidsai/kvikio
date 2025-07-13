@@ -37,8 +37,8 @@ class MmapHandle {
   std::size_t _map_size{};
   void* _map_addr{};
   bool _initialized{};
-  int _map_protection_flags{};
-  int _map_core_flags{};
+  int _map_protection{};
+  int _map_flags{};
   FileWrapper _file_wrapper{};
 
   /**
@@ -109,12 +109,14 @@ class MmapHandle {
    * starting from `initial_file_offset` to the end of file
    * @param initial_file_offset File offset of the mapped region
    * @param mode Access mode
+   * @param map_flags Flags to be passed to the system call `mmap`. See `mmap(2)` for details
    */
   MmapHandle(std::string const& file_path,
              std::string const& flags                = "r",
              std::optional<std::size_t> initial_size = std::nullopt,
              std::size_t initial_file_offset         = 0,
-             mode_t mode                             = FileHandle::m644);
+             mode_t mode                             = FileHandle::m644,
+             std::optional<int> map_flags            = std::nullopt);
 
   MmapHandle(MmapHandle const&)            = delete;
   MmapHandle& operator=(MmapHandle const&) = delete;
