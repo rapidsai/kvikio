@@ -105,18 +105,17 @@ cdef class MmapHandle:
             cpp_size = <size_t>(size)
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
 
+        print("Cython: KVIKIO_MMAP_TASK_SIZE env var: {:}".format(
+              os.environ.get('KVIKIO_MMAP_TASK_SIZE', 'NOT SET')))
         if mmap_task_size is None:
             cpp_mmap_task_size = defaults.mmap_task_size()
         else:
             cpp_mmap_task_size = mmap_task_size
-        print(">>> cpp_mmap_task_size: {:}, {:}".format(cpp_mmap_task_size,
+        print("Cython: cpp_mmap_task_size: {:}, {:}".format(cpp_mmap_task_size,
               type(cpp_mmap_task_size)))
-        if mmap_task_size is None:
-            print("mmap_task_size is None. Default: {:}".format(
-                  defaults.mmap_task_size()))
-        else:
-            print("mmap_task_size is {:}. Default: {:}".format(mmap_task_size,
-                  defaults.mmap_task_size()))
+        print("Cython: task_size: {:}".format(defaults.task_size()))
+        print("Cython: mmap_task_size is {:}. Default: {:}".format(
+              str(mmap_task_size), defaults.mmap_task_size()))
 
         return _wrap_io_future(self._handle.pread(<void*>info.first,
                                cpp_size,

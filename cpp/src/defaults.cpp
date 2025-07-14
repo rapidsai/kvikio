@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <iostream>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -152,6 +153,8 @@ defaults::defaults()
     KVIKIO_EXPECT(
       env > 0, "KVIKIO_MMAP_TASK_SIZE has to be a positive integer", std::invalid_argument);
     _mmap_task_size = env;
+
+    std::cout << ">>> C++ _mmap_task_size: " << _mmap_task_size << "\n";
   }
 }
 
