@@ -36,7 +36,7 @@ cdef extern from "<kvikio/mmap.hpp>" namespace "kvikio" nogil:
         future[size_t] pread(void* buf, optional[size_t] size, size_t file_offset,
                              size_t mmap_task_size) except +
 
-cdef class MmapHandle:
+cdef class InternalMmapHandle:
     cdef CppMmapHandle _handle
 
     def __init__(self, file_path: os.PathLike,
