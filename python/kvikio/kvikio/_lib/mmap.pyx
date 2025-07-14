@@ -109,6 +109,8 @@ cdef class MmapHandle:
             cpp_mmap_task_size = defaults.mmap_task_size()
         else:
             cpp_mmap_task_size = mmap_task_size
+        print(">>> cpp_mmap_task_size: {:}, {:}".format(cpp_mmap_task_size,
+              type(cpp_mmap_task_size)))
 
         return _wrap_io_future(self._handle.pread(<void*>info.first,
                                cpp_size,
