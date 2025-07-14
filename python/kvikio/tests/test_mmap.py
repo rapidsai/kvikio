@@ -156,6 +156,7 @@ def test_read_with_default_arguments(tmp_path, xp):
     assert read_size == expected_data.nbytes
     xp.testing.assert_array_equal(actual_data, expected_data)
 
+    print("pytest mmap_task_size: {:}".format(kvikio.defaults.get("mmap_task_size")))
     fut = mmap_handle.pread(actual_data)
     assert fut.get() == expected_data.nbytes
     xp.testing.assert_array_equal(actual_data, expected_data)
