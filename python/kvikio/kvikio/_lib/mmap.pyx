@@ -112,7 +112,8 @@ cdef class MmapHandle:
         print(">>> cpp_mmap_task_size: {:}, {:}".format(cpp_mmap_task_size,
               type(cpp_mmap_task_size)))
         if mmap_task_size is None:
-            print("mmap_task_size is None")
+            print("mmap_task_size is None. Default: {:}".format(
+                  defaults.mmap_task_size()))
         else:
             print("mmap_task_size is {:}. Default: {:}".format(mmap_task_size,
                   defaults.mmap_task_size()))
