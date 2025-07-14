@@ -33,6 +33,13 @@ CuFile driver
 
 .. autofunction:: initialize
 
+Mmap
+----
+.. currentmodule:: kvikio.mmap
+
+.. autoclass:: Mmap
+    :members:
+
 Zarr
 ----
 .. currentmodule:: kvikio.zarr

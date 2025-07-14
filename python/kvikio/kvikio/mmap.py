@@ -9,7 +9,7 @@ from kvikio._lib.mmap import InternalMmapHandle
 from kvikio.cufile import IOFuture
 
 
-class MmapHandle:
+class Mmap:
     """Handle of a memory-mapped file"""
 
     def __init__(
@@ -28,21 +28,22 @@ class MmapHandle:
         file_path : os.PathLike
             File path.
         flags : str, optional
-            Open flags (see also `open()`):
-            - "r": "open for reading (default)"
-            - (Not implemented yet) "w": "open for writing, truncating the file first"
-            - (Not implemented yet)"a": "open for writing, appending to the end of file
-              if it exists"
-            - (Not implemented yet)"+": "open for updating (reading and writing)"
+
+            - ``r``: Open for reading (default)
+            - ``w``: (Not implemented yet) Open for writing, truncating the file first
+            - ``a``: (Not implemented yet) Open for writing, appending to the end of
+              file if it exists
+            - ``+``: (Not implemented yet) Open for updating (reading and writing)
         initial_size : int, optional
             Size in bytes of the mapped region. If not specified, map the region
-            starting from `initial_file_offset` to the end of file.
+            starting from ``initial_file_offset`` to the end of file.
         initial_file_offset : int, optional
             File offset of the mapped region. Default is 0.
         mode : int, optional
-            Access mode (permissions) to use if creating a new file. Default is 644.
+            Access mode (permissions) to use if creating a new file. Default is
+            0644 (octal), 420 (decimal).
         map_flags : int, optional
-            Flags to be passed to the system call `mmap`. See `mmap(2)` for details.
+            Flags to be passed to the system call ``mmap``. See `mmap(2)` for details.
         """
         self._handle = InternalMmapHandle(
             file_path, flags, initial_size, initial_file_offset, mode, map_flags
@@ -98,14 +99,15 @@ class MmapHandle:
         return self._handle.closed()
 
     def read(self, buf, size: Optional[int] = None, file_offset: int = 0) -> int:
-        """Sequential read `size` bytes from the file to the destination buffer `buf`
+        """Sequential read ``size`` bytes from the file to the destination buffer
+        ``buf``
 
         Parameters
         ----------
         buf : buffer-like or array-like
             Address of the host or device memory (destination buffer).
         size : int, optional
-            Size in bytes to read. If not specified, read starts from `file_offset`
+            Size in bytes to read. If not specified, read starts from ``file_offset``
             to the end of file.
         file_offset : int, optional
             File offset. Default is 0.
@@ -118,7 +120,7 @@ class MmapHandle:
         Raises
         ------
         IndexError
-            If the read region specified by `file_offset` and `size` is outside the
+            If the read region specified by ``file_offset`` and ``size`` is outside the
             initial region specified when the mapping handle was constructed.
         ValueError
             If the size is given but is 0.
@@ -134,14 +136,14 @@ class MmapHandle:
         file_offset: int = 0,
         mmap_task_size: Optional[int] = None,
     ) -> IOFuture:
-        """Parallel read `size` bytes from the file to the destination buffer `buf`
+        """Parallel read ``size`` bytes from the file to the destination buffer ``buf``
 
         Parameters
         ----------
         buf : buffer-like or array-like
             Address of the host or device memory (destination buffer).
         size : int, optional
-            Size in bytes to read. If not specified, read starts from `file_offset`
+            Size in bytes to read. If not specified, read starts from ``file_offset``
             to the end of file.
         file_offset : int, optional
             File offset. Default is 0.
@@ -158,7 +160,7 @@ class MmapHandle:
         Raises
         ------
         IndexError
-            If the read region specified by `file_offset` and `size` is outside the
+            If the read region specified by ``file_offset`` and ``size`` is outside the
             initial region specified when the mapping handle was constructed.
         ValueError
             If the size is given but is 0.
@@ -167,7 +169,7 @@ class MmapHandle:
 
         Notes
         -----
-        The returned IOFuture object's `get()` should not be called after the lifetime
+        The returned IOFuture object's ``get()`` should not be called after the lifetime
         of the MmapHandle object ends. Otherwise, the behavior is undefined.
         """
         return IOFuture(self._handle.pread(buf, size, file_offset, mmap_task_size))

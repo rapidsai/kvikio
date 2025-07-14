@@ -14,7 +14,7 @@ numpy = pytest.importorskip("numpy")
 def test_no_file(tmp_path):
     with pytest.raises(RuntimeError, match=r".*Unable to open file.*"):
         nonexistent_file = tmp_path / "nonexistent_file"
-        kvikio.MmapHandle(nonexistent_file)
+        kvikio.Mmap(nonexistent_file)
 
 
 def test_invalid_file_open_flag(tmp_path):
@@ -23,10 +23,10 @@ def test_invalid_file_open_flag(tmp_path):
     expected_data.tofile(filename)
 
     with pytest.raises(ValueError, match=r".*Unknown file open flag.*"):
-        kvikio.MmapHandle(filename, "")
+        kvikio.Mmap(filename, "")
 
     with pytest.raises(ValueError, match=r".*Unknown file open flag.*"):
-        kvikio.MmapHandle(filename, "z")
+        kvikio.Mmap(filename, "z")
 
 
 def test_constructor_invalid_range(tmp_path, xp):
@@ -35,13 +35,13 @@ def test_constructor_invalid_range(tmp_path, xp):
     test_data.tofile(filename)
 
     with pytest.raises(IndexError, match=r".*Offset is past the end of file.*"):
-        kvikio.MmapHandle(filename, "r", None, test_data.nbytes * 2)
+        kvikio.Mmap(filename, "r", None, test_data.nbytes * 2)
 
     with pytest.raises(IndexError, match=r".*Mapped region is past the end of file.*"):
-        kvikio.MmapHandle(filename, "r", test_data.nbytes * 2)
+        kvikio.Mmap(filename, "r", test_data.nbytes * 2)
 
     with pytest.raises(ValueError, match=r".*Mapped region should not be zero byte.*"):
-        kvikio.MmapHandle(filename, "r", 0)
+        kvikio.Mmap(filename, "r", 0)
 
 
 def test_read_invalid_range(tmp_path, xp):
@@ -54,27 +54,19 @@ def test_read_invalid_range(tmp_path, xp):
     initial_file_offset = 512
 
     with pytest.raises(IndexError, match=r".*Offset is past the end of file.*"):
-        mmap_handle = kvikio.MmapHandle(
-            filename, "r", initial_size, initial_file_offset
-        )
+        mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
         mmap_handle.read(output_data, initial_size, test_data.nbytes)
 
     with pytest.raises(IndexError, match=r".*Read is out of bound.*"):
-        mmap_handle = kvikio.MmapHandle(
-            filename, "r", initial_size, initial_file_offset
-        )
+        mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
         mmap_handle.read(output_data, initial_size, initial_file_offset - 128)
 
     with pytest.raises(ValueError, match=r".*Read size must be greater than 0.*"):
-        mmap_handle = kvikio.MmapHandle(
-            filename, "r", initial_size, initial_file_offset
-        )
+        mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
         mmap_handle.read(output_data, 0, initial_file_offset)
 
     with pytest.raises(IndexError, match=r".*Read is out of bound.*"):
-        mmap_handle = kvikio.MmapHandle(
-            filename, "r", initial_size, initial_file_offset
-        )
+        mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
         mmap_handle.read(output_data, initial_size + 128, initial_file_offset)
 
 
@@ -100,7 +92,7 @@ def test_read_seq(tmp_path, xp, num_elements_to_read, num_elements_to_skip):
     ]
     actual_data = xp.zeros_like(expected_data)
 
-    mmap_handle = kvikio.MmapHandle(filename, "r", initial_size, initial_file_offset)
+    mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
     read_size = mmap_handle.read(actual_data, initial_size, initial_file_offset)
 
     assert read_size == expected_data.nbytes
@@ -133,9 +125,7 @@ def test_read_parallel(
     actual_data = xp.zeros_like(expected_data)
 
     with kvikio.defaults.set("mmap_task_size", mmap_task_size):
-        mmap_handle = kvikio.MmapHandle(
-            filename, "r", initial_size, initial_file_offset
-        )
+        mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
         fut = mmap_handle.pread(
             actual_data, initial_size, initial_file_offset, mmap_task_size
         )
@@ -153,7 +143,7 @@ def test_read_with_default_arguments(tmp_path, xp):
     # Workaround for a CI failure where defaults.mmap_task_size() is somehow 0
     # instead of 4 MiB when KVIKIO_MMAP_TASK_SIZE is unset
     with kvikio.defaults.set("mmap_task_size", 4 * 1024 * 1024):
-        mmap_handle = kvikio.MmapHandle(filename, "r")
+        mmap_handle = kvikio.Mmap(filename, "r")
 
         read_size = mmap_handle.read(actual_data)
         assert read_size == expected_data.nbytes
@@ -170,7 +160,7 @@ def test_closed_handle(tmp_path, xp):
     expected_data.tofile(filename)
     actual_data = xp.zeros_like(expected_data)
 
-    mmap_handle = kvikio.MmapHandle(filename, "r")
+    mmap_handle = kvikio.Mmap(filename, "r")
     mmap_handle.close()
 
     assert mmap_handle.closed()
