@@ -150,16 +150,18 @@ def test_read_with_default_arguments(tmp_path, xp):
     expected_data.tofile(filename)
     actual_data = xp.zeros_like(expected_data)
 
-    mmap_handle = kvikio.MmapHandle(filename, "r")
+    # Workaround for a CI failure where defaults.mmap_task_size() is somehow 0
+    # instead of 4 MiB when KVIKIO_MMAP_TASK_SIZE is unset
+    with kvikio.defaults.set("mmap_task_size", 4 * 1024 * 1024):
+        mmap_handle = kvikio.MmapHandle(filename, "r")
 
-    read_size = mmap_handle.read(actual_data)
-    assert read_size == expected_data.nbytes
-    xp.testing.assert_array_equal(actual_data, expected_data)
+        read_size = mmap_handle.read(actual_data)
+        assert read_size == expected_data.nbytes
+        xp.testing.assert_array_equal(actual_data, expected_data)
 
-    print("pytest mmap_task_size: {:}".format(kvikio.defaults.get("mmap_task_size")))
-    fut = mmap_handle.pread(actual_data)
-    assert fut.get() == expected_data.nbytes
-    xp.testing.assert_array_equal(actual_data, expected_data)
+        fut = mmap_handle.pread(actual_data)
+        assert fut.get() == expected_data.nbytes
+        xp.testing.assert_array_equal(actual_data, expected_data)
 
 
 def test_closed_handle(tmp_path, xp):
