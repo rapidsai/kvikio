@@ -27,7 +27,7 @@ namespace kvikio {
 #ifdef KVIKIO_CUFILE_FOUND
 cuFileAPI::cuFileAPI()
 {
-  void* lib = load_library({"libcufile.so.0"});
+  void* lib = load_library("libcufile.so.0");
   get_symbol(HandleRegister, lib, KVIKIO_STRINGIFY(cuFileHandleRegister));
   get_symbol(HandleDeregister, lib, KVIKIO_STRINGIFY(cuFileHandleDeregister));
   get_symbol(Read, lib, KVIKIO_STRINGIFY(cuFileRead));
