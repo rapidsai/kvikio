@@ -129,14 +129,14 @@ class MmapHandle {
    *
    * @return Initial size of the mapped region
    */
-  std::size_t initial_size() const noexcept;
+  [[nodiscard]] std::size_t initial_size() const noexcept;
 
   /**
    * @brief File offset of the mapped region when the mapping handle was constructed
    *
    * @return Initial file offset of the mapped region
    */
-  std::size_t initial_file_offset() const noexcept;
+  [[nodiscard]] std::size_t initial_file_offset() const noexcept;
 
   /**
    * @brief Get the file size if the file is open. Returns 0 if the file is closed.
