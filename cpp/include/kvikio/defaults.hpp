@@ -373,7 +373,7 @@ class defaults {
    * @brief Get the default mmap task size used for parallel memory-mapped I/O.
    *
    * Set the default value using `kvikio::default::set_mmap_task_size()` or by setting
-   * the `KVIKIO_MMAP_TASK_SIZE` environment variable. If not set, the default value is 4 MiB.
+   * the `KVIKIO_MMAP_TASK_SIZE` environment variable.
    *
    * @return The default mmap task size in bytes.
    */
