@@ -81,7 +81,7 @@ TEST_F(MmapTest, invalid_file_open_flag)
   EXPECT_THAT(
     [=] {
       {
-        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "z");
+        kvikio::MmapHandle(_filepath, "z");
       }
     },
     ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
