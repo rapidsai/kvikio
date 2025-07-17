@@ -321,7 +321,7 @@ TEST_F(MmapTest, cpp_move)
     kvikio::MmapHandle mmap_handle{};
     EXPECT_TRUE(mmap_handle.closed());
     mmap_handle = kvikio::MmapHandle(_filepath, "r");
-    EXPECT_TRUE(!mmap_handle.closed());
+    EXPECT_FALSE(mmap_handle.closed());
     do_test(mmap_handle);
   }
 
