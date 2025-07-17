@@ -129,7 +129,7 @@ class MmapHandle {
    *
    * @return Initial size of the mapped region
    */
-  std::size_t initial_size() const noexcept;
+  [[nodiscard]] std::size_t initial_size() const noexcept;
 
   /**
    * @brief File offset of the mapped region when the mapping handle was constructed
