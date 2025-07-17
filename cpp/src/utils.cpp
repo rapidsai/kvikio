@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "utils.hpp"
+
 #include <unistd.h>
 #include <cstdint>
 #include <cstring>

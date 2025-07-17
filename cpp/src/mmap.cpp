@@ -31,6 +31,8 @@
 #include <kvikio/utils.hpp>
 #include "kvikio/file_utils.hpp"
 
+#include "utils.hpp"
+
 namespace kvikio {
 
 namespace detail {
