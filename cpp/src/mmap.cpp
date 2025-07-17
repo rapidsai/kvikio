@@ -286,9 +286,9 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
 std::future<std::size_t> MmapHandle::pread(void* buf,
                                            std::optional<std::size_t> size,
                                            std::size_t file_offset,
-                                           std::size_t mmap_task_size)
+                                           std::size_t task_size)
 {
-  KVIKIO_EXPECT(mmap_task_size <= defaults::bounce_buffer_size(),
+  KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than mmap_task_size.");
   auto actual_size = validate_and_adjust_read_args(size, file_offset);
 
@@ -316,7 +316,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                      buf,
                      actual_size,
                      file_offset,
-                     mmap_task_size,
+                     task_size,
                      0,  // dst buffer offset initial value
                      call_idx,
                      nvtx_color);

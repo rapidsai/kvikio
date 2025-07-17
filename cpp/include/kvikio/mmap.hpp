@@ -193,6 +193,7 @@ class MmapHandle {
    * @param size Size in bytes to read. If not specified, read starts from `file_offset` to the end
    * of file
    * @param file_offset File offset
+   * @param task_size Size of each task in bytes
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
    * @exception std::out_of_range if the read region specified by `file_offset` and `size` is
@@ -206,6 +207,6 @@ class MmapHandle {
   std::future<std::size_t> pread(void* buf,
                                  std::optional<std::size_t> size = std::nullopt,
                                  std::size_t file_offset         = 0,
-                                 std::size_t mmap_task_size      = defaults::mmap_task_size());
+                                 std::size_t task_size           = defaults::mmap_task_size());
 };
 }  // namespace kvikio
