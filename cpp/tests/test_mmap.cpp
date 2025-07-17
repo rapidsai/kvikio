@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <sys/mman.h>
 #include <optional>
 #include <stdexcept>
 #include <vector>
@@ -85,6 +86,18 @@ TEST_F(MmapTest, invalid_file_open_flag)
       }
     },
     ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
+}
+
+TEST_F(MmapTest, invalid_mmap_flag)
+{
+  EXPECT_THAT(
+    [=] {
+      {
+        int invalid_flag{-1};
+        kvikio::MmapHandle(_filepath, "r", std::nullopt, 0, kvikio::FileHandle::m644, invalid_flag);
+      }
+    },
+    ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("Invalid argument")));
 }
 
 TEST_F(MmapTest, constructor_invalid_range)
