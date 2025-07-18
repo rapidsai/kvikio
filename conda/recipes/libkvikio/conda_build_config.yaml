@@ -1,3 +1,9 @@
+c_compiler_version:
+  - 13
+
+cxx_compiler_version:
+  - 13
+
 cmake_version:
   - ">=3.30.4"
 

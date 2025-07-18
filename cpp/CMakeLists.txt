@@ -46,12 +46,6 @@ option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" O
 option(KvikIO_CUDA_SUPPORT "Configure CMake to build with CUDA support" ON)
 option(KvikIO_EXPORT_NVCOMP "Export NVCOMP as a dependency" ON)
 
-# todo: Revisit in the future. Use of C++20 leads to a CI failure in conda cpp build: "cc1plus:
-# error: to generate dependencies you must specify either '-M' or '-MM'" For now, disable CMake's
-# automatic module scanning for C++ files. Source:
-# https://github.com/rapidsai/cudf/pull/19192/commits/1f04adfe77b3e3470b0e247dc1ae9416d54ce47d
-set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-
 # ##################################################################################################
 # * conda environment ------------------------------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
@@ -153,6 +147,7 @@ set(SOURCES
     "src/error.cpp"
     "src/file_handle.cpp"
     "src/file_utils.cpp"
+    "src/mmap.cpp"
     "src/nvtx.cpp"
     "src/posix_io.cpp"
     "src/shim/cuda.cpp"
@@ -204,7 +199,7 @@ set_target_properties(
   kvikio
   PROPERTIES BUILD_RPATH "\$ORIGIN"
              INSTALL_RPATH "\$ORIGIN"
-             CXX_STANDARD 20
+             CXX_STANDARD 17
              CXX_STANDARD_REQUIRED ON
              POSITION_INDEPENDENT_CODE ON
              INTERFACE_POSITION_INDEPENDENT_CODE ON
