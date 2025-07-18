@@ -130,7 +130,6 @@ class defaults {
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
-  std::size_t _mmap_task_size;
 
   static unsigned int get_num_threads_from_env();
 
@@ -368,23 +367,6 @@ class defaults {
    * @param status_codes The HTTP status codes to retry.
    */
   static void set_http_status_codes(std::vector<int> status_codes);
-
-  /**
-   * @brief Get the default mmap task size used for parallel memory-mapped I/O.
-   *
-   * Set the default value using `kvikio::default::set_mmap_task_size()` or by setting
-   * the `KVIKIO_MMAP_TASK_SIZE` environment variable.
-   *
-   * @return The default mmap task size in bytes.
-   */
-  [[nodiscard]] static std::size_t mmap_task_size();
-
-  /**
-   * @brief Set the default mmap task size used for parallel memory-mapped I/O.
-   *
-   * @param nbytes The default mmap task size in bytes.
-   */
-  static void set_mmap_task_size(std::size_t nbytes);
 };
 
 }  // namespace kvikio

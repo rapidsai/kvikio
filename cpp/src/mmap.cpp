@@ -41,7 +41,7 @@ namespace detail {
  *
  * @param addr The address to read from
  */
-void do_not_optimize_away_read(void* addr)
+void disable_read_optimization(void* addr)
 {
   auto addr_byte = static_cast<std::byte*>(addr);
   std::byte tmp{};
@@ -289,7 +289,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                                            std::size_t task_size)
 {
   KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
-                "bounce buffer size cannot be less than mmap_task_size.");
+                "bounce buffer size cannot be less than task size.");
   auto actual_size = validate_and_adjust_read_args(size, file_offset);
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
@@ -419,7 +419,7 @@ std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
   // If buf is not aligned, read the byte at buf.
   auto num_bytes = detail::pointer_diff(aligned_addr, buf);
   if (num_bytes > 0) {
-    detail::do_not_optimize_away_read(buf);
+    detail::disable_read_optimization(buf);
     touched_bytes += num_bytes;
     if (size >= num_bytes) { size -= num_bytes; }
   }
@@ -427,7 +427,7 @@ std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
   if (num_bytes >= size) { return touched_bytes; }
 
   while (size > 0) {
-    detail::do_not_optimize_away_read(aligned_addr);
+    detail::disable_read_optimization(aligned_addr);
     if (size >= page_size) {
       aligned_addr = detail::pointer_add(aligned_addr, page_size);
       size -= page_size;
