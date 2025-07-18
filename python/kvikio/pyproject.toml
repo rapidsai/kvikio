@@ -163,6 +163,7 @@ filterwarnings = [
     "ignore:This module is deprecated since.*Use the official nvCOMP API from 'nvidia.nvcomp' instead.:FutureWarning:.*nvcomp|.*nvcomp_codec",
 ]
 markers = [
-    "cufile: tests to skip if cuFile isn't available e.g. run with `pytest -m 'not cufile'`"
+    "cufile: tests to skip if cuFile isn't available e.g. run with `pytest -m 'not cufile'`",
+    "gpu: zarr-python tests requiring a GPU to run."
 ]
 asyncio_mode = "auto"
