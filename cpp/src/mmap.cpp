@@ -91,7 +91,7 @@ std::ptrdiff_t pointer_diff(void* p1, void* p2)
 bool is_ats_available()
 {
   // Memoize the ATS availability record of all devices
-  static auto ats_availability = []() -> auto {
+  static auto const ats_availability = []() -> auto {
     std::unordered_map<CUdevice, int> result;
     int num_devices{};
     CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetCount(&num_devices));
