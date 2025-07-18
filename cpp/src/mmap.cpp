@@ -113,7 +113,7 @@ bool is_ats_available()
   CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetDevice(&device_handle));
 
   // Look up the record
-  return ats_availability[device_handle];
+  return ats_availability.at(device_handle);
 }
 
 }  // namespace detail
