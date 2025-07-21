@@ -136,7 +136,7 @@ bool is_ats_available()
 // determine the mapped region (2): `_map_addr` is the page aligned address returned by `mmap`.
 // `_map_offset` is the adjusted offset.
 // (3): At read time, the argument `file_offset` and `size` determine the region to be read. This
-// region must be a subset of the one defined at mapping handle construction time
+// region must be a subset of the one defined at mapping handle construction time.
 MmapHandle::MmapHandle(std::string const& file_path,
                        std::string const& flags,
                        std::optional<std::size_t> initial_size,
