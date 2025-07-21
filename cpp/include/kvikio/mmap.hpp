@@ -184,18 +184,6 @@ class MmapHandle {
                                  std::optional<std::size_t> size = std::nullopt,
                                  std::size_t file_offset         = 0,
                                  std::size_t task_size           = defaults::task_size());
-
-  /**
-   * @brief For the specified memory range, touch the first byte of each page to cause page fault.
-   *
-   * For the first page, if the starting address is not aligned to the page boundary, the byte at
-   * that address is touched.
-   *
-   * @param buf The starting memory address
-   * @param size The size in bytes of the memory range
-   * @return The number of bytes touched
-   */
-  static std::size_t perform_prefault(void* buf, std::size_t size);
 };
 
 }  // namespace kvikio

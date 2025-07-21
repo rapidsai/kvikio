@@ -116,6 +116,48 @@ bool is_ats_available()
 }
 
 /**
+ * @brief For the specified memory range, touch the first byte of each page to cause page fault.
+ *
+ * For the first page, if the starting address is not aligned to the page boundary, the byte at
+ * that address is touched.
+ *
+ * @param buf The starting memory address
+ * @param size The size in bytes of the memory range
+ * @return The number of bytes touched
+ */
+std::size_t perform_prefault(void* buf, std::size_t size)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto const page_size = get_page_size();
+  auto aligned_addr    = detail::align_up(buf, page_size);
+
+  std::size_t touched_bytes{0};
+
+  // If buf is not aligned, read the byte at buf.
+  auto num_bytes = detail::pointer_diff(aligned_addr, buf);
+  if (num_bytes > 0) {
+    detail::disable_read_optimization(buf);
+    touched_bytes += num_bytes;
+    if (size >= num_bytes) { size -= num_bytes; }
+  }
+
+  if (num_bytes >= size) { return touched_bytes; }
+
+  while (size > 0) {
+    detail::disable_read_optimization(aligned_addr);
+    if (size >= page_size) {
+      aligned_addr = detail::pointer_add(aligned_addr, page_size);
+      size -= page_size;
+      touched_bytes += page_size;
+    } else {
+      touched_bytes += size;
+      break;
+    }
+  }
+  return touched_bytes;
+}
+
+/**
  * @brief Implementation of read
  *
  * Copy data from the source buffer `src_mapped_buf + buf_offset` to the destination buffer
@@ -189,7 +231,7 @@ void read_impl(void* dst_buf,
   auto dst_devptr = convert_void2deviceptr(dst);
   CUdeviceptr src_devptr{};
   if (detail::is_ats_available()) {
-    MmapHandle::perform_prefault(src, size);
+    perform_prefault(src, size);
     src_devptr = convert_void2deviceptr(src);
     h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
   } else {
@@ -417,38 +459,6 @@ std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t>
                 "Read is out of bound",
                 std::out_of_range);
   return actual_size;
-}
-
-std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto const page_size = get_page_size();
-  auto aligned_addr    = detail::align_up(buf, page_size);
-
-  std::size_t touched_bytes{0};
-
-  // If buf is not aligned, read the byte at buf.
-  auto num_bytes = detail::pointer_diff(aligned_addr, buf);
-  if (num_bytes > 0) {
-    detail::disable_read_optimization(buf);
-    touched_bytes += num_bytes;
-    if (size >= num_bytes) { size -= num_bytes; }
-  }
-
-  if (num_bytes >= size) { return touched_bytes; }
-
-  while (size > 0) {
-    detail::disable_read_optimization(aligned_addr);
-    if (size >= page_size) {
-      aligned_addr = detail::pointer_add(aligned_addr, page_size);
-      size -= page_size;
-      touched_bytes += page_size;
-    } else {
-      touched_bytes += size;
-      break;
-    }
-  }
-  return touched_bytes;
 }
 
 }  // namespace kvikio
