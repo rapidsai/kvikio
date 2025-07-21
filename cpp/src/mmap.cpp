@@ -23,6 +23,7 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/mmap.hpp>
 #include <kvikio/nvtx.hpp>
@@ -30,8 +31,6 @@
 #include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
 #include "kvikio/file_utils.hpp"
-
-#include "utils.hpp"
 
 namespace kvikio {
 
@@ -167,7 +166,7 @@ MmapHandle::MmapHandle(std::string const& file_path,
                 std::out_of_range);
 
   auto const page_size    = get_page_size();
-  _map_offset             = align_down(_initial_file_offset, page_size);
+  _map_offset             = detail::align_down(_initial_file_offset, page_size);
   auto const offset_delta = _initial_file_offset - _map_offset;
   _map_size               = _initial_size + offset_delta;
 
@@ -412,7 +411,7 @@ std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto const page_size = get_page_size();
-  auto aligned_addr    = align_up(buf, page_size);
+  auto aligned_addr    = detail::align_up(buf, page_size);
 
   std::size_t touched_bytes{0};
 
