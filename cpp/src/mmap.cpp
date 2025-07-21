@@ -115,6 +115,91 @@ bool is_ats_available()
   return ats_availability.at(device_handle);
 }
 
+/**
+ * @brief Implementation of read
+ *
+ * Copy data from the source buffer `src_mapped_buf + buf_offset` to the destination buffer
+ * `dst_buf + buf_offset`.
+ *
+ * @param dst_buf Address of the host or device memory (destination buffer)
+ * @param src_mapped_buf Address of the host memory (source buffer)
+ * @param size Size in bytes to read
+ * @param buf_offset Offset for both `dst_buf` and `src_mapped_buf`
+ * @param is_dst_buf_host_mem Whether the destination buffer is host memory or not
+ * @param ctx CUDA context when the destination buffer is not host memory
+ */
+void read_impl(void* dst_buf,
+               void* src_mapped_buf,
+               std::size_t size,
+               std::size_t buf_offset,
+               bool is_dst_buf_host_mem,
+               CUcontext ctx)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto const src = detail::pointer_add(src_mapped_buf, buf_offset);
+  auto const dst = detail::pointer_add(dst_buf, buf_offset);
+
+  if (is_dst_buf_host_mem) {
+    // std::memcpy implicitly performs prefault for the mapped memory.
+    std::memcpy(dst, src, size);
+    return;
+  }
+
+  // Empirically, take the following steps to achieve good performance:
+  // - On C2C:
+  //   - Explicitly prefault
+  //   - Copy from the mapped memory (pageable) to the device buffer
+  // - On PCIe:
+  //   - std::memcpy from the mapped memory to the pinned bounce buffer (which implicitly
+  //     prefaults)
+  //   - Copy from the bounce buffer to the device buffer
+
+  PushAndPopContext c(ctx);
+  CUstream stream = detail::StreamsByThread::get();
+
+  auto h2d_batch_cpy_sync =
+    [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
+#if CUDA_VERSION >= 12080
+      if (cudaAPI::instance().MemcpyBatchAsync) {
+        CUmemcpyAttributes attrs{};
+        std::size_t attrs_idxs[] = {0};
+        attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
+        CUDA_DRIVER_TRY(
+          cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
+                                               &src_devptr,
+                                               &size,
+                                               static_cast<std::size_t>(1) /* count */,
+                                               &attrs,
+                                               attrs_idxs,
+                                               static_cast<std::size_t>(1) /* num_attrs */,
+                                               static_cast<std::size_t*>(nullptr),
+                                               stream));
+      } else {
+        // Fall back to the conventional H2D copy if the batch copy API is not available.
+        CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+          dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
+      }
+#else
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+        dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
+#endif
+      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    };
+
+  auto dst_devptr = convert_void2deviceptr(dst);
+  CUdeviceptr src_devptr{};
+  if (detail::is_ats_available()) {
+    MmapHandle::perform_prefault(src, size);
+    src_devptr = convert_void2deviceptr(src);
+    h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
+  } else {
+    auto alloc = AllocRetain::instance().get();
+    std::memcpy(alloc.get(), src, size);
+    src_devptr = convert_void2deviceptr(alloc.get());
+    h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
+  }
+}
+
 }  // namespace detail
 
 //     |--> file start                 |<--page_size-->|
@@ -277,7 +362,7 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
 
   // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
   auto const src_mapped_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
-  read_impl(buf, src_mapped_buf, actual_size, 0, is_dst_buf_host_mem, ctx);
+  detail::read_impl(buf, src_mapped_buf, actual_size, 0, is_dst_buf_host_mem, ctx);
   return actual_size;
 }
 
@@ -306,7 +391,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
       std::size_t,  // file_offset will be taken into account by dst_buf, hence no longer used here
       std::size_t buf_offset  // buf_offset will be incremented for each individual task
       ) -> std::size_t {
-    read_impl(dst_buf, src_mapped_buf, size, buf_offset, is_dst_buf_host_mem, ctx);
+    detail::read_impl(dst_buf, src_mapped_buf, size, buf_offset, is_dst_buf_host_mem, ctx);
     return size;
   };
 
@@ -332,78 +417,6 @@ std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t>
                 "Read is out of bound",
                 std::out_of_range);
   return actual_size;
-}
-
-void MmapHandle::read_impl(void* dst_buf,
-                           void* src_mapped_buf,
-                           std::size_t size,
-                           std::size_t buf_offset,
-                           bool is_dst_buf_host_mem,
-                           CUcontext ctx)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto const src = detail::pointer_add(src_mapped_buf, buf_offset);
-  auto const dst = detail::pointer_add(dst_buf, buf_offset);
-
-  if (is_dst_buf_host_mem) {
-    // std::memcpy implicitly performs prefault for the mapped memory.
-    std::memcpy(dst, src, size);
-    return;
-  }
-
-  // Empirically, take the following steps to achieve good performance:
-  // - On C2C:
-  //   - Explicitly prefault
-  //   - Copy from the mapped memory (pageable) to the device buffer
-  // - On PCIe:
-  //   - std::memcpy from the mapped memory to the pinned bounce buffer (which implicitly
-  //     prefaults)
-  //   - Copy from the bounce buffer to the device buffer
-
-  PushAndPopContext c(ctx);
-  CUstream stream = detail::StreamsByThread::get();
-
-  auto h2d_batch_cpy_sync =
-    [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
-#if CUDA_VERSION >= 12080
-      if (cudaAPI::instance().MemcpyBatchAsync) {
-        CUmemcpyAttributes attrs{};
-        std::size_t attrs_idxs[] = {0};
-        attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-        CUDA_DRIVER_TRY(
-          cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
-                                               &src_devptr,
-                                               &size,
-                                               static_cast<std::size_t>(1) /* count */,
-                                               &attrs,
-                                               attrs_idxs,
-                                               static_cast<std::size_t>(1) /* num_attrs */,
-                                               static_cast<std::size_t*>(nullptr),
-                                               stream));
-      } else {
-        // Fall back to the conventional H2D copy if the batch copy API is not available.
-        CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-          dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
-      }
-#else
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-        dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
-#endif
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    };
-
-  auto dst_devptr = convert_void2deviceptr(dst);
-  CUdeviceptr src_devptr{};
-  if (detail::is_ats_available()) {
-    perform_prefault(src, size);
-    src_devptr = convert_void2deviceptr(src);
-    h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
-  } else {
-    auto alloc = AllocRetain::instance().get();
-    std::memcpy(alloc.get(), src, size);
-    src_devptr = convert_void2deviceptr(alloc.get());
-    h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
-  }
 }
 
 std::size_t MmapHandle::perform_prefault(void* buf, std::size_t size)

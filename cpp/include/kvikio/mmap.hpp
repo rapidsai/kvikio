@@ -50,18 +50,6 @@ class MmapHandle {
   FileWrapper _file_wrapper{};
 
   /**
-   * @brief For the specified memory range, touch the first byte of each page to cause page fault.
-   *
-   * For the first page, if the starting address is not aligned to the page boundary, the byte at
-   * that address is touched.
-   *
-   * @param buf The starting memory address
-   * @param size The size in bytes of the memory range
-   * @return The number of bytes touched
-   */
-  std::size_t perform_prefault(void* buf, std::size_t size);
-
-  /**
    * @brief Validate and adjust the read arguments.
    *
    * @param size Size in bytes to read. If not specified, set it to the bytes from `file_offset` to
@@ -76,26 +64,6 @@ class MmapHandle {
    */
   std::size_t validate_and_adjust_read_args(std::optional<std::size_t> const& size,
                                             std::size_t file_offset);
-
-  /**
-   * @brief Implementation of read
-   *
-   * Copy data from the source buffer `global_src_buf + buf_offset` to the destination buffer
-   * `global_dst_buf + buf_offset`.
-   *
-   * @param global_dst_buf Address of the host or device memory (destination buffer)
-   * @param global_src_buf Address of the host memory (source buffer)
-   * @param size Size in bytes to read
-   * @param buf_offset Offset for both `global_dst_buf` and `global_src_buf`
-   * @param is_dst_buf_host_mem Whether the destination buffer is host memory or not
-   * @param ctx CUDA context when the destination buffer is not host memory
-   */
-  void read_impl(void* global_dst_buf,
-                 void* global_src_buf,
-                 std::size_t size,
-                 std::size_t buf_offset,
-                 bool is_dst_buf_host_mem,
-                 CUcontext ctx);
 
  public:
   /**
@@ -216,6 +184,18 @@ class MmapHandle {
                                  std::optional<std::size_t> size = std::nullopt,
                                  std::size_t file_offset         = 0,
                                  std::size_t task_size           = defaults::task_size());
+
+  /**
+   * @brief For the specified memory range, touch the first byte of each page to cause page fault.
+   *
+   * For the first page, if the starting address is not aligned to the page boundary, the byte at
+   * that address is touched.
+   *
+   * @param buf The starting memory address
+   * @param size The size in bytes of the memory range
+   * @return The number of bytes touched
+   */
+  static std::size_t perform_prefault(void* buf, std::size_t size);
 };
 
 }  // namespace kvikio
