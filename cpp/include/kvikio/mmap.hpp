@@ -26,6 +26,14 @@ namespace kvikio {
 
 /**
  * @brief Handle of a memory-mapped file
+ *
+ * This utility class facilitates the use of file-backed memory by providing a performant method
+ * `pread()` to read a range of data into user-provided memory residing on the host or device.
+ *
+ * File-backed memory can be considered when a large number of nonadjacent file ranges (specified by
+ * the `file_offset` and `file_size` pair) are to be frequently accessed. It can potentially reduce
+ * memory usage due to demand paging (compared to reading the entire file with `read(2)`), and may
+ * improve I/O performance compared to frequent calls to `read(2)`.
  */
 class MmapHandle {
  private:
