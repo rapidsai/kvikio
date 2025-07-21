@@ -220,7 +220,6 @@ MmapHandle& MmapHandle::operator=(MmapHandle&& o) noexcept
   _map_protection      = std::exchange(o._map_protection, {});
   _map_flags           = std::exchange(o._map_flags, {});
   _file_wrapper        = std::exchange(o._file_wrapper, {});
-
   return *this;
 }
 
