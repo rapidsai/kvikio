@@ -209,4 +209,5 @@ class MmapHandle {
                                  std::size_t file_offset         = 0,
                                  std::size_t task_size           = defaults::task_size());
 };
+
 }  // namespace kvikio
