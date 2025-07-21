@@ -322,7 +322,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
 }
 
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,
-                                                      std::size_t& file_offset)
+                                                      std::size_t file_offset)
 {
   KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
   KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);

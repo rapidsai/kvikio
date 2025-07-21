@@ -75,7 +75,7 @@ class MmapHandle {
    * @exception std::runtime_error if the mapping handle is closed
    */
   std::size_t validate_and_adjust_read_args(std::optional<std::size_t> const& size,
-                                            std::size_t& file_offset);
+                                            std::size_t file_offset);
 
   /**
    * @brief Implementation of read
