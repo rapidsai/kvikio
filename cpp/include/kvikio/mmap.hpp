@@ -61,10 +61,10 @@ class MmapHandle {
    * @param file_offset File offset
    * @return Adjusted size in bytes to read
    *
-   * @throw std::out_of_range if the read region specified by `file_offset` and `size` is outside
-   * the initial region specified when the mapping handle was constructed
-   * @throw std::invalid_argument if the size is given but is 0
-   * @throw std::runtime_error if the mapping handle is closed
+   * @exception std::out_of_range if the read region specified by `file_offset` and `size` is
+   * outside the initial region specified when the mapping handle was constructed
+   * @exception std::invalid_argument if the size is given but is 0
+   * @exception std::runtime_error if the mapping handle is closed
    */
   std::size_t validate_and_adjust_read_args(std::optional<std::size_t> const& size,
                                             std::size_t& file_offset);
@@ -176,10 +176,10 @@ class MmapHandle {
    * @param file_offset File offset
    * @return Number of bytes that have been read
    *
-   * @throw std::out_of_range if the read region specified by `file_offset` and `size` is outside
-   * the initial region specified when the mapping handle was constructed
-   * @throw std::invalid_argument if the size is given but is 0
-   * @throw std::runtime_error if the mapping handle is closed
+   * @exception std::out_of_range if the read region specified by `file_offset` and `size` is
+   * outside the initial region specified when the mapping handle was constructed
+   * @exception std::invalid_argument if the size is given but is 0
+   * @exception std::runtime_error if the mapping handle is closed
    */
   std::size_t read(void* buf,
                    std::optional<std::size_t> size = std::nullopt,
@@ -196,10 +196,10 @@ class MmapHandle {
    * @param task_size Size of each task in bytes
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
-   * @throw std::out_of_range if the read region specified by `file_offset` and `size` is outside
-   * the initial region specified when the mapping handle was constructed
-   * @throw std::invalid_argument if the size is given but is 0
-   * @throw std::runtime_error if the mapping handle is closed
+   * @exception std::out_of_range if the read region specified by `file_offset` and `size` is
+   * outside the initial region specified when the mapping handle was constructed
+   * @exception std::invalid_argument if the size is given but is 0
+   * @exception std::runtime_error if the mapping handle is closed
    *
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
    * the MmapHandle object ends. Otherwise, the behavior is undefined.
