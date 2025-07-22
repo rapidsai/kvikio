@@ -56,10 +56,9 @@ void disable_read_optimization(void* addr)
  * @return A new address as a result of applying `v` on `p`
  *
  * @note Technically, if the initial pointer is non-null, or does not point to an element of an
- * array object, its pointer arithmetic is undefined behavior
- * (https://eel.is/c++draft/expr.add#4). However, pointer arithmetic on dynamic allocation is
- * generally acceptable in practice, as long as users guarantee that the resulting pointer points to
- * a valid region.
+ * array object, (p + v) is undefined behavior (https://eel.is/c++draft/expr.add#4). However,
+ * (p + v) on dynamic allocation is generally acceptable in practice, as long as users guarantee
+ * that the resulting pointer points to a valid region.
  */
 template <typename Integer>
 void* pointer_add(void* p, Integer v)
@@ -75,8 +74,10 @@ void* pointer_add(void* p, Integer v)
  * @param p2 The second pointer
  * @return Signed result of (`p1` - `p2`). Both pointers are cast to std::byte* before subtraction.
  *
- * @note It is UB in C++ when the two pointers engaged in subtraction do not point to the elements
- * from the same array. This UB is considered acceptable here due to lack of a better alternative.
+ * @note Technically, if two pointers do not point to elements from the same array, (p1 - p2) is
+ * undefined behavior (https://eel.is/c++draft/expr.add#5). However, (p1 - p2) on dynamic allocation
+ * is generally acceptable in practice, as long as users guarantee that both pointers are within the
+ * valid region.
  */
 std::ptrdiff_t pointer_diff(void* p1, void* p2)
 {
