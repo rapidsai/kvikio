@@ -117,7 +117,7 @@ class S3Endpoint : public RemoteEndpoint {
   /**
    * @brief Get url from a AWS S3 bucket and object name.
    *
-   * @throws std::invalid_argument if no region is specified and no default region is
+   * @exception std::invalid_argument if no region is specified and no default region is
    * specified in the environment.
    *
    * @param bucket_name The name of the S3 bucket.
@@ -137,7 +137,7 @@ class S3Endpoint : public RemoteEndpoint {
   /**
    * @brief Given an url like "s3://<bucket>/<object>", return the name of the bucket and object.
    *
-   * @throws std::invalid_argument if url is ill-formed or is missing the bucket or object name.
+   * @exception std::invalid_argument if url is ill-formed or is missing the bucket or object name.
    *
    * @param s3_url S3 url.
    * @return Pair of strings: [bucket-name, object-name].

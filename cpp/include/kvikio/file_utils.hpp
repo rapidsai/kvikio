@@ -132,8 +132,8 @@ class CUFileHandleWrapper {
  * @param o_direct Append O_DIRECT to the open flags
  * @return oflags
  *
- * @throw std::invalid_argument if the specified flags are not supported.
- * @throw std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
+ * @exception std::invalid_argument if the specified flags are not supported.
+ * @exception std::invalid_argument if `o_direct` is true, but `O_DIRECT` is not supported.
  */
 int open_fd_parse_flags(std::string const& flags, bool o_direct);
 
@@ -208,7 +208,7 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd);
  * - Execute the command with `sudo` prefix. This is for the general case where selective
  * unprivileged users have permission to run `/sbin/sysctl` with `sudo` prefix.
  *
- * @throws kvikio::GenericSystemError if somehow the child process could not be created.
+ * @exception kvikio::GenericSystemError if somehow the child process could not be created.
  */
 bool clear_page_cache(bool reclaim_dentries_and_inodes = true, bool clear_dirty_pages = true);
 }  // namespace kvikio

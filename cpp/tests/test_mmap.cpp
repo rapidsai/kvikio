@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <sys/mman.h>
 #include <optional>
 #include <stdexcept>
 #include <vector>
@@ -72,7 +73,7 @@ TEST_F(MmapTest, invalid_file_open_flag)
   EXPECT_THAT(
     [=] {
       {
-        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "");
+        kvikio::MmapHandle(_filepath, "");
       }
     },
     ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
@@ -81,10 +82,22 @@ TEST_F(MmapTest, invalid_file_open_flag)
   EXPECT_THAT(
     [=] {
       {
-        [[maybe_unused]] auto mmap_handle = kvikio::MmapHandle(_filepath, "z");
+        kvikio::MmapHandle(_filepath, "z");
       }
     },
     ThrowsMessage<std::invalid_argument>(HasSubstr("Unknown file open flag")));
+}
+
+TEST_F(MmapTest, invalid_mmap_flag)
+{
+  EXPECT_THAT(
+    [=] {
+      {
+        int invalid_flag{-1};
+        kvikio::MmapHandle(_filepath, "r", std::nullopt, 0, kvikio::FileHandle::m644, invalid_flag);
+      }
+    },
+    ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("Invalid argument")));
 }
 
 TEST_F(MmapTest, constructor_invalid_range)
@@ -222,7 +235,7 @@ TEST_F(MmapTest, read_parallel)
       }
     };
 
-  std::vector<std::size_t> task_sizes{256, 1024, kvikio::defaults::mmap_task_size()};
+  std::vector<std::size_t> task_sizes{256, 1024, kvikio::defaults::task_size()};
   for (const auto& task_size : task_sizes) {
     for (const auto& num_elements_to_read : {10, 9999}) {
       for (const auto& num_elements_to_skip : {0, 10, 100, 1000, 9999}) {
@@ -321,7 +334,7 @@ TEST_F(MmapTest, cpp_move)
     kvikio::MmapHandle mmap_handle{};
     EXPECT_TRUE(mmap_handle.closed());
     mmap_handle = kvikio::MmapHandle(_filepath, "r");
-    EXPECT_TRUE(!mmap_handle.closed());
+    EXPECT_FALSE(mmap_handle.closed());
     do_test(mmap_handle);
   }
 
@@ -329,7 +342,7 @@ TEST_F(MmapTest, cpp_move)
     kvikio::MmapHandle mmap_handle_1(_filepath, "r");
     kvikio::MmapHandle mmap_handle_2{std::move(mmap_handle_1)};
     EXPECT_TRUE(mmap_handle_1.closed());
-    EXPECT_TRUE(!mmap_handle_2.closed());
+    EXPECT_FALSE(mmap_handle_2.closed());
     do_test(mmap_handle_2);
   }
 }

@@ -26,6 +26,14 @@ namespace kvikio {
 
 /**
  * @brief Handle of a memory-mapped file
+ *
+ * This utility class facilitates the use of file-backed memory by providing a performant method
+ * `pread()` to read a range of data into user-provided memory residing on the host or device.
+ *
+ * File-backed memory can be considered when a large number of nonadjacent file ranges (specified by
+ * the `file_offset` and `file_size` pair) are to be frequently accessed. It can potentially reduce
+ * memory usage due to demand paging (compared to reading the entire file with `read(2)`), and may
+ * improve I/O performance compared to frequent calls to `read(2)`.
  */
 class MmapHandle {
  private:
@@ -42,18 +50,6 @@ class MmapHandle {
   FileWrapper _file_wrapper{};
 
   /**
-   * @brief For the specified memory range, touch the first byte of each page to cause page fault.
-   *
-   * For the first page, if the starting address is not aligned to the page boundary, the byte at
-   * that address is touched.
-   *
-   * @param buf The starting memory address
-   * @param size The size in bytes of the memory range
-   * @return The number of bytes touched
-   */
-  std::size_t perform_prefault(void* buf, std::size_t size);
-
-  /**
    * @brief Validate and adjust the read arguments.
    *
    * @param size Size in bytes to read. If not specified, set it to the bytes from `file_offset` to
@@ -67,27 +63,7 @@ class MmapHandle {
    * @exception std::runtime_error if the mapping handle is closed
    */
   std::size_t validate_and_adjust_read_args(std::optional<std::size_t> const& size,
-                                            std::size_t& file_offset);
-
-  /**
-   * @brief Implementation of read
-   *
-   * Copy data from the source buffer `global_src_buf + buf_offset` to the destination buffer
-   * `global_dst_buf + buf_offset`.
-   *
-   * @param global_dst_buf Address of the host or device memory (destination buffer)
-   * @param global_src_buf Address of the host memory (source buffer)
-   * @param size Size in bytes to read
-   * @param buf_offset Offset for both `global_dst_buf` and `global_src_buf`
-   * @param is_dst_buf_host_mem Whether the destination buffer is host memory or not
-   * @param ctx CUDA context when the destination buffer is not host memory
-   */
-  void read_impl(void* global_dst_buf,
-                 void* global_src_buf,
-                 std::size_t size,
-                 std::size_t buf_offset,
-                 bool is_dst_buf_host_mem,
-                 CUcontext ctx);
+                                            std::size_t file_offset);
 
  public:
   /**
@@ -129,14 +105,14 @@ class MmapHandle {
    *
    * @return Initial size of the mapped region
    */
-  std::size_t initial_size() const noexcept;
+  [[nodiscard]] std::size_t initial_size() const noexcept;
 
   /**
    * @brief File offset of the mapped region when the mapping handle was constructed
    *
    * @return Initial file offset of the mapped region
    */
-  std::size_t initial_file_offset() const noexcept;
+  [[nodiscard]] std::size_t initial_file_offset() const noexcept;
 
   /**
    * @brief Get the file size if the file is open. Returns 0 if the file is closed.
@@ -193,6 +169,7 @@ class MmapHandle {
    * @param size Size in bytes to read. If not specified, read starts from `file_offset` to the end
    * of file
    * @param file_offset File offset
+   * @param task_size Size of each task in bytes
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
    * @exception std::out_of_range if the read region specified by `file_offset` and `size` is
@@ -206,6 +183,7 @@ class MmapHandle {
   std::future<std::size_t> pread(void* buf,
                                  std::optional<std::size_t> size = std::nullopt,
                                  std::size_t file_offset         = 0,
-                                 std::size_t mmap_task_size      = defaults::mmap_task_size());
+                                 std::size_t task_size           = defaults::task_size());
 };
+
 }  // namespace kvikio

@@ -17,7 +17,7 @@
 
 #include <cstring>
 
-namespace kvikio {
+namespace kvikio::detail {
 
 /**
  * @brief Round up `value` to multiples of `alignment`
@@ -55,4 +55,4 @@ namespace kvikio {
  */
 [[nodiscard]] void* align_down(void* addr, std::size_t alignment) noexcept;
 
-}  // namespace kvikio
+}  // namespace kvikio::detail
