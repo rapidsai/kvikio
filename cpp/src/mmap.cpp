@@ -55,9 +55,11 @@ void disable_read_optimization(void* addr)
  * @param v Change of `p` in bytes
  * @return A new address as a result of applying `v` on `p`
  *
- * @note It is UB in C++ when the initial pointer and the resulting pointer do not point to the
- * elements from the same array. This UB is considered acceptable here due to lack of a better
- * alternative.
+ * @note Technically, if the initial pointer is non-null, or does not point to an element of an
+ * array object, its pointer arithmetic is undefined behavior
+ * (https://eel.is/c++draft/expr.add#4). However, pointer arithmetic on dynamic allocation is
+ * generally acceptable in practice, as long as users guarantee that the resulting pointer points to
+ * a valid region.
  */
 template <typename Integer>
 void* pointer_add(void* p, Integer v)
