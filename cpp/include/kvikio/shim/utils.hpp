@@ -49,15 +49,6 @@ namespace kvikio {
 void* load_library(std::string const& name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
 
 /**
- * @brief Load shared library
- *
- * @param names Vector of names to try when loading shared library.
- * @return The library handle.
- */
-void* load_library(std::vector<std::string> const& names,
-                   int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
-
-/**
  * @brief Get symbol using `dlsym`
  *
  * @tparam T The type of the function pointer.
