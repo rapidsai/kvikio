@@ -103,23 +103,6 @@ def test_task_size():
         kvikio.defaults.set("task_size", -1)
 
 
-def test_mmap_task_size():
-    """Test changing `mmap_task_size`"""
-
-    before = kvikio.defaults.get("mmap_task_size")
-    with kvikio.defaults.set("mmap_task_size", 3):
-        assert kvikio.defaults.get("mmap_task_size") == 3
-        kvikio.defaults.set("mmap_task_size", 4)
-        assert kvikio.defaults.get("mmap_task_size") == 4
-    assert before == kvikio.defaults.get("mmap_task_size")
-
-    # 0 means to divide the task evenly among threads
-    kvikio.defaults.set("mmap_task_size", 0)
-
-    with pytest.raises(OverflowError, match="negative value"):
-        kvikio.defaults.set("mmap_task_size", -1)
-
-
 def test_gds_threshold():
     """Test changing `gds_threshold`"""
 
