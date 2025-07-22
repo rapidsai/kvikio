@@ -134,7 +134,7 @@ class Mmap:
         buf,
         size: Optional[int] = None,
         file_offset: int = 0,
-        mmap_task_size: Optional[int] = None,
+        task_size: Optional[int] = None,
     ) -> IOFuture:
         """Parallel read ``size`` bytes from the file to the destination buffer ``buf``
 
@@ -147,9 +147,9 @@ class Mmap:
             to the end of file.
         file_offset : int, optional
             File offset. Default is 0.
-        mmap_task_size : int, optional
+        task_size : int, optional
             Size of each task in bytes for parallel execution. If None, uses
-            the default task size from kvikio.defaults.mmap_task_size().
+            the default task size from kvikio.defaults.task_size().
 
         Returns
         -------
@@ -172,4 +172,4 @@ class Mmap:
         The returned IOFuture object's ``get()`` should not be called after the lifetime
         of the MmapHandle object ends. Otherwise, the behavior is undefined.
         """
-        return IOFuture(self._handle.pread(buf, size, file_offset, mmap_task_size))
+        return IOFuture(self._handle.pread(buf, size, file_offset, task_size))

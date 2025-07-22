@@ -25,9 +25,6 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
         "kvikio::defaults::set_thread_pool_nthreads" (unsigned int nthreads) except +
     size_t cpp_task_size "kvikio::defaults::task_size"() except +
     void cpp_set_task_size "kvikio::defaults::set_task_size"(size_t nbytes) except +
-    size_t cpp_mmap_task_size "kvikio::defaults::mmap_task_size"() except +
-    void cpp_set_mmap_task_size "kvikio::defaults::set_mmap_task_size" \
-        (size_t nbytes) except +
     size_t cpp_gds_threshold "kvikio::defaults::gds_threshold"() except +
     void cpp_set_gds_threshold \
         "kvikio::defaults::set_gds_threshold"(size_t nbytes) except +
@@ -71,14 +68,6 @@ def task_size() -> int:
 
 def set_task_size(nbytes: int) -> None:
     cpp_set_task_size(nbytes)
-
-
-def mmap_task_size() -> int:
-    return cpp_mmap_task_size()
-
-
-def set_mmap_task_size(nbytes: int) -> None:
-    cpp_set_mmap_task_size(nbytes)
 
 
 def gds_threshold() -> int:

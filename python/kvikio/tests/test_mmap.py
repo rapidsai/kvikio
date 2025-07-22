@@ -101,9 +101,9 @@ def test_read_seq(tmp_path, xp, num_elements_to_read, num_elements_to_skip):
 
 @pytest.mark.parametrize("num_elements_to_read", [None, 10, 9999])
 @pytest.mark.parametrize("num_elements_to_skip", [0, 10, 100, 1000, 9999])
-@pytest.mark.parametrize("mmap_task_size", [1024, 12345])
+@pytest.mark.parametrize("task_size", [1024, 12345])
 def test_read_parallel(
-    tmp_path, xp, num_elements_to_read, num_elements_to_skip, mmap_task_size
+    tmp_path, xp, num_elements_to_read, num_elements_to_skip, task_size
 ):
     filename = tmp_path / "read-only-test-file"
     test_data = xp.arange(1024 * 1024)
@@ -124,10 +124,10 @@ def test_read_parallel(
     ]
     actual_data = xp.zeros_like(expected_data)
 
-    with kvikio.defaults.set("mmap_task_size", mmap_task_size):
+    with kvikio.defaults.set("task_size", task_size):
         mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
         fut = mmap_handle.pread(
-            actual_data, initial_size, initial_file_offset, mmap_task_size
+            actual_data, initial_size, initial_file_offset, task_size
         )
 
         assert fut.get() == expected_data.nbytes
@@ -140,9 +140,9 @@ def test_read_with_default_arguments(tmp_path, xp):
     expected_data.tofile(filename)
     actual_data = xp.zeros_like(expected_data)
 
-    # Workaround for a CI failure where defaults.mmap_task_size() is somehow 0
-    # instead of 4 MiB when KVIKIO_MMAP_TASK_SIZE is unset
-    with kvikio.defaults.set("mmap_task_size", 4 * 1024 * 1024):
+    # Workaround for a CI failure where defaults.task_size() is somehow 0
+    # instead of 4 MiB when KVIKIO_TASK_SIZE is unset
+    with kvikio.defaults.set("task_size", 4 * 1024 * 1024):
         mmap_handle = kvikio.Mmap(filename, "r")
 
         read_size = mmap_handle.read(actual_data)
