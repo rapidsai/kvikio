@@ -15,6 +15,7 @@
  */
 
 #include <unistd.h>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -23,6 +24,7 @@
 #include <tuple>
 #include <type_traits>
 
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
@@ -180,4 +182,29 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
 }
 
+namespace detail {
+
+std::size_t align_up(std::size_t value, std::size_t alignment) noexcept
+{
+  return (value + alignment - 1) & ~(alignment - 1);
+}
+
+void* align_up(void* addr, std::size_t alignment) noexcept
+{
+  auto res = (reinterpret_cast<uintptr_t>(addr) + alignment - 1) & ~(alignment - 1);
+  return reinterpret_cast<void*>(res);
+}
+
+std::size_t align_down(std::size_t value, std::size_t alignment) noexcept
+{
+  return value & ~(alignment - 1);
+}
+
+void* align_down(void* addr, std::size_t alignment) noexcept
+{
+  auto res = reinterpret_cast<uintptr_t>(addr) & ~(alignment - 1);
+  return reinterpret_cast<void*>(res);
+}
+
+}  // namespace detail
 }  // namespace kvikio
