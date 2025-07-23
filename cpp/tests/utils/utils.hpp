@@ -119,6 +119,7 @@ class DevBuffer {
   DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(std::int64_t)}
   {
     KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes));
+    KVIKIO_CHECK_CUDA(cudaMemset(ptr, 0, nbytes));
   }
   DevBuffer(std::vector<std::int64_t> const& host_buffer) : DevBuffer{host_buffer.size()}
   {
