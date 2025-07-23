@@ -33,20 +33,6 @@ void* load_library(std::string const& name, int mode)
   return ret;
 }
 
-void* load_library(std::vector<std::string> const& names, int mode)
-{
-  std::stringstream ss;
-  for (auto const& name : names) {
-    ss << name << " ";
-    try {
-      return load_library(name, mode);
-    } catch (std::runtime_error const&) {
-    }
-  }
-  KVIKIO_FAIL("cannot open shared object file, tried: " + ss.str(), std::runtime_error);
-  return {};
-}
-
 bool is_running_in_wsl() noexcept
 {
   try {
