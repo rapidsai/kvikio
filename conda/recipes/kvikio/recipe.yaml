@@ -66,14 +66,12 @@ requirements:
     - cython >=3.0.0
     - libcurl ${{ libcurl_version }}
     - libkvikio =${{ version }}
-    - nvcomp ${{ nvcomp_version }}
+    - libnvcomp-dev ${{ nvcomp_version }}
     - pip
     - python =${{ py_version }}
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - scikit-build-core >=0.10.0
     - cuda-cudart-dev
-    - if: linux
-      then: libcufile-dev
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cupy >=12.0.0
@@ -81,21 +79,16 @@ requirements:
     # See https://github.com/zarr-developers/numcodecs/pull/475
     - numcodecs !=0.12.0
     - numpy >=1.23,<3.0a0
-    - nvcomp ${{ nvcomp_version }}
     - packaging
     - python
     - zarr >=2.0.0,<4.0.0a0
     - cuda-cudart
-    - if: linux
-      then: libcufile
   ignore_run_exports:
     by_name:
       - cuda-cudart
       - cuda-version
-      - libcufile
       - libcurl
       - libkvikio
-      - nvcomp
 
 tests:
   - python:
