@@ -59,7 +59,6 @@ class MmapHandle {
    *
    * @exception std::out_of_range if the read region specified by `offset` and `size` is
    * outside the initial region specified when the mapping handle was constructed
-   * @exception std::invalid_argument if the size is given but is 0
    * @exception std::runtime_error if the mapping handle is closed
    */
   std::size_t validate_and_adjust_read_args(std::optional<std::size_t> const& size,
@@ -86,6 +85,11 @@ class MmapHandle {
    * @param initial_map_offset File offset of the mapped region
    * @param mode Access mode
    * @param map_flags Flags to be passed to the system call `mmap`. See `mmap(2)` for details
+   * @exception std::out_of_range if `initial_map_offset` (left bound of the mapped region) is equal
+   * to or greater than the file size
+   * @exception std::out_of_range if the sum of `initial_map_offset` and `initial_map_size` (right
+   * bound of the mapped region) is greater than the file size
+   * @exception std::invalid_argument if `initial_map_size` is given but is 0
    */
   MmapHandle(std::string const& file_path,
              std::string const& flags                    = "r",
@@ -154,7 +158,6 @@ class MmapHandle {
    *
    * @exception std::out_of_range if the read region specified by `offset` and `size` is
    * outside the initial region specified when the mapping handle was constructed
-   * @exception std::invalid_argument if the size is given but is 0
    * @exception std::runtime_error if the mapping handle is closed
    */
   std::size_t read(void* buf,
@@ -174,7 +177,6 @@ class MmapHandle {
    *
    * @exception std::out_of_range if the read region specified by `offset` and `size` is
    * outside the initial region specified when the mapping handle was constructed
-   * @exception std::invalid_argument if the size is given but is 0
    * @exception std::runtime_error if the mapping handle is closed
    *
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
