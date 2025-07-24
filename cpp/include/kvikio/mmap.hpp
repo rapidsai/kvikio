@@ -80,8 +80,8 @@ class MmapHandle {
    *   - "w": "open for writing, truncating the file first"
    *   - "a": "open for writing, appending to the end of file if it exists"
    *   - "+": "open for updating (reading and writing)"
-   * @param initial_map_size Size in bytes of the mapped region. If not specified, map the region
-   * starting from `initial_map_offset` to the end of file
+   * @param initial_map_size Size in bytes of the mapped region. Must be greater than 0. If not
+   * specified, map the region starting from `initial_map_offset` to the end of file
    * @param initial_map_offset File offset of the mapped region
    * @param mode Access mode
    * @param map_flags Flags to be passed to the system call `mmap`. See `mmap(2)` for details
@@ -151,8 +151,8 @@ class MmapHandle {
    * destination buffer `buf`
    *
    * @param buf Address of the host or device memory (destination buffer)
-   * @param size Size in bytes to read. If not specified, read starts from `offset` to the end
-   * of file
+   * @param size Size in bytes to read. Can be 0 in which case nothing will be read. If not
+   * specified, read starts from `offset` to the end of file
    * @param offset File offset
    * @return Number of bytes that have been read
    *
@@ -169,8 +169,8 @@ class MmapHandle {
    * destination buffer `buf`
    *
    * @param buf Address of the host or device memory (destination buffer)
-   * @param size Size in bytes to read. If not specified, read starts from `offset` to the end
-   * of file
+   * @param size Size in bytes to read. Can be 0 in which case nothing will be read. If not
+   * specified, read starts from `offset` to the end of file
    * @param offset File offset
    * @param task_size Size of each task in bytes
    * @return Future that on completion returns the size of bytes that were successfully read.
