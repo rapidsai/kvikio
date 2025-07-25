@@ -35,7 +35,7 @@ if [[ "$(arch)" == "x86_64" ]]; then
       - 14
 
     cuda_version:
-      - ${RAPIDS_CUDA_VERSION}
+      - ${RAPIDS_CUDA_VERSION%.*}
 EOF
 else
     cat > variants.yaml << EOF
@@ -52,7 +52,7 @@ else
 
     cuda_version:
     - 12.1 # The last version to not support cufile
-    - ${RAPIDS_CUDA_VERSION}
+    - ${RAPIDS_CUDA_VERSION%.*}
 EOF
 fi
 
