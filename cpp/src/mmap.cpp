@@ -283,19 +283,12 @@ MmapHandle::MmapHandle(std::string const& file_path,
   _file_size = get_file_size(_file_wrapper.fd());
   if (_file_size == 0) { return; }
 
-<<<<<<< HEAD
-  std::stringstream ss;
-  ss << "Offset must be less than the file size. initial_map_offset: " << _initial_map_offset
-     << ", file size: " << _file_size << "\n";
-  KVIKIO_EXPECT(_initial_map_offset < _file_size, ss.str(), std::out_of_range);
-=======
   {
     std::stringstream ss;
     ss << "Offset must be less than the file size. initial_map_offset: " << _initial_map_offset
        << ", file size: " << _file_size << "\n";
     KVIKIO_EXPECT(_initial_map_offset < _file_size, ss.str(), std::out_of_range);
   }
->>>>>>> branch-25.10
 
   // An initial size of std::nullopt is a shorthand for "starting from _initial_map_offset to the
   // end of file".
@@ -305,12 +298,6 @@ MmapHandle::MmapHandle(std::string const& file_path,
   KVIKIO_EXPECT(
     _initial_map_size > 0, "Mapped region should not be zero byte", std::invalid_argument);
 
-<<<<<<< HEAD
-  ss.str("");
-  ss << "Mapped region is past the end of file. initial map offset: " << _initial_map_offset
-     << ", initial map size: " << _initial_map_size << ", file size: " << _file_size << "\n";
-  KVIKIO_EXPECT(_initial_map_offset + _initial_map_size <= _file_size, ss.str(), std::out_of_range);
-=======
   {
     std::stringstream ss;
     ss << "Mapped region is past the end of file. initial map offset: " << _initial_map_offset
@@ -318,7 +305,6 @@ MmapHandle::MmapHandle(std::string const& file_path,
     KVIKIO_EXPECT(
       _initial_map_offset + _initial_map_size <= _file_size, ss.str(), std::out_of_range);
   }
->>>>>>> branch-25.10
 
   auto const page_size    = get_page_size();
   _map_offset             = detail::align_down(_initial_map_offset, page_size);
