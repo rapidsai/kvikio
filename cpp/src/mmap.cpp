@@ -461,23 +461,27 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,
                                                       std::size_t offset)
 {
-  std::stringstream ss;
-  KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
+  {
+    std::stringstream ss;
+    KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
 
-  ss << "Offset is past the end of file. offset: " << offset << ", file size: " << _file_size
-     << "\n";
-  KVIKIO_EXPECT(offset <= _file_size, ss.str(), std::out_of_range);
+    ss << "Offset is past the end of file. offset: " << offset << ", file size: " << _file_size
+       << "\n";
+    KVIKIO_EXPECT(offset <= _file_size, ss.str(), std::out_of_range);
+  }
 
   auto actual_size = size.has_value() ? size.value() : _file_size - offset;
 
-  ss.str("");
-  ss << "Read is out of bound. offset: " << offset << ", actual size to read: " << actual_size
-     << ", initial map offset: " << _initial_map_offset
-     << ", initial map size: " << _initial_map_size << "\n";
-  KVIKIO_EXPECT(offset >= _initial_map_offset &&
-                  offset + actual_size <= _initial_map_offset + _initial_map_size,
-                ss.str(),
-                std::out_of_range);
+  {
+    std::stringstream ss;
+    ss << "Read is out of bound. offset: " << offset << ", actual size to read: " << actual_size
+       << ", initial map offset: " << _initial_map_offset
+       << ", initial map size: " << _initial_map_size << "\n";
+    KVIKIO_EXPECT(offset >= _initial_map_offset &&
+                    offset + actual_size <= _initial_map_offset + _initial_map_size,
+                  ss.str(),
+                  std::out_of_range);
+  }
   return actual_size;
 }
 
