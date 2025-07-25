@@ -23,11 +23,11 @@ from numcodecs.registry import register_codec
 from packaging.version import parse
 
 import kvikio
-import kvikio.nvcomp
-import kvikio.nvcomp_codec
+import kvikio._nvcomp
+import kvikio._nvcomp_codec
 import kvikio.zarr
+from kvikio._nvcomp_codec import NvCompBatchCodec
 from kvikio.numcodecs import BufferLike, CudaCodec
-from kvikio.nvcomp_codec import NvCompBatchCodec
 
 MINIMUM_ZARR_VERSION = "2.15"
 

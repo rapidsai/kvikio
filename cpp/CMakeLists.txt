@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
-include(cmake/rapids_config.cmake)
+include(../cmake/rapids_config.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-export)
@@ -147,6 +147,7 @@ set(SOURCES
     "src/error.cpp"
     "src/file_handle.cpp"
     "src/file_utils.cpp"
+    "src/mmap.cpp"
     "src/nvtx.cpp"
     "src/posix_io.cpp"
     "src/shim/cuda.cpp"

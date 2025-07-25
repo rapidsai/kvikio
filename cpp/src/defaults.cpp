@@ -28,11 +28,13 @@
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <string_view>
 
 namespace kvikio {
 template <>
 bool getenv_or(std::string_view env_var_name, bool default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   try {
@@ -66,6 +68,7 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   return detail::parse_compat_mode_str(env_val);
@@ -74,6 +77,7 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto* const env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return std::move(default_val); }
   std::string const int_str(env_val);
@@ -84,13 +88,19 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
 
 unsigned int defaults::get_num_threads_from_env()
 {
-  int const ret = getenv_or("KVIKIO_NTHREADS", 1);
-  KVIKIO_EXPECT(ret > 0, "KVIKIO_NTHREADS has to be a positive integer", std::invalid_argument);
-  return ret;
+  KVIKIO_NVTX_FUNC_RANGE();
+
+  auto const [env_var_name, num_threads, _] =
+    getenv_or({"KVIKIO_NTHREADS", "KVIKIO_NUM_THREADS"}, 1);
+  KVIKIO_EXPECT(num_threads > 0,
+                std::string{env_var_name} + " has to be a positive integer",
+                std::invalid_argument);
+  return num_threads;
 }
 
 defaults::defaults()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Determine the default value of `compat_mode`
   {
     _compat_mode = getenv_or("KVIKIO_COMPAT_MODE", CompatMode::AUTO);
@@ -177,6 +187,10 @@ void defaults::set_thread_pool_nthreads(unsigned int nthreads)
     nthreads > 0, "number of threads must be a positive integer", std::invalid_argument);
   thread_pool().reset(nthreads);
 }
+
+unsigned int defaults::num_threads() { return thread_pool_nthreads(); }
+
+void defaults::set_num_threads(unsigned int nthreads) { set_thread_pool_nthreads(nthreads); }
 
 std::size_t defaults::task_size() { return instance()->_task_size; }
 

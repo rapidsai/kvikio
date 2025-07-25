@@ -16,7 +16,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
-#include "utils.hpp"
+#include "utils/utils.hpp"
 
 using namespace kvikio::test;
 

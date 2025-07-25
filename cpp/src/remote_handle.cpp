@@ -60,6 +60,7 @@ class BounceBufferH2D {
       _dev{convert_void2deviceptr(device_buffer)},
       _host_buffer{AllocRetain::instance().get()}
   {
+    KVIKIO_NVTX_FUNC_RANGE();
   }
 
   /**
@@ -67,6 +68,7 @@ class BounceBufferH2D {
    */
   ~BounceBufferH2D() noexcept
   {
+    KVIKIO_NVTX_FUNC_RANGE();
     try {
       flush();
     } catch (CUfileException const& e) {
@@ -85,6 +87,7 @@ class BounceBufferH2D {
    */
   void write_to_device(void const* src, std::size_t size)
   {
+    KVIKIO_NVTX_FUNC_RANGE();
     if (size > 0) {
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(_dev + _dev_offset, src, size, _stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
@@ -97,6 +100,7 @@ class BounceBufferH2D {
    */
   void flush()
   {
+    KVIKIO_NVTX_FUNC_RANGE();
     write_to_device(_host_buffer.get(), _host_offset);
     _host_offset = 0;
   }
@@ -112,6 +116,7 @@ class BounceBufferH2D {
    */
   void write(char const* data, std::size_t size)
   {
+    KVIKIO_NVTX_FUNC_RANGE();
     if (_host_buffer.size() - _host_offset < size) {  // Not enough space left in the bounce buffer
       flush();
       assert(_host_offset == 0);
@@ -134,19 +139,26 @@ HttpEndpoint::HttpEndpoint(std::string url) : _url{std::move(url)} {}
 
 std::string HttpEndpoint::str() const { return _url; }
 
-void HttpEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_str()); }
+void HttpEndpoint::setopt(CurlHandle& curl)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  curl.setopt(CURLOPT_URL, _url.c_str());
+}
 
 void S3Endpoint::setopt(CurlHandle& curl)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   curl.setopt(CURLOPT_URL, _url.c_str());
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
+  if (_curl_header_list) { curl.setopt(CURLOPT_HTTPHEADER, _curl_header_list); }
 }
 
 std::string S3Endpoint::unwrap_or_default(std::optional<std::string> aws_arg,
                                           std::string const& env_var,
                                           std::string const& err_msg)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (aws_arg.has_value()) { return std::move(*aws_arg); }
 
   char const* env = std::getenv(env_var.c_str());
@@ -157,11 +169,12 @@ std::string S3Endpoint::unwrap_or_default(std::optional<std::string> aws_arg,
   return std::string(env);
 }
 
-std::string S3Endpoint::url_from_bucket_and_object(std::string const& bucket_name,
-                                                   std::string const& object_name,
-                                                   std::optional<std::string> const& aws_region,
+std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
+                                                   std::string object_name,
+                                                   std::optional<std::string> aws_region,
                                                    std::optional<std::string> aws_endpoint_url)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto const endpoint_url = unwrap_or_default(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
   std::stringstream ss;
   if (endpoint_url.empty()) {
@@ -179,6 +192,7 @@ std::string S3Endpoint::url_from_bucket_and_object(std::string const& bucket_nam
 
 std::pair<std::string, std::string> S3Endpoint::parse_s3_url(std::string const& s3_url)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Regular expression to match s3://<bucket>/<object>
   std::regex const pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
   std::smatch matches;
@@ -190,9 +204,11 @@ std::pair<std::string, std::string> S3Endpoint::parse_s3_url(std::string const& 
 S3Endpoint::S3Endpoint(std::string url,
                        std::optional<std::string> aws_region,
                        std::optional<std::string> aws_access_key,
-                       std::optional<std::string> aws_secret_access_key)
+                       std::optional<std::string> aws_secret_access_key,
+                       std::optional<std::string> aws_session_token)
   : _url{std::move(url)}
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Regular expression to match http[s]://
   std::regex pattern{R"(^https?://.*)", std::regex_constants::icase};
   KVIKIO_EXPECT(std::regex_search(_url, pattern),
@@ -229,31 +245,56 @@ S3Endpoint::S3Endpoint(std::string url,
     ss << access_key << ":" << secret_access_key;
     _aws_userpwd = ss.str();
   }
+  // Access key IDs beginning with ASIA are temporary credentials that are created using AWS STS
+  // operations. They need a session token to work.
+  if (access_key.compare(0, 4, std::string("ASIA")) == 0) {
+    // Create a Custom Curl header for the session token.
+    // The _curl_header_list created by curl_slist_append must be manually freed
+    // (see https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html)
+    auto session_token =
+      unwrap_or_default(std::move(aws_session_token),
+                        "AWS_SESSION_TOKEN",
+                        "When using temporary credentials, AWS_SESSION_TOKEN must be set.");
+    std::stringstream ss;
+    ss << "x-amz-security-token: " << session_token;
+    _curl_header_list = curl_slist_append(NULL, ss.str().c_str());
+    KVIKIO_EXPECT(_curl_header_list != nullptr,
+                  "Failed to create curl header for AWS token",
+                  std::runtime_error);
+  }
 }
 
-S3Endpoint::S3Endpoint(std::string const& bucket_name,
-                       std::string const& object_name,
+S3Endpoint::S3Endpoint(std::pair<std::string, std::string> bucket_and_object_names,
                        std::optional<std::string> aws_region,
                        std::optional<std::string> aws_access_key,
                        std::optional<std::string> aws_secret_access_key,
-                       std::optional<std::string> aws_endpoint_url)
-  : S3Endpoint(
-      url_from_bucket_and_object(bucket_name, object_name, aws_region, std::move(aws_endpoint_url)),
-      std::move(aws_region),
-      std::move(aws_access_key),
-      std::move(aws_secret_access_key))
+                       std::optional<std::string> aws_endpoint_url,
+                       std::optional<std::string> aws_session_token)
+  : S3Endpoint(url_from_bucket_and_object(std::move(bucket_and_object_names.first),
+                                          std::move(bucket_and_object_names.second),
+                                          aws_region,
+                                          std::move(aws_endpoint_url)),
+               aws_region,
+               std::move(aws_access_key),
+               std::move(aws_secret_access_key),
+               std::move(aws_session_token))
 {
+  KVIKIO_NVTX_FUNC_RANGE();
 }
+
+S3Endpoint::~S3Endpoint() { curl_slist_free_all(_curl_header_list); }
 
 std::string S3Endpoint::str() const { return _url; }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
   : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
 {
+  KVIKIO_NVTX_FUNC_RANGE();
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto curl = create_curl_handle();
 
   endpoint->setopt(curl);
@@ -303,13 +344,14 @@ struct CallbackContext {
  */
 std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto ctx                 = reinterpret_cast<CallbackContext*>(context);
   std::size_t const nbytes = size * nmemb;
   if (ctx->size < ctx->offset + nbytes) {
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle - callback_host_memory()", nbytes);
+  KVIKIO_NVTX_FUNC_RANGE(nbytes);
   std::memcpy(ctx->buf + ctx->offset, data, nbytes);
   ctx->offset += nbytes;
   return nbytes;
@@ -327,13 +369,14 @@ std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb
  */
 std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   auto ctx                 = reinterpret_cast<CallbackContext*>(context);
   std::size_t const nbytes = size * nmemb;
   if (ctx->size < ctx->offset + nbytes) {
     ctx->overflow_error = true;
     return CURL_WRITEFUNC_ERROR;
   }
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle - callback_device_memory()", nbytes);
+  KVIKIO_NVTX_FUNC_RANGE(nbytes);
 
   ctx->bounce_buffer->write(data, nbytes);
   ctx->offset += nbytes;
@@ -343,7 +386,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::read()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (file_offset + size > _nbytes) {
     std::stringstream ss;
@@ -395,7 +438,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t task_size)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_SCOPED_RANGE("RemoteHandle::pread()", size);
+  KVIKIO_NVTX_FUNC_RANGE(size);
   auto task = [this](void* devPtr_base,
                      std::size_t size,
                      std::size_t file_offset,
