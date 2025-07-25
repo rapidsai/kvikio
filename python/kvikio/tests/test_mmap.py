@@ -1,6 +1,7 @@
 # Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+import contextlib
 import os
 
 import pytest
@@ -34,7 +35,7 @@ def test_constructor_invalid_range(tmp_path, xp):
     test_data = xp.arange(1024 * 1024)
     test_data.tofile(filename)
 
-    with pytest.raises(IndexError, match=r".*Offset is past the end of file.*"):
+    with pytest.raises(IndexError, match=r".*Offset must be less than the file size.*"):
         kvikio.Mmap(filename, "r", None, test_data.nbytes * 2)
 
     with pytest.raises(IndexError, match=r".*Mapped region is past the end of file.*"):
@@ -55,19 +56,33 @@ def test_read_invalid_range(tmp_path, xp):
 
     with pytest.raises(IndexError, match=r".*Offset is past the end of file.*"):
         mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
-        mmap_handle.read(output_data, initial_size, test_data.nbytes)
+        mmap_handle.read(output_data, initial_size, test_data.nbytes + 1)
+
+    with pytest.raises(IndexError, match=r".*Read is out of bound.*"):
+        mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
+        mmap_handle.read(output_data, initial_size, initial_file_offset + 1)
 
     with pytest.raises(IndexError, match=r".*Read is out of bound.*"):
         mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
         mmap_handle.read(output_data, initial_size, initial_file_offset - 128)
 
-    with pytest.raises(ValueError, match=r".*Read size must be greater than 0.*"):
-        mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
-        mmap_handle.read(output_data, 0, initial_file_offset)
-
     with pytest.raises(IndexError, match=r".*Read is out of bound.*"):
         mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
         mmap_handle.read(output_data, initial_size + 128, initial_file_offset)
+
+
+def test_read_valid_range(tmp_path, xp):
+    filename = tmp_path / "read-only-test-file"
+    test_data = xp.arange(1024 * 1024)
+    test_data.tofile(filename)
+    output_data = xp.zeros_like(test_data)
+
+    initial_size = 1024
+    initial_file_offset = 512
+
+    with contextlib.nullcontext():
+        mmap_handle = kvikio.Mmap(filename, "r", initial_size, initial_file_offset)
+        mmap_handle.read(output_data, 0, initial_file_offset)
 
 
 @pytest.mark.parametrize("num_elements_to_read", [None, 10, 9999])
