@@ -124,36 +124,36 @@ TEST_F(MmapTest, constructor_valid_range)
   // init_file_offset is exactly on the last char
   EXPECT_NO_THROW({
     kvikio::MmapHandle mmap_handle(_filepath, "r", std::nullopt, _file_size - 1);
-    EXPECT_EQ(mmap_handle.initial_size(), 1);
+    EXPECT_EQ(mmap_handle.initial_map_size(), 1);
   });
 }
 
 TEST_F(MmapTest, read_invalid_range)
 {
-  std::size_t const initial_size{1024};
+  std::size_t const initial_map_size{1024};
   std::size_t const initial_file_offset{512};
   std::vector<value_type> out_host_buf(_file_size / sizeof(value_type), {});
 
   // file_offset is too large
   EXPECT_THAT(
     [&] {
-      kvikio::MmapHandle mmap_handle(_filepath, "r", initial_size, initial_file_offset);
-      mmap_handle.read(out_host_buf.data(), initial_size, _file_size);
+      kvikio::MmapHandle mmap_handle(_filepath, "r", initial_map_size, initial_file_offset);
+      mmap_handle.read(out_host_buf.data(), initial_map_size, _file_size);
     },
     ThrowsMessage<std::out_of_range>(HasSubstr("Offset is past the end of file")));
 
   // file_offset is too small
   EXPECT_THAT(
     [&] {
-      kvikio::MmapHandle mmap_handle(_filepath, "r", initial_size, initial_file_offset);
-      mmap_handle.read(out_host_buf.data(), initial_size, initial_file_offset - 128);
+      kvikio::MmapHandle mmap_handle(_filepath, "r", initial_map_size, initial_file_offset);
+      mmap_handle.read(out_host_buf.data(), initial_map_size, initial_file_offset - 128);
     },
     ThrowsMessage<std::out_of_range>(HasSubstr("Read is out of bound")));
 
   // size is 0
   EXPECT_THAT(
     [&] {
-      kvikio::MmapHandle mmap_handle(_filepath, "r", initial_size, initial_file_offset);
+      kvikio::MmapHandle mmap_handle(_filepath, "r", initial_map_size, initial_file_offset);
       mmap_handle.read(out_host_buf.data(), 0, initial_file_offset);
     },
     ThrowsMessage<std::invalid_argument>(HasSubstr("Read size must be greater than 0")));
@@ -161,8 +161,8 @@ TEST_F(MmapTest, read_invalid_range)
   // size is too large
   EXPECT_THAT(
     [&] {
-      kvikio::MmapHandle mmap_handle(_filepath, "r", initial_size, initial_file_offset);
-      mmap_handle.read(out_host_buf.data(), initial_size + 128, initial_file_offset);
+      kvikio::MmapHandle mmap_handle(_filepath, "r", initial_map_size, initial_file_offset);
+      mmap_handle.read(out_host_buf.data(), initial_map_size + 128, initial_file_offset);
     },
     ThrowsMessage<std::out_of_range>(HasSubstr("Read is out of bound")));
 }

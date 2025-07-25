@@ -55,9 +55,10 @@ void disable_read_optimization(void* addr)
  * @param v Change of `p` in bytes
  * @return A new address as a result of applying `v` on `p`
  *
- * @note It is UB in C++ when the initial pointer and the resulting pointer do not point to the
- * elements from the same array. This UB is considered acceptable here due to lack of a better
- * alternative.
+ * @note Technically, if the initial pointer is non-null, or does not point to an element of an
+ * array object, (p + v) is undefined behavior (https://eel.is/c++draft/expr.add#4). However,
+ * (p + v) on dynamic allocation is generally acceptable in practice, as long as users guarantee
+ * that the resulting pointer points to a valid region.
  */
 template <typename Integer>
 void* pointer_add(void* p, Integer v)
@@ -73,8 +74,10 @@ void* pointer_add(void* p, Integer v)
  * @param p2 The second pointer
  * @return Signed result of (`p1` - `p2`). Both pointers are cast to std::byte* before subtraction.
  *
- * @note It is UB in C++ when the two pointers engaged in subtraction do not point to the elements
- * from the same array. This UB is considered acceptable here due to lack of a better alternative.
+ * @note Technically, if two pointers do not point to elements from the same array, (p1 - p2) is
+ * undefined behavior (https://eel.is/c++draft/expr.add#5). However, (p1 - p2) on dynamic allocation
+ * is generally acceptable in practice, as long as users guarantee that both pointers are within the
+ * valid region.
  */
 std::ptrdiff_t pointer_diff(void* p1, void* p2)
 {
@@ -248,29 +251,29 @@ void read_impl(void* dst_buf,
 //     |
 // (0) |...............|...............|...............|...............|............
 //
-// (1) |<--_initial_file_offset-->|<---------------_initial_size--------------->|
+// (1) |<---_initial_map_offset-->|<---------------_initial_map_size--------------->|
 //                                |--> _buf
 //
 // (2) |<-_map_offset->|<----------------------_map_size----------------------->|
 //                     |--> _map_addr
 //
-// (3) |<---------------------file_offset--------------------->|<--size-->|
+// (3) |<--------------------------offset--------------------->|<--size-->|
 //                                |--> _buf
-//                                                             |--> start_addr
-//                                                     |--> start_aligned_addr
+//
 // (0): Layout of the file-backed memory mapping if the whole file were mapped
-// (1): At mapping handle construction time, the member `_initial_file_offset` and `_initial_size`
-// determine the mapped region (2): `_map_addr` is the page aligned address returned by `mmap`.
-// `_map_offset` is the adjusted offset.
-// (3): At read time, the argument `file_offset` and `size` determine the region to be read. This
-// region must be a subset of the one defined at mapping handle construction time.
+// (1): At mapping handle construction time, the member `_initial_map_offset` and
+// `_initial_map_size` determine the mapped region
+// (2): `_map_addr` is the page aligned address returned by `mmap`. `_map_offset` is the adjusted
+// offset.
+// (3): At read time, the argument `offset` and `size` determine the region to be read.
+// This region must be a subset of the one defined at mapping handle construction time.
 MmapHandle::MmapHandle(std::string const& file_path,
                        std::string const& flags,
-                       std::optional<std::size_t> initial_size,
-                       std::size_t initial_file_offset,
+                       std::optional<std::size_t> initial_map_size,
+                       std::size_t initial_map_offset,
                        mode_t mode,
                        std::optional<int> map_flags)
-  : _initial_file_offset(initial_file_offset),
+  : _initial_map_offset(initial_map_offset),
     _initialized{true},
     _file_wrapper(file_path, flags, false /* o_direct */, mode)
 {
@@ -280,22 +283,23 @@ MmapHandle::MmapHandle(std::string const& file_path,
   if (_file_size == 0) { return; }
 
   KVIKIO_EXPECT(
-    _initial_file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
+    _initial_map_offset < _file_size, "Offset is past the end of file", std::out_of_range);
 
-  // An initial size of std::nullopt is a shorthand for "starting from _initial_file_offset to the
+  // An initial size of std::nullopt is a shorthand for "starting from _initial_map_offset to the
   // end of file".
-  _initial_size =
-    initial_size.has_value() ? initial_size.value() : (_file_size - _initial_file_offset);
+  _initial_map_size =
+    initial_map_size.has_value() ? initial_map_size.value() : (_file_size - _initial_map_offset);
 
-  KVIKIO_EXPECT(_initial_size > 0, "Mapped region should not be zero byte", std::invalid_argument);
-  KVIKIO_EXPECT(_initial_file_offset + _initial_size <= _file_size,
+  KVIKIO_EXPECT(
+    _initial_map_size > 0, "Mapped region should not be zero byte", std::invalid_argument);
+  KVIKIO_EXPECT(_initial_map_offset + _initial_map_size <= _file_size,
                 "Mapped region is past the end of file",
                 std::out_of_range);
 
   auto const page_size    = get_page_size();
-  _map_offset             = detail::align_down(_initial_file_offset, page_size);
-  auto const offset_delta = _initial_file_offset - _map_offset;
-  _map_size               = _initial_size + offset_delta;
+  _map_offset             = detail::align_down(_initial_map_offset, page_size);
+  auto const offset_delta = _initial_map_offset - _map_offset;
+  _map_size               = _initial_map_size + offset_delta;
 
   switch (flags[0]) {
     case 'r': {
@@ -320,8 +324,8 @@ MmapHandle::MmapHandle(std::string const& file_path,
 
 MmapHandle::MmapHandle(MmapHandle&& o) noexcept
   : _buf{std::exchange(o._buf, {})},
-    _initial_size{std::exchange(o._initial_size, {})},
-    _initial_file_offset{std::exchange(o._initial_file_offset, {})},
+    _initial_map_size{std::exchange(o._initial_map_size, {})},
+    _initial_map_offset{std::exchange(o._initial_map_offset, {})},
     _file_size{std::exchange(o._file_size, {})},
     _map_offset{std::exchange(o._map_offset, {})},
     _map_size{std::exchange(o._map_size, {})},
@@ -336,17 +340,17 @@ MmapHandle::MmapHandle(MmapHandle&& o) noexcept
 MmapHandle& MmapHandle::operator=(MmapHandle&& o) noexcept
 {
   close();
-  _buf                 = std::exchange(o._buf, {});
-  _initial_size        = std::exchange(o._initial_size, {});
-  _initial_file_offset = std::exchange(o._initial_file_offset, {});
-  _file_size           = std::exchange(o._file_size, {});
-  _map_offset          = std::exchange(o._map_offset, {});
-  _map_size            = std::exchange(o._map_size, {});
-  _map_addr            = std::exchange(o._map_addr, {});
-  _initialized         = std::exchange(o._initialized, {});
-  _map_protection      = std::exchange(o._map_protection, {});
-  _map_flags           = std::exchange(o._map_flags, {});
-  _file_wrapper        = std::exchange(o._file_wrapper, {});
+  _buf                = std::exchange(o._buf, {});
+  _initial_map_size   = std::exchange(o._initial_map_size, {});
+  _initial_map_offset = std::exchange(o._initial_map_offset, {});
+  _file_size          = std::exchange(o._file_size, {});
+  _map_offset         = std::exchange(o._map_offset, {});
+  _map_size           = std::exchange(o._map_size, {});
+  _map_addr           = std::exchange(o._map_addr, {});
+  _initialized        = std::exchange(o._initialized, {});
+  _map_protection     = std::exchange(o._map_protection, {});
+  _map_flags          = std::exchange(o._map_flags, {});
+  _file_wrapper       = std::exchange(o._file_wrapper, {});
   return *this;
 }
 
@@ -367,22 +371,22 @@ void MmapHandle::close() noexcept
     SYSCALL_CHECK(ret);
   } catch (...) {
   }
-  _buf                 = {};
-  _initial_size        = {};
-  _initial_file_offset = {};
-  _file_size           = {};
-  _map_offset          = {};
-  _map_size            = {};
-  _map_addr            = {};
-  _initialized         = {};
-  _map_protection      = {};
-  _map_flags           = {};
-  _file_wrapper        = {};
+  _buf                = {};
+  _initial_map_size   = {};
+  _initial_map_offset = {};
+  _file_size          = {};
+  _map_offset         = {};
+  _map_size           = {};
+  _map_addr           = {};
+  _initialized        = {};
+  _map_protection     = {};
+  _map_flags          = {};
+  _file_wrapper       = {};
 }
 
-std::size_t MmapHandle::initial_size() const noexcept { return _initial_size; }
+std::size_t MmapHandle::initial_map_size() const noexcept { return _initial_map_size; }
 
-std::size_t MmapHandle::initial_file_offset() const noexcept { return _initial_file_offset; }
+std::size_t MmapHandle::initial_map_offset() const noexcept { return _initial_map_offset; }
 
 std::size_t MmapHandle::file_size() const
 {
@@ -392,30 +396,30 @@ std::size_t MmapHandle::file_size() const
 
 std::size_t MmapHandle::nbytes() const { return file_size(); }
 
-std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::size_t file_offset)
+std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::size_t offset)
 {
   KVIKIO_NVTX_FUNC_RANGE();
 
-  auto actual_size = validate_and_adjust_read_args(size, file_offset);
+  auto actual_size = validate_and_adjust_read_args(size, offset);
 
   auto const is_dst_buf_host_mem = is_host_memory(buf);
   CUcontext ctx{};
   if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
   // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
-  auto const src_mapped_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+  auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
   detail::read_impl(buf, src_mapped_buf, actual_size, 0, is_dst_buf_host_mem, ctx);
   return actual_size;
 }
 
 std::future<std::size_t> MmapHandle::pread(void* buf,
                                            std::optional<std::size_t> size,
-                                           std::size_t file_offset,
+                                           std::size_t offset,
                                            std::size_t task_size)
 {
   KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than task size.");
-  auto actual_size = validate_and_adjust_read_args(size, file_offset);
+  auto actual_size = validate_and_adjust_read_args(size, offset);
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(actual_size, nvtx_color);
@@ -425,12 +429,12 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
   // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
-  auto const src_mapped_buf = detail::pointer_add(_buf, file_offset - _initial_file_offset);
+  auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
   auto op =
     [this, src_mapped_buf = src_mapped_buf, is_dst_buf_host_mem = is_dst_buf_host_mem, ctx = ctx](
       void* dst_buf,
       std::size_t size,
-      std::size_t,  // file_offset will be taken into account by dst_buf, hence no longer used here
+      std::size_t,  // offset will be taken into account by dst_buf, hence no longer used here
       std::size_t buf_offset  // buf_offset will be incremented for each individual task
       ) -> std::size_t {
     detail::read_impl(dst_buf, src_mapped_buf, size, buf_offset, is_dst_buf_host_mem, ctx);
@@ -440,7 +444,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   return parallel_io(op,
                      buf,
                      actual_size,
-                     file_offset,
+                     offset,
                      task_size,
                      0,  // dst buffer offset initial value
                      call_idx,
@@ -448,14 +452,14 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
 }
 
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,
-                                                      std::size_t file_offset)
+                                                      std::size_t offset)
 {
   KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
-  KVIKIO_EXPECT(file_offset < _file_size, "Offset is past the end of file", std::out_of_range);
-  auto actual_size = size.has_value() ? size.value() : _file_size - file_offset;
+  KVIKIO_EXPECT(offset < _file_size, "Offset is past the end of file", std::out_of_range);
+  auto actual_size = size.has_value() ? size.value() : _file_size - offset;
   KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
-  KVIKIO_EXPECT(file_offset >= _initial_file_offset &&
-                  file_offset + actual_size <= _initial_file_offset + _initial_size,
+  KVIKIO_EXPECT(offset >= _initial_map_offset &&
+                  offset + actual_size <= _initial_map_offset + _initial_map_size,
                 "Read is out of bound",
                 std::out_of_range);
   return actual_size;

@@ -31,15 +31,15 @@ namespace kvikio {
  * `pread()` to read a range of data into user-provided memory residing on the host or device.
  *
  * File-backed memory can be considered when a large number of nonadjacent file ranges (specified by
- * the `file_offset` and `file_size` pair) are to be frequently accessed. It can potentially reduce
- * memory usage due to demand paging (compared to reading the entire file with `read(2)`), and may
- * improve I/O performance compared to frequent calls to `read(2)`.
+ * the `offset` and `size` pair) are to be frequently accessed. It can potentially reduce memory
+ * usage due to demand paging (compared to reading the entire file with `read(2)`), and may improve
+ * I/O performance compared to frequent calls to `read(2)`.
  */
 class MmapHandle {
  private:
   void* _buf{};
-  std::size_t _initial_size{};
-  std::size_t _initial_file_offset{};
+  std::size_t _initial_map_size{};
+  std::size_t _initial_map_offset{};
   std::size_t _file_size{};
   std::size_t _map_offset{};
   std::size_t _map_size{};
@@ -52,18 +52,18 @@ class MmapHandle {
   /**
    * @brief Validate and adjust the read arguments.
    *
-   * @param size Size in bytes to read. If not specified, set it to the bytes from `file_offset` to
+   * @param size Size in bytes to read. If not specified, set it to the bytes from `offset` to
    * the end of file
-   * @param file_offset File offset
+   * @param offset File offset
    * @return Adjusted size in bytes to read
    *
-   * @exception std::out_of_range if the read region specified by `file_offset` and `size` is
+   * @exception std::out_of_range if the read region specified by `offset` and `size` is
    * outside the initial region specified when the mapping handle was constructed
    * @exception std::invalid_argument if the size is given but is 0
    * @exception std::runtime_error if the mapping handle is closed
    */
   std::size_t validate_and_adjust_read_args(std::optional<std::size_t> const& size,
-                                            std::size_t file_offset);
+                                            std::size_t offset);
 
  public:
   /**
@@ -81,18 +81,18 @@ class MmapHandle {
    *   - "w": "open for writing, truncating the file first"
    *   - "a": "open for writing, appending to the end of file if it exists"
    *   - "+": "open for updating (reading and writing)"
-   * @param initial_size Size in bytes of the mapped region. If not specified, map the region
-   * starting from `initial_file_offset` to the end of file
-   * @param initial_file_offset File offset of the mapped region
+   * @param initial_map_size Size in bytes of the mapped region. If not specified, map the region
+   * starting from `initial_map_offset` to the end of file
+   * @param initial_map_offset File offset of the mapped region
    * @param mode Access mode
    * @param map_flags Flags to be passed to the system call `mmap`. See `mmap(2)` for details
    */
   MmapHandle(std::string const& file_path,
-             std::string const& flags                = "r",
-             std::optional<std::size_t> initial_size = std::nullopt,
-             std::size_t initial_file_offset         = 0,
-             mode_t mode                             = FileHandle::m644,
-             std::optional<int> map_flags            = std::nullopt);
+             std::string const& flags                    = "r",
+             std::optional<std::size_t> initial_map_size = std::nullopt,
+             std::size_t initial_map_offset              = 0,
+             mode_t mode                                 = FileHandle::m644,
+             std::optional<int> map_flags                = std::nullopt);
 
   MmapHandle(MmapHandle const&)            = delete;
   MmapHandle& operator=(MmapHandle const&) = delete;
@@ -105,14 +105,14 @@ class MmapHandle {
    *
    * @return Initial size of the mapped region
    */
-  [[nodiscard]] std::size_t initial_size() const noexcept;
+  [[nodiscard]] std::size_t initial_map_size() const noexcept;
 
   /**
    * @brief File offset of the mapped region when the mapping handle was constructed
    *
    * @return Initial file offset of the mapped region
    */
-  [[nodiscard]] std::size_t initial_file_offset() const noexcept;
+  [[nodiscard]] std::size_t initial_map_offset() const noexcept;
 
   /**
    * @brief Get the file size if the file is open. Returns 0 if the file is closed.
@@ -143,36 +143,36 @@ class MmapHandle {
   void close() noexcept;
 
   /**
-   * @brief Sequential read `size` bytes from the file (with the offset `file_offset`) to the
+   * @brief Sequential read `size` bytes from the file (with the offset `offset`) to the
    * destination buffer `buf`
    *
    * @param buf Address of the host or device memory (destination buffer)
-   * @param size Size in bytes to read. If not specified, read starts from `file_offset` to the end
+   * @param size Size in bytes to read. If not specified, read starts from `offset` to the end
    * of file
-   * @param file_offset File offset
+   * @param offset File offset
    * @return Number of bytes that have been read
    *
-   * @exception std::out_of_range if the read region specified by `file_offset` and `size` is
+   * @exception std::out_of_range if the read region specified by `offset` and `size` is
    * outside the initial region specified when the mapping handle was constructed
    * @exception std::invalid_argument if the size is given but is 0
    * @exception std::runtime_error if the mapping handle is closed
    */
   std::size_t read(void* buf,
                    std::optional<std::size_t> size = std::nullopt,
-                   std::size_t file_offset         = 0);
+                   std::size_t offset              = 0);
 
   /**
-   * @brief Parallel read `size` bytes from the file (with the offset `file_offset`) to the
+   * @brief Parallel read `size` bytes from the file (with the offset `offset`) to the
    * destination buffer `buf`
    *
    * @param buf Address of the host or device memory (destination buffer)
-   * @param size Size in bytes to read. If not specified, read starts from `file_offset` to the end
+   * @param size Size in bytes to read. If not specified, read starts from `offset` to the end
    * of file
-   * @param file_offset File offset
+   * @param offset File offset
    * @param task_size Size of each task in bytes
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
-   * @exception std::out_of_range if the read region specified by `file_offset` and `size` is
+   * @exception std::out_of_range if the read region specified by `offset` and `size` is
    * outside the initial region specified when the mapping handle was constructed
    * @exception std::invalid_argument if the size is given but is 0
    * @exception std::runtime_error if the mapping handle is closed
@@ -182,7 +182,7 @@ class MmapHandle {
    */
   std::future<std::size_t> pread(void* buf,
                                  std::optional<std::size_t> size = std::nullopt,
-                                 std::size_t file_offset         = 0,
+                                 std::size_t offset              = 0,
                                  std::size_t task_size           = defaults::task_size());
 };
 

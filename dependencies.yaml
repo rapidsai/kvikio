@@ -13,7 +13,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_cupy
-      - depends_on_nvcomp
+      - depends_on_libnvcomp
       - docs
       - py_version
       - rapids_build_skbuild
@@ -67,9 +67,9 @@ files:
     includes:
       - depends_on_cupy
       # TODO: restore runtime dependency when we no longer vendor nvcomp
-      # (when nvcomp supports Python 3.13)
+      # (when nvcomp ships C++ wheels)
       # https://github.com/rapidsai/build-planning/issues/171
-      # - depends_on_nvcomp
+      # - depends_on_libnvcomp
       - depends_on_libkvikio
       - run
   py_rapids_build_libkvikio:
@@ -151,7 +151,7 @@ dependencies:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==25.8.*,>=0.0.0a0
+          - libkvikio==25.10.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -159,7 +159,7 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.8.*,>=0.0.0a0
+              - libkvikio-cu12==25.10.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
@@ -220,34 +220,16 @@ dependencies:
           - matrix: # All CUDA 12 versions
             packages:
               - cupy-cuda12x>=12.0.0
-  depends_on_nvcomp:
+  depends_on_libnvcomp:
     common:
       - output_types: conda
         packages:
-          - nvcomp==4.2.0.11
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-              use_cuda_wheels: "true"
-            packages:
-              - nvidia-nvcomp-cu12==4.2.0.11
-          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
-          # (e.g. for DLFW and pip devcontainers)
-          - matrix:
-              use_cuda_wheels: "false"
-            packages:
-          # if no matching matrix selectors passed, list the unsuffixed packages
-          # (just as a source of documentation, as this populates pyproject.toml in source control)
-          - matrix:
-            packages:
-              - nvidia-nvcomp==4.2.0.11
+          - libnvcomp-dev==4.2.0.11
   depends_on_libkvikio:
     common:
       - output_types: conda
         packages:
-          - &libkvikio_unsuffixed libkvikio==25.8.*,>=0.0.0a0
+          - &libkvikio_unsuffixed libkvikio==25.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -261,7 +243,7 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.8.*,>=0.0.0a0
+              - libkvikio-cu12==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   docs:
     common:
@@ -321,14 +303,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.8.*,>=0.0.0a0
-          - libkvikio-tests==25.8.*,>=0.0.0a0
+          - libkvikio==25.10.*,>=0.0.0a0
+          - libkvikio-tests==25.10.*,>=0.0.0a0
   test_kvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.8.*,>=0.0.0a0
-          - kvikio==25.8.*,>=0.0.0a0
+          - libkvikio==25.10.*,>=0.0.0a0
+          - kvikio==25.10.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -338,7 +320,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-dask-dependency==25.8.*,>=0.0.0a0
+          - rapids-dask-dependency==25.10.*,>=0.0.0a0
           - pytest
           - pytest-asyncio
           - pytest-cov
