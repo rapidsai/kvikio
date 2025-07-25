@@ -26,13 +26,33 @@ export RAPIDS_ARTIFACTS_DIR
 source rapids-rattler-channel-string
 
 # Construct the extra variants according to the architecture
-cat > variants.yaml << EOF
-cuda_version:
-  - ${RAPIDS_CUDA_VERSION%.*}
+if [[ "$(arch)" == "x86_64" ]]; then
+    cat > variants.yaml << EOF
+    c_compiler_version:
+      - 14
+
+    cxx_compiler_version:
+      - 14
+
+    cuda_version:
+      - ${RAPIDS_CUDA_VERSION%.*}
 EOF
-if [[ "$(arch)" == "aarch64" ]]; then
-  cat >> variants.yaml << EOF
-  - 12.1 # The last version to not support cufile
+else
+    cat > variants.yaml << EOF
+    zip_keys:
+    - [c_compiler_version, cxx_compiler_version, cuda_version]
+
+    c_compiler_version:
+    - 12
+    - 14
+
+    cxx_compiler_version:
+    - 12
+    - 14
+
+    cuda_version:
+    - 12.1 # The last version to not support cufile
+    - ${RAPIDS_CUDA_VERSION%.*}
 EOF
 fi
 
