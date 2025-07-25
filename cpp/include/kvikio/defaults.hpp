@@ -77,7 +77,7 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
  * `result` be the set value. If more than one candidates have been set with the same value,
  * `env_var_name` will be assigned the last candidate.
  *
- * @throws std::invalid_argument if:
+ * @exception std::invalid_argument if:
  *   - `env_var_names` is empty.
  *   - The environment variable is not defined to be string type and is assigned an empty value (in
  *     other words, string-type environment variables are allowed to hold an empty value).
