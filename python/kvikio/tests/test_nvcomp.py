@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import pytest
@@ -77,12 +77,11 @@ def test_round_trip_dtypes(manager, dtype):
     "inputs",
     [
         {},
-        {"chunk_size": 1 << 16, "device_id": 0},
         {
             "chunk_size": 1 << 16,
         },
         {
-            "device_id": 0,
+            "chunk_size": 1 << 16,
         },
     ],
 )
@@ -99,13 +98,13 @@ def test_ans_inputs(inputs):
     "inputs",
     [
         {},
-        {"data_type": np.uint8, "algo": 0, "device_id": 0},
+        {
+            "data_type": np.uint8,
+            "algo": 0,
+        },
         {"data_type": np.uint8},
         {
             "algo": 0,
-        },
-        {
-            "device_id": 0,
         },
     ],
 )
@@ -179,7 +178,6 @@ def test_bitcomp_algorithms(inputs, expected):
                 "num_deltas": 1,
                 "use_bp": True,
             },
-            "device_id": 0,
         },
     ],
 )
@@ -196,15 +194,15 @@ def test_cascaded_inputs(inputs):
     "inputs",
     [
         {},
-        {"chunk_size": 1 << 16, "algo": 0, "device_id": 0},
+        {
+            "chunk_size": 1 << 16,
+            "algo": 0,
+        },
         {
             "chunk_size": 1 << 16,
         },
         {
             "algo": 0,
-        },
-        {
-            "device_id": 0,
         },
     ],
 )
@@ -253,15 +251,15 @@ def test_gdeflate_algorithms_not_implemented(inputs, expected):
     "inputs",
     [
         {},
-        {"chunk_size": 1 << 16, "data_type": np.uint8, "device_id": 0},
+        {
+            "chunk_size": 1 << 16,
+            "data_type": np.uint8,
+        },
         {
             "chunk_size": 1 << 16,
         },
         {
             "data_type": np.uint8,
-        },
-        {
-            "device_id": 0,
         },
     ],
 )
@@ -278,11 +276,13 @@ def test_lz4_inputs(inputs):
     "inputs",
     [
         {},
-        {"chunk_size": 1 << 16, "device_id": 0},
         {
             "chunk_size": 1 << 16,
         },
-        {"device_id": 0},
+        {
+            "chunk_size": 1 << 16,
+        },
+        {},
     ],
 )
 def test_snappy_inputs(inputs):

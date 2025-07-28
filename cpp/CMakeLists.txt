@@ -12,9 +12,9 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
-include(cmake/rapids_config.cmake)
+include(../cmake/rapids_config.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-export)
@@ -29,6 +29,11 @@ project(
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
+# For now, disable CMake's automatic module scanning for C++ files. There is an sccache bug in the
+# version RAPIDS uses in CI that causes it to handle the resulting -M* flags incorrectly with
+# gcc>=14. We can remove this once we upgrade to a newer sccache version.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 # Write the version header
 rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 
@@ -39,6 +44,7 @@ rapids_cmake_build_type(Release)
 # * build options ----------------------------------------------------------------------------------
 
 option(BUILD_SHARED_LIBS "Build KvikIO shared library" ON)
+option(KvikIO_BUILD_BENCHMARKS "Configure CMake to build benchmarks" ON)
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
@@ -138,11 +144,16 @@ set(SOURCES
     "src/batch.cpp"
     "src/bounce_buffer.cpp"
     "src/buffer.cpp"
+    "src/compat_mode.cpp"
+    "src/http_status_codes.cpp"
     "src/cufile/config.cpp"
     "src/cufile/driver.cpp"
     "src/defaults.cpp"
     "src/error.cpp"
     "src/file_handle.cpp"
+    "src/file_utils.cpp"
+    "src/mmap.cpp"
+    "src/nvtx.cpp"
     "src/posix_io.cpp"
     "src/shim/cuda.cpp"
     "src/shim/cufile.cpp"
@@ -198,6 +209,17 @@ set_target_properties(
              POSITION_INDEPENDENT_CODE ON
              INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
+
+# ##################################################################################################
+# * add benchmarks --------------------------------------------------------------------------------
+
+if(KvikIO_BUILD_BENCHMARKS)
+  # Find or install GoogleBench
+  include(${rapids-cmake-dir}/cpm/gbench.cmake)
+  rapids_cpm_gbench(BUILD_STATIC)
+
+  add_subdirectory(benchmarks)
+endif()
 
 # ##################################################################################################
 # * add examples -----------------------------------------------------------------------------------

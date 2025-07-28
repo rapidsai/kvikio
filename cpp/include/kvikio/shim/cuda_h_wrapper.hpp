@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ using CUstream  = struct CUstream_st*;
 #define CU_POINTER_ATTRIBUTE_CONTEXT        0
 #define CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL 0
 #define CU_POINTER_ATTRIBUTE_DEVICE_POINTER 0
-#define CU_MEMHOSTREGISTER_PORTABLE         0
+#define CU_MEMHOSTALLOC_PORTABLE            0
 #define CU_STREAM_DEFAULT                   0
 
 CUresult cuInit(...);
@@ -60,19 +60,36 @@ CUresult cuMemHostAlloc(...);
 CUresult cuMemFreeHost(...);
 CUresult cuMemcpyHtoDAsync(...);
 CUresult cuMemcpyDtoHAsync(...);
+CUresult cuMemcpyBatchAsync(...);
 CUresult cuPointerGetAttribute(...);
 CUresult cuPointerGetAttributes(...);
 CUresult cuCtxPushCurrent(...);
 CUresult cuCtxPopCurrent(...);
 CUresult cuCtxGetCurrent(...);
+CUresult cuCtxGetDevice(...);
 CUresult cuMemGetAddressRange(...);
 CUresult cuGetErrorName(...);
 CUresult cuGetErrorString(...);
 CUresult cuDeviceGet(...);
+CUresult cuDeviceGetCount(...);
+CUresult cuDeviceGetAttribute(...);
 CUresult cuDevicePrimaryCtxRetain(...);
 CUresult cuDevicePrimaryCtxRelease(...);
 CUresult cuStreamCreate(...);
 CUresult cuStreamDestroy(...);
 CUresult cuStreamSynchronize(...);
+CUresult cuDriverGetVersion(...);
+
+enum CUdevice_attribute {
+  CU_DEVICE_ATTRIBUTE_PAGEABLE_MEMORY_ACCESS_USES_HOST_PAGE_TABLES,
+};
+
+enum CUmemcpySrcAccessOrder_enum {
+  CU_MEMCPY_SRC_ACCESS_ORDER_STREAM,
+};
+
+struct CUmemcpyAttributes {
+  int srcAccessOrder;
+};
 
 #endif

@@ -24,7 +24,7 @@ namespace kvikio {
  * GPUDirect Storage access.
  *
  * @param devPtr_base  device pointer to allocated
- * @param length  size of memory region from the above specified devPtr
+ * @param size  size of memory region from the above specified devPtr
  * @param flags   should be zero or `CU_FILE_RDMA_REGISTER` (experimental)
  * @param errors_to_ignore  CuFile errors to ignore such as `CU_FILE_MEMORY_ALREADY_REGISTERED`
  * or `CU_FILE_INVALID_MAPPING_SIZE`
@@ -35,17 +35,17 @@ namespace kvikio {
  * streaming buffer that is reused across multiple cuFile IO operations.
  */
 /*NOLINTNEXTLINE(readability-function-cognitive-complexity)*/
-void buffer_register(const void* devPtr_base,
+void buffer_register(void const* devPtr_base,
                      std::size_t size,
                      int flags                                = 0,
-                     const std::vector<int>& errors_to_ignore = std::vector<int>());
+                     std::vector<int> const& errors_to_ignore = std::vector<int>());
 
 /**
  * @brief deregister an already registered device memory from cuFile
  *
  * @param devPtr_base  device pointer to deregister
  */
-void buffer_deregister(const void* devPtr_base);
+void buffer_deregister(void const* devPtr_base);
 
 /**
  * @brief Register device memory allocation which is part of devPtr. Use this
@@ -61,15 +61,15 @@ void buffer_deregister(const void* devPtr_base);
  * @warning This API is intended for usecases where the memory is used as
  * streaming buffer that is reused across multiple cuFile IO operations.
  */
-void memory_register(const void* devPtr,
+void memory_register(void const* devPtr,
                      int flags                                = 0,
-                     const std::vector<int>& errors_to_ignore = {});
+                     std::vector<int> const& errors_to_ignore = {});
 
 /**
  * @brief  deregister an already registered device memory from cuFile.
  *
  * @param devPtr device pointer to deregister
  */
-void memory_deregister(const void* devPtr);
+void memory_deregister(void const* devPtr);
 
 }  // namespace kvikio

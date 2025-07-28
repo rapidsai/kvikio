@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import argparse
@@ -118,7 +118,7 @@ def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
     cupy.arange(10)  # Make sure CUDA is initialized
 
-    kvikio.defaults.num_threads_reset(args.nthreads)
+    kvikio.defaults.set("num_threads", args.nthreads)
     drop_vm_cache_msg = str(args.drop_vm_cache)
     if not args.drop_vm_cache:
         drop_vm_cache_msg += " (use --drop-vm-cache for better accuracy!)"

@@ -20,6 +20,7 @@
 #include <sstream>
 #include <vector>
 
+#include <kvikio/error.hpp>
 #include <kvikio/shim/utils.hpp>
 
 namespace kvikio {
@@ -28,30 +29,17 @@ void* load_library(std::string const& name, int mode)
 {
   ::dlerror();  // Clear old errors
   void* ret = ::dlopen(name.c_str(), mode);
-  if (ret == nullptr) { throw std::runtime_error(::dlerror()); }
+  KVIKIO_EXPECT(ret != nullptr, ::dlerror(), std::runtime_error);
   return ret;
-}
-
-void* load_library(std::vector<std::string> const& names, int mode)
-{
-  std::stringstream ss;
-  for (auto const& name : names) {
-    ss << name << " ";
-    try {
-      return load_library(name, mode);
-    } catch (const std::runtime_error&) {
-    }
-  }
-  throw std::runtime_error("cannot open shared object file, tried: " + ss.str());
 }
 
 bool is_running_in_wsl() noexcept
 {
   try {
-    struct utsname buf {};
+    struct utsname buf{};
     int err = ::uname(&buf);
     if (err == 0) {
-      const std::string name(static_cast<char*>(buf.release));
+      std::string const name(static_cast<char*>(buf.release));
       // 'Microsoft' for WSL1 and 'microsoft' for WSL2
       return name.find("icrosoft") != std::string::npos;
     }

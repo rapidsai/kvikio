@@ -17,6 +17,7 @@
 
 #include <dlfcn.h>
 #include <sys/utsname.h>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -48,15 +49,6 @@ namespace kvikio {
 void* load_library(std::string const& name, int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
 
 /**
- * @brief Load shared library
- *
- * @param names Vector of names to try when loading shared library.
- * @return The library handle.
- */
-void* load_library(std::vector<std::string> const& names,
-                   int mode = RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
-
-/**
  * @brief Get symbol using `dlsym`
  *
  * @tparam T The type of the function pointer.
@@ -70,7 +62,7 @@ void get_symbol(T& handle, void* lib, std::string const& name)
   ::dlerror();  // Clear old errors
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   handle          = reinterpret_cast<T>(::dlsym(lib, name.c_str()));
-  const char* err = ::dlerror();
+  char const* err = ::dlerror();
   if (err != nullptr) { throw std::runtime_error(err); }
 }
 

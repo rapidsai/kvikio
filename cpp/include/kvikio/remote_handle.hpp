@@ -32,6 +32,8 @@
 #include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
 
+struct curl_slist;
+
 namespace kvikio {
 
 class CurlHandle;  // Prototype
@@ -92,6 +94,7 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _url;
   std::string _aws_sigv4;
   std::string _aws_userpwd;
+  curl_slist* _curl_header_list{};
 
   /**
    * @brief Unwrap an optional parameter, obtaining a default from the environment.
@@ -114,7 +117,7 @@ class S3Endpoint : public RemoteEndpoint {
   /**
    * @brief Get url from a AWS S3 bucket and object name.
    *
-   * @throws std::invalid_argument if no region is specified and no default region is
+   * @exception std::invalid_argument if no region is specified and no default region is
    * specified in the environment.
    *
    * @param bucket_name The name of the S3 bucket.
@@ -126,15 +129,15 @@ class S3Endpoint : public RemoteEndpoint {
    * `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular AWS
    * url scheme is used: "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
    */
-  static std::string url_from_bucket_and_object(std::string const& bucket_name,
-                                                std::string const& object_name,
-                                                std::optional<std::string> const& aws_region,
+  static std::string url_from_bucket_and_object(std::string bucket_name,
+                                                std::string object_name,
+                                                std::optional<std::string> aws_region,
                                                 std::optional<std::string> aws_endpoint_url);
 
   /**
    * @brief Given an url like "s3://<bucket>/<object>", return the name of the bucket and object.
    *
-   * @throws std::invalid_argument if url is ill-formed or is missing the bucket or object name.
+   * @exception std::invalid_argument if url is ill-formed or is missing the bucket or object name.
    *
    * @param s3_url S3 url.
    * @return Pair of strings: [bucket-name, object-name].
@@ -153,17 +156,19 @@ class S3Endpoint : public RemoteEndpoint {
    * `AWS_ACCESS_KEY_ID` environment variable is used.
    * @param aws_secret_access_key The AWS secret access key to use. If nullopt, the value of the
    * `AWS_SECRET_ACCESS_KEY` environment variable is used.
+   * @param aws_session_token The AWS session token to use. If nullopt, the value of the
+   * `AWS_SESSION_TOKEN` environment variable is used.
    */
   S3Endpoint(std::string url,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
-             std::optional<std::string> aws_secret_access_key = std::nullopt);
+             std::optional<std::string> aws_secret_access_key = std::nullopt,
+             std::optional<std::string> aws_session_token     = std::nullopt);
 
   /**
    * @brief Create a S3 endpoint from a bucket and object name.
    *
-   * @param bucket_name The name of the S3 bucket.
-   * @param object_name The name of the S3 object.
+   * @param bucket_and_object_names The bucket and object names of the S3 bucket.
    * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
    * `AWS_DEFAULT_REGION` environment variable is used.
    * @param aws_access_key The AWS access key to use. If nullopt, the value of the
@@ -174,17 +179,19 @@ class S3Endpoint : public RemoteEndpoint {
    * the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If nullopt, the value of the
    * `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular AWS
    * url scheme is used: "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
+   * @param aws_session_token The AWS session token to use. If nullopt, the value of the
+   * `AWS_SESSION_TOKEN` environment variable is used.
    */
-  S3Endpoint(std::string const& bucket_name,
-             std::string const& object_name,
+  S3Endpoint(std::pair<std::string, std::string> bucket_and_object_names,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
              std::optional<std::string> aws_secret_access_key = std::nullopt,
-             std::optional<std::string> aws_endpoint_url      = std::nullopt);
+             std::optional<std::string> aws_endpoint_url      = std::nullopt,
+             std::optional<std::string> aws_session_token     = std::nullopt);
 
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-  ~S3Endpoint() override = default;
+  ~S3Endpoint() override;
 };
 
 /**

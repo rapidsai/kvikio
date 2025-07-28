@@ -1,9 +1,10 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 from __future__ import annotations
 
 import functools
+import urllib.parse
 from typing import Optional
 
 from kvikio.cufile import IOFuture
@@ -81,6 +82,7 @@ class RemoteFile:
           - `AWS_DEFAULT_REGION`
           - `AWS_ACCESS_KEY_ID`
           - `AWS_SECRET_ACCESS_KEY`
+          - `AWS_SESSION_TOKEN` (when using temporary credentials)
 
         Additionally, to overwrite the AWS endpoint, set `AWS_ENDPOINT_URL`.
         See <https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html>
@@ -115,6 +117,7 @@ class RemoteFile:
           - `AWS_DEFAULT_REGION`
           - `AWS_ACCESS_KEY_ID`
           - `AWS_SECRET_ACCESS_KEY`
+          - `AWS_SESSION_TOKEN` (when using temporary credentials)
 
         Additionally, if `url` is a S3 url, it is possible to overwrite the AWS endpoint
         by setting `AWS_ENDPOINT_URL`.
@@ -128,12 +131,12 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        url = url.lower()
-        if url.startswith("http://") or url.startswith("https://"):
+        parsed_result = urllib.parse.urlparse(url.lower())
+        if parsed_result.scheme in ("http", "https"):
             return RemoteFile(
                 _get_remote_module().RemoteFile.open_s3_from_http_url(url, nbytes)
             )
-        if url.startswith("s3://"):
+        if parsed_result.scheme == "s3":
             return RemoteFile(
                 _get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes)
             )

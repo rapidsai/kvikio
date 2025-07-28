@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,9 +12,9 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
-include(../../cpp/cmake/rapids_config.cmake)
+include(../../cmake/rapids_config.cmake)
 include(rapids-cpm)
 include(rapids-cuda)
 rapids_cuda_init_architectures(libkvikio-python)
@@ -36,11 +36,20 @@ endif()
 
 unset(kvikio_FOUND)
 
+set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 if(USE_NVCOMP_RUNTIME_WHEEL)
   set(KvikIO_EXPORT_NVCOMP OFF)
+else()
+  # vendor nvcomp but not the entire kvikio-export set because that's huge
+  include(cmake/thirdparty/get_nvcomp.cmake)
+  include(cmake/Modules/WheelHelpers.cmake)
+  install_aliased_imported_targets(
+    TARGETS nvcomp::nvcomp DESTINATION ${SKBUILD_PLATLIB_DIR}/libkvikio/lib64/
+  )
 endif()
+
 set(CUDA_STATIC_RUNTIME ON)
 
 add_subdirectory(../../cpp kvikio-cpp)

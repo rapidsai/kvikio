@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import argparse
@@ -47,7 +47,7 @@ def main(args):
     cupy.cuda.set_allocator(None)  # Disable CuPy's default memory pool
     cupy.arange(10)  # Make sure CUDA is initialized
 
-    kvikio.defaults.num_threads_reset(args.nthreads)
+    kvikio.defaults.set("num_threads", args.nthreads)
     print("Roundtrip benchmark")
     print("--------------------------------------")
     print(f"nelem       | {args.nelem} ({format_bytes(args.nbytes)})")
@@ -68,7 +68,8 @@ def main(args):
             res.append(elapsed)
 
         def pprint_api_res(name, samples):
-            samples = [args.nbytes / s for s in samples]  # Convert to throughput
+            # Convert to throughput
+            samples = [args.nbytes / s for s in samples]
             mean = statistics.harmonic_mean(samples) if len(samples) > 1 else samples[0]
             ret = f"{api}-{name}".ljust(18)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
