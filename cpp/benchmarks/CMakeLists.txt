@@ -42,7 +42,14 @@ function(kvikio_add_benchmark)
   endif()
 
   add_executable(${_KVIKIO_NAME} ${_KVIKIO_SOURCES})
-  set_target_properties(${_KVIKIO_NAME} PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
+  set_target_properties(
+    ${_KVIKIO_NAME}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+               CXX_STANDARD 20
+               CXX_STANDARD_REQUIRED ON
+               CUDA_STANDARD 20
+               CUDA_STANDARD_REQUIRED ON
+  )
 
   target_link_libraries(${_KVIKIO_NAME} PUBLIC benchmark::benchmark kvikio::kvikio)
 
