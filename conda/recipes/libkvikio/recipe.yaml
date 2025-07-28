@@ -10,8 +10,6 @@ context:
   # 3. Linux aarch64 with CUDA < 12.2, which does not use libcufile
   # Each case has different cuda-version constraints as expressed below
   should_use_cufile: ${{ x86_64 or (aarch64 and cuda_version >= "12.2") }}
-  c_compiler_version: ${{ 13 if should_use_cufile else 12 }}
-  cxx_compiler_version: ${{ c_compiler_version }}
   # When reverting, instances of cuda_key_string can be replaced with cuda_major
   cuda_key_string: ${{ cuda_version | replace(".", "_") }}
   #cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
