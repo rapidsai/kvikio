@@ -147,7 +147,7 @@ class Mmap:
             File offset. Default is 0.
         task_size : int, optional
             Size of each task in bytes for parallel execution. If None, uses
-            the default task size from kvikio.defaults.task_size().
+            the default task size from :func:`kvikio.defaults.task_size`.
 
         Returns
         -------

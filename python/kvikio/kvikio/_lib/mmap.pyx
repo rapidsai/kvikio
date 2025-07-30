@@ -27,11 +27,11 @@ cdef extern from "<kvikio/mmap.hpp>" namespace "kvikio" nogil:
         CppMmapHandle(string file_path, string flags, optional[size_t] initial_map_size,
                       size_t initial_map_offset, fcntl.mode_t mode,
                       optional[int] map_flags) except +
-        size_t initial_map_size()
-        size_t initial_map_offset()
+        size_t initial_map_size() noexcept
+        size_t initial_map_offset() noexcept
         size_t file_size() except +
-        void close()
-        bool closed()
+        void close() noexcept
+        bool closed() noexcept
         size_t read(void* buf, optional[size_t] size, size_t offset) except +
         future[size_t] pread(void* buf, optional[size_t] size, size_t offset,
                              size_t task_size) except +

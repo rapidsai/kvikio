@@ -13,8 +13,8 @@ numpy = pytest.importorskip("numpy")
 
 
 def test_no_file(tmp_path):
+    nonexistent_file = tmp_path / "nonexistent_file"
     with pytest.raises(RuntimeError, match=r".*Unable to open file.*"):
-        nonexistent_file = tmp_path / "nonexistent_file"
         kvikio.Mmap(nonexistent_file)
 
 
