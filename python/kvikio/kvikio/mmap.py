@@ -3,7 +3,7 @@
 
 import os
 import stat
-from typing import Optional
+from typing import Any, Optional
 
 from kvikio._lib.mmap import InternalMmapHandle
 from kvikio.cufile import IOFuture
@@ -98,7 +98,7 @@ class Mmap:
         """
         return self._handle.closed()
 
-    def read(self, buf, size: Optional[int] = None, offset: int = 0) -> int:
+    def read(self, buf: Any, size: Optional[int] = None, offset: int = 0) -> int:
         """Sequential read ``size`` bytes from the file to the destination buffer
         ``buf``
 
@@ -129,7 +129,7 @@ class Mmap:
 
     def pread(
         self,
-        buf,
+        buf: Any,
         size: Optional[int] = None,
         offset: int = 0,
         task_size: Optional[int] = None,

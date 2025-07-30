@@ -6,6 +6,7 @@
 
 import os
 import pathlib
+from typing import Any, Optional
 
 from posix cimport fcntl, stat
 
@@ -85,7 +86,7 @@ cdef class InternalMmapHandle:
     def closed(self) -> bool:
         return self._handle.closed()
 
-    def read(self, buf, size: Optional[int] = None, offset: int = 0) -> int:
+    def read(self, buf: Any, size: Optional[int] = None, offset: int = 0) -> int:
         cdef optional[size_t] cpp_size
         if size is None:
             cpp_size = nullopt
@@ -96,7 +97,7 @@ cdef class InternalMmapHandle:
                                  cpp_size,
                                  offset)
 
-    def pread(self, buf, size: Optional[int] = None, offset: int = 0,
+    def pread(self, buf: Any, size: Optional[int] = None, offset: int = 0,
               task_size: Optional[int] = None) -> IOFuture:
         cdef optional[size_t] cpp_size
         if size is None:
