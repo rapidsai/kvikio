@@ -71,7 +71,7 @@ TEST_F(MmapTest, invalid_file_open_flag)
 {
   // Empty file open flag
   EXPECT_THAT(
-    [=] {
+    [&] {
       {
         kvikio::MmapHandle(_filepath, "");
       }
@@ -80,7 +80,7 @@ TEST_F(MmapTest, invalid_file_open_flag)
 
   // Invalid file open flag
   EXPECT_THAT(
-    [=] {
+    [&] {
       {
         kvikio::MmapHandle(_filepath, "z");
       }
@@ -91,7 +91,7 @@ TEST_F(MmapTest, invalid_file_open_flag)
 TEST_F(MmapTest, invalid_mmap_flag)
 {
   EXPECT_THAT(
-    [=] {
+    [&] {
       {
         int invalid_flag{-1};
         kvikio::MmapHandle(_filepath, "r", std::nullopt, 0, kvikio::FileHandle::m644, invalid_flag);
@@ -108,12 +108,12 @@ TEST_F(MmapTest, constructor_invalid_range)
 
   // init_file_offset is too large (by 1 char)
   EXPECT_THAT(
-    [=] { kvikio::MmapHandle(_filepath, "r", std::nullopt, _file_size); },
+    [&] { kvikio::MmapHandle(_filepath, "r", std::nullopt, _file_size); },
     ThrowsMessage<std::out_of_range>(HasSubstr("Offset must be less than the file size")));
 
   // init_size is 0
   EXPECT_THAT(
-    [=] { kvikio::MmapHandle(_filepath, "r", 0); },
+    [&] { kvikio::MmapHandle(_filepath, "r", 0); },
     ThrowsMessage<std::invalid_argument>(HasSubstr("Mapped region should not be zero byte")));
 }
 
