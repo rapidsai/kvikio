@@ -5,7 +5,6 @@
 # cython: language_level=3
 
 import os
-import pathlib
 from typing import Any, Optional
 
 from posix cimport fcntl, stat
@@ -55,7 +54,7 @@ cdef class InternalMmapHandle:
         else:
             cpp_initial_map_size = <size_t>(initial_map_size)
 
-        path_bytes = str(pathlib.Path(file_path)).encode()
+        path_bytes = str(os.fspath(file_path)).encode()
         flags_bytes = str(flags).encode()
 
         cdef optional[int] cpp_map_flags

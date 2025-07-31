@@ -6,7 +6,6 @@
 
 import io
 import os
-import pathlib
 from typing import Optional, Union
 
 from posix cimport fcntl
@@ -97,7 +96,7 @@ cdef class CuFile:
     def __init__(self, file_path, flags="r"):
         self._handle = move(
             FileHandle(
-                str.encode(str(pathlib.Path(file_path))),
+                str.encode(str(os.fspath(file_path))),
                 str.encode(str(flags))
             )
         )
@@ -194,7 +193,7 @@ def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase]) \
         -> tuple[int, int]:
     if isinstance(file, os.PathLike) or isinstance(file, str):
         # file is a path or a string object
-        path_bytes = str(pathlib.Path(file)).encode()
+        path_bytes = str(os.fspath(file)).encode()
         return cpp_get_page_cache_info_str(path_bytes)
     elif isinstance(file, int):
         # file is a file descriptor
