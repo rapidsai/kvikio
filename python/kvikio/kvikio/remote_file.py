@@ -142,6 +142,28 @@ class RemoteFile:
             )
         raise ValueError(f"Unsupported protocol: {url}")
 
+    @classmethod
+    def open_s3_presigned_url(
+        cls,
+        presigned_url: str,
+        nbytes: Optional[int] = None,
+    ) -> RemoteFile:
+        """Open a AWS S3 file from a presigned URL.
+
+        Parameters
+        ----------
+        presigned_url
+            Presigned URL to the remote file.
+        nbytes
+            The size of the file. If None, KvikIO will ask the server
+            for the file size.
+        """
+        return RemoteFile(
+            _get_remote_module().RemoteFile.open_s3_from_http_presigned_url(
+                presigned_url, nbytes
+            )
+        )
+
     def close(self) -> None:
         """Close the file"""
         pass
