@@ -18,12 +18,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <optional>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 
 #include <kvikio/defaults.hpp>
@@ -48,6 +44,8 @@ class CurlHandle;  // Prototype
  */
 class RemoteEndpoint {
  public:
+  virtual ~RemoteEndpoint() = default;
+
   /**
    * @brief Set needed connection options on a curl handle.
    *
@@ -64,7 +62,12 @@ class RemoteEndpoint {
    */
   virtual std::string str() const = 0;
 
-  virtual ~RemoteEndpoint() = default;
+  /**
+   * @brief Get the file size.
+   *
+   * @return The file size
+   */
+  virtual std::size_t get_file_size() = 0;
 };
 
 /**
@@ -81,9 +84,16 @@ class HttpEndpoint : public RemoteEndpoint {
    * @param url The full http url to the remote file.
    */
   HttpEndpoint(std::string url);
-  void setopt(CurlHandle& curl) override;
-  std::string str() const override;
-  ~HttpEndpoint() override = default;
+  virtual ~HttpEndpoint() override = default;
+  virtual void setopt(CurlHandle& curl) override;
+  virtual std::string str() const override;
+
+  /**
+   * @brief Get the file size.
+   *
+   * @return The file size
+   */
+  virtual std::size_t get_file_size() override;
 };
 
 /**
@@ -189,9 +199,37 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_endpoint_url      = std::nullopt,
              std::optional<std::string> aws_session_token     = std::nullopt);
 
-  void setopt(CurlHandle& curl) override;
-  std::string str() const override;
-  ~S3Endpoint() override;
+  virtual ~S3Endpoint() override;
+
+  virtual void setopt(CurlHandle& curl) override;
+  virtual std::string str() const override;
+
+  /**
+   * @brief Get the file size.
+   *
+   * @return The file size
+   */
+  virtual std::size_t get_file_size() override;
+};
+
+class S3EndpointWithPresignedUrl : public RemoteEndpoint {
+ private:
+  std::string _url;
+
+ public:
+  explicit S3EndpointWithPresignedUrl(std::string presigned_url);
+
+  virtual ~S3EndpointWithPresignedUrl() override = default;
+
+  virtual void setopt(CurlHandle& curl) override;
+  virtual std::string str() const override;
+
+  /**
+   * @brief Get the file size.
+   *
+   * @return The file size
+   */
+  virtual std::size_t get_file_size() override;
 };
 
 /**

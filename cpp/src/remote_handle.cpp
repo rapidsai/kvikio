@@ -19,6 +19,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -133,11 +134,44 @@ class BounceBufferH2D {
   }
 };
 
+/**
+ * @brief Get the file size, if using HEAD request to obtain the content length is permitted.
+ *
+ * This function works for the HttpEndpoint and S3Endpoint, but does not work for
+ * S3EndpointWithPresignedUrl, which does not allow HEAD request.
+ *
+ * @param endpoint The remote endpoint
+ * @param url The URL of the remote file
+ * @return The file size
+ */
+std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string const& url)
+{
+  auto curl = create_curl_handle();
+
+  endpoint.setopt(curl);
+  curl.setopt(CURLOPT_NOBODY, 1L);
+  curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
+  curl.perform();
+  curl_off_t cl;
+  curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
+  KVIKIO_EXPECT(
+    cl >= 0,
+    "cannot get size of " + endpoint.str() + ", content-length not provided by the server",
+    std::runtime_error);
+  return static_cast<std::size_t>(cl);
+}
+
 }  // namespace
 
 HttpEndpoint::HttpEndpoint(std::string url) : _url{std::move(url)} {}
 
 std::string HttpEndpoint::str() const { return _url; }
+
+std::size_t HttpEndpoint::get_file_size()
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  return get_file_size_using_head_impl(*this, _url);
+}
 
 void HttpEndpoint::setopt(CurlHandle& curl)
 {
@@ -286,6 +320,59 @@ S3Endpoint::~S3Endpoint() { curl_slist_free_all(_curl_header_list); }
 
 std::string S3Endpoint::str() const { return _url; }
 
+std::size_t S3Endpoint::get_file_size()
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  return get_file_size_using_head_impl(*this, _url);
+}
+
+S3EndpointWithPresignedUrl::S3EndpointWithPresignedUrl(std::string presigned_url)
+  : _url{std::move(presigned_url)}
+{
+}
+
+void S3EndpointWithPresignedUrl::setopt(CurlHandle& curl)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  curl.setopt(CURLOPT_URL, _url.c_str());
+}
+
+std::string S3EndpointWithPresignedUrl::str() const { return _url; }
+
+std::size_t S3EndpointWithPresignedUrl::get_file_size()
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+
+  auto curl = create_curl_handle();
+  curl.setopt(CURLOPT_URL, _url.c_str());
+
+  long file_size{};
+  curl.setopt(CURLOPT_HEADERDATA, static_cast<void*>(&file_size));
+
+  // The header callback is called once for each header and only complete header lines are passed
+  // on to the callback.
+  // The provided header line is not null-terminated.
+  auto callback_get_file_size_for_presigned_url = [](char* data,
+                                                     std::size_t size,  // always 1
+                                                     std::size_t num_bytes,
+                                                     void* userdata) -> std::size_t {
+    auto new_data_size = size * num_bytes;
+    auto* file_size    = reinterpret_cast<long*>(userdata);
+
+    // The header line is not null-terminated. This constructor ensures header_line.data() is
+    // null-terminated.
+    std::string const header_line{data, new_data_size};
+    std::regex const pattern(R"(Content-Range:[^/]+/(.*))", std::regex::icase);
+    std::smatch match_result;
+    bool found = std::regex_search(header_line, match_result, pattern);
+    if (found) { *file_size = std::stol(match_result[1].str()); }
+
+    return new_data_size;
+  };
+  curl.setopt(CURLOPT_HEADERFUNCTION, callback_get_file_size_for_presigned_url);
+  return file_size;
+}
+
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
   : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
 {
@@ -295,19 +382,7 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  auto curl = create_curl_handle();
-
-  endpoint->setopt(curl);
-  curl.setopt(CURLOPT_NOBODY, 1L);
-  curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-  curl.perform();
-  curl_off_t cl;
-  curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
-  KVIKIO_EXPECT(
-    cl >= 0,
-    "cannot get size of " + endpoint->str() + ", content-length not provided by the server",
-    std::runtime_error);
-  _nbytes   = cl;
+  _nbytes   = endpoint->get_file_size();
   _endpoint = std::move(endpoint);
 }
 
