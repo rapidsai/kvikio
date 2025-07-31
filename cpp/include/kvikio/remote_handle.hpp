@@ -252,8 +252,7 @@ class RemoteHandle {
   /**
    * @brief Get the file size.
    *
-   * Note, this is usually very fast, and involves retrieving only the header data, or at most only
-   * a small amount of body data.
+   * Note, this is very fast, no communication needed.
    *
    * @return The number of bytes.
    */
