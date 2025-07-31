@@ -274,13 +274,25 @@ MmapHandle::MmapHandle(std::string const& file_path,
                        std::size_t initial_map_offset,
                        mode_t mode,
                        std::optional<int> map_flags)
-  : _initial_map_offset(initial_map_offset),
-    _initialized{true},
-    _file_wrapper(file_path, flags, false /* o_direct */, mode)
+  : _initial_map_offset(initial_map_offset), _initialized{true}
 {
   KVIKIO_NVTX_FUNC_RANGE();
 
-  _file_size = get_file_size(_file_wrapper.fd());
+  switch (flags[0]) {
+    case 'r': {
+      _map_protection = PROT_READ;
+      break;
+    }
+    case 'w': {
+      KVIKIO_FAIL("File-backed mmap write is not supported yet", std::invalid_argument);
+    }
+    default: {
+      KVIKIO_FAIL("Unknown file open flag", std::invalid_argument);
+    }
+  }
+
+  _file_wrapper = FileWrapper(file_path, flags, false /* o_direct */, mode);
+  _file_size    = get_file_size(_file_wrapper.fd());
   if (_file_size == 0) { return; }
 
   {
@@ -310,22 +322,7 @@ MmapHandle::MmapHandle(std::string const& file_path,
   _map_offset             = detail::align_down(_initial_map_offset, page_size);
   auto const offset_delta = _initial_map_offset - _map_offset;
   _map_size               = _initial_map_size + offset_delta;
-
-  switch (flags[0]) {
-    case 'r': {
-      _map_protection = PROT_READ;
-      break;
-    }
-    case 'w': {
-      KVIKIO_FAIL("File-backed mmap write is not supported yet", std::invalid_argument);
-    }
-    default: {
-      KVIKIO_FAIL("Unknown file open flag", std::invalid_argument);
-    }
-  }
-
-  _map_flags = map_flags.has_value() ? map_flags.value() : MAP_PRIVATE;
-
+  _map_flags              = map_flags.has_value() ? map_flags.value() : MAP_PRIVATE;
   _map_addr =
     mmap(nullptr, _map_size, _map_protection, _map_flags, _file_wrapper.fd(), _map_offset);
   SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
