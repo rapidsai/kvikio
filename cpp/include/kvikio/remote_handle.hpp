@@ -63,7 +63,7 @@ class RemoteEndpoint {
   virtual std::string str() const = 0;
 
   /**
-   * @brief Get the file size.
+   * @brief Get the size of the remote file.
    *
    * @return The file size
    */
@@ -84,15 +84,10 @@ class HttpEndpoint : public RemoteEndpoint {
    * @param url The full http url to the remote file.
    */
   HttpEndpoint(std::string url);
+
   ~HttpEndpoint() override = default;
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-
-  /**
-   * @brief Get the file size.
-   *
-   * @return The file size
-   */
   std::size_t get_file_size() override;
 };
 
@@ -200,18 +195,15 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_session_token     = std::nullopt);
 
   ~S3Endpoint() override;
-
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-
-  /**
-   * @brief Get the file size.
-   *
-   * @return The file size
-   */
   std::size_t get_file_size() override;
 };
 
+/**
+ * @brief A remote endpoint using AWS's S3 protocol and expecting a presigned URL. File access via
+ * this type of URL is time-limited and does not require AWS credentials.
+ */
 class S3EndpointWithPresignedUrl : public RemoteEndpoint {
  private:
   std::string _url;
@@ -220,15 +212,8 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
   explicit S3EndpointWithPresignedUrl(std::string presigned_url);
 
   ~S3EndpointWithPresignedUrl() override = default;
-
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-
-  /**
-   * @brief Get the file size.
-   *
-   * @return The file size
-   */
   std::size_t get_file_size() override;
 };
 
@@ -267,7 +252,8 @@ class RemoteHandle {
   /**
    * @brief Get the file size.
    *
-   * Note, this is very fast, no communication needed.
+   * Note, this is usually very fast, and involves retrieving only the header data, or at most only
+   * a small amount of body data.
    *
    * @return The number of bytes.
    */

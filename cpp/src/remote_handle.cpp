@@ -135,10 +135,11 @@ class BounceBufferH2D {
 };
 
 /**
- * @brief Get the file size, if using HEAD request to obtain the content length is permitted.
+ * @brief Get the file size, if using `HEAD` request to obtain the content-length header is
+ * permitted.
  *
- * This function works for the HttpEndpoint and S3Endpoint, but does not work for
- * S3EndpointWithPresignedUrl, which does not allow HEAD request.
+ * This function works for the `HttpEndpoint` and `S3Endpoint`, but not for
+ * `S3EndpointWithPresignedUrl`, which does not allow `HEAD` request.
  *
  * @param endpoint The remote endpoint
  * @param url The URL of the remote file
@@ -340,41 +341,63 @@ void S3EndpointWithPresignedUrl::setopt(CurlHandle& curl)
 std::string S3EndpointWithPresignedUrl::str() const { return _url; }
 
 namespace {
-// The header callback is called once for each header and only complete header lines are passed on
-// to the callback. The provided header line is not null-terminated.
-std::size_t my_callback(char* data,
-                        std::size_t size,  // always 1
-                        std::size_t num_bytes,
-                        void* userdata)
+/**
+ * @brief
+ *
+ * The header callback is called once for each header and only complete header lines are passed on
+ * to the callback. The provided header line is not null-terminated.
+ *
+ * @param data Transfer buffer where new data is received
+ * @param size Curl internal implementation always sets this parameter to 1
+ * @param num_bytes The size of new data received
+ * @param userdata User-defined data
+ * @return The number of bytes consumed by the callback
+ */
+std::size_t callback_header(char* data, std::size_t size, std::size_t num_bytes, void* userdata)
 {
   auto new_data_size = size * num_bytes;
   auto* file_size    = reinterpret_cast<long*>(userdata);
 
-  // The header line is not null-terminated. This constructor ensures header_line.data() is
+  // The header line is not null-terminated. This constructor overload ensures header_line.data() is
   // null-terminated.
   std::string const header_line{data, new_data_size};
+
+  // The content-range header has the format
+  // Content-Range: <unit> <range>/<size>
+  // Content-Range: <unit> <range>/*
+  // Content-Range: <unit> */<size>
   std::regex const pattern(R"(Content-Range:[^/]+/(.*))", std::regex::icase);
   std::smatch match_result;
   bool found = std::regex_search(header_line, match_result, pattern);
-  if (found) { *file_size = std::stol(match_result[1].str()); }
+  if (found) {
+    // If the range is unknown (represented by "*" in the content-range header), string-to-long
+    // conversion will throw an `std::invalid_argument` exception
+    *file_size = std::stol(match_result[1].str());
+  }
   return new_data_size;
 }
 }  // namespace
 
 std::size_t S3EndpointWithPresignedUrl::get_file_size()
 {
+  // Usually the `HEAD` request is used to obtain the content-length (file size). However, AWS S3
+  // does not allow it for presigned URL. The workaround here is to send the `GET` request with
+  // 1-byte range, so that we can still obtain the header information at a negligible cost. Since
+  // the content-length header is now at a fixed value of 1, we instead extract the file size value
+  // from content-range.
+
   KVIKIO_NVTX_FUNC_RANGE();
 
   auto curl = create_curl_handle();
   curl.setopt(CURLOPT_URL, _url.c_str());
 
+  // 1-byte range, specified in the format "<start-byte>-<end-byte>""
   std::string my_range{"0-0"};
   curl.setopt(CURLOPT_RANGE, my_range.c_str());
 
   long file_size{};
   curl.setopt(CURLOPT_HEADERDATA, static_cast<void*>(&file_size));
-
-  curl.setopt(CURLOPT_HEADERFUNCTION, my_callback);
+  curl.setopt(CURLOPT_HEADERFUNCTION, callback_header);
 
   curl.perform();
   return file_size;
