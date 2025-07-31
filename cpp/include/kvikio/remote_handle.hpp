@@ -84,16 +84,16 @@ class HttpEndpoint : public RemoteEndpoint {
    * @param url The full http url to the remote file.
    */
   HttpEndpoint(std::string url);
-  virtual ~HttpEndpoint() override = default;
-  virtual void setopt(CurlHandle& curl) override;
-  virtual std::string str() const override;
+  ~HttpEndpoint() override = default;
+  void setopt(CurlHandle& curl) override;
+  std::string str() const override;
 
   /**
    * @brief Get the file size.
    *
    * @return The file size
    */
-  virtual std::size_t get_file_size() override;
+  std::size_t get_file_size() override;
 };
 
 /**
@@ -199,17 +199,17 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_endpoint_url      = std::nullopt,
              std::optional<std::string> aws_session_token     = std::nullopt);
 
-  virtual ~S3Endpoint() override;
+  ~S3Endpoint() override;
 
-  virtual void setopt(CurlHandle& curl) override;
-  virtual std::string str() const override;
+  void setopt(CurlHandle& curl) override;
+  std::string str() const override;
 
   /**
    * @brief Get the file size.
    *
    * @return The file size
    */
-  virtual std::size_t get_file_size() override;
+  std::size_t get_file_size() override;
 };
 
 class S3EndpointWithPresignedUrl : public RemoteEndpoint {
@@ -219,17 +219,17 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
  public:
   explicit S3EndpointWithPresignedUrl(std::string presigned_url);
 
-  virtual ~S3EndpointWithPresignedUrl() override = default;
+  ~S3EndpointWithPresignedUrl() override = default;
 
-  virtual void setopt(CurlHandle& curl) override;
-  virtual std::string str() const override;
+  void setopt(CurlHandle& curl) override;
+  std::string str() const override;
 
   /**
    * @brief Get the file size.
    *
    * @return The file size
    */
-  virtual std::size_t get_file_size() override;
+  std::size_t get_file_size() override;
 };
 
 /**
