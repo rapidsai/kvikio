@@ -339,6 +339,28 @@ void S3EndpointWithPresignedUrl::setopt(CurlHandle& curl)
 
 std::string S3EndpointWithPresignedUrl::str() const { return _url; }
 
+namespace {
+// The header callback is called once for each header and only complete header lines are passed on
+// to the callback. The provided header line is not null-terminated.
+std::size_t my_callback(char* data,
+                        std::size_t size,  // always 1
+                        std::size_t num_bytes,
+                        void* userdata)
+{
+  auto new_data_size = size * num_bytes;
+  auto* file_size    = reinterpret_cast<long*>(userdata);
+
+  // The header line is not null-terminated. This constructor ensures header_line.data() is
+  // null-terminated.
+  std::string const header_line{data, new_data_size};
+  std::regex const pattern(R"(Content-Range:[^/]+/(.*))", std::regex::icase);
+  std::smatch match_result;
+  bool found = std::regex_search(header_line, match_result, pattern);
+  if (found) { *file_size = std::stol(match_result[1].str()); }
+  return new_data_size;
+}
+}  // namespace
+
 std::size_t S3EndpointWithPresignedUrl::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
@@ -346,30 +368,15 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
   auto curl = create_curl_handle();
   curl.setopt(CURLOPT_URL, _url.c_str());
 
+  std::string my_range{"0-0"};
+  curl.setopt(CURLOPT_RANGE, my_range.c_str());
+
   long file_size{};
   curl.setopt(CURLOPT_HEADERDATA, static_cast<void*>(&file_size));
 
-  // The header callback is called once for each header and only complete header lines are passed
-  // on to the callback.
-  // The provided header line is not null-terminated.
-  auto callback_get_file_size_for_presigned_url = [](char* data,
-                                                     std::size_t size,  // always 1
-                                                     std::size_t num_bytes,
-                                                     void* userdata) -> std::size_t {
-    auto new_data_size = size * num_bytes;
-    auto* file_size    = reinterpret_cast<long*>(userdata);
+  curl.setopt(CURLOPT_HEADERFUNCTION, my_callback);
 
-    // The header line is not null-terminated. This constructor ensures header_line.data() is
-    // null-terminated.
-    std::string const header_line{data, new_data_size};
-    std::regex const pattern(R"(Content-Range:[^/]+/(.*))", std::regex::icase);
-    std::smatch match_result;
-    bool found = std::regex_search(header_line, match_result, pattern);
-    if (found) { *file_size = std::stol(match_result[1].str()); }
-
-    return new_data_size;
-  };
-  curl.setopt(CURLOPT_HEADERFUNCTION, callback_get_file_size_for_presigned_url);
+  curl.perform();
   return file_size;
 }
 
