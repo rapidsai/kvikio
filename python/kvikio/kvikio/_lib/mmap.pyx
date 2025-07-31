@@ -54,7 +54,7 @@ cdef class InternalMmapHandle:
         else:
             cpp_initial_map_size = <size_t>(initial_map_size)
 
-        path_bytes = str(os.fspath(file_path)).encode()
+        path_bytes = os.fsencode(file_path)
         flags_bytes = str(flags).encode()
 
         cdef optional[int] cpp_map_flags
