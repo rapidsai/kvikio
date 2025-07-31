@@ -342,7 +342,7 @@ std::string S3EndpointWithPresignedUrl::str() const { return _url; }
 
 namespace {
 /**
- * @brief
+ * @brief Callback for the `CURLOPT_HEADERFUNCTION` parameter in libcurl
  *
  * The header callback is called once for each header and only complete header lines are passed on
  * to the callback. The provided header line is not null-terminated.
