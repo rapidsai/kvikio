@@ -352,6 +352,8 @@ namespace {
  * @param num_bytes The size of new data received
  * @param userdata User-defined data
  * @return The number of bytes consumed by the callback
+ * @exception std::invalid_argument if the server does not know the file size, thereby the
+ * content-range header in the HTTP message having "*" as the file size.
  */
 std::size_t callback_header(char* data, std::size_t size, std::size_t num_bytes, void* userdata)
 {
@@ -370,9 +372,15 @@ std::size_t callback_header(char* data, std::size_t size, std::size_t num_bytes,
   std::smatch match_result;
   bool found = std::regex_search(header_line, match_result, pattern);
   if (found) {
-    // If the range is unknown (represented by "*" in the content-range header), string-to-long
-    // conversion will throw an `std::invalid_argument` exception
-    *file_size = std::stol(match_result[1].str());
+    // If the file size is unknown (represented by "*" in the content-range header), string-to-long
+    // conversion will throw an `std::invalid_argument` exception. The exception message from
+    // `std::stol` is usually too concise to be useful (being simply a string of "stol"), so a
+    // custom exception is used instead.
+    try {
+      *file_size = std::stol(match_result[1].str());
+    } catch (...) {
+      KVIKIO_FAIL("File size information missing on the server side.", std::invalid_argument);
+    }
   }
   return new_data_size;
 }
