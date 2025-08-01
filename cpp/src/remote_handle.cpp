@@ -352,8 +352,8 @@ namespace {
  * @param num_bytes The size of new data received
  * @param userdata User-defined data
  * @return The number of bytes consumed by the callback
- * @exception std::invalid_argument if the server does not know the file size, thereby the
- * content-range header in the HTTP message having "*" as the file size.
+ * @exception std::invalid_argument if the server does not know the file size, thereby using "*" as
+ * the filler text in the content-range header of the HTTP message.
  */
 std::size_t callback_header(char* data, std::size_t size, std::size_t num_bytes, void* userdata)
 {
