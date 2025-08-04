@@ -18,12 +18,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <optional>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 
 #include <kvikio/defaults.hpp>
@@ -48,6 +44,8 @@ class CurlHandle;  // Prototype
  */
 class RemoteEndpoint {
  public:
+  virtual ~RemoteEndpoint() = default;
+
   /**
    * @brief Set needed connection options on a curl handle.
    *
@@ -64,7 +62,12 @@ class RemoteEndpoint {
    */
   virtual std::string str() const = 0;
 
-  virtual ~RemoteEndpoint() = default;
+  /**
+   * @brief Get the size of the remote file.
+   *
+   * @return The file size
+   */
+  virtual std::size_t get_file_size() = 0;
 };
 
 /**
@@ -81,9 +84,11 @@ class HttpEndpoint : public RemoteEndpoint {
    * @param url The full http url to the remote file.
    */
   HttpEndpoint(std::string url);
+
+  ~HttpEndpoint() override = default;
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-  ~HttpEndpoint() override = default;
+  std::size_t get_file_size() override;
 };
 
 /**
@@ -189,9 +194,27 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_endpoint_url      = std::nullopt,
              std::optional<std::string> aws_session_token     = std::nullopt);
 
+  ~S3Endpoint() override;
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-  ~S3Endpoint() override;
+  std::size_t get_file_size() override;
+};
+
+/**
+ * @brief A remote endpoint using AWS's S3 protocol and expecting a presigned URL. File access via
+ * this type of URL is time-limited and does not require AWS credentials.
+ */
+class S3EndpointWithPresignedUrl : public RemoteEndpoint {
+ private:
+  std::string _url;
+
+ public:
+  explicit S3EndpointWithPresignedUrl(std::string presigned_url);
+
+  ~S3EndpointWithPresignedUrl() override = default;
+  void setopt(CurlHandle& curl) override;
+  std::string str() const override;
+  std::size_t get_file_size() override;
 };
 
 /**
@@ -229,7 +252,8 @@ class RemoteHandle {
   /**
    * @brief Get the file size.
    *
-   * Note, this is very fast, no communication needed.
+   * Note, the file size is retrieved at construction so this method is very fast, no communication
+   * needed.
    *
    * @return The number of bytes.
    */

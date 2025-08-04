@@ -31,6 +31,10 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
     pair[string, string] cpp_parse_s3_url \
         "kvikio::S3Endpoint::parse_s3_url"(string url) except +
 
+    cdef cppclass cpp_S3EndpointWithPresignedUrl "kvikio::S3EndpointWithPresignedUrl" \
+                                                 (cpp_RemoteEndpoint):
+        cpp_S3EndpointWithPresignedUrl(string presigned_url) except +
+
     cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
         cpp_RemoteHandle(
             unique_ptr[cpp_RemoteEndpoint] endpoint, size_t nbytes
@@ -137,6 +141,18 @@ cdef class RemoteFile:
         return RemoteFile._from_endpoint(
             cast_to_remote_endpoint(
                 make_unique[cpp_S3Endpoint](bucket_and_object)
+            ),
+            nbytes
+        )
+
+    @staticmethod
+    def open_s3_from_http_presigned_url(
+        presigned_url: str,
+        nbytes: Optional[int],
+    ):
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_S3EndpointWithPresignedUrl](_to_string(presigned_url))
             ),
             nbytes
         )
