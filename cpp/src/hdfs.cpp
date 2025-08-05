@@ -27,8 +27,16 @@ namespace kvikio {
 
 WebHdfsEndpoint::WebHdfsEndpoint(std::string url)
 {
+  // todo: Use libcurl URL API for more secure and idiomatic parsing.
   // Split the URL into two parts: one without query and one with.
   std::regex const pattern{R"(^([^?]+)\?([^#]*))"};
+  // Regex meaning:
+  // ^: From the start of the line
+  // [^?]+: Matches non-question-mark characters one or more times. The question mark ushers in the
+  // URL query component.
+  // \?: Matches the question mark, which needs to be escaped.
+  // [^#]*: Matches the non-pound characters zero or more times. The pound sign ushers in the URL
+  // fragment component. It is very likely that this part does not exist.
   std::smatch match_results;
   bool found = std::regex_search(url, match_results, pattern);
   // If the match is not found, the URL contains no query.
@@ -44,6 +52,9 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string url)
     // Extract user name if provided. In WebHDFS, user name is specified as the key=value pair in
     // the query
     std::regex const pattern{R"(user.name=([^&]+))"};
+    // Regex meaning:
+    // [^&]+: Matches the non-ampersand character one or more times. The ampersand delimits
+    // different parameters.
     std::smatch match_results;
     if (std::regex_search(query, match_results, pattern)) { _username = match_results[1].str(); }
   }
@@ -94,6 +105,10 @@ std::size_t WebHdfsEndpoint::get_file_size()
 
   // The response is in JSON format. The file size is given by `"length":<file_size>`.
   std::regex const pattern{R"("length"\s*:\s*(\d+)[^\d])"};
+  // Regex meaning:
+  // \s*: Matches the space character zero or more times.
+  // \d+: Matches the digit one or more times.
+  // [^\d]: Matches a non-digit character.
   std::smatch match_results;
   bool found = std::regex_search(response, match_results, pattern);
   KVIKIO_EXPECT(
