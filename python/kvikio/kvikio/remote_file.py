@@ -164,6 +164,27 @@ class RemoteFile:
             )
         )
 
+    @classmethod
+    def open_webhdfs(
+        cls,
+        url: str,
+        nbytes: Optional[int] = None,
+    ) -> RemoteFile:
+        """Open a file on WebHDFS.
+
+        If KvikIO is run within a Docker, the argument ``--network host`` needs to be
+        passed to the ``docker run`` command.
+
+        Parameters
+        ----------
+        url
+            URL to the remote file.
+        nbytes
+            The size of the file. If None, KvikIO will ask the server
+            for the file size.
+        """
+        return RemoteFile(_get_remote_module().RemoteFile.open_webhdfs(url, nbytes))
+
     def close(self) -> None:
         """Close the file"""
         pass
