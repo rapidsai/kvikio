@@ -30,7 +30,8 @@ namespace kvikio::test {
 namespace {
 
 /**
- * @brief
+ * @brief Helper struct that wraps a buffer view and tracks how many data have been processed via an
+ * offset value.
  */
 struct tracked_buffer_t {
   std::span<std::byte> buffer;
@@ -38,19 +39,20 @@ struct tracked_buffer_t {
 };
 
 /**
- * @brief
+ * @brief Callback for `CURLOPT_READFUNCTION` to upload data.
  *
  * @param data
- * @param size
- * @param num_bytes
- * @param userdata
- * @return std::size_t
+ * @param size Curl internal implementation always sets this parameter to 1
+ * @param num_bytes_max The maximum number of bytes that can be uploaded
+ * @param userdata Must be cast from `tracked_buffer_t*`
+ * @return The number of bytes that have been copied to the transfer buffer.
  */
 std::size_t callback_upload(char* data, std::size_t size, std::size_t num_bytes_max, void* userdata)
 {
   auto new_data_size_max = size * num_bytes_max;
   auto* tracked_buffer   = reinterpret_cast<tracked_buffer_t*>(userdata);
 
+  // All data have been uploaded. Nothing more to do.
   if (tracked_buffer->offset >= tracked_buffer->buffer.size()) { return 0; }
 
   auto copy_size =
