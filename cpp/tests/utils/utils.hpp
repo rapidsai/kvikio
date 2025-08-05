@@ -108,6 +108,7 @@ class TempDir {
 /**
  * @brief Help class for creating and comparing buffers.
  */
+template <typename T>
 class DevBuffer {
  public:
   std::size_t nelem;
@@ -116,12 +117,12 @@ class DevBuffer {
 
   DevBuffer() : nelem{0}, nbytes{0} {};
 
-  DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(std::int64_t)}
+  DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(T)}
   {
     KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes));
     KVIKIO_CHECK_CUDA(cudaMemset(ptr, 0, nbytes));
   }
-  DevBuffer(std::vector<std::int64_t> const& host_buffer) : DevBuffer{host_buffer.size()}
+  DevBuffer(std::vector<T> const& host_buffer) : DevBuffer{host_buffer.size()}
   {
     KVIKIO_CHECK_CUDA(cudaMemcpy(ptr, host_buffer.data(), nbytes, cudaMemcpyHostToDevice));
   }
@@ -143,9 +144,9 @@ class DevBuffer {
 
   ~DevBuffer() noexcept { cudaFree(ptr); }
 
-  [[nodiscard]] static DevBuffer arange(std::size_t nelem, std::int64_t start = 0)
+  [[nodiscard]] static DevBuffer arange(std::size_t nelem, T start = 0)
   {
-    std::vector<std::int64_t> host_buffer(nelem);
+    std::vector<T> host_buffer(nelem);
     std::iota(host_buffer.begin(), host_buffer.end(), start);
     return DevBuffer{host_buffer};
   }
@@ -157,9 +158,9 @@ class DevBuffer {
     return ret;
   }
 
-  [[nodiscard]] std::vector<std::int64_t> to_vector() const
+  [[nodiscard]] std::vector<T> to_vector() const
   {
-    std::vector<std::int64_t> ret(nelem);
+    std::vector<T> ret(nelem);
     KVIKIO_CHECK_CUDA(cudaMemcpy(ret.data(), this->ptr, nbytes, cudaMemcpyDeviceToHost));
     return ret;
   }
@@ -177,7 +178,8 @@ class DevBuffer {
 /**
  * @brief Check that two buffers are equal
  */
-inline void expect_equal(DevBuffer const& a, DevBuffer const& b)
+template <typename T>
+inline void expect_equal(DevBuffer<T> const& a, DevBuffer<T> const& b)
 {
   EXPECT_EQ(a.nbytes, b.nbytes);
   auto a_vec = a.to_vector();

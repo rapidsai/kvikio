@@ -40,7 +40,7 @@ class MmapTest : public testing::Test {
     _filepath                = tmp_dir.path() / "test.bin";
     std::size_t num_elements = 1024ull * 1024ull;
     _host_buf                = CreateTempFile<value_type>(_filepath, num_elements);
-    _dev_buf                 = kvikio::test::DevBuffer{_host_buf};
+    _dev_buf                 = kvikio::test::DevBuffer<value_type>{_host_buf};
     _page_size               = kvikio::get_page_size();
   }
 
@@ -62,9 +62,8 @@ class MmapTest : public testing::Test {
   std::size_t _file_size;
   std::size_t _page_size;
   std::vector<std::int64_t> _host_buf;
-  kvikio::test::DevBuffer _dev_buf;
-
   using value_type = decltype(_host_buf)::value_type;
+  kvikio::test::DevBuffer<value_type> _dev_buf;
 };
 
 TEST_F(MmapTest, invalid_file_open_flag)
@@ -212,7 +211,7 @@ TEST_F(MmapTest, read_seq)
 
     // device
     {
-      kvikio::test::DevBuffer out_device_buf(num_elements_to_read);
+      kvikio::test::DevBuffer<value_type> out_device_buf(num_elements_to_read);
       auto const read_size = mmap_handle.read(out_device_buf.ptr, expected_read_size, offset);
       auto out_host_buf    = out_device_buf.to_vector();
       for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
@@ -250,7 +249,7 @@ TEST_F(MmapTest, read_parallel)
 
       // device
       {
-        kvikio::test::DevBuffer out_device_buf(num_elements_to_read);
+        kvikio::test::DevBuffer<value_type> out_device_buf(num_elements_to_read);
         auto fut             = mmap_handle.pread(out_device_buf.ptr, expected_read_size, offset);
         auto const read_size = fut.get();
         auto out_host_buf    = out_device_buf.to_vector();
@@ -300,7 +299,7 @@ TEST_F(MmapTest, read_with_default_arguments)
 
   // device
   {
-    kvikio::test::DevBuffer out_device_buf(num_elements);
+    kvikio::test::DevBuffer<value_type> out_device_buf(num_elements);
 
     {
       auto const read_size = mmap_handle.read(out_device_buf.ptr);
