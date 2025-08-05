@@ -113,7 +113,7 @@ std::size_t WebHdfsEndpoint::get_file_size()
   bool found = std::regex_search(response, match_results, pattern);
   KVIKIO_EXPECT(
     found, "Regular expression search failed. Cannot extract file length from the JSON response.");
-  return std::stoi(match_results[1].str());
+  return std::stoull(match_results[1].str());
 }
 
 void WebHdfsEndpoint::setup_range_request(CurlHandle& curl,
