@@ -17,7 +17,6 @@
 #include <regex>
 
 #include <kvikio/detail/remote_handle.hpp>
-#include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
 #include <kvikio/nvtx.hpp>
@@ -46,20 +45,23 @@ std::string url_before_query(std::string const& url)
 
 WebHdfsEndpoint::WebHdfsEndpoint(std::string url)
 {
-  // Extract user name if provided
-  // In WebHDFS, user name is specified as the first key=param pair in the query
-  detail::Url url_obj{url};
+  // Split the URL into non-query and query parts
+  std::regex const pattern{R"(^([^?]+)\?([^#]*))"};
+  std::smatch match_results;
+  bool found = std::regex_search(url, match_results, pattern);
+  KVIKIO_EXPECT(found, "Invalid URL");
+  _url = match_results[1].str();
 
-  auto query = url_obj.query();
-  if (query.has_value()) {
+  if (match_results.size() == 1) { return; }
+  auto query = match_results[2].str();
+
+  {
+    // Extract user name if provided. In WebHDFS, user name is specified as the key=value pair in
+    // the query
     std::regex const pattern{R"(user.name=([^&]+))"};
     std::smatch match_results;
-    if (std::regex_search(query.value(), match_results, pattern)) {
-      _username = match_results[1].str();
-    }
+    if (std::regex_search(query, match_results, pattern)) { _username = match_results[1].str(); }
   }
-
-  _url = url_before_query(url);
 }
 
 WebHdfsEndpoint::WebHdfsEndpoint(std::string host,

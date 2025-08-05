@@ -164,7 +164,7 @@ set(SOURCES
 
 if(KvikIO_REMOTE_SUPPORT)
   list(APPEND SOURCES "src/hdfs.cpp" "src/remote_handle.cpp" "src/detail/remote_handle.cpp"
-       "src/detail/url.cpp" "src/shim/libcurl.cpp"
+       "src/shim/libcurl.cpp"
   )
 endif()
 
