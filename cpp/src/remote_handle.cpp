@@ -163,6 +163,13 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
   return static_cast<std::size_t>(cl);
 }
 
+/**
+ * @brief Set up the range request for libcurl. Use this method when HTTP range request is supposed.
+ *
+ * @param curl A curl handle
+ * @param file_offset File offset
+ * @param size read size
+ */
 void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
   std::string const byte_range =
