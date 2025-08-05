@@ -25,34 +25,19 @@
 
 namespace kvikio {
 
-namespace {
-/**
- * @brief
- *
- * @param url
- * @return std::string
- */
-std::string url_before_query(std::string const& url)
-{
-  std::regex const pattern{R"(^([^?]+)\?)"};
-  std::smatch match_results;
-  bool found = std::regex_search(url, match_results, pattern);
-  if (found) { return match_results[1].str(); }
-  return url;
-}
-
-}  // namespace
-
 WebHdfsEndpoint::WebHdfsEndpoint(std::string url)
 {
-  // Split the URL into non-query and query parts
+  // Split the URL into two parts: one without query and one with.
   std::regex const pattern{R"(^([^?]+)\?([^#]*))"};
   std::smatch match_results;
   bool found = std::regex_search(url, match_results, pattern);
-  KVIKIO_EXPECT(found, "Invalid URL");
-  _url = match_results[1].str();
+  // If the match is not found, the URL contains no query.
+  if (!found) {
+    _url = url;
+    return;
+  }
 
-  if (match_results.size() == 1) { return; }
+  _url       = match_results[1].str();
   auto query = match_results[2].str();
 
   {
@@ -70,6 +55,9 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string host,
                                  std::optional<std::string> username)
   : _username{std::move(username)}
 {
+  std::stringstream ss;
+  ss << "http://" << host << ":" << port << "/webhdfs/v1" << file_path;
+  _url = ss.str();
 }
 
 std::string WebHdfsEndpoint::str() const { return _url; }

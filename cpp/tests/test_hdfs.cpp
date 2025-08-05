@@ -29,12 +29,11 @@ class WebHdfsTest : public testing::Test {
  protected:
   void SetUp() override
   {
-    std::size_t num_elements = 1024ull * 1024ull;
-
-    _host_buf.resize(num_elements);
+    _num_elements = 1024ull * 1024ull;
+    _host_buf.resize(_num_elements);
     std::iota(_host_buf.begin(), _host_buf.end(), 0);
 
-    _dev_buf = kvikio::test::DevBuffer{_host_buf};
+    _dev_buf = kvikio::test::DevBuffer<value_type>{_host_buf};
 
     _host = "localhost";
     _port = "9870";
@@ -66,6 +65,7 @@ class WebHdfsTest : public testing::Test {
 
   using value_type = double;
 
+  std::size_t _num_elements;
   std::vector<value_type> _host_buf;
   kvikio::test::DevBuffer<value_type> _dev_buf;
 
@@ -77,7 +77,33 @@ class WebHdfsTest : public testing::Test {
   std::unique_ptr<kvikio::test::WebHdfsTestHelper> _webhdfs_helper;
 };
 
-TEST_F(WebHdfsTest, webhdfs_remote_handle)
+TEST_F(WebHdfsTest, constructor)
+{
+  auto do_test = [&](kvikio::RemoteHandle& remote_handle) {
+    kvikio::test::DevBuffer<value_type> out_device_buf(_num_elements);
+    auto read_size    = remote_handle.read(out_device_buf.ptr, remote_handle.nbytes());
+    auto out_host_buf = out_device_buf.to_vector();
+    for (std::size_t i = 0; i < _num_elements; ++i) {
+      EXPECT_EQ(_host_buf[i], out_host_buf[i]);
+    }
+    EXPECT_EQ(read_size, remote_handle.nbytes());
+  };
+
+  std::stringstream ss;
+  ss << "http://" << _host << ":" << _port << "/webhdfs/v1" << _remote_file_path
+     << "?user.name=" << _username;
+  std::vector<kvikio::RemoteHandle> remote_handles;
+
+  remote_handles.emplace_back(std::make_unique<kvikio::WebHdfsEndpoint>(ss.str()));
+  remote_handles.emplace_back(
+    std::make_unique<kvikio::WebHdfsEndpoint>(_host, _port, _remote_file_path, _username));
+
+  for (auto& remote_handle : remote_handles) {
+    do_test(remote_handle);
+  }
+}
+
+TEST_F(WebHdfsTest, read_parallel)
 {
   auto do_test = [&](std::string const& url,
                      std::size_t num_elements_to_skip,
@@ -114,13 +140,12 @@ TEST_F(WebHdfsTest, webhdfs_remote_handle)
   std::stringstream ss;
   ss << "http://" << _host << ":" << _port << "/webhdfs/v1" << _remote_file_path
      << "?user.name=" << _username;
-  std::string const url{ss.str()};
   std::vector<std::size_t> task_sizes{256, 1024, kvikio::defaults::task_size()};
 
   for (const auto& task_size : task_sizes) {
     for (const auto& num_elements_to_read : {10, 9999}) {
       for (const auto& num_elements_to_skip : {0, 10, 100, 1000, 9999}) {
-        do_test(url, num_elements_to_skip, num_elements_to_read, task_size);
+        do_test(ss.str(), num_elements_to_skip, num_elements_to_read, task_size);
       }
     }
   }
