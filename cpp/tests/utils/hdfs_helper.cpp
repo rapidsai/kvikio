@@ -83,9 +83,8 @@ bool WebHdfsTestHelper::can_connect() noexcept
 
     std::stringstream ss;
     ss << _url_before_path << "/?user.name=" << _username << "&op=GETHOMEDIRECTORY";
-    std::string const url = ss.str();
 
-    curl.setopt(CURLOPT_URL, url.c_str());
+    curl.setopt(CURLOPT_URL, ss.str().c_str());
 
     std::string response{};
     curl.setopt(CURLOPT_WRITEDATA, &response);
@@ -114,10 +113,9 @@ bool WebHdfsTestHelper::upload_data(std::span<std::byte> buffer,
 
       std::stringstream ss;
       ss << _url_before_path << remote_file_path << "?user.name=" << _username << "&op=CREATE";
-      std::string const url = ss.str();
       std::string redirect_data_node_location{};
 
-      curl.setopt(CURLOPT_URL, url.c_str());
+      curl.setopt(CURLOPT_URL, ss.str().c_str());
       curl.setopt(CURLOPT_FOLLOWLOCATION, 0L);
       curl.setopt(CURLOPT_CUSTOMREQUEST, "PUT");
 

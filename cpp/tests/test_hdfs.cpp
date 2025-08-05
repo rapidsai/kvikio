@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstdlib>
 #include <memory>
 
 #include <kvikio/file_handle.hpp>
@@ -28,16 +29,24 @@ class WebHdfsTest : public testing::Test {
  protected:
   void SetUp() override
   {
-    kvikio::test::TempDir tmp_dir{true};
-    _filepath                = tmp_dir.path() / "test.bin";
     std::size_t num_elements = 1024ull * 1024ull;
-    _host_buf                = CreateTempFile<value_type>(_filepath, num_elements);
-    _dev_buf                 = kvikio::test::DevBuffer{_host_buf};
 
-    _host             = "localhost";
-    _port             = "9870";
-    _username         = "rladmin";
+    _host_buf.resize(num_elements);
+    std::iota(_host_buf.begin(), _host_buf.end(), 0);
+
+    _dev_buf = kvikio::test::DevBuffer{_host_buf};
+
+    _host = "localhost";
+    _port = "9870";
+
     _remote_file_path = "/tmp/kvikio-test-webhdfs.bin";
+
+    auto res = std::getenv("KVIKIO_USER");
+    if (res) {
+      _username = res;
+    } else {
+      GTEST_SKIP() << "Environment variable KVIKIO_USER is not set for this test.";
+    }
 
     _webhdfs_helper = std::make_unique<kvikio::test::WebHdfsTestHelper>(_host, _port, _username);
 
@@ -51,38 +60,14 @@ class WebHdfsTest : public testing::Test {
       GTEST_SKIP()
         << "Failed to upload test data using WebHDFS. Skipping all tests for this fixture.";
     };
-
-    std::stringstream ss;
-    ss << "http://" << _host << ":" << _port << "/webhdfs/v1" << _remote_file_path;
-    _url_without_query = ss.str();
-
-    ss << "?op=OPEN";
-    _url_with_query = ss.str();
   }
 
   void TearDown() override { _webhdfs_helper->delete_data(_remote_file_path); }
 
-  template <typename T>
-  std::vector<T> CreateTempFile(std::string const& filepath, std::size_t num_elements)
-  {
-    std::vector<T> v(num_elements);
-    std::iota(v.begin(), v.end(), 0);
-    kvikio::FileHandle f(filepath, "w");
-    auto fut = f.pwrite(v.data(), v.size() * sizeof(T));
-    fut.get();
-    _file_size = f.nbytes();
-    return v;
-  }
+  using value_type = double;
 
-  std::filesystem::path _dir;
-  std::filesystem::path _filepath;
-  std::size_t _file_size;
-  std::vector<double> _host_buf;
-  using value_type = decltype(_host_buf)::value_type;
+  std::vector<value_type> _host_buf;
   kvikio::test::DevBuffer<value_type> _dev_buf;
-
-  std::string _url_with_query;
-  std::string _url_without_query;
 
   std::string _host;
   std::string _port;
@@ -94,56 +79,49 @@ class WebHdfsTest : public testing::Test {
 
 TEST_F(WebHdfsTest, webhdfs_remote_handle)
 {
-  //   auto do_test = [&](std::string const& url,
-  //                      std::size_t num_elements_to_skip,
-  //                      std::size_t num_elements_to_read,
-  //                      std::size_t task_size) {
-  //     kvikio::RemoteHandle remote_handle{std::make_unique<kvikio::WebHdfsEndpoint>(url)};
-  //     auto const offset             = num_elements_to_skip * sizeof(value_type);
-  //     auto const expected_read_size = num_elements_to_read * sizeof(value_type);
+  auto do_test = [&](std::string const& url,
+                     std::size_t num_elements_to_skip,
+                     std::size_t num_elements_to_read,
+                     std::size_t task_size) {
+    kvikio::RemoteHandle remote_handle{std::make_unique<kvikio::WebHdfsEndpoint>(url)};
+    auto const offset             = num_elements_to_skip * sizeof(value_type);
+    auto const expected_read_size = num_elements_to_read * sizeof(value_type);
 
-  //     // host
-  //     {
-  //       std::vector<value_type> out_host_buf(num_elements_to_read, {});
-  //       auto fut = remote_handle.pread(out_host_buf.data(), expected_read_size, offset,
-  //       task_size); auto const read_size = fut.get(); for (std::size_t i = num_elements_to_skip;
-  //       i < num_elements_to_read; ++i) {
-  //         EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
-  //       }
-  //       EXPECT_EQ(read_size, expected_read_size);
-  //     }
+    // host
+    {
+      std::vector<value_type> out_host_buf(num_elements_to_read, {});
+      auto fut = remote_handle.pread(out_host_buf.data(), expected_read_size, offset, task_size);
+      auto const read_size = fut.get();
+      for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+      }
+      EXPECT_EQ(read_size, expected_read_size);
+    }
 
-  //     // device
-  //     {
-  //       kvikio::test::DevBuffer<value_type> out_device_buf(num_elements_to_read);
-  //       auto fut = remote_handle.pread(out_device_buf.ptr, expected_read_size, offset,
-  //       task_size); auto const read_size = fut.get(); auto out_host_buf    =
-  //       out_device_buf.to_vector(); for (std::size_t i = num_elements_to_skip; i <
-  //       num_elements_to_read; ++i) {
-  //         EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
-  //       }
-  //       EXPECT_EQ(read_size, expected_read_size);
-  //     }
-  //   };
+    // device
+    {
+      kvikio::test::DevBuffer<value_type> out_device_buf(num_elements_to_read);
+      auto fut = remote_handle.pread(out_device_buf.ptr, expected_read_size, offset, task_size);
+      auto const read_size = fut.get();
+      auto out_host_buf    = out_device_buf.to_vector();
+      for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
+        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+      }
+      EXPECT_EQ(read_size, expected_read_size);
+    }
+  };
 
-  //   std::array urls{_url_with_query, _url_without_query};
-  //   std::vector<std::size_t> task_sizes{256, 1024, kvikio::defaults::task_size()};
+  std::stringstream ss;
+  ss << "http://" << _host << ":" << _port << "/webhdfs/v1" << _remote_file_path
+     << "?user.name=" << _username;
+  std::string const url{ss.str()};
+  std::vector<std::size_t> task_sizes{256, 1024, kvikio::defaults::task_size()};
 
-  //   for (auto const& url : urls) {
-  //     for (const auto& task_size : task_sizes) {
-  //       for (const auto& num_elements_to_read : {10, 9999}) {
-  //         for (const auto& num_elements_to_skip : {0, 10, 100, 1000, 9999}) {
-  //           do_test(url, num_elements_to_skip, num_elements_to_read, task_size);
-  //         }
-  //       }
-  //     }
-  //   }
-
-  kvikio::RemoteHandle remote_handle{std::make_unique<kvikio::WebHdfsEndpoint>(_url_without_query)};
-  auto file_size = remote_handle.nbytes();
-  std::cout << "file_size: " << file_size << "\n";
-  std::vector<value_type> out_host_buf(file_size / sizeof(value_type), {});
-  auto fut             = remote_handle.pread(out_host_buf.data(), file_size);
-  auto const read_size = fut.get();
-  EXPECT_EQ(read_size, file_size);
+  for (const auto& task_size : task_sizes) {
+    for (const auto& num_elements_to_read : {10, 9999}) {
+      for (const auto& num_elements_to_skip : {0, 10, 100, 1000, 9999}) {
+        do_test(url, num_elements_to_skip, num_elements_to_read, task_size);
+      }
+    }
+  }
 }

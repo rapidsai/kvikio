@@ -52,7 +52,7 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string url)
 
   auto query = url_obj.query();
   if (query.has_value()) {
-    std::regex const pattern{R"(^user.name=[^&]+?)"};
+    std::regex const pattern{R"(user.name=([^&]+))"};
     std::smatch match_results;
     if (std::regex_search(query.value(), match_results, pattern)) {
       _username = match_results[1].str();
@@ -66,6 +66,7 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string host,
                                  std::string port,
                                  std::string file_path,
                                  std::optional<std::string> username)
+  : _username{std::move(username)}
 {
 }
 
@@ -81,10 +82,14 @@ void WebHdfsEndpoint::setopt(CurlHandle& curl)
 std::size_t WebHdfsEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::string const url_full = _url + std::string{"?user.name=rladmin&op=GETFILESTATUS"};
+
+  std::stringstream ss;
+  ss << _url << "?";
+  if (_username.has_value()) { ss << "user.name=" << _username.value() << "&"; }
+  ss << "op=GETFILESTATUS";
 
   auto curl = create_curl_handle();
-  curl.setopt(CURLOPT_URL, url_full.c_str());
+  curl.setopt(CURLOPT_URL, ss.str().c_str());
   curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
 
   std::string response;
@@ -111,8 +116,9 @@ void WebHdfsEndpoint::setup_range_request(CurlHandle& curl,
 {
   KVIKIO_NVTX_FUNC_RANGE();
   std::stringstream ss;
-  ss << _url << "?user.name=rladmin&op=OPEN&offset=" << file_offset << "&length=" << size;
-  std::string const url_full = ss.str();
-  curl.setopt(CURLOPT_URL, url_full.c_str());
+  ss << _url << "?";
+  if (_username.has_value()) { ss << "user.name=" << _username.value() << "&"; }
+  ss << "op=OPEN&offset=" << file_offset << "&length=" << size;
+  curl.setopt(CURLOPT_URL, ss.str().c_str());
 }
 }  // namespace kvikio
