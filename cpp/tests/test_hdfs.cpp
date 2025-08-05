@@ -25,6 +25,19 @@
 #include "utils/hdfs_helper.hpp"
 #include "utils/utils.hpp"
 
+// This test makes the following assumptions:
+// - This KvikIO unit test is run on the "name node" of a WebHDFS server.
+// - Port 9870 (default for WebHDFS) is being used to listen to the requests.
+// - The environment variable `KVIKIO_USER` is specified prior to the test. It contains a valid user
+//   name that has been granted access to the HDFS.
+// - The user has the proper permission to create a file under the `/tmp` directory on the HDFS.
+// - If the unit test is run within a Docker. The following arguments are passed to the `docker run`
+//   command:
+//   - `--network host`
+//   - `--env KVIKIO_USER=<hdfs_username>`
+//
+// If any of these assumptions is not satisfied, this unit test is expected to be skipped
+// gracefully.
 class WebHdfsTest : public testing::Test {
  protected:
   void SetUp() override

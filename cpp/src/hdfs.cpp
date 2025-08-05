@@ -84,7 +84,7 @@ std::size_t WebHdfsEndpoint::get_file_size()
 
   std::string response;
   curl.setopt(CURLOPT_WRITEDATA, static_cast<void*>(&response));
-  curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_get_response);
+  curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_get_string_response);
 
   curl.perform();
 
@@ -92,6 +92,7 @@ std::size_t WebHdfsEndpoint::get_file_size()
   curl.getinfo(CURLINFO_RESPONSE_CODE, &http_status_code);
   KVIKIO_EXPECT(http_status_code == 200, "HTTP response is not successful.");
 
+  // The response is in JSON format. The file size is given by `"length":<file_size>`.
   std::regex const pattern{R"("length"\s*:\s*(\d+)[^\d])"};
   std::smatch match_results;
   bool found = std::regex_search(response, match_results, pattern);
@@ -104,6 +105,7 @@ void WebHdfsEndpoint::setup_range_request(CurlHandle& curl,
                                           std::size_t file_offset,
                                           std::size_t size)
 {
+  // WebHDFS does not support CURLOPT_RANGE. The range is specified as query parameters in the URL.
   KVIKIO_NVTX_FUNC_RANGE();
   std::stringstream ss;
   ss << _url << "?";

@@ -77,8 +77,7 @@ class RemoteEndpoint {
 };
 
 /**
- * @brief
- *
+ * @brief A remote endpoint using http.
  */
 class HttpEndpoint : public RemoteEndpoint {
  private:

@@ -72,10 +72,6 @@ WebHdfsTestHelper::WebHdfsTestHelper(std::string const& host,
   _url_before_path = ss.str();
 }
 
-const std::string& WebHdfsTestHelper::host() const noexcept { return _host; }
-
-const std::string& WebHdfsTestHelper::port() const noexcept { return _port; }
-
 bool WebHdfsTestHelper::can_connect() noexcept
 {
   try {
@@ -88,7 +84,7 @@ bool WebHdfsTestHelper::can_connect() noexcept
 
     std::string response{};
     curl.setopt(CURLOPT_WRITEDATA, &response);
-    curl.setopt(CURLOPT_WRITEFUNCTION, kvikio::detail::callback_get_response);
+    curl.setopt(CURLOPT_WRITEFUNCTION, kvikio::detail::callback_get_string_response);
     curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
     curl.perform();
     return true;
@@ -121,7 +117,7 @@ bool WebHdfsTestHelper::upload_data(std::span<std::byte> buffer,
 
       std::string response{};
       curl.setopt(CURLOPT_HEADERDATA, &response);
-      curl.setopt(CURLOPT_HEADERFUNCTION, kvikio::detail::callback_get_response);
+      curl.setopt(CURLOPT_HEADERFUNCTION, kvikio::detail::callback_get_string_response);
 
       curl.perform();
 
@@ -182,7 +178,7 @@ bool WebHdfsTestHelper::delete_data(std::string const& remote_file_path) noexcep
 
     std::string response{};
     curl.setopt(CURLOPT_HEADERDATA, &response);
-    curl.setopt(CURLOPT_HEADERFUNCTION, kvikio::detail::callback_get_response);
+    curl.setopt(CURLOPT_HEADERFUNCTION, kvikio::detail::callback_get_string_response);
 
     curl.perform();
 

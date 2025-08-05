@@ -23,6 +23,9 @@ namespace kvikio {
 
 /**
  * @brief A remote endpoint for Apache Hadoop WebHDFS.
+ *
+ * If KvikIO is run within a Docker, the argument `--network host` needs to be passed to the `docker
+ * run` command.
  */
 class WebHdfsEndpoint : public RemoteEndpoint {
  private:
@@ -38,12 +41,12 @@ class WebHdfsEndpoint : public RemoteEndpoint {
   explicit WebHdfsEndpoint(std::string url);
 
   /**
-   * @brief Create an WebHDFS endpoint from the host, port and file path.
+   * @brief Create an WebHDFS endpoint from the host, port, file path and optionally username.
    *
-   * @param host
-   * @param port
-   * @param remote_file_path
-   * @param username
+   * @param host Host
+   * @param port Port
+   * @param remote_file_path Remote file path
+   * @param username User name
    */
   explicit WebHdfsEndpoint(std::string host,
                            std::string port,
