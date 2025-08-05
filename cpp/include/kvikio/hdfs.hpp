@@ -51,7 +51,7 @@ class WebHdfsEndpoint : public RemoteEndpoint {
   explicit WebHdfsEndpoint(std::string host,
                            std::string port,
                            std::string remote_file_path,
-                           std::optional<std::string> username);
+                           std::optional<std::string> username = std::nullopt);
 
   ~WebHdfsEndpoint() override = default;
   void setopt(CurlHandle& curl) override;
