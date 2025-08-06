@@ -72,9 +72,11 @@ endfunction()
 
 kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp)
 
-kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp)
+kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp utils/env.cpp)
 
 kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
+
+kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
 kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
 

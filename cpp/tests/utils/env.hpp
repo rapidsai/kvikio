@@ -45,7 +45,8 @@ class EnvVarContext {
    * @param env_var_entries User-specified environment variables. Each entry includes the variable
    * name and value.
    */
-  EnvVarContext(std::initializer_list<std::pair<std::string, std::string>> env_var_entries);
+  EnvVarContext(
+    std::initializer_list<std::pair<std::string_view, std::string_view>> env_var_entries);
 
   /**
    * @brief Restore the environment variables to previous values

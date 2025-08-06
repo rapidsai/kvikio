@@ -63,15 +63,6 @@ class cuFileAPI {
  private:
   cuFileAPI();
 
-#ifdef KVIKIO_CUFILE_FOUND
-  // Notice, we have to close the driver at program exit (if we opened it) even though we are
-  // not allowed to call CUDA after main[1]. This is because, cuFile will segfault if the
-  // driver isn't closed on program exit i.e. we are doomed if we do, doomed if we don't, but
-  // this seems to be the lesser of two evils.
-  // [1] <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
-  ~cuFileAPI();
-#endif
-
  public:
   cuFileAPI(cuFileAPI const&)       = delete;
   void operator=(cuFileAPI const&)  = delete;
@@ -128,11 +119,7 @@ bool is_cufile_available() noexcept;
  *
  * @return The version (1000*major + 10*minor) or zero if older than 1080.
  */
-#ifdef KVIKIO_CUFILE_FOUND
 int cufile_version() noexcept;
-#else
-constexpr int cufile_version() noexcept { return 0; }
-#endif
 
 /**
  * @brief Check if cuFile's batch API is available.

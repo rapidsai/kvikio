@@ -14,6 +14,7 @@ python/setup.py    @rapidsai/kvikio-cmake-codeowners @rapidsai/kvikio-python-cod
 #CI code owners
 /.github/                @rapidsai/ci-codeowners
 /ci/                     @rapidsai/ci-codeowners
+/.shellcheckrc           @rapidsai/ci-codeowners
 
 #packaging code owners
 /.pre-commit-config.yaml @rapidsai/packaging-codeowners
