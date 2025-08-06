@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -27,6 +28,7 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/hdfs.hpp>
 #include <kvikio/nvtx.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
@@ -177,9 +179,50 @@ void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::si
   curl.setopt(CURLOPT_RANGE, byte_range.c_str());
 }
 
+/**
+ * @brief Whether the given URL is compatible with the S3 endpoint (including the credential-based
+ * access and presigned URL).
+ *
+ * @param url A URL.
+ * @return Boolean answer.
+ */
+bool is_url_compatible_with_generic_s3(std::string const& url)
+{
+  // Currently KvikIO supports the following AWS S3 HTTP URL formats:
+  static std::array const s3_patterns = {
+    // Virtual host style: https://<bucket-name>.s3.<region-code>.amazonaws.com/<object-key-name>
+    std::regex(R"(https?://[^/]+\.s3\.[^.]+\.amazonaws\.com/.+$)", std::regex_constants::icase),
+
+    // Path style (deprecated but still popular):
+    // https://s3.<region-code>.amazonaws.com/<bucket-name>/<object-key-name>
+    std::regex(R"(https?://s3\.[^.]+\.amazonaws\.com/[^/]+/.+$)", std::regex_constants::icase),
+
+    // Legacy global endpoint: https://<bucket-name>.s3.amazonaws.com/<object-key-name>
+    std::regex(R"(https?://[^/]+\.s3\.amazonaws\.com/.+$)", std::regex_constants::icase),
+    std::regex(R"(https?://s3\.amazonaws\.com/[^/]+/.+$)", std::regex_constants::icase)};
+
+  // KvikIO does NOT support the legacy regional endpoints with the format:
+  // - std::regex(R"(https?://[^/]+\.s3-[^.]+\.amazonaws\.com/.+$)", std::regex_constants::icase)
+  // - std::regex(R"(https?://s3-[^.]+\.amazonaws\.com/[^/]+/.+$)", std::regex_constants::icase)
+
+  return std::any_of(s3_patterns.begin(), s3_patterns.end(), [&url = url](auto const& pattern) {
+    std::smatch match_result;
+    return std::regex_match(url, match_result, pattern);
+  });
+}
 }  // namespace
 
-HttpEndpoint::HttpEndpoint(std::string url) : _url{std::move(url)} {}
+RemoteEndpoint::RemoteEndpoint(RemoteFileType remote_file_type)
+  : _remote_file_type{remote_file_type}
+{
+}
+
+RemoteFileType RemoteEndpoint::type() const noexcept { return _remote_file_type; }
+
+HttpEndpoint::HttpEndpoint(std::string url)
+  : RemoteEndpoint{RemoteFileType::HTTP}, _url{std::move(url)}
+{
+}
 
 std::string HttpEndpoint::str() const { return _url; }
 
@@ -193,6 +236,17 @@ void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset
 {
   KVIKIO_NVTX_FUNC_RANGE();
   setup_range_request_impl(curl, file_offset, size);
+}
+
+bool HttpEndpoint::is_url_compatible(std::string const& url) noexcept
+{
+  try {
+    std::regex const pattern(R"(^https?://.+$)", std::regex_constants::icase);
+    std::smatch match_result;
+    return std::regex_match(url, match_result, pattern);
+  } catch (...) {
+    return false;
+  }
 }
 
 void HttpEndpoint::setopt(CurlHandle& curl)
@@ -262,7 +316,7 @@ S3Endpoint::S3Endpoint(std::string url,
                        std::optional<std::string> aws_access_key,
                        std::optional<std::string> aws_secret_access_key,
                        std::optional<std::string> aws_session_token)
-  : _url{std::move(url)}
+  : RemoteEndpoint{RemoteFileType::S3}, _url{std::move(url)}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   // Regular expression to match http[s]://
@@ -354,8 +408,18 @@ void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, 
   setup_range_request_impl(curl, file_offset, size);
 }
 
+bool S3Endpoint::is_url_compatible(std::string const& url) noexcept
+{
+  try {
+    return is_url_compatible_with_generic_s3(url) &&
+           !S3EndpointWithPresignedUrl::is_url_compatible(url);
+  } catch (...) {
+    return false;
+  }
+}
+
 S3EndpointWithPresignedUrl::S3EndpointWithPresignedUrl(std::string presigned_url)
-  : _url{std::move(presigned_url)}
+  : RemoteEndpoint{RemoteFileType::S3_PRESIGNED_URL}, _url{std::move(presigned_url)}
 {
 }
 
@@ -446,6 +510,112 @@ void S3EndpointWithPresignedUrl::setup_range_request(CurlHandle& curl,
   setup_range_request_impl(curl, file_offset, size);
 }
 
+bool S3EndpointWithPresignedUrl::is_url_compatible(std::string const& url) noexcept
+{
+  try {
+    if (!is_url_compatible_with_generic_s3(url)) { return false; }
+
+    // todo: Use the URL parser (WIP) to obtain the HTTP components, maintain RAII and handle
+    // error checking.
+    CURLUcode err_code{};
+    CURLU* url_handle = curl_url();
+    KVIKIO_EXPECT(url_handle != nullptr,
+                  "Out of memory. Libcurl is unable to allocate a URL handle.");
+
+    // S3 presigned URL must have the HTTP/HTTPS scheme (instead of "S3://"). Therefore
+    // CURLU_NON_SUPPORT_SCHEME flag is not used here.
+    err_code = curl_url_set(url_handle, CURLUPART_URL, url.c_str(), 0);
+    KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
+
+    char* content{};
+    err_code = curl_url_get(url_handle, CURLUPART_QUERY, &content, 0);
+    KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
+
+    std::string query{content};
+
+    curl_free(content);
+    curl_url_cleanup(url_handle);
+
+    return query.find("X-Amz-Algorithm") != std::string::npos &&
+           query.find("X-Amz-Signature") != std::string::npos;
+  } catch (...) {
+    return false;
+  }
+}
+
+RemoteHandle RemoteHandle::open(std::string url,
+                                RemoteFileType remote_file_type,
+                                std::optional<std::size_t> nbytes)
+{
+  std::unique_ptr<RemoteEndpoint> endpoint;
+  switch (remote_file_type) {
+    case RemoteFileType::AUTO: {
+      // todo: Use the URL parser (WIP) to obtain the HTTP components, maintain RAII and handle
+      // error checking.
+      CURLUcode err_code{};
+      CURLU* url_handle = curl_url();
+      KVIKIO_EXPECT(url_handle != nullptr,
+                    "Out of memory. Libcurl is unable to allocate a URL handle.");
+
+      err_code = curl_url_set(url_handle, CURLUPART_URL, url.c_str(), CURLU_NON_SUPPORT_SCHEME);
+      KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
+
+      char* content{};
+      err_code = curl_url_get(url_handle, CURLUPART_SCHEME, &content, 0);
+      KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
+
+      std::string scheme{content};
+      std::transform(scheme.begin(), scheme.end(), scheme.begin(), [](unsigned char c) {
+        return std::toupper(c);
+      });
+
+      if (scheme == "S3") {
+        // AWS S3 URI format: s3://<bucket>/<object-key>
+        auto const& [bucket_name, object_key_name] = kvikio::S3Endpoint::parse_s3_url(url);
+        endpoint = std::make_unique<S3Endpoint>(bucket_name, object_key_name);
+      } else if (scheme == "HTTP" || scheme == "HTTPS") {
+        if (S3EndpointWithPresignedUrl::is_url_compatible(url)) {
+          endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
+        } else if (S3Endpoint::is_url_compatible(url)) {
+          endpoint = std::make_unique<S3Endpoint>(url);
+        } else if (WebHdfsEndpoint::is_url_compatible(url)) {
+          endpoint = std::make_unique<WebHdfsEndpoint>(url);
+        } else {
+          endpoint = std::make_unique<HttpEndpoint>(url);
+        }
+      } else {
+        KVIKIO_FAIL("Unsupported scheme.");
+      }
+
+      curl_free(content);
+      curl_url_cleanup(url_handle);
+      break;
+    }
+    case RemoteFileType::S3: {
+      endpoint = std::make_unique<S3Endpoint>(url);
+      break;
+    }
+    case RemoteFileType::S3_PRESIGNED_URL: {
+      endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
+      break;
+    }
+    case RemoteFileType::WEBHDFS: {
+      endpoint = std::make_unique<WebHdfsEndpoint>(url);
+      break;
+    }
+    case RemoteFileType::HTTP: {
+      endpoint = std::make_unique<HttpEndpoint>(url);
+    }
+    default: {
+      KVIKIO_FAIL("Reached unreachable region.");
+    }
+  }
+
+  if (nbytes.has_value()) { return RemoteHandle(std::move(endpoint), nbytes.value()); }
+
+  return RemoteHandle(std::move(endpoint));
+}
+
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
   : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
 {
@@ -458,6 +628,8 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   _nbytes   = endpoint->get_file_size();
   _endpoint = std::move(endpoint);
 }
+
+RemoteFileType RemoteHandle::type() const noexcept { return _endpoint->type(); }
 
 std::size_t RemoteHandle::nbytes() const noexcept { return _nbytes; }
 

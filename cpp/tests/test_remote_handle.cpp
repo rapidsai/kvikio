@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <utility>
+#include <vector>
+
 #include <gtest/gtest.h>
 #include <kvikio/remote_handle.hpp>
 
@@ -36,4 +39,107 @@ TEST(RemoteHandleTest, s3_endpoint_constructor)
   kvikio::S3Endpoint s2(std::make_pair(bucket_name, object_name));
 
   EXPECT_EQ(s1.str(), s2.str());
+}
+
+TEST(RemoteHandleTest, check_http)
+{
+  {
+    std::vector<std::string> urls{
+      "http://example.com", "https://example.com", "HTTP://example.com", "hTTpS://example.com"};
+    for (auto const& url : urls) {
+      EXPECT_TRUE(kvikio::HttpEndpoint::is_url_compatible(url));
+    }
+  }
+
+  {
+    std::vector<std::string> urls{"s3://example.com", "hdfs://example.com"};
+    for (auto const& url : urls) {
+      EXPECT_FALSE(kvikio::HttpEndpoint::is_url_compatible(url));
+    }
+  }
+}
+
+TEST(RemoteHandleTest, check_s3) {}
+
+TEST(RemoteHandleTest, check_s3_with_presigned_url)
+{
+  {
+    std::vector<std::string> urls{
+      "https://bucket-name.s3.region-code.amazonaws.com/"
+      "object-key-name?X-Amz-Algorithm=algo&X-Amz-Signature=sig"};
+    for (auto const& url : urls) {
+      EXPECT_TRUE(kvikio::S3EndpointWithPresignedUrl::is_url_compatible(url));
+    }
+  }
+
+  {
+    std::vector<std::string> urls{
+      "https://bucket-name.s3.region-code.amazonaws.com/object-key-name"};
+    for (auto const& url : urls) {
+      EXPECT_FALSE(kvikio::S3EndpointWithPresignedUrl::is_url_compatible(url));
+    }
+  }
+}
+
+TEST(RemoteHandleTest, check_webhdfs) {}
+
+TEST(RemoteHandleTest, unified_remote_file_constructor)
+{
+  //   std::size_t const num_bytes{1};
+
+  //   {
+  //     kvikio::test::EnvVarContext env_var_ctx{{"AWS_DEFAULT_REGION", "my_aws_default_region"},
+  //                                             {"AWS_ACCESS_KEY_ID", "my_aws_access_key_id"},
+  //                                             {"AWS_SECRET_ACCESS_KEY",
+  //                                             "my_aws_secrete_access_key"},
+  //                                             {"AWS_ENDPOINT_URL",
+  //                                             "https://my_aws_endpoint_url"}};
+
+  //     std::vector<std::pair<std::string, kvikio::RemoteFileType>> questions_and_answers{
+  //       {"s3://geralt-of-rivia/bestiary.txt", kvikio::RemoteFileType::S3},  // AWS S3 URI
+
+  //       {"https://school-of-the-wolf.s3.kaer-morhen-1.amazonaws.com/geralt-of-rivia/bestiary.txt",
+  //        kvikio::RemoteFileType::S3},  // AWS S3 virtual-hosted-style URL
+
+  //       {"https://s3.kaer-morhen-1.amazonaws.com/school-of-the-wolf/geralt-of-rivia/bestiary.txt",
+  //        kvikio::RemoteFileType::S3},  // AWS S3 path-style URL (deprecated)
+
+  //       {"https://school-of-the-wolf.s3.amazonaws.com/geralt-of-rivia/bestiary.txt",
+  //        kvikio::RemoteFileType::S3},  // AWS S3 legacy global endpoint URL
+  //     };
+
+  //     for (auto const& [url, expected_type] : questions_and_answers) {
+  //       auto remote_handle = kvikio::RemoteHandle::open(url, kvikio::RemoteFileType::AUTO,
+  //       num_bytes); EXPECT_EQ(remote_handle.type(), expected_type);
+  //     }
+  //   }
+
+  //   // Artificial URL and expected type of the remote file
+  //   std::vector<std::pair<std::string, kvikio::RemoteFileType>> questions_and_answers{
+  //     {"s3://geralt-of-rivia/bestiary.txt", kvikio::RemoteFileType::S3},  // AWS S3 URI
+
+  //     {"https://school-of-the-wolf.s3.kaer-morhen-1.amazonaws.com/geralt-of-rivia/bestiary.txt",
+  //      kvikio::RemoteFileType::S3},  // AWS S3 virtual-hosted-style URL
+
+  //     {"https://s3.kaer-morhen-1.amazonaws.com/school-of-the-wolf/geralt-of-rivia/bestiary.txt",
+  //      kvikio::RemoteFileType::S3},  // AWS S3 path-style URL (deprecated)
+
+  //     {"https://school-of-the-wolf.s3.amazonaws.com/geralt-of-rivia/bestiary.txt",
+  //      kvikio::RemoteFileType::S3},  // AWS S3 legacy global endpoint URL
+
+  //     {"https://school-of-the-wol.s3.kaer-morhen-1.amazonaws.com/geralt-of-rivia/"
+  //      "bestiary.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=protagonist",
+  //      kvikio::RemoteFileType::S3_PRESIGNED_URL},
+
+  //     {"http://skellige-isles.com:1234/webhdfs/v1/home/yennefer-of-vengerberg/"
+  //      "how-to-subdue-djinn?op=OPEN",
+  //      kvikio::RemoteFileType::WEBHDFS},
+
+  //     {"http://novigrad.com/dandelion/saga_of_cirilla.txt", kvikio::RemoteFileType::HTTP},
+  //   };
+
+  //   for (auto const& [url, expected_type] : questions_and_answers) {
+  //     auto remote_handle = kvikio::RemoteHandle::open(url);  // RemoteFileType::AUTO
+  //     EXPECT_EQ(remote_handle.type(), expected_type);
+  //   }
 }
