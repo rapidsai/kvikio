@@ -1,3 +1,48 @@
+# kvikio 25.08.00 (6 Aug 2025)
+
+## 🚨 Breaking Changes
+
+- Remove CUDA 11 from dependencies.yaml ([#745](https://github.com/rapidsai/kvikio/pull/745)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- stop uploading packages to downloads.rapids.ai ([#734](https://github.com/rapidsai/kvikio/pull/734)) [@jameslamb](https://github.com/jameslamb)
+
+## 🐛 Bug Fixes
+
+- Fix remote I/O file size overflow in Python binding ([#766](https://github.com/rapidsai/kvikio/pull/766)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Fix a case sensitivity bug in S3 remote I/O ([#765](https://github.com/rapidsai/kvikio/pull/765)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Use RAPIDS&#39; CUDA major-minor version in Conda&#39;s `cuda_version` ([#758](https://github.com/rapidsai/kvikio/pull/758)) [@vyasr](https://github.com/vyasr)
+- Fix unit test UB resulting from incorrect initialization ([#751](https://github.com/rapidsai/kvikio/pull/751)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Add an overload getenv_or that supports env var alias. Add new env var KVIKIO_NUM_THREADS. Fix UB. ([#735](https://github.com/rapidsai/kvikio/pull/735)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 📖 Documentation
+
+- Remove CUDA 11 mentions from docs ([#769](https://github.com/rapidsai/kvikio/pull/769)) [@pentschev](https://github.com/pentschev)
+- add docs on CI workflow inputs ([#764](https://github.com/rapidsai/kvikio/pull/764)) [@jameslamb](https://github.com/jameslamb)
+
+## 🚀 New Features
+
+- Add the utility function to clear page cache ([#741](https://github.com/rapidsai/kvikio/pull/741)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Support file-backed mapping (1/n): host/device read C++ implementation ([#740](https://github.com/rapidsai/kvikio/pull/740)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 🛠️ Improvements
+
+- Use libnvcomp conda package ([#774](https://github.com/rapidsai/kvikio/pull/774)) [@bdice](https://github.com/bdice)
+- fix(docker): use versioned `-latest` tag for all `rapidsai` images ([#771](https://github.com/rapidsai/kvikio/pull/771)) [@gforsyth](https://github.com/gforsyth)
+- Remove CUDA 11 workarounds ([#770](https://github.com/rapidsai/kvikio/pull/770)) [@pentschev](https://github.com/pentschev)
+- Use CUDA 12.9 in Conda, Devcontainers, Spark, GHA, etc. ([#762](https://github.com/rapidsai/kvikio/pull/762)) [@jakirkham](https://github.com/jakirkham)
+- refactor(shellcheck): enable for all files and fix remaining warnings ([#760](https://github.com/rapidsai/kvikio/pull/760)) [@gforsyth](https://github.com/gforsyth)
+- Remove nvidia and dask channels ([#759](https://github.com/rapidsai/kvikio/pull/759)) [@vyasr](https://github.com/vyasr)
+- Set compiler versions in context ([#755](https://github.com/rapidsai/kvikio/pull/755)) [@jakirkham](https://github.com/jakirkham)
+- Use variants to produce separate builds with and without cufile support ([#754](https://github.com/rapidsai/kvikio/pull/754)) [@vyasr](https://github.com/vyasr)
+- Only use cufile on x86 ([#753](https://github.com/rapidsai/kvikio/pull/753)) [@vyasr](https://github.com/vyasr)
+- refactor(rattler): remove explicit `libnuma` pin now that upstream feedstock is fixed ([#752](https://github.com/rapidsai/kvikio/pull/752)) [@gforsyth](https://github.com/gforsyth)
+- Remove CUDA 11 from dependencies.yaml ([#745](https://github.com/rapidsai/kvikio/pull/745)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Add the conda dependency libnuma necessary for GDS I/O ([#744](https://github.com/rapidsai/kvikio/pull/744)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Remove CUDA 11 devcontainers and update CI scripts ([#738](https://github.com/rapidsai/kvikio/pull/738)) [@bdice](https://github.com/bdice)
+- refactor(rattler): remove cuda11 options and general cleanup ([#737](https://github.com/rapidsai/kvikio/pull/737)) [@gforsyth](https://github.com/gforsyth)
+- stop uploading packages to downloads.rapids.ai ([#734](https://github.com/rapidsai/kvikio/pull/734)) [@jameslamb](https://github.com/jameslamb)
+- Forward-merge branch-25.06 into branch-25.08 ([#722](https://github.com/rapidsai/kvikio/pull/722)) [@gforsyth](https://github.com/gforsyth)
+- resolve forward-merge from branch-25.06 to branch-25.08 ([#710](https://github.com/rapidsai/kvikio/pull/710)) [@gforsyth](https://github.com/gforsyth)
+
 # kvikio 25.06.00 (5 Jun 2025)
 
 ## 🚨 Breaking Changes
