@@ -65,7 +65,7 @@ cache:
       - ${{ stdlib("c") }}
     host:
       - cuda-version =${{ cuda_version }}
-      - libcurl ${{ libcurl_version }}
+      - libcurl ==${{ libcurl_version }}
       - if: should_use_cufile
         then:
         - libcufile-dev
@@ -91,8 +91,12 @@ outputs:
         - ${{ compiler("c") }}
       host:
         - cuda-version =${{ cuda_version }}
-        - libcurl ${{ libcurl_version }}
+        - libcurl ==${{ libcurl_version }}
       run:
+        # This is a more relaxed libcurl pinning than libcurl's run-exports
+        # (exact match). This should be safe based on libcurl's
+        # history of ABI stability and infrequent SONAME version bumps.
+        - libcurl >=${{ libcurl_version }}
         - if: x86_64
           then:
           - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
@@ -138,11 +142,15 @@ outputs:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
         - cuda-version =${{ cuda_version }}
         - cuda-cudart-dev
-        - libcurl ${{ libcurl_version }}
+        - libcurl ==${{ libcurl_version }}
         - if: should_use_cufile
           then:
           - libcufile-dev
       run:
+        # This is a more relaxed libcurl pinning than libcurl's run-exports
+        # (exact match). This should be safe based on libcurl's
+        # history of ABI stability and infrequent SONAME version bumps.
+        - libcurl >=${{ libcurl_version }}
         - if: x86_64
           then:
           - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
