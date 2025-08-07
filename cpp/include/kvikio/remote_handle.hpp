@@ -35,6 +35,18 @@ namespace kvikio {
 class CurlHandle;  // Prototype
 
 /**
+ * @brief Type of remote file.
+ */
+enum class RemoteFileType : uint8_t {
+  AUTO,  ///< Let KvikIO infer the type of remote file from the URL and create a proper endpoint.
+  S3,    ///< AWS S3 (based on HTTP/HTTPS protocols).
+  S3_PRESIGNED_URL,  ///< AWS S3 presigned URL (based on HTTP/HTTPS protocols).
+  WEBHDFS,           ///< Apache Hadoop WebHDFS (based on HTTP/HTTPS protocols).
+  HTTP,  ///< Generic HTTP/HTTPS, excluding all the specific types listed above that use HTTP/HTTPS
+         ///< protocols.
+};
+
+/**
  * @brief Abstract base class for remote endpoints.
  *
  * In this context, an endpoint refers to a remote file using a specific communication protocol.
@@ -43,6 +55,10 @@ class CurlHandle;  // Prototype
  * its own ctor that takes communication protocol specific arguments.
  */
 class RemoteEndpoint {
+ protected:
+  RemoteFileType _remote_file_type{RemoteFileType::AUTO};
+  RemoteEndpoint(RemoteFileType remote_file_type);
+
  public:
   virtual ~RemoteEndpoint() = default;
 
@@ -68,6 +84,19 @@ class RemoteEndpoint {
    * @return The file size
    */
   virtual std::size_t get_file_size() = 0;
+
+  /**
+   * @brief Set up the range request in order to read part of a file given the file offset and read
+   * size.
+   */
+  virtual void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) = 0;
+
+  /**
+   * @brief Get the type of the remote file.
+   *
+   * @return The type of the remote file.
+   */
+  [[nodiscard]] RemoteFileType type() const noexcept;
 };
 
 /**
@@ -89,6 +118,15 @@ class HttpEndpoint : public RemoteEndpoint {
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
   std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for HTTP/HTTPS endpoints.
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 
 /**
@@ -198,6 +236,15 @@ class S3Endpoint : public RemoteEndpoint {
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
   std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for S3 endpoints (excluding presigned URL).
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 
 /**
@@ -215,6 +262,15 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
   std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for S3 endpoints with presigned URL.
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 
 /**
@@ -226,6 +282,16 @@ class RemoteHandle {
   std::size_t _nbytes;
 
  public:
+  /**
+   * @brief
+   *
+   * @param url
+   * @return RemoteHandle
+   */
+  static RemoteHandle open(std::string url,
+                           RemoteFileType remote_file_type   = RemoteFileType::AUTO,
+                           std::optional<std::size_t> nbytes = std::nullopt);
+
   /**
    * @brief Create a new remote handle from an endpoint and a file size.
    *
@@ -248,6 +314,13 @@ class RemoteHandle {
   RemoteHandle& operator=(RemoteHandle&& o)    = default;
   RemoteHandle(RemoteHandle const&)            = delete;
   RemoteHandle& operator=(RemoteHandle const&) = delete;
+
+  /**
+   * @brief Get the type of the remote file.
+   *
+   * @return The type of the remote file.
+   */
+  [[nodiscard]] RemoteFileType type() const noexcept;
 
   /**
    * @brief Get the file size.

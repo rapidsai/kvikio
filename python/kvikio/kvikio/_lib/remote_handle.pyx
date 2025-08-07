@@ -53,6 +53,9 @@ cdef extern from "<kvikio/remote_handle.hpp>" nogil:
             size_t file_offset
         ) except +
 
+cdef extern from "<kvikio/hdfs.hpp>" nogil:
+    cdef cppclass cpp_WebHdfsEndpoint "kvikio::WebHdfsEndpoint"(cpp_RemoteEndpoint):
+        cpp_WebHdfsEndpoint(string url) except +
 
 cdef string _to_string(str s):
     """Convert Python object to a C++ string (if None, return the empty string)"""
@@ -153,6 +156,18 @@ cdef class RemoteFile:
         return RemoteFile._from_endpoint(
             cast_to_remote_endpoint(
                 make_unique[cpp_S3EndpointWithPresignedUrl](_to_string(presigned_url))
+            ),
+            nbytes
+        )
+
+    @staticmethod
+    def open_webhdfs(
+        url: str,
+        nbytes: Optional[int],
+    ):
+        return RemoteFile._from_endpoint(
+            cast_to_remote_endpoint(
+                make_unique[cpp_WebHdfsEndpoint](_to_string(url))
             ),
             nbytes
         )

@@ -163,7 +163,9 @@ set(SOURCES
 )
 
 if(KvikIO_REMOTE_SUPPORT)
-  list(APPEND SOURCES "src/remote_handle.cpp" "src/shim/libcurl.cpp")
+  list(APPEND SOURCES "src/hdfs.cpp" "src/remote_handle.cpp" "src/detail/remote_handle.cpp"
+       "src/shim/libcurl.cpp"
+  )
 endif()
 
 add_library(kvikio ${SOURCES})

@@ -27,15 +27,16 @@ class BasicIOTest : public testing::Test {
     TempDir tmp_dir{false};
     _filepath = tmp_dir.path() / "test";
 
-    _dev_a = std::move(DevBuffer::arange(100));
-    _dev_b = std::move(DevBuffer::zero_like(_dev_a));
+    _dev_a = std::move(DevBuffer<value_type>::arange(100));
+    _dev_b = std::move(DevBuffer<value_type>::zero_like(_dev_a));
   }
 
   void TearDown() override {}
 
   std::filesystem::path _filepath;
-  DevBuffer _dev_a;
-  DevBuffer _dev_b;
+  using value_type = std::int64_t;
+  DevBuffer<value_type> _dev_a;
+  DevBuffer<value_type> _dev_b;
 };
 
 TEST_F(BasicIOTest, write_read)
