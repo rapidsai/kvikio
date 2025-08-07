@@ -38,78 +38,93 @@
 //
 // If any of these assumptions is not satisfied, this unit test is expected to be skipped
 // gracefully.
+
+using value_type = double;
+
+namespace kvikio::test {
+struct Config {
+  std::size_t num_elements{1024ull * 1024ull};
+  std::vector<value_type> host_buf;
+  kvikio::test::DevBuffer<value_type> dev_buf;
+  std::string host;
+  std::string port;
+  std::string _username;
+  std::string remote_file_path;
+  bool file_created{false};
+};
+}  // namespace kvikio::test
+
 class WebHdfsTest : public testing::Test {
  protected:
-  void SetUp() override
+  static void SetUpTestSuite()
   {
-    _num_elements = 1024ull * 1024ull;
-    _host_buf.resize(_num_elements);
-    std::iota(_host_buf.begin(), _host_buf.end(), 0);
+    config.num_elements = 1024ull * 1024ull;
+    config.host_buf.resize(config.num_elements);
+    std::iota(config.host_buf.begin(), config.host_buf.end(), 0);
 
-    _dev_buf = kvikio::test::DevBuffer<value_type>{_host_buf};
+    config.dev_buf = kvikio::test::DevBuffer<value_type>{config.host_buf};
 
-    _host = "localhost";
-    _port = "9870";
+    config.host = "localhost";
+    config.port = "9870";
 
-    _remote_file_path = "/tmp/kvikio-test-webhdfs.bin";
+    config.remote_file_path = "/tmp/kvikio-test-webhdfs.bin";
 
     auto res = std::getenv("KVIKIO_USER");
     if (res) {
-      _username = res;
+      config._username = res;
     } else {
       GTEST_SKIP() << "Environment variable KVIKIO_USER is not set for this test.";
     }
 
-    _webhdfs_helper = std::make_unique<kvikio::test::WebHdfsTestHelper>(_host, _port, _username);
+    webhdfs_helper =
+      std::make_unique<kvikio::test::WebHdfsTestHelper>(config.host, config.port, config._username);
 
-    if (!_webhdfs_helper->can_connect()) {
+    if (!webhdfs_helper->can_connect()) {
       GTEST_SKIP() << "Cannot connect to WebHDFS. Skipping all tests for this fixture.";
     }
 
-    std::span<std::byte> buffer{reinterpret_cast<std::byte*>(_host_buf.data()),
-                                _host_buf.size() * sizeof(value_type)};
-    if (!_webhdfs_helper->upload_data(buffer, _remote_file_path)) {
+    std::span<std::byte> buffer{reinterpret_cast<std::byte*>(config.host_buf.data()),
+                                config.host_buf.size() * sizeof(value_type)};
+    if (!webhdfs_helper->upload_data(buffer, config.remote_file_path)) {
       GTEST_SKIP()
         << "Failed to upload test data using WebHDFS. Skipping all tests for this fixture.";
     };
+
+    config.file_created = true;
   }
 
-  void TearDown() override { _webhdfs_helper->delete_data(_remote_file_path); }
+  static void TearDownTestSuite()
+  {
+    if (config.file_created) { webhdfs_helper->delete_data(config.remote_file_path); }
+  }
 
-  using value_type = double;
-
-  std::size_t _num_elements;
-  std::vector<value_type> _host_buf;
-  kvikio::test::DevBuffer<value_type> _dev_buf;
-
-  std::string _host;
-  std::string _port;
-  std::string _username;
-  std::string _remote_file_path;
-
-  std::unique_ptr<kvikio::test::WebHdfsTestHelper> _webhdfs_helper;
+  static kvikio::test::Config config;
+  static std::unique_ptr<kvikio::test::WebHdfsTestHelper> webhdfs_helper;
 };
+
+kvikio::test::Config WebHdfsTest::config{};
+std::unique_ptr<kvikio::test::WebHdfsTestHelper> WebHdfsTest::webhdfs_helper{};
 
 TEST_F(WebHdfsTest, constructor)
 {
   auto do_test = [&](kvikio::RemoteHandle& remote_handle) {
-    kvikio::test::DevBuffer<value_type> out_device_buf(_num_elements);
+    kvikio::test::DevBuffer<value_type> out_device_buf(config.num_elements);
     auto read_size    = remote_handle.read(out_device_buf.ptr, remote_handle.nbytes());
     auto out_host_buf = out_device_buf.to_vector();
-    for (std::size_t i = 0; i < _num_elements; ++i) {
-      EXPECT_EQ(_host_buf[i], out_host_buf[i]);
+    for (std::size_t i = 0; i < config.num_elements; ++i) {
+      EXPECT_EQ(config.host_buf[i], out_host_buf[i]);
     }
     EXPECT_EQ(read_size, remote_handle.nbytes());
   };
 
   std::stringstream ss;
-  ss << "http://" << _host << ":" << _port << "/webhdfs/v1" << _remote_file_path
-     << "?user.name=" << _username;
+  ss << "http://" << config.host << ":" << config.port << "/webhdfs/v1" << config.remote_file_path
+     << "?user.name=" << config._username;
   std::vector<kvikio::RemoteHandle> remote_handles;
 
   remote_handles.emplace_back(std::make_unique<kvikio::WebHdfsEndpoint>(ss.str()));
-  remote_handles.emplace_back(
-    std::make_unique<kvikio::WebHdfsEndpoint>(_host, _port, _remote_file_path, _username));
+  remote_handles.emplace_back(std::make_unique<kvikio::WebHdfsEndpoint>(
+    config.host, config.port, config.remote_file_path, config._username));
 
   for (auto& remote_handle : remote_handles) {
     do_test(remote_handle);
@@ -132,7 +147,7 @@ TEST_F(WebHdfsTest, read_parallel)
       auto fut = remote_handle.pread(out_host_buf.data(), expected_read_size, offset, task_size);
       auto const read_size = fut.get();
       for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
-        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+        EXPECT_EQ(config.host_buf[i], out_host_buf[i - num_elements_to_skip]);
       }
       EXPECT_EQ(read_size, expected_read_size);
     }
@@ -144,15 +159,15 @@ TEST_F(WebHdfsTest, read_parallel)
       auto const read_size = fut.get();
       auto out_host_buf    = out_device_buf.to_vector();
       for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
-        EXPECT_EQ(_host_buf[i], out_host_buf[i - num_elements_to_skip]);
+        EXPECT_EQ(config.host_buf[i], out_host_buf[i - num_elements_to_skip]);
       }
       EXPECT_EQ(read_size, expected_read_size);
     }
   };
 
   std::stringstream ss;
-  ss << "http://" << _host << ":" << _port << "/webhdfs/v1" << _remote_file_path
-     << "?user.name=" << _username;
+  ss << "http://" << config.host << ":" << config.port << "/webhdfs/v1" << config.remote_file_path
+     << "?user.name=" << config._username;
   std::vector<std::size_t> task_sizes{256, 1024, kvikio::defaults::task_size()};
 
   for (const auto& task_size : task_sizes) {

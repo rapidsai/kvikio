@@ -191,19 +191,13 @@ std::size_t HttpEndpoint::get_file_size()
 
 void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   setup_range_request_impl(curl, file_offset, size);
 }
 
-void HttpEndpoint::setopt(CurlHandle& curl)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  curl.setopt(CURLOPT_URL, _url.c_str());
-}
+void HttpEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_str()); }
 
 void S3Endpoint::setopt(CurlHandle& curl)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   curl.setopt(CURLOPT_URL, _url.c_str());
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
@@ -361,7 +355,6 @@ S3EndpointWithPresignedUrl::S3EndpointWithPresignedUrl(std::string presigned_url
 
 void S3EndpointWithPresignedUrl::setopt(CurlHandle& curl)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   curl.setopt(CURLOPT_URL, _url.c_str());
 }
 
