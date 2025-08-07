@@ -93,10 +93,6 @@ outputs:
         - cuda-version =${{ cuda_version }}
         - libcurl ==${{ libcurl_version }}
       run:
-        # This is a more relaxed libcurl pinning than libcurl's run-exports
-        # (exact match). This should be safe based on libcurl's
-        # history of ABI stability and infrequent SONAME version bumps.
-        - libcurl >=${{ libcurl_version }}
         - if: x86_64
           then:
           - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
@@ -112,7 +108,6 @@ outputs:
       ignore_run_exports:
         by_name:
           - cuda-version
-          - libcurl
           - if: should_use_cufile
             then:
             - libcufile
@@ -147,10 +142,6 @@ outputs:
           then:
           - libcufile-dev
       run:
-        # This is a more relaxed libcurl pinning than libcurl's run-exports
-        # (exact match). This should be safe based on libcurl's
-        # history of ABI stability and infrequent SONAME version bumps.
-        - libcurl >=${{ libcurl_version }}
         - if: x86_64
           then:
           - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
@@ -165,7 +156,6 @@ outputs:
         by_name:
           - cuda-cudart
           - cuda-version
-          - libcurl
           - libnuma
           - if: should_use_cufile
             then:
