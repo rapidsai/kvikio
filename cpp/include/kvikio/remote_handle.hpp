@@ -121,12 +121,12 @@ class HttpEndpoint : public RemoteEndpoint {
   void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 
   /**
-   * @brief Whether the given URL is compatible with the HTTP/HTTPS endpoint.
+   * @brief Whether the given URL is valid for HTTP/HTTPS endpoints.
    *
    * @param url A URL.
    * @return Boolean answer.
    */
-  static bool is_url_compatible(std::string const& url) noexcept;
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 
 /**
@@ -239,12 +239,12 @@ class S3Endpoint : public RemoteEndpoint {
   void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 
   /**
-   * @brief Whether the given URL is compatible with the S3 endpoint (excluding presigned URL).
+   * @brief Whether the given URL is valid for S3 endpoints (excluding presigned URL).
    *
    * @param url A URL.
    * @return Boolean answer.
    */
-  static bool is_url_compatible(std::string const& url) noexcept;
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 
 /**
@@ -265,12 +265,12 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
   void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 
   /**
-   * @brief Whether the given URL is compatible with the S3 endpoint with presigned URL.
+   * @brief Whether the given URL is valid for S3 endpoints with presigned URL.
    *
    * @param url A URL.
    * @return Boolean answer.
    */
-  static bool is_url_compatible(std::string const& url) noexcept;
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 
 /**

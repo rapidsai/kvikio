@@ -60,11 +60,11 @@ class WebHdfsEndpoint : public RemoteEndpoint {
   void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 
   /**
-   * @brief Whether the given URL is compatible with the WebHDFS endpoint.
+   * @brief Whether the given URL is valid for the WebHDFS endpoints.
    *
    * @param url A URL.
    * @return Boolean answer.
    */
-  static bool is_url_compatible(std::string const& url) noexcept;
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 }  // namespace kvikio

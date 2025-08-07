@@ -181,12 +181,12 @@ void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::si
 
 /**
  * @brief Whether the given URL is compatible with the S3 endpoint (including the credential-based
- * access and presigned URL).
+ * access and presigned URL) which uses HTTP/HTTPS.
  *
  * @param url A URL.
  * @return Boolean answer.
  */
-bool is_url_compatible_with_generic_s3(std::string const& url)
+bool is_url_valid_for_generic_s3(std::string const& url)
 {
   // Currently KvikIO supports the following AWS S3 HTTP URL formats:
   static std::array const s3_patterns = {
@@ -197,13 +197,13 @@ bool is_url_compatible_with_generic_s3(std::string const& url)
     // https://s3.<region-code>.amazonaws.com/<bucket-name>/<object-key-name>
     std::regex(R"(https?://s3\.[^.]+\.amazonaws\.com/[^/]+/.+$)", std::regex_constants::icase),
 
-    // Legacy global endpoint: https://<bucket-name>.s3.amazonaws.com/<object-key-name>
+    // Legacy global endpoint: no region code
     std::regex(R"(https?://[^/]+\.s3\.amazonaws\.com/.+$)", std::regex_constants::icase),
-    std::regex(R"(https?://s3\.amazonaws\.com/[^/]+/.+$)", std::regex_constants::icase)};
+    std::regex(R"(https?://s3\.amazonaws\.com/[^/]+/.+$)", std::regex_constants::icase),
 
-  // KvikIO does NOT support the legacy regional endpoints with the format:
-  // - std::regex(R"(https?://[^/]+\.s3-[^.]+\.amazonaws\.com/.+$)", std::regex_constants::icase)
-  // - std::regex(R"(https?://s3-[^.]+\.amazonaws\.com/[^/]+/.+$)", std::regex_constants::icase)
+    // Legacy regional endpoint: s3 and region code are delimited by - instead of .
+    std::regex(R"(https?://[^/]+\.s3-[^.]+\.amazonaws\.com/.+$)", std::regex_constants::icase),
+    std::regex(R"(https?://s3-[^.]+\.amazonaws\.com/[^/]+/.+$)", std::regex_constants::icase)};
 
   return std::any_of(s3_patterns.begin(), s3_patterns.end(), [&url = url](auto const& pattern) {
     std::smatch match_result;
@@ -238,7 +238,7 @@ void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset
   setup_range_request_impl(curl, file_offset, size);
 }
 
-bool HttpEndpoint::is_url_compatible(std::string const& url) noexcept
+bool HttpEndpoint::is_url_valid(std::string const& url) noexcept
 {
   try {
     std::regex const pattern(R"(^https?://.+$)", std::regex_constants::icase);
@@ -408,11 +408,16 @@ void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, 
   setup_range_request_impl(curl, file_offset, size);
 }
 
-bool S3Endpoint::is_url_compatible(std::string const& url) noexcept
+bool S3Endpoint::is_url_valid(std::string const& url) noexcept
 {
   try {
-    return is_url_compatible_with_generic_s3(url) &&
-           !S3EndpointWithPresignedUrl::is_url_compatible(url);
+    // URL uses S3 scheme
+    std::regex const pattern{R"(^s3://[^/]+/.+$)", std::regex_constants::icase};
+    std::smatch match_result;
+    if (std::regex_match(url, match_result, pattern)) { return true; }
+
+    // URL uses HTTP/HTTPS scheme
+    return is_url_valid_for_generic_s3(url) && !S3EndpointWithPresignedUrl::is_url_valid(url);
   } catch (...) {
     return false;
   }
@@ -510,10 +515,10 @@ void S3EndpointWithPresignedUrl::setup_range_request(CurlHandle& curl,
   setup_range_request_impl(curl, file_offset, size);
 }
 
-bool S3EndpointWithPresignedUrl::is_url_compatible(std::string const& url) noexcept
+bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
 {
   try {
-    if (!is_url_compatible_with_generic_s3(url)) { return false; }
+    if (!is_url_valid_for_generic_s3(url)) { return false; }
 
     // todo: Use the URL parser (WIP) to obtain the HTTP components, maintain RAII and handle
     // error checking.
@@ -536,6 +541,7 @@ bool S3EndpointWithPresignedUrl::is_url_compatible(std::string const& url) noexc
     curl_free(content);
     curl_url_cleanup(url_handle);
 
+    // Reference: https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
     return query.find("X-Amz-Algorithm") != std::string::npos &&
            query.find("X-Amz-Signature") != std::string::npos;
   } catch (...) {
@@ -572,13 +578,13 @@ RemoteHandle RemoteHandle::open(std::string url,
       if (scheme == "S3") {
         // AWS S3 URI format: s3://<bucket>/<object-key>
         auto const& [bucket_name, object_key_name] = kvikio::S3Endpoint::parse_s3_url(url);
-        endpoint = std::make_unique<S3Endpoint>(bucket_name, object_key_name);
+        endpoint = std::make_unique<S3Endpoint>(std::pair{bucket_name, object_key_name});
       } else if (scheme == "HTTP" || scheme == "HTTPS") {
-        if (S3EndpointWithPresignedUrl::is_url_compatible(url)) {
+        if (S3EndpointWithPresignedUrl::is_url_valid(url)) {
           endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
-        } else if (S3Endpoint::is_url_compatible(url)) {
+        } else if (S3Endpoint::is_url_valid(url)) {
           endpoint = std::make_unique<S3Endpoint>(url);
-        } else if (WebHdfsEndpoint::is_url_compatible(url)) {
+        } else if (WebHdfsEndpoint::is_url_valid(url)) {
           endpoint = std::make_unique<WebHdfsEndpoint>(url);
         } else {
           endpoint = std::make_unique<HttpEndpoint>(url);

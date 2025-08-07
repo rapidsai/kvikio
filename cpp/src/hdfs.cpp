@@ -129,10 +129,12 @@ void WebHdfsEndpoint::setup_range_request(CurlHandle& curl,
   curl.setopt(CURLOPT_URL, ss.str().c_str());
 }
 
-bool WebHdfsEndpoint::is_url_compatible(std::string const& url) noexcept
+bool WebHdfsEndpoint::is_url_valid(std::string const& url) noexcept
 {
   try {
-    return true;
+    std::regex const pattern(R"(^https?://[^/]+:\d+/webhdfs/v1/.+$)", std::regex_constants::icase);
+    std::smatch match_result;
+    return std::regex_match(url, match_result, pattern);
   } catch (...) {
     return false;
   }
