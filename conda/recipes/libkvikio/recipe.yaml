@@ -138,6 +138,7 @@ outputs:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
         - cuda-version =${{ cuda_version }}
         - cuda-cudart-dev
+        - libcurl ${{ libcurl_version }}
         - if: should_use_cufile
           then:
           - libcufile-dev
