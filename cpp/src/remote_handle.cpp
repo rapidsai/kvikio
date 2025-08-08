@@ -25,6 +25,7 @@
 #include <string>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/nvtx.hpp>
 #include <kvikio/parallel_operation.hpp>
@@ -162,6 +163,20 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
   return static_cast<std::size_t>(cl);
 }
 
+/**
+ * @brief Set up the range request for libcurl. Use this method when HTTP range request is supposed.
+ *
+ * @param curl A curl handle
+ * @param file_offset File offset
+ * @param size read size
+ */
+void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size)
+{
+  std::string const byte_range =
+    std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
+  curl.setopt(CURLOPT_RANGE, byte_range.c_str());
+}
+
 }  // namespace
 
 HttpEndpoint::HttpEndpoint(std::string url) : _url{std::move(url)} {}
@@ -174,15 +189,15 @@ std::size_t HttpEndpoint::get_file_size()
   return get_file_size_using_head_impl(*this, _url);
 }
 
-void HttpEndpoint::setopt(CurlHandle& curl)
+void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
-  curl.setopt(CURLOPT_URL, _url.c_str());
+  setup_range_request_impl(curl, file_offset, size);
 }
+
+void HttpEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_str()); }
 
 void S3Endpoint::setopt(CurlHandle& curl)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   curl.setopt(CURLOPT_URL, _url.c_str());
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
@@ -327,6 +342,12 @@ std::size_t S3Endpoint::get_file_size()
   return get_file_size_using_head_impl(*this, _url);
 }
 
+void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  setup_range_request_impl(curl, file_offset, size);
+}
+
 S3EndpointWithPresignedUrl::S3EndpointWithPresignedUrl(std::string presigned_url)
   : _url{std::move(presigned_url)}
 {
@@ -334,7 +355,6 @@ S3EndpointWithPresignedUrl::S3EndpointWithPresignedUrl(std::string presigned_url
 
 void S3EndpointWithPresignedUrl::setopt(CurlHandle& curl)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   curl.setopt(CURLOPT_URL, _url.c_str());
 }
 
@@ -409,6 +429,14 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
 
   curl.perform();
   return file_size;
+}
+
+void S3EndpointWithPresignedUrl::setup_range_request(CurlHandle& curl,
+                                                     std::size_t file_offset,
+                                                     std::size_t size)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  setup_range_request_impl(curl, file_offset, size);
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
@@ -510,10 +538,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   bool const is_host_mem = is_host_memory(buf);
   auto curl              = create_curl_handle();
   _endpoint->setopt(curl);
-
-  std::string const byte_range =
-    std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
-  curl.setopt(CURLOPT_RANGE, byte_range.c_str());
+  _endpoint->setup_range_request(curl, file_offset, size);
 
   if (is_host_mem) {
     curl.setopt(CURLOPT_WRITEFUNCTION, callback_host_memory);

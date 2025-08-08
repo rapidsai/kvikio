@@ -57,7 +57,7 @@ function(kvikio_add_test)
   )
   target_link_libraries(
     ${_KVIKIO_NAME} PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest
-                            GTest::gtest_main CUDA::cudart
+                            GTest::gtest_main CUDA::cudart $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
   )
 
   rapids_test_add(
@@ -76,6 +76,9 @@ kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
 
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
-kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
+if(KvikIO_REMOTE_SUPPORT)
+  kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
+  kvikio_add_test(NAME HDFS_TEST SOURCES test_hdfs.cpp utils/hdfs_helper.cpp)
+endif()
 
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/tests/libkvikio)

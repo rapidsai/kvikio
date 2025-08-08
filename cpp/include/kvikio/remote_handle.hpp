@@ -68,6 +68,12 @@ class RemoteEndpoint {
    * @return The file size
    */
   virtual std::size_t get_file_size() = 0;
+
+  /**
+   * @brief Set up the range request in order to read part of a file given the file offset and read
+   * size.
+   */
+  virtual void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) = 0;
 };
 
 /**
@@ -89,6 +95,7 @@ class HttpEndpoint : public RemoteEndpoint {
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
   std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 };
 
 /**
@@ -198,6 +205,7 @@ class S3Endpoint : public RemoteEndpoint {
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
   std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 };
 
 /**
@@ -215,6 +223,7 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
   std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 };
 
 /**
