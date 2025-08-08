@@ -57,33 +57,52 @@ cdef class InternalMmapHandle:
         path_bytes = os.fsencode(file_path)
         flags_bytes = str(flags).encode()
 
+        cdef string cpp_path_bytes = path_bytes
+        cdef string cpp_flags_bytes = flags_bytes
+        cdef size_t cpp_initial_map_offset = initial_map_offset
+        cdef fcntl.mode_t cpp_mode = mode
+
         cdef optional[int] cpp_map_flags
         if map_flags is None:
             cpp_map_flags = nullopt
         else:
             cpp_map_flags = <int>(map_flags)
 
-        self._handle = move(CppMmapHandle(path_bytes,
-                                          flags_bytes,
-                                          cpp_initial_map_size,
-                                          initial_map_offset,
-                                          mode,
-                                          cpp_map_flags))
+        with nogil:
+            self._handle = move(CppMmapHandle(cpp_path_bytes,
+                                              cpp_flags_bytes,
+                                              cpp_initial_map_size,
+                                              cpp_initial_map_offset,
+                                              cpp_mode,
+                                              cpp_map_flags))
 
     def initial_map_size(self) -> int:
-        return self._handle.initial_map_size()
+        cdef size_t result
+        with nogil:
+            result = self._handle.initial_map_size()
+        return result
 
     def initial_map_offset(self) -> int:
-        return self._handle.initial_map_offset()
+        cdef size_t result
+        with nogil:
+            result = self._handle.initial_map_offset()
+        return result
 
     def file_size(self) -> int:
-        return self._handle.file_size()
+        cdef size_t result
+        with nogil:
+            result = self._handle.file_size()
+        return result
 
     def close(self) -> None:
-        self._handle.close()
+        with nogil:
+            self._handle.close()
 
     def closed(self) -> bool:
-        return self._handle.closed()
+        cdef bool result
+        with nogil:
+            result = self._handle.closed()
+        return result
 
     def read(self, buf: Any, size: Optional[int] = None, offset: int = 0) -> int:
         cdef optional[size_t] cpp_size
@@ -91,26 +110,37 @@ cdef class InternalMmapHandle:
             cpp_size = nullopt
         else:
             cpp_size = <size_t>(size)
+        cdef size_t cpp_offset = offset
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
-        return self._handle.read(<void*>info.first,
-                                 cpp_size,
-                                 offset)
+        cdef size_t result
+        with nogil:
+            result = self._handle.read(<void*>info.first,
+                                       cpp_size,
+                                       cpp_offset)
+        return result
 
     def pread(self, buf: Any, size: Optional[int] = None, offset: int = 0,
               task_size: Optional[int] = None) -> IOFuture:
         cdef optional[size_t] cpp_size
+        cdef size_t cpp_task_size
+
         if size is None:
             cpp_size = nullopt
         else:
             cpp_size = <size_t>(size)
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
 
+        cdef size_t cpp_offset = offset
+
         if task_size is None:
             cpp_task_size = defaults.task_size()
         else:
             cpp_task_size = task_size
 
-        return _wrap_io_future(self._handle.pread(<void*>info.first,
-                               cpp_size,
-                               offset,
-                               cpp_task_size))
+        cdef future[size_t] cpp_future
+        with nogil:
+            cpp_future = self._handle.pread(<void*>info.first,
+                                            cpp_size,
+                                            cpp_offset,
+                                            cpp_task_size)
+        return _wrap_io_future(cpp_future)
