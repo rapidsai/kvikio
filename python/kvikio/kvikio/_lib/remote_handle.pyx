@@ -216,6 +216,7 @@ cdef class RemoteFile:
                 info.second,
                 cpp_file_offset,
             )
+
         return result
 
     def pread(self, buf, size: Optional[int], file_offset: int) -> IOFuture:

@@ -48,17 +48,15 @@ cdef class InternalMmapHandle:
         if not os.path.exists(file_path):
             raise RuntimeError("Unable to open file")
 
+        cdef string cpp_path_bytes = os.fsencode(file_path)
+        cdef string cpp_flags_bytes = str(flags).encode()
+
         cdef optional[size_t] cpp_initial_map_size
         if initial_map_size is None:
             cpp_initial_map_size = nullopt
         else:
             cpp_initial_map_size = <size_t>(initial_map_size)
 
-        path_bytes = os.fsencode(file_path)
-        flags_bytes = str(flags).encode()
-
-        cdef string cpp_path_bytes = path_bytes
-        cdef string cpp_flags_bytes = flags_bytes
         cdef size_t cpp_initial_map_offset = initial_map_offset
         cdef fcntl.mode_t cpp_mode = mode
 
@@ -105,13 +103,13 @@ cdef class InternalMmapHandle:
         return result
 
     def read(self, buf: Any, size: Optional[int] = None, offset: int = 0) -> int:
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
         cdef optional[size_t] cpp_size
         if size is None:
             cpp_size = nullopt
         else:
             cpp_size = <size_t>(size)
         cdef size_t cpp_offset = offset
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
         cdef size_t result
         with nogil:
             result = self._handle.read(<void*>info.first,
