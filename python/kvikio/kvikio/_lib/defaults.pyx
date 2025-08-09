@@ -43,68 +43,107 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
 
 
 def is_compat_mode_preferred() -> bool:
-    return cpp_is_compat_mode_preferred()
+    cdef bool result
+    with nogil:
+        result = cpp_is_compat_mode_preferred()
+    return result
 
 
 def compat_mode() -> CompatMode:
-    return cpp_compat_mode()
+    cdef CompatMode result
+    with nogil:
+        result = cpp_compat_mode()
+    return result
 
 
 def set_compat_mode(compat_mode: CompatMode) -> None:
-    cpp_set_compat_mode(compat_mode)
+    with nogil:
+        cpp_set_compat_mode(compat_mode)
 
 
 def thread_pool_nthreads() -> int:
-    return cpp_thread_pool_nthreads()
+    cdef unsigned int result
+    with nogil:
+        result = cpp_thread_pool_nthreads()
+    return result
 
 
 def set_thread_pool_nthreads(nthreads: int) -> None:
-    cpp_set_thread_pool_nthreads(nthreads)
+    cdef unsigned int cpp_nthreads = nthreads
+    with nogil:
+        cpp_set_thread_pool_nthreads(cpp_nthreads)
 
 
 def task_size() -> int:
-    return cpp_task_size()
+    cdef size_t result
+    with nogil:
+        result = cpp_task_size()
+    return result
 
 
 def set_task_size(nbytes: int) -> None:
-    cpp_set_task_size(nbytes)
+    cdef size_t cpp_nbytes = nbytes
+    with nogil:
+        cpp_set_task_size(cpp_nbytes)
 
 
 def gds_threshold() -> int:
-    return cpp_gds_threshold()
+    cdef size_t result
+    with nogil:
+        result = cpp_gds_threshold()
+    return result
 
 
 def set_gds_threshold(nbytes: int) -> None:
-    cpp_set_gds_threshold(nbytes)
+    cdef size_t cpp_nbytes = nbytes
+    with nogil:
+        cpp_set_gds_threshold(cpp_nbytes)
 
 
 def bounce_buffer_size() -> int:
-    return cpp_bounce_buffer_size()
+    cdef size_t result
+    with nogil:
+        result = cpp_bounce_buffer_size()
+    return result
 
 
 def set_bounce_buffer_size(nbytes: int) -> None:
-    cpp_set_bounce_buffer_size(nbytes)
+    cdef size_t cpp_nbytes = nbytes
+    with nogil:
+        cpp_set_bounce_buffer_size(cpp_nbytes)
 
 
 def http_max_attempts() -> int:
-    return cpp_http_max_attempts()
+    cdef size_t result
+    with nogil:
+        result = cpp_http_max_attempts()
+    return result
 
 
 def set_http_max_attempts(attempts: int) -> None:
-    cpp_set_http_max_attempts(attempts)
+    cdef size_t cpp_attempts = attempts
+    with nogil:
+        cpp_set_http_max_attempts(cpp_attempts)
 
 
 def http_timeout() -> int:
-    return cpp_http_timeout()
+    cdef long result
+    with nogil:
+        result = cpp_http_timeout()
+    return result
 
 
 def set_http_timeout(timeout: int) -> None:
-    return cpp_set_http_timeout(timeout)
+    cdef long cpp_timeout = timeout
+    with nogil:
+        cpp_set_http_timeout(cpp_timeout)
 
 
 def http_status_codes() -> list[int]:
+    # Cannot use nogil here because we need the GIL for list creation
     return cpp_http_status_codes()
 
 
 def set_http_status_codes(status_codes: list[int]) -> None:
-    return cpp_set_http_status_codes(status_codes)
+    # Cannot use nogil here because we need the GIL for list conversion
+    cpp_set_http_status_codes(status_codes)

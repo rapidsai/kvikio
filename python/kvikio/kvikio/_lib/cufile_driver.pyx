@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -15,15 +15,20 @@ cdef extern from "<kvikio/shim/cufile.hpp>" nogil:
 
 
 def libcufile_version() -> int:
-    return cpp_libcufile_version()
+    cdef int version
+    with nogil:
+        version = cpp_libcufile_version()
+    return version
 
 
 def driver_open():
-    cpp_driver_open()
+    with nogil:
+        cpp_driver_open()
 
 
 def driver_close():
-    cpp_driver_close()
+    with nogil:
+        cpp_driver_close()
 
 
 cdef extern from "<kvikio/cufile/driver.hpp>" nogil:
@@ -49,55 +54,90 @@ cdef class DriverProperties:
 
     @property
     def is_gds_available(self) -> bool:
+        cdef bool result
         try:
-            return self._handle.is_gds_available()
+            with nogil:
+                result = self._handle.is_gds_available()
+            return result
         except RuntimeError:
             return False
 
     @property
     def major_version(self) -> bool:
-        return self._handle.get_nvfs_major_version()
+        cdef unsigned int version
+        with nogil:
+            version = self._handle.get_nvfs_major_version()
+        return version
 
     @property
     def minor_version(self) -> bool:
-        return self._handle.get_nvfs_minor_version()
+        cdef unsigned int version
+        with nogil:
+            version = self._handle.get_nvfs_minor_version()
+        return version
 
     @property
     def allow_compat_mode(self) -> bool:
-        return self._handle.get_nvfs_allow_compat_mode()
+        cdef bool result
+        with nogil:
+            result = self._handle.get_nvfs_allow_compat_mode()
+        return result
 
     @property
     def poll_mode(self) -> bool:
-        return self._handle.get_nvfs_poll_mode()
+        cdef bool result
+        with nogil:
+            result = self._handle.get_nvfs_poll_mode()
+        return result
 
     @poll_mode.setter
     def poll_mode(self, enable: bool) -> None:
-        self._handle.set_nvfs_poll_mode(enable)
+        cdef bool cpp_enable = enable
+        with nogil:
+            self._handle.set_nvfs_poll_mode(cpp_enable)
 
     @property
     def poll_thresh_size(self) -> int:
-        return self._handle.get_nvfs_poll_thresh_size()
+        cdef size_t size
+        with nogil:
+            size = self._handle.get_nvfs_poll_thresh_size()
+        return size
 
     @poll_thresh_size.setter
     def poll_thresh_size(self, size_in_kb: int) -> None:
-        self._handle.set_nvfs_poll_thresh_size(size_in_kb)
+        cdef size_t size = size_in_kb
+        with nogil:
+            self._handle.set_nvfs_poll_thresh_size(size)
 
     @property
     def max_device_cache_size(self) -> int:
-        return self._handle.get_max_device_cache_size()
+        cdef size_t size
+        with nogil:
+            size = self._handle.get_max_device_cache_size()
+        return size
 
     @max_device_cache_size.setter
     def max_device_cache_size(self, size_in_kb: int) -> None:
-        self._handle.set_max_device_cache_size(size_in_kb)
+        cdef size_t size = size_in_kb
+        with nogil:
+            self._handle.set_max_device_cache_size(size)
 
     @property
     def per_buffer_cache_size(self) -> int:
-        return self._handle.get_per_buffer_cache_size()
+        cdef size_t size
+        with nogil:
+            size = self._handle.get_per_buffer_cache_size()
+        return size
 
     @property
     def max_pinned_memory_size(self) -> int:
-        return self._handle.get_max_pinned_memory_size()
+        cdef size_t size
+        with nogil:
+            size = self._handle.get_max_pinned_memory_size()
+        return size
 
     @max_pinned_memory_size.setter
     def max_pinned_memory_size(self, size_in_kb: int) -> None:
-        self._handle.set_max_pinned_memory_size(size_in_kb)
+        cdef size_t size = size_in_kb
+        with nogil:
+            self._handle.set_max_pinned_memory_size(size)
