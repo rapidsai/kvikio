@@ -124,7 +124,8 @@ cdef class RemoteFile:
         nbytes: Optional[int],
     ):
         cdef pair[string, string] bucket_and_object_names = _to_string_pair(
-            bucket_name, object_name)
+            bucket_name, object_name
+        )
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
         with nogil:
