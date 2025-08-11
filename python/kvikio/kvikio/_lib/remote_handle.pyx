@@ -65,8 +65,9 @@ cdef pair[string, string] _to_string_pair(str s1, str s2):
     """Wrap two Python string objects in a C++ pair"""
     return pair[string, string](_to_string(s1), _to_string(s2))
 
+
 # Helper function to cast an endpoint to its base class `RemoteEndpoint`
-cdef extern from *:
+cdef extern from * nogil:
     """
     template <typename T>
     std::unique_ptr<kvikio::RemoteEndpoint> cast_to_remote_endpoint(T endpoint)
@@ -86,11 +87,16 @@ cdef class RemoteFile:
         nbytes: Optional[int],
     ):
         cdef RemoteFile ret = RemoteFile()
+
         if nbytes is None:
-            ret._handle = make_unique[cpp_RemoteHandle](move(ep))
+            with nogil:
+                ret._handle = make_unique[cpp_RemoteHandle](move(ep))
             return ret
+
         cdef size_t n = nbytes
-        ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
+
+        with nogil:
+            ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
         return ret
 
     @staticmethod
@@ -98,10 +104,16 @@ cdef class RemoteFile:
         url: str,
         nbytes: Optional[int],
     ):
+        cdef string cpp_url = _to_string(url)
+        cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
+
+        with nogil:
+            cpp_endpoint = cast_to_remote_endpoint(
+                make_unique[cpp_HttpEndpoint](cpp_url)
+            )
+
         return RemoteFile._from_endpoint(
-            cast_to_remote_endpoint(
-                make_unique[cpp_HttpEndpoint](_to_string(url))
-            ),
+            move(cpp_endpoint),
             nbytes
         )
 
@@ -111,12 +123,18 @@ cdef class RemoteFile:
         object_name: str,
         nbytes: Optional[int],
     ):
+        cdef pair[string, string] bucket_and_object_names = _to_string_pair(
+            bucket_name, object_name
+        )
+        cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
+
+        with nogil:
+            cpp_endpoint = cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](bucket_and_object_names)
+            )
+
         return RemoteFile._from_endpoint(
-            cast_to_remote_endpoint(
-                make_unique[cpp_S3Endpoint](
-                    _to_string_pair(bucket_name, object_name)
-                )
-            ),
+            move(cpp_endpoint),
             nbytes
         )
 
@@ -125,10 +143,16 @@ cdef class RemoteFile:
         url: str,
         nbytes: Optional[int],
     ):
+        cdef string cpp_url = _to_string(url)
+        cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
+
+        with nogil:
+            cpp_endpoint = cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](cpp_url)
+            )
+
         return RemoteFile._from_endpoint(
-            cast_to_remote_endpoint(
-                make_unique[cpp_S3Endpoint](_to_string(url))
-            ),
+            move(cpp_endpoint),
             nbytes
         )
 
@@ -137,11 +161,18 @@ cdef class RemoteFile:
         url: str,
         nbytes: Optional[int],
     ):
-        cdef pair[string, string] bucket_and_object = cpp_parse_s3_url(_to_string(url))
+        cdef string cpp_url = _to_string(url)
+        cdef pair[string, string] bucket_and_object_names
+        cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
+
+        with nogil:
+            bucket_and_object_names = cpp_parse_s3_url(cpp_url)
+            cpp_endpoint = cast_to_remote_endpoint(
+                make_unique[cpp_S3Endpoint](bucket_and_object_names)
+            )
+
         return RemoteFile._from_endpoint(
-            cast_to_remote_endpoint(
-                make_unique[cpp_S3Endpoint](bucket_and_object)
-            ),
+            move(cpp_endpoint),
             nbytes
         )
 
@@ -150,34 +181,55 @@ cdef class RemoteFile:
         presigned_url: str,
         nbytes: Optional[int],
     ):
+        cdef string cpp_url = _to_string(presigned_url)
+        cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
+
+        with nogil:
+            cpp_endpoint = cast_to_remote_endpoint(
+                make_unique[cpp_S3EndpointWithPresignedUrl](cpp_url)
+            )
+
         return RemoteFile._from_endpoint(
-            cast_to_remote_endpoint(
-                make_unique[cpp_S3EndpointWithPresignedUrl](_to_string(presigned_url))
-            ),
+            move(cpp_endpoint),
             nbytes
         )
 
     def __str__(self) -> str:
-        cdef string ep_str = deref(self._handle).endpoint().str()
+        cdef string ep_str
+        with nogil:
+            ep_str = deref(self._handle).endpoint().str()
         return f'<{self.__class__.__name__} "{ep_str.decode()}">'
 
     def nbytes(self) -> int:
-        return deref(self._handle).nbytes()
+        cdef size_t result
+        with nogil:
+            result = deref(self._handle).nbytes()
+        return result
 
     def read(self, buf, size: Optional[int], file_offset: int) -> int:
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
-        return deref(self._handle).read(
-            <void*>info.first,
-            info.second,
-            file_offset,
-        )
+        cdef size_t cpp_file_offset = file_offset
+        cdef size_t result
+
+        with nogil:
+            result = deref(self._handle).read(
+                <void*>info.first,
+                info.second,
+                cpp_file_offset,
+            )
+
+        return result
 
     def pread(self, buf, size: Optional[int], file_offset: int) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
-        return _wrap_io_future(
-            deref(self._handle).pread(
+        cdef size_t cpp_file_offset = file_offset
+        cdef future[size_t] fut
+
+        with nogil:
+            fut = deref(self._handle).pread(
                 <void*>info.first,
                 info.second,
-                file_offset,
+                cpp_file_offset,
             )
-        )
+
+        return _wrap_io_future(fut)
