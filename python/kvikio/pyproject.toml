@@ -13,9 +13,7 @@ name = "kvikio"
 dynamic = ["version"]
 description = "KvikIO - GPUDirect Storage"
 readme = { file = "README.md", content-type = "text/markdown" }
-authors = [
-    { name = "NVIDIA Corporation" },
-]
+authors = [{ name = "NVIDIA Corporation" }]
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 dependencies = [
@@ -46,6 +44,7 @@ test = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
+    "pytest-httpserver",
     "pytest-timeout",
     "rangehttpserver",
     "rapids-dask-dependency==25.10.*,>=0.0.0a0",
@@ -82,17 +81,9 @@ include_trailing_comma = true
 force_grid_wrap = 0
 combine_as_imports = true
 order_by_type = true
-known_first_party = [
-    "kvikio",
-]
+known_first_party = ["kvikio"]
 default_section = "THIRDPARTY"
-sections = [
-    "FUTURE",
-    "STDLIB",
-    "THIRDPARTY",
-    "FIRSTPARTY",
-    "LOCALFOLDER",
-]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 skip = [
     "thirdparty",
     ".eggs",
@@ -148,9 +139,7 @@ input = "kvikio/VERSION"
 regex = "(?P<value>.*)"
 
 [tool.pydistcheck]
-select = [
-    "distro-too-large-compressed",
-]
+select = ["distro-too-large-compressed"]
 
 # PyPI limit is 100 MiB, fail CI before we get too close to that
 max_allowed_size_compressed = '75M'
@@ -164,6 +153,6 @@ filterwarnings = [
 ]
 markers = [
     "cufile: tests to skip if cuFile isn't available e.g. run with `pytest -m 'not cufile'`",
-    "gpu: zarr-python tests requiring a GPU to run."
+    "gpu: zarr-python tests requiring a GPU to run.",
 ]
 asyncio_mode = "auto"
