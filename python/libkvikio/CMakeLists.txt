@@ -42,6 +42,7 @@ set(KvikIO_BUILD_TESTS OFF)
 if(USE_NVCOMP_RUNTIME_WHEEL)
   set(KvikIO_EXPORT_NVCOMP OFF)
 else()
+  set(KvikIO_EXPORT_NVCOMP ON)
   # vendor nvcomp but not the entire kvikio-export set because that's huge
   include(cmake/thirdparty/get_nvcomp.cmake)
   include(cmake/Modules/WheelHelpers.cmake)
