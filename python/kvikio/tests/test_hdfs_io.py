@@ -2,25 +2,105 @@
 # See file LICENSE for terms.
 
 
+import re
+from concurrent.futures import ProcessPoolExecutor
+
+import cupy as cp
 import pytest
-# from pytest_httpserver import HTTPServer
+from pytest_httpserver import HTTPServer
+
 from kvikio import remote_file
-import json
-import pytest_httpserver
+
+
+class RemoteFileData:
+    def __init__(self, file_path, num_elements):
+        self.file_path = file_path
+        self.num_elements = num_elements
+        self.buf = cp.arange(0, self.num_elements, dtype=cp.float64)
+        self.file_size = self.buf.nbytes
+
+
+def helper_get_file_size(url):
+    handle = remote_file.RemoteFile.open_webhdfs(url)
+    return handle.nbytes()
+
+
+@pytest.fixture
+def remote_file_data() -> RemoteFileData:
+    remote_file_data = RemoteFileData("/home/test_user/test_file.bin", 1024 * 1024)
+    return remote_file_data
+
+
+@pytest.fixture
+def good_server_for_file_size(
+    httpserver: HTTPServer, remote_file_data: RemoteFileData
+) -> HTTPServer:
+    # Regex meaning:
+    # \? Matches the literal question mark
+    # [^?]+ Matches the character that is not a question mark one or more times
+    # ()? Matches the query zero or one time
+    url_pattern = rf"/webhdfs/v1{remote_file_data.file_path}(\?[^?]+)?"
+    httpserver.expect_request(
+        re.compile(url_pattern),
+        method="GET",
+        query_string={"op": "GETFILESTATUS"},
+    ).respond_with_json(
+        response_json={"length": remote_file_data.file_size}, status=200
+    )
+
+    return httpserver
+
+
+def test_webhdfs_get_file_size(
+    good_server_for_file_size: HTTPServer, remote_file_data: RemoteFileData
+):
+    # Given the file path, url_for prepends the scheme, host and port
+    basic_url = good_server_for_file_size.url_for(
+        f"/webhdfs/v1{remote_file_data.file_path}"
+    )
+
+    url_list = [basic_url, f"{basic_url}?op=OPEN"]
+
+    with ProcessPoolExecutor() as executor:
+        for url in url_list:
+            fut = executor.submit(helper_get_file_size, url)
+            file_size = fut.result()
+            assert file_size == remote_file_data.file_size
+
+
+@pytest.fixture
+def bad_server_for_file_size(
+    httpserver: HTTPServer, remote_file_data: RemoteFileData
+) -> HTTPServer:
+    httpserver.expect_request(
+        f"/webhdfs/v1{remote_file_data.file_path}",
+        method="GET",
+        query_string={"op": "GETFILESTATUS"},
+    ).respond_with_json(
+        response_json={}, status=200  # Missing "length"
+    )
+
+    return httpserver
+
+
+def test_webhdfs_bad_server(
+    bad_server_for_file_size: HTTPServer, remote_file_data: RemoteFileData
+):
+    url = bad_server_for_file_size.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
+
+    with pytest.raises(
+        RuntimeError,
+        match="Regular expression search failed. "
+        "Cannot extract file length from the JSON response.",
+    ):
+        with ProcessPoolExecutor() as executor:
+            fut = executor.submit(helper_get_file_size, url)
+            fut.result()
+
 
 # @pytest.fixture
-# def remote_file_path() -> str:
-#     return "/home/test_user/test_file.bin"
-
-
-# @pytest.fixture
-# def register_request_for_file_size(httpserver: HTTPServer, remote_file_path: str) -> HTTPServer:
-#     """
-#         Minimal WebHDFS OPEN mock:
-#         GET /webhdfs/v1/test.txt?op=OPEN&user.name=testuser  -> 307 with Location
-#         GET <Location> (same server, with &datanode=true)    -> 200 with body
-#         Optionally allow a HEAD on the first URL.
-#         """
+# def server_for_read(httpserver: HTTPServer,
+#                     remote_file_data: RemoteFileData) -> HTTPServer:
 #     # Optional HEAD some clients issue
 #     # httpserver.expect_request(
 #     #     "/webhdfs/v1/home/user/test.bin",
@@ -41,99 +121,35 @@ import pytest_httpserver
 #     #     b"", status=307, headers={"Location": redirect_url}
 #     # )
 
-#     json_str = json.dumps({"length": 1234})
-#     print(json_str)
-#     # httpserver.expect_request(
-#     #     f"/webhdfs/v1{remote_file_path}",
-#     #     method="GET",
-#     #     query_string={"op": "GETFILESTATUS"},
-#     # ).respond_with_json(response_json=json_str)
+#     # Regex meaning:
+#     # \? Matches the literal question mark
+#     # [^?]+ Matches the character that is not a question mark one or more times
+#     # ()? Matches the query zero or one time
+#     url_pattern = fr"/webhdfs/v1{remote_file_data.file_path}(\?[^?]+)?"
+#     httpserver.expect_request(re.compile(url_pattern),
+#                               method="GET",
+#                               query_string={"op": "GETFILESTATUS"},
+#                               ).respond_with_json(
+#         response_json={"length": remote_file_data.file_size},
+#         status=200)
 
 #     return httpserver
 
 
-# def test_webhdfs_get_file_size(register_request_for_file_size: HTTPServer, remote_file_path: str):
-#     url = register_request_for_file_size.url_for(
-#         f"/webhdfs/v1{remote_file_path}")
-#     print("-->", url)
-
-#     # url = f"{base}?op=OPEN&user.name=testuser"
-
-#     # file = remote_file.RemoteFile.open_webhdfs(url)
-#     register_request_for_file_size.check_assertions()
-
-#     # assert n == 11
-#     # assert bytes(buf) == b"Hello World!"
+# def helper_read_parallel(url, num_elements):
+#     handle = remote_file.RemoteFile.open_webhdfs(url)
+#     buf = cp.arange(0, num_elements, dtype=cp.float64)
+#     fut = handle.pread(buf)
+#     read_size = fut.get()
+#     return read_size
 
 
-# def test(httpserver: HTTPServer):
-#     response_json = {
-#         "FileStatus": {
-#             "length": 24930,
-#             "type": "FILE"
-#         }
-#     }
+# def test_webhdfs_read_parallel(server_for_read: HTTPServer,
+#                                remote_file_data: RemoteFileData):
+#     url = server_for_read.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
 
-#     # Use expect_oneshot_request for debugging
-#     httpserver.expect_oneshot_request(
-#         "/webhdfs/v1/path/to/file",
-#         query_string="op=GETFILESTATUS"
-#     ).respond_with_json(response_json, status=200)
-
-#     url = httpserver.url_for("/webhdfs/v1/path/to/file")
-#     print(f"URL being passed: {url}")  # Debug output
-
-#     try:
-#         rf = remote_file.RemoteFile.open_webhdfs(url)
-#         assert rf.size == 24930
-#     finally:
-#         # Check what requests were actually made
-#         print("Request log:")
-#         for request in httpserver.log:
-#             print(f"  {request.method} {request.path}?{request.query_string}")
-
-#         # This will show unmatched requests
-#         httpserver.check_assertions()
-
-def test_with_simple_server():
-    import threading
-    import http.server
-    import json
-    from time import sleep
-
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            print(f"Received request: {self.path}")
-            response = {
-                "FileStatus": {
-                    "length": 24930,
-                    "type": "FILE"
-                }
-            }
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(response).encode())
-
-        def log_message(self, format, *args):
-            print(f"Server log: {format % args}")
-
-    # Start server in thread
-    server = http.server.HTTPServer(('127.0.0.1', 8888), Handler)
-    thread = threading.Thread(target=server.serve_forever)
-    thread.daemon = True
-    thread.start()
-
-    sleep(0.5)  # Give server time to start
-
-    url = "http://127.0.0.1:8888/webhdfs/v1/path/to/file"
-    print(f"Testing with URL: {url}")
-
-    try:
-        rf = remote_file.RemoteFile.open_webhdfs(url)
-        print(f"Success! Size: {rf.size}")
-    finally:
-        server.shutdown()
-
-
-test_with_simple_server()
+#     with ProcessPoolExecutor() as executor:
+#         fut = executor.submit(helper_read_parallel, url,
+#                               remote_file_data.num_elements)
+#         read_size = fut.result()
+#         assert read_size == remote_file_data.file_size
