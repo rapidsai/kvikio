@@ -22,7 +22,6 @@
 #include <kvikio/nvtx.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
-#include "curl/curl.h"
 
 namespace kvikio {
 
@@ -93,8 +92,6 @@ std::size_t WebHdfsEndpoint::get_file_size()
   auto curl = create_curl_handle();
   curl.setopt(CURLOPT_URL, ss.str().c_str());
   curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-
-  curl.setopt(CURLOPT_VERBOSE, 1L);
 
   std::string response;
   curl.setopt(CURLOPT_WRITEDATA, static_cast<void*>(&response));

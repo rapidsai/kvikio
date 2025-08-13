@@ -88,12 +88,9 @@ cdef class RemoteFile:
         unique_ptr[cpp_RemoteEndpoint] ep,
         nbytes: Optional[int],
     ):
-        print("--> 1: ", nbytes)
         cdef RemoteFile ret = RemoteFile()
-        print("--> 2")
         if nbytes is None:
             ret._handle = make_unique[cpp_RemoteHandle](move(ep))
-            print("--> 3")
             return ret
         cdef size_t n = nbytes
         ret._handle = make_unique[cpp_RemoteHandle](move(ep), n)
