@@ -24,7 +24,6 @@ class RemoteFileData:
 
 @pytest.fixture(scope="module")
 def remote_file_data():
-    """Fixture providing test file data."""
     return RemoteFileData("/home/test_user/test_file.bin", 1024 * 1024)
 
 
@@ -33,7 +32,6 @@ class WebHDFSHandler:
         self.remote_file_data = remote_file_data
 
     def handle_request(self, request: Request) -> Response:
-        """Handle WebHDFS API requests."""
         op = request.args["op"]
 
         if op == "GETFILESTATUS":
@@ -92,6 +90,8 @@ class WebHdfsOperations:
         return read_size, result_buf
 
 
+# The HTTP server and the KvikIO HTTP client must run on different processes.
+# Otherwise due to GIL, the client will hang.
 class TestWebHdfsOperations:
     @pytest.mark.parametrize("url_query", ["", "?op=OPEN"])
     def test_get_file_size(
