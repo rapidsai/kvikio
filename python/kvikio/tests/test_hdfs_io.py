@@ -1,6 +1,8 @@
 # Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+from __future__ import annotations
+
 import json
 import socket
 import urllib.parse
@@ -53,6 +55,7 @@ def run_mock_server(queue: Queue[int], file_size: int, buf: npt.NDArray[Any]) ->
             query_dict = urllib.parse.parse_qs(parsed_url.query)
             op = query_dict["op"]
 
+            # Client requests file size
             if op == ["GETFILESTATUS"]:
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -60,6 +63,7 @@ def run_mock_server(queue: Queue[int], file_size: int, buf: npt.NDArray[Any]) ->
                 response = json.dumps({"length": file_size})
                 self.wfile.write(response.encode())
 
+            # Client requests file content
             elif op == ["OPEN"]:
                 offset = int(query_dict["offset"][0])
                 length = int(query_dict["length"][0])
