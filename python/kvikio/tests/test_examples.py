@@ -6,7 +6,6 @@ from importlib import import_module
 from pathlib import Path
 
 import pytest
-from packaging.version import parse
 
 import kvikio
 

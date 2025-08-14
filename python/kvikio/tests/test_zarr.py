@@ -2,8 +2,6 @@
 # See file LICENSE for terms.
 
 
-import math
-
 import numpy
 import pytest
 from packaging.version import parse
