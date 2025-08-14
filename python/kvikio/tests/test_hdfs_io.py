@@ -2,11 +2,11 @@
 # See file LICENSE for terms.
 
 import json
-import multiprocessing
 import socket
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Generator
+from multiprocessing import Process, Queue
+from typing import Any, Generator
 
 import numpy as np
 import numpy.typing as npt
@@ -18,7 +18,7 @@ from kvikio import remote_file
 LOCALHOST = "127.0.0.1"
 
 
-def find_free_port():
+def find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((LOCALHOST, 0))
         s.listen(1)
@@ -27,7 +27,7 @@ def find_free_port():
 
 
 class RemoteFileData:
-    def __init__(self, file_path: str, num_elements: int, dtype: npt.DTypeLike):
+    def __init__(self, file_path: str, num_elements: int, dtype: npt.DTypeLike) -> None:
         self.file_path = file_path
         self.num_elements = num_elements
         self.dtype = dtype
@@ -38,28 +38,31 @@ class RemoteFileData:
 @pytest.fixture(scope="module")
 def remote_file_data() -> RemoteFileData:
     return RemoteFileData(
-        "/webhdfs/v1/home/test_user/test_file.bin", 1024 * 1024, np.float64
+        file_path="/webhdfs/v1/home/test_user/test_file.bin",
+        num_elements=1024 * 1024,
+        dtype=np.float64,
     )
 
 
-def run_mock_server(queue, file_path, file_size, buf):
+def run_mock_server(queue: Queue[int], file_size: int, buf: npt.NDArray[Any]) -> None:
     """Run HTTP server in a separate process"""
 
     class WebHdfsHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
+        def do_GET(self) -> None:
             parsed_url = urllib.parse.urlparse(self.path)
             query_dict = urllib.parse.parse_qs(parsed_url.query)
+            op = query_dict["op"]
 
-            if query_dict.get("op") == ["GETFILESTATUS"]:
+            if op == ["GETFILESTATUS"]:
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 response = json.dumps({"length": file_size})
                 self.wfile.write(response.encode())
 
-            elif query_dict.get("op") == ["OPEN"]:
-                offset = int(query_dict.get("offset", [0])[0])
-                length = int(query_dict.get("length", [file_size])[0])
+            elif op == ["OPEN"]:
+                offset = int(query_dict["offset"][0])
+                length = int(query_dict["length"][0])
 
                 # Convert byte offsets to element indices
                 element_size = buf.itemsize
@@ -76,8 +79,8 @@ def run_mock_server(queue, file_path, file_size, buf):
                 self.send_response(400)
                 self.end_headers()
 
-        def log_message(self, format, *args):
-            pass  # Suppress logs
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
 
     port = find_free_port()
     server = HTTPServer((LOCALHOST, port), WebHdfsHandler)
@@ -91,12 +94,11 @@ def run_mock_server(queue, file_path, file_size, buf):
 @pytest.fixture
 def mock_webhdfs_server(remote_file_data: RemoteFileData) -> Generator[str, None, None]:
     """Start WebHDFS mock server in a separate process"""
-    queue = multiprocessing.Queue()
-    server_process = multiprocessing.Process(
+    queue: Queue[int] = Queue()
+    server_process = Process(
         target=run_mock_server,
         args=(
             queue,
-            remote_file_data.file_path,
             remote_file_data.file_size,
             remote_file_data.buf,
         ),
@@ -173,10 +175,12 @@ class TestWebHdfsOperations:
 
 class TestWebHdfsErrors:
     @pytest.fixture
-    def mock_bad_server(self, remote_file_data: RemoteFileData):
+    def mock_bad_server(
+        self, remote_file_data: RemoteFileData
+    ) -> Generator[str, None, None]:
         """Start a bad WebHDFS server that returns invalid JSON"""
 
-        def run_bad_server(queue, file_path):
+        def run_bad_server(queue: Queue[int]) -> None:
             class BadHandler(BaseHTTPRequestHandler):
                 def do_GET(self):
                     parsed = urllib.parse.urlparse(self.path)
@@ -201,10 +205,8 @@ class TestWebHdfsErrors:
             queue.put(port)
             server.serve_forever()
 
-        queue = multiprocessing.Queue()
-        server_process = multiprocessing.Process(
-            target=run_bad_server, args=(queue, remote_file_data.file_path), daemon=True
-        )
+        queue: Queue[int] = Queue()
+        server_process = Process(target=run_bad_server, args=(queue,), daemon=True)
         server_process.start()
 
         port = queue.get(timeout=5)
