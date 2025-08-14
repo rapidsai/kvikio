@@ -11,20 +11,22 @@ import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug import Request, Response
 
+import kvikio.defaults
 from kvikio import remote_file
 
 
 class RemoteFileData:
-    def __init__(self, file_path, num_elements):
+    def __init__(self, file_path: str, num_elements: int, dtype: np.dtype):
         self.file_path = file_path
         self.num_elements = num_elements
-        self.buf = np.arange(0, self.num_elements, dtype=np.float64)
+        self.dtype = dtype
+        self.buf = np.arange(0, self.num_elements, dtype=self.dtype)
         self.file_size = self.buf.nbytes
 
 
 @pytest.fixture(scope="module")
 def remote_file_data():
-    return RemoteFileData("/home/test_user/test_file.bin", 1024 * 1024)
+    return RemoteFileData("/home/test_user/test_file.bin", 1024 * 1024, np.float64)
 
 
 class WebHDFSHandler:
@@ -61,6 +63,8 @@ class WebHDFSHandler:
 def mock_webhdfs_server(
     httpserver: HTTPServer, remote_file_data: RemoteFileData
 ) -> HTTPServer:
+    # The HTTP server and the KvikIO HTTP client must run on different processes.
+    # Otherwise due to GIL, the client will hang.
     handler = WebHDFSHandler(remote_file_data)
 
     # Regex meaning:
@@ -82,16 +86,25 @@ class WebHdfsOperations:
         return handle.nbytes()
 
     @staticmethod
-    def read_parallel(url, num_elements):
+    def parallel_read(url, num_elements, dtype):
         handle = remote_file.RemoteFile.open_webhdfs(url)
-        result_buf = np.arange(0, num_elements, dtype=np.float64)
+        result_buf = np.arange(0, num_elements, dtype=dtype)
         fut = handle.pread(result_buf)
         read_size = fut.get()
         return read_size, result_buf
 
+    @staticmethod
+    def parallel_read_partial(
+        url, num_elements, dtype, size, offset, num_threads, task_size
+    ):
+        with kvikio.defaults.set({"num_threads": num_threads, "task_size": task_size}):
+            handle = remote_file.RemoteFile.open_webhdfs(url)
+            result_buf = np.arange(0, num_elements, dtype=dtype)
+            fut = handle.pread(result_buf, size, offset)
+            read_size = fut.get()
+            return read_size, result_buf
 
-# The HTTP server and the KvikIO HTTP client must run on different processes.
-# Otherwise due to GIL, the client will hang.
+
 class TestWebHdfsOperations:
     @pytest.mark.parametrize("url_query", ["", "?op=OPEN"])
     def test_get_file_size(
@@ -111,17 +124,50 @@ class TestWebHdfsOperations:
             file_size = fut.result()
             assert file_size == remote_file_data.file_size
 
-    def test_read_parallel(
+    def test_parallel_read(
         self, mock_webhdfs_server: HTTPServer, remote_file_data: RemoteFileData
     ):
         url = mock_webhdfs_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
 
         with ProcessPoolExecutor() as executor:
             fut = executor.submit(
-                WebHdfsOperations.read_parallel, url, remote_file_data.num_elements
+                WebHdfsOperations.parallel_read,
+                url,
+                remote_file_data.num_elements,
+                remote_file_data.dtype,
             )
             read_size, result_buf = fut.result()
             assert read_size == remote_file_data.file_size
+            assert np.array_equal(result_buf, remote_file_data.buf)
+
+    @pytest.mark.parametrize("size", [80, 8 * 9999])
+    @pytest.mark.parametrize("offset", [0, 800, 8000, 8 * 9999])
+    @pytest.mark.parametrize("num_threads", [1, 4])
+    @pytest.mark.parametrize("task_size", [1024, 4096])
+    def test_parallel_read_partial(
+        self,
+        mock_webhdfs_server: HTTPServer,
+        remote_file_data: RemoteFileData,
+        size: int,
+        offset: int,
+        num_threads: int,
+        task_size: int,
+    ):
+        url = mock_webhdfs_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
+
+        with ProcessPoolExecutor() as executor:
+            fut = executor.submit(
+                WebHdfsOperations.parallel_read_partial,
+                url,
+                remote_file_data.num_elements,
+                remote_file_data.dtype,
+                size,
+                offset,
+                num_threads,
+                task_size,
+            )
+            read_size, result_buf = fut.result()
+            assert read_size == size
             assert np.array_equal(result_buf, remote_file_data.buf)
 
 
