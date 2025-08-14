@@ -100,8 +100,7 @@ class RemoteEndpoint {
 };
 
 /**
- * @brief
- *
+ * @brief A remote endpoint using http.
  */
 class HttpEndpoint : public RemoteEndpoint {
  private:
@@ -131,8 +130,7 @@ class HttpEndpoint : public RemoteEndpoint {
 };
 
 /**
- * @brief
- *
+ * @brief A remote endpoint using AWS's S3 protocol.
  */
 class S3Endpoint : public RemoteEndpoint {
  private:
@@ -250,9 +248,7 @@ class S3Endpoint : public RemoteEndpoint {
 };
 
 /**
- * @brief
- *
- */
+ * @brief A remote endpoint using AWS's S3 protocol and expecting a presigned URL. File access via
  * this type of URL is time-limited and does not require AWS credentials.
  */
 class S3EndpointWithPresignedUrl : public RemoteEndpoint {
@@ -278,8 +274,7 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
 };
 
 /**
- * @brief
- *
+ * @brief Handle of remote file.
  */
 class RemoteHandle {
  private:

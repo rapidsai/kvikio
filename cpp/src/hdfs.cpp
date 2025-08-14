@@ -25,11 +25,7 @@
 
 namespace kvikio {
 
-<<<<<<< HEAD
 WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteFileType::WEBHDFS}
-=======
-WebHdfsEndpoint::WebHdfsEndpoint(std::string url)
->>>>>>> branch-25.10
 {
   // todo: Use libcurl URL API for more secure and idiomatic parsing.
   // Split the URL into two parts: one without query and one with.
