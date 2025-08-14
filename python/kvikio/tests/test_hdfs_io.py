@@ -11,7 +11,8 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 from pytest_httpserver import HTTPServer
-from werkzeug import MultiDict, Request, Response
+from werkzeug import Request, Response
+from werkzeug.datastructures import MultiDict
 
 import kvikio.defaults
 from kvikio import remote_file
