@@ -54,11 +54,20 @@ class WebHDFSHandler:
         )
 
     def _handle_read(self, args: MultiDict) -> Response:
-        begin_idx = int(args["offset"])
-        end_idx = begin_idx + int(args["length"])
-        range_data = self.remote_file_data.buf[begin_idx:end_idx]
+        byte_offset = int(args["offset"])
+        byte_length = int(args["length"])
+
+        # Convert byte offsets to element indices
+        element_size = self.remote_file_data.buf.itemsize
+        begin_idx = byte_offset // element_size
+        end_idx = (byte_offset + byte_length) // element_size
+
+        range_data = self.remote_file_data.buf[begin_idx:end_idx].tobytes()
         return Response(
-            response=range_data, status=200, content_type="application/octet-stream"
+            response=range_data,
+            status=200,
+            content_type="application/octet-stream",
+            headers={"Content-Length": str(len(range_data))},
         )
 
 
@@ -108,9 +117,10 @@ class WebHdfsOperations:
         num_threads: int,
         task_size: int,
     ) -> Tuple[int, np.ndarray]:
+        actual_num_elements = size // np.dtype(dtype).itemsize
         with kvikio.defaults.set({"num_threads": num_threads, "task_size": task_size}):
             handle = remote_file.RemoteFile.open_webhdfs(url)
-            result_buf = np.arange(0, num_elements, dtype=dtype)
+            result_buf = np.zeros(actual_num_elements, dtype=dtype)
             fut = handle.pread(result_buf, size, offset)
             read_size = fut.get()
             return read_size, result_buf
@@ -166,6 +176,10 @@ class TestWebHdfsOperations:
     ) -> None:
         url = mock_webhdfs_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
 
+        element_size = remote_file_data.buf.itemsize
+        begin_idx = offset // element_size
+        end_idx = (offset + size) // element_size
+        expected_buf = remote_file_data.buf[begin_idx:end_idx]
         with ProcessPoolExecutor() as executor:
             fut = executor.submit(
                 WebHdfsOperations.parallel_read_partial,
@@ -179,7 +193,7 @@ class TestWebHdfsOperations:
             )
             read_size, result_buf = fut.result()
             assert read_size == size
-            assert np.array_equal(result_buf, remote_file_data.buf)
+            assert np.array_equal(result_buf, expected_buf)
 
 
 class TestWebHdfsErrors:
