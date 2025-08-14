@@ -227,16 +227,6 @@ if __name__ == "__main__":
         help="List of APIs to use {%(choices)s}",
     )
     parser.add_argument(
-        "--compressor",
-        metavar="COMPRESSOR",
-        default="none",
-        choices=tuple(compressors.keys()),
-        help=(
-            "Set a nvCOMP compressor to use with Zarr "
-            "{%(choices)s} (default: %(default)s)"
-        ),
-    )
-    parser.add_argument(
         "--drop-vm-cache",
         action="store_true",
         default=False,
