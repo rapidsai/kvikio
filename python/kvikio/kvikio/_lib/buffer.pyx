@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 # distutils: language = c++
@@ -17,14 +17,16 @@ def memory_register(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
-    cpp_memory_register(<void*>arr.ptr)
+    with nogil:
+        cpp_memory_register(<void*>arr.ptr)
 
 
 def memory_deregister(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
-    cpp_memory_deregister(<void*>arr.ptr)
+    with nogil:
+        cpp_memory_deregister(<void*>arr.ptr)
 
 
 cdef extern from "<kvikio/bounce_buffer.hpp>" nogil:
@@ -32,4 +34,7 @@ cdef extern from "<kvikio/bounce_buffer.hpp>" nogil:
 
 
 def bounce_buffer_free() -> int:
-    return cpp_alloc_retain_clear()
+    cdef size_t result
+    with nogil:
+        result = cpp_alloc_retain_clear()
+    return result
