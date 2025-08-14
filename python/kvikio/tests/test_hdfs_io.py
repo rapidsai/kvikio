@@ -5,18 +5,20 @@
 import json
 import re
 from concurrent.futures import ProcessPoolExecutor
+from typing import Tuple
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 from pytest_httpserver import HTTPServer
-from werkzeug import Request, Response
+from werkzeug import MultiDict, Request, Response
 
 import kvikio.defaults
 from kvikio import remote_file
 
 
 class RemoteFileData:
-    def __init__(self, file_path: str, num_elements: int, dtype: np.dtype):
+    def __init__(self, file_path: str, num_elements: int, dtype: npt.DTypeLike):
         self.file_path = file_path
         self.num_elements = num_elements
         self.dtype = dtype
@@ -25,7 +27,7 @@ class RemoteFileData:
 
 
 @pytest.fixture(scope="module")
-def remote_file_data():
+def remote_file_data() -> RemoteFileData:
     return RemoteFileData("/home/test_user/test_file.bin", 1024 * 1024, np.float64)
 
 
@@ -50,7 +52,7 @@ class WebHDFSHandler:
             content_type="application/json",
         )
 
-    def _handle_read(self, args) -> Response:
+    def _handle_read(self, args: MultiDict) -> Response:
         begin_idx = int(args["offset"])
         end_idx = begin_idx + int(args["length"])
         range_data = self.remote_file_data.buf[begin_idx:end_idx]
@@ -81,12 +83,14 @@ def mock_webhdfs_server(
 
 class WebHdfsOperations:
     @staticmethod
-    def get_file_size(url):
+    def get_file_size(url: str) -> int:
         handle = remote_file.RemoteFile.open_webhdfs(url)
         return handle.nbytes()
 
     @staticmethod
-    def parallel_read(url, num_elements, dtype):
+    def parallel_read(
+        url: str, num_elements: int, dtype: npt.DTypeLike
+    ) -> Tuple[int, np.ndarray]:
         handle = remote_file.RemoteFile.open_webhdfs(url)
         result_buf = np.arange(0, num_elements, dtype=dtype)
         fut = handle.pread(result_buf)
@@ -95,8 +99,14 @@ class WebHdfsOperations:
 
     @staticmethod
     def parallel_read_partial(
-        url, num_elements, dtype, size, offset, num_threads, task_size
-    ):
+        url: str,
+        num_elements: int,
+        dtype: npt.DTypeLike,
+        size: int,
+        offset: int,
+        num_threads: int,
+        task_size: int,
+    ) -> Tuple[int, np.ndarray]:
         with kvikio.defaults.set({"num_threads": num_threads, "task_size": task_size}):
             handle = remote_file.RemoteFile.open_webhdfs(url)
             result_buf = np.arange(0, num_elements, dtype=dtype)
@@ -112,7 +122,7 @@ class TestWebHdfsOperations:
         mock_webhdfs_server: HTTPServer,
         remote_file_data: RemoteFileData,
         url_query: str,
-    ):
+    ) -> None:
         # Given the file path, url_for prepends the scheme, host and port
         base_url = mock_webhdfs_server.url_for(
             f"/webhdfs/v1{remote_file_data.file_path}"
@@ -126,7 +136,7 @@ class TestWebHdfsOperations:
 
     def test_parallel_read(
         self, mock_webhdfs_server: HTTPServer, remote_file_data: RemoteFileData
-    ):
+    ) -> None:
         url = mock_webhdfs_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
 
         with ProcessPoolExecutor() as executor:
@@ -152,7 +162,7 @@ class TestWebHdfsOperations:
         offset: int,
         num_threads: int,
         task_size: int,
-    ):
+    ) -> None:
         url = mock_webhdfs_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
 
         with ProcessPoolExecutor() as executor:
@@ -188,7 +198,7 @@ class TestWebHdfsErrors:
 
     def test_missing_file_size(
         self, mock_bad_server: HTTPServer, remote_file_data: RemoteFileData
-    ):
+    ) -> None:
         url = mock_bad_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
 
         with pytest.raises(
