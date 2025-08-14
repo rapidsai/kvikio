@@ -324,6 +324,7 @@ dependencies:
           - pytest
           - pytest-asyncio
           - pytest-cov
+          - pytest-httpserver
           - pytest-timeout
           - rangehttpserver
           - boto3>=1.21.21

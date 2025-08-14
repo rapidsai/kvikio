@@ -30,6 +30,7 @@ dependencies:
 - pytest
 - pytest-asyncio
 - pytest-cov
+- pytest-httpserver
 - pytest-timeout
 - python>=3.10,<3.14
 - rangehttpserver
