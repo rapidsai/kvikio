@@ -13,7 +13,6 @@ from time import perf_counter as clock
 from typing import ContextManager, Union
 
 import cupy
-import numcodecs.blosc
 import numpy
 import zarr
 from dask.utils import format_bytes, parse_bytes
@@ -35,9 +34,6 @@ def run_kvikio(args):
     dir_path = args.dir / "kvikio"
     shutil.rmtree(str(dir_path), ignore_errors=True)
 
-    # Get the GPU compressor
-    compressor = compressors[args.compressor][1]
-
     src = create_src_data(args)
 
     # Write
@@ -48,7 +44,6 @@ def run_kvikio(args):
         shape=(args.nelem,),
         chunks=(args.chunksize,),
         dtype=args.dtype,
-        compressor=compressor,
         store=kvikio.zarr.GDSStore(dir_path),
         meta_array=cupy.empty(()),
     )
@@ -71,9 +66,6 @@ def run_posix(args):
     dir_path = args.dir / "posix"
     shutil.rmtree(str(dir_path), ignore_errors=True)
 
-    # Get the CPU compressor
-    compressor = compressors[args.compressor][0]
-
     src = create_src_data(args)
 
     # Write
@@ -84,7 +76,6 @@ def run_posix(args):
         shape=(args.nelem,),
         chunks=(args.chunksize,),
         dtype=args.dtype,
-        compressor=compressor,
         store=zarr.DirectoryStore(dir_path),
         meta_array=numpy.empty(()),
     )

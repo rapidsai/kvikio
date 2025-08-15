@@ -28,6 +28,7 @@ MINIMUM_ZARR_VERSION = "3"
 
 supported = parse(zarr.__version__) >= parse(MINIMUM_ZARR_VERSION)
 
+
 @functools.cache
 def _is_ge_zarr_3_0_7():
     return packaging.version.parse(zarr.__version__) >= packaging.version.parse("3.0.7")
