@@ -1,25 +1,26 @@
 # Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+from __future__ import annotations
 
 import json
-import re
-from concurrent.futures import ProcessPoolExecutor
-from typing import Tuple
+import urllib.parse
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from multiprocessing import Process, Queue
+from typing import Any, Generator
 
+import cupy as cp
 import numpy as np
 import numpy.typing as npt
 import pytest
-from pytest_httpserver import HTTPServer
-from werkzeug import Request, Response
-from werkzeug.datastructures import MultiDict
+import utils
 
 import kvikio.defaults
 from kvikio import remote_file
 
 
 class RemoteFileData:
-    def __init__(self, file_path: str, num_elements: int, dtype: npt.DTypeLike):
+    def __init__(self, file_path: str, num_elements: int, dtype: npt.DTypeLike) -> None:
         self.file_path = file_path
         self.num_elements = num_elements
         self.dtype = dtype
@@ -29,137 +30,117 @@ class RemoteFileData:
 
 @pytest.fixture(scope="module")
 def remote_file_data() -> RemoteFileData:
-    return RemoteFileData("/home/test_user/test_file.bin", 1024 * 1024, np.float64)
+    return RemoteFileData(
+        file_path="/webhdfs/v1/home/test_user/test_file.bin",
+        num_elements=1024 * 1024,
+        dtype=np.float64,
+    )
 
 
-class WebHDFSHandler:
-    def __init__(self, remote_file_data: RemoteFileData):
-        self.remote_file_data = remote_file_data
+def run_mock_server(queue: Queue[int], file_size: int, buf: npt.NDArray[Any]) -> None:
+    """Run HTTP server in a separate process"""
 
-    def handle_request(self, request: Request) -> Response:
-        op = request.args["op"]
+    class WebHdfsHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            parsed_url = urllib.parse.urlparse(self.path)
+            query_dict = urllib.parse.parse_qs(parsed_url.query)
+            op = query_dict["op"]
 
-        if op == "GETFILESTATUS":
-            return self._handle_get_file_size()
-        elif op == "OPEN":
-            return self._handle_read(request.args)
-        else:
-            return Response(status=400)
+            # Client requests file size
+            if op == ["GETFILESTATUS"]:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                response = json.dumps({"length": file_size})
+                self.wfile.write(response.encode())
 
-    def _handle_get_file_size(self) -> Response:
-        return Response(
-            response=json.dumps({"length": self.remote_file_data.file_size}),
-            status=200,
-            content_type="application/json",
-        )
+            # Client requests file content
+            elif op == ["OPEN"]:
+                offset = int(query_dict["offset"][0])
+                length = int(query_dict["length"][0])
 
-    def _handle_read(self, args: MultiDict) -> Response:
-        byte_offset = int(args["offset"])
-        byte_length = int(args["length"])
+                # Convert byte offsets to element indices
+                element_size = buf.itemsize
+                begin_idx = offset // element_size
+                end_idx = (offset + length) // element_size
+                range_data = buf[begin_idx:end_idx].tobytes()
 
-        # Convert byte offsets to element indices
-        element_size = self.remote_file_data.buf.itemsize
-        begin_idx = byte_offset // element_size
-        end_idx = (byte_offset + byte_length) // element_size
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Length", str(len(range_data)))
+                self.end_headers()
+                self.wfile.write(range_data)
+            else:
+                self.send_response(400)
+                self.end_headers()
 
-        range_data = self.remote_file_data.buf[begin_idx:end_idx].tobytes()
-        return Response(
-            response=range_data,
-            status=200,
-            content_type="application/octet-stream",
-            headers={"Content-Length": str(len(range_data))},
-        )
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    port = utils.find_free_port()
+    server = HTTPServer((utils.localhost(), port), WebHdfsHandler)
+
+    # Send port back to parent process
+    queue.put(port)
+
+    server.serve_forever()
 
 
 @pytest.fixture
-def mock_webhdfs_server(
-    httpserver: HTTPServer, remote_file_data: RemoteFileData
-) -> HTTPServer:
-    # The HTTP server and the KvikIO HTTP client must run on different processes.
-    # Otherwise due to GIL, the client will hang.
-    handler = WebHDFSHandler(remote_file_data)
+def mock_webhdfs_server(remote_file_data: RemoteFileData) -> Generator[str, None, None]:
+    """Start WebHDFS mock server in a separate process"""
+    queue: Queue[int] = Queue()
+    server_process = Process(
+        target=run_mock_server,
+        args=(
+            queue,
+            remote_file_data.file_size,
+            remote_file_data.buf,
+        ),
+        daemon=True,
+    )
+    server_process.start()
 
-    # Regex meaning:
-    # \? Matches the literal question mark
-    # [^?]+ Matches the character that is not a question mark one or more times
-    # ()? Matches the query zero or one time
-    url_pattern = rf"/webhdfs/v1{remote_file_data.file_path}(\?[^?]+)?"
-    httpserver.expect_request(
-        re.compile(url_pattern),
-    ).respond_with_handler(handler.handle_request)
+    # Get the port the server is running on
+    port = queue.get(timeout=5)
 
-    return httpserver
+    yield f"http://{utils.localhost()}:{port}"
 
-
-class WebHdfsOperations:
-    @staticmethod
-    def get_file_size(url: str) -> int:
-        handle = remote_file.RemoteFile.open_webhdfs(url)
-        return handle.nbytes()
-
-    @staticmethod
-    def parallel_read(
-        url: str, num_elements: int, dtype: npt.DTypeLike
-    ) -> Tuple[int, np.ndarray]:
-        handle = remote_file.RemoteFile.open_webhdfs(url)
-        result_buf = np.arange(0, num_elements, dtype=dtype)
-        fut = handle.pread(result_buf)
-        read_size = fut.get()
-        return read_size, result_buf
-
-    @staticmethod
-    def parallel_read_partial(
-        url: str,
-        num_elements: int,
-        dtype: npt.DTypeLike,
-        size: int,
-        offset: int,
-        num_threads: int,
-        task_size: int,
-    ) -> Tuple[int, np.ndarray]:
-        actual_num_elements = size // np.dtype(dtype).itemsize
-        with kvikio.defaults.set({"num_threads": num_threads, "task_size": task_size}):
-            handle = remote_file.RemoteFile.open_webhdfs(url)
-            result_buf = np.zeros(actual_num_elements, dtype=dtype)
-            fut = handle.pread(result_buf, size, offset)
-            read_size = fut.get()
-            return read_size, result_buf
+    # Cleanup
+    server_process.terminate()
+    server_process.join(timeout=1)
 
 
 class TestWebHdfsOperations:
     @pytest.mark.parametrize("url_query", ["", "?op=OPEN"])
     def test_get_file_size(
         self,
-        mock_webhdfs_server: HTTPServer,
+        mock_webhdfs_server: str,
         remote_file_data: RemoteFileData,
         url_query: str,
     ) -> None:
-        # Given the file path, url_for prepends the scheme, host and port
-        base_url = mock_webhdfs_server.url_for(
-            f"/webhdfs/v1{remote_file_data.file_path}"
-        )
-        url = f"{base_url}{url_query}"
-
-        with ProcessPoolExecutor() as executor:
-            fut = executor.submit(WebHdfsOperations.get_file_size, url)
-            file_size = fut.result()
-            assert file_size == remote_file_data.file_size
+        url = f"{mock_webhdfs_server}{remote_file_data.file_path}{url_query}"
+        handle = remote_file.RemoteFile.open_webhdfs(url)
+        file_size = handle.nbytes()
+        assert file_size == remote_file_data.file_size
 
     def test_parallel_read(
-        self, mock_webhdfs_server: HTTPServer, remote_file_data: RemoteFileData
+        self, mock_webhdfs_server: str, remote_file_data: RemoteFileData, xp: Any
     ) -> None:
-        url = mock_webhdfs_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
+        url = f"{mock_webhdfs_server}{remote_file_data.file_path}"
+        handle = remote_file.RemoteFile.open_webhdfs(url)
+        result_buf = xp.arange(
+            0, remote_file_data.num_elements, dtype=remote_file_data.dtype
+        )
+        fut = handle.pread(result_buf)
+        read_size = fut.get()
 
-        with ProcessPoolExecutor() as executor:
-            fut = executor.submit(
-                WebHdfsOperations.parallel_read,
-                url,
-                remote_file_data.num_elements,
-                remote_file_data.dtype,
-            )
-            read_size, result_buf = fut.result()
-            assert read_size == remote_file_data.file_size
-            assert np.array_equal(result_buf, remote_file_data.buf)
+        assert read_size == remote_file_data.file_size
+
+        result_buf_np = result_buf
+        if isinstance(result_buf, cp.ndarray):
+            result_buf_np = cp.asnumpy(result_buf)
+        assert np.array_equal(result_buf_np, remote_file_data.buf)
 
     @pytest.mark.parametrize("size", [80, 8 * 9999])
     @pytest.mark.parametrize("offset", [0, 800, 8000, 8 * 9999])
@@ -167,60 +148,87 @@ class TestWebHdfsOperations:
     @pytest.mark.parametrize("task_size", [1024, 4096])
     def test_parallel_read_partial(
         self,
-        mock_webhdfs_server: HTTPServer,
+        mock_webhdfs_server: str,
         remote_file_data: RemoteFileData,
         size: int,
         offset: int,
         num_threads: int,
         task_size: int,
+        xp: Any,
     ) -> None:
-        url = mock_webhdfs_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
-
+        url = f"{mock_webhdfs_server}{remote_file_data.file_path}"
         element_size = remote_file_data.buf.itemsize
         begin_idx = offset // element_size
         end_idx = (offset + size) // element_size
         expected_buf = remote_file_data.buf[begin_idx:end_idx]
-        with ProcessPoolExecutor() as executor:
-            fut = executor.submit(
-                WebHdfsOperations.parallel_read_partial,
-                url,
-                remote_file_data.num_elements,
-                remote_file_data.dtype,
-                size,
-                offset,
-                num_threads,
-                task_size,
-            )
-            read_size, result_buf = fut.result()
+
+        actual_num_elements = size // np.dtype(remote_file_data.dtype).itemsize
+        with kvikio.defaults.set({"num_threads": num_threads, "task_size": task_size}):
+            handle = remote_file.RemoteFile.open_webhdfs(url)
+            result_buf = xp.zeros(actual_num_elements, dtype=remote_file_data.dtype)
+            fut = handle.pread(result_buf, size, offset)
+            read_size = fut.get()
+
             assert read_size == size
-            assert np.array_equal(result_buf, expected_buf)
+
+            result_buf_np = result_buf
+            if isinstance(result_buf, cp.ndarray):
+                result_buf_np = cp.asnumpy(result_buf)
+            assert np.array_equal(result_buf_np, expected_buf)
 
 
 class TestWebHdfsErrors:
     @pytest.fixture
     def mock_bad_server(
-        self, httpserver: HTTPServer, remote_file_data: RemoteFileData
-    ) -> HTTPServer:
-        httpserver.expect_request(
-            f"/webhdfs/v1{remote_file_data.file_path}",
-            method="GET",
-            query_string={"op": "GETFILESTATUS"},
-        ).respond_with_json(
-            response_json={}, status=200  # Missing "length"
-        )
+        self, remote_file_data: RemoteFileData
+    ) -> Generator[str, None, None]:
+        """Start a bad WebHDFS server that returns invalid JSON"""
 
-        return httpserver
+        def run_bad_server(queue: Queue[int]) -> None:
+            class BadHandler(BaseHTTPRequestHandler):
+                def do_GET(self):
+                    parsed = urllib.parse.urlparse(self.path)
+                    query = urllib.parse.parse_qs(parsed.query)
+
+                    if query.get("op") == ["GETFILESTATUS"]:
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        # Missing "length" field
+                        response = json.dumps({})
+                        self.wfile.write(response.encode())
+                    else:
+                        self.send_response(400)
+                        self.end_headers()
+
+                def log_message(self, format, *args):
+                    pass
+
+            port = utils.find_free_port()
+            server = HTTPServer((utils.localhost(), port), BadHandler)
+            queue.put(port)
+            server.serve_forever()
+
+        queue: Queue[int] = Queue()
+        server_process = Process(target=run_bad_server, args=(queue,), daemon=True)
+        server_process.start()
+
+        port = queue.get(timeout=5)
+
+        yield f"http://{utils.localhost()}:{port}"
+
+        server_process.terminate()
+        server_process.join(timeout=1)
 
     def test_missing_file_size(
-        self, mock_bad_server: HTTPServer, remote_file_data: RemoteFileData
+        self, mock_bad_server: str, remote_file_data: RemoteFileData
     ) -> None:
-        url = mock_bad_server.url_for(f"/webhdfs/v1{remote_file_data.file_path}")
+        url = f"{mock_bad_server}{remote_file_data.file_path}"
 
         with pytest.raises(
             RuntimeError,
             match="Regular expression search failed. "
             "Cannot extract file length from the JSON response.",
         ):
-            with ProcessPoolExecutor() as executor:
-                fut = executor.submit(WebHdfsOperations.get_file_size, url)
-                fut.result()
+            handle = remote_file.RemoteFile.open_webhdfs(url)
+            handle.nbytes()
