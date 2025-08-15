@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import socket
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Process, Queue
@@ -13,19 +12,10 @@ from typing import Any, Generator
 import numpy as np
 import numpy.typing as npt
 import pytest
+import utils
 
 import kvikio.defaults
 from kvikio import remote_file
-
-LOCALHOST = "127.0.0.1"
-
-
-def find_free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((LOCALHOST, 0))
-        s.listen(1)
-        port = s.getsockname()[1]
-    return port
 
 
 class RemoteFileData:
@@ -86,8 +76,8 @@ def run_mock_server(queue: Queue[int], file_size: int, buf: npt.NDArray[Any]) ->
         def log_message(self, format: str, *args: Any) -> None:
             pass
 
-    port = find_free_port()
-    server = HTTPServer((LOCALHOST, port), WebHdfsHandler)
+    port = utils.find_free_port()
+    server = HTTPServer((utils.localhost(), port), WebHdfsHandler)
 
     # Send port back to parent process
     queue.put(port)
@@ -113,7 +103,7 @@ def mock_webhdfs_server(remote_file_data: RemoteFileData) -> Generator[str, None
     # Get the port the server is running on
     port = queue.get(timeout=5)
 
-    yield f"http://{LOCALHOST}:{port}"
+    yield f"http://{utils.localhost()}:{port}"
 
     # Cleanup
     server_process.terminate()
@@ -204,8 +194,8 @@ class TestWebHdfsErrors:
                 def log_message(self, format, *args):
                     pass
 
-            port = find_free_port()
-            server = HTTPServer((LOCALHOST, port), BadHandler)
+            port = utils.find_free_port()
+            server = HTTPServer((utils.localhost(), port), BadHandler)
             queue.put(port)
             server.serve_forever()
 
@@ -215,7 +205,7 @@ class TestWebHdfsErrors:
 
         port = queue.get(timeout=5)
 
-        yield f"http://{LOCALHOST}:{port}"
+        yield f"http://{utils.localhost()}:{port}"
 
         server_process.terminate()
         server_process.join(timeout=1)
