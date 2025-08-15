@@ -26,11 +26,6 @@ from kvikio.benchmarks.utils import drop_vm_cache, parse_directory, pprint_sys_i
 if not kvikio.zarr.supported:
     raise RuntimeError(f"requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}")
 
-compressors = {
-    "none": (None, None),
-    "lz4": (numcodecs.blosc.Blosc(cname="lz4"), kvikio.zarr.LZ4()),
-}
-
 
 def create_src_data(args):
     return cupy.random.random(args.nelem, dtype=args.dtype)

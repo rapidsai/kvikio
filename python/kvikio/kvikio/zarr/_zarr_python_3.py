@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 
 import packaging
-from packaging.version import parse
 import zarr.storage
+from packaging.version import parse
 from zarr.abc.store import (
     ByteRequest,
     OffsetByteRequest,

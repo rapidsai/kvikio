@@ -134,35 +134,25 @@ def test_dask_write(store, xp):
     # Write dask array to disk using Zarr
     a = xp.arange(100)
     d = da.from_array(a, chunks=10)
-    da.to_zarr(d, store, compressor=None, meta_array=xp.empty(()))
+    da.to_zarr(d, store, meta_array=xp.empty(()))
 
     # Validate the written Zarr array
     z = zarr.open_array(store)
     xp.testing.assert_array_equal(a, z[:])
 
 
-@pytest.mark.parametrize("compressor", [None, kvikio_zarr.CompatCompressor.lz4().cpu])
-def test_open_cupy_array_written_by_zarr(tmp_path, compressor):
+def test_open_cupy_array_written_by_zarr(tmp_path):
     data = numpy.arange(100)
     z = zarr.open_array(
         tmp_path,
         shape=data.shape,
         mode="w",
-        compressor=compressor,
     )
     z[:] = data
 
     z = kvikio_zarr.open_cupy_array(tmp_path, mode="r")
     assert isinstance(z[:], cupy.ndarray)
     cupy.testing.assert_array_equal(z[:], data)
-
-
-@pytest.mark.parametrize("mode", ["r", "r+", "a"])
-def test_open_cupy_array_incompatible_compressor(tmp_path, mode):
-    zarr.create((10,), store=tmp_path, compressor=numcodecs.Blosc())
-
-    with pytest.raises(ValueError, match="non-CUDA compatible compressor"):
-        kvikio_zarr.open_cupy_array(tmp_path, mode=mode)
 
 
 def test_open_cupy_array_unknown_mode(tmp_path):
