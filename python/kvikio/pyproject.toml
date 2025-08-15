@@ -46,7 +46,6 @@ test = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
-    "pytest-httpserver",
     "pytest-timeout",
     "rangehttpserver",
     "rapids-dask-dependency==25.10.*,>=0.0.0a0",
