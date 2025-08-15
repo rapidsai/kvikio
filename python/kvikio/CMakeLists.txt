@@ -35,8 +35,6 @@ find_package(CUDAToolkit REQUIRED)
 include(rapids-cython-core)
 rapids_cython_init()
 
-add_subdirectory(cmake)
-
 set(cython_lib_dir kvikio)
 
 add_subdirectory(kvikio/_lib)

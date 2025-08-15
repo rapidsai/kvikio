@@ -30,15 +30,5 @@ endif()
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_modules}"
-  LINKED_LIBRARIES kvikio::kvikio nvcomp::nvcomp
+  LINKED_LIBRARIES kvikio::kvikio
 )
-if(USE_NVCOMP_RUNTIME_WHEEL)
-  set(rpaths "$ORIGIN/../../nvidia/nvcomp")
-  foreach(tgt IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-    set_property(
-      TARGET ${tgt}
-      PROPERTY INSTALL_RPATH ${rpaths}
-      APPEND
-    )
-  endforeach()
-endif()
