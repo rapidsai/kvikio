@@ -2,11 +2,11 @@
 # See file LICENSE for terms.
 
 import multiprocessing as mp
-import socket
 import time
 from contextlib import contextmanager
 
 import pytest
+import utils
 
 import kvikio
 import kvikio.defaults
@@ -26,18 +26,13 @@ import moto.server  # noqa: E402
 
 
 @pytest.fixture(scope="session")
-def endpoint_ip():
-    return "127.0.0.1"
+def endpoint_ip() -> str:
+    return utils.localhost()
 
 
 @pytest.fixture(scope="session")
 def endpoint_port():
-    # Return a free port per worker session.
-    sock = socket.socket()
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
+    return utils.find_free_port()
 
 
 def start_s3_server(ip_address, port):
