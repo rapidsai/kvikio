@@ -23,6 +23,9 @@ import kvikio
 # at https://github.com/zarr-developers/zarr-python/blob/main/src/zarr/storage/_local.py
 # with differences coming swapping in `cuFile` for the stdlib open file object.
 
+MINIMUM_ZARR_VERSION = "3"
+
+supported = parse(zarr.__version__) >= parse(MINIMUM_ZARR_VERSION)
 
 @functools.cache
 def _is_ge_zarr_3_0_7():
@@ -140,8 +143,4 @@ class GDSStore(zarr.storage.LocalStore):
         await asyncio.to_thread(_put, path, value, start=None, exclusive=exclusive)
 
 
-# Matching the check that zarr.__version__ > 2.15 that's
-# part of the public API for our zarr 2.x support
-# This module is behind a check that zarr.__version__ > 3
-# so we can just assume it's already checked and supported.
-supported = True
+
