@@ -81,7 +81,7 @@ requirements:
     - numpy >=1.23,<3.0a0
     - packaging
     - python
-    - zarr >=3.0.0,<4.0.0a0
+    - zarr >=2.0.0,<4.0.0a0
     - cuda-cudart
   ignore_run_exports:
     by_name:
