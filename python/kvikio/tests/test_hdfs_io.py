@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Process, Queue
 from typing import Any, Generator
 
+import cupy as cp
 import numpy as np
 import numpy.typing as npt
 import pytest
@@ -124,18 +125,22 @@ class TestWebHdfsOperations:
         assert file_size == remote_file_data.file_size
 
     def test_parallel_read(
-        self, mock_webhdfs_server: str, remote_file_data: RemoteFileData
+        self, mock_webhdfs_server: str, remote_file_data: RemoteFileData, xp: Any
     ) -> None:
         url = f"{mock_webhdfs_server}{remote_file_data.file_path}"
         handle = remote_file.RemoteFile.open_webhdfs(url)
-        result_buf = np.arange(
+        result_buf = xp.arange(
             0, remote_file_data.num_elements, dtype=remote_file_data.dtype
         )
         fut = handle.pread(result_buf)
         read_size = fut.get()
 
         assert read_size == remote_file_data.file_size
-        assert np.array_equal(result_buf, remote_file_data.buf)
+
+        result_buf_np = result_buf
+        if isinstance(result_buf, cp.ndarray):
+            result_buf_np = cp.asnumpy(result_buf)
+        assert np.array_equal(result_buf_np, remote_file_data.buf)
 
     @pytest.mark.parametrize("size", [80, 8 * 9999])
     @pytest.mark.parametrize("offset", [0, 800, 8000, 8 * 9999])
@@ -149,6 +154,7 @@ class TestWebHdfsOperations:
         offset: int,
         num_threads: int,
         task_size: int,
+        xp: Any,
     ) -> None:
         url = f"{mock_webhdfs_server}{remote_file_data.file_path}"
         element_size = remote_file_data.buf.itemsize
@@ -159,12 +165,16 @@ class TestWebHdfsOperations:
         actual_num_elements = size // np.dtype(remote_file_data.dtype).itemsize
         with kvikio.defaults.set({"num_threads": num_threads, "task_size": task_size}):
             handle = remote_file.RemoteFile.open_webhdfs(url)
-            result_buf = np.zeros(actual_num_elements, dtype=remote_file_data.dtype)
+            result_buf = xp.zeros(actual_num_elements, dtype=remote_file_data.dtype)
             fut = handle.pread(result_buf, size, offset)
             read_size = fut.get()
 
             assert read_size == size
-            assert np.array_equal(result_buf, expected_buf)
+
+            result_buf_np = result_buf
+            if isinstance(result_buf, cp.ndarray):
+                result_buf_np = cp.asnumpy(result_buf)
+            assert np.array_equal(result_buf_np, expected_buf)
 
 
 class TestWebHdfsErrors:
