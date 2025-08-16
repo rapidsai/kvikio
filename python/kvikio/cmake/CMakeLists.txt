@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,31 +12,4 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
-
-include(../../cmake/rapids_config.cmake)
-include(rapids-cpm)
-rapids_cpm_init()
-include(rapids-cuda)
-rapids_cuda_init_architectures(kvikio-python)
-
-project(
-  kvikio-python
-  VERSION "${RAPIDS_VERSION}"
-  LANGUAGES CXX CUDA
-)
-
-option(USE_NVCOMP_RUNTIME_WHEEL "Use the nvcomp wheel at runtime instead of the system library" OFF)
-
-find_package(kvikio REQUIRED "${RAPIDS_VERSION}")
-
-find_package(CUDAToolkit REQUIRED)
-
-include(rapids-cython-core)
-rapids_cython_init()
-
-add_subdirectory(cmake)
-
-set(cython_lib_dir kvikio)
-
-add_subdirectory(kvikio/_lib)
+include(thirdparty/get_nvcomp.cmake)

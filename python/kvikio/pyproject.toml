@@ -110,6 +110,15 @@ skip = [
 
 [tool.mypy]
 ignore_missing_imports = true
+exclude = [
+    # we type check against zarr-python 3.x
+    # and ignore modules using 2.x
+    "python/kvikio/kvikio/zarr/_zarr_python_2.py",
+    "python/kvikio/tests/test_nvcomp_codec.py",
+]
+
+[project.entry-points."numcodecs.codecs"]
+nvcomp_batch = "kvikio.nvcomp_codec:NvCompBatchCodec"
 
 [tool.rapids-build-backend]
 build-backend = "scikit_build_core.build"
@@ -151,6 +160,7 @@ filterwarnings = [
     "error",
     "ignore:Jitify is performing a one-time only warm-up to populate the persistent cache",
     "ignore::DeprecationWarning:botocore.*",
+    "ignore:This module is deprecated since.*Use the official nvCOMP API from 'nvidia.nvcomp' instead.:FutureWarning:.*nvcomp|.*nvcomp_codec",
 ]
 markers = [
     "cufile: tests to skip if cuFile isn't available e.g. run with `pytest -m 'not cufile'`",

@@ -13,6 +13,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_cupy
+      - depends_on_libnvcomp
       - docs
       - py_version
       - rapids_build_skbuild
@@ -65,6 +66,10 @@ files:
       table: project
     includes:
       - depends_on_cupy
+      # TODO: restore runtime dependency when we no longer vendor nvcomp
+      # (when nvcomp ships C++ wheels)
+      # https://github.com/rapidsai/build-planning/issues/171
+      # - depends_on_libnvcomp
       - depends_on_libkvikio
       - run
   py_rapids_build_libkvikio:
@@ -215,6 +220,11 @@ dependencies:
           - matrix: # All CUDA 12 versions
             packages:
               - cupy-cuda12x>=12.0.0
+  depends_on_libnvcomp:
+    common:
+      - output_types: conda
+        packages:
+          - libnvcomp-dev==4.2.0.11
   depends_on_libkvikio:
     common:
       - output_types: conda
