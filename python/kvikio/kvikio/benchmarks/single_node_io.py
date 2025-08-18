@@ -8,7 +8,7 @@ import shutil
 import statistics
 import tempfile
 from time import perf_counter as clock
-from typing import Any, ContextManager, Dict, Union
+from typing import ContextManager, Union
 
 import cupy
 from dask.utils import format_bytes, parse_bytes
@@ -17,21 +17,6 @@ import kvikio
 import kvikio.buffer
 import kvikio.defaults
 from kvikio.benchmarks.utils import parse_directory, pprint_sys_info
-
-
-def get_zarr_compressors() -> Dict[str, Any]:
-    """Returns a dict of available Zarr compressors"""
-    try:
-        import kvikio.zarr
-    except ImportError:
-        return {}
-    try:
-        compressors = kvikio.zarr.nvcomp_compressors
-    except AttributeError:
-        # zarr-python 3.x
-        return {}
-    else:
-        return {c.__name__.lower(): c for c in compressors}
 
 
 def create_data(nbytes):
@@ -223,10 +208,6 @@ def run_zarr(args):
     if not kvikio.zarr.supported:
         raise RuntimeError(f"requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}")
 
-    compressor = None
-    if args.zarr_compressor is not None:
-        compressor = get_zarr_compressors()[args.zarr_compressor]()
-
     a = create_data(args.nbytes)
 
     shutil.rmtree(str(dir_path), ignore_errors=True)
@@ -236,7 +217,6 @@ def run_zarr(args):
     z = zarr.array(
         a,
         chunks=False,
-        compressor=compressor,
         store=kvikio.zarr.GDSStore(dir_path),
         meta_array=cupy.empty(()),
     )
@@ -277,8 +257,6 @@ def main(args):
     print(f"directory         | {args.dir}")
     print(f"nthreads          | {args.nthreads}")
     print(f"nruns             | {args.nruns}")
-    if args.zarr_compressor is not None:
-        print(f"Zarr compressor   | {args.zarr_compressor}")
     print("==================================")
 
     # Run each benchmark using the requested APIs
@@ -353,16 +331,6 @@ if __name__ == "__main__":
         nargs="+",
         choices=tuple(API.keys()) + ("all",),
         help="List of APIs to use {%(choices)s}",
-    )
-    parser.add_argument(
-        "--zarr-compressor",
-        metavar="COMPRESSOR",
-        default=None,
-        choices=tuple(get_zarr_compressors().keys()),
-        help=(
-            "Set a nvCOMP compressor to use with Zarr "
-            "{%(choices)s} (default: %(default)s)"
-        ),
     )
 
     args = parser.parse_args()

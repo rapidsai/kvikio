@@ -13,9 +13,9 @@ from time import perf_counter as clock
 from typing import ContextManager, Union
 
 import cupy
-import numcodecs.blosc
 import numpy
 import zarr
+import zarr.storage
 from dask.utils import format_bytes, parse_bytes
 
 import kvikio
@@ -26,59 +26,47 @@ from kvikio.benchmarks.utils import drop_vm_cache, parse_directory, pprint_sys_i
 if not kvikio.zarr.supported:
     raise RuntimeError(f"requires Zarr >={kvikio.zarr.MINIMUM_ZARR_VERSION}")
 
-compressors = {
-    "none": (None, None),
-    "lz4": (numcodecs.blosc.Blosc(cname="lz4"), kvikio.zarr.LZ4()),
-}
-
 
 def create_src_data(args):
     return cupy.random.random(args.nelem, dtype=args.dtype)
 
 
 def run_kvikio(args):
-    dir_path = args.dir / "kvikio"
-    shutil.rmtree(str(dir_path), ignore_errors=True)
+    with zarr.config.enable_gpu():
+        dir_path = args.dir / "kvikio"
+        shutil.rmtree(str(dir_path), ignore_errors=True)
 
-    # Get the GPU compressor
-    compressor = compressors[args.compressor][1]
+        src = create_src_data(args)
 
-    src = create_src_data(args)
+        # Write
+        if args.drop_vm_cache:
+            drop_vm_cache()
+        t0 = clock()
+        z = zarr.create(
+            shape=(args.nelem,),
+            chunks=(args.chunksize,),
+            dtype=args.dtype,
+            store=kvikio.zarr.GDSStore(dir_path),
+        )
+        z[:] = src
+        os.sync()
+        write_time = clock() - t0
 
-    # Write
-    if args.drop_vm_cache:
-        drop_vm_cache()
-    t0 = clock()
-    z = zarr.create(
-        shape=(args.nelem,),
-        chunks=(args.chunksize,),
-        dtype=args.dtype,
-        compressor=compressor,
-        store=kvikio.zarr.GDSStore(dir_path),
-        meta_array=cupy.empty(()),
-    )
-    z[:] = src
-    os.sync()
-    write_time = clock() - t0
+        # Read
+        if args.drop_vm_cache:
+            drop_vm_cache()
+        t0 = clock()
+        res = z[:]
+        read_time = clock() - t0
+        assert res.nbytes == args.nbytes
 
-    # Read
-    if args.drop_vm_cache:
-        drop_vm_cache()
-    t0 = clock()
-    res = z[:]
-    read_time = clock() - t0
-    assert res.nbytes == args.nbytes
-
-    return read_time, write_time
+        return read_time, write_time
 
 
 def run_posix(args):
     dir_path = args.dir / "posix"
     shutil.rmtree(str(dir_path), ignore_errors=True)
 
-    # Get the CPU compressor
-    compressor = compressors[args.compressor][0]
-
     src = create_src_data(args)
 
     # Write
@@ -89,9 +77,7 @@ def run_posix(args):
         shape=(args.nelem,),
         chunks=(args.chunksize,),
         dtype=args.dtype,
-        compressor=compressor,
-        store=zarr.DirectoryStore(dir_path),
-        meta_array=numpy.empty(()),
+        store=zarr.storage.LocalStore(dir_path),
     )
     z[:] = src.get()
     os.sync()
@@ -135,7 +121,6 @@ def main(args):
     print(f"directory         | {args.dir}")
     print(f"nthreads          | {args.nthreads}")
     print(f"nruns             | {args.nruns}")
-    print(f"compressor        | {args.compressor}")
     print("==================================")
 
     # Run each benchmark using the requested APIs
@@ -225,16 +210,6 @@ if __name__ == "__main__":
         nargs="+",
         choices=tuple(API.keys()) + ("all",),
         help="List of APIs to use {%(choices)s}",
-    )
-    parser.add_argument(
-        "--compressor",
-        metavar="COMPRESSOR",
-        default="none",
-        choices=tuple(compressors.keys()),
-        help=(
-            "Set a nvCOMP compressor to use with Zarr "
-            "{%(choices)s} (default: %(default)s)"
-        ),
     )
     parser.add_argument(
         "--drop-vm-cache",
