@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -92,7 +93,8 @@ TEST(RemoteHandleTest, check_s3)
     for (auto const& url : urls) {
       EXPECT_TRUE(kvikio::S3Endpoint::is_url_valid(url));
 
-      auto remote_handle = kvikio::RemoteHandle::open(url, kvikio::RemoteFileType::AUTO, 1);
+      auto remote_handle =
+        kvikio::RemoteHandle::open(url, kvikio::RemoteFileType::AUTO, std::nullopt, 1);
       EXPECT_EQ(remote_handle.type(), kvikio::RemoteFileType::S3);
     }
   }

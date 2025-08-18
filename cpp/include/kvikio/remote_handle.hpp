@@ -289,8 +289,9 @@ class RemoteHandle {
    * @return RemoteHandle
    */
   static RemoteHandle open(std::string url,
-                           RemoteFileType remote_file_type   = RemoteFileType::AUTO,
-                           std::optional<std::size_t> nbytes = std::nullopt);
+                           RemoteFileType remote_file_type = RemoteFileType::AUTO,
+                           std::optional<std::vector<RemoteFileType>> allow_list = std::nullopt,
+                           std::optional<std::size_t> nbytes                     = std::nullopt);
 
   /**
    * @brief Create a new remote handle from an endpoint and a file size.

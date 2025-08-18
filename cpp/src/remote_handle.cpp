@@ -544,8 +544,16 @@ bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
 
 RemoteHandle RemoteHandle::open(std::string url,
                                 RemoteFileType remote_file_type,
+                                std::optional<std::vector<RemoteFileType>> allow_list,
                                 std::optional<std::size_t> nbytes)
 {
+  if (!allow_list.has_value()) {
+    allow_list = {RemoteFileType::S3,
+                  RemoteFileType::S3_PRESIGNED_URL,
+                  RemoteFileType::WEBHDFS,
+                  RemoteFileType::HTTP};
+  }
+
   std::unique_ptr<RemoteEndpoint> endpoint;
   switch (remote_file_type) {
     case RemoteFileType::AUTO: {
