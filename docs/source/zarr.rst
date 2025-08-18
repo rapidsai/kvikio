@@ -28,16 +28,3 @@ You can use any store, but KvikIO provides :py:class:`kvikio.zarr.GDSStore` to e
    ... )
    >>> type(z[:10, :10])
    cupy.ndarray
-
-
-
-Zarr Python 2.x
----------------
-
-
-The following uses zarr-python 2.x, and is an example of how to use the convenience function :py:meth:`kvikio.zarr.open_cupy_array`
-to create a new Zarr array and how to open an existing Zarr array.
-
-
-.. literalinclude:: ../../python/kvikio/examples/zarr_cupy_nvcomp.py
-    :language: python

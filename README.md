@@ -15,7 +15,6 @@ KvikIO also works efficiently when GDS isn't available and can read/write both h
 * Concurrent reads and writes using an internal thread pool.
 * Non-blocking API.
 * Transparently handles reads and writes to/from memory on both host and device.
-* (Deprecated) Provides Python bindings to [nvCOMP](https://docs.nvidia.com/cuda/nvcomp/py_api.html).
 
 
 ### Documentation

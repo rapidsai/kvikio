@@ -8,6 +8,7 @@ from pathlib import Path
 
 import packaging
 import zarr.storage
+from packaging.version import parse
 from zarr.abc.store import (
     ByteRequest,
     OffsetByteRequest,
@@ -22,6 +23,10 @@ import kvikio
 # The GDSStore implementation follows the `LocalStore` implementation
 # at https://github.com/zarr-developers/zarr-python/blob/main/src/zarr/storage/_local.py
 # with differences coming swapping in `cuFile` for the stdlib open file object.
+
+MINIMUM_ZARR_VERSION = "3"
+
+supported = parse(zarr.__version__) >= parse(MINIMUM_ZARR_VERSION)
 
 
 @functools.cache
@@ -138,10 +143,3 @@ class GDSStore(zarr.storage.LocalStore):
         path = self.root / key
 
         await asyncio.to_thread(_put, path, value, start=None, exclusive=exclusive)
-
-
-# Matching the check that zarr.__version__ > 2.15 that's
-# part of the public API for our zarr 2.x support
-# This module is behind a check that zarr.__version__ > 3
-# so we can just assume it's already checked and supported.
-supported = True
