@@ -124,6 +124,7 @@ dependencies:
       - output_types: conda
         packages:
           - c-compiler
+          - cuda-nvcc
           - cxx-compiler
           - libcurl>=8.5.0,<9.0a0
     specific:
@@ -131,22 +132,14 @@ dependencies:
         matrices:
           - matrix:
               arch: x86_64
-              cuda: "12.*"
             packages:
               - gcc_linux-64=14.*
               - sysroot_linux-64=2.28
           - matrix:
               arch: aarch64
-              cuda: "12.*"
             packages:
               - gcc_linux-aarch64=14.*
               - sysroot_linux-aarch64=2.28
-      - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - cuda-nvcc
   build-use-libkvikio-wheel:
     common:
       - output_types: conda
@@ -160,6 +153,11 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - libkvikio-cu12==25.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libkvikio-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
@@ -200,30 +198,30 @@ dependencies:
             packages:
               - cuda-version=13.0
   cuda:
-    specific:
+    common:
       - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-      - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - libcufile-dev
-              - libnuma
+        packages:
+          - libcufile-dev
+          - libnuma
   depends_on_cupy:
     common:
       - output_types: conda
         packages:
-          - cupy>=12.0.0
+          - &cupy_unsuffixed cupy>=12.0.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: # All CUDA 12 versions
+          - matrix:
+              cuda: "12.*"
             packages:
               - cupy-cuda12x>=12.0.0
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - &cupy_cu13 cupy-cuda13x>=12.0.0
+          - matrix:
+            packages:
+              - *cupy_cu13
   depends_on_libnvcomp:
     common:
       - output_types: conda
@@ -248,6 +246,11 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - libkvikio-cu12==25.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libkvikio-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   docs:
     common:
@@ -340,9 +343,17 @@ dependencies:
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
-          - matrix: # All CUDA 12 versions
+          - matrix:
+              cuda: "12.*"
             packages:
               - cuda-python>=12.6.2,<13.0a0
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - &cuda_python_cu13 cuda-python>=13.0.0,<14.0a0
+          - matrix:
+            packages:
+              - *cuda_python_cu13
   test_java:
     common:
       - output_types: conda
