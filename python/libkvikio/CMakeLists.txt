@@ -40,13 +40,7 @@ set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 
-# vendor nvcomp but not the entire kvikio-export set because that's huge TODO: Move nvcomp vendoring
-# to libcudf wheel instead
-include(cmake/thirdparty/get_nvcomp.cmake)
 include(cmake/Modules/WheelHelpers.cmake)
-install_aliased_imported_targets(
-  TARGETS nvcomp::nvcomp DESTINATION ${SKBUILD_PLATLIB_DIR}/libkvikio/lib64/
-)
 
 set(CUDA_STATIC_RUNTIME ON)
 

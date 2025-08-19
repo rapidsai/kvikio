@@ -67,6 +67,4 @@ select = [
 ]
 
 # PyPI limit is 100 MiB, fail CI before we get too close to that
-# TODO: drop this to 75M after we re-de-vendor nvcomp
-# https://github.com/rapidsai/build-planning/issues/171
-max_allowed_size_compressed = '90M'
+max_allowed_size_compressed = '75M'
