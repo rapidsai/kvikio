@@ -16,7 +16,7 @@ Install the **stable release** from the ``rapidsai`` channel like:
   # Install in existing environment
   mamba install -c rapidsai -c conda-forge kvikio
   # Create new environment (CUDA 12)
-  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.13 cuda-version=12.9 kvikio
+  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.13 cuda-version=13.0 kvikio
 
 Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 
@@ -25,7 +25,7 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
   # Install in existing environment
   mamba install -c rapidsai-nightly -c conda-forge kvikio
   # Create new environment (CUDA 12)
-  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.13 cuda-version=12.9 kvikio
+  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.13 cuda-version=13.0 kvikio
 
 
 .. note::
@@ -51,7 +51,7 @@ In order to setup a development environment, we recommend Conda:
 .. code-block::
 
   # CUDA 12
-  mamba env create --name kvikio-dev --file conda/environments/all_cuda-128_arch-x86_64.yaml
+  mamba env create --name kvikio-dev --file conda/environments/all_cuda-130_arch-x86_64.yaml
 
 The Python library depends on the C++ library, thus we build and install both:
 
