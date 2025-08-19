@@ -40,8 +40,6 @@ set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 
-include(cmake/Modules/WheelHelpers.cmake)
-
 set(CUDA_STATIC_RUNTIME ON)
 
 add_subdirectory(../../cpp kvikio-cpp)
