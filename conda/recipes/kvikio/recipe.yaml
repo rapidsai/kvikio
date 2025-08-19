@@ -80,9 +80,6 @@ requirements:
     - packaging
     - python
     - cuda-cudart
-    - if: python == "3.10"
-      then: "zarr >=2.0.0,<4.0.0a0"
-      else: "zarr >=3.0.0,<4.0.0a0"
   ignore_run_exports:
     by_name:
       - cuda-cudart
