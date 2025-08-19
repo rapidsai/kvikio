@@ -349,11 +349,11 @@ dependencies:
         matrices:
           # zarr 3 is not supported on Python 3.10
           - matrix:
-              py: "3.10"
-            packages:
-          - matrix:
+              py: "3.1[123]"
             packages:
               - zarr>=3.0.0,<4.0.0
+          - matrix:
+            packages:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix: # All CUDA 12 versions
