@@ -91,6 +91,14 @@ files:
       - build-cpp
       - build-py-wrapper
       - build-use-libkvikio-wheel
+  py_optional_zarr:
+    output: pyproject
+    pyproject_dir: python/kvikio
+    extras:
+      table: project.optional-dependencies
+      key: zarr
+    includes:
+      - zarr
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -295,10 +303,12 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - numpy>=1.23,<3.0a0
-          - zarr>=2.0.0,<4.0.0
-          # See https://github.com/zarr-developers/numcodecs/pull/475
-          - numcodecs !=0.12.0
           - packaging
+  zarr:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - zarr>=3.0.0,<4.0.0
   test_libkvikio:
     common:
       - output_types: conda
@@ -327,6 +337,7 @@ dependencies:
           - pytest-timeout
           - rangehttpserver
           - boto3>=1.21.21
+          - zarr>=3.0.0,<4.0.0
       - output_types: [requirements, pyproject]
         packages:
           - moto[server]>=4.0.8
