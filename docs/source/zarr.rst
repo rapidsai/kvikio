@@ -7,7 +7,7 @@ Zarr
 KvikIO provides a GPU backend to Zarr-Python that enables `GPUDirect Storage (GDS) <https://developer.nvidia.com/blog/gpudirect-storage/>`_ seamlessly.
 
 If the optional zarr-python dependency is installed, then ``kvikio.zarr`` will be available.
-KivkIO supports zarr-python 3.x.
+KvikIO supports zarr-python 3.x.
 
 Usage
 -----
