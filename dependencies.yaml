@@ -107,6 +107,7 @@ files:
       key: test
     includes:
       - test_python
+      - zarr
   test_java:
     output: none
     includes:
@@ -306,7 +307,7 @@ dependencies:
           - packaging
   zarr:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [requirements, pyproject]
         packages:
           - "zarr>=3.0.0,<4.0.0; python_version >= '3.11'"
   test_libkvikio:
@@ -340,7 +341,6 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - moto[server]>=4.0.8
-          - "zarr>=3.0.0,<4.0.0; python_version >= '3.11'"
       - output_types: conda
         packages:
           - moto>=4.0.8
