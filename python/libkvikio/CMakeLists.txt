@@ -39,28 +39,15 @@ unset(kvikio_FOUND)
 set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
-if(USE_NVCOMP_RUNTIME_WHEEL)
-  set(KvikIO_EXPORT_NVCOMP OFF)
-else()
-  # vendor nvcomp but not the entire kvikio-export set because that's huge
-  include(cmake/thirdparty/get_nvcomp.cmake)
-  include(cmake/Modules/WheelHelpers.cmake)
-  install_aliased_imported_targets(
-    TARGETS nvcomp::nvcomp DESTINATION ${SKBUILD_PLATLIB_DIR}/libkvikio/lib64/
-  )
-endif()
+
+# vendor nvcomp but not the entire kvikio-export set because that's huge TODO: Move nvcomp vendoring
+# to libcudf wheel instead
+include(cmake/thirdparty/get_nvcomp.cmake)
+include(cmake/Modules/WheelHelpers.cmake)
+install_aliased_imported_targets(
+  TARGETS nvcomp::nvcomp DESTINATION ${SKBUILD_PLATLIB_DIR}/libkvikio/lib64/
+)
 
 set(CUDA_STATIC_RUNTIME ON)
 
 add_subdirectory(../../cpp kvikio-cpp)
-
-if(USE_NVCOMP_RUNTIME_WHEEL)
-  set(rpaths "$ORIGIN/../../nvidia/nvcomp")
-  foreach(tgt IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-    set_property(
-      TARGET ${tgt}
-      PROPERTY INSTALL_RPATH ${rpaths}
-      APPEND
-    )
-  endforeach()
-endif()
