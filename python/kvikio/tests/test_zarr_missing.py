@@ -7,7 +7,15 @@ import pytest
 
 
 def test_zarr_missing(monkeypatch):
-    monkeypatch.setitem(sys.modules, "zarr", None)
+    modules = list(sys.modules)
+    for module in modules:
+        pkg = module.split(".")[0]
+        if pkg == "kvikio":
+            # remove from the import cache
+            monkeypatch.delitem(sys.modules, module, raising=False)
+        elif pkg == "zarr":
+            # force an ImportError
+            monkeypatch.setitem(sys.modules, module, None)
 
     with pytest.raises(ImportError):
         import kvikio.zarr  # noqa: F401
