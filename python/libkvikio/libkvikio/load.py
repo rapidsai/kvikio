@@ -44,8 +44,9 @@ def _load_wheel_installation(soname: str):
 
 
 def load_library():
-    # TODO: remove this nvcomp load when `nvcomp` is re-de-vendored
-    # https://github.com/rapidsai/build-planning/issues/171
+    # TODO: remove this nvcomp load when `nvcomp` is vendored into cudf instead.
+    # Currently this load only exists to ensure that libcudf wheels are not broken by
+    # prematurely removing the load
     _load_library("libnvcomp.so.5")
     return _load_library("libkvikio.so")
 
