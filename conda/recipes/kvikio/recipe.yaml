@@ -76,12 +76,9 @@ requirements:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cupy >=12.0.0
     - libkvikio =${{ version }}
-    # See https://github.com/zarr-developers/numcodecs/pull/475
-    - numcodecs !=0.12.0
     - numpy >=1.23,<3.0a0
     - packaging
     - python
-    - zarr >=2.0.0,<4.0.0a0
     - cuda-cudart
   ignore_run_exports:
     by_name:
