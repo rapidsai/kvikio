@@ -18,6 +18,3 @@ c_stdlib_version:
 
 libcurl_version:
   - "==8.5.0"
-
-nvcomp_version:
-  - "=4.2.0.11"
