@@ -3,6 +3,6 @@
 try:
     from ._zarr_python_3 import GDSStore
 except ImportError as e:
-    raise ImportError("kvikio.zarr requires the optional 'zarr' dependency") from e
+    raise ImportError("kvikio.zarr requires the optional 'zarr>=3' dependency") from e
 
 __all__ = ["GDSStore"]
