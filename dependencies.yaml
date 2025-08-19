@@ -308,7 +308,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - zarr>=3.0.0,<4.0.0
+          - "zarr>=3.0.0,<4.0.0; python_version >= '3.11'"
   test_libkvikio:
     common:
       - output_types: conda
@@ -337,10 +337,10 @@ dependencies:
           - pytest-timeout
           - rangehttpserver
           - boto3>=1.21.21
-          - zarr>=3.0.0,<4.0.0
       - output_types: [requirements, pyproject]
         packages:
           - moto[server]>=4.0.8
+          - "zarr>=3.0.0,<4.0.0; python_version >= '3.11'"
       - output_types: conda
         packages:
           - moto>=4.0.8
