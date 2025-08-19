@@ -344,12 +344,16 @@ dependencies:
       - output_types: conda
         packages:
           - moto>=4.0.8
-          # zarr 3.x doesn't support Python 3.10, so we require
-          # zarr>=2 here. The tests are written to work with
-          # any version of zarr, but only zarr>=3 will exercise
-          # everything.
-          - "zarr>=2.0.0,<4.0.0"
     specific:
+      - output_types: [conda]
+        matrices:
+          # zarr 3 is not supported on Python 3.10
+          - matrix:
+              py: "3.10"
+            packages:
+          - matrix:
+            packages:
+              - zarr>=3.0.0,<4.0.0
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix: # All CUDA 12 versions
