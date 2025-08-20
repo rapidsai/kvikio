@@ -57,20 +57,10 @@ cudaAPI::cudaAPI()
 
 #if CUDA_VERSION >= 12080
   // cuMemcpyBatchAsync was introduced in CUDA 12.8, and its parameters were changed in CUDA 13.0.
-  // Because dlsym only considers function name, not the parameters, the wrapper MemcpyBatchAsync
-  // would fail at the call site if KvikIO was built with CUDA driver 13.0 and run on CUDA
-  // driver 12.8, or vice versa. We therefore require that the CUDA driver API versions at
-  // compile-time and at runtime be both within [12.8, 13.0), or both above 13.0, in order to use
-  // batch copy. If this is not satisfied, KvikIO falls back to the non-batch copy.
   try {
-    if ((CUDA_VERSION >= 12080 && CUDA_VERSION < 13000 && driver_version >= 12080 &&
-         driver_version < 13000) ||
-        (CUDA_VERSION >= 13000 && driver_version >= 13000)) {
-      decltype(cuMemcpyBatchAsync)* fp;
-      get_symbol(fp, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
-      MemcpyBatchAsync.set(fp);
-    }
-    // For other cases, the default empty MemcpyBatchAsync is used.
+    decltype(cuMemcpyBatchAsync)* fp;
+    get_symbol(fp, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));
+    MemcpyBatchAsync.set(fp);
   } catch (std::runtime_error const&) {
     // Rethrow the exception if the CUDA driver version at runtime is satisfied but
     // cuMemcpyBatchAsync is not found.
