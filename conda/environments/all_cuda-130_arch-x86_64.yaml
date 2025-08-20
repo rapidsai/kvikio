@@ -9,9 +9,9 @@ dependencies:
 - c-compiler
 - cmake>=3.30.4
 - cuda-nvcc
-- cuda-python>=13.0.0,<14.0a0
+- cuda-python>=13.0.1,<14.0a0
 - cuda-version=13.0
-- cupy>=12.0.0
+- cupy>=13.6.0
 - cxx-compiler
 - cython>=3.0.0
 - doxygen=1.9.1
@@ -21,7 +21,6 @@ dependencies:
 - libnuma
 - moto>=4.0.8
 - ninja
-- numcodecs !=0.12.0
 - numpy>=1.23,<3.0a0
 - numpydoc
 - packaging
@@ -39,5 +38,5 @@ dependencies:
 - sphinx-click
 - sphinx_rtd_theme
 - sysroot_linux-64=2.28
-- zarr>=2.0.0,<4.0.0
+- zarr>=3.0.0,<4.0.0
 name: all_cuda-130_arch-x86_64

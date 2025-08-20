@@ -6,32 +6,38 @@ import functools
 import os
 from pathlib import Path
 
-import packaging
-import zarr.storage
-from packaging.version import parse
-from zarr.abc.store import (
+import packaging.version
+import zarr
+
+_zarr_version = packaging.version.parse(zarr.__version__)
+
+if _zarr_version < packaging.version.parse("3.0.0"):
+    # We include this runtime package checking to help users who relied on
+    # installing kvikio to also include zarr, which is not an optional dependency.
+    raise ImportError(
+        f"'zarr>=3' is required, but 'zarr=={_zarr_version}' is installed."
+    )
+
+import zarr.storage  # noqa: E402
+from zarr.abc.store import (  # noqa: E402
     ByteRequest,
     OffsetByteRequest,
     RangeByteRequest,
     SuffixByteRequest,
 )
-from zarr.core.buffer import Buffer, BufferPrototype
-from zarr.core.buffer.core import default_buffer_prototype
+from zarr.core.buffer import Buffer, BufferPrototype  # noqa: E402
+from zarr.core.buffer.core import default_buffer_prototype  # noqa: E402
 
-import kvikio
+import kvikio  # noqa: E402
 
 # The GDSStore implementation follows the `LocalStore` implementation
 # at https://github.com/zarr-developers/zarr-python/blob/main/src/zarr/storage/_local.py
 # with differences coming swapping in `cuFile` for the stdlib open file object.
 
-MINIMUM_ZARR_VERSION = "3"
-
-supported = parse(zarr.__version__) >= parse(MINIMUM_ZARR_VERSION)
-
 
 @functools.cache
 def _is_ge_zarr_3_0_7():
-    return packaging.version.parse(zarr.__version__) >= packaging.version.parse("3.0.7")
+    return _zarr_version >= packaging.version.parse("3.0.7")
 
 
 def _get(

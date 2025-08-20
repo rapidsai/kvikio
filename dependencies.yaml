@@ -86,6 +86,14 @@ files:
       - build-cpp
       - build-py-wrapper
       - build-use-libkvikio-wheel
+  py_optional_zarr:
+    output: pyproject
+    pyproject_dir: python/kvikio
+    extras:
+      table: project.optional-dependencies
+      key: zarr
+    includes:
+      - zarr
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -94,6 +102,7 @@ files:
       key: test
     includes:
       - test_python
+      - zarr
   test_java:
     output: none
     includes:
@@ -202,18 +211,18 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &cupy_unsuffixed cupy>=12.0.0
+          - &cupy_unsuffixed cupy>=13.6.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x>=12.0.0
+              - cupy-cuda12x>=13.6.0
           - matrix:
               cuda: "13.*"
             packages:
-              - &cupy_cu13 cupy-cuda13x>=12.0.0
+              - &cupy_cu13 cupy-cuda13x>=13.6.0
           - matrix:
             packages:
               - *cupy_cu13
@@ -247,6 +256,7 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - numpydoc
+          - zarr>=3.0.0,<4.0.0
           - sphinx
           - sphinx-click
           - sphinx_rtd_theme
@@ -292,10 +302,12 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - numpy>=1.23,<3.0a0
-          - zarr>=2.0.0,<4.0.0
-          # See https://github.com/zarr-developers/numcodecs/pull/475
-          - numcodecs !=0.12.0
           - packaging
+  zarr:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          - "zarr>=3.0.0,<4.0.0; python_version >= '3.11'"
   test_libkvikio:
     common:
       - output_types: conda
@@ -331,16 +343,25 @@ dependencies:
         packages:
           - moto>=4.0.8
     specific:
+      - output_types: [conda]
+        matrices:
+          # zarr 3 is not supported on Python 3.10
+          - matrix:
+              py: "3.1[123]"
+            packages:
+              - zarr>=3.0.0,<4.0.0
+          - matrix:
+            packages:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.6.2,<13.0a0
+              - cuda-python>=12.9.2,<13.0a0
           - matrix:
               cuda: "13.*"
             packages:
-              - &cuda_python_cu13 cuda-python>=13.0.0,<14.0a0
+              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0a0
           - matrix:
             packages:
               - *cuda_python_cu13
