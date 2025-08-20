@@ -20,8 +20,8 @@ function(find_and_configure_nvcomp)
   include(${rapids-cmake-dir}/cpm/nvcomp.cmake)
   set(export_args)
   if(KvikIO_EXPORT_NVCOMP)
-    # We're vendoring nvcomp and we only want `libnvcomp.so.4`
-    set(export_args BUILD_EXPORT_SET nvcomp)
+    # We're vendoring nvcomp and we only want `libnvcomp.so.5`
+    set(export_args BUILD_EXPORT_SET nvcomp INSTALL_EXPORT_SET nvcomp)
   endif()
 
   rapids_cpm_nvcomp(${export_args} USE_PROPRIETARY_BINARY ${KVIKIO_USE_PROPRIETARY_BINARY})
