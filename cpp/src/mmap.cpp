@@ -218,7 +218,9 @@ void read_impl(void* dst_buf,
                                                &attrs,
                                                attrs_idxs,
                                                static_cast<std::size_t>(1) /* num_attrs */,
+#if CUDA_VERSION < 13000
                                                static_cast<std::size_t*>(nullptr),
+#endif
                                                stream));
       } else {
         // Fall back to the conventional H2D copy if the batch copy API is not available.
