@@ -407,10 +407,8 @@ bool S3Endpoint::is_url_valid(std::string const& url) noexcept
     auto parsed_url = detail::UrlParser::parse(url);
 
     if (parsed_url.scheme == "s3") {
-      // URL uses S3 scheme
       return parsed_url.host.has_value() && parsed_url.path.has_value();
     } else if ((parsed_url.scheme == "http") || (parsed_url.scheme == "https")) {
-      // URL uses HTTP/HTTPS scheme
       return url_has_aws_s3_format(url) && !S3EndpointWithPresignedUrl::is_url_valid(url);
     }
 
@@ -516,30 +514,12 @@ bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
   try {
     if (!url_has_aws_s3_format(url)) { return false; }
 
-    // todo: Use the URL parser (WIP) to obtain the HTTP components, maintain RAII and handle
-    // error checking.
-    CURLUcode err_code{};
-    CURLU* url_handle = curl_url();
-    KVIKIO_EXPECT(url_handle != nullptr,
-                  "Out of memory. Libcurl is unable to allocate a URL handle.");
-
-    // S3 presigned URL must have the HTTP/HTTPS scheme (instead of "S3://"). Therefore
-    // CURLU_NON_SUPPORT_SCHEME flag is not used here.
-    err_code = curl_url_set(url_handle, CURLUPART_URL, url.c_str(), 0);
-    KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
-
-    char* content{};
-    err_code = curl_url_get(url_handle, CURLUPART_QUERY, &content, 0);
-    KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
-
-    std::string query{content};
-
-    curl_free(content);
-    curl_url_cleanup(url_handle);
+    auto parsed_url = detail::UrlParser::parse(url);
+    if (!parsed_url.query.has_value()) { return false; }
 
     // Reference: https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
-    return query.find("X-Amz-Algorithm") != std::string::npos &&
-           query.find("X-Amz-Signature") != std::string::npos;
+    return parsed_url.query->find("X-Amz-Algorithm") != std::string::npos &&
+           parsed_url.query->find("X-Amz-Signature") != std::string::npos;
   } catch (...) {
     return false;
   }
@@ -587,7 +567,7 @@ RemoteHandle RemoteHandle::open(std::string url,
   std::unique_ptr<RemoteEndpoint> endpoint;
   if (remote_file_type == RemoteFileType::AUTO) {
     bool found{false};
-    for (auto const& allowed_file_type : *allow_list) {
+    for (auto const& allowed_file_type : allow_list.value()) {
       if (allowed_file_type == RemoteFileType::S3 && S3Endpoint::is_url_valid(url)) {
         auto scheme = get_scheme(url);
         if (scheme == "S3") {
@@ -637,6 +617,7 @@ RemoteHandle RemoteHandle::open(std::string url,
       }
       case RemoteFileType::HTTP: {
         endpoint = std::make_unique<HttpEndpoint>(url);
+        break;
       }
       default: {
         KVIKIO_FAIL("Reached unreachable region.");
