@@ -22,7 +22,7 @@ export SKBUILD_CMAKE_ARGS="-DUSE_NVCOMP_RUNTIME_WHEEL=ON"
 
 python -m auditwheel repair \
     --exclude libkvikio.so \
-    --exclude libnvcomp.so.4 \
+    --exclude libnvcomp.so.5 \
     -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" \
     ${package_dir}/dist/*
 
