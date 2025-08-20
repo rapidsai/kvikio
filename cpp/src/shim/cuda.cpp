@@ -56,7 +56,7 @@ cudaAPI::cudaAPI()
   CUDA_DRIVER_TRY(DriverGetVersion(&driver_version));
 
 #if CUDA_VERSION >= 12080
-  // cuMemcpyBatchAsync was introduced in CUDA 12.8.
+  // cuMemcpyBatchAsync was introduced in CUDA 12.8, and its parameters were changed in CUDA 13.0.
   try {
     decltype(cuMemcpyBatchAsync)* fp;
     get_symbol(fp, lib, KVIKIO_STRINGIFY(cuMemcpyBatchAsync));

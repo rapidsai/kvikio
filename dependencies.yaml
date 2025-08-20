@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9"]
+      cuda: ["12.9", "13.0"]
       arch: [aarch64, x86_64]
     includes:
       - build-universal
@@ -128,6 +128,7 @@ dependencies:
       - output_types: conda
         packages:
           - c-compiler
+          - cuda-nvcc
           - cxx-compiler
           - libcurl>=8.5.0,<9.0a0
     specific:
@@ -135,22 +136,14 @@ dependencies:
         matrices:
           - matrix:
               arch: x86_64
-              cuda: "12.*"
             packages:
               - gcc_linux-64=14.*
               - sysroot_linux-64=2.28
           - matrix:
               arch: aarch64
-              cuda: "12.*"
             packages:
               - gcc_linux-aarch64=14.*
               - sysroot_linux-aarch64=2.28
-      - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - cuda-nvcc
   build-use-libkvikio-wheel:
     common:
       - output_types: conda
@@ -164,6 +157,11 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - libkvikio-cu12==25.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libkvikio-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
@@ -199,31 +197,35 @@ dependencies:
               cuda: "12.9"
             packages:
               - cuda-version=12.9
+          - matrix:
+              cuda: "13.0"
+            packages:
+              - cuda-version=13.0
   cuda:
-    specific:
+    common:
       - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-      - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - libcufile-dev
-              - libnuma
+        packages:
+          - libcufile-dev
+          - libnuma
   depends_on_cupy:
     common:
       - output_types: conda
         packages:
-          - cupy>=12.0.0
+          - &cupy_unsuffixed cupy>=13.6.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: # All CUDA 12 versions
+          - matrix:
+              cuda: "12.*"
             packages:
-              - cupy-cuda12x>=12.0.0
+              - cupy-cuda12x>=13.6.0
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - &cupy_cu13 cupy-cuda13x>=13.6.0
+          - matrix:
+            packages:
+              - *cupy_cu13
   depends_on_libkvikio:
     common:
       - output_types: conda
@@ -232,7 +234,7 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for libkvikio-cu12.
+          # This index is needed for libkvikio-cu{12,13}.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
@@ -243,6 +245,11 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - libkvikio-cu12==25.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libkvikio-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   docs:
     common:
@@ -347,9 +354,17 @@ dependencies:
             packages:
       - output_types: [conda, requirements, pyproject]
         matrices:
-          - matrix: # All CUDA 12 versions
+          - matrix:
+              cuda: "12.*"
             packages:
-              - cuda-python>=12.6.2,<13.0a0
+              - cuda-python>=12.9.2,<13.0a0
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0a0
+          - matrix:
+            packages:
+              - *cuda_python_cu13
   test_java:
     common:
       - output_types: conda
