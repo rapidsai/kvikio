@@ -27,13 +27,13 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/remote_handle.hpp>
+#include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
 #include <kvikio/nvtx.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
 #include <kvikio/remote_handle.hpp>
-#include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -186,7 +186,7 @@ void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::si
  * @param url A URL.
  * @return Boolean answer.
  */
-bool is_url_valid_for_generic_s3(std::string const& url)
+bool url_has_aws_s3_format(std::string const& url)
 {
   // Currently KvikIO supports the following AWS S3 HTTP URL formats:
   static std::array const s3_patterns = {
@@ -240,9 +240,8 @@ void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset
 bool HttpEndpoint::is_url_valid(std::string const& url) noexcept
 {
   try {
-    std::regex const pattern(R"(^https?://.+$)", std::regex_constants::icase);
-    std::smatch match_result;
-    return std::regex_match(url, match_result, pattern);
+    auto parsed_url = detail::UrlParser::parse(url);
+    return (parsed_url.scheme == "http") || (parsed_url.scheme == "https");
   } catch (...) {
     return false;
   }
@@ -405,13 +404,17 @@ void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, 
 bool S3Endpoint::is_url_valid(std::string const& url) noexcept
 {
   try {
-    // URL uses S3 scheme
-    std::regex const pattern{R"(^s3://[^/]+/.+$)", std::regex_constants::icase};
-    std::smatch match_result;
-    if (std::regex_match(url, match_result, pattern)) { return true; }
+    auto parsed_url = detail::UrlParser::parse(url);
 
-    // URL uses HTTP/HTTPS scheme
-    return is_url_valid_for_generic_s3(url) && !S3EndpointWithPresignedUrl::is_url_valid(url);
+    if (parsed_url.scheme == "s3") {
+      // URL uses S3 scheme
+      return parsed_url.host.has_value() && parsed_url.path.has_value();
+    } else if ((parsed_url.scheme == "http") || (parsed_url.scheme == "https")) {
+      // URL uses HTTP/HTTPS scheme
+      return url_has_aws_s3_format(url) && !S3EndpointWithPresignedUrl::is_url_valid(url);
+    }
+
+    return false;
   } catch (...) {
     return false;
   }
@@ -511,7 +514,7 @@ void S3EndpointWithPresignedUrl::setup_range_request(CurlHandle& curl,
 bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
 {
   try {
-    if (!is_url_valid_for_generic_s3(url)) { return false; }
+    if (!url_has_aws_s3_format(url)) { return false; }
 
     // todo: Use the URL parser (WIP) to obtain the HTTP components, maintain RAII and handle
     // error checking.
@@ -542,6 +545,33 @@ bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
   }
 }
 
+namespace {
+std::string get_scheme(std::string const& url)
+{
+  // todo: Use the URL parser (WIP) to obtain the HTTP components, maintain RAII and handle
+  // error checking.
+  CURLUcode err_code{};
+  CURLU* url_handle = curl_url();
+  KVIKIO_EXPECT(url_handle != nullptr,
+                "Out of memory. Libcurl is unable to allocate a URL handle.");
+
+  err_code = curl_url_set(url_handle, CURLUPART_URL, url.c_str(), CURLU_NON_SUPPORT_SCHEME);
+  KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
+
+  char* content{};
+  err_code = curl_url_get(url_handle, CURLUPART_SCHEME, &content, 0);
+  KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
+
+  std::string scheme{content};
+  std::transform(
+    scheme.begin(), scheme.end(), scheme.begin(), [](unsigned char c) { return std::toupper(c); });
+
+  curl_free(content);
+  curl_url_cleanup(url_handle);
+  return scheme;
+}
+}  // namespace
+
 RemoteHandle RemoteHandle::open(std::string url,
                                 RemoteFileType remote_file_type,
                                 std::optional<std::vector<RemoteFileType>> allow_list,
@@ -555,66 +585,62 @@ RemoteHandle RemoteHandle::open(std::string url,
   }
 
   std::unique_ptr<RemoteEndpoint> endpoint;
-  switch (remote_file_type) {
-    case RemoteFileType::AUTO: {
-      // todo: Use the URL parser (WIP) to obtain the HTTP components, maintain RAII and handle
-      // error checking.
-      CURLUcode err_code{};
-      CURLU* url_handle = curl_url();
-      KVIKIO_EXPECT(url_handle != nullptr,
-                    "Out of memory. Libcurl is unable to allocate a URL handle.");
-
-      err_code = curl_url_set(url_handle, CURLUPART_URL, url.c_str(), CURLU_NON_SUPPORT_SCHEME);
-      KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
-
-      char* content{};
-      err_code = curl_url_get(url_handle, CURLUPART_SCHEME, &content, 0);
-      KVIKIO_EXPECT(err_code == CURLUcode::CURLUE_OK, curl_url_strerror(err_code));
-
-      std::string scheme{content};
-      std::transform(scheme.begin(), scheme.end(), scheme.begin(), [](unsigned char c) {
-        return std::toupper(c);
-      });
-
-      if (scheme == "S3") {
-        // AWS S3 URI format: s3://<bucket>/<object-key>
-        auto const& [bucket_name, object_key_name] = kvikio::S3Endpoint::parse_s3_url(url);
-        endpoint = std::make_unique<S3Endpoint>(std::pair{bucket_name, object_key_name});
-      } else if (scheme == "HTTP" || scheme == "HTTPS") {
-        if (S3EndpointWithPresignedUrl::is_url_valid(url)) {
-          endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
-        } else if (S3Endpoint::is_url_valid(url)) {
-          endpoint = std::make_unique<S3Endpoint>(url);
-        } else if (WebHdfsEndpoint::is_url_valid(url)) {
-          endpoint = std::make_unique<WebHdfsEndpoint>(url);
+  if (remote_file_type == RemoteFileType::AUTO) {
+    bool found{false};
+    for (auto const& allowed_file_type : *allow_list) {
+      if (allowed_file_type == RemoteFileType::S3 && S3Endpoint::is_url_valid(url)) {
+        auto scheme = get_scheme(url);
+        if (scheme == "S3") {
+          // AWS S3 URI format: s3://<bucket>/<object-key>
+          auto const& [bucket_name, object_key_name] = kvikio::S3Endpoint::parse_s3_url(url);
+          endpoint = std::make_unique<S3Endpoint>(std::pair{bucket_name, object_key_name});
         } else {
-          endpoint = std::make_unique<HttpEndpoint>(url);
+          endpoint = std::make_unique<S3Endpoint>(url);
         }
-      } else {
-        KVIKIO_FAIL("Unsupported scheme.");
+        found = true;
+        break;
+      } else if (allowed_file_type == RemoteFileType::S3_PRESIGNED_URL &&
+                 S3EndpointWithPresignedUrl::is_url_valid(url)) {
+        endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
+        found    = true;
+        break;
+      } else if (allowed_file_type == RemoteFileType::WEBHDFS &&
+                 WebHdfsEndpoint::is_url_valid(url)) {
+        endpoint = std::make_unique<WebHdfsEndpoint>(url);
+        found    = true;
+        break;
+      } else if (allowed_file_type == RemoteFileType::HTTP && HttpEndpoint::is_url_valid(url)) {
+        endpoint = std::make_unique<HttpEndpoint>(url);
+        found    = true;
+        break;
       }
+    }
 
-      curl_free(content);
-      curl_url_cleanup(url_handle);
-      break;
-    }
-    case RemoteFileType::S3: {
-      endpoint = std::make_unique<S3Endpoint>(url);
-      break;
-    }
-    case RemoteFileType::S3_PRESIGNED_URL: {
-      endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
-      break;
-    }
-    case RemoteFileType::WEBHDFS: {
-      endpoint = std::make_unique<WebHdfsEndpoint>(url);
-      break;
-    }
-    case RemoteFileType::HTTP: {
-      endpoint = std::make_unique<HttpEndpoint>(url);
-    }
-    default: {
-      KVIKIO_FAIL("Reached unreachable region.");
+    if (!found) { KVIKIO_FAIL("Unsupported endpoint URI."); }
+  } else {
+    KVIKIO_EXPECT(
+      std::find(allow_list->begin(), allow_list->end(), remote_file_type) != allow_list->end(),
+      "The specified remote file type is not in the allowlist.");
+
+    switch (remote_file_type) {
+      case RemoteFileType::S3: {
+        endpoint = std::make_unique<S3Endpoint>(url);
+        break;
+      }
+      case RemoteFileType::S3_PRESIGNED_URL: {
+        endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
+        break;
+      }
+      case RemoteFileType::WEBHDFS: {
+        endpoint = std::make_unique<WebHdfsEndpoint>(url);
+        break;
+      }
+      case RemoteFileType::HTTP: {
+        endpoint = std::make_unique<HttpEndpoint>(url);
+      }
+      default: {
+        KVIKIO_FAIL("Reached unreachable region.");
+      }
     }
   }
 
