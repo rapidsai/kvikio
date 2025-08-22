@@ -187,7 +187,7 @@ void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::si
  * @param url A URL.
  * @return Boolean answer.
  */
-bool url_has_aws_s3_format(std::string const& url)
+bool url_has_aws_s3_http_format(std::string const& url)
 {
   // Currently KvikIO supports the following AWS S3 HTTP URL formats:
   static std::array const s3_patterns = {
@@ -258,7 +258,10 @@ bool HttpEndpoint::is_url_valid(std::string const& url) noexcept
 {
   try {
     auto parsed_url = detail::UrlParser::parse(url);
-    return (parsed_url.scheme == "http") || (parsed_url.scheme == "https");
+    if ((parsed_url.scheme != "http") && (parsed_url.scheme != "https")) { return false; };
+
+    // Check whether the file path exists, excluding the leading "/"
+    return parsed_url.path->length() > 1;
   } catch (...) {
     return false;
   }
@@ -424,9 +427,15 @@ bool S3Endpoint::is_url_valid(std::string const& url) noexcept
     auto parsed_url = detail::UrlParser::parse(url, CURLU_NON_SUPPORT_SCHEME);
 
     if (parsed_url.scheme == "s3") {
-      return parsed_url.host.has_value() && parsed_url.path.has_value();
+      if (!parsed_url.host.has_value()) { return false; }
+      if (!parsed_url.path.has_value()) { return false; }
+
+      // Check whether the S3 object key exists
+      std::regex const pattern(R"(^/[^/]+$)", std::regex::icase);
+      std::smatch match_result;
+      return std::regex_search(parsed_url.path.value(), match_result, pattern);
     } else if ((parsed_url.scheme == "http") || (parsed_url.scheme == "https")) {
-      return url_has_aws_s3_format(url) && !S3EndpointWithPresignedUrl::is_url_valid(url);
+      return url_has_aws_s3_http_format(url) && !S3EndpointWithPresignedUrl::is_url_valid(url);
     }
 
     return false;
@@ -529,7 +538,7 @@ void S3EndpointWithPresignedUrl::setup_range_request(CurlHandle& curl,
 bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
 {
   try {
-    if (!url_has_aws_s3_format(url)) { return false; }
+    if (!url_has_aws_s3_http_format(url)) { return false; }
 
     auto parsed_url = detail::UrlParser::parse(url);
     if (!parsed_url.query.has_value()) { return false; }
@@ -594,19 +603,21 @@ RemoteHandle RemoteHandle::open(std::string url,
       endpoint = create_endpoint(type);
       if (endpoint) break;
     }
-    KVIKIO_EXPECT(endpoint.get() != nullptr, "Unsupported endpoint URL.");
+    KVIKIO_EXPECT(endpoint.get() != nullptr, "Unsupported endpoint URL.", std::runtime_error);
   } else {
     // Validate it is in the allow list
     KVIKIO_EXPECT(
       std::find(allow_list->begin(), allow_list->end(), remote_endpoint_type) != allow_list->end(),
       std::string{get_remote_endpoint_type_name(remote_endpoint_type)} +
-        " is not in the allowlist.");
+        " is not in the allowlist.",
+      std::runtime_error);
 
     // Create the specific type
     endpoint = create_endpoint(remote_endpoint_type);
     KVIKIO_EXPECT(endpoint.get() != nullptr,
                   std::string{"Invalid URL for "} +
-                    get_remote_endpoint_type_name(remote_endpoint_type) + " endpoint");
+                    get_remote_endpoint_type_name(remote_endpoint_type) + " endpoint",
+                  std::runtime_error);
   }
 
   return nbytes.has_value() ? RemoteHandle(std::move(endpoint), nbytes.value())
