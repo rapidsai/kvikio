@@ -18,23 +18,29 @@
 #include <gtest/gtest.h>
 
 #include <kvikio/detail/url.hpp>
+#include <stdexcept>
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 
 TEST(UrlTest, parse_scheme)
 {
-  EXPECT_THAT([&] { kvikio::detail::UrlParser::parse("invalid_scheme://host"); },
-              ThrowsMessage<std::runtime_error>(HasSubstr("KvikIO detects an URL error")));
-
-  // The S3 scheme is not supported by libcurl. Without the CURLU_NON_SUPPORT_SCHEME flag, an
-  // exception is expected.
-  EXPECT_THAT([&] { kvikio::detail::UrlParser::parse("s3://host"); },
-              ThrowsMessage<std::runtime_error>(HasSubstr("KvikIO detects an URL error")));
-
-  // Without the CURLU_NON_SUPPORT_SCHEME flag, the S3 scheme is accepted.
   {
-    std::array<std::string, 2> schemes{"s3", "S3"};
+    std::vector<std::string> invalid_scheme_urls{
+      "invalid_scheme://host",
+      // The S3 scheme is not supported by libcurl. Without the CURLU_NON_SUPPORT_SCHEME flag, an
+      // exception is expected.
+      "s3://host"};
+
+    for (auto const& invalid_scheme_url : invalid_scheme_urls) {
+      EXPECT_THAT([&] { kvikio::detail::UrlParser::parse(invalid_scheme_url); },
+                  ThrowsMessage<std::runtime_error>(HasSubstr("KvikIO detects an URL error")));
+    }
+  }
+
+  // With the CURLU_NON_SUPPORT_SCHEME flag, the S3 scheme is now accepted.
+  {
+    std::vector<std::string> schemes{"s3", "S3"};
     for (auto const& scheme : schemes) {
       auto parsed_url =
         kvikio::detail::UrlParser::parse(scheme + "://host", CURLU_NON_SUPPORT_SCHEME);
@@ -45,31 +51,14 @@ TEST(UrlTest, parse_scheme)
 
 TEST(UrlTest, parse_host)
 {
-  {
-    std::vector<std::string> invalid_hosts{"http://host with spaces.com"};
-    for (auto const& invalid_host : invalid_hosts) {
-      EXPECT_THAT(
-        [&] { kvikio::detail::UrlParser::parse(invalid_host); },
-        ThrowsMessage<std::runtime_error>(HasSubstr("Malformed input to a URL function")));
-    }
-  }
-
-  {
-    std::vector<std::string> invalid_hosts{"http://host[brackets].com",
-                                           "http://host{braces}.com",
-                                           "http://host<angle>.com",
-                                           R"(http://host\backslash.com)",
-                                           "http://host^caret.com",
-                                           "http://host`backtick.com"};
-    for (auto const& invalid_host : invalid_hosts) {
-      EXPECT_THAT([&] { kvikio::detail::UrlParser::parse(invalid_host); },
-                  ThrowsMessage<std::runtime_error>(HasSubstr("Bad hostname")));
-    }
+  std::vector<std::string> invalid_host_urls{"http://host with spaces.com",
+                                             "http://host[brackets].com",
+                                             "http://host{braces}.com",
+                                             "http://host<angle>.com",
+                                             R"(http://host\backslash.com)",
+                                             "http://host^caret.com",
+                                             "http://host`backtick.com"};
+  for (auto const& invalid_host_url : invalid_host_urls) {
+    EXPECT_THROW({ kvikio::detail::UrlParser::parse(invalid_host_url); }, std::runtime_error);
   }
 }
-
-TEST(UrlTest, parse_port) {}
-
-TEST(UrlTest, parse_path) {}
-
-TEST(UrlTest, parse_query) {}

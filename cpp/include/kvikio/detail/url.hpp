@@ -177,6 +177,17 @@ class UrlParser {
     std::optional<unsigned int> bitmask_component_flags = std::nullopt,
     std::optional<CURLUcode> allowed_err_code           = std::nullopt);
 
+  /**
+   * @brief Extract a specific component from a URL string
+   *
+   * @param url The URL string from which to extract a component
+   * @param part The URL part to extract
+   * @param bitmask_url_flags Optional flags for URL parsing.
+   * @param bitmask_component_flags Flags controlling extraction behavior
+   * @param allowed_err_code Optional error code to treat as valid
+   * @return The extracted component as a string, or std::nullopt if not present
+   * @throw std::runtime_error if extraction fails with an unexpected error
+   */
   static std::optional<std::string> extract_component(
     std::string const& url,
     CURLUPart part,
