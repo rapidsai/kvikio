@@ -211,14 +211,30 @@ bool url_has_aws_s3_format(std::string const& url)
     return std::regex_match(url, match_result, pattern);
   });
 }
+
+char const* get_remote_endpoint_type_name(RemoteEndpointType remote_endpoint_type)
+{
+  switch (remote_endpoint_type) {
+    case RemoteEndpointType::S3: return "S3";
+    case RemoteEndpointType::S3_PRESIGNED_URL: return "S3 with presigned URL";
+    case RemoteEndpointType::WEBHDFS: return "WebHDFS";
+    case RemoteEndpointType::HTTP: return "HTTP";
+    case RemoteEndpointType::AUTO: return "AUTO";
+    default:
+      // Unreachable
+      KVIKIO_FAIL("Unknown RemoteEndpointType: " +
+                  std::to_string(static_cast<int>(remote_endpoint_type)));
+      return "UNKNOWN";
+  }
+}
 }  // namespace
 
-RemoteEndpoint::RemoteEndpoint(RemoteEndpointType remote_file_type)
-  : _remote_file_type{remote_file_type}
+RemoteEndpoint::RemoteEndpoint(RemoteEndpointType remote_endpoint_type)
+  : _remote_endpoint_type{remote_endpoint_type}
 {
 }
 
-RemoteEndpointType RemoteEndpoint::type() const noexcept { return _remote_file_type; }
+RemoteEndpointType RemoteEndpoint::type() const noexcept { return _remote_endpoint_type; }
 
 HttpEndpoint::HttpEndpoint(std::string url)
   : RemoteEndpoint{RemoteEndpointType::HTTP}, _url{std::move(url)}
@@ -527,7 +543,7 @@ bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
 }
 
 RemoteHandle RemoteHandle::open(std::string url,
-                                RemoteEndpointType remote_file_type,
+                                RemoteEndpointType remote_endpoint_type,
                                 std::optional<std::vector<RemoteEndpointType>> allow_list,
                                 std::optional<std::size_t> nbytes)
 {
@@ -538,82 +554,63 @@ RemoteHandle RemoteHandle::open(std::string url,
                   RemoteEndpointType::HTTP};
   }
 
-  auto scheme =
+  auto const scheme =
     detail::UrlParser::extract_component(url, CURLUPART_SCHEME, CURLU_NON_SUPPORT_SCHEME);
   KVIKIO_EXPECT(scheme.has_value(), "Missing scheme in URL.");
 
+  // Helper to create endpoint based on type
+  auto create_endpoint =
+    [&url = url, &scheme = scheme](RemoteEndpointType type) -> std::unique_ptr<RemoteEndpoint> {
+    switch (type) {
+      case RemoteEndpointType::S3:
+        if (!S3Endpoint::is_url_valid(url)) return nullptr;
+        if (scheme.value() == "s3") {
+          auto const [bucket, object] = S3Endpoint::parse_s3_url(url);
+          return std::make_unique<S3Endpoint>(std::pair{bucket, object});
+        }
+        return std::make_unique<S3Endpoint>(url);
+
+      case RemoteEndpointType::S3_PRESIGNED_URL:
+        if (!S3EndpointWithPresignedUrl::is_url_valid(url)) return nullptr;
+        return std::make_unique<S3EndpointWithPresignedUrl>(url);
+
+      case RemoteEndpointType::WEBHDFS:
+        if (!WebHdfsEndpoint::is_url_valid(url)) return nullptr;
+        return std::make_unique<WebHdfsEndpoint>(url);
+
+      case RemoteEndpointType::HTTP:
+        if (!HttpEndpoint::is_url_valid(url)) return nullptr;
+        return std::make_unique<HttpEndpoint>(url);
+
+      default: return nullptr;
+    }
+  };
+
   std::unique_ptr<RemoteEndpoint> endpoint;
-  if (remote_file_type == RemoteEndpointType::AUTO) {
-    bool found{false};
-    for (auto const& allowed_file_type : allow_list.value()) {
-      if (allowed_file_type == RemoteEndpointType::S3 && S3Endpoint::is_url_valid(url)) {
-        if (scheme.value() == "s3") {
-          auto const& [bucket_name, object_key_name] = kvikio::S3Endpoint::parse_s3_url(url);
-          endpoint = std::make_unique<S3Endpoint>(std::pair{bucket_name, object_key_name});
-        } else {
-          endpoint = std::make_unique<S3Endpoint>(url);
-        }
-        found = true;
-        break;
-      } else if (allowed_file_type == RemoteEndpointType::S3_PRESIGNED_URL &&
-                 S3EndpointWithPresignedUrl::is_url_valid(url)) {
-        endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
-        found    = true;
-        break;
-      } else if (allowed_file_type == RemoteEndpointType::WEBHDFS &&
-                 WebHdfsEndpoint::is_url_valid(url)) {
-        endpoint = std::make_unique<WebHdfsEndpoint>(url);
-        found    = true;
-        break;
-      } else if (allowed_file_type == RemoteEndpointType::HTTP && HttpEndpoint::is_url_valid(url)) {
-        endpoint = std::make_unique<HttpEndpoint>(url);
-        found    = true;
-        break;
-      }
-    }
 
-    if (!found) { KVIKIO_FAIL("Unsupported endpoint URI."); }
+  if (remote_endpoint_type == RemoteEndpointType::AUTO) {
+    // Try each allowed type in the order of allowlist
+    for (auto const& type : allow_list.value()) {
+      endpoint = create_endpoint(type);
+      if (endpoint) break;
+    }
+    KVIKIO_EXPECT(endpoint.get() != nullptr, "Unsupported endpoint URL.");
   } else {
+    // Validate it is in the allow list
     KVIKIO_EXPECT(
-      std::find(allow_list->begin(), allow_list->end(), remote_file_type) != allow_list->end(),
-      "The specified remote file type is not in the allowlist.");
+      std::find(allow_list->begin(), allow_list->end(), remote_endpoint_type) != allow_list->end(),
+      std::string{get_remote_endpoint_type_name(remote_endpoint_type)} +
+        " is not in the allowlist.");
 
-    switch (remote_file_type) {
-      case RemoteEndpointType::S3: {
-        KVIKIO_EXPECT(S3Endpoint::is_url_valid(url), "Invalid URL for S3 endpoint");
-        if (scheme.value() == "s3") {
-          auto const& [bucket_name, object_key_name] = kvikio::S3Endpoint::parse_s3_url(url);
-          endpoint = std::make_unique<S3Endpoint>(std::pair{bucket_name, object_key_name});
-        } else {
-          endpoint = std::make_unique<S3Endpoint>(url);
-        }
-        break;
-      }
-      case RemoteEndpointType::S3_PRESIGNED_URL: {
-        KVIKIO_EXPECT(S3EndpointWithPresignedUrl::is_url_valid(url),
-                      "Invalid URL for S3 endpoint with presigned URL");
-        endpoint = std::make_unique<S3EndpointWithPresignedUrl>(url);
-        break;
-      }
-      case RemoteEndpointType::WEBHDFS: {
-        KVIKIO_EXPECT(WebHdfsEndpoint::is_url_valid(url), "Invalid URL for WebHDFS endpoint");
-        endpoint = std::make_unique<WebHdfsEndpoint>(url);
-        break;
-      }
-      case RemoteEndpointType::HTTP: {
-        KVIKIO_EXPECT(HttpEndpoint::is_url_valid(url), "Invalid URL for HTTP endpoint");
-        endpoint = std::make_unique<HttpEndpoint>(url);
-        break;
-      }
-      default: {
-        KVIKIO_FAIL("Reached unreachable region.");
-      }
-    }
+    // Create the specific type
+    endpoint = create_endpoint(remote_endpoint_type);
+    KVIKIO_EXPECT(endpoint.get() != nullptr,
+                  std::string{"Invalid URL for "} +
+                    get_remote_endpoint_type_name(remote_endpoint_type) + " endpoint");
   }
 
-  if (nbytes.has_value()) { return RemoteHandle(std::move(endpoint), nbytes.value()); }
-
-  return RemoteHandle(std::move(endpoint));
+  return nbytes.has_value() ? RemoteHandle(std::move(endpoint), nbytes.value())
+                            : RemoteHandle(std::move(endpoint));
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)

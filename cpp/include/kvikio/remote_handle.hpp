@@ -56,8 +56,8 @@ enum class RemoteEndpointType : uint8_t {
  */
 class RemoteEndpoint {
  protected:
-  RemoteEndpointType _remote_file_type{RemoteEndpointType::AUTO};
-  RemoteEndpoint(RemoteEndpointType remote_file_type);
+  RemoteEndpointType _remote_endpoint_type{RemoteEndpointType::AUTO};
+  RemoteEndpoint(RemoteEndpointType remote_endpoint_type);
 
  public:
   virtual ~RemoteEndpoint() = default;
@@ -289,7 +289,7 @@ class RemoteHandle {
    * @return RemoteHandle
    */
   static RemoteHandle open(std::string url,
-                           RemoteEndpointType remote_file_type = RemoteEndpointType::AUTO,
+                           RemoteEndpointType remote_endpoint_type = RemoteEndpointType::AUTO,
                            std::optional<std::vector<RemoteEndpointType>> allow_list = std::nullopt,
                            std::optional<std::size_t> nbytes = std::nullopt);
 
