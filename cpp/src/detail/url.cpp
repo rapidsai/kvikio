@@ -18,9 +18,9 @@
 #include <stdexcept>
 #include <utility>
 
+#include <curl/curl.h>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
-#include "curl/curl.h"
 
 #define CHECK_CURL_URL_ERR(err_code) check_curl_url_err(err_code, __LINE__, __FILE__)
 
@@ -48,7 +48,7 @@ CurlUrlHandle::CurlUrlHandle() : _handle(curl_url())
                 "Libcurl is unable to allocate a URL handle (likely out of memory).");
 }
 
-CurlUrlHandle::~CurlUrlHandle()
+CurlUrlHandle::~CurlUrlHandle() noexcept
 {
   if (_handle) { curl_url_cleanup(_handle); }
 }
@@ -70,13 +70,16 @@ CurlUrlHandle& CurlUrlHandle::operator=(CurlUrlHandle&& other) noexcept
 
 CURLU* CurlUrlHandle::get() const { return _handle; }
 
-std::optional<std::string> UrlParser::extract_component(CurlUrlHandle& handle,
-                                                        CURLUPart part,
-                                                        unsigned int bitmask_component_flags,
-                                                        std::optional<CURLUcode> exempt_err_code)
+std::optional<std::string> UrlParser::extract_component(
+  CurlUrlHandle const& handle,
+  CURLUPart part,
+  std::optional<unsigned int> bitmask_component_flags,
+  std::optional<CURLUcode> allowed_err_code)
 {
+  if (!bitmask_component_flags) { bitmask_component_flags = 0U; }
+
   char* value{};
-  auto err_code = curl_url_get(handle.get(), part, &value, bitmask_component_flags);
+  auto err_code = curl_url_get(handle.get(), part, &value, bitmask_component_flags.value());
 
   if (err_code == CURLUcode::CURLUE_OK && value != nullptr) {
     std::string result{value};
@@ -84,11 +87,28 @@ std::optional<std::string> UrlParser::extract_component(CurlUrlHandle& handle,
     return result;
   }
 
-  if (exempt_err_code.has_value() && exempt_err_code.value() == err_code) { return std::nullopt; }
+  if (allowed_err_code.has_value() && allowed_err_code.value() == err_code) { return std::nullopt; }
 
   // Throws an exception and explains the reason.
   CHECK_CURL_URL_ERR(err_code);
   return std::nullopt;
+}
+
+std::optional<std::string> UrlParser::extract_component(
+  std::string const& url,
+  CURLUPart part,
+  std::optional<unsigned int> bitmask_url_flags,
+  std::optional<unsigned int> bitmask_component_flags,
+  std::optional<CURLUcode> allowed_err_code)
+{
+  if (!bitmask_url_flags.has_value()) { bitmask_url_flags = 0U; }
+  if (!bitmask_component_flags) { bitmask_component_flags = 0U; }
+
+  CurlUrlHandle handle;
+  CHECK_CURL_URL_ERR(
+    curl_url_set(handle.get(), CURLUPART_URL, url.c_str(), bitmask_url_flags.value()));
+
+  return extract_component(handle, part, bitmask_component_flags, allowed_err_code);
 }
 
 UrlParser::UrlComponents UrlParser::parse(std::string const& url,
@@ -97,10 +117,6 @@ UrlParser::UrlComponents UrlParser::parse(std::string const& url,
 {
   if (!bitmask_url_flags.has_value()) { bitmask_url_flags = 0U; }
   if (!bitmask_component_flags) { bitmask_component_flags = 0U; }
-
-  auto validate_non_empty_component = [](CurlUrlHandle handle) {
-
-  };
 
   CurlUrlHandle handle;
   CHECK_CURL_URL_ERR(

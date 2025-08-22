@@ -25,7 +25,7 @@
 
 namespace kvikio {
 
-WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteFileType::WEBHDFS}
+WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteEndpointType::WEBHDFS}
 {
   // todo: Use libcurl URL API for more secure and idiomatic parsing.
   // Split the URL into two parts: one without query and one with.
@@ -64,7 +64,7 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string host,
                                  std::string port,
                                  std::string file_path,
                                  std::optional<std::string> username)
-  : RemoteEndpoint{RemoteFileType::WEBHDFS}, _username{std::move(username)}
+  : RemoteEndpoint{RemoteEndpointType::WEBHDFS}, _username{std::move(username)}
 {
   std::stringstream ss;
   ss << "http://" << host << ":" << port << "/webhdfs/v1" << file_path;

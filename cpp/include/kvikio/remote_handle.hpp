@@ -37,7 +37,7 @@ class CurlHandle;  // Prototype
 /**
  * @brief Type of remote file.
  */
-enum class RemoteFileType : uint8_t {
+enum class RemoteEndpointType : uint8_t {
   AUTO,  ///< Let KvikIO infer the type of remote file from the URL and create a proper endpoint.
   S3,    ///< AWS S3 (based on HTTP/HTTPS protocols).
   S3_PRESIGNED_URL,  ///< AWS S3 presigned URL (based on HTTP/HTTPS protocols).
@@ -56,8 +56,8 @@ enum class RemoteFileType : uint8_t {
  */
 class RemoteEndpoint {
  protected:
-  RemoteFileType _remote_file_type{RemoteFileType::AUTO};
-  RemoteEndpoint(RemoteFileType remote_file_type);
+  RemoteEndpointType _remote_file_type{RemoteEndpointType::AUTO};
+  RemoteEndpoint(RemoteEndpointType remote_file_type);
 
  public:
   virtual ~RemoteEndpoint() = default;
@@ -96,7 +96,7 @@ class RemoteEndpoint {
    *
    * @return The type of the remote file.
    */
-  [[nodiscard]] RemoteFileType type() const noexcept;
+  [[nodiscard]] RemoteEndpointType type() const noexcept;
 };
 
 /**
@@ -289,9 +289,9 @@ class RemoteHandle {
    * @return RemoteHandle
    */
   static RemoteHandle open(std::string url,
-                           RemoteFileType remote_file_type = RemoteFileType::AUTO,
-                           std::optional<std::vector<RemoteFileType>> allow_list = std::nullopt,
-                           std::optional<std::size_t> nbytes                     = std::nullopt);
+                           RemoteEndpointType remote_file_type = RemoteEndpointType::AUTO,
+                           std::optional<std::vector<RemoteEndpointType>> allow_list = std::nullopt,
+                           std::optional<std::size_t> nbytes = std::nullopt);
 
   /**
    * @brief Create a new remote handle from an endpoint and a file size.
@@ -321,7 +321,7 @@ class RemoteHandle {
    *
    * @return The type of the remote file.
    */
-  [[nodiscard]] RemoteFileType type() const noexcept;
+  [[nodiscard]] RemoteEndpointType type() const noexcept;
 
   /**
    * @brief Get the file size.
