@@ -294,65 +294,70 @@ class RemoteHandle {
    *   - S3 presigned URL
    *   - WebHDFS
    *   - HTTP/HTTPS
-   * @param remote_endpoint_type The type of remote endpoint. Default is AUTO which automatically
-   * detects the endpoint type from the URL. Can be explicitly set to S3, S3_PRESIGNED_URL, WEBHDFS,
-   * or HTTP to force a specific endpoint type.
+   * @param remote_endpoint_type The type of remote endpoint. Default is RemoteEndpointType::AUTO
+   * which automatically detects the endpoint type from the URL. Can be explicitly set to
+   * RemoteEndpointType::S3, RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, or
+   * RemoteEndpointType::HTTP to force a specific endpoint type.
    * @param allow_list Optional list of allowed endpoint types. If provided:
-   *   - If remote_endpoint_type is AUTO, Types are tried in the exact order specified until a match
-   *     is found.
+   *   - If remote_endpoint_type is RemoteEndpointType::AUTO, Types are tried in the exact order
+   * specified until a match is found.
    *   - In explicit mode, the specified type must be in this list, otherwise an exception is
    * thrown.
    *
-   * If not provided, defaults to all supported types in this order: S3, S3_PRESIGNED_URL, WEBHDFS,
-   * and HTTP.
+   * If not provided, defaults to all supported types in this order: RemoteEndpointType::S3,
+   * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, and
+   * RemoteEndpointType::HTTP.
    * @param nbytes Optional file size in bytes. If not provided, the function sends additional
    * request to the server to query the file size.
    * @return A RemoteHandle object that can be used to read data from the remote file.
-   * @exception std::invalid_argument If the URL is malformed or missing required components.
    * @exception std::runtime_error If:
-   *   - AUTO mode is used and the URL doesn't match any supported endpoint type
-   *   - The specified endpoint type is not in the allow_list
-   *   - The URL is invalid for the specified endpoint type
-   *   - Unable to connect to the remote server or determine file size (when nbytes not provided)
+   *   - If the URL is malformed or missing required components.
+   *   - RemoteEndpointType::AUTO mode is used and the URL doesn't match any supported endpoint
+   * type.
+   *   - The specified endpoint type is not in the `allow_list`.
+   *   - The URL is invalid for the specified endpoint type.
+   *   - Unable to connect to the remote server or determine file size (when nbytes not provided).
    *
-   * @example
-   * // Auto-detect endpoint type from URL
-   * auto handle = RemoteHandle::open(
-   *     "https://bucket.s3.amazonaws.com/object?X-Amz-Algorithm=AWS4-HMAC-SHA256"
-   *     "&X-Amz-Credential=...&X-Amz-Signature=..."
-   * );
+   * Example:
+   * - Auto-detect endpoint type from URL
+   *   @code{.cpp}
+   *   auto handle = kvikio::RemoteHandle::open(
+   *       "https://bucket.s3.amazonaws.com/object?X-Amz-Algorithm=AWS4-HMAC-SHA256"
+   *       "&X-Amz-Credential=...&X-Amz-Signature=..."
+   *   );
+   *   @endcode
    *
-   * @code{.cpp}
-   * // Open S3 file with explicit endpoint type
-   * auto handle = RemoteHandle::open(
-   *     "https://my-bucket.s3.us-east-1.amazonaws.com/data.bin",
-   *     RemoteEndpointType::S3
-   * );
-   * @endcode
+   * - Open S3 file with explicit endpoint type
+   *   @code{.cpp}
    *
+   *   auto handle = kvikio::RemoteHandle::open(
+   *       "https://my-bucket.s3.us-east-1.amazonaws.com/data.bin",
+   *       kvikio::RemoteEndpointType::S3
+   *   );
+   *   @endcode
    *
-   * @code{.cpp}
-   * // Restrict allowed endpoint types
-   * std::vector<RemoteEndpointType> allow_list = {
-   *     RemoteEndpointType::HTTP,
-   *     RemoteEndpointType::S3_PRESIGNED_URL
-   * };
-   * auto handle = RemoteHandle::open(
-   *     user_provided_url,
-   *     RemoteEndpointType::AUTO,
-   *     allow_list
-   * );
-   * @endcode
+   * - Restrict allowed endpoint types
+   *   @code{.cpp}
+   *   std::vector<kvikio::RemoteEndpointType> allow_list = {
+   *       kvikio::RemoteEndpointType::HTTP,
+   *       kvikio::RemoteEndpointType::S3_PRESIGNED_URL
+   *   };
+   *   auto handle = kvikio::RemoteHandle::open(
+   *       user_provided_url,
+   *       kvikio::RemoteEndpointType::AUTO,
+   *       allow_list
+   *   );
+   *   @endcode
    *
-   * @code{.cpp}
-   * // Provide known file size to skip HEAD request
-   * auto handle = RemoteHandle::open(
-   *     "https://example.com/large-file.bin",
-   *     RemoteEndpointType::HTTP,
-   *     std::nullopt,
-   *     1024 * 1024 * 100  // 100 MB
-   * );
-   * @endcode
+   * - Provide known file size to skip HEAD request
+   *   @code{.cpp}
+   *   auto handle = kvikio::RemoteHandle::open(
+   *       "https://example.com/large-file.bin",
+   *       kvikio::RemoteEndpointType::HTTP,
+   *       std::nullopt,
+   *       1024 * 1024 * 100  // 100 MB
+   *   );
+   *   @endcode
    */
   static RemoteHandle open(std::string url,
                            RemoteEndpointType remote_endpoint_type = RemoteEndpointType::AUTO,
