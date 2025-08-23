@@ -70,7 +70,7 @@ class CurlUrlHandle {
  * @note This class uses libcurl's URL parsing which follows RFC 3986
  *
  * Example usage:
- * @code
+ * @code{.cpp}
  * auto components = UrlParser::parse("https://example.com:8080/path?query=1#frag");
  * if (components.scheme.has_value()) {
  *     std::cout << "Scheme: " << components.scheme.value() << std::endl;
@@ -139,7 +139,7 @@ class UrlParser {
    * @throw std::runtime_error if the URL cannot be parsed or if component extraction fails
    *
    * Example:
-   * @code
+   * @code{.cpp}
    * // Basic parsing
    * auto components = UrlParser::parse("https://api.example.com/v1/users?page=1");
    *
