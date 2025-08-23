@@ -67,9 +67,10 @@ class CurlUrlHandle {
  * This class provides static methods for parsing URLs into their constituent
  * components (scheme, host, port, path, query, fragment).
  *
- * @note This class uses libcurl's URL parsing which follows RFC 3986
+ * @note This class uses libcurl's URL parsing which follows RFC 3986 plus. See
+ * https://curl.se/docs/url-syntax.html
  *
- * Example usage:
+ * Example:
  * @code{.cpp}
  * auto components = UrlParser::parse("https://example.com:8080/path?query=1#frag");
  * if (components.scheme.has_value()) {
@@ -123,7 +124,7 @@ class UrlParser {
   };
 
   /**
-   * @brief Parses the given URL according to RFC 3986 and extracts its components.
+   * @brief Parses the given URL according to RFC 3986 plus and extracts its components.
    *
    * @param url The URL string to parse
    * @param bitmask_url_flags Optional flags for URL parsing. Common flags include:
