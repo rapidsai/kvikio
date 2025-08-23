@@ -336,7 +336,7 @@ class RemoteHandle {
    *   );
    *   @endcode
    *
-   * - Restrict allowed endpoint types
+   * - Restrict endpoint type candidates
    *   @code{.cpp}
    *   std::vector<kvikio::RemoteEndpointType> allow_list = {
    *       kvikio::RemoteEndpointType::HTTP,
