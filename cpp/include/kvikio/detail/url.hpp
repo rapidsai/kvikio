@@ -163,7 +163,7 @@ class UrlParser {
                              std::optional<unsigned int> bitmask_component_flags = std::nullopt);
 
   /**
-   * @brief Extract a specific component from a parsed URL
+   * @brief Extract a specific component from a CurlUrlHandle
    *
    * @param handle The CurlUrlHandle containing the parsed URL
    * @param part The URL part to extract (e.g., CURLUPART_SCHEME)
