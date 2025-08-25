@@ -25,7 +25,7 @@
 
 namespace kvikio {
 
-WebHdfsEndpoint::WebHdfsEndpoint(std::string url)
+WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteEndpointType::WEBHDFS}
 {
   // todo: Use libcurl URL API for more secure and idiomatic parsing.
   // Split the URL into two parts: one without query and one with.
@@ -64,7 +64,7 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string host,
                                  std::string port,
                                  std::string file_path,
                                  std::optional<std::string> username)
-  : _username{std::move(username)}
+  : RemoteEndpoint{RemoteEndpointType::WEBHDFS}, _username{std::move(username)}
 {
   std::stringstream ss;
   ss << "http://" << host << ":" << port << "/webhdfs/v1" << file_path;
@@ -127,5 +127,16 @@ void WebHdfsEndpoint::setup_range_request(CurlHandle& curl,
   if (_username.has_value()) { ss << "user.name=" << _username.value() << "&"; }
   ss << "op=OPEN&offset=" << file_offset << "&length=" << size;
   curl.setopt(CURLOPT_URL, ss.str().c_str());
+}
+
+bool WebHdfsEndpoint::is_url_valid(std::string const& url) noexcept
+{
+  try {
+    std::regex const pattern(R"(^https?://[^/]+:\d+/webhdfs/v1/.+$)", std::regex_constants::icase);
+    std::smatch match_result;
+    return std::regex_match(url, match_result, pattern);
+  } catch (...) {
+    return false;
+  }
 }
 }  // namespace kvikio

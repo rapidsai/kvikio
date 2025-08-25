@@ -19,9 +19,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 
-#include "kvikio/compat_mode.hpp"
 #include "utils/env.hpp"
 
 using ::testing::HasSubstr;
