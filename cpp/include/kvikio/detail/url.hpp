@@ -128,12 +128,12 @@ class UrlParser {
    *
    * @param url The URL string to parse
    * @param bitmask_url_flags Optional flags for URL parsing. Common flags include:
-   *                          - CURLU_DEFAULT_SCHEME: Allows URLs without schemes
-   *                          - CURLU_NON_SUPPORT_SCHEME: Accept non-supported schemes
-   *                          - CURLU_URLENCODE: URL encode the path
+   *  - CURLU_DEFAULT_SCHEME: Allows URLs without schemes
+   *  - CURLU_NON_SUPPORT_SCHEME: Accept non-supported schemes
+   *  - CURLU_URLENCODE: URL encode the path
    * @param bitmask_component_flags Optional flags for component extraction. Common flags include:
-   *                                - CURLU_URLDECODE: URL decode the component
-   *                                - CURLU_PUNYCODE: Return host as punycode
+   *  - CURLU_URLDECODE: URL decode the component
+   *  - CURLU_PUNYCODE: Return host as punycode
    *
    * @return UrlComponents structure containing the parsed URL components
    *

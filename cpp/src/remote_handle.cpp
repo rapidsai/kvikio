@@ -440,8 +440,6 @@ bool S3Endpoint::is_url_valid(std::string const& url) noexcept
     } else if ((parsed_url.scheme == "http") || (parsed_url.scheme == "https")) {
       return url_has_aws_s3_http_format(url) && !S3EndpointWithPresignedUrl::is_url_valid(url);
     }
-
-    return false;
   } catch (...) {
   }
   return false;

@@ -300,9 +300,9 @@ class RemoteHandle {
    * RemoteEndpointType::HTTP to force a specific endpoint type.
    * @param allow_list Optional list of allowed endpoint types. If provided:
    *   - If remote_endpoint_type is RemoteEndpointType::AUTO, Types are tried in the exact order
-   * specified until a match is found.
+   *     specified until a match is found.
    *   - In explicit mode, the specified type must be in this list, otherwise an exception is
-   * thrown.
+   *     thrown.
    *
    * If not provided, defaults to all supported types in this order: RemoteEndpointType::S3,
    * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, and
