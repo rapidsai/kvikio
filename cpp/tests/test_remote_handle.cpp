@@ -78,7 +78,7 @@ class RemoteHandleTest : public testing::Test {
           // allowing us to use dummy URLs for testing purpose.
           auto remote_handle =
             kvikio::RemoteHandle::open(url, kvikio::RemoteEndpointType::AUTO, std::nullopt, 1);
-          EXPECT_EQ(remote_handle.type(), expected_endpoint_type);
+          EXPECT_EQ(remote_handle.remote_endpoint_type(), expected_endpoint_type);
         }
 
         // Test explicit endpoint type specification

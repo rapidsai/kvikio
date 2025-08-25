@@ -26,7 +26,7 @@
 
 namespace kvikio::detail {
 namespace {
-inline void check_curl_url_err(CURLUcode err_code, int line_number, char const* filename)
+void check_curl_url_err(CURLUcode err_code, int line_number, char const* filename)
 {
   if (err_code == CURLUcode::CURLUE_OK) { return; }
 
@@ -76,7 +76,7 @@ std::optional<std::string> UrlParser::extract_component(
   std::optional<unsigned int> bitmask_component_flags,
   std::optional<CURLUcode> allowed_err_code)
 {
-  if (!bitmask_component_flags) { bitmask_component_flags = 0U; }
+  if (!bitmask_component_flags.has_value()) { bitmask_component_flags = 0U; }
 
   char* value{};
   auto err_code = curl_url_get(handle.get(), part, &value, bitmask_component_flags.value());
@@ -102,7 +102,7 @@ std::optional<std::string> UrlParser::extract_component(
   std::optional<CURLUcode> allowed_err_code)
 {
   if (!bitmask_url_flags.has_value()) { bitmask_url_flags = 0U; }
-  if (!bitmask_component_flags) { bitmask_component_flags = 0U; }
+  if (!bitmask_component_flags.has_value()) { bitmask_component_flags = 0U; }
 
   CurlUrlHandle handle;
   CHECK_CURL_URL_ERR(
@@ -116,7 +116,7 @@ UrlParser::UrlComponents UrlParser::parse(std::string const& url,
                                           std::optional<unsigned int> bitmask_component_flags)
 {
   if (!bitmask_url_flags.has_value()) { bitmask_url_flags = 0U; }
-  if (!bitmask_component_flags) { bitmask_component_flags = 0U; }
+  if (!bitmask_component_flags.has_value()) { bitmask_component_flags = 0U; }
 
   CurlUrlHandle handle;
   CHECK_CURL_URL_ERR(

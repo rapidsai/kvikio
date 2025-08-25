@@ -96,7 +96,7 @@ class RemoteEndpoint {
    *
    * @return The type of the remote file.
    */
-  [[nodiscard]] RemoteEndpointType type() const noexcept;
+  [[nodiscard]] RemoteEndpointType remote_endpoint_type() const noexcept;
 };
 
 /**
@@ -392,7 +392,7 @@ class RemoteHandle {
    *
    * @return The type of the remote file.
    */
-  [[nodiscard]] RemoteEndpointType type() const noexcept;
+  [[nodiscard]] RemoteEndpointType remote_endpoint_type() const noexcept;
 
   /**
    * @brief Get the file size.

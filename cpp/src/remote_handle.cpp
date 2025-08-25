@@ -234,7 +234,10 @@ RemoteEndpoint::RemoteEndpoint(RemoteEndpointType remote_endpoint_type)
 {
 }
 
-RemoteEndpointType RemoteEndpoint::type() const noexcept { return _remote_endpoint_type; }
+RemoteEndpointType RemoteEndpoint::remote_endpoint_type() const noexcept
+{
+  return _remote_endpoint_type;
+}
 
 HttpEndpoint::HttpEndpoint(std::string url)
   : RemoteEndpoint{RemoteEndpointType::HTTP}, _url{std::move(url)}
@@ -440,8 +443,8 @@ bool S3Endpoint::is_url_valid(std::string const& url) noexcept
 
     return false;
   } catch (...) {
-    return false;
   }
+  return false;
 }
 
 S3EndpointWithPresignedUrl::S3EndpointWithPresignedUrl(std::string presigned_url)
@@ -572,7 +575,7 @@ RemoteHandle RemoteHandle::open(std::string url,
     [&url = url, &scheme = scheme](RemoteEndpointType type) -> std::unique_ptr<RemoteEndpoint> {
     switch (type) {
       case RemoteEndpointType::S3:
-        if (!S3Endpoint::is_url_valid(url)) return nullptr;
+        if (!S3Endpoint::is_url_valid(url)) { return nullptr; }
         if (scheme.value() == "s3") {
           auto const [bucket, object] = S3Endpoint::parse_s3_url(url);
           return std::make_unique<S3Endpoint>(std::pair{bucket, object});
@@ -580,15 +583,15 @@ RemoteHandle RemoteHandle::open(std::string url,
         return std::make_unique<S3Endpoint>(url);
 
       case RemoteEndpointType::S3_PRESIGNED_URL:
-        if (!S3EndpointWithPresignedUrl::is_url_valid(url)) return nullptr;
+        if (!S3EndpointWithPresignedUrl::is_url_valid(url)) { return nullptr; }
         return std::make_unique<S3EndpointWithPresignedUrl>(url);
 
       case RemoteEndpointType::WEBHDFS:
-        if (!WebHdfsEndpoint::is_url_valid(url)) return nullptr;
+        if (!WebHdfsEndpoint::is_url_valid(url)) { return nullptr; }
         return std::make_unique<WebHdfsEndpoint>(url);
 
       case RemoteEndpointType::HTTP:
-        if (!HttpEndpoint::is_url_valid(url)) return nullptr;
+        if (!HttpEndpoint::is_url_valid(url)) { return nullptr; }
         return std::make_unique<HttpEndpoint>(url);
 
       default: return nullptr;
@@ -601,7 +604,7 @@ RemoteHandle RemoteHandle::open(std::string url,
     // Try each allowed type in the order of allowlist
     for (auto const& type : allow_list.value()) {
       endpoint = create_endpoint(type);
-      if (endpoint) break;
+      if (endpoint) { break; }
     }
     KVIKIO_EXPECT(endpoint.get() != nullptr, "Unsupported endpoint URL.", std::runtime_error);
   } else {
@@ -637,7 +640,10 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   _endpoint = std::move(endpoint);
 }
 
-RemoteEndpointType RemoteHandle::type() const noexcept { return _endpoint->type(); }
+RemoteEndpointType RemoteHandle::remote_endpoint_type() const noexcept
+{
+  return _endpoint->remote_endpoint_type();
+}
 
 std::size_t RemoteHandle::nbytes() const noexcept { return _nbytes; }
 
