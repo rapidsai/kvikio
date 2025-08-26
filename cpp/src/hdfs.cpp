@@ -104,7 +104,7 @@ std::size_t WebHdfsEndpoint::get_file_size()
   KVIKIO_EXPECT(http_status_code == 200, "HTTP response is not successful.");
 
   // The response is in JSON format. The file size is given by `"length":<file_size>`.
-  std::regex static const pattern{R"("length"\s*:\s*(\d+)[^\d])", std::regex_constants::icase};
+  std::regex static const pattern{R"("length"\s*:\s*(\d+)[^\d])"};
   // Regex meaning:
   // \s*: Matches the space character zero or more times.
   // \d+: Matches the digit one or more times.
