@@ -16,6 +16,7 @@ from kvikio._lib.defaults import CompatMode  # noqa: F401
 from kvikio._version import __git_commit__, __version__
 from kvikio.cufile import CuFile, clear_page_cache, get_page_cache_info
 from kvikio.mmap import Mmap
+from kvikio.remote_file import RemoteEndpointType  # noqa: F401
 from kvikio.remote_file import RemoteFile, is_remote_file_available
 
 __all__ = [
