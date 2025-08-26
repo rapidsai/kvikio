@@ -95,9 +95,9 @@ cdef extern from * nogil:
     """
     cdef unique_ptr[cpp_RemoteEndpoint] cast_to_remote_endpoint[T](T handle) except +
 
-# Helper function for the pp_RemoteHandle.open method to return
-# unique_ptr[cpp_RemoteHandle] instead of cpp_RemoteHandle. cpp_RemoteHandle does not
-# have a default constructor and may cause problems in Cython.
+# Helper function for the cpp_RemoteHandle.open method to return
+# unique_ptr[cpp_RemoteHandle] instead of cpp_RemoteHandle. Due to lack of a nullary
+# constructor, cpp_RemoteHandle cannot be created as a stack variable in Cython.
 cdef extern from * nogil:
     """
     inline std::unique_ptr<kvikio::RemoteHandle> create_remote_handle_from_open(
