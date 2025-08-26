@@ -26,7 +26,7 @@ class RemoteEndpointType(enum.Enum):
         attempt to infer the appropriate protocol based on the URL format.
     S3 : int
         AWS S3 endpoint using credentials-based authentication. Requires
-        AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+        AWS environment variables (such as AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
         AWS_DEFAULT_REGION) to be set.
     S3_PRESIGNED_URL : int
         AWS S3 endpoint using a presigned URL. No credentials required as
@@ -36,7 +36,7 @@ class RemoteEndpointType(enum.Enum):
         endpoint for accessing files stored in HDFS over HTTP/HTTPS.
     HTTP : int
         Generic HTTP or HTTPS endpoint for accessing files from web servers.
-        This is used for standard web resources that don't fit the other
+        This is used for standard web resources that do not fit the other
         specific categories.
 
     See Also
@@ -51,7 +51,7 @@ class RemoteEndpointType(enum.Enum):
     HTTP = 4
 
     @staticmethod
-    def map_to_internal(remote_endpoint_type: RemoteEndpointType):
+    def _map_to_internal(remote_endpoint_type: RemoteEndpointType):
         return _get_remote_module().RemoteEndpointType[remote_endpoint_type.name]
 
 
@@ -250,26 +250,30 @@ class RemoteFile:
         ----------
         url : str
             The URL of the remote file. Supported formats include:
+
             - S3 with credentials
             - S3 presigned URL
             - WebHDFS
             - HTTP/HTTPS
         remote_endpoint_type : RemoteEndpointType, optional
-            The type of remote endpoint. Default is RemoteEndpointType.AUTO which
-            automatically detects the endpoint type from the URL. Can be explicitly
-            set to RemoteEndpointType.S3, RemoteEndpointType.S3_PRESIGNED_URL,
-            RemoteEndpointType.WEBHDFS, or RemoteEndpointType.HTTP to force a
-            specific endpoint type.
+            The type of remote endpoint. Default is :class:`RemoteEndpointType.AUTO`
+            which automatically detects the endpoint type from the URL. Can be
+            explicitly set to :class:`RemoteEndpointType.S3`,
+            :class:`RemoteEndpointType.S3_PRESIGNED_URL`,
+            :class:`RemoteEndpointType.WEBHDFS`, or :class:`RemoteEndpointType.HTTP`
+            to force a specific endpoint type.
         allow_list : list of RemoteEndpointType, optional
             List of allowed endpoint types. If provided:
-            - If remote_endpoint_type is RemoteEndpointType.AUTO, types are tried
-            in the exact order specified until a match is found.
-            - In explicit mode, the specified type must be in this list, otherwise
-            an exception is thrown.
+
+            - If remote_endpoint_type is :class:`RemoteEndpointType.AUTO`, types are
+              tried in the exact order specified until a match is found.
+            - In explicit mode, the specified type must be in this list, otherwise an
+              exception is thrown.
 
             If not provided, defaults to all supported types in this order:
-            RemoteEndpointType.S3, RemoteEndpointType.S3_PRESIGNED_URL,
-            RemoteEndpointType.WEBHDFS, and RemoteEndpointType.HTTP.
+            :class:`RemoteEndpointType.S3`,
+            :class:`RemoteEndpointType.S3_PRESIGNED_URL`,
+            :class:`RemoteEndpointType.WEBHDFS`, and :class:`RemoteEndpointType.HTTP`.
         nbytes : int, optional
             File size in bytes. If not provided, the function sends an additional
             request to the server to query the file size.
@@ -283,8 +287,8 @@ class RemoteFile:
         ------
         RuntimeError
             - If the URL is malformed or missing required components.
-            - RemoteEndpointType.AUTO mode is used and the URL doesn't match any
-              supported endpoint type.
+            - :class:`RemoteEndpointType.AUTO` mode is used and the URL does not match
+              any supported endpoint type.
             - The specified endpoint type is not in the `allow_list`.
             - The URL is invalid for the specified endpoint type.
             - Unable to connect to the remote server or determine file size
@@ -314,14 +318,13 @@ class RemoteFile:
 
           .. code-block::
 
-             allow_list = [
-                 RemoteEndpointType.HTTP,
-                 RemoteEndpointType.S3_PRESIGNED_URL
-             ]
              handle = RemoteFile.open(
                  user_provided_url,
                  remote_endpoint_type=RemoteEndpointType.AUTO,
-                 allow_list=allow_list
+                 allow_list=[
+                     RemoteEndpointType.HTTP,
+                     RemoteEndpointType.S3_PRESIGNED_URL
+                 ]
              )
 
         - Provide known file size to skip HEAD request:
@@ -337,7 +340,7 @@ class RemoteFile:
         return RemoteFile(
             _get_remote_module().RemoteFile.open(
                 url,
-                RemoteEndpointType.map_to_internal(remote_endpoint_type),
+                RemoteEndpointType._map_to_internal(remote_endpoint_type),
                 allow_list,
                 nbytes,
             )

@@ -51,6 +51,8 @@ RemoteFile
 ----------
 .. currentmodule:: kvikio.remote_file
 
+.. autoclass:: RemoteEndpointType
+
 .. autoclass:: RemoteFile
     :members:
 

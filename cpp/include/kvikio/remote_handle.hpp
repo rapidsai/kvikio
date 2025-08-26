@@ -35,15 +35,23 @@ namespace kvikio {
 class CurlHandle;  // Prototype
 
 /**
- * @brief Type of remote file.
+ * @brief Types of remote file endpoints supported by KvikIO.
+ *
+ * This enum defines the different protocols and services that can be used to access remote files.
+ * It is used to specify or detect the type of remote endpoint when opening files.
  */
 enum class RemoteEndpointType : uint8_t {
-  AUTO,  ///< Let KvikIO infer the type of remote file from the URL and create a proper endpoint.
-  S3,    ///< AWS S3 (based on HTTP/HTTPS protocols).
-  S3_PRESIGNED_URL,  ///< AWS S3 presigned URL (based on HTTP/HTTPS protocols).
-  WEBHDFS,           ///< Apache Hadoop WebHDFS (based on HTTP/HTTPS protocols).
-  HTTP,  ///< Generic HTTP/HTTPS, excluding all the specific types listed above that use HTTP/HTTPS
-         ///< protocols.
+  AUTO,  ///< Automatically detect the endpoint type from the URL. KvikIO will attempt to infer the
+         ///< appropriate protocol based on the URL format.
+  S3,    ///< AWS S3 endpoint using credentials-based authentication. Requires AWS environment
+         ///< variables (such as AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION) to be
+         ///< set.
+  S3_PRESIGNED_URL,  ///< AWS S3 endpoint using a presigned URL. No credentials required as
+                     ///< authentication is embedded in the URL with time-limited access.
+  WEBHDFS,  ///< Apache Hadoop WebHDFS (Web-based Hadoop Distributed File System) endpoint for
+            ///< accessing files stored in HDFS over HTTP/HTTPS.
+  HTTP,  ///< Generic HTTP or HTTPS endpoint for accessing files from web servers. This is used for
+         ///< standard web resources that do not fit the other specific categories.
 };
 
 /**
