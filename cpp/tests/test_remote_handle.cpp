@@ -37,6 +37,7 @@ class RemoteHandleTest : public testing::Test {
     _sample_urls = {
       // Endpoint type: S3
       {"s3://bucket-name/object-key-name", kvikio::RemoteEndpointType::S3},
+      {"s3://bucket-name/object-key-name-dir/object-key-name-file", kvikio::RemoteEndpointType::S3},
       {"https://bucket-name.s3.region-code.amazonaws.com/object-key-name",
        kvikio::RemoteEndpointType::S3},
       {"https://s3.region-code.amazonaws.com/bucket-name/object-key-name",
