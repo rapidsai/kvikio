@@ -259,7 +259,7 @@ cdef class RemoteFile:
             cpp_allow_list = nullopt
         else:
             for allow_item in allow_list:
-                vec_allow_list.push_back(allow_item)
+                vec_allow_list.push_back(allow_item.value)
             cpp_allow_list = vec_allow_list
 
         cdef optional[size_t] cpp_nbytes
