@@ -359,6 +359,15 @@ class RemoteFile:
     def __str__(self) -> str:
         return str(self._handle)
 
+    def remote_endpoint_type(self) -> RemoteEndpointType:
+        """Get the type of the remote file.
+
+        Returns
+        -------
+        The type of the remote file.
+        """
+        return RemoteEndpointType[self._handle.remote_endpoint_type().name]
+
     def nbytes(self) -> int:
         """Get the file size.
 

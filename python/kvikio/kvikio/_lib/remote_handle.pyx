@@ -48,7 +48,8 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
             unique_ptr[cpp_RemoteEndpoint] endpoint, size_t nbytes
         ) except +
         cpp_RemoteHandle(unique_ptr[cpp_RemoteEndpoint] endpoint) except +
-        size_t nbytes() except +
+        RemoteEndpointType remote_endpoint_type() noexcept
+        size_t nbytes() noexcept
         const cpp_RemoteEndpoint& endpoint() except +
         size_t read(
             void* buf,
@@ -286,6 +287,12 @@ cdef class RemoteFile:
         with nogil:
             ep_str = deref(self._handle).endpoint().str()
         return f'<{self.__class__.__name__} "{ep_str.decode()}">'
+
+    def remote_endpoint_type(self) -> RemoteEndpointType:
+        cdef RemoteEndpointType result
+        with nogil:
+            result = deref(self._handle).remote_endpoint_type()
+        return result
 
     def nbytes(self) -> int:
         cdef size_t result
