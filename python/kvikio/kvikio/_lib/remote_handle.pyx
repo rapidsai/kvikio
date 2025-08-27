@@ -103,18 +103,18 @@ cdef extern from * nogil:
     """
     inline std::unique_ptr<kvikio::RemoteHandle> create_remote_handle_from_open(
         std::string url,
-        kvikio::RemoteEndpointType type,
+        kvikio::RemoteEndpointType remote_endpoint_type,
         std::optional<std::vector<kvikio::RemoteEndpointType>> allow_list,
         std::optional<std::size_t> nbytes)
     {
         return std::make_unique<kvikio::RemoteHandle>(
-            kvikio::RemoteHandle::open(url, type, allow_list, nbytes)
+            kvikio::RemoteHandle::open(url, remote_endpoint_type, allow_list, nbytes)
         );
     }
     """
     cdef unique_ptr[cpp_RemoteHandle] create_remote_handle_from_open(
         string url,
-        RemoteEndpointType type,
+        RemoteEndpointType remote_endpoint_type,
         optional[vector[RemoteEndpointType]] allow_list,
         optional[size_t] nbytes
     ) except +
