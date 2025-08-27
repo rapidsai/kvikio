@@ -320,7 +320,7 @@ std::pair<std::string, std::string> S3Endpoint::parse_s3_url(std::string const& 
 {
   KVIKIO_NVTX_FUNC_RANGE();
   // Regular expression to match s3://<bucket>/<object>
-  std::regex const pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
+  std::regex static const pattern{R"(^s3://([^/]+)/(.+))", std::regex_constants::icase};
   std::smatch matches;
   if (std::regex_match(s3_url, matches, pattern)) { return {matches[1].str(), matches[2].str()}; }
   KVIKIO_FAIL("Input string does not match the expected S3 URL format.", std::invalid_argument);
@@ -336,7 +336,7 @@ S3Endpoint::S3Endpoint(std::string url,
 {
   KVIKIO_NVTX_FUNC_RANGE();
   // Regular expression to match http[s]://
-  std::regex pattern{R"(^https?://.*)", std::regex_constants::icase};
+  std::regex static const pattern{R"(^https?://.*)", std::regex_constants::icase};
   KVIKIO_EXPECT(std::regex_search(_url, pattern),
                 "url must start with http:// or https://",
                 std::invalid_argument);
@@ -434,9 +434,8 @@ bool S3Endpoint::is_url_valid(std::string const& url) noexcept
       if (!parsed_url.path.has_value()) { return false; }
 
       // Check whether the S3 object key exists
-      std::regex const pattern(R"(^/[^/]+$)", std::regex::icase);
-      std::smatch match_result;
-      return std::regex_search(parsed_url.path.value(), match_result, pattern);
+      std::regex static const pattern(R"(^/.+$)");
+      return std::regex_search(parsed_url.path.value(), pattern);
     } else if ((parsed_url.scheme == "http") || (parsed_url.scheme == "https")) {
       return url_has_aws_s3_http_format(url) && !S3EndpointWithPresignedUrl::is_url_valid(url);
     }
@@ -485,7 +484,7 @@ std::size_t callback_header(char* data, std::size_t size, std::size_t num_bytes,
   // Content-Range: <unit> <range>/<size>
   // Content-Range: <unit> <range>/*
   // Content-Range: <unit> */<size>
-  std::regex const pattern(R"(Content-Range:[^/]+/(.*))", std::regex::icase);
+  std::regex static const pattern(R"(Content-Range:[^/]+/(.*))", std::regex::icase);
   std::smatch match_result;
   bool found = std::regex_search(header_line, match_result, pattern);
   if (found) {

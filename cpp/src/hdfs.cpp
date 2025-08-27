@@ -29,7 +29,7 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteEndpoin
 {
   // todo: Use libcurl URL API for more secure and idiomatic parsing.
   // Split the URL into two parts: one without query and one with.
-  std::regex const pattern{R"(^([^?]+)\?([^#]*))"};
+  std::regex static const pattern{R"(^([^?]+)\?([^#]*))"};
   // Regex meaning:
   // ^: From the start of the line
   // [^?]+: Matches non-question-mark characters one or more times. The question mark ushers in the
@@ -51,7 +51,7 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteEndpoin
   {
     // Extract user name if provided. In WebHDFS, user name is specified as the key=value pair in
     // the query
-    std::regex const pattern{R"(user.name=([^&]+))"};
+    std::regex static const pattern{R"(user.name=([^&]+))"};
     // Regex meaning:
     // [^&]+: Matches the non-ampersand character one or more times. The ampersand delimits
     // different parameters.
@@ -104,7 +104,7 @@ std::size_t WebHdfsEndpoint::get_file_size()
   KVIKIO_EXPECT(http_status_code == 200, "HTTP response is not successful.");
 
   // The response is in JSON format. The file size is given by `"length":<file_size>`.
-  std::regex const pattern{R"("length"\s*:\s*(\d+)[^\d])"};
+  std::regex static const pattern{R"("length"\s*:\s*(\d+)[^\d])"};
   // Regex meaning:
   // \s*: Matches the space character zero or more times.
   // \d+: Matches the digit one or more times.
@@ -132,9 +132,9 @@ void WebHdfsEndpoint::setup_range_request(CurlHandle& curl,
 bool WebHdfsEndpoint::is_url_valid(std::string const& url) noexcept
 {
   try {
-    std::regex const pattern(R"(^https?://[^/]+:\d+/webhdfs/v1/.+$)", std::regex_constants::icase);
-    std::smatch match_result;
-    return std::regex_match(url, match_result, pattern);
+    std::regex static const pattern(R"(^https?://[^/]+:\d+/webhdfs/v1/.+$)",
+                                    std::regex_constants::icase);
+    return std::regex_match(url, pattern);
   } catch (...) {
     return false;
   }
