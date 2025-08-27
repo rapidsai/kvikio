@@ -67,7 +67,8 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
             string url,
             RemoteEndpointType remote_endpoint_type,
             optional[vector[RemoteEndpointType]] allow_list,
-            optional[size_t] nbytes) except +
+            optional[size_t] nbytes
+        ) except +
 
 cdef extern from "<kvikio/hdfs.hpp>" nogil:
     cdef cppclass cpp_WebHdfsEndpoint "kvikio::WebHdfsEndpoint"(cpp_RemoteEndpoint):
