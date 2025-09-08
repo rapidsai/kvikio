@@ -8,7 +8,7 @@ import pytest
 import kvikio.cufile_driver
 
 
-def check_bar_memory():
+def is_bar_memory_available() -> bool:
     try:
         output = subprocess.check_output(["nvidia-smi"], text=True)
         return "Not Supported" not in output
@@ -66,7 +66,7 @@ def test_property_accessor():
         max_device_cache_size_default = kvikio.cufile_driver.get(
             "max_device_cache_size"
         )
-        if check_bar_memory():
+        if is_bar_memory_available():
             with kvikio.cufile_driver.set(
                 {"poll_mode": True, "max_device_cache_size": 2048}
             ):
