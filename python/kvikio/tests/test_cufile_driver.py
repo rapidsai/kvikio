@@ -1,9 +1,19 @@
 # Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+import subprocess
+
 import pytest
 
 import kvikio.cufile_driver
+
+
+def has_bar_memory() -> bool:
+    try:
+        output = subprocess.check_output(["nvidia-smi"], text=True)
+        return "Not Supported" not in output
+    except Exception:
+        return False
 
 
 def test_version():
@@ -56,16 +66,22 @@ def test_property_accessor():
         max_device_cache_size_default = kvikio.cufile_driver.get(
             "max_device_cache_size"
         )
-        with kvikio.cufile_driver.set(
-            {"poll_mode": True, "max_device_cache_size": 2048}
-        ):
-            assert kvikio.cufile_driver.get("poll_mode") and (
-                kvikio.cufile_driver.get("max_device_cache_size") == 2048
+        if has_bar_memory():
+            with kvikio.cufile_driver.set(
+                {"poll_mode": True, "max_device_cache_size": 2048}
+            ):
+                assert kvikio.cufile_driver.get("poll_mode") and (
+                    kvikio.cufile_driver.get("max_device_cache_size") == 2048
+                )
+            assert (kvikio.cufile_driver.get("poll_mode") == poll_mode_default) and (
+                kvikio.cufile_driver.get("max_device_cache_size")
+                == max_device_cache_size_default
             )
-        assert (kvikio.cufile_driver.get("poll_mode") == poll_mode_default) and (
-            kvikio.cufile_driver.get("max_device_cache_size")
-            == max_device_cache_size_default
-        )
+        else:
+            with kvikio.cufile_driver.set("poll_mode", True):
+                assert kvikio.cufile_driver.get("poll_mode")
+            assert kvikio.cufile_driver.get("poll_mode") == poll_mode_default
+
     except RuntimeError as e:
         if "KvikIO not compiled with cuFile.h" in str(e):
             pytest.skip("KvikIO not compiled with cuFile.h, skipping cuFile tests")
