@@ -130,6 +130,7 @@ class defaults {
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
+  bool _http_verbose;
 
   static unsigned int get_num_threads_from_env();
 
@@ -367,6 +368,23 @@ class defaults {
    * @param status_codes The HTTP status codes to retry.
    */
   static void set_http_status_codes(std::vector<int> status_codes);
+
+  /**
+   * @brief Whether to enable verbose HTTP output for debugging.
+   *
+   * Set the value using `kvikio::defaults::set_http_verbose()` or by setting the
+   * `KVIKIO_HTTP_VERBOSE` environment variable. If not set, the value is false.
+   *
+   * @return Whether to enable verbose HTTP output.
+   */
+  [[nodiscard]] static bool http_verbose();
+
+  /**
+   * @brief Set whether to enable verbose HTTP output for debugging.
+   *
+   * @param verbose Whether to enable verbose HTTP output.
+   */
+  static void set_http_verbose(bool verbose);
 };
 
 }  // namespace kvikio

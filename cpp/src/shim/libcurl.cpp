@@ -112,6 +112,9 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
 
   // Make requests time out after `value` seconds.
   setopt(CURLOPT_TIMEOUT, kvikio::defaults::http_timeout());
+
+  // Enable verbose output if configured in defaults
+  if (kvikio::defaults::http_verbose()) { setopt(CURLOPT_VERBOSE, 1L); }
 }
 
 CurlHandle::~CurlHandle() noexcept { LibCurl::instance().retain_handle(std::move(_handle)); }

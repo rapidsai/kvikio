@@ -146,6 +146,11 @@ defaults::defaults()
     _http_status_codes =
       getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
+
+  // Determine the default value of `http_verbose`
+  {
+    _http_verbose = getenv_or("KVIKIO_HTTP_VERBOSE", false);
+  }
 }
 
 defaults* defaults::instance()
@@ -235,5 +240,8 @@ void defaults::set_http_timeout(long timeout_seconds)
     timeout_seconds > 0, "timeout_seconds must be a positive integer", std::invalid_argument);
   instance()->_http_timeout = timeout_seconds;
 }
+
+bool defaults::http_verbose() { return instance()->_http_verbose; }
+void defaults::set_http_verbose(bool verbose) { instance()->_http_verbose = verbose; }
 
 }  // namespace kvikio

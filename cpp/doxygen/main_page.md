@@ -137,6 +137,15 @@ Note that if you're reading a large file that has been split into multiple reads
 
 These settings can also be controlled by `defaults::http_max_attempts()`, `defaults::http_max_attempts_reset()`, `defaults::http_status_codes()`, and `defaults::http_status_codes_reset()`.
 
+#### HTTP Verbose (KVIKIO_HTTP_VERBOSE)
+For debugging HTTP requests, you can enable verbose output that shows detailed information about HTTP communication including headers, request/response bodies, connection details, and SSL handshake information.
+
+Set the environment variable `KVIKIO_HTTP_VERBOSE` to `true`, `on`, or `yes` (case-insensitive) to enable verbose output. Otherwise, verbose output is disabled by default.
+
+This setting can also be controlled by `defaults::http_verbose()` and `defaults::set_http_verbose()`.
+
+**Warning** this may show sensitive contents from headers and data.
+
 ## Example
 
 ```cpp
