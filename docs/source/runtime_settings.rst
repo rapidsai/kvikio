@@ -55,7 +55,7 @@ The maximum number of attempts to make before throwing an exception is controlle
 The maximum duration of each HTTP request is controlled by ``KVIKIO_HTTP_TIMEOUT``. The default value is 60, which is the duration in seconds to allow. This setting can also be accessed using :py:func:`kvikio.defaults.http_timoeout` (getter) and :py:func:`kvikio.defaults.set` (setter).
 
 HTTP Verbose ``KVIKIO_REMOTE_VERBOSE``
-------------------------------------
+--------------------------------------
 
 For debugging HTTP requests, you can enable verbose output that shows detailed information about HTTP communication including headers, request/response bodies, connection details, and SSL handshake information.
 
