@@ -27,7 +27,6 @@
 
 namespace kvikio {
 
-
 bool CompatModeManager::is_compat_mode_preferred() const noexcept
 {
   return _is_compat_mode_preferred;

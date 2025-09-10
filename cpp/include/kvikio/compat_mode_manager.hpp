@@ -68,7 +68,6 @@ class CompatModeManager {
   CompatModeManager(CompatModeManager&&) noexcept            = default;
   CompatModeManager& operator=(CompatModeManager&&) noexcept = default;
 
-
   /**
    * @brief Check if the compatibility mode for synchronous I/O of the associated FileHandle is
    * expected to be CompatMode::ON.
