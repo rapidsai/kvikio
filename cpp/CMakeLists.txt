@@ -144,6 +144,7 @@ set(SOURCES
     "src/bounce_buffer.cpp"
     "src/buffer.cpp"
     "src/compat_mode.cpp"
+    "src/compat_mode_manager.cpp"
     "src/http_status_codes.cpp"
     "src/cufile/config.cpp"
     "src/cufile/driver.cpp"
