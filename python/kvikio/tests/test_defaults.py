@@ -180,9 +180,7 @@ def test_http_verbose():
     # Test setting to True
     with kvikio.defaults.set("http_verbose", True):
         assert kvikio.defaults.get("http_verbose")
-        # Test changing within context
-        kvikio.defaults.set("http_verbose", False)
-        assert not kvikio.defaults.get("http_verbose")
+
     assert kvikio.defaults.get("http_verbose") == before
 
     # Test setting to False

@@ -40,6 +40,9 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     long cpp_http_timeout "kvikio::defaults::http_timeout"() except +
     void cpp_set_http_timeout\
         "kvikio::defaults::set_http_timeout"(long timeout_seconds) except +
+    bool cpp_http_verbose "kvikio::defaults::http_verbose"() except +
+    void cpp_set_http_verbose \
+        "kvikio::defaults::set_http_verbose"(bool verbose) except +
 
 
 def is_compat_mode_preferred() -> bool:
@@ -147,3 +150,16 @@ def http_status_codes() -> list[int]:
 def set_http_status_codes(status_codes: list[int]) -> None:
     # Cannot use nogil here because we need the GIL for list conversion
     cpp_set_http_status_codes(status_codes)
+
+
+def http_verbose() -> bool:
+    cdef bool result
+    with nogil:
+        result = cpp_http_verbose()
+    return result
+
+
+def set_http_verbose(verbose: bool) -> None:
+    cdef bool cpp_verbose = verbose
+    with nogil:
+        cpp_set_http_verbose(cpp_verbose)
