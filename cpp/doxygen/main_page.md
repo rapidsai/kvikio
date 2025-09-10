@@ -140,7 +140,7 @@ These settings can also be controlled by `defaults::http_max_attempts()`, `defau
 #### Remote Verbose (KVIKIO_REMOTE_VERBOSE)
 For debugging HTTP requests, you can enable verbose output that shows detailed information about HTTP communication including headers, request/response bodies, connection details, and SSL handshake information.
 
-Set the environment variable `KVIKIO_REMOTE_VERBOSE` to `true`, `on`, or `yes` (case-insensitive) to enable verbose output. Otherwise, verbose output is disabled by default.
+Set the environment variable `KVIKIO_REMOTE_VERBOSE` to `true`, `on`, `yes`, or `1` (case-insensitive) to enable verbose output. Otherwise, verbose output is disabled by default.
 
 **Warning** this may show sensitive contents from headers and data.
 
