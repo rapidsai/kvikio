@@ -61,6 +61,6 @@ For debugging HTTP requests, you can enable verbose output that shows detailed i
 
 Set the environment variable ``KVIKIO_HTTP_VERBOSE`` to ``true``, ``on``, or ``yes`` (case-insensitive) to enable verbose output. Otherwise, verbose output is disabled by default.
 
-This setting can also be accessed using :py:func:`kvikio.defaults.http_verbose` (getter) and :py:func:`kvikio.defaults.set` (setter).
+.. warning::
 
-**Warning** this may show sensitive contents from headers and data.
+   This may show sensitive contents from headers and data.
