@@ -56,7 +56,6 @@ class ConfigContextManager:
             "http_max_attempts",
             "http_status_codes",
             "http_timeout",
-            "http_verbose",
         ]
 
         property_getters = {}
@@ -126,7 +125,6 @@ def set(*config) -> ConfigContextManager:
         - ``"http_max_attempts"``
         - ``"http_status_codes"``
         - ``"http_timeout"``
-        - ``"http_verbose"``
 
     Returns
     -------
@@ -170,7 +168,6 @@ def get(config_name: str) -> Any:
         - ``"http_max_attempts"``
         - ``"http_status_codes"``
         - ``"http_timeout"``
-        - ``"http_verbose"``
 
     Returns
     -------

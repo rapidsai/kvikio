@@ -170,18 +170,3 @@ def test_http_timeout():
     with kvikio.defaults.set("http_timeout", 1):
         assert kvikio.defaults.get("http_timeout") == 1
     assert kvikio.defaults.get("http_timeout") == before
-
-
-def test_http_verbose():
-    """Test changing `http_verbose`"""
-
-    before = kvikio.defaults.get("http_verbose")
-
-    with kvikio.defaults.set("http_verbose", True):
-        assert kvikio.defaults.get("http_verbose")
-
-    assert kvikio.defaults.get("http_verbose") == before
-
-    with kvikio.defaults.set("http_verbose", False):
-        assert not kvikio.defaults.get("http_verbose")
-    assert kvikio.defaults.get("http_verbose") == before
