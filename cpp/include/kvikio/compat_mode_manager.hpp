@@ -68,22 +68,6 @@ class CompatModeManager {
   CompatModeManager(CompatModeManager&&) noexcept            = default;
   CompatModeManager& operator=(CompatModeManager&&) noexcept = default;
 
-  /**
-   * @brief Functionally identical to defaults::infer_compat_mode_if_auto(CompatMode).
-   *
-   * @param compat_mode Compatibility mode.
-   * @return If the given compatibility mode is CompatMode::AUTO, infer the final compatibility
-   * mode.
-   */
-  CompatMode infer_compat_mode_if_auto(CompatMode compat_mode) noexcept;
-
-  /**
-   * @brief Functionally identical to defaults::is_compat_mode_preferred(CompatMode).
-   *
-   * @param compat_mode Compatibility mode.
-   * @return Boolean answer.
-   */
-  bool is_compat_mode_preferred(CompatMode compat_mode) noexcept;
 
   /**
    * @brief Check if the compatibility mode for synchronous I/O of the associated FileHandle is

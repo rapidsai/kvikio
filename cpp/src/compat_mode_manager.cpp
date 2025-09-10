@@ -19,6 +19,7 @@
 
 #include <kvikio/compat_mode_manager.hpp>
 #include <kvikio/cufile/config.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/nvtx.hpp>
@@ -26,21 +27,6 @@
 
 namespace kvikio {
 
-CompatMode CompatModeManager::infer_compat_mode_if_auto(CompatMode compat_mode) noexcept
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  if (compat_mode == CompatMode::AUTO) {
-    return is_cufile_available() ? CompatMode::OFF : CompatMode::ON;
-  }
-  return compat_mode;
-}
-
-bool CompatModeManager::is_compat_mode_preferred(CompatMode compat_mode) noexcept
-{
-  return compat_mode == CompatMode::ON ||
-         (compat_mode == CompatMode::AUTO &&
-          infer_compat_mode_if_auto(compat_mode) == CompatMode::ON);
-}
 
 bool CompatModeManager::is_compat_mode_preferred() const noexcept
 {
@@ -68,8 +54,9 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
                 "The compatibility mode manager does not have a proper owning file handle.",
                 std::invalid_argument);
 
+  _compat_mode_requested = compat_mode_requested_v;
   file_handle->_file_direct_off.open(file_path, flags, false, mode);
-  _is_compat_mode_preferred = is_compat_mode_preferred(compat_mode_requested_v);
+  _is_compat_mode_preferred = defaults::is_compat_mode_preferred(compat_mode_requested_v);
 
   // Nothing to do in compatibility mode
   if (_is_compat_mode_preferred) { return; }
