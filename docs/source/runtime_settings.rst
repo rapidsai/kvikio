@@ -64,3 +64,13 @@ Set the environment variable ``KVIKIO_REMOTE_VERBOSE`` to ``true``, ``on``, ``ye
 .. warning::
 
    This may show sensitive contents from headers and data.
+
+CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
+---------------------------------------------------------------------------------------
+
+The Certificate Authority (CA) paths required for TLS/SSL verification in ``libcurl`` can be explicitly specified using the following environment variables in order of overriding priority:
+
+  * ``CURL_CA_BUNDLE`` (also used in the ``curl`` program) or ``SSL_CERT_FILE`` (also used in OpenSSL): Specifies the CA certificate bundle file location.
+  * ``SSL_CERT_DIR`` (also used in OpenSSL): Specifies the CA certificate directory.
+
+When neither is specified, KvikIO searches several standard system locations for the CA file and directory, and if the search fails falls back to the libcurl compile-time defaults.
