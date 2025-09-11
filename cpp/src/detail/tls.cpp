@@ -80,7 +80,7 @@ std::optional<std::string> get_ca_path_from_curl_defaults(char const* default_pa
 std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths()
 {
   auto* version_info = curl_version_info(::CURLVERSION_NOW);
-  KVIKIO_EXPECT(version_info != nullptr, "Failed to get curl version info");
+  KVIKIO_EXPECT(version_info != nullptr, "Failed to get curl version info", std::runtime_error);
 
   std::optional<std::string> ca_bundle_file;
   std::optional<std::string> ca_directory;
