@@ -53,3 +53,14 @@ KvikIO will retry a request should any of the HTTP status code in ``KVIKIO_HTTP_
 The maximum number of attempts to make before throwing an exception is controlled by ``KVIKIO_HTTP_MAX_ATTEMPTS``. The default value is 3. This setting can also be accessed using :py:func:`kvikio.defaults.http_max_attempts` (getter) and :py:func:`kvikio.defaults.set` (setter).
 
 The maximum duration of each HTTP request is controlled by ``KVIKIO_HTTP_TIMEOUT``. The default value is 60, which is the duration in seconds to allow. This setting can also be accessed using :py:func:`kvikio.defaults.http_timoeout` (getter) and :py:func:`kvikio.defaults.set` (setter).
+
+HTTP Verbose ``KVIKIO_REMOTE_VERBOSE``
+--------------------------------------
+
+For debugging HTTP requests, you can enable verbose output that shows detailed information about HTTP communication including headers, request/response bodies, connection details, and SSL handshake information.
+
+Set the environment variable ``KVIKIO_REMOTE_VERBOSE`` to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable verbose output. Otherwise, verbose output is disabled by default.
+
+.. warning::
+
+   This may show sensitive contents from headers and data.
