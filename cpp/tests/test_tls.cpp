@@ -18,25 +18,27 @@
 #include <gtest/gtest.h>
 
 #include <kvikio/detail/tls.hpp>
-#include <stdexcept>
 
 #include "utils/env.hpp"
 
-using ::testing::HasSubstr;
-using ::testing::ThrowsMessage;
-
 TEST(TlsTest, get_ca_paths)
 {
-  // Environment variables have highest priority
+  std::string const expected_ca_bundle_path{"ca_bundle_path"};
+  std::string const expected_ca_directory{"ca_directory"};
   {
-    std::string const expected_ca_bundle_path{"ca_bundle_path"};
-    std::string const expected_ca_directory{"ca_directory"};
-
     kvikio::test::EnvVarContext env_var_ctx{{"CURL_CA_BUNDLE", expected_ca_bundle_path},
                                             {"SSL_CERT_DIR", expected_ca_directory}};
     auto const& [ca_bundle_file, ca_directory] = kvikio::detail::get_ca_paths();
 
     EXPECT_EQ(ca_bundle_file, expected_ca_bundle_path);
+    EXPECT_EQ(ca_directory, std::nullopt);
+  }
+
+  {
+    kvikio::test::EnvVarContext env_var_ctx{{"SSL_CERT_DIR", expected_ca_directory}};
+    auto const& [ca_bundle_file, ca_directory] = kvikio::detail::get_ca_paths();
+
+    EXPECT_EQ(ca_bundle_file, std::nullopt);
     EXPECT_EQ(ca_directory, expected_ca_directory);
   }
 }
