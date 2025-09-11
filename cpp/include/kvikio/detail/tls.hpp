@@ -25,9 +25,9 @@ namespace kvikio::detail {
 /**
  * @brief Search CA bundle file and directory paths
  *
- * This function performs a one-time discovery of Certificate Authority (CA) paths required for
- * TLS/SSL verification in libcurl. The search is performed in the following priority order,
- * returning as soon as either a bundle file OR a directory is found:
+ * This function searches for the Certificate Authority (CA) paths required for TLS/SSL verification
+ * in libcurl. The search is performed in the following priority order, returning as soon as either
+ * a bundle file or a directory is found:
  * - CA bundle file: Check env vars CURL_CA_BUNDLE, SSL_CERT_FILE
  * - CA directory: Check env var SSL_CERT_DIR
  * - CA bundle file: Search distribution-specific locations for accessible bundle
@@ -48,6 +48,9 @@ std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths()
 
 /**
  * @brief Configure curl handle with discovered CA certificate paths
+ *
+ * As a performance optimization, the discovered CA certificate paths are cached to avoid repeated
+ * searching.
  *
  * @param curl Curl handle to configure with CA certificate paths
  */
