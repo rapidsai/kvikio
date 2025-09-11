@@ -23,7 +23,7 @@
 
 namespace kvikio::detail {
 /**
- * @brief Search CA bundle file and directory paths
+ * @brief Search for the CA bundle file and directory paths
  *
  * This function searches for the Certificate Authority (CA) paths required for TLS/SSL verification
  * in libcurl. The search is performed in the following priority order, returning as soon as either
