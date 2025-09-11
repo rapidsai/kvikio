@@ -35,6 +35,7 @@ if [[ "$(arch)" == "x86_64" ]]; then
       - 14
 
     cuda_version:
+      - "-1"
       - ${RAPIDS_CUDA_VERSION%.*}
 EOF
 else
