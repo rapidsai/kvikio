@@ -124,7 +124,7 @@ def set(*config) -> ConfigContextManager:
         - ``"bounce_buffer_size"``
         - ``"http_max_attempts"``
         - ``"http_status_codes"``
-        - ``*http_timeout*``
+        - ``"http_timeout"``
 
     Returns
     -------
@@ -167,6 +167,7 @@ def get(config_name: str) -> Any:
         - ``"bounce_buffer_size"``
         - ``"http_max_attempts"``
         - ``"http_status_codes"``
+        - ``"http_timeout"``
 
     Returns
     -------
