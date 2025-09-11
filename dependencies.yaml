@@ -19,6 +19,11 @@ files:
       - run
       - test_cpp
       - test_python
+  build_cpp_nocuda:
+    output: none
+    includes:
+      - build-universal
+      - build-cpp
   test_cpp:
     output: none
     includes:
@@ -128,7 +133,6 @@ dependencies:
       - output_types: conda
         packages:
           - c-compiler
-          - cuda-nvcc
           - cxx-compiler
           - libcurl>=8.5.0,<9.0a0
     specific:
@@ -205,6 +209,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
+          - cuda-nvcc
           - libcufile-dev
           - libnuma
   depends_on_cupy:
