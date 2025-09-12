@@ -309,7 +309,9 @@ std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
       unwrap_or_default(std::move(aws_region),
                         "AWS_DEFAULT_REGION",
                         "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
-    // We default to the official AWS url scheme.
+    // "s3" is a non-standard URI scheme used by AWS CLI and AWS SDK, and cannot be identified by
+    // libcurl. A valid HTTP/HTTPS URL needs to be constructed for use in libcurl. Here the AWS
+    // virtual host style is used.
     ss << "https://" << bucket_name << ".s3." << region << ".amazonaws.com/" << object_name;
   } else {
     ss << endpoint_url << "/" << bucket_name << "/" << object_name;
