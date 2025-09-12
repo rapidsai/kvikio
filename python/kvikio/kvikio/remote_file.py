@@ -46,9 +46,10 @@ class RemoteEndpointType(enum.Enum):
 
     AUTO = 0
     S3 = 1
-    S3_PRESIGNED_URL = 2
-    WEBHDFS = 3
-    HTTP = 4
+    S3_PUBLIC = 2
+    S3_PRESIGNED_URL = 3
+    WEBHDFS = 4
+    HTTP = 5
 
     @staticmethod
     def _map_to_internal(remote_endpoint_type: RemoteEndpointType):
@@ -252,6 +253,7 @@ class RemoteFile:
             The URL of the remote file. Supported formats include:
 
             - S3 with credentials
+            - S3 with public access
             - S3 presigned URL
             - WebHDFS
             - HTTP/HTTPS

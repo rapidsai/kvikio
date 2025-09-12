@@ -216,6 +216,7 @@ char const* get_remote_endpoint_type_name(RemoteEndpointType remote_endpoint_typ
 {
   switch (remote_endpoint_type) {
     case RemoteEndpointType::S3: return "S3";
+    case RemoteEndpointType::S3_PUBLIC: return "S3 public";
     case RemoteEndpointType::S3_PRESIGNED_URL: return "S3 with presigned URL";
     case RemoteEndpointType::WEBHDFS: return "WebHDFS";
     case RemoteEndpointType::HTTP: return "HTTP";
@@ -444,6 +445,34 @@ bool S3Endpoint::is_url_valid(std::string const& url) noexcept
   return false;
 }
 
+S3PublicEndpoint::S3PublicEndpoint(std::string url)
+  : RemoteEndpoint{RemoteEndpointType::S3_PUBLIC}, _url{std::move(url)}
+{
+}
+
+void S3PublicEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_str()); }
+
+std::string S3PublicEndpoint::str() const { return _url; }
+
+std::size_t S3PublicEndpoint::get_file_size()
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  return get_file_size_using_head_impl(*this, _url);
+}
+
+void S3PublicEndpoint::setup_range_request(CurlHandle& curl,
+                                           std::size_t file_offset,
+                                           std::size_t size)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  setup_range_request_impl(curl, file_offset, size);
+}
+
+bool S3PublicEndpoint::is_url_valid(std::string const& url) noexcept
+{
+  return S3Endpoint::is_url_valid(url);
+}
+
 S3EndpointWithPresignedUrl::S3EndpointWithPresignedUrl(std::string presigned_url)
   : RemoteEndpoint{RemoteEndpointType::S3_PRESIGNED_URL}, _url{std::move(presigned_url)}
 {
@@ -558,6 +587,7 @@ RemoteHandle RemoteHandle::open(std::string url,
 {
   if (!allow_list.has_value()) {
     allow_list = {RemoteEndpointType::S3,
+                  RemoteEndpointType::S3_PUBLIC,
                   RemoteEndpointType::S3_PRESIGNED_URL,
                   RemoteEndpointType::WEBHDFS,
                   RemoteEndpointType::HTTP};
@@ -578,6 +608,10 @@ RemoteHandle RemoteHandle::open(std::string url,
           return std::make_unique<S3Endpoint>(std::pair{bucket, object});
         }
         return std::make_unique<S3Endpoint>(url);
+
+      case RemoteEndpointType::S3_PUBLIC:
+        if (!S3PublicEndpoint::is_url_valid(url)) { return nullptr; }
+        return std::make_unique<S3PublicEndpoint>(url);
 
       case RemoteEndpointType::S3_PRESIGNED_URL:
         if (!S3EndpointWithPresignedUrl::is_url_valid(url)) { return nullptr; }
@@ -601,7 +635,27 @@ RemoteHandle RemoteHandle::open(std::string url,
     // Try each allowed type in the order of allowlist
     for (auto const& type : allow_list.value()) {
       endpoint = create_endpoint(type);
-      if (endpoint) { break; }
+      if (endpoint == nullptr) { continue; }
+
+      // If the credential-based S3 endpoint cannot be used to access the URL, try using S3 public
+      // endpoint instead if it is among the allowlist
+      if (endpoint->remote_endpoint_type() == RemoteEndpointType::S3) {
+        try {
+          // Exception will be thrown if the credential-based S3 endpoint cannot send the HEAD
+          // request
+          endpoint->get_file_size();
+        } catch (...) {
+          auto it =
+            std::find(allow_list->begin(), allow_list->end(), RemoteEndpointType::S3_PUBLIC);
+          if (it != allow_list->end()) {
+            // If S3 public endpoint is among the allowlist, use it and end the search
+            endpoint = std::make_unique<S3PublicEndpoint>(url);
+            break;
+          } else {
+            continue;
+          }
+        }
+      }
     }
     KVIKIO_EXPECT(endpoint.get() != nullptr, "Unsupported endpoint URL.", std::runtime_error);
   } else {

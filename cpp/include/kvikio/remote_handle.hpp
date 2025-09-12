@@ -46,6 +46,7 @@ enum class RemoteEndpointType : uint8_t {
   S3,    ///< AWS S3 endpoint using credentials-based authentication. Requires AWS environment
          ///< variables (such as AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION) to be
          ///< set.
+  S3_PUBLIC,
   S3_PRESIGNED_URL,  ///< AWS S3 endpoint using a presigned URL. No credentials required as
                      ///< authentication is embedded in the URL with time-limited access.
   WEBHDFS,  ///< Apache Hadoop WebHDFS (Web-based Hadoop Distributed File System) endpoint for
@@ -248,6 +249,31 @@ class S3Endpoint : public RemoteEndpoint {
 
   /**
    * @brief Whether the given URL is valid for S3 endpoints (excluding presigned URL).
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
+};
+
+/**
+ * @brief A remote endpoint using AWS's S3 protocol that is publicly accessible.
+ */
+class S3PublicEndpoint : public RemoteEndpoint {
+ private:
+  std::string _url;
+
+ public:
+  explicit S3PublicEndpoint(std::string url);
+
+  ~S3PublicEndpoint() override = default;
+  void setopt(CurlHandle& curl) override;
+  std::string str() const override;
+  std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for S3 public endpoints.
    *
    * @param url A URL.
    * @return Boolean answer.

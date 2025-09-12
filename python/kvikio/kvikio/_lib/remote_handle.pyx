@@ -23,9 +23,10 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cpdef enum class RemoteEndpointType(uint8_t):
         AUTO = 0
         S3 = 1
-        S3_PRESIGNED_URL = 2
-        WEBHDFS = 3
-        HTTP = 4
+        S3_PUBLIC = 2
+        S3_PRESIGNED_URL = 3
+        WEBHDFS = 4
+        HTTP = 5
     cdef cppclass cpp_RemoteEndpoint "kvikio::RemoteEndpoint":
         string str() except +
 
@@ -38,6 +39,9 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
 
     pair[string, string] cpp_parse_s3_url \
         "kvikio::S3Endpoint::parse_s3_url"(string url) except +
+
+    cdef cppclass cpp_S3PublicEndpoint "kvikio::S3PublicEndpoint" (cpp_RemoteEndpoint):
+        cpp_S3PublicEndpoint(string url) except +
 
     cdef cppclass cpp_S3EndpointWithPresignedUrl "kvikio::S3EndpointWithPresignedUrl" \
                                                  (cpp_RemoteEndpoint):
