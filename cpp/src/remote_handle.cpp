@@ -640,11 +640,11 @@ RemoteHandle RemoteHandle::open(std::string url,
       if (endpoint == nullptr) { continue; }
 
       // If the credential-based S3 endpoint cannot be used to access the URL, try using S3 public
-      // endpoint instead if it is among the allowlist
+      // endpoint instead if it is in the allowlist
       if (endpoint->remote_endpoint_type() == RemoteEndpointType::S3) {
         try {
-          // Exception will be thrown if the credential-based S3 endpoint cannot send the HEAD
-          // request
+          // Check connectivity for the credential-based S3 endpoint, and throw an exception if
+          // failed
           endpoint->get_file_size();
         } catch (...) {
           auto it =
