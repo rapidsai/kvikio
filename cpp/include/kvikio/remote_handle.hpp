@@ -268,7 +268,7 @@ class S3Endpoint : public RemoteEndpoint {
  * @brief A remote endpoint for publicly accessible S3 objects without authentication
  *
  * This endpoint is for accessing S3 objects configured with public read permissions,
- * requiring no authentication. Supports AWS S3 services with  anonymous access enabled.
+ * requiring no authentication. Supports AWS S3 services with anonymous access enabled.
  */
 class S3PublicEndpoint : public RemoteEndpoint {
  private:

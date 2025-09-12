@@ -650,7 +650,7 @@ RemoteHandle RemoteHandle::open(std::string url,
           auto it =
             std::find(allow_list->begin(), allow_list->end(), RemoteEndpointType::S3_PUBLIC);
           if (it != allow_list->end()) {
-            // If S3 public endpoint is among the allowlist, use it and end the search
+            // If S3 public endpoint is in the allowlist, use it and end the search
             endpoint = std::make_unique<S3PublicEndpoint>(url);
           } else {
             continue;
