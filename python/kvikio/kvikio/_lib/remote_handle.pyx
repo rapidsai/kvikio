@@ -223,7 +223,25 @@ cdef class RemoteFile:
         )
 
     @staticmethod
-    def open_s3_from_http_presigned_url(
+    def open_s3_public(
+        url: str,
+        nbytes: Optional[int],
+    ):
+        cdef string cpp_url = _to_string(url)
+        cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
+
+        with nogil:
+            cpp_endpoint = cast_to_remote_endpoint(
+                make_unique[cpp_S3PublicEndpoint](cpp_url)
+            )
+
+        return RemoteFile._from_endpoint(
+            move(cpp_endpoint),
+            nbytes
+        )
+
+    @staticmethod
+    def open_s3_presigned_url(
         presigned_url: str,
         nbytes: Optional[int],
     ):

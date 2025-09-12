@@ -46,7 +46,9 @@ enum class RemoteEndpointType : uint8_t {
   S3,    ///< AWS S3 endpoint using credentials-based authentication. Requires AWS environment
          ///< variables (such as AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION) to be
          ///< set.
-  S3_PUBLIC,
+  S3_PUBLIC,  ///< AWS S3 endpoint for publicly accessible objects. No credentials required as the
+              ///< objects have public read permissions enabled. Used for open datasets and public
+              ///< buckets.
   S3_PRESIGNED_URL,  ///< AWS S3 endpoint using a presigned URL. No credentials required as
                      ///< authentication is embedded in the URL with time-limited access.
   WEBHDFS,  ///< Apache Hadoop WebHDFS (Web-based Hadoop Distributed File System) endpoint for
@@ -109,7 +111,10 @@ class RemoteEndpoint {
 };
 
 /**
- * @brief A remote endpoint using http.
+ * @brief A remote endpoint for HTTP/HTTPS resources
+ *
+ * This endpoint is for accessing files via standard HTTP/HTTPS protocols without any specialized
+ * authentication.
  */
 class HttpEndpoint : public RemoteEndpoint {
  private:
@@ -139,7 +144,10 @@ class HttpEndpoint : public RemoteEndpoint {
 };
 
 /**
- * @brief A remote endpoint using AWS's S3 protocol.
+ * @brief A remote endpoint for AWS S3 storage requiring credentials
+ *
+ * This endpoint is for accessing private S3 objects using AWS credentials (access key, secret key,
+ * region and optional session token).
  */
 class S3Endpoint : public RemoteEndpoint {
  private:
@@ -257,7 +265,10 @@ class S3Endpoint : public RemoteEndpoint {
 };
 
 /**
- * @brief A remote endpoint using AWS's S3 protocol that is publicly accessible.
+ * @brief A remote endpoint for publicly accessible S3 objects without authentication
+ *
+ * This endpoint is for accessing S3 objects configured with public read permissions,
+ * requiring no authentication. Supports AWS S3 services with  anonymous access enabled.
  */
 class S3PublicEndpoint : public RemoteEndpoint {
  private:
@@ -282,8 +293,10 @@ class S3PublicEndpoint : public RemoteEndpoint {
 };
 
 /**
- * @brief A remote endpoint using AWS's S3 protocol and expecting a presigned URL. File access via
- * this type of URL is time-limited and does not require AWS credentials.
+ * @brief A remote endpoint for AWS S3 storage using presigned URLs.
+ *
+ * This endpoint is for accessing S3 objects via presigned URLs, which provide time-limited access
+ * without requiring AWS credentials on the client side.
  */
 class S3EndpointWithPresignedUrl : public RemoteEndpoint {
  private:
