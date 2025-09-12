@@ -652,12 +652,14 @@ RemoteHandle RemoteHandle::open(std::string url,
           if (it != allow_list->end()) {
             // If S3 public endpoint is among the allowlist, use it and end the search
             endpoint = std::make_unique<S3PublicEndpoint>(url);
-            break;
           } else {
             continue;
           }
         }
       }
+
+      // At this point, a matching endpoint has been found
+      break;
     }
     KVIKIO_EXPECT(endpoint.get() != nullptr, "Unsupported endpoint URL.", std::runtime_error);
   } else {
