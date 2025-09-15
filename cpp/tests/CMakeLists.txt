@@ -79,6 +79,7 @@ kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 if(KvikIO_REMOTE_SUPPORT)
   kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
   kvikio_add_test(NAME HDFS_TEST SOURCES test_hdfs.cpp utils/hdfs_helper.cpp)
+  kvikio_add_test(NAME TLS_TEST SOURCES test_tls.cpp utils/env.cpp)
   kvikio_add_test(NAME URL_TEST SOURCES test_url.cpp)
 endif()
 
