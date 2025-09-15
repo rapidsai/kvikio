@@ -114,6 +114,10 @@ outputs:
           - if: should_use_cufile
             then:
             - libcufile-dev
+      run_constraints:
+        - if: not supports_cuda
+          then:
+          - cuda-version <0
       ignore_run_exports:
         by_name:
           - if: supports_cuda
