@@ -29,6 +29,7 @@
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/tls.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/parallel_operation.hpp>
 #include <kvikio/posix_io.hpp>
@@ -116,6 +117,8 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   // Optionally enable verbose output if it's configured.
   auto const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
   if (verbose) { setopt(CURLOPT_VERBOSE, 1L); }
+
+  detail::set_up_ca_paths(*this);
 }
 
 CurlHandle::~CurlHandle() noexcept { LibCurl::instance().retain_handle(std::move(_handle)); }
