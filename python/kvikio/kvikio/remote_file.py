@@ -28,6 +28,10 @@ class RemoteEndpointType(enum.Enum):
         AWS S3 endpoint using credentials-based authentication. Requires
         AWS environment variables (such as AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
         AWS_DEFAULT_REGION) to be set.
+    S3_PUBLIC : INT
+        AWS S3 endpoint for publicly accessible objects. No credentials required as the
+        objects have public read permissions enabled. Used for open datasets and public
+        buckets.
     S3_PRESIGNED_URL : int
         AWS S3 endpoint using a presigned URL. No credentials required as
         authentication is embedded in the URL with time-limited access.
@@ -46,9 +50,10 @@ class RemoteEndpointType(enum.Enum):
 
     AUTO = 0
     S3 = 1
-    S3_PRESIGNED_URL = 2
-    WEBHDFS = 3
-    HTTP = 4
+    S3_PUBLIC = 2
+    S3_PRESIGNED_URL = 3
+    WEBHDFS = 4
+    HTTP = 5
 
     @staticmethod
     def _map_to_internal(remote_endpoint_type: RemoteEndpointType):
@@ -102,7 +107,7 @@ class RemoteFile:
         url: str,
         nbytes: Optional[int] = None,
     ) -> RemoteFile:
-        """Open a http file.
+        """Open a HTTP/HTTPS file.
 
         Parameters
         ----------
@@ -112,7 +117,7 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        return RemoteFile(_get_remote_module().RemoteFile.open_http(url, nbytes))
+        return cls(_get_remote_module().RemoteFile.open_http(url, nbytes))
 
     @classmethod
     def open_s3(
@@ -142,7 +147,7 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        return RemoteFile(
+        return cls(
             _get_remote_module().RemoteFile.open_s3(bucket_name, object_name, nbytes)
         )
 
@@ -178,14 +183,26 @@ class RemoteFile:
         """
         parsed_result = urllib.parse.urlparse(url.lower())
         if parsed_result.scheme in ("http", "https"):
-            return RemoteFile(
+            return cls(
                 _get_remote_module().RemoteFile.open_s3_from_http_url(url, nbytes)
             )
         if parsed_result.scheme == "s3":
-            return RemoteFile(
-                _get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes)
-            )
+            return cls(_get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes))
         raise ValueError(f"Unsupported protocol: {url}")
+
+    @classmethod
+    def open_s3_public(cls, url: str, nbytes: Optional[int] = None) -> RemoteFile:
+        """Open a publicly accessible AWS S3 file.
+
+        Parameters
+        ----------
+        url
+             URL to the remote file.
+        nbytes
+            The size of the file. If None, KvikIO will ask the server
+            for the file size.
+        """
+        return cls(_get_remote_module().RemoteFile.open_s3_public(url, nbytes))
 
     @classmethod
     def open_s3_presigned_url(
@@ -203,10 +220,8 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        return RemoteFile(
-            _get_remote_module().RemoteFile.open_s3_from_http_presigned_url(
-                presigned_url, nbytes
-            )
+        return cls(
+            _get_remote_module().RemoteFile.open_s3_presigned_url(presigned_url, nbytes)
         )
 
     @classmethod
@@ -228,7 +243,7 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server for the file
             size.
         """
-        return RemoteFile(_get_remote_module().RemoteFile.open_webhdfs(url, nbytes))
+        return cls(_get_remote_module().RemoteFile.open_webhdfs(url, nbytes))
 
     @classmethod
     def open(
@@ -242,9 +257,9 @@ class RemoteFile:
         Create a remote file handle from a URL.
 
         This function creates a RemoteFile for reading data from various remote
-        endpoints including HTTP/HTTPS servers, AWS S3 buckets, S3 presigned URLs,
-        and WebHDFS. The endpoint type can be automatically detected from the URL
-        or explicitly specified.
+        endpoints including HTTP/HTTPS servers, AWS S3 buckets, S3 for public access,
+        S3 presigned URLs, and WebHDFS. The endpoint type can be automatically detected
+        from the URL or explicitly specified.
 
         Parameters
         ----------
@@ -252,6 +267,7 @@ class RemoteFile:
             The URL of the remote file. Supported formats include:
 
             - S3 with credentials
+            - S3 for public access
             - S3 presigned URL
             - WebHDFS
             - HTTP/HTTPS
@@ -259,6 +275,7 @@ class RemoteFile:
             The type of remote endpoint. Default is :class:`RemoteEndpointType.AUTO`
             which automatically detects the endpoint type from the URL. Can be
             explicitly set to :class:`RemoteEndpointType.S3`,
+            :class:`RemoteEndpointType.S3_PUBLIC`,
             :class:`RemoteEndpointType.S3_PRESIGNED_URL`,
             :class:`RemoteEndpointType.WEBHDFS`, or :class:`RemoteEndpointType.HTTP`
             to force a specific endpoint type.
@@ -272,6 +289,7 @@ class RemoteFile:
 
             If not provided, defaults to all supported types in this order:
             :class:`RemoteEndpointType.S3`,
+            :class:`RemoteEndpointType.S3_PUBLIC`,
             :class:`RemoteEndpointType.S3_PRESIGNED_URL`,
             :class:`RemoteEndpointType.WEBHDFS`, and :class:`RemoteEndpointType.HTTP`.
         nbytes : int, optional
@@ -337,7 +355,7 @@ class RemoteFile:
                  nbytes=1024 * 1024 * 100  # 100 MB
              )
         """
-        return RemoteFile(
+        return cls(
             _get_remote_module().RemoteFile.open(
                 url,
                 RemoteEndpointType._map_to_internal(remote_endpoint_type),
