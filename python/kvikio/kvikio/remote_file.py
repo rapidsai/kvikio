@@ -101,8 +101,9 @@ class RemoteFile:
         assert isinstance(handle, _get_remote_module().RemoteFile)
         self._handle = handle
 
-    @staticmethod
+    @classmethod
     def open_http(
+        cls,
         url: str,
         nbytes: Optional[int] = None,
     ) -> RemoteFile:
@@ -116,10 +117,11 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        return RemoteFile(_get_remote_module().RemoteFile.open_http(url, nbytes))
+        return cls(_get_remote_module().RemoteFile.open_http(url, nbytes))
 
-    @staticmethod
+    @classmethod
     def open_s3(
+        cls,
         bucket_name: str,
         object_name: str,
         nbytes: Optional[int] = None,
@@ -145,12 +147,13 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        return RemoteFile(
+        return cls(
             _get_remote_module().RemoteFile.open_s3(bucket_name, object_name, nbytes)
         )
 
-    @staticmethod
+    @classmethod
     def open_s3_url(
+        cls,
         url: str,
         nbytes: Optional[int] = None,
     ) -> RemoteFile:
@@ -180,17 +183,15 @@ class RemoteFile:
         """
         parsed_result = urllib.parse.urlparse(url.lower())
         if parsed_result.scheme in ("http", "https"):
-            return RemoteFile(
+            return cls(
                 _get_remote_module().RemoteFile.open_s3_from_http_url(url, nbytes)
             )
         if parsed_result.scheme == "s3":
-            return RemoteFile(
-                _get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes)
-            )
+            return cls(_get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes))
         raise ValueError(f"Unsupported protocol: {url}")
 
-    @staticmethod
-    def open_s3_public(url: str, nbytes: Optional[int] = None) -> RemoteFile:
+    @classmethod
+    def open_s3_public(cls, url: str, nbytes: Optional[int] = None) -> RemoteFile:
         """Open a publicly accessible AWS S3 file.
 
         Parameters
@@ -201,10 +202,11 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        return RemoteFile(_get_remote_module().RemoteFile.open_s3_public(url, nbytes))
+        return cls(_get_remote_module().RemoteFile.open_s3_public(url, nbytes))
 
-    @staticmethod
+    @classmethod
     def open_s3_presigned_url(
+        cls,
         presigned_url: str,
         nbytes: Optional[int] = None,
     ) -> RemoteFile:
@@ -218,12 +220,13 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server
             for the file size.
         """
-        return RemoteFile(
+        return cls(
             _get_remote_module().RemoteFile.open_s3_presigned_url(presigned_url, nbytes)
         )
 
-    @staticmethod
+    @classmethod
     def open_webhdfs(
+        cls,
         url: str,
         nbytes: Optional[int] = None,
     ) -> RemoteFile:
@@ -240,10 +243,11 @@ class RemoteFile:
             The size of the file. If None, KvikIO will ask the server for the file
             size.
         """
-        return RemoteFile(_get_remote_module().RemoteFile.open_webhdfs(url, nbytes))
+        return cls(_get_remote_module().RemoteFile.open_webhdfs(url, nbytes))
 
-    @staticmethod
+    @classmethod
     def open(
+        cls,
         url: str,
         remote_endpoint_type: RemoteEndpointType = RemoteEndpointType.AUTO,
         allow_list: Optional[list] = None,
@@ -351,7 +355,7 @@ class RemoteFile:
                  nbytes=1024 * 1024 * 100  # 100 MB
              )
         """
-        return RemoteFile(
+        return cls(
             _get_remote_module().RemoteFile.open(
                 url,
                 RemoteEndpointType._map_to_internal(remote_endpoint_type),
