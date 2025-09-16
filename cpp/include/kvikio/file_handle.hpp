@@ -20,12 +20,10 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <stdexcept>
-#include <system_error>
-#include <utility>
 
 #include <kvikio/buffer.hpp>
 #include <kvikio/compat_mode.hpp>
+#include <kvikio/compat_mode_manager.hpp>
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
