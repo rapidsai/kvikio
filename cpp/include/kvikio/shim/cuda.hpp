@@ -18,7 +18,7 @@
 #include <any>
 #include <functional>
 
-#include <kvikio/shim/cuda_h_wrapper.hpp>
+#include <cuda.h>
 #include <kvikio/shim/utils.hpp>
 #include <stdexcept>
 

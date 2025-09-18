@@ -17,7 +17,7 @@
 
 #include <sys/types.h>
 
-#include <kvikio/shim/cuda_h_wrapper.hpp>
+#include <cuda.h>
 
 /**
  * In order to support compilation when `cufile.h` isn't available, we
