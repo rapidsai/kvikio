@@ -72,8 +72,7 @@ void NvtxManager::rename_current_thread(std::string_view new_name) noexcept
   attribs.identifierType           = NVTX_RESOURCE_TYPE_GENERIC_THREAD_NATIVE;
   attribs.identifier.ullValue      = tid;
   attribs.messageType              = NVTX_MESSAGE_TYPE_ASCII;
-  std::string message_str          = ss.str();
-  attribs.message.ascii            = message_str.c_str();
+  attribs.message.ascii            = ss.str().c_str();
   nvtxResourceHandle_t handle =
     nvtxDomainResourceCreate(nvtx3::domain::get<libkvikio_domain>(), &attribs);
 }
