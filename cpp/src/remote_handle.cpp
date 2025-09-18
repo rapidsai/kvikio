@@ -636,25 +636,23 @@ RemoteHandle RemoteHandle::open(std::string url,
   if (remote_endpoint_type == RemoteEndpointType::AUTO) {
     // Try each allowed type in the order of allowlist
     for (auto const& type : allow_list.value()) {
-      endpoint = create_endpoint(type);
-      if (endpoint == nullptr) { continue; }
-
-      // If the credential-based S3 endpoint cannot be used to access the URL, try using S3 public
-      // endpoint instead if it is in the allowlist
-      if (endpoint->remote_endpoint_type() == RemoteEndpointType::S3) {
-        try {
+      try {
+        endpoint = create_endpoint(type);
+        if (endpoint == nullptr) { continue; }
+        if (type == RemoteEndpointType::S3) {
           // Check connectivity for the credential-based S3 endpoint, and throw an exception if
           // failed
           endpoint->get_file_size();
-        } catch (...) {
-          auto it =
-            std::find(allow_list->begin(), allow_list->end(), RemoteEndpointType::S3_PUBLIC);
-          if (it != allow_list->end()) {
-            // If S3 public endpoint is in the allowlist, use it and end the search
-            endpoint = std::make_unique<S3PublicEndpoint>(url);
-          } else {
-            continue;
-          }
+        }
+      } catch (...) {
+        // If the credential-based S3 endpoint cannot be used to access the URL, try using S3 public
+        // endpoint instead if it is in the allowlist
+        if (type == RemoteEndpointType::S3 &&
+            std::find(allow_list->begin(), allow_list->end(), RemoteEndpointType::S3_PUBLIC) !=
+              allow_list->end()) {
+          endpoint = std::make_unique<S3PublicEndpoint>(url);
+        } else {
+          throw;
         }
       }
 
