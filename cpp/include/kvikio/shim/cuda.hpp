@@ -134,10 +134,6 @@ class cudaAPI {
  *
  * @return The boolean answer
  */
-#ifdef KVIKIO_CUDA_FOUND
 bool is_cuda_available();
-#else
-constexpr bool is_cuda_available() { return false; }
-#endif
 
 }  // namespace kvikio

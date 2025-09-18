@@ -73,11 +73,7 @@ template <typename T, std::enable_if_t<std::is_floating_point_v<T>>* = nullptr>
  * @param ptr Memory pointer to query
  * @return The boolean answer
  */
-#ifdef KVIKIO_CUDA_FOUND
 bool is_host_memory(void const* ptr);
-#else
-constexpr bool is_host_memory(void const* ptr) { return true; }
-#endif
 
 /**
  * @brief Return the device owning the pointer

@@ -18,9 +18,7 @@
 #include <array>
 #include <sstream>
 
-#ifdef KVIKIO_CUDA_FOUND
 #include <nvtx3/nvtx3.hpp>
-#endif
 
 #include <kvikio/nvtx.hpp>
 
@@ -34,18 +32,12 @@ NvtxManager& NvtxManager::instance() noexcept
 
 const nvtx_color_type& NvtxManager::default_color() noexcept
 {
-#ifdef KVIKIO_CUDA_FOUND
   static nvtx_color_type default_color{nvtx3::argb{0, 255, 255, 255}};
   return default_color;
-#else
-  static nvtx_color_type dummy{};
-  return dummy;
-#endif
 }
 
 const nvtx_color_type& NvtxManager::get_color_by_index(std::uint64_t idx) noexcept
 {
-#ifdef KVIKIO_CUDA_FOUND
   constexpr std::size_t num_color{16};
   static_assert((num_color & (num_color - 1)) == 0);  // Is power of 2
   static std::array<nvtx_color_type, num_color> color_palette = {nvtx3::rgb{106, 192, 67},
@@ -66,15 +58,10 @@ const nvtx_color_type& NvtxManager::get_color_by_index(std::uint64_t idx) noexce
                                                                  nvtx3::rgb{122, 50, 49}};
   auto safe_idx = idx & (num_color - 1);  // idx % num_color
   return color_palette[safe_idx];
-#else
-  static nvtx_color_type dummy{};
-  return dummy;
-#endif
 }
 
 void NvtxManager::rename_current_thread(std::string_view new_name) noexcept
 {
-#ifdef KVIKIO_CUDA_FOUND
   auto tid = syscall(SYS_gettid);
   std::stringstream ss;
   ss << new_name << " (" << tid << ")";
@@ -85,10 +72,10 @@ void NvtxManager::rename_current_thread(std::string_view new_name) noexcept
   attribs.identifierType           = NVTX_RESOURCE_TYPE_GENERIC_THREAD_NATIVE;
   attribs.identifier.ullValue      = tid;
   attribs.messageType              = NVTX_MESSAGE_TYPE_ASCII;
-  attribs.message.ascii            = ss.str().c_str();
+  std::string message_str          = ss.str();
+  attribs.message.ascii            = message_str.c_str();
   nvtxResourceHandle_t handle =
     nvtxDomainResourceCreate(nvtx3::domain::get<libkvikio_domain>(), &attribs);
-#endif
 }
 
 }  // namespace kvikio
