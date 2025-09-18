@@ -17,16 +17,13 @@
 
 #include <cstdint>
 
-#ifdef KVIKIO_CUDA_FOUND
 #include <nvtx3/nvtx3.hpp>
-#endif
 
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
 
-#ifdef KVIKIO_CUDA_FOUND
 /**
  * @brief Tag type for libkvikio's NVTX domain.
  */
@@ -100,13 +97,7 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
   nvtx3::mark_in<kvikio::libkvikio_domain>(nvtx3::event_attributes{ \
     KVIKIO_REGISTER_STRING(message), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}})
 
-#endif
-
-#ifdef KVIKIO_CUDA_FOUND
 using nvtx_color_type = nvtx3::color;
-#else
-using nvtx_color_type = int;
-#endif
 
 /**
  * @brief Utility singleton class for NVTX annotation.
@@ -181,13 +172,7 @@ class NvtxManager {
  * }
  * ```
  */
-#ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_FUNC_RANGE(...) KVIKIO_NVTX_FUNC_RANGE_IMPL(__VA_ARGS__)
-#else
-#define KVIKIO_NVTX_FUNC_RANGE(...) \
-  do {                              \
-  } while (0)
-#endif
 
 /**
  * @brief Convenience macro for generating an NVTX scoped range in the `libkvikio` domain to
@@ -206,13 +191,7 @@ class NvtxManager {
  * }
  * ```
  */
-#ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_SCOPED_RANGE(...) KVIKIO_NVTX_SCOPED_RANGE_IMPL(__VA_ARGS__)
-#else
-#define KVIKIO_NVTX_SCOPED_RANGE(message, payload, ...) \
-  do {                                                  \
-  } while (0)
-#endif
 
 /**
  * @brief Convenience macro for generating an NVTX marker in the `libkvikio` domain to annotate a
@@ -232,12 +211,6 @@ class NvtxManager {
  * }
  * ```
  */
-#ifdef KVIKIO_CUDA_FOUND
 #define KVIKIO_NVTX_MARKER(message, payload) KVIKIO_NVTX_MARKER_IMPL(message, payload)
-#else
-#define KVIKIO_NVTX_MARKER(message, payload) \
-  do {                                       \
-  } while (0)
-#endif
 
 }  // namespace kvikio
