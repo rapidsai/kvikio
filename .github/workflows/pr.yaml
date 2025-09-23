@@ -9,6 +9,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SHARED_ACTIONS_REPO: rapidsai/shared-actions
+  SHARED_ACTIONS_REF: add-file-size-recording
+
 jobs:
   pr-builder:
     needs:
