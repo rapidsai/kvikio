@@ -62,3 +62,13 @@ TEST(UrlTest, parse_host)
     EXPECT_THROW({ kvikio::detail::UrlParser::parse(invalid_host_url); }, std::runtime_error);
   }
 }
+
+TEST(UrlTest, encode_url)
+{
+  // Path does not contain characters that require special handling
+  {
+    std::string expected{"abc123/!-_.*'().bin"};
+    auto actual = kvikio::detail::UrlEncoder::encode_path(expected);
+    EXPECT_EQ(expected, actual);
+  }
+}

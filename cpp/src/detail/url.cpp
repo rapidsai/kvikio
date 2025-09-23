@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
+#include <array>
+#include <cstdint>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 
 #include <curl/curl.h>
@@ -139,4 +142,42 @@ UrlParser::UrlComponents UrlParser::parse(std::string const& url,
 
   return components;
 }
+
+namespace {
+struct EncodingTable {
+  std::array<unsigned char[4], 256> table;
+  constexpr EncodingTable() : table{}
+  {
+    char const num_to_chars[] = "0123456789ABCDEF";
+    for (uint16_t idx = 0U; idx < table.size(); ++idx) {
+      table[idx][0] = '%';
+      table[idx][1] = num_to_chars[idx >> 4];
+      table[idx][2] = num_to_chars[idx & 0x0F];
+      table[idx][3] = '\0';
+    }
+  }
+};
+}  // namespace
+
+std::string UrlEncoder::encode_path(std::string_view path, std::string_view chars_to_encode)
+{
+  constexpr EncodingTable encoding_table{};
+
+  std::array<bool, 256> should_encode{};
+  for (auto const c : chars_to_encode) {
+    should_encode[c] = true;
+  }
+
+  std::string result;
+  for (auto const c : path) {
+    if (should_encode[c]) {
+      result += std::string{reinterpret_cast<char const*>(encoding_table.table[c])};
+    } else {
+      result += c;
+    }
+  }
+
+  return result;
+}
+
 }  // namespace kvikio::detail

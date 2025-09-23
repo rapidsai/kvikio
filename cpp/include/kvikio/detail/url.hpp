@@ -196,4 +196,18 @@ class UrlParser {
     std::optional<unsigned int> bitmask_component_flags = std::nullopt,
     std::optional<CURLUcode> allowed_err_code           = std::nullopt);
 };
+
+class UrlEncoder {
+ public:
+  static constexpr std::string aws_specially_handled_chars = []() {
+    char result[43] = {'&', '$', '@', '=', ';', ':', '+', ' ', ',', '?', '\x7F'};
+    for (int i = 0x00; i < 0x1F; ++i) {
+      result[11 + i] += i;
+    }
+    return std::string{result};
+  }();
+  static std::string encode_path(std::string_view path,
+                                 std::string_view chars_to_encode = aws_specially_handled_chars);
+};
+
 }  // namespace kvikio::detail
