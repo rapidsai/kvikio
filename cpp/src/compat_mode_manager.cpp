@@ -94,8 +94,7 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
 void CompatModeManager::validate_compat_mode_for_async() const
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (!_is_compat_mode_preferred && _is_compat_mode_preferred_for_async &&
-      _compat_mode_requested == CompatMode::OFF) {
+  if (_is_compat_mode_preferred_for_async && _compat_mode_requested == CompatMode::OFF) {
     std::string err_msg;
     if (!is_stream_api_available()) { err_msg += "Missing the cuFile stream api."; }
 
