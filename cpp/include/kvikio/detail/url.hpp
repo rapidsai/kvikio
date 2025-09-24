@@ -137,7 +137,7 @@ class UrlParser {
    *
    * @return UrlComponents structure containing the parsed URL components
    *
-   * @throw std::runtime_error if the URL cannot be parsed or if component extraction fails
+   * @exception std::runtime_error if the URL cannot be parsed or if component extraction fails
    *
    * Example:
    * @code{.cpp}
@@ -170,7 +170,7 @@ class UrlParser {
    * @param bitmask_component_flags Flags controlling extraction behavior
    * @param allowed_err_code Optional error code to treat as valid (e.g., CURLUE_NO_SCHEME)
    * @return The extracted component as a string, or std::nullopt if not present
-   * @throw std::runtime_error if extraction fails with an unexpected error
+   * @exception std::runtime_error if extraction fails with an unexpected error
    */
   static std::optional<std::string> extract_component(
     CurlUrlHandle const& handle,
@@ -187,7 +187,7 @@ class UrlParser {
    * @param bitmask_component_flags Flags controlling extraction behavior
    * @param allowed_err_code Optional error code to treat as valid
    * @return The extracted component as a string, or std::nullopt if not present
-   * @throw std::runtime_error if extraction fails with an unexpected error
+   * @exception std::runtime_error if extraction fails with an unexpected error
    */
   static std::optional<std::string> extract_component(
     std::string const& url,
@@ -197,17 +197,188 @@ class UrlParser {
     std::optional<CURLUcode> allowed_err_code           = std::nullopt);
 };
 
+/**
+ * @brief URL builder utility using libcurl's URL API
+ *
+ * This class provides methods for constructing and modifying URLs by setting individual components
+ * (scheme, host, port, path, query, fragment).
+ *
+ * @note This class uses libcurl's URL parsing which follows RFC 3986 plus. See
+ * https://curl.se/docs/url-syntax.html
+ *
+ * Example:
+ * @code{.cpp}
+ * // Build from scratch
+ * auto url = UrlBuilder()
+ *     .set_scheme("https")
+ *     .set_host("witcher4.com")
+ *     .set_path("/ciri")
+ *     .set_query("occupation", "witcher")
+ *     .build();
+ *
+ * // Modify existing URL
+ * auto modified = UrlBuilder("https://witcher4.com/old/path/to/bestiary")
+ *     .set_path("/new/path/to/bestiary")
+ *     .set_port("8080")
+ *     .build();
+ * @endcode
+ */
+class UrlBuilder {
+ private:
+  CurlUrlHandle _handle;
+
+  /**
+   * @brief Internal helper to set a URL component
+   *
+   * @param part The URL part to set
+   * @param value The value to set (nullptr to clear)
+   * @param flags Optional flags for the operation
+   * @return Reference to this builder for chaining
+   * @exception std::runtime_error if the operation fails
+   */
+  UrlBuilder& set_component(CURLUPart part,
+                            char const* value,
+                            std::optional<unsigned int> flags = std::nullopt);
+
+ public:
+  /**
+   * @brief Construct an empty URL builder
+   * @exception std::runtime_error if initialization fails
+   */
+  explicit UrlBuilder();
+
+  /**
+   * @brief Construct a URL builder from an existing URL string
+   *
+   * @param url The URL string to start with
+   * @param bitmask_url_flags Optional flags for URL parsing. Common flags include:
+   *  - CURLU_DEFAULT_SCHEME: Allows URLs without schemes
+   *  - CURLU_NON_SUPPORT_SCHEME: Accept non-supported schemes
+   *  - CURLU_URLENCODE: URL encode the path
+   * @exception std::runtime_error if the URL cannot be parsed
+   */
+  explicit UrlBuilder(std::string const& url,
+                      std::optional<unsigned int> bitmask_url_flags = std::nullopt);
+
+  /**
+   * @brief Construct a URL builder from parsed URL components
+   *
+   * @param components The parsed URL components to start with
+   * @param bitmask_url_flags Optional flags for URL handling
+   * @exception std::runtime_error if the components cannot be set
+   */
+  explicit UrlBuilder(UrlParser::UrlComponents const& components,
+                      std::optional<unsigned int> bitmask_url_flags = std::nullopt);
+
+  /**
+   * @brief Set the URL scheme (e.g., "http", "https", "ftp")
+   *
+   * @param scheme The scheme to set, or nullptr to clear
+   * @return Reference to this builder for chaining
+   * @exception std::runtime_error if the scheme is invalid
+   *
+   * Example:
+   * @code{.cpp}
+   * builder.set_scheme("https");
+   * @endcode
+   */
+  UrlBuilder& set_scheme(std::optional<std::string> const& scheme);
+
+  /**
+   * @brief Set the hostname or IP address
+   *
+   * @param host The host to set, or nullptr to clear
+   * @return Reference to this builder for chaining
+   * @exception std::runtime_error if the host is invalid
+   *
+   * Example:
+   * @code{.cpp}
+   * builder.set_host("api.example.com");
+   * @endcode
+   */
+  UrlBuilder& set_host(std::optional<std::string> const& host);
+
+  /**
+   * @brief Set the port number
+   *
+   * @param port The port to set as string, or nullptr to use default
+   * @return Reference to this builder for chaining
+   * @exception std::runtime_error if the port is invalid
+   *
+   * Example:
+   * @code{.cpp}
+   * builder.set_port("8080");
+   * @endcode
+   */
+  UrlBuilder& set_port(std::optional<std::string> const& port);
+
+  /**
+   * @brief Set the path component
+   *
+   * @param path The path to set (should start with "/" for absolute paths)
+   * @param url_encode Whether to URL-encode the path (default: false)
+   * @return Reference to this builder for chaining
+   * @exception std::runtime_error if the path is invalid
+   *
+   * Example:
+   * @code{.cpp}
+   * builder.set_path("/api/v1/users");
+   * @endcode
+   */
+  UrlBuilder& set_path(std::optional<std::string> const& path);
+
+  /**
+   * @brief Set the entire query string
+   *
+   * @param query The query string (without leading "?"), or nullptr to clear
+   * @param url_encode Whether to URL-encode the query (default: false)
+   * @return Reference to this builder for chaining
+   * @exception std::runtime_error if the query is invalid
+   *
+   * Example:
+   * @code{.cpp}
+   * builder.set_query("page=1&limit=10");
+   * @endcode
+   */
+  UrlBuilder& set_query(std::optional<std::string> const& query);
+
+  /**
+   * @brief Set the fragment identifier
+   *
+   * @param fragment The fragment (without leading "#"), or nullptr to clear
+   * @param url_encode Whether to URL-encode the fragment (default: false)
+   * @return Reference to this builder for chaining
+   * @exception std::runtime_error if the fragment is invalid
+   *
+   * Example:
+   * @code{.cpp}
+   * builder.set_fragment("section-2");
+   * @endcode
+   */
+  UrlBuilder& set_fragment(std::optional<std::string> const& fragment);
+
+  /**
+   * @brief Build the final URL string
+   *
+   * @param bitmask_component_flags Optional flags for URL formatting. Common flags:
+   *  - CURLU_PUNYCODE: Convert host to punycode if needed
+   *  - CURLU_NO_DEFAULT_PORT: Include port even if it's the default for the scheme
+   * @return The complete URL string
+   * @exception std::runtime_error if the URL cannot be built
+   *
+   * Example:
+   * @code{.cpp}
+   * std::string url = builder.build();
+   * @endcode
+   */
+  std::string build(std::optional<unsigned int> bitmask_component_flags = std::nullopt) const;
+};
+
 class UrlEncoder {
  public:
-  static constexpr std::string aws_specially_handled_chars = []() {
-    char result[43] = {'&', '$', '@', '=', ';', ':', '+', ' ', ',', '?', '\x7F'};
-    for (int i = 0x00; i < 0x1F; ++i) {
-      result[11 + i] += i;
-    }
-    return std::string{result};
-  }();
+  static constexpr std::string aws_special_chars{"&$@=;:+ ,?"};
   static std::string encode_path(std::string_view path,
-                                 std::string_view chars_to_encode = aws_specially_handled_chars);
+                                 std::string_view chars_to_encode = aws_special_chars);
 };
 
 }  // namespace kvikio::detail

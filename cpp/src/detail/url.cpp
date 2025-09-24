@@ -143,6 +143,91 @@ UrlParser::UrlComponents UrlParser::parse(std::string const& url,
   return components;
 }
 
+UrlBuilder::UrlBuilder() {}
+
+UrlBuilder::UrlBuilder(std::string const& url, std::optional<unsigned int> bitmask_url_flags)
+{
+  if (!bitmask_url_flags.has_value()) { bitmask_url_flags = 0U; }
+
+  CHECK_CURL_URL_ERR(
+    curl_url_set(_handle.get(), CURLUPART_URL, url.c_str(), bitmask_url_flags.value()));
+}
+
+UrlBuilder::UrlBuilder(UrlParser::UrlComponents const& components,
+                       std::optional<unsigned int> bitmask_url_flags)
+{
+  // Start with an empty builder
+  // Set each component if present
+  if (components.scheme.has_value()) { set_scheme(components.scheme); }
+  if (components.host.has_value()) { set_host(components.host); }
+  if (components.port.has_value()) { set_port(components.port); }
+  if (components.path.has_value()) { set_path(components.path); }
+  if (components.query.has_value()) { set_query(components.query); }
+  if (components.fragment.has_value()) { set_fragment(components.fragment); }
+}
+
+UrlBuilder& UrlBuilder::set_component(CURLUPart part,
+                                      char const* value,
+                                      std::optional<unsigned int> flags)
+{
+  if (!flags.has_value()) { flags = 0U; }
+
+  CHECK_CURL_URL_ERR(curl_url_set(_handle.get(), part, value, flags.value()));
+  return *this;
+}
+
+UrlBuilder& UrlBuilder::set_scheme(std::optional<std::string> const& scheme)
+{
+  auto const* value = scheme.has_value() ? scheme.value().c_str() : nullptr;
+  return set_component(CURLUPART_SCHEME, value);
+}
+
+UrlBuilder& UrlBuilder::set_host(std::optional<std::string> const& host)
+{
+  auto const* value = host.has_value() ? host.value().c_str() : nullptr;
+  return set_component(CURLUPART_HOST, value);
+}
+
+UrlBuilder& UrlBuilder::set_port(std::optional<std::string> const& port)
+{
+  auto const* value = port.has_value() ? port.value().c_str() : nullptr;
+  return set_component(CURLUPART_PORT, value);
+}
+
+UrlBuilder& UrlBuilder::set_path(std::optional<std::string> const& path)
+{
+  auto const* value = path.has_value() ? path.value().c_str() : nullptr;
+  return set_component(CURLUPART_PATH, value);
+}
+
+UrlBuilder& UrlBuilder::set_query(std::optional<std::string> const& query)
+{
+  auto const* value = query.has_value() ? query.value().c_str() : nullptr;
+  return set_component(CURLUPART_QUERY, value);
+}
+
+UrlBuilder& UrlBuilder::set_fragment(std::optional<std::string> const& fragment)
+{
+  auto const* value = fragment.has_value() ? fragment.value().c_str() : nullptr;
+  return set_component(CURLUPART_FRAGMENT, value);
+}
+
+std::string UrlBuilder::build(std::optional<unsigned int> bitmask_component_flags) const
+{
+  if (!bitmask_component_flags.has_value()) { bitmask_component_flags = 0U; }
+
+  char* url = nullptr;
+  CHECK_CURL_URL_ERR(
+    curl_url_get(_handle.get(), CURLUPART_URL, &url, bitmask_component_flags.value()));
+
+  KVIKIO_EXPECT(
+    url != nullptr, "Failed to build URL: curl_url_get returned nullptr", std::runtime_error);
+
+  std::string result(url);
+  curl_free(url);
+  return result;
+}
+
 namespace {
 struct EncodingTable {
   std::array<unsigned char[4], 256> table;

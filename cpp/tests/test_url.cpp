@@ -19,6 +19,7 @@
 
 #include <kvikio/detail/url.hpp>
 #include <stdexcept>
+#include "kvikio/error.hpp"
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
@@ -63,12 +64,125 @@ TEST(UrlTest, parse_host)
   }
 }
 
+TEST(UrlTest, build_url)
+{
+  // Build a URL from scratch
+  {
+    std::string scheme{"https"};
+    std::string host{"api.example.com"};
+    std::string port{"8080"};
+    std::string path{"/v1/users"};
+    std::string query{"page=1&limit=10"};
+    std::string fragment{"results"};
+    std::stringstream ss;
+    ss << scheme << "://" << host << ":" << port << path << "?" << query << "#" << fragment;
+
+    auto url = kvikio::detail::UrlBuilder()
+                 .set_scheme("https")
+                 .set_host("api.example.com")
+                 .set_port("8080")
+                 .set_path("/v1/users")
+                 .set_query("page=1&limit=10")
+                 .set_fragment("results")
+                 .build();
+
+    EXPECT_EQ(url, ss.str());
+  }
+
+  // Modify an existing URL
+  {
+    std::string scheme_host{"https://api.example.com"};
+    std::string query{"page=1&limit=10"};
+
+    std::string old_path{"/old/path/file.txt"};
+    std::string new_path{"/new/path/document.pdf"};
+    std::string old_url          = scheme_host + old_path + "?" + query;
+    std::string expected_new_url = scheme_host + new_path + "?" + query;
+    auto actual_new_url          = kvikio::detail::UrlBuilder(old_url).set_path(new_path).build();
+    EXPECT_EQ(actual_new_url, expected_new_url);
+  }
+
+  // Build from parsed components
+  {
+    std::string scheme{"https"};
+    std::string host{"api.example.com"};
+    std::string path{"/v1/users"};
+    std::string query{"page=1&limit=10"};
+    std::stringstream ss;
+    ss << scheme << "://" << host << path << "?" << query;
+
+    // First parse an existing URL
+    auto components = kvikio::detail::UrlParser::parse(ss.str());
+
+    // Modify components
+    components.path = "/v2/api";
+    components.port = "443";
+
+    // Build new URL from modified components
+    auto actual_new_url = kvikio::detail::UrlBuilder(components).build();
+
+    // Expected URL
+    ss.str("");
+    ss << scheme << "://" << host << ":" << components.port.value() << components.path.value()
+       << "?" << query;
+
+    EXPECT_EQ(actual_new_url, ss.str());
+  }
+
+  // AWS S3-like URL
+  {
+    std::string path = "/my-bucket/&$@=;:+,.txt";
+    auto url = kvikio::detail::UrlBuilder("https://s3.region.amazonaws.com").set_path(path).build();
+    std::string encoded_path = kvikio::detail::UrlEncoder::encode_path(path);
+
+    auto actual_encoded_url = kvikio::detail::UrlBuilder(url).set_path(encoded_path).build();
+    std::string expected_encoded_url{
+      "https://s3.region.amazonaws.com/my-bucket/%26%24%40%3D%3B%3A%2B%2C.txt"};
+
+    std::transform(actual_encoded_url.begin(),
+                   actual_encoded_url.end(),
+                   actual_encoded_url.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
+    std::transform(expected_encoded_url.begin(),
+                   expected_encoded_url.end(),
+                   expected_encoded_url.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
+    EXPECT_EQ(actual_encoded_url, expected_encoded_url);
+  }
+}
+
 TEST(UrlTest, encode_url)
 {
-  // Path does not contain characters that require special handling
+  // Path does not contain characters that require special handling, so no character is encoded
   {
-    std::string expected{"abc123/!-_.*'().bin"};
-    auto actual = kvikio::detail::UrlEncoder::encode_path(expected);
-    EXPECT_EQ(expected, actual);
+    std::string original{"abc123/!-_.*'().bin"};
+    auto encoded = kvikio::detail::UrlEncoder::encode_path(original);
+    EXPECT_EQ(original, encoded);
+  }
+
+  // chars_to_encode is empty, so no character is encoded
+  {
+    std::string original{"abc123/!-_.*'()/&$@=;:+ ,?.bin"};
+    auto encoded = kvikio::detail::UrlEncoder::encode_path(original, {});
+    EXPECT_EQ(original, encoded);
+  }
+
+  // Test all characters mentioned by AWS documentation that require special handling
+  {
+    std::string const& input{kvikio::detail::UrlEncoder::aws_special_chars};
+    auto encoded = kvikio::detail::UrlEncoder::encode_path(input);
+
+    // Encoding is performed, changing the strings
+    EXPECT_NE(input, encoded);
+
+    auto* curl     = curl_easy_init();
+    auto* expected = curl_easy_escape(curl, input.data(), input.size());
+    EXPECT_NE(expected, nullptr);
+    EXPECT_EQ(encoded, std::string{expected});
+
+    curl_free(expected);
+    curl_easy_cleanup(curl);
   }
 }

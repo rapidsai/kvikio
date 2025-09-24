@@ -275,7 +275,10 @@ void HttpEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_st
 
 void S3Endpoint::setopt(CurlHandle& curl)
 {
-  curl.setopt(CURLOPT_URL, _url.c_str());
+  auto parsed_url   = detail::UrlParser::parse(_url, CURLU_NON_SUPPORT_SCHEME);
+  auto encoded_path = detail::UrlEncoder::encode_path(parsed_url.path.value());
+  curl.setopt(CURLOPT_URL, encoded_path.c_str());
+
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
   if (_curl_header_list) { curl.setopt(CURLOPT_HTTPHEADER, _curl_header_list); }
@@ -452,7 +455,12 @@ S3PublicEndpoint::S3PublicEndpoint(std::string url)
 {
 }
 
-void S3PublicEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_str()); }
+void S3PublicEndpoint::setopt(CurlHandle& curl)
+{
+  auto parsed_url   = detail::UrlParser::parse(_url, CURLU_NON_SUPPORT_SCHEME);
+  auto encoded_path = detail::UrlEncoder::encode_path(parsed_url.path.value());
+  curl.setopt(CURLOPT_URL, encoded_path.c_str());
+}
 
 std::string S3PublicEndpoint::str() const { return _url; }
 
