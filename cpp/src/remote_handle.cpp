@@ -228,6 +228,13 @@ char const* get_remote_endpoint_type_name(RemoteEndpointType remote_endpoint_typ
       return "UNKNOWN";
   }
 }
+
+std::string encode_special_chars_in_path(std::string const& url)
+{
+  auto components = detail::UrlParser::parse(url);
+  components.path = detail::UrlEncoder::encode_path(components.path.value());
+  return detail::UrlBuilder::build_manually(components);
+}
 }  // namespace
 
 RemoteEndpoint::RemoteEndpoint(RemoteEndpointType remote_endpoint_type)
@@ -275,9 +282,8 @@ void HttpEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_st
 
 void S3Endpoint::setopt(CurlHandle& curl)
 {
-  auto parsed_url   = detail::UrlParser::parse(_url);
-  auto encoded_path = detail::UrlEncoder::encode_path(parsed_url.path.value());
-  curl.setopt(CURLOPT_URL, encoded_path.c_str());
+  auto new_url = encode_special_chars_in_path(_url);
+  curl.setopt(CURLOPT_URL, new_url.c_str());
 
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
@@ -457,9 +463,8 @@ S3PublicEndpoint::S3PublicEndpoint(std::string url)
 
 void S3PublicEndpoint::setopt(CurlHandle& curl)
 {
-  auto parsed_url   = detail::UrlParser::parse(_url);
-  auto encoded_path = detail::UrlEncoder::encode_path(parsed_url.path.value());
-  curl.setopt(CURLOPT_URL, encoded_path.c_str());
+  auto new_url = encode_special_chars_in_path(_url);
+  curl.setopt(CURLOPT_URL, new_url.c_str());
 }
 
 std::string S3PublicEndpoint::str() const { return _url; }

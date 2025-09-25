@@ -228,6 +228,18 @@ std::string UrlBuilder::build(std::optional<unsigned int> bitmask_component_flag
   return result;
 }
 
+std::string UrlBuilder::build_manually(UrlParser::UrlComponents const& components)
+{
+  std::string url;
+  if (components.scheme) { url += components.scheme.value() + "://"; }
+  if (components.host) { url += components.host.value(); }
+  if (components.port) { url += ":" + components.port.value(); }
+  if (components.path) { url += components.path.value(); }
+  if (components.query) { url += "?" + components.query.value(); }
+  if (components.fragment) { url += "#" + components.fragment.value(); }
+  return url;
+}
+
 namespace {
 struct EncodingTable {
   std::array<unsigned char[4], 256> table;
@@ -235,10 +247,14 @@ struct EncodingTable {
   {
     char const num_to_chars[] = "0123456789ABCDEF";
     for (uint16_t idx = 0U; idx < table.size(); ++idx) {
-      table[idx][0] = '%';
-      table[idx][1] = num_to_chars[idx >> 4];
-      table[idx][2] = num_to_chars[idx & 0x0F];
-      table[idx][3] = '\0';
+      if (idx < 128) {
+        table[idx][0] = '%';
+        table[idx][1] = num_to_chars[idx >> 4];
+        table[idx][2] = num_to_chars[idx & 0x0F];
+        table[idx][3] = '\0';
+      } else {
+        table[idx][0] = '\0';
+      }
     }
   }
 };

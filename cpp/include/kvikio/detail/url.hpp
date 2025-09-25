@@ -371,11 +371,13 @@ class UrlBuilder {
    * @endcode
    */
   std::string build(std::optional<unsigned int> bitmask_component_flags = std::nullopt) const;
+
+  static std::string build_manually(UrlParser::UrlComponents const& components);
 };
 
 class UrlEncoder {
  public:
-  static constexpr std::string aws_special_chars{"&$@=;:+ ,?"};
+  static constexpr char aws_special_chars[] = {"!*'()&$@=;:+ ,?"};
   static std::string encode_path(std::string_view path,
                                  std::string_view chars_to_encode = aws_special_chars);
 };
