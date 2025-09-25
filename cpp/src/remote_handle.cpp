@@ -275,7 +275,7 @@ void HttpEndpoint::setopt(CurlHandle& curl) { curl.setopt(CURLOPT_URL, _url.c_st
 
 void S3Endpoint::setopt(CurlHandle& curl)
 {
-  auto parsed_url   = detail::UrlParser::parse(_url, CURLU_NON_SUPPORT_SCHEME);
+  auto parsed_url   = detail::UrlParser::parse(_url);
   auto encoded_path = detail::UrlEncoder::encode_path(parsed_url.path.value());
   curl.setopt(CURLOPT_URL, encoded_path.c_str());
 
@@ -457,7 +457,7 @@ S3PublicEndpoint::S3PublicEndpoint(std::string url)
 
 void S3PublicEndpoint::setopt(CurlHandle& curl)
 {
-  auto parsed_url   = detail::UrlParser::parse(_url, CURLU_NON_SUPPORT_SCHEME);
+  auto parsed_url   = detail::UrlParser::parse(_url);
   auto encoded_path = detail::UrlEncoder::encode_path(parsed_url.path.value());
   curl.setopt(CURLOPT_URL, encoded_path.c_str());
 }

@@ -151,9 +151,10 @@ class UrlParser {
    *     CURLU_URLDECODE
    * );
    *
-   * // Allow non-standard schemes
+   * // Allow non-standard schemes, i.e. schemes not registered with Internet Assigned Numbers
+   * // Authority (IANA), such as AWS S3
    * auto custom = UrlParser::parse(
-   *     "myscheme://example.com",
+   *     "s3://my-bucket/my-object.bin",
    *     CURLU_NON_SUPPORT_SCHEME
    * );
    * @endcode
