@@ -125,16 +125,24 @@ class RemoteFile:
         bucket_name: str,
         object_name: str,
         nbytes: Optional[int] = None,
+        region_name: Optional[str] = None,
+        access_key_id: Optional[str] = None,
+        secret_access_key: Optional[str] = None,
+        endpoint_url: Optional[str] = None,
+        session_token: Optional[str] = None,
     ) -> RemoteFile:
         """Open a AWS S3 file from a bucket name and object name.
 
-        Please make sure to set the AWS environment variables:
-          - `AWS_DEFAULT_REGION`
-          - `AWS_ACCESS_KEY_ID`
-          - `AWS_SECRET_ACCESS_KEY`
-          - `AWS_SESSION_TOKEN` (when using temporary credentials)
+        AWS credentials can be provided as keyword arguments or through
+        environment variables:
+          - `AWS_DEFAULT_REGION` (or region_name parameter)
+          - `AWS_ACCESS_KEY_ID` (or access_key_id parameter)
+          - `AWS_SECRET_ACCESS_KEY` (or secret_access_key parameter)
+          - `AWS_SESSION_TOKEN` (or session_token parameter,
+             when using temporary credentials)
 
-        Additionally, to overwrite the AWS endpoint, set `AWS_ENDPOINT_URL`.
+        Additionally, to overwrite the AWS endpoint, set `AWS_ENDPOINT_URL`
+        (or endpoint_url parameter).
         See <https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html>
 
         Parameters
@@ -146,9 +154,36 @@ class RemoteFile:
         nbytes
             The size of the file. If None, KvikIO will ask the server
             for the file size.
+        aws_region
+            The AWS region, such as "us-east-1", to use. If None, the value of the
+            `AWS_DEFAULT_REGION` environment variable is used.
+        aws_access_key
+            The AWS access key to use. If None, the value of the
+            `AWS_ACCESS_KEY_ID` environment variable is used.
+        aws_secret_access_key
+            The AWS secret access key to use. If None, the value of the
+            `AWS_SECRET_ACCESS_KEY` environment variable is used.
+        aws_endpoint_url
+            Overwrite the endpoint url (including the protocol part) by using
+            the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If None,
+            the value of the `AWS_ENDPOINT_URL` environment variable is used. If
+            this is also not set, the regular AWS url scheme is used:
+            "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
+        aws_session_token
+            The AWS session token to use. If None, the value of the
+            `AWS_SESSION_TOKEN` environment variable is used.
         """
         return cls(
-            _get_remote_module().RemoteFile.open_s3(bucket_name, object_name, nbytes)
+            _get_remote_module().RemoteFile.open_s3(
+                bucket_name,
+                object_name,
+                nbytes,
+                region_name,
+                access_key_id,
+                secret_access_key,
+                endpoint_url,
+                session_token,
+            )
         )
 
     @classmethod
@@ -156,6 +191,11 @@ class RemoteFile:
         cls,
         url: str,
         nbytes: Optional[int] = None,
+        region_name: Optional[str] = None,
+        access_key_id: Optional[str] = None,
+        secret_access_key: Optional[str] = None,
+        endpoint_url: Optional[str] = None,
+        session_token: Optional[str] = None,
     ) -> RemoteFile:
         """Open a AWS S3 file from an URL.
 
@@ -163,14 +203,16 @@ class RemoteFile:
           - A full http url such as "http://127.0.0.1/my/file", or
           - A S3 url such as "s3://<bucket>/<object>".
 
-        Please make sure to set the AWS environment variables:
-          - `AWS_DEFAULT_REGION`
-          - `AWS_ACCESS_KEY_ID`
-          - `AWS_SECRET_ACCESS_KEY`
-          - `AWS_SESSION_TOKEN` (when using temporary credentials)
+        AWS credentials can be provided as keyword arguments or through
+        environment variables:
+          - `AWS_DEFAULT_REGION` (or region_name parameter)
+          - `AWS_ACCESS_KEY_ID` (or access_key_id parameter)
+          - `AWS_SECRET_ACCESS_KEY` (or secret_access_key parameter)
+          - `AWS_SESSION_TOKEN` (or session_token parameter, when using
+             temporary credentials)
 
         Additionally, if `url` is a S3 url, it is possible to overwrite the AWS endpoint
-        by setting `AWS_ENDPOINT_URL`.
+        by setting `AWS_ENDPOINT_URL` (or endpoint_url parameter).
         See <https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html>
 
         Parameters
@@ -180,14 +222,49 @@ class RemoteFile:
         nbytes
             The size of the file. If None, KvikIO will ask the server
             for the file size.
+        aws_region
+            The AWS region, such as "us-east-1", to use. If None, the value of the
+            `AWS_DEFAULT_REGION` environment variable is used.
+        aws_access_key
+            The AWS access key to use. If None, the value of the
+            `AWS_ACCESS_KEY_ID` environment variable is used.
+        aws_secret_access_key
+            The AWS secret access key to use. If None, the value of the
+            `AWS_SECRET_ACCESS_KEY` environment variable is used.
+        aws_endpoint_url
+            Overwrite the endpoint url (including the protocol part) by using
+            the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If None,
+            the value of the `AWS_ENDPOINT_URL` environment variable is used. If
+            this is also not set, the regular AWS url scheme is used:
+            "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
+        aws_session_token
+            The AWS session token to use. If None, the value of the
+            `AWS_SESSION_TOKEN` environment variable is used.
         """
         parsed_result = urllib.parse.urlparse(url.lower())
         if parsed_result.scheme in ("http", "https"):
             return cls(
-                _get_remote_module().RemoteFile.open_s3_from_http_url(url, nbytes)
+                _get_remote_module().RemoteFile.open_s3_from_http_url(
+                    url,
+                    nbytes,
+                    region_name,
+                    access_key_id,
+                    secret_access_key,
+                    session_token,
+                )
             )
         if parsed_result.scheme == "s3":
-            return cls(_get_remote_module().RemoteFile.open_s3_from_s3_url(url, nbytes))
+            return cls(
+                _get_remote_module().RemoteFile.open_s3_from_s3_url(
+                    url,
+                    nbytes,
+                    region_name,
+                    access_key_id,
+                    secret_access_key,
+                    endpoint_url,
+                    session_token,
+                )
+            )
         raise ValueError(f"Unsupported protocol: {url}")
 
     @classmethod
