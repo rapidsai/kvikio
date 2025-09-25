@@ -241,6 +241,13 @@ std::string UrlBuilder::build_manually(UrlParser::UrlComponents const& component
 }
 
 namespace {
+/**
+ * @brief Compile-time encoding lookup table
+ *
+ * ASCII characters will be percent-encoded. For example, = has a hexadecimal value of 3D, and the
+ * encoding result is %3D. Characters outside the ASCII region are encoded to NUL and map to an
+ * empty std::string.
+ */
 struct EncodingTable {
   std::array<unsigned char[4], 256> table;
   constexpr EncodingTable() : table{}
@@ -266,14 +273,18 @@ std::string UrlEncoder::encode_path(std::string_view path, std::string_view char
 
   std::array<bool, 256> should_encode{};
   for (auto const c : chars_to_encode) {
-    should_encode[c] = true;
+    std::size_t idx    = static_cast<unsigned char>(c);
+    should_encode[idx] = true;
   }
 
   std::string result;
   for (auto const c : path) {
-    if (should_encode[c]) {
-      result += std::string{reinterpret_cast<char const*>(encoding_table.table[c])};
+    std::size_t idx = static_cast<unsigned char>(c);
+    if (should_encode[idx]) {
+      // If the character is within chars_to_encode, encode it
+      result += std::string{reinterpret_cast<char const*>(encoding_table.table[idx])};
     } else {
+      // Otherwise, pass it through
       result += c;
     }
   }

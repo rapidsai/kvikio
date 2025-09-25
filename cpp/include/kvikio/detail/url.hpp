@@ -375,9 +375,62 @@ class UrlBuilder {
   static std::string build_manually(UrlParser::UrlComponents const& components);
 };
 
+/**
+ * @brief Provides URL encoding functionality
+ *
+ * The AWS object naming documentation
+ * (https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html) lists several
+ * types of special characters. In practice, handling them using libcurl is complex and described
+ * below.
+ *
+ *  - Special characters that are safe for use in key names: "!-_.*'()" KvikIO includes !*'() in
+ * `aws_special_chars`, because for private bucket they cause AWS authentication by libcurl to fail
+ *
+ *  - Characters that might require special handling: "&$@=;/:+ ,? and 0-31, 127 ASCII
+ * characters". For /, KvikIO does not include it in `aws_special_chars`, because it can be legally
+ * used as a path separator. For the space character and ?, although KvikIO has them in
+ * `aws_special_chars`, users must manually percent encode them to %20 and %3F, respectively.
+ * Otherwise, the space character will be considered malformed by libcurl, and ? cause ambiguity
+ * with the query string. For =, it must be manually encoded to %3D when using a private bucket.
+ * Otherwise, AWS authentication by libcurl will fail.
+ *
+ *  - Characters to avoid: "\{^}%`]">[~<#| and 128-255 non-ASCII characters". KvikIO recommends
+ * users avoiding these characters in the URL. They are not included in `aws_special_chars`.
+ *
+ */
 class UrlEncoder {
  public:
+  /**
+   * @brief Default set of special characters requiring encoding in AWS URLs
+   */
   static constexpr char aws_special_chars[] = {"!*'()&$@=;:+ ,?"};
+
+  /**
+   * @brief Percent-encodes specified characters in a URL path
+   *
+   * Performs percent-encoding (RFC 3986) on a given path string, encoding only the characters
+   * specified in the chars_to_encode parameter. Each encoded character is replaced with its
+   * percent-encoded equivalent (%XX where XX is the hexadecimal representation of the character).
+   *
+   * Only ASCII characters (0-127) are supported for encoding. Non-ASCII characters in
+   * chars_to_encode will be encoded to an empty string. Characters not in chars_to_encode are
+   * passed through unchanged.
+   *
+   * @param path The path string to encode
+   * @param chars_to_encode Set of characters that should be encoded (defaults to aws_special_chars)
+   *
+   * @return A new string with specified characters percent-encoded
+   *
+   * @code{.cpp}
+   * // Example usage with default AWS special characters
+   * std::string encoded = UrlEncoder::encode_path("/path/ with spaces");
+   * // Result: "/path/%20with%20spaces"
+   *
+   * // Example with custom character set
+   * std::string encoded = UrlEncoder::encode_path("hello/world", "/");
+   * // Result: "hello%2Fworld"
+   * @endcode
+   */
   static std::string encode_path(std::string_view path,
                                  std::string_view chars_to_encode = aws_special_chars);
 };

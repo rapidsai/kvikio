@@ -186,11 +186,55 @@ TEST(UrlTest, build_url)
   }
 }
 
+TEST(UrlTest, encoding_table)
+{
+  // Look up the reserved characters (RFC 3986 section 2.2) in the encoding table
+  {
+    std::string special_chars{"!#$&\'()*+,/:;=?@[]"};
+    std::string expected_result{"%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D"};
+    // First parameter: string containing special characters
+    // Second parameter: a sequence of special characters to be encoded
+    std::string actual_result =
+      kvikio::detail::UrlEncoder::encode_path(special_chars, special_chars);
+    EXPECT_EQ(actual_result, expected_result);
+  }
+
+  // Check a few samples from the encoding table. Out-of-bound characters (beyond ASCII table) are
+  // expected to be encoded to empty strings.
+  {
+    std::array<unsigned char, 6> input{0,  // First ASCII char NUL
+                                       '\x3D',
+                                       127,  // Last ASCII char DEL
+                                       128,  // Out-of-bound chars
+                                       200,
+                                       255};
+    std::array<std::string, sizeof(input)> expected_results{"%00",
+                                                            "%3D",
+                                                            "%7F"
+                                                            "",
+                                                            "",
+                                                            ""};
+    for (std::size_t i = 0; i < input.size(); ++i) {
+      std::string s{static_cast<char>(input[i])};
+      std::string actual_result = kvikio::detail::UrlEncoder::encode_path(s, s);
+      EXPECT_EQ(actual_result, expected_results[i]);
+    }
+  }
+
+  // Check out-of-bound characters
+  {
+    unsigned char out_of_bound_chars[] = {128, 200, 255};
+    std::string_view sv{reinterpret_cast<char*>(out_of_bound_chars)};
+    std::string result = kvikio::detail::UrlEncoder::encode_path(sv, sv);
+    EXPECT_EQ(result, "");
+  }
+}
+
 TEST(UrlTest, encode_url)
 {
   // Path does not contain characters that require special handling, so no character is encoded
   {
-    std::string original{"abc123/!-_.*'().bin"};
+    std::string original{"abc123/-_..bin"};
     auto encoded = kvikio::detail::UrlEncoder::encode_path(original);
     EXPECT_EQ(original, encoded);
   }
@@ -217,5 +261,9 @@ TEST(UrlTest, encode_url)
 
     curl_free(expected);
     curl_easy_cleanup(curl);
+
+    // aws_special_chars does not contain %, so another encoding is expected to not alter anything
+    auto double_encoded = kvikio::detail::UrlEncoder::encode_path(encoded);
+    EXPECT_EQ(encoded, double_encoded);
   }
 }
