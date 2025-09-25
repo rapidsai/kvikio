@@ -135,11 +135,12 @@ class RemoteFile:
 
         AWS credentials can be provided as keyword arguments or through
         environment variables:
-          - `AWS_DEFAULT_REGION` (or region_name parameter)
-          - `AWS_ACCESS_KEY_ID` (or access_key_id parameter)
-          - `AWS_SECRET_ACCESS_KEY` (or secret_access_key parameter)
-          - `AWS_SESSION_TOKEN` (or session_token parameter,
-             when using temporary credentials)
+
+        - ``AWS_DEFAULT_REGION`` (or region_name parameter)
+        - ``AWS_ACCESS_KEY_ID`` (or access_key_id parameter)
+        - ``AWS_SECRET_ACCESS_KEY`` (or secret_access_key parameter)
+        - ``AWS_SESSION_TOKEN`` (or session_token parameter, when using
+          temporary credentials)
 
         Additionally, to overwrite the AWS endpoint, set `AWS_ENDPOINT_URL`
         (or endpoint_url parameter).
@@ -205,11 +206,12 @@ class RemoteFile:
 
         AWS credentials can be provided as keyword arguments or through
         environment variables:
-          - `AWS_DEFAULT_REGION` (or region_name parameter)
-          - `AWS_ACCESS_KEY_ID` (or access_key_id parameter)
-          - `AWS_SECRET_ACCESS_KEY` (or secret_access_key parameter)
-          - `AWS_SESSION_TOKEN` (or session_token parameter, when using
-             temporary credentials)
+
+        - ``AWS_DEFAULT_REGION`` (or region_name parameter)
+        - ``AWS_ACCESS_KEY_ID`` (or access_key_id parameter)
+        - ``AWS_SECRET_ACCESS_KEY`` (or secret_access_key parameter)
+        - ``AWS_SESSION_TOKEN`` (or session_token parameter, when using
+          temporary credentials)
 
         Additionally, if `url` is a S3 url, it is possible to overwrite the AWS endpoint
         by setting `AWS_ENDPOINT_URL` (or endpoint_url parameter).
