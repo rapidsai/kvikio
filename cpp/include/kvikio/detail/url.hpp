@@ -232,7 +232,7 @@ class UrlBuilder {
    * @brief Internal helper to set a URL component
    *
    * @param part The URL part to set
-   * @param value The value to set (nullptr to clear)
+   * @param value The value to set. Use `nullptr` to clear
    * @param flags Optional flags for the operation
    * @return Reference to this builder for chaining
    * @exception std::runtime_error if the operation fails
@@ -274,7 +274,7 @@ class UrlBuilder {
   /**
    * @brief Set the URL scheme (e.g., "http", "https", "ftp")
    *
-   * @param scheme The scheme to set, or nullptr to clear
+   * @param scheme The scheme to set. Use `std::nullopt` to clear
    * @return Reference to this builder for chaining
    * @exception std::runtime_error if the scheme is invalid
    *
@@ -288,7 +288,7 @@ class UrlBuilder {
   /**
    * @brief Set the hostname or IP address
    *
-   * @param host The host to set, or nullptr to clear
+   * @param host The host to set. Use `std::nullopt` to clear
    * @return Reference to this builder for chaining
    * @exception std::runtime_error if the host is invalid
    *
@@ -302,7 +302,7 @@ class UrlBuilder {
   /**
    * @brief Set the port number
    *
-   * @param port The port to set as string, or nullptr to use default
+   * @param port The port to set as string. Use `std::nullopt` to clear
    * @return Reference to this builder for chaining
    * @exception std::runtime_error if the port is invalid
    *
@@ -316,8 +316,8 @@ class UrlBuilder {
   /**
    * @brief Set the path component
    *
-   * @param path The path to set (should start with "/" for absolute paths)
-   * @param url_encode Whether to URL-encode the path (default: false)
+   * @param path The path to set (should start with "/" for absolute paths). Use `std::nullopt` to
+   * clear
    * @return Reference to this builder for chaining
    * @exception std::runtime_error if the path is invalid
    *
@@ -331,8 +331,7 @@ class UrlBuilder {
   /**
    * @brief Set the entire query string
    *
-   * @param query The query string (without leading "?"), or nullptr to clear
-   * @param url_encode Whether to URL-encode the query (default: false)
+   * @param query The query string (without leading "?"). Use `std::nullopt` to clear
    * @return Reference to this builder for chaining
    * @exception std::runtime_error if the query is invalid
    *
@@ -346,8 +345,7 @@ class UrlBuilder {
   /**
    * @brief Set the fragment identifier
    *
-   * @param fragment The fragment (without leading "#"), or nullptr to clear
-   * @param url_encode Whether to URL-encode the fragment (default: false)
+   * @param fragment The fragment (without leading "#"). Use `std::nullopt` to clear
    * @return Reference to this builder for chaining
    * @exception std::runtime_error if the fragment is invalid
    *

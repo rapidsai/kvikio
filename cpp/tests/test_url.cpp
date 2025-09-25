@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 
 #include <kvikio/detail/url.hpp>
+#include <kvikio/error.hpp>
 #include <stdexcept>
-#include "kvikio/error.hpp"
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
@@ -77,16 +77,32 @@ TEST(UrlTest, build_url)
     std::stringstream ss;
     ss << scheme << "://" << host << ":" << port << path << "?" << query << "#" << fragment;
 
-    auto url = kvikio::detail::UrlBuilder()
-                 .set_scheme("https")
-                 .set_host("api.example.com")
-                 .set_port("8080")
-                 .set_path("/v1/users")
-                 .set_query("page=1&limit=10")
-                 .set_fragment("results")
-                 .build();
+    {
+      auto url = kvikio::detail::UrlBuilder()
+                   .set_scheme("https")
+                   .set_host("api.example.com")
+                   .set_port("8080")
+                   .set_path("/v1/users")
+                   .set_query("page=1&limit=10")
+                   .set_fragment("results")
+                   .build();
 
-    EXPECT_EQ(url, ss.str());
+      EXPECT_EQ(url, ss.str());
+    }
+
+    // The components do not have to be specified in their correct order
+    {
+      auto url = kvikio::detail::UrlBuilder()
+                   .set_fragment("results")
+                   .set_scheme("https")
+                   .set_path("/v1/users")
+                   .set_host("api.example.com")
+                   .set_query("page=1&limit=10")
+                   .set_port("8080")
+                   .build();
+
+      EXPECT_EQ(url, ss.str());
+    }
   }
 
   // Modify an existing URL
@@ -96,9 +112,26 @@ TEST(UrlTest, build_url)
 
     std::string old_path{"/old/path/file.txt"};
     std::string new_path{"/new/path/document.pdf"};
-    std::string old_url          = scheme_host + old_path + "?" + query;
-    std::string expected_new_url = scheme_host + new_path + "?" + query;
-    auto actual_new_url          = kvikio::detail::UrlBuilder(old_url).set_path(new_path).build();
+
+    // Modify the path
+    {
+      std::string old_url          = scheme_host + old_path + "?" + query;
+      std::string expected_new_url = scheme_host + new_path + "?" + query;
+
+      auto actual_new_url = kvikio::detail::UrlBuilder(old_url).set_path(new_path).build();
+      EXPECT_EQ(actual_new_url, expected_new_url);
+    }
+
+    // Modify the path and add the query
+    std::string port{"8080"};
+    std::string old_url          = scheme_host + old_path;
+    std::string expected_new_url = scheme_host + ":" + port + new_path + "?" + query;
+
+    auto actual_new_url = kvikio::detail::UrlBuilder(old_url)
+                            .set_port(port)
+                            .set_path(new_path)
+                            .set_query(query)
+                            .build();
     EXPECT_EQ(actual_new_url, expected_new_url);
   }
 
