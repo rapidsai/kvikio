@@ -251,7 +251,7 @@ TEST(UrlTest, encode_url)
     std::string const& input{kvikio::detail::UrlEncoder::aws_special_chars};
     auto encoded = kvikio::detail::UrlEncoder::encode_path(input);
 
-    // Encoding is performed, changing the strings
+    // Encoding is performed, so the string is expected to be changed
     EXPECT_NE(input, encoded);
 
     auto* curl     = curl_easy_init();
@@ -262,7 +262,7 @@ TEST(UrlTest, encode_url)
     curl_free(expected);
     curl_easy_cleanup(curl);
 
-    // aws_special_chars does not contain %, so another encoding is expected to not alter anything
+    // aws_special_chars does not contain %, so double encoding is expected to not alter anything
     auto double_encoded = kvikio::detail::UrlEncoder::encode_path(encoded);
     EXPECT_EQ(encoded, double_encoded);
   }
