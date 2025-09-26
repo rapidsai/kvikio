@@ -102,7 +102,7 @@ cdef pair[string, string] _to_string_pair(str s1, str s2):
     """Wrap two Python string objects in a C++ pair"""
     return pair[string, string](_to_string(s1), _to_string(s2))
 
-cdef optional[string] _to_optional_string(Optional[str] s):
+cdef optional[string] _to_optional_string(str s):
     """Convert Python object to a C++ optional string (if None, return nullopt)"""
     cdef optional[string] result
     if s is None:
