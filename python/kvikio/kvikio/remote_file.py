@@ -125,11 +125,11 @@ class RemoteFile:
         bucket_name: str,
         object_name: str,
         nbytes: Optional[int] = None,
-        region_name: Optional[str] = None,
-        access_key_id: Optional[str] = None,
-        secret_access_key: Optional[str] = None,
-        endpoint_url: Optional[str] = None,
-        session_token: Optional[str] = None,
+        aws_region_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_endpoint_url: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
     ) -> RemoteFile:
         """Open a AWS S3 file from a bucket name and object name.
 
@@ -179,11 +179,11 @@ class RemoteFile:
                 bucket_name,
                 object_name,
                 nbytes,
-                region_name,
-                access_key_id,
-                secret_access_key,
-                endpoint_url,
-                session_token,
+                aws_region_name,
+                aws_access_key_id,
+                aws_secret_access_key,
+                aws_endpoint_url,
+                aws_session_token,
             )
         )
 
@@ -192,10 +192,10 @@ class RemoteFile:
         cls,
         url: str,
         nbytes: Optional[int] = None,
-        region_name: Optional[str] = None,
-        access_key_id: Optional[str] = None,
-        secret_access_key: Optional[str] = None,
-        endpoint_url: Optional[str] = None,
+        aws_region_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_endpoint_url: Optional[str] = None,
         session_token: Optional[str] = None,
     ) -> RemoteFile:
         """Open a AWS S3 file from an URL.
@@ -249,9 +249,9 @@ class RemoteFile:
                 _get_remote_module().RemoteFile.open_s3_from_http_url(
                     url,
                     nbytes,
-                    region_name,
-                    access_key_id,
-                    secret_access_key,
+                    aws_region_name,
+                    aws_access_key_id,
+                    aws_secret_access_key,
                     session_token,
                 )
             )
@@ -260,10 +260,10 @@ class RemoteFile:
                 _get_remote_module().RemoteFile.open_s3_from_s3_url(
                     url,
                     nbytes,
-                    region_name,
-                    access_key_id,
-                    secret_access_key,
-                    endpoint_url,
+                    aws_region_name,
+                    aws_access_key_id,
+                    aws_secret_access_key,
+                    aws_endpoint_url,
                     session_token,
                 )
             )

@@ -34,7 +34,6 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
         cpp_HttpEndpoint(string url) except +
 
     cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint"(cpp_RemoteEndpoint):
-        cpp_S3Endpoint(string url) except +
         cpp_S3Endpoint(
             string url,
             optional[string] aws_region,
@@ -42,7 +41,6 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
             optional[string] aws_secret_access_key,
             optional[string] aws_session_token
         ) except +
-        cpp_S3Endpoint(pair[string, string] bucket_and_object_names) except +
         cpp_S3Endpoint(
             pair[string, string] bucket_and_object_names,
             optional[string] aws_region,
@@ -192,21 +190,25 @@ cdef class RemoteFile:
         bucket_name: str,
         object_name: str,
         nbytes: Optional[int],
-        region_name: Optional[str] = None,
-        access_key_id: Optional[str] = None,
-        secret_access_key: Optional[str] = None,
-        endpoint_url: Optional[str] = None,
+        aws_region_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_endpoint_url: Optional[str] = None,
         session_token: Optional[str] = None,
     ):
         cdef pair[string, string] bucket_and_object_names = _to_string_pair(
             bucket_name, object_name
         )
-        cdef optional[string] cpp_aws_region = _to_optional_string(region_name)
-        cdef optional[string] cpp_aws_access_key = _to_optional_string(access_key_id)
-        cdef optional[string] cpp_aws_secret_access_key = (
-            _to_optional_string(secret_access_key)
+        cdef optional[string] cpp_aws_region = _to_optional_string(aws_region_name)
+        cdef optional[string] cpp_aws_access_key = _to_optional_string(
+            aws_access_key_id
         )
-        cdef optional[string] cpp_aws_endpoint_url = _to_optional_string(endpoint_url)
+        cdef optional[string] cpp_aws_secret_access_key = (
+            _to_optional_string(aws_secret_access_key)
+        )
+        cdef optional[string] cpp_aws_endpoint_url = _to_optional_string(
+            aws_endpoint_url
+        )
         cdef optional[string] cpp_aws_session_token = _to_optional_string(session_token)
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
@@ -231,18 +233,22 @@ cdef class RemoteFile:
     def open_s3_from_http_url(
         url: str,
         nbytes: Optional[int],
-        region_name: Optional[str] = None,
-        access_key_id: Optional[str] = None,
-        secret_access_key: Optional[str] = None,
+        aws_region_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
         session_token: Optional[str] = None,
     ):
         cdef string cpp_url = _to_string(url)
-        cdef optional[string] cpp_aws_region = _to_optional_string(region_name)
-        cdef optional[string] cpp_aws_access_key = _to_optional_string(access_key_id)
-        cdef optional[string] cpp_aws_secret_access_key = (
-            _to_optional_string(secret_access_key)
+        cdef optional[string] cpp_aws_region = _to_optional_string(aws_region_name)
+        cdef optional[string] cpp_aws_access_key = _to_optional_string(
+            aws_access_key_id
         )
-        cdef optional[string] cpp_aws_session_token = _to_optional_string(session_token)
+        cdef optional[string] cpp_aws_secret_access_key = (
+            _to_optional_string(aws_secret_access_key)
+        )
+        cdef optional[string] cpp_aws_session_token = _to_optional_string(
+            session_token
+        )
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
         with nogil:
@@ -265,21 +271,27 @@ cdef class RemoteFile:
     def open_s3_from_s3_url(
         url: str,
         nbytes: Optional[int],
-        region_name: Optional[str] = None,
-        access_key_id: Optional[str] = None,
-        secret_access_key: Optional[str] = None,
-        endpoint_url: Optional[str] = None,
+        aws_region_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_endpoint_url: Optional[str] = None,
         session_token: Optional[str] = None,
     ):
         cdef string cpp_url = _to_string(url)
         cdef pair[string, string] bucket_and_object_names
-        cdef optional[string] cpp_aws_region = _to_optional_string(region_name)
-        cdef optional[string] cpp_aws_access_key = _to_optional_string(access_key_id)
-        cdef optional[string] cpp_aws_secret_access_key = (
-            _to_optional_string(secret_access_key)
+        cdef optional[string] cpp_aws_region = _to_optional_string(aws_region_name)
+        cdef optional[string] cpp_aws_access_key = _to_optional_string(
+            aws_access_key_id
         )
-        cdef optional[string] cpp_aws_endpoint_url = _to_optional_string(endpoint_url)
-        cdef optional[string] cpp_aws_session_token = _to_optional_string(session_token)
+        cdef optional[string] cpp_aws_secret_access_key = (
+            _to_optional_string(aws_secret_access_key)
+        )
+        cdef optional[string] cpp_aws_endpoint_url = _to_optional_string(
+            aws_endpoint_url
+        )
+        cdef optional[string] cpp_aws_session_token = _to_optional_string(
+            session_token
+        )
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
         with nogil:
