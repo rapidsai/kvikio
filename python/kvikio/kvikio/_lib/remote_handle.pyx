@@ -23,9 +23,10 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cpdef enum class RemoteEndpointType(uint8_t):
         AUTO = 0
         S3 = 1
-        S3_PRESIGNED_URL = 2
-        WEBHDFS = 3
-        HTTP = 4
+        S3_PUBLIC = 2
+        S3_PRESIGNED_URL = 3
+        WEBHDFS = 4
+        HTTP = 5
     cdef cppclass cpp_RemoteEndpoint "kvikio::RemoteEndpoint":
         string str() except +
 
@@ -33,11 +34,27 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
         cpp_HttpEndpoint(string url) except +
 
     cdef cppclass cpp_S3Endpoint "kvikio::S3Endpoint"(cpp_RemoteEndpoint):
-        cpp_S3Endpoint(string url) except +
-        cpp_S3Endpoint(pair[string, string] bucket_and_object_names) except +
+        cpp_S3Endpoint(
+            string url,
+            optional[string] aws_region,
+            optional[string] aws_access_key,
+            optional[string] aws_secret_access_key,
+            optional[string] aws_session_token
+        ) except +
+        cpp_S3Endpoint(
+            pair[string, string] bucket_and_object_names,
+            optional[string] aws_region,
+            optional[string] aws_access_key,
+            optional[string] aws_secret_access_key,
+            optional[string] aws_endpoint_url,
+            optional[string] aws_session_token
+        ) except +
 
     pair[string, string] cpp_parse_s3_url \
         "kvikio::S3Endpoint::parse_s3_url"(string url) except +
+
+    cdef cppclass cpp_S3PublicEndpoint "kvikio::S3PublicEndpoint" (cpp_RemoteEndpoint):
+        cpp_S3PublicEndpoint(string url) except +
 
     cdef cppclass cpp_S3EndpointWithPresignedUrl "kvikio::S3EndpointWithPresignedUrl" \
                                                  (cpp_RemoteEndpoint):
@@ -84,6 +101,15 @@ cdef string _to_string(str s):
 cdef pair[string, string] _to_string_pair(str s1, str s2):
     """Wrap two Python string objects in a C++ pair"""
     return pair[string, string](_to_string(s1), _to_string(s2))
+
+cdef optional[string] _to_optional_string(str s):
+    """Convert Python object to a C++ optional string (if None, return nullopt)"""
+    cdef optional[string] result
+    if s is None:
+        result = nullopt
+    else:
+        result = optional[string](_to_string(s))
+    return result
 
 
 # Helper function to cast an endpoint to its base class `RemoteEndpoint`
@@ -164,15 +190,38 @@ cdef class RemoteFile:
         bucket_name: str,
         object_name: str,
         nbytes: Optional[int],
+        aws_region_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_endpoint_url: Optional[str] = None,
+        session_token: Optional[str] = None,
     ):
         cdef pair[string, string] bucket_and_object_names = _to_string_pair(
             bucket_name, object_name
         )
+        cdef optional[string] cpp_aws_region = _to_optional_string(aws_region_name)
+        cdef optional[string] cpp_aws_access_key = _to_optional_string(
+            aws_access_key_id
+        )
+        cdef optional[string] cpp_aws_secret_access_key = (
+            _to_optional_string(aws_secret_access_key)
+        )
+        cdef optional[string] cpp_aws_endpoint_url = _to_optional_string(
+            aws_endpoint_url
+        )
+        cdef optional[string] cpp_aws_session_token = _to_optional_string(session_token)
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
         with nogil:
             cpp_endpoint = cast_to_remote_endpoint(
-                make_unique[cpp_S3Endpoint](bucket_and_object_names)
+                make_unique[cpp_S3Endpoint](
+                    bucket_and_object_names,
+                    cpp_aws_region,
+                    cpp_aws_access_key,
+                    cpp_aws_secret_access_key,
+                    cpp_aws_endpoint_url,
+                    cpp_aws_session_token
+                )
             )
 
         return RemoteFile._from_endpoint(
@@ -184,13 +233,33 @@ cdef class RemoteFile:
     def open_s3_from_http_url(
         url: str,
         nbytes: Optional[int],
+        aws_region_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        session_token: Optional[str] = None,
     ):
         cdef string cpp_url = _to_string(url)
+        cdef optional[string] cpp_aws_region = _to_optional_string(aws_region_name)
+        cdef optional[string] cpp_aws_access_key = _to_optional_string(
+            aws_access_key_id
+        )
+        cdef optional[string] cpp_aws_secret_access_key = (
+            _to_optional_string(aws_secret_access_key)
+        )
+        cdef optional[string] cpp_aws_session_token = _to_optional_string(
+            session_token
+        )
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
         with nogil:
             cpp_endpoint = cast_to_remote_endpoint(
-                make_unique[cpp_S3Endpoint](cpp_url)
+                make_unique[cpp_S3Endpoint](
+                    cpp_url,
+                    cpp_aws_region,
+                    cpp_aws_access_key,
+                    cpp_aws_secret_access_key,
+                    cpp_aws_session_token
+                )
             )
 
         return RemoteFile._from_endpoint(
@@ -202,15 +271,40 @@ cdef class RemoteFile:
     def open_s3_from_s3_url(
         url: str,
         nbytes: Optional[int],
+        aws_region_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_endpoint_url: Optional[str] = None,
+        session_token: Optional[str] = None,
     ):
         cdef string cpp_url = _to_string(url)
         cdef pair[string, string] bucket_and_object_names
+        cdef optional[string] cpp_aws_region = _to_optional_string(aws_region_name)
+        cdef optional[string] cpp_aws_access_key = _to_optional_string(
+            aws_access_key_id
+        )
+        cdef optional[string] cpp_aws_secret_access_key = (
+            _to_optional_string(aws_secret_access_key)
+        )
+        cdef optional[string] cpp_aws_endpoint_url = _to_optional_string(
+            aws_endpoint_url
+        )
+        cdef optional[string] cpp_aws_session_token = _to_optional_string(
+            session_token
+        )
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
         with nogil:
             bucket_and_object_names = cpp_parse_s3_url(cpp_url)
             cpp_endpoint = cast_to_remote_endpoint(
-                make_unique[cpp_S3Endpoint](bucket_and_object_names)
+                make_unique[cpp_S3Endpoint](
+                    bucket_and_object_names,
+                    cpp_aws_region,
+                    cpp_aws_access_key,
+                    cpp_aws_secret_access_key,
+                    cpp_aws_endpoint_url,
+                    cpp_aws_session_token
+                )
             )
 
         return RemoteFile._from_endpoint(
@@ -219,7 +313,25 @@ cdef class RemoteFile:
         )
 
     @staticmethod
-    def open_s3_from_http_presigned_url(
+    def open_s3_public(
+        url: str,
+        nbytes: Optional[int],
+    ):
+        cdef string cpp_url = _to_string(url)
+        cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
+
+        with nogil:
+            cpp_endpoint = cast_to_remote_endpoint(
+                make_unique[cpp_S3PublicEndpoint](cpp_url)
+            )
+
+        return RemoteFile._from_endpoint(
+            move(cpp_endpoint),
+            nbytes
+        )
+
+    @staticmethod
+    def open_s3_presigned_url(
         presigned_url: str,
         nbytes: Optional[int],
     ):

@@ -93,7 +93,7 @@ outputs:
         - cuda-version =${{ cuda_version }}
         - libcurl ==${{ libcurl_version }}
       run:
-        - if: x86_64
+        - if: x86_64 or (aarch64 and cuda_version >= "13.0")
           then:
           - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
           else:

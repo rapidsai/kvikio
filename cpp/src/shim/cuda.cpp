@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <functional>
 #include <stdexcept>
 
 #include <kvikio/error.hpp>
@@ -22,7 +21,6 @@
 
 namespace kvikio {
 
-#ifdef KVIKIO_CUDA_FOUND
 cudaAPI::cudaAPI()
 {
   void* lib = load_library("libcuda.so.1");
@@ -71,9 +69,6 @@ cudaAPI::cudaAPI()
   }
 #endif
 }
-#else
-cudaAPI::cudaAPI() { KVIKIO_FAIL("KvikIO not compiled with CUDA support", std::runtime_error); }
-#endif
 
 cudaAPI& cudaAPI::instance()
 {
@@ -81,7 +76,6 @@ cudaAPI& cudaAPI::instance()
   return _instance;
 }
 
-#ifdef KVIKIO_CUDA_FOUND
 bool is_cuda_available()
 {
   try {
@@ -91,6 +85,5 @@ bool is_cuda_available()
   }
   return true;
 }
-#endif
 
 }  // namespace kvikio

@@ -20,9 +20,7 @@
 #include <iostream>
 #include <map>
 #include <optional>
-#include <stdexcept>
 #include <tuple>
-#include <type_traits>
 
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
@@ -57,7 +55,6 @@ CUdeviceptr convert_void2deviceptr(void const* devPtr)
   return reinterpret_cast<CUdeviceptr>(devPtr);
 }
 
-#ifdef KVIKIO_CUDA_FOUND
 bool is_host_memory(void const* ptr)
 {
   CUpointer_attribute attrs[1] = {
@@ -77,7 +74,6 @@ bool is_host_memory(void const* ptr)
   // does it to support `cudaMemoryTypeUnregistered`.
   return memtype == 0 || memtype == CU_MEMORYTYPE_HOST;
 }
-#endif
 
 int get_device_ordinal_from_pointer(CUdeviceptr dev_ptr)
 {
