@@ -391,8 +391,7 @@ class UrlBuilder {
  * used as a path separator. For the space character and ?, although KvikIO has them in
  * `aws_special_chars`, users must manually percent encode them to %20 and %3F, respectively.
  * Otherwise, the space character will be considered malformed by libcurl, and ? cause ambiguity
- * with the query string. For =, it must be manually encoded to %3D when using a private bucket.
- * Otherwise, AWS authentication by libcurl will fail.
+ * with the query string.
  *
  *  - Characters to avoid: "\{^}%`]">[~<#| and 128-255 non-ASCII characters". KvikIO recommends
  * users avoiding these characters in the URL. They are not included in `aws_special_chars`.
