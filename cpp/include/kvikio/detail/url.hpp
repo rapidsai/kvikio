@@ -391,7 +391,8 @@ class UrlBuilder {
  * used as a path separator. For the space character and ?, although KvikIO has them in
  * `aws_special_chars`, users must manually percent encode them to %20 and %3F, respectively.
  * Otherwise, the space character will be considered malformed by libcurl, and ? cause ambiguity
- * with the query string.
+ * with the query string. For the control characters, KvikIO include them all in
+ * `aws_special_chars`.
  *
  *  - Characters to avoid: "\{^}%`]">[~<#| and 128-255 non-ASCII characters". KvikIO recommends
  * users avoiding these characters in the URL. They are not included in `aws_special_chars`.
@@ -402,7 +403,11 @@ class UrlEncoder {
   /**
    * @brief Default set of special characters requiring encoding in AWS URLs
    */
-  static constexpr char aws_special_chars[] = {"!*'()&$@=;:+ ,?"};
+  static constexpr char aws_special_chars[] = {
+    '!',    '*',    '\'',   '(',    ')',    '&',    '$',    '@',    '=',    ';',    ':',    '+',
+    ' ',    ',',    '?',    '\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07', '\x08',
+    '\x09', '\x0A', '\x0B', '\x0C', '\x0D', '\x0E', '\x0F', '\x10', '\x11', '\x12', '\x13', '\x14',
+    '\x15', '\x16', '\x17', '\x18', '\x19', '\x1A', '\x1B', '\x1C', '\x1D', '\x1E', '\x1F', '\x7F'};
 
   /**
    * @brief Percent-encodes specified characters in a URL path
@@ -431,7 +436,8 @@ class UrlEncoder {
    * @endcode
    */
   static std::string encode_path(std::string_view path,
-                                 std::string_view chars_to_encode = aws_special_chars);
+                                 std::string_view chars_to_encode = std::string_view{
+                                   aws_special_chars, sizeof(aws_special_chars)});
 };
 
 }  // namespace kvikio::detail

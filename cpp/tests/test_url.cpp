@@ -221,10 +221,24 @@ TEST(UrlTest, encoding_table)
     }
   }
 
+  // Check control characters
+  {
+    std::map<char, std::string> mapping{
+      {'\x00', "%00"}, {'\x1A', "%1A"}, {'\x1F', "%1F"}, {'\x7F', "%7F"}};
+
+    for (auto const [question, answer] : mapping) {
+      // Construct a string view for the character, and specify the size explicitly to take account
+      // of NUL
+      std::string sv{&question, 1};
+      std::string result = kvikio::detail::UrlEncoder::encode_path(sv, sv);
+      EXPECT_EQ(result, answer);
+    }
+  }
+
   // Check out-of-bound characters
   {
-    unsigned char out_of_bound_chars[] = {128, 200, 255, 0};
-    std::string_view sv{reinterpret_cast<char*>(out_of_bound_chars)};
+    unsigned char out_of_bound_chars[] = {'\x80', '\xC8', '\xFF'};
+    std::string_view sv{reinterpret_cast<char*>(out_of_bound_chars), sizeof(out_of_bound_chars)};
     std::string result = kvikio::detail::UrlEncoder::encode_path(sv, sv);
     EXPECT_EQ(result, "");
   }
