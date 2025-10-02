@@ -237,7 +237,7 @@ TEST(UrlTest, encoding_table)
 
   // Check out-of-bound characters
   {
-    unsigned char out_of_bound_chars[] = {'\x80', '\xC8', '\xFF'};
+    unsigned char out_of_bound_chars[] = {128, 200, 255};
     std::string_view sv{reinterpret_cast<char*>(out_of_bound_chars), sizeof(out_of_bound_chars)};
     std::string result = kvikio::detail::UrlEncoder::encode_path(sv, sv);
     EXPECT_EQ(result, "");
