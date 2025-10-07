@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <future>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <type_traits>
 #include <unordered_map>
@@ -217,7 +218,9 @@ void read_impl(void* dst_buf,
                                                &attrs,
                                                attrs_idxs,
                                                static_cast<std::size_t>(1) /* num_attrs */,
+#if CUDA_VERSION < 13000
                                                static_cast<std::size_t*>(nullptr),
+#endif
                                                stream));
       } else {
         // Fall back to the conventional H2D copy if the batch copy API is not available.
@@ -273,33 +276,9 @@ MmapHandle::MmapHandle(std::string const& file_path,
                        std::size_t initial_map_offset,
                        mode_t mode,
                        std::optional<int> map_flags)
-  : _initial_map_offset(initial_map_offset),
-    _initialized{true},
-    _file_wrapper(file_path, flags, false /* o_direct */, mode)
+  : _initial_map_offset(initial_map_offset), _initialized{true}
 {
   KVIKIO_NVTX_FUNC_RANGE();
-
-  _file_size = get_file_size(_file_wrapper.fd());
-  if (_file_size == 0) { return; }
-
-  KVIKIO_EXPECT(
-    _initial_map_offset < _file_size, "Offset is past the end of file", std::out_of_range);
-
-  // An initial size of std::nullopt is a shorthand for "starting from _initial_map_offset to the
-  // end of file".
-  _initial_map_size =
-    initial_map_size.has_value() ? initial_map_size.value() : (_file_size - _initial_map_offset);
-
-  KVIKIO_EXPECT(
-    _initial_map_size > 0, "Mapped region should not be zero byte", std::invalid_argument);
-  KVIKIO_EXPECT(_initial_map_offset + _initial_map_size <= _file_size,
-                "Mapped region is past the end of file",
-                std::out_of_range);
-
-  auto const page_size    = get_page_size();
-  _map_offset             = detail::align_down(_initial_map_offset, page_size);
-  auto const offset_delta = _initial_map_offset - _map_offset;
-  _map_size               = _initial_map_size + offset_delta;
 
   switch (flags[0]) {
     case 'r': {
@@ -314,8 +293,38 @@ MmapHandle::MmapHandle(std::string const& file_path,
     }
   }
 
-  _map_flags = map_flags.has_value() ? map_flags.value() : MAP_PRIVATE;
+  _file_wrapper = FileWrapper(file_path, flags, false /* o_direct */, mode);
+  _file_size    = get_file_size(_file_wrapper.fd());
+  if (_file_size == 0) { return; }
 
+  {
+    std::stringstream ss;
+    ss << "Offset must be less than the file size. initial_map_offset: " << _initial_map_offset
+       << ", file size: " << _file_size << "\n";
+    KVIKIO_EXPECT(_initial_map_offset < _file_size, ss.str(), std::out_of_range);
+  }
+
+  // An initial size of std::nullopt is a shorthand for "starting from _initial_map_offset to the
+  // end of file".
+  _initial_map_size =
+    initial_map_size.has_value() ? initial_map_size.value() : (_file_size - _initial_map_offset);
+
+  KVIKIO_EXPECT(
+    _initial_map_size > 0, "Mapped region should not be zero byte", std::invalid_argument);
+
+  {
+    std::stringstream ss;
+    ss << "Mapped region is past the end of file. initial map offset: " << _initial_map_offset
+       << ", initial map size: " << _initial_map_size << ", file size: " << _file_size << "\n";
+    KVIKIO_EXPECT(
+      _initial_map_offset + _initial_map_size <= _file_size, ss.str(), std::out_of_range);
+  }
+
+  auto const page_size    = get_page_size();
+  _map_offset             = detail::align_down(_initial_map_offset, page_size);
+  auto const offset_delta = _initial_map_offset - _map_offset;
+  _map_size               = _initial_map_size + offset_delta;
+  _map_flags              = map_flags.has_value() ? map_flags.value() : MAP_PRIVATE;
   _map_addr =
     mmap(nullptr, _map_size, _map_protection, _map_flags, _file_wrapper.fd(), _map_offset);
   SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
@@ -401,6 +410,7 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
   KVIKIO_NVTX_FUNC_RANGE();
 
   auto actual_size = validate_and_adjust_read_args(size, offset);
+  if (actual_size == 0) { return actual_size; }
 
   auto const is_dst_buf_host_mem = is_host_memory(buf);
   CUcontext ctx{};
@@ -420,6 +430,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than task size.");
   auto actual_size = validate_and_adjust_read_args(size, offset);
+  if (actual_size == 0) { return make_ready_future(actual_size); }
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(actual_size, nvtx_color);
@@ -454,14 +465,27 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,
                                                       std::size_t offset)
 {
-  KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
-  KVIKIO_EXPECT(offset < _file_size, "Offset is past the end of file", std::out_of_range);
+  {
+    std::stringstream ss;
+    KVIKIO_EXPECT(!closed(), "Cannot read from a closed MmapHandle", std::runtime_error);
+
+    ss << "Offset is past the end of file. offset: " << offset << ", file size: " << _file_size
+       << "\n";
+    KVIKIO_EXPECT(offset <= _file_size, ss.str(), std::out_of_range);
+  }
+
   auto actual_size = size.has_value() ? size.value() : _file_size - offset;
-  KVIKIO_EXPECT(actual_size > 0, "Read size must be greater than 0", std::invalid_argument);
-  KVIKIO_EXPECT(offset >= _initial_map_offset &&
-                  offset + actual_size <= _initial_map_offset + _initial_map_size,
-                "Read is out of bound",
-                std::out_of_range);
+
+  {
+    std::stringstream ss;
+    ss << "Read is out of bound. offset: " << offset << ", actual size to read: " << actual_size
+       << ", initial map offset: " << _initial_map_offset
+       << ", initial map size: " << _initial_map_size << "\n";
+    KVIKIO_EXPECT(offset >= _initial_map_offset &&
+                    offset + actual_size <= _initial_map_offset + _initial_map_size,
+                  ss.str(),
+                  std::out_of_range);
+  }
   return actual_size;
 }
 

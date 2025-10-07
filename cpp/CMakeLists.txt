@@ -29,6 +29,11 @@ project(
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
+# For now, disable CMake's automatic module scanning for C++ files. There is an sccache bug in the
+# version RAPIDS uses in CI that causes it to handle the resulting -M* flags incorrectly with
+# gcc>=14. We can remove this once we upgrade to a newer sccache version.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 # Write the version header
 rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 
@@ -44,7 +49,6 @@ option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
 option(KvikIO_CUDA_SUPPORT "Configure CMake to build with CUDA support" ON)
-option(KvikIO_EXPORT_NVCOMP "Export NVCOMP as a dependency" ON)
 
 # ##################################################################################################
 # * conda environment ------------------------------------------------------------------------------
@@ -140,6 +144,7 @@ set(SOURCES
     "src/bounce_buffer.cpp"
     "src/buffer.cpp"
     "src/compat_mode.cpp"
+    "src/compat_mode_manager.cpp"
     "src/http_status_codes.cpp"
     "src/cufile/config.cpp"
     "src/cufile/driver.cpp"
@@ -158,7 +163,9 @@ set(SOURCES
 )
 
 if(KvikIO_REMOTE_SUPPORT)
-  list(APPEND SOURCES "src/remote_handle.cpp" "src/shim/libcurl.cpp")
+  list(APPEND SOURCES "src/hdfs.cpp" "src/remote_handle.cpp" "src/detail/remote_handle.cpp"
+       "src/detail/tls.cpp" "src/detail/url.cpp" "src/shim/libcurl.cpp"
+  )
 endif()
 
 add_library(kvikio ${SOURCES})
@@ -199,7 +206,7 @@ set_target_properties(
   kvikio
   PROPERTIES BUILD_RPATH "\$ORIGIN"
              INSTALL_RPATH "\$ORIGIN"
-             CXX_STANDARD 17
+             CXX_STANDARD 20
              CXX_STANDARD_REQUIRED ON
              POSITION_INDEPENDENT_CODE ON
              INTERFACE_POSITION_INDEPENDENT_CODE ON

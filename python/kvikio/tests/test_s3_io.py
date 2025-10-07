@@ -2,11 +2,11 @@
 # See file LICENSE for terms.
 
 import multiprocessing as mp
-import socket
 import time
 from contextlib import contextmanager
 
 import pytest
+import utils
 
 import kvikio
 import kvikio.defaults
@@ -26,18 +26,13 @@ import moto.server  # noqa: E402
 
 
 @pytest.fixture(scope="session")
-def endpoint_ip():
-    return "127.0.0.1"
+def endpoint_ip() -> str:
+    return utils.localhost()
 
 
 @pytest.fixture(scope="session")
 def endpoint_port():
-    # Return a free port per worker session.
-    sock = socket.socket()
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
+    return utils.find_free_port()
 
 
 def start_s3_server(ip_address, port):
@@ -161,3 +156,64 @@ def test_read_with_file_offset(s3_base, xp, start, end):
             b = xp.zeros(shape=(end - start,), dtype=xp.int64)
             assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
             xp.testing.assert_array_equal(a[start:end], b)
+
+
+@pytest.mark.parametrize("scheme", ["S3"])
+@pytest.mark.parametrize(
+    "remote_endpoint_type",
+    [kvikio.RemoteEndpointType.S3.AUTO, kvikio.RemoteEndpointType.S3],
+)
+@pytest.mark.parametrize("allow_list", [None, [kvikio.RemoteEndpointType.S3]])
+@pytest.mark.parametrize("nbytes", [None, 1])
+def test_open_valid(s3_base, scheme, remote_endpoint_type, allow_list, nbytes):
+    bucket_name = "bucket_name"
+    object_name = "object_name"
+    data = b"file content"
+    with s3_context(
+        s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(data)}
+    ) as server_address:
+        if scheme == "S3":
+            url = f"{scheme}://{bucket_name}/{object_name}"
+        else:
+            url = f"{server_address}/{bucket_name}/{object_name}"
+
+        if nbytes is None:
+            expected_file_size = len(data)
+        else:
+            expected_file_size = nbytes
+
+        with kvikio.RemoteFile.open(url, remote_endpoint_type, allow_list, nbytes) as f:
+            assert f.nbytes() == expected_file_size
+            assert f.remote_endpoint_type() == kvikio.RemoteEndpointType.S3
+
+
+def test_open_invalid(s3_base):
+    bucket_name = "bucket_name"
+    object_name = "object_name"
+    data = b"file content"
+    with s3_context(
+        s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(data)}
+    ) as server_address:
+        # Missing scheme
+        url = f"://{bucket_name}/{object_name}"
+        with pytest.raises(RuntimeError, match="Bad scheme"):
+            kvikio.RemoteFile.open(url)
+
+        # Unsupported type
+        url = f"unsupported://{bucket_name}/{object_name}"
+        with pytest.raises(RuntimeError, match="Unsupported endpoint URL"):
+            kvikio.RemoteFile.open(url)
+
+        # Specified URL not in the allowlist
+        url = f"{server_address}/{bucket_name}/{object_name}"
+        with pytest.raises(RuntimeError, match="not in the allowlist"):
+            kvikio.RemoteFile.open(
+                url, kvikio.RemoteEndpointType.S3, [kvikio.RemoteEndpointType.WEBHDFS]
+            )
+
+        # Invalid URLs
+        url = f"s3://{bucket_name}"
+        with pytest.raises(RuntimeError, match="Unsupported endpoint URL"):
+            kvikio.RemoteFile.open(url)
+        with pytest.raises(RuntimeError, match="Invalid URL"):
+            kvikio.RemoteFile.open(url, kvikio.RemoteEndpointType.S3)

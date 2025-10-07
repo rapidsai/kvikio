@@ -50,16 +50,14 @@ function(kvikio_add_test)
   set_target_properties(
     ${_KVIKIO_NAME}
     PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${KvikIO_BINARY_DIR}/gtests>"
-               CXX_STANDARD 17
+               CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               # For std:: support of __int128_t. Can be removed once using cuda::std
-               CXX_EXTENSIONS ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
   )
   target_link_libraries(
     ${_KVIKIO_NAME} PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest
-                            GTest::gtest_main CUDA::cudart
+                            GTest::gtest_main CUDA::cudart $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
   )
 
   rapids_test_add(
@@ -78,6 +76,11 @@ kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
 
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
-kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
+if(KvikIO_REMOTE_SUPPORT)
+  kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
+  kvikio_add_test(NAME HDFS_TEST SOURCES test_hdfs.cpp utils/hdfs_helper.cpp)
+  kvikio_add_test(NAME TLS_TEST SOURCES test_tls.cpp utils/env.cpp)
+  kvikio_add_test(NAME URL_TEST SOURCES test_url.cpp)
+endif()
 
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/tests/libkvikio)

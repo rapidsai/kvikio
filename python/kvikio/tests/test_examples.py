@@ -6,7 +6,6 @@ from importlib import import_module
 from pathlib import Path
 
 import pytest
-from packaging.version import parse
 
 import kvikio
 
@@ -19,18 +18,6 @@ def test_hello_world(tmp_path, monkeypatch):
 
     monkeypatch.syspath_prepend(str(examples_path))
     import_module("hello_world").main(tmp_path / "test-file")
-
-
-def test_zarr_cupy_nvcomp(tmp_path, monkeypatch):
-    """Test examples/zarr_cupy_nvcomp.py"""
-
-    # `examples/zarr_cupy_nvcomp.py` requires the Zarr submodule
-    zarr = pytest.importorskip("zarr")
-    if parse(zarr.__version__) >= parse("3.0.0"):
-        pytest.skip(reason="Requires zarr<3")
-
-    monkeypatch.syspath_prepend(str(examples_path))
-    import_module("zarr_cupy_nvcomp").main(tmp_path / "test-file")
 
 
 def test_http_io(tmp_path, monkeypatch):

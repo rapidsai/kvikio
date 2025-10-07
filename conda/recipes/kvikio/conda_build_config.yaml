@@ -1,8 +1,8 @@
 c_compiler_version:
-  - 13
+  - 14
 
 cxx_compiler_version:
-  - 13
+  - 14
 
 cmake_version:
   - ">=3.30.4"
@@ -18,6 +18,3 @@ c_stdlib_version:
 
 libcurl_version:
   - "==8.5.0"
-
-nvcomp_version:
-  - "=4.2.0.11"

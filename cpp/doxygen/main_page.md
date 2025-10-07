@@ -30,9 +30,14 @@ For convenience we release Conda packages that makes it easy to include KvikIO i
 We strongly recommend using [mamba](https://github.com/mamba-org/mamba) in place of conda, which we will do throughout the documentation.
 
 Install the **stable release** from the ``rapidsai`` channel with the following:
+
 ```sh
 # Install in existing environment
 mamba install -c rapidsai -c conda-forge libkvikio
+
+# Create new environment (CUDA 13)
+mamba create -n libkvikio-env -c rapidsai -c conda-forge cuda-version=13.0 libkvikio
+
 # Create new environment (CUDA 12)
 mamba create -n libkvikio-env -c rapidsai -c conda-forge cuda-version=12.9 libkvikio
 ```
@@ -42,6 +47,10 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel with the f
 ```sh
 # Install in existing environment
 mamba install -c rapidsai-nightly -c conda-forge libkvikio
+
+# Create new environment (CUDA 13)
+mamba create -n libkvikio-env -c rapidsai-nightly -c conda-forge python=3.13 cuda-version=13.0 libkvikio
+
 # Create new environment (CUDA 12)
 mamba create -n libkvikio-env -c rapidsai-nightly -c conda-forge python=3.13 cuda-version=12.9 libkvikio
 ```
@@ -127,6 +136,13 @@ KvikIO will, by default, make three attempts per read.
 Note that if you're reading a large file that has been split into multiple reads through the KvikIO's task size setting, then *each* task will be retried up to the maximum number of attempts.
 
 These settings can also be controlled by `defaults::http_max_attempts()`, `defaults::http_max_attempts_reset()`, `defaults::http_status_codes()`, and `defaults::http_status_codes_reset()`.
+
+#### Remote Verbose (KVIKIO_REMOTE_VERBOSE)
+For debugging HTTP requests, you can enable verbose output that shows detailed information about HTTP communication including headers, request/response bodies, connection details, and SSL handshake information.
+
+Set the environment variable `KVIKIO_REMOTE_VERBOSE` to `true`, `on`, `yes`, or `1` (case-insensitive) to enable verbose output. Otherwise, verbose output is disabled by default.
+
+**Warning** this may show sensitive contents from headers and data.
 
 ## Example
 

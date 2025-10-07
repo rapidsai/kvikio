@@ -26,16 +26,12 @@ project(
   LANGUAGES CXX CUDA
 )
 
-option(USE_NVCOMP_RUNTIME_WHEEL "Use the nvcomp wheel at runtime instead of the system library" OFF)
-
 find_package(kvikio REQUIRED "${RAPIDS_VERSION}")
 
 find_package(CUDAToolkit REQUIRED)
 
 include(rapids-cython-core)
 rapids_cython_init()
-
-add_subdirectory(cmake)
 
 set(cython_lib_dir kvikio)
 

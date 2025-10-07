@@ -57,19 +57,6 @@ def run_cmd():
     p.kill()
 
 
-@pytest.fixture()
-def managers():
-    libnvcomp = pytest.importorskip("kvikio.nvcomp")
-    return [
-        libnvcomp.ANSManager,
-        libnvcomp.BitcompManager,
-        libnvcomp.CascadedManager,
-        libnvcomp.GdeflateManager,
-        libnvcomp.LZ4Manager,
-        libnvcomp.SnappyManager,
-    ]
-
-
 @pytest.fixture(
     params=[("cupy", False), ("cupy", True), ("numpy", False)],
     ids=["cupy", "cupy_async", "numpy"],

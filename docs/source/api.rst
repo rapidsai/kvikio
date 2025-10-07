@@ -33,6 +33,13 @@ CuFile driver
 
 .. autofunction:: initialize
 
+Mmap
+----
+.. currentmodule:: kvikio.mmap
+
+.. autoclass:: Mmap
+    :members:
+
 Zarr
 ----
 .. currentmodule:: kvikio.zarr
@@ -43,6 +50,8 @@ Zarr
 RemoteFile
 ----------
 .. currentmodule:: kvikio.remote_file
+
+.. autoclass:: RemoteEndpointType
 
 .. autoclass:: RemoteFile
     :members:

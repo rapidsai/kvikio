@@ -31,13 +31,13 @@ std::vector<int> parse_http_status_codes(std::string_view env_var_name,
                                          std::string const& status_codes)
 {
   // Ensure `status_codes` consists only of 3-digit integers separated by commas, allowing spaces.
-  std::regex const check_pattern(R"(^\s*\d{3}\s*(\s*,\s*\d{3}\s*)*$)");
+  std::regex static const check_pattern(R"(^\s*\d{3}\s*(\s*,\s*\d{3}\s*)*$)");
   KVIKIO_EXPECT(std::regex_match(status_codes, check_pattern),
                 std::string{env_var_name} + ": invalid format, expected comma-separated integers.",
                 std::invalid_argument);
 
   // Match every integer in `status_codes`.
-  std::regex const number_pattern(R"(\d+)");
+  std::regex static const number_pattern(R"(\d+)");
 
   // For each match, we push_back `std::stoi(match.str())` into `ret`.
   std::vector<int> ret;
