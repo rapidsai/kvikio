@@ -194,7 +194,7 @@ cdef class RemoteFile:
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_endpoint_url: Optional[str] = None,
-        session_token: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
     ):
         cdef pair[string, string] bucket_and_object_names = _to_string_pair(
             bucket_name, object_name
@@ -209,7 +209,7 @@ cdef class RemoteFile:
         cdef optional[string] cpp_aws_endpoint_url = _to_optional_string(
             aws_endpoint_url
         )
-        cdef optional[string] cpp_aws_session_token = _to_optional_string(session_token)
+        cdef optional[string] cpp_aws_session_token = _to_optional_string(aws_session_token)
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
         with nogil:
@@ -236,7 +236,7 @@ cdef class RemoteFile:
         aws_region_name: Optional[str] = None,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
-        session_token: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
     ):
         cdef string cpp_url = _to_string(url)
         cdef optional[string] cpp_aws_region = _to_optional_string(aws_region_name)
@@ -247,7 +247,7 @@ cdef class RemoteFile:
             _to_optional_string(aws_secret_access_key)
         )
         cdef optional[string] cpp_aws_session_token = _to_optional_string(
-            session_token
+            aws_session_token
         )
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
@@ -275,7 +275,7 @@ cdef class RemoteFile:
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_endpoint_url: Optional[str] = None,
-        session_token: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
     ):
         cdef string cpp_url = _to_string(url)
         cdef pair[string, string] bucket_and_object_names
@@ -290,7 +290,7 @@ cdef class RemoteFile:
             aws_endpoint_url
         )
         cdef optional[string] cpp_aws_session_token = _to_optional_string(
-            session_token
+            aws_session_token
         )
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
