@@ -209,7 +209,9 @@ cdef class RemoteFile:
         cdef optional[string] cpp_aws_endpoint_url = _to_optional_string(
             aws_endpoint_url
         )
-        cdef optional[string] cpp_aws_session_token = _to_optional_string(aws_session_token)
+        cdef optional[string] cpp_aws_session_token = _to_optional_string(
+            aws_session_token
+        )
         cdef unique_ptr[cpp_RemoteEndpoint] cpp_endpoint
 
         with nogil:
