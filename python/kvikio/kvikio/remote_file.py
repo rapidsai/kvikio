@@ -139,7 +139,7 @@ class RemoteFile:
         - ``AWS_DEFAULT_REGION`` (or region_name parameter)
         - ``AWS_ACCESS_KEY_ID`` (or access_key_id parameter)
         - ``AWS_SECRET_ACCESS_KEY`` (or secret_access_key parameter)
-        - ``AWS_SESSION_TOKEN`` (or session_token parameter, when using
+        - ``AWS_SESSION_TOKEN`` (or aws_session_token parameter, when using
           temporary credentials)
 
         Additionally, to overwrite the AWS endpoint, set `AWS_ENDPOINT_URL`
@@ -196,7 +196,7 @@ class RemoteFile:
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_endpoint_url: Optional[str] = None,
-        session_token: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
     ) -> RemoteFile:
         """Open a AWS S3 file from an URL.
 
@@ -210,7 +210,7 @@ class RemoteFile:
         - ``AWS_DEFAULT_REGION`` (or region_name parameter)
         - ``AWS_ACCESS_KEY_ID`` (or access_key_id parameter)
         - ``AWS_SECRET_ACCESS_KEY`` (or secret_access_key parameter)
-        - ``AWS_SESSION_TOKEN`` (or session_token parameter, when using
+        - ``AWS_SESSION_TOKEN`` (or aws_session_token parameter, when using
           temporary credentials)
 
         Additionally, if `url` is a S3 url, it is possible to overwrite the AWS endpoint
@@ -252,7 +252,7 @@ class RemoteFile:
                     aws_region_name,
                     aws_access_key_id,
                     aws_secret_access_key,
-                    session_token,
+                    aws_session_token,
                 )
             )
         if parsed_result.scheme == "s3":
@@ -264,7 +264,7 @@ class RemoteFile:
                     aws_access_key_id,
                     aws_secret_access_key,
                     aws_endpoint_url,
-                    session_token,
+                    aws_session_token,
                 )
             )
         raise ValueError(f"Unsupported protocol: {url}")
