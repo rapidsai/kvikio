@@ -29,10 +29,10 @@
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/parallel_operation.hpp>
+#include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/tls.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 

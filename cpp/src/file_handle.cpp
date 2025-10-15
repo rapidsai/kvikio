@@ -25,10 +25,12 @@
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/parallel_operation.hpp>
+#include <kvikio/detail/posix_io.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
-#include <kvikio/nvtx.hpp>
 
 namespace kvikio {
 

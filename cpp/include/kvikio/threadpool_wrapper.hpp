@@ -20,8 +20,6 @@
 
 #include <BS_thread_pool.hpp>
 
-#include <kvikio/nvtx.hpp>
-
 namespace kvikio {
 
 template <typename pool_type>
@@ -33,9 +31,9 @@ class thread_pool_wrapper : public pool_type {
    *
    * @param nthreads The number of threads to use.
    */
-  thread_pool_wrapper(unsigned int nthreads) : pool_type{nthreads, worker_thread_init_func}
+  thread_pool_wrapper(unsigned int nthreads, std::function<void()> worker_thread_init_func = {})
+    : pool_type{nthreads, worker_thread_init_func}
   {
-    KVIKIO_NVTX_FUNC_RANGE();
   }
 
   /**
@@ -44,19 +42,10 @@ class thread_pool_wrapper : public pool_type {
    *
    * @param nthreads The number of threads to use.
    */
-  void reset(unsigned int nthreads)
+  void reset(unsigned int nthreads, std::function<void()> worker_thread_init_func = {})
   {
-    KVIKIO_NVTX_FUNC_RANGE();
     pool_type::reset(nthreads, worker_thread_init_func);
   }
-
- private:
-  inline static std::function<void()> worker_thread_init_func{[] {
-    KVIKIO_NVTX_FUNC_RANGE();
-    // Rename the worker thread in the thread pool to improve clarity from nsys-ui.
-    // Note: This NVTX feature is currently not supported by nsys-ui.
-    NvtxManager::rename_current_thread("thread pool");
-  }};
 };
 
 using BS_thread_pool = thread_pool_wrapper<BS::thread_pool>;

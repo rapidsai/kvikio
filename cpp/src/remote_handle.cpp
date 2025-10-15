@@ -26,13 +26,13 @@
 #include <string>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/parallel_operation.hpp>
+#include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
-#include <kvikio/nvtx.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>

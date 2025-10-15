@@ -24,12 +24,12 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/parallel_operation.hpp>
+#include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/mmap.hpp>
-#include <kvikio/nvtx.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
 #include "kvikio/file_utils.hpp"
 

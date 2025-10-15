@@ -20,9 +20,9 @@
 #include <kvikio/compat_mode_manager.hpp>
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
-#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
