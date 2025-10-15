@@ -31,7 +31,8 @@ class thread_pool_wrapper : public pool_type {
    *
    * @param nthreads The number of threads to use.
    */
-  thread_pool_wrapper(unsigned int nthreads, std::function<void()> worker_thread_init_func = {})
+  thread_pool_wrapper(
+    unsigned int nthreads, std::function<void()> worker_thread_init_func = [] {})
     : pool_type{nthreads, worker_thread_init_func}
   {
   }
@@ -42,7 +43,8 @@ class thread_pool_wrapper : public pool_type {
    *
    * @param nthreads The number of threads to use.
    */
-  void reset(unsigned int nthreads, std::function<void()> worker_thread_init_func = {})
+  void reset(
+    unsigned int nthreads, std::function<void()> worker_thread_init_func = [] {})
   {
     pool_type::reset(nthreads, worker_thread_init_func);
   }
