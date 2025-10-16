@@ -131,11 +131,11 @@ int open_fd_parse_flags(std::string const& flags, bool o_direct)
   switch (flags[0]) {
     case 'r':
       file_flags = O_RDONLY;
-      if (flags[1] == '+') { file_flags = O_RDWR; }
+      if (flags.length() > 1 && flags[1] == '+') { file_flags = O_RDWR; }
       break;
     case 'w':
       file_flags = O_WRONLY;
-      if (flags[1] == '+') { file_flags = O_RDWR; }
+      if (flags.length() > 1 && flags[1] == '+') { file_flags = O_RDWR; }
       file_flags |= O_CREAT | O_TRUNC;
       break;
     case 'a': KVIKIO_FAIL("Open flag 'a' isn't supported", std::invalid_argument);
