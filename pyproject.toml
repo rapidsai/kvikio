@@ -1,0 +1,62 @@
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "W",
+]
+ignore = [
+    # whitespace before :
+    "E203",
+    # line-too-long (due to Copyright header)
+    "E501",
+]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"*.pyx" = [
+    "E211",
+    "E225",
+    "E226",
+    "E227",
+    "E275",
+    "E402",
+]
+"*.pxd" = [
+    "E211",
+    "E225",
+    "E226",
+    "E227",
+    "E275",
+    "E402",
+]
+"*.pxi" = [
+    "E211",
+    "E225",
+    "E226",
+    "E227",
+    "E275",
+    "E402",
+]
+"notebooks/*" = [
+    "F841",
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+order-by-type = true
+known-first-party = [
+    "kvikio",
+]
+default-section = "third-party"
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
