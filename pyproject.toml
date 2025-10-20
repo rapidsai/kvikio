@@ -16,9 +16,6 @@ ignore = [
     "E501",
 ]
 fixable = ["ALL"]
-exclude = [
-    # "notebooks/*",
-]
 
 [tool.ruff.lint.per-file-ignores]
 "*.pyx" = [
