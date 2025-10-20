@@ -203,8 +203,9 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         a.tofile(tmpdir / "a")
         b = xp.empty_like(a)
 
-        with pytest.raises(RuntimeError) as m, kvikio.defaults.set(
-            "http_max_attempts", 2
+        with (
+            pytest.raises(RuntimeError) as m,
+            kvikio.defaults.set("http_max_attempts", 2),
         ):
             with kvikio.RemoteFile.open_http(f"{server.url}/a") as f:
                 f.read(b)

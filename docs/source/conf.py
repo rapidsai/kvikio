@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 #
 # Configuration file for the Sphinx documentation builder.
@@ -31,7 +31,9 @@ KVIKIO_VERSION = Version(kvikio.__version__)
 # The short X.Y version.
 version = f"{KVIKIO_VERSION.major:02}.{KVIKIO_VERSION.minor:02}"
 # The full version, including alpha/beta/rc tags
-release = f"{KVIKIO_VERSION.major:02}.{KVIKIO_VERSION.minor:02}.{KVIKIO_VERSION.micro:02}"
+release = (
+    f"{KVIKIO_VERSION.major:02}.{KVIKIO_VERSION.minor:02}.{KVIKIO_VERSION.micro:02}"
+)
 
 
 # -- General configuration ---------------------------------------------------
@@ -82,11 +84,11 @@ exclude_patterns = []
 pygments_style = None
 
 autodoc_default_options = {
-    'members': True,
-    'member-order': 'bysource',
-    'special-members': '__init__',
-    'undoc-members': True,
-    'exclude-members': '__weakref__'
+    "members": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
+    "undoc-members": True,
+    "exclude-members": "__weakref__",
 }
 
 # -- Options for HTML output -------------------------------------------------

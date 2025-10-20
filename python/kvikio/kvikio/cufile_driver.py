@@ -92,13 +92,11 @@ class ConfigContextManager:
 
 
 @overload
-def set(config: dict[str, Any], /) -> ConfigContextManager:
-    ...
+def set(config: dict[str, Any], /) -> ConfigContextManager: ...
 
 
 @overload
-def set(key: str, value: Any, /) -> ConfigContextManager:
-    ...
+def set(key: str, value: Any, /) -> ConfigContextManager: ...
 
 
 def set(*config) -> ConfigContextManager:

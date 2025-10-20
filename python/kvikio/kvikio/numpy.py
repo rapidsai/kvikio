@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
 import io
@@ -16,12 +16,10 @@ import kvikio
 class FileLike(Protocol):
     """File like object that represent a OS-level file"""
 
-    def fileno(self) -> int:
-        ...
+    def fileno(self) -> int: ...
 
     @property
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
 
 class LikeWrapper:
