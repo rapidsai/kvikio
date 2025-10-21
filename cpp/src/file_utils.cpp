@@ -27,10 +27,10 @@
 #include <utility>
 #include <vector>
 
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
-#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {

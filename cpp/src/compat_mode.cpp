@@ -18,8 +18,8 @@
 #include <stdexcept>
 
 #include <kvikio/compat_mode.hpp>
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/nvtx.hpp>
 
 namespace kvikio {
 

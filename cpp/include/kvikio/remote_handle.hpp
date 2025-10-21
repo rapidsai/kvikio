@@ -24,8 +24,6 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
 
 struct curl_slist;

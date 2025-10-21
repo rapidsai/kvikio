@@ -20,8 +20,8 @@
 
 #include <kvikio/buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/utils.hpp>

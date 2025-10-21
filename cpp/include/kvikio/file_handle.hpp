@@ -28,8 +28,6 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_utils.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/stream.hpp>

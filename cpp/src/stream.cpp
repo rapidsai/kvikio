@@ -21,8 +21,8 @@
 #include <tuple>
 #include <utility>
 
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/stream.hpp>

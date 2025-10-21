@@ -16,10 +16,10 @@
 
 #include <regex>
 
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
-#include <kvikio/nvtx.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 

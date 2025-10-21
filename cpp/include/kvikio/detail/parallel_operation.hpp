@@ -26,8 +26,8 @@
 #include <vector>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/nvtx.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {

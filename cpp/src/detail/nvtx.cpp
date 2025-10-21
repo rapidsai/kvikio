@@ -20,7 +20,7 @@
 
 #include <nvtx3/nvtx3.hpp>
 
-#include <kvikio/nvtx.hpp>
+#include <kvikio/detail/nvtx.hpp>
 
 namespace kvikio {
 

@@ -19,8 +19,8 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
