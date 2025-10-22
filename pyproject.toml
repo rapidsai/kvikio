@@ -63,3 +63,9 @@ section-order = [
     "first-party",
     "local-folder",
 ]
+
+[tool.cython-lint]
+ignore = [
+    # line-too-long (due to Copyright header)
+    "E501",
+]
