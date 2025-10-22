@@ -1,5 +1,5 @@
-# Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import os.path
