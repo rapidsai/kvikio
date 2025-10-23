@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+
 [tool.ruff]
 line-length = 88
 target-version = "py310"
@@ -59,4 +62,10 @@ section-order = [
     "third-party",
     "first-party",
     "local-folder",
+]
+
+[tool.cython-lint]
+ignore = [
+    # line-too-long (due to Copyright header)
+    "E501",
 ]

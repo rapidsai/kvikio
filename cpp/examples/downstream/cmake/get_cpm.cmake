@@ -1,3 +1,8 @@
+# cmake-format: off
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+# cmake-format: on
+
 set(CPM_DOWNLOAD_VERSION 0.35.5)
 
 if(CPM_SOURCE_CACHE)
