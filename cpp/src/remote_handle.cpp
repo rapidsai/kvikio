@@ -15,6 +15,7 @@
 #include <string>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
@@ -279,34 +280,19 @@ void S3Endpoint::setopt(CurlHandle& curl)
   if (_curl_header_list) { curl.setopt(CURLOPT_HTTPHEADER, _curl_header_list); }
 }
 
-std::string S3Endpoint::unwrap_or_default(std::optional<std::string> aws_arg,
-                                          std::string const& env_var,
-                                          std::string const& err_msg)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  if (aws_arg.has_value()) { return std::move(*aws_arg); }
-
-  char const* env = std::getenv(env_var.c_str());
-  if (env == nullptr) {
-    if (err_msg.empty()) { return std::string(); }
-    KVIKIO_FAIL(err_msg, std::invalid_argument);
-  }
-  return std::string(env);
-}
-
 std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
                                                    std::string object_name,
                                                    std::optional<std::string> aws_region,
                                                    std::optional<std::string> aws_endpoint_url)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  auto const endpoint_url = unwrap_or_default(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
+  auto const endpoint_url = detail::unwrap_or_env(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
   std::stringstream ss;
   if (endpoint_url.empty()) {
     auto const region =
-      unwrap_or_default(std::move(aws_region),
-                        "AWS_DEFAULT_REGION",
-                        "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
+      detail::unwrap_or_env(std::move(aws_region),
+                            "AWS_DEFAULT_REGION",
+                            "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
     // "s3" is a non-standard URI scheme used by AWS CLI and AWS SDK, and cannot be identified by
     // libcurl. A valid HTTP/HTTPS URL needs to be constructed for use in libcurl. Here the AWS
     // virtual host style is used.
@@ -343,16 +329,16 @@ S3Endpoint::S3Endpoint(std::string url,
                 std::invalid_argument);
 
   auto const region =
-    unwrap_or_default(std::move(aws_region),
-                      "AWS_DEFAULT_REGION",
-                      "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
+    detail::unwrap_or_env(std::move(aws_region),
+                          "AWS_DEFAULT_REGION",
+                          "S3: must provide `aws_region` if AWS_DEFAULT_REGION isn't set.");
 
   auto const access_key =
-    unwrap_or_default(std::move(aws_access_key),
-                      "AWS_ACCESS_KEY_ID",
-                      "S3: must provide `aws_access_key` if AWS_ACCESS_KEY_ID isn't set.");
+    detail::unwrap_or_env(std::move(aws_access_key),
+                          "AWS_ACCESS_KEY_ID",
+                          "S3: must provide `aws_access_key` if AWS_ACCESS_KEY_ID isn't set.");
 
-  auto const secret_access_key = unwrap_or_default(
+  auto const secret_access_key = detail::unwrap_or_env(
     std::move(aws_secret_access_key),
     "AWS_SECRET_ACCESS_KEY",
     "S3: must provide `aws_secret_access_key` if AWS_SECRET_ACCESS_KEY isn't set.");
@@ -379,9 +365,9 @@ S3Endpoint::S3Endpoint(std::string url,
     // The _curl_header_list created by curl_slist_append must be manually freed
     // (see https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html)
     auto session_token =
-      unwrap_or_default(std::move(aws_session_token),
-                        "AWS_SESSION_TOKEN",
-                        "When using temporary credentials, AWS_SESSION_TOKEN must be set.");
+      detail::unwrap_or_env(std::move(aws_session_token),
+                            "AWS_SESSION_TOKEN",
+                            "When using temporary credentials, AWS_SESSION_TOKEN must be set.");
     std::stringstream ss;
     ss << "x-amz-security-token: " << session_token;
     _curl_header_list = curl_slist_append(NULL, ss.str().c_str());

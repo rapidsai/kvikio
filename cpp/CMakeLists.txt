@@ -144,6 +144,7 @@ set(SOURCES
     "src/file_handle.cpp"
     "src/file_utils.cpp"
     "src/mmap.cpp"
+    "src/detail/env.cpp"
     "src/detail/nvtx.cpp"
     "src/detail/posix_io.cpp"
     "src/shim/cuda.cpp"
