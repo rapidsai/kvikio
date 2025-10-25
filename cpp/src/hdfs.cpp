@@ -5,6 +5,7 @@
 
 #include <regex>
 
+#include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/error.hpp>
@@ -16,6 +17,12 @@ namespace kvikio {
 
 WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteEndpointType::WEBHDFS}
 {
+  // Descending priority order for username determination:
+  // - Query string in URL (?user.name=xxx)
+  // - Environment variable `KVIKIO_WEBHDFS_USERNAME`
+  auto const* env_val = std::getenv("KVIKIO_WEBHDFS_USERNAME");
+  if (env_val != nullptr) { _username = env_val; }
+
   // todo: Use libcurl URL API for more secure and idiomatic parsing.
   // Split the URL into two parts: one without query and one with.
   std::regex static const pattern{R"(^([^?]+)\?([^#]*))"};
@@ -53,11 +60,12 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string host,
                                  std::string port,
                                  std::string file_path,
                                  std::optional<std::string> username)
-  : RemoteEndpoint{RemoteEndpointType::WEBHDFS}, _username{std::move(username)}
+  : RemoteEndpoint{RemoteEndpointType::WEBHDFS}
 {
   std::stringstream ss;
   ss << "http://" << host << ":" << port << "/webhdfs/v1" << file_path;
-  _url = ss.str();
+  _url      = ss.str();
+  _username = detail::unwrap_or_env(std::move(username), "KVIKIO_WEBHDFS_USERNAME");
 }
 
 std::string WebHdfsEndpoint::str() const { return _url; }

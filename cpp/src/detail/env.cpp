@@ -8,18 +8,15 @@
 #include <kvikio/error.hpp>
 
 namespace kvikio::detail {
-std::string unwrap_or_env(std::optional<std::string> value,
-                          std::string const& env_var,
-                          std::optional<std::string> const& err_msg)
+std::optional<std::string> unwrap_or_env(std::optional<std::string> value,
+                                         std::string const& env_var,
+                                         std::optional<std::string> const& err_msg)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (value.has_value()) { return std::move(*value); }
-
+  if (value.has_value()) { return value; }
   char const* env = std::getenv(env_var.c_str());
-  if (env == nullptr) {
-    if (!err_msg.has_value()) { return std::string(); }
-    KVIKIO_FAIL(*err_msg, std::invalid_argument);
-  }
-  return std::string(env);
+  if (env != nullptr) { return std::string(env); }
+  if (!err_msg.has_value()) { return std::nullopt; }
+  KVIKIO_FAIL(*err_msg, std::invalid_argument);
 }
 }  // namespace kvikio::detail

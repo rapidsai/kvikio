@@ -288,7 +288,7 @@ std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
   KVIKIO_NVTX_FUNC_RANGE();
   auto const endpoint_url = detail::unwrap_or_env(std::move(aws_endpoint_url), "AWS_ENDPOINT_URL");
   std::stringstream ss;
-  if (endpoint_url.empty()) {
+  if (!endpoint_url.has_value()) {
     auto const region =
       detail::unwrap_or_env(std::move(aws_region),
                             "AWS_DEFAULT_REGION",
@@ -296,9 +296,9 @@ std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
     // "s3" is a non-standard URI scheme used by AWS CLI and AWS SDK, and cannot be identified by
     // libcurl. A valid HTTP/HTTPS URL needs to be constructed for use in libcurl. Here the AWS
     // virtual host style is used.
-    ss << "https://" << bucket_name << ".s3." << region << ".amazonaws.com/" << object_name;
+    ss << "https://" << bucket_name << ".s3." << region.value() << ".amazonaws.com/" << object_name;
   } else {
-    ss << endpoint_url << "/" << bucket_name << "/" << object_name;
+    ss << endpoint_url.value() << "/" << bucket_name << "/" << object_name;
   }
   return ss.str();
 }
@@ -346,7 +346,7 @@ S3Endpoint::S3Endpoint(std::string url,
   // Create the CURLOPT_AWS_SIGV4 option
   {
     std::stringstream ss;
-    ss << "aws:amz:" << region << ":s3";
+    ss << "aws:amz:" << region.value() << ":s3";
     _aws_sigv4 = ss.str();
   }
   // Create the CURLOPT_USERPWD option
@@ -355,12 +355,12 @@ S3Endpoint::S3Endpoint(std::string url,
   // <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html>
   {
     std::stringstream ss;
-    ss << access_key << ":" << secret_access_key;
+    ss << access_key.value() << ":" << secret_access_key.value();
     _aws_userpwd = ss.str();
   }
   // Access key IDs beginning with ASIA are temporary credentials that are created using AWS STS
   // operations. They need a session token to work.
-  if (access_key.compare(0, 4, std::string("ASIA")) == 0) {
+  if (access_key->compare(0, 4, std::string("ASIA")) == 0) {
     // Create a Custom Curl header for the session token.
     // The _curl_header_list created by curl_slist_append must be manually freed
     // (see https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html)
@@ -369,7 +369,7 @@ S3Endpoint::S3Endpoint(std::string url,
                             "AWS_SESSION_TOKEN",
                             "When using temporary credentials, AWS_SESSION_TOKEN must be set.");
     std::stringstream ss;
-    ss << "x-amz-security-token: " << session_token;
+    ss << "x-amz-security-token: " << session_token.value();
     _curl_header_list = curl_slist_append(NULL, ss.str().c_str());
     KVIKIO_EXPECT(_curl_header_list != nullptr,
                   "Failed to create curl header for AWS token",
