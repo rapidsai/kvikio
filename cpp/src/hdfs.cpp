@@ -17,9 +17,6 @@ namespace kvikio {
 
 WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteEndpointType::WEBHDFS}
 {
-  // Descending priority order for username determination:
-  // - Query string in URL (?user.name=xxx)
-  // - Environment variable `KVIKIO_WEBHDFS_USERNAME`
   auto const* env_val = std::getenv("KVIKIO_WEBHDFS_USERNAME");
   if (env_val != nullptr) { _username = env_val; }
 
