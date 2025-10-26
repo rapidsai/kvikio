@@ -27,12 +27,15 @@ class WebHdfsEndpoint : public RemoteEndpoint {
    * @brief Create an WebHDFS endpoint from a url.
    *
    * @param url The WebHDFS HTTP/HTTPS url to the remote file.
+   * @param username Optional user name
    *
-   * @note The optional username is determined in the following descending priority order:
+   * @note The optional username for authentication is determined in the following descending
+   * priority order:
+   * - Function parameter `username`
    * - Query string in URL (?user.name=xxx)
    * - Environment variable `KVIKIO_WEBHDFS_USERNAME`
    */
-  explicit WebHdfsEndpoint(std::string url);
+  explicit WebHdfsEndpoint(std::string url, std::optional<std::string> username = std::nullopt);
 
   /**
    * @brief Create an WebHDFS endpoint from the host, port, file path and optionally username.
@@ -40,9 +43,10 @@ class WebHdfsEndpoint : public RemoteEndpoint {
    * @param host Host
    * @param port Port
    * @param remote_file_path Remote file path
-   * @param username User name
+   * @param username Optional user name
    *
-   * @note The optional username is determined in the following descending priority order:
+   * @note The optional username for authentication is determined in the following descending
+   * priority order:
    * - Function parameter `username`
    * - Environment variable `KVIKIO_WEBHDFS_USERNAME`
    */
