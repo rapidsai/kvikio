@@ -575,6 +575,7 @@ RemoteHandle RemoteHandle::open(std::string url,
                                 std::optional<std::vector<RemoteEndpointType>> allow_list,
                                 std::optional<std::size_t> nbytes)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (!allow_list.has_value()) {
     allow_list = {RemoteEndpointType::S3,
                   RemoteEndpointType::S3_PUBLIC,
