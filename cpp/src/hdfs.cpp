@@ -5,6 +5,7 @@
 
 #include <regex>
 
+#include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/error.hpp>
@@ -14,11 +15,12 @@
 
 namespace kvikio {
 
-WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteEndpointType::WEBHDFS}
+WebHdfsEndpoint::WebHdfsEndpoint(std::string url, std::optional<std::string> username)
+  : RemoteEndpoint{RemoteEndpointType::WEBHDFS}, _username(std::move(username))
 {
-  // todo: Use libcurl URL API for more secure and idiomatic parsing.
-  // Split the URL into two parts: one without query and one with.
-  std::regex static const pattern{R"(^([^?]+)\?([^#]*))"};
+  // Extract two parts from the URL: components before (not including) the query and the query
+  // itself
+  std::regex static const url_pattern{R"(^([^?]+)\?([^#]*))"};
   // Regex meaning:
   // ^: From the start of the line
   // [^?]+: Matches non-question-mark characters one or more times. The question mark ushers in the
@@ -26,26 +28,32 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string url) : RemoteEndpoint{RemoteEndpoin
   // \?: Matches the question mark, which needs to be escaped.
   // [^#]*: Matches the non-pound characters zero or more times. The pound sign ushers in the URL
   // fragment component. It is very likely that this part does not exist.
-  std::smatch match_results;
-  bool found = std::regex_search(url, match_results, pattern);
-  // If the match is not found, the URL contains no query.
-  if (!found) {
+  std::smatch url_match_results;
+  bool found_query = std::regex_search(url, url_match_results, url_pattern);
+  if (!found_query) {
     _url = url;
-    return;
-  }
+  } else {
+    // URL components before (not including) the query
+    _url = url_match_results[1].str();
 
-  _url       = match_results[1].str();
-  auto query = match_results[2].str();
+    auto query = url_match_results[2].str();
 
-  {
     // Extract user name if provided. In WebHDFS, user name is specified as the key=value pair in
     // the query
-    std::regex static const pattern{R"(user.name=([^&]+))"};
+    std::regex static const username_pattern{R"(user.name=([^&]+))"};
     // Regex meaning:
     // [^&]+: Matches the non-ampersand character one or more times. The ampersand delimits
     // different parameters.
-    std::smatch match_results;
-    if (std::regex_search(query, match_results, pattern)) { _username = match_results[1].str(); }
+    std::smatch username_match_results;
+    bool found_username = std::regex_search(query, username_match_results, username_pattern);
+    if (found_username) { _username = username_match_results[1].str(); }
+  }
+
+  // If the username is not specified by function parameter `username` or by the query string, check
+  // the environment variable
+  if (!_username.has_value()) {
+    auto const* env_val = std::getenv("KVIKIO_WEBHDFS_USERNAME");
+    if (env_val != nullptr) { _username = env_val; }
   }
 }
 
@@ -53,11 +61,12 @@ WebHdfsEndpoint::WebHdfsEndpoint(std::string host,
                                  std::string port,
                                  std::string file_path,
                                  std::optional<std::string> username)
-  : RemoteEndpoint{RemoteEndpointType::WEBHDFS}, _username{std::move(username)}
+  : RemoteEndpoint{RemoteEndpointType::WEBHDFS}
 {
   std::stringstream ss;
   ss << "http://" << host << ":" << port << "/webhdfs/v1" << file_path;
-  _url = ss.str();
+  _url      = ss.str();
+  _username = detail::unwrap_or_env(std::move(username), "KVIKIO_WEBHDFS_USERNAME");
 }
 
 std::string WebHdfsEndpoint::str() const { return _url; }
