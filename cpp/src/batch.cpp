@@ -15,8 +15,6 @@
 
 namespace kvikio {
 
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
-
 BatchHandle::BatchHandle(int max_num_events) : _initialized{true}, _max_num_events{max_num_events}
 {
   CUFILE_TRY(cuFileAPI::instance().BatchIOSetUp(&_handle, max_num_events));
@@ -77,29 +75,5 @@ std::vector<CUfileIOEvents_t> BatchHandle::status(unsigned min_nr,
 }
 
 void BatchHandle::cancel() { CUFILE_TRY(cuFileAPI::instance().BatchIOCancel(_handle)); }
-
-#else
-
-BatchHandle::BatchHandle(int max_num_events)
-{
-  KVIKIO_FAIL("BatchHandle requires cuFile's batch API, please build with CUDA v12.1+");
-}
-
-bool BatchHandle::closed() const noexcept { return true; }
-
-void BatchHandle::close() noexcept {}
-
-void BatchHandle::submit(std::vector<BatchOp> const& operations) {}
-
-std::vector<CUfileIOEvents_t> BatchHandle::status(unsigned min_nr,
-                                                  unsigned max_nr,
-                                                  struct timespec* timeout)
-{
-  return std::vector<CUfileIOEvents_t>{};
-}
-
-void BatchHandle::cancel() {}
-
-#endif
 
 }  // namespace kvikio
