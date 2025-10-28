@@ -43,7 +43,7 @@ class WebHdfsEndpoint : public RemoteEndpoint {
    * @param host Host
    * @param port Port
    * @param remote_file_path Remote file path
-   * @param username Optional user name
+   * @param username Optional user name.
    *
    * @note The optional username for authentication is determined in the following descending
    * priority order:
