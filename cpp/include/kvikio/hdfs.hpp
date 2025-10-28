@@ -27,7 +27,7 @@ class WebHdfsEndpoint : public RemoteEndpoint {
    * @brief Create an WebHDFS endpoint from a url.
    *
    * @param url The WebHDFS HTTP/HTTPS url to the remote file.
-   * @param username Optional user name
+   * @param username Optional user name.
    *
    * @note The optional username for authentication is determined in the following descending
    * priority order:
