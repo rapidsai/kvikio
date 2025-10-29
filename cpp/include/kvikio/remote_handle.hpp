@@ -143,23 +143,6 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _aws_userpwd;
   curl_slist* _curl_header_list{};
 
-  /**
-   * @brief Unwrap an optional parameter, obtaining a default from the environment.
-   *
-   * If not nullopt, the optional's value is returned. Otherwise, the environment
-   * variable `env_var` is used. If that also doesn't have a value:
-   *   - if `err_msg` is empty, the empty string is returned.
-   *   - if `err_msg` is not empty, `std::invalid_argument(`err_msg`)` is thrown.
-   *
-   * @param value The value to unwrap.
-   * @param env_var The name of the environment variable to check if `value` isn't set.
-   * @param err_msg The error message to throw on error or the empty string.
-   * @return The parsed AWS argument or the empty string.
-   */
-  static std::string unwrap_or_default(std::optional<std::string> aws_arg,
-                                       std::string const& env_var,
-                                       std::string const& err_msg = "");
-
  public:
   /**
    * @brief Get url from a AWS S3 bucket and object name.
