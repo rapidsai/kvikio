@@ -4,7 +4,6 @@ schema_version: 1
 
 context:
   version: ${{ env.get("RAPIDS_PACKAGE_VERSION") }}
-  minor_version: ${{ (version | split("."))[:2] | join(".") }}
   # When reverting, instances of cuda_key_string can be replaced with cuda_major
   cuda_key_string: ${{ cuda_version | replace(".", "_") }}
   cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
