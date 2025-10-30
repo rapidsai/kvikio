@@ -283,9 +283,6 @@ class FileHandle {
    * This is an asynchronous version of `.read()`, which will be executed in sequence
    * for the specified stream.
    *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
-   *
    * The arguments have the same meaning as in `.read()` but some of them are deferred.
    * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
    * will not be evaluated until execution time. Notice, this behavior can be changed
@@ -324,9 +321,6 @@ class FileHandle {
    * This is an asynchronous version of `.read()`, which will be executed in sequence
    * for the specified stream.
    *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
-   *
    * The arguments have the same meaning as in `.read()` but returns a `StreamFuture` object
    * that the caller must keep alive until all data has been read from disk. One way to do this,
    * is by calling `StreamFuture.check_bytes_done()`, which will synchronize the associated stream
@@ -354,9 +348,6 @@ class FileHandle {
    *
    * This is an asynchronous version of `.write()`, which will be executed in sequence
    * for the specified stream.
-   *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.write()` but some of them are deferred.
    * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
@@ -396,9 +387,6 @@ class FileHandle {
    *
    * This is an asynchronous version of `.write()`, which will be executed in sequence
    * for the specified stream.
-   *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.write()` but returns a `StreamFuture` object
    * that the caller must keep alive until all data has been written to disk. One way to do this,

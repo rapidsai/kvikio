@@ -33,8 +33,6 @@ struct BatchOp {
   CUfileOpcode_t opcode;
 };
 
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
-
 /**
  * @brief Handle of an cuFile batch using  semantic.
  *
@@ -103,28 +101,5 @@ class BatchHandle {
 
   void cancel();
 };
-
-#else
-
-class BatchHandle {
- public:
-  BatchHandle() noexcept = default;
-
-  BatchHandle(int max_num_events);
-
-  [[nodiscard]] bool closed() const noexcept;
-
-  void close() noexcept;
-
-  void submit(std::vector<BatchOp> const& operations);
-
-  std::vector<CUfileIOEvents_t> status(unsigned min_nr,
-                                       unsigned max_nr,
-                                       struct timespec* timeout = nullptr);
-
-  void cancel();
-};
-
-#endif
 
 }  // namespace kvikio
