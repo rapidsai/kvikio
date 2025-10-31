@@ -8,10 +8,13 @@
 #include <cstddef>
 #include <cstdlib>
 #include <map>
+#include <optional>
 #include <thread>
 
 #include <kvikio/bounce_buffer.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
@@ -71,37 +74,96 @@ class StreamsByThread {
  * @tparam Operation Whether the operation is a read or a write.
  * @tparam PartialIOStatus Whether all requested data are processed or not. If `FULL`, all of
  * `count` bytes are read or written.
- * @param fd File descriptor
+ * @param fd_direct_off File descriptor without Direct I/O
  * @param buf Buffer to write
  * @param count Number of bytes to write
  * @param offset File offset
+ * @param fd_direct_on Optional file descriptor with Direct I/O
  * @return The number of bytes read or written (always gather than zero)
  */
 template <IOOperationType Operation, PartialIO PartialIOStatus>
-ssize_t posix_host_io(int fd, void const* buf, size_t count, off_t offset)
+ssize_t posix_host_io(int fd_direct_off,
+                      void const* buf,
+                      size_t count,
+                      off_t offset,
+                      std::optional<int> fd_direct_on = std::nullopt)
 {
-  off_t cur_offset      = offset;
-  size_t byte_remaining = count;
-  char* buffer          = const_cast<char*>(static_cast<char const*>(buf));
-  while (byte_remaining > 0) {
-    ssize_t nbytes = 0;
+  auto pread_or_write = [](int fd, void* buf, size_t count, off_t offset) -> ssize_t {
+    ssize_t nbytes{};
     if constexpr (Operation == IOOperationType::READ) {
-      nbytes = ::pread(fd, buffer, byte_remaining, cur_offset);
+      nbytes = ::pread(fd, buf, count, offset);
     } else {
-      nbytes = ::pwrite(fd, buffer, byte_remaining, cur_offset);
+      nbytes = ::pwrite(fd, buf, count, offset);
     }
-    if (nbytes == -1) {
+    return nbytes;
+  };
+
+  off_t cur_offset       = offset;
+  size_t bytes_remaining = count;
+  char* buffer           = const_cast<char*>(static_cast<char const*>(buf));
+  auto const page_size   = get_page_size();
+
+  while (bytes_remaining > 0) {
+    ssize_t nbytes_processed{};
+
+    if (!fd_direct_on.has_value() || !defaults::posix_direct_io_enabled()) {
+      nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
+    } else {
+      // Make earnest attempt to perform Direct I/O
+      auto const is_cur_offset_aligned = detail::is_aligned(cur_offset, page_size);
+
+      if (!is_cur_offset_aligned) {
+        auto const aligned_cur_offset = detail::align_up(cur_offset, page_size);
+        auto const bytes_requested    = std::min(aligned_cur_offset - cur_offset, bytes_remaining);
+        // Use non-Direct I/O from the current file offset to a page boundary
+        nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_requested, cur_offset);
+      } else {
+        if (bytes_remaining < page_size) {
+          nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
+        } else {
+          auto aligned_bytes_remaining = detail::align_down(bytes_remaining, page_size);
+          auto const is_buf_aligned    = detail::is_aligned(buffer, page_size);
+          void* aligned_buf{};
+          auto bytes_requested = aligned_bytes_remaining;
+          if (!is_buf_aligned) {
+            auto alloc      = AllocRetain::instance().get();
+            aligned_buf     = alloc.get();
+            bytes_requested = std::min(bytes_requested, alloc.size());
+          } else {
+            aligned_buf = buffer;
+          }
+
+          if (!is_buf_aligned) {
+            if constexpr (Operation == IOOperationType::WRITE) {
+              std::memcpy(aligned_buf, buffer, bytes_requested);
+            }
+          }
+
+          // Perform Direct I/O
+          nbytes_processed =
+            pread_or_write(fd_direct_on.value(), aligned_buf, bytes_requested, cur_offset);
+
+          if (!is_buf_aligned) {
+            if constexpr (Operation == IOOperationType::READ) {
+              std::memcpy(buffer, aligned_buf, nbytes_processed);
+            }
+          }
+        }
+      }
+    }
+
+    if (nbytes_processed == -1) {
       std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
       KVIKIO_EXPECT(errno != EBADF, "POSIX error: Operation not permitted");
       KVIKIO_FAIL("POSIX error on " + name + ": " + strerror(errno));
     }
     if constexpr (Operation == IOOperationType::READ) {
-      KVIKIO_EXPECT(nbytes != 0, "POSIX error on pread: EOF");
+      KVIKIO_EXPECT(nbytes_processed != 0, "POSIX error on pread: EOF");
     }
-    if constexpr (PartialIOStatus == PartialIO::YES) { return nbytes; }
-    buffer += nbytes;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    cur_offset += nbytes;
-    byte_remaining -= nbytes;
+    if constexpr (PartialIOStatus == PartialIO::YES) { return nbytes_processed; }
+    buffer += nbytes_processed;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    cur_offset += nbytes_processed;
+    bytes_remaining -= nbytes_processed;
   }
   return convert_size2ssize(count);
 }
@@ -118,27 +180,28 @@ ssize_t posix_host_io(int fd, void const* buf, size_t count, off_t offset)
  * @return Number of bytes read or written.
  */
 template <IOOperationType Operation>
-std::size_t posix_device_io(int fd,
+std::size_t posix_device_io(int fd_direct_off,
                             void const* devPtr_base,
                             std::size_t size,
                             std::size_t file_offset,
-                            std::size_t devPtr_offset)
+                            std::size_t devPtr_offset,
+                            std::optional<int> fd_direct_on = std::nullopt)
 {
   auto alloc              = AllocRetain::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
-  off_t byte_remaining    = convert_size2off(size);
+  off_t bytes_remaining   = convert_size2off(size);
   off_t const chunk_size2 = convert_size2off(alloc.size());
 
   // Get a stream for the current CUDA context and thread
   CUstream stream = StreamsByThread::get();
 
-  while (byte_remaining > 0) {
-    off_t const nbytes_requested = std::min(chunk_size2, byte_remaining);
+  while (bytes_remaining > 0) {
+    off_t const nbytes_requested = std::min(chunk_size2, bytes_remaining);
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (Operation == IOOperationType::READ) {
       nbytes_got = posix_host_io<IOOperationType::READ, PartialIO::YES>(
-        fd, alloc.get(), nbytes_requested, cur_file_offset);
+        fd_direct_off, alloc.get(), nbytes_requested, cur_file_offset, fd_direct_on);
       CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
@@ -146,11 +209,11 @@ std::size_t posix_device_io(int fd,
         cudaAPI::instance().MemcpyDtoHAsync(alloc.get(), devPtr, nbytes_requested, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       posix_host_io<IOOperationType::WRITE, PartialIO::NO>(
-        fd, alloc.get(), nbytes_requested, cur_file_offset);
+        fd_direct_off, alloc.get(), nbytes_requested, cur_file_offset, fd_direct_on);
     }
     cur_file_offset += nbytes_got;
     devPtr += nbytes_got;
-    byte_remaining -= nbytes_got;
+    bytes_remaining -= nbytes_got;
   }
   return size;
 }
@@ -170,11 +233,15 @@ std::size_t posix_device_io(int fd,
  * @return Size of bytes that were successfully read.
  */
 template <PartialIO PartialIOStatus>
-std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t file_offset)
+std::size_t posix_host_read(int fd_direct_off,
+                            void* buf,
+                            std::size_t size,
+                            std::size_t file_offset,
+                            std::optional<int> fd_direct_on = std::nullopt)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_host_io<IOOperationType::READ, PartialIOStatus>(
-    fd, buf, size, convert_size2off(file_offset));
+    fd_direct_off, buf, size, convert_size2off(file_offset), fd_direct_on);
 }
 
 /**
@@ -183,8 +250,8 @@ std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t fil
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
- * @tparam ioDataCompletionLevel Whether all requested data are processed or not. If `FULL`, all of
- * `count` bytes are written.
+ * @tparam ioDataCompletionLevel Whether all requested data are processed or not. If `FULL`, all
+ * of `count` bytes are written.
  * @param fd File descriptor
  * @param buf Base address of buffer in host memory.
  * @param size Size in bytes to write.
@@ -192,11 +259,15 @@ std::size_t posix_host_read(int fd, void* buf, std::size_t size, std::size_t fil
  * @return Size of bytes that were successfully read.
  */
 template <PartialIO PartialIOStatus>
-std::size_t posix_host_write(int fd, void const* buf, std::size_t size, std::size_t file_offset)
+std::size_t posix_host_write(int fd_direct_off,
+                             void const* buf,
+                             std::size_t size,
+                             std::size_t file_offset,
+                             std::optional<int> fd_direct_on = std::nullopt)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_host_io<IOOperationType::WRITE, PartialIOStatus>(
-    fd, buf, size, convert_size2off(file_offset));
+    fd_direct_off, buf, size, convert_size2off(file_offset), fd_direct_on);
 }
 
 /**
@@ -212,11 +283,12 @@ std::size_t posix_host_write(int fd, void const* buf, std::size_t size, std::siz
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
  * @return Size of bytes that were successfully read.
  */
-std::size_t posix_device_read(int fd,
+std::size_t posix_device_read(int fd_direct_off,
                               void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
-                              std::size_t devPtr_offset);
+                              std::size_t devPtr_offset,
+                              std::optional<int> fd_direct_on = std::nullopt);
 
 /**
  * @brief Write device memory to disk using POSIX
@@ -231,10 +303,11 @@ std::size_t posix_device_read(int fd,
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
  * @return Size of bytes that were successfully written.
  */
-std::size_t posix_device_write(int fd,
+std::size_t posix_device_write(int fd_direct_off,
                                void const* devPtr_base,
                                std::size_t size,
                                std::size_t file_offset,
-                               std::size_t devPtr_offset);
+                               std::size_t devPtr_offset,
+                               std::optional<int> fd_direct_on = std::nullopt);
 
 }  // namespace kvikio::detail

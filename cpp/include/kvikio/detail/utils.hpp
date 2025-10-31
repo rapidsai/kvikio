@@ -44,4 +44,8 @@ namespace kvikio::detail {
  */
 [[nodiscard]] void* align_down(void* addr, std::size_t alignment) noexcept;
 
+bool is_aligned(std::size_t value, std::size_t alignment) noexcept;
+
+bool is_aligned(void* addr, std::size_t alignment) noexcept;
+
 }  // namespace kvikio::detail

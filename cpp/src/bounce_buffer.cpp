@@ -9,10 +9,40 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
+
+namespace {
+void* allocate(std::size_t size)
+{
+  void* alloc{};
+  auto const page_size    = get_page_size();
+  auto const aligned_size = detail::align_up(size, page_size);
+  alloc                   = std::aligned_alloc(page_size, aligned_size);
+  KVIKIO_EXPECT(alloc != nullptr, "Aligned allocation failed");
+  CUDA_DRIVER_TRY(
+    cudaAPI::instance().MemHostRegister(alloc, aligned_size, CU_MEMHOSTALLOC_PORTABLE));
+
+  //   // If no available allocation, allocate and register a new one
+  //   // Allocate page-locked host memory
+  //   // Under unified addressing, host memory allocated this way is automatically portable and
+  //   // mapped.
+  //   CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, size, CU_MEMHOSTALLOC_PORTABLE));
+
+  return alloc;
+}
+
+void deallocate(void* buf)
+{
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostUnregister(buf));
+  std::free(buf);
+
+  // CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(buf));
+}
+}  // namespace
 
 AllocRetain::Alloc::Alloc(AllocRetain* manager, void* alloc, std::size_t size)
   : _manager(manager), _alloc{alloc}, _size{size}
@@ -45,7 +75,7 @@ std::size_t AllocRetain::_clear()
   KVIKIO_NVTX_FUNC_RANGE();
   std::size_t ret = _free_allocs.size() * _size;
   while (!_free_allocs.empty()) {
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
+    deallocate(_free_allocs.top());
     _free_allocs.pop();
   }
   return ret;
@@ -74,11 +104,7 @@ AllocRetain::Alloc AllocRetain::get()
     return Alloc(this, ret, _size);
   }
 
-  // If no available allocation, allocate and register a new one
-  void* alloc{};
-  // Allocate page-locked host memory
-  // Under unified addressing, host memory allocated this way is automatically portable and mapped.
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, _size, CU_MEMHOSTALLOC_PORTABLE));
+  auto* alloc = allocate(_size);
   return Alloc(this, alloc, _size);
 }
 
