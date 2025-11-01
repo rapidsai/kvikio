@@ -356,6 +356,8 @@ class defaults {
    * @param status_codes The HTTP status codes to retry.
    */
   static void set_http_status_codes(std::vector<int> status_codes);
+
+  static bool posix_direct_io_enabled();
 };
 
 }  // namespace kvikio

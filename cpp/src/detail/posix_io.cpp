@@ -46,26 +46,38 @@ CUstream StreamsByThread::get()
   return get(ctx, std::this_thread::get_id());
 }
 
-std::size_t posix_device_read(int fd,
+std::size_t posix_device_read(int fd_direct_off,
                               void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
-                              std::size_t devPtr_offset)
+                              std::size_t devPtr_offset,
+                              std::optional<int> fd_direct_on)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
-  return detail::posix_device_io<IOOperationType::READ>(
-    fd, devPtr_base, size, file_offset, devPtr_offset);
+  if (defaults::posix_direct_io_enabled()) {
+    return detail::posix_device_io<IOOperationType::READ, CudaPageAlignedPinnedBounceBufferPool>(
+      fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
+  } else {
+    return detail::posix_device_io<IOOperationType::READ>(
+      fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
+  }
 }
 
-std::size_t posix_device_write(int fd,
+std::size_t posix_device_write(int fd_direct_off,
                                void const* devPtr_base,
                                std::size_t size,
                                std::size_t file_offset,
-                               std::size_t devPtr_offset)
+                               std::size_t devPtr_offset,
+                               std::optional<int> fd_direct_on)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
-  return detail::posix_device_io<IOOperationType::WRITE>(
-    fd, devPtr_base, size, file_offset, devPtr_offset);
+  if (defaults::posix_direct_io_enabled()) {
+    return detail::posix_device_io<IOOperationType::WRITE, CudaPageAlignedPinnedBounceBufferPool>(
+      fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
+  } else {
+    return detail::posix_device_io<IOOperationType::WRITE>(
+      fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
+  }
 }
 
 }  // namespace kvikio::detail

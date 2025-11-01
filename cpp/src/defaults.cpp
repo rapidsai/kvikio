@@ -5,7 +5,6 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -226,4 +225,9 @@ void defaults::set_http_timeout(long timeout_seconds)
   instance()->_http_timeout = timeout_seconds;
 }
 
+bool defaults::posix_direct_io_enabled()
+{
+  static auto result = getenv_or("KVIKIO_POSIX_ENABLE_DIRECT_IO", false);
+  return result;
+}
 }  // namespace kvikio
