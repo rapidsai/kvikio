@@ -125,30 +125,27 @@ ssize_t posix_host_io(int fd_direct_off,
         } else {
           auto aligned_bytes_remaining = detail::align_down(bytes_remaining, page_size);
           auto const is_buf_aligned    = detail::is_aligned(buffer, page_size);
-          void* aligned_buf{};
-          auto bytes_requested = aligned_bytes_remaining;
+          auto bytes_requested         = aligned_bytes_remaining;
           if (!is_buf_aligned) {
             auto bounce_buffer = BounceBufferPoolType::instance().get();
-            aligned_buf        = bounce_buffer.get();
+            auto* aligned_buf  = bounce_buffer.get();
             bytes_requested    = std::min(bytes_requested, bounce_buffer.size());
-          } else {
-            aligned_buf = buffer;
-          }
 
-          if (!is_buf_aligned) {
             if constexpr (Operation == IOOperationType::WRITE) {
               std::memcpy(aligned_buf, buffer, bytes_requested);
             }
-          }
 
-          // Perform Direct I/O
-          nbytes_processed =
-            pread_or_write(fd_direct_on.value(), aligned_buf, bytes_requested, cur_offset);
+            // Perform Direct I/O
+            nbytes_processed =
+              pread_or_write(fd_direct_on.value(), aligned_buf, bytes_requested, cur_offset);
 
-          if (!is_buf_aligned) {
             if constexpr (Operation == IOOperationType::READ) {
               std::memcpy(buffer, aligned_buf, nbytes_processed);
             }
+          } else {
+            // Perform Direct I/O
+            nbytes_processed =
+              pread_or_write(fd_direct_on.value(), buffer, bytes_requested, cur_offset);
           }
         }
       }
