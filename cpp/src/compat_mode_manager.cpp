@@ -47,7 +47,13 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
   _is_compat_mode_preferred = defaults::is_compat_mode_preferred(compat_mode_requested_v);
 
   // Nothing to do in compatibility mode
-  if (_is_compat_mode_preferred) { return; }
+  if (_is_compat_mode_preferred) {
+    if (defaults::posix_direct_io_enabled()) {
+      file_handle->_file_direct_on.open(file_path, flags, true, mode);
+    }
+
+    return;
+  }
 
   try {
     file_handle->_file_direct_on.open(file_path, flags, true, mode);

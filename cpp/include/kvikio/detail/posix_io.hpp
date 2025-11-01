@@ -81,7 +81,9 @@ class StreamsByThread {
  * @param fd_direct_on Optional file descriptor with Direct I/O
  * @return The number of bytes read or written (always gather than zero)
  */
-template <IOOperationType Operation, PartialIO PartialIOStatus>
+template <IOOperationType Operation,
+          PartialIO PartialIOStatus,
+          typename BounceBufferPoolType = PageAlignedBounceBufferPool>
 ssize_t posix_host_io(int fd_direct_off,
                       void const* buf,
                       size_t count,
@@ -126,9 +128,9 @@ ssize_t posix_host_io(int fd_direct_off,
           void* aligned_buf{};
           auto bytes_requested = aligned_bytes_remaining;
           if (!is_buf_aligned) {
-            auto alloc      = AllocRetain::instance().get();
-            aligned_buf     = alloc.get();
-            bytes_requested = std::min(bytes_requested, alloc.size());
+            auto bounce_buffer = BounceBufferPoolType::instance().get();
+            aligned_buf        = bounce_buffer.get();
+            bytes_requested    = std::min(bytes_requested, bounce_buffer.size());
           } else {
             aligned_buf = buffer;
           }
@@ -179,7 +181,7 @@ ssize_t posix_host_io(int fd_direct_off,
  * @param devPtr_offset Byte offset to the start of the device pointer.
  * @return Number of bytes read or written.
  */
-template <IOOperationType Operation>
+template <IOOperationType Operation, typename BounceBufferPoolType = CudaPinnedBounceBufferPool>
 std::size_t posix_device_io(int fd_direct_off,
                             void const* devPtr_base,
                             std::size_t size,
@@ -187,11 +189,11 @@ std::size_t posix_device_io(int fd_direct_off,
                             std::size_t devPtr_offset,
                             std::optional<int> fd_direct_on = std::nullopt)
 {
-  auto alloc              = AllocRetain::instance().get();
+  auto bounce_buffer      = BounceBufferPoolType::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);
   off_t bytes_remaining   = convert_size2off(size);
-  off_t const chunk_size2 = convert_size2off(alloc.size());
+  off_t const chunk_size2 = convert_size2off(bounce_buffer.size());
 
   // Get a stream for the current CUDA context and thread
   CUstream stream = StreamsByThread::get();
@@ -201,15 +203,16 @@ std::size_t posix_device_io(int fd_direct_off,
     ssize_t nbytes_got           = nbytes_requested;
     if constexpr (Operation == IOOperationType::READ) {
       nbytes_got = posix_host_io<IOOperationType::READ, PartialIO::YES>(
-        fd_direct_off, alloc.get(), nbytes_requested, cur_file_offset, fd_direct_on);
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(devPtr, alloc.get(), nbytes_got, stream));
+        fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on);
+      CUDA_DRIVER_TRY(
+        cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_got, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
       CUDA_DRIVER_TRY(
-        cudaAPI::instance().MemcpyDtoHAsync(alloc.get(), devPtr, nbytes_requested, stream));
+        cudaAPI::instance().MemcpyDtoHAsync(bounce_buffer.get(), devPtr, nbytes_requested, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       posix_host_io<IOOperationType::WRITE, PartialIO::NO>(
-        fd_direct_off, alloc.get(), nbytes_requested, cur_file_offset, fd_direct_on);
+        fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on);
     }
     cur_file_offset += nbytes_got;
     devPtr += nbytes_got;
