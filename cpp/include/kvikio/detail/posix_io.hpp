@@ -73,12 +73,12 @@ class StreamsByThread {
  * @tparam Operation Whether the operation is a read or a write.
  * @tparam PartialIOStatus Whether all requested data are processed or not. If `FULL`, all of
  * `count` bytes are read or written.
- * @param fd_direct_off File descriptor without Direct I/O
- * @param buf Buffer to write
- * @param count Number of bytes to write
- * @param offset File offset
- * @param fd_direct_on Optional file descriptor with Direct I/O
- * @return The number of bytes read or written (always gather than zero)
+ * @param fd_direct_off File descriptor without Direct I/O.
+ * @param buf Buffer to write.
+ * @param count Number of bytes to write.
+ * @param offset File offset.
+ * @param fd_direct_on Optional file descriptor with Direct I/O.
+ * @return The number of bytes read or written (always gather than zero).
  */
 template <IOOperationType Operation,
           PartialIO PartialIOStatus,
@@ -166,11 +166,12 @@ ssize_t posix_host_io(
  * @brief Read or write device memory to or from disk using POSIX
  *
  * @tparam Operation Whether the operation is a read or a write.
- * @param fd File descriptor
+ * @param fd_direct_off File descriptor without Direct I/O.
  * @param devPtr_base Device pointer to read or write to.
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
  * @param devPtr_offset Byte offset to the start of the device pointer.
+ * @param fd_direct_on Optional file descriptor with Direct I/O
  * @return Number of bytes read or written.
  */
 template <IOOperationType Operation, typename BounceBufferPoolType = CudaPinnedBounceBufferPool>
@@ -221,10 +222,11 @@ std::size_t posix_device_io(int fd_direct_off,
  *
  * @tparam PartialIOStatus Whether all requested data are processed or not. If `FULL`, all of
  * `count` bytes are read.
- * @param fd File descriptor
+ * @param fd_direct_off File descriptor without Direct I/O.
  * @param buf Base address of buffer in host memory.
  * @param size Size in bytes to read.
  * @param file_offset Offset in the file to read from.
+ * @param fd_direct_on Optional file descriptor with Direct I/O.
  * @return Size of bytes that were successfully read.
  */
 template <PartialIO PartialIOStatus>
@@ -244,10 +246,11 @@ std::size_t posix_host_read(
  *
  * @tparam ioDataCompletionLevel Whether all requested data are processed or not. If `FULL`, all
  * of `count` bytes are written.
- * @param fd File descriptor
+ * @param fd_direct_off File descriptor without Direct I/O.
  * @param buf Base address of buffer in host memory.
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.
+ * @param fd_direct_on Optional file descriptor with Direct I/O.
  * @return Size of bytes that were successfully read.
  */
 template <PartialIO PartialIOStatus>
@@ -268,11 +271,12 @@ std::size_t posix_host_write(int fd_direct_off,
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
- * @param fd File descriptor
+ * @param fd_direct_off File descriptor without Direct I/O.
  * @param devPtr_base Base address of buffer in device memory.
  * @param size Size in bytes to read.
  * @param file_offset Offset in the file to read from.
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
+ * @param fd_direct_on Optional file descriptor with Direct I/O.
  * @return Size of bytes that were successfully read.
  */
 std::size_t posix_device_read(int fd_direct_off,
@@ -288,11 +292,12 @@ std::size_t posix_device_read(int fd_direct_off,
  * If `size` or `file_offset` isn't aligned with `page_size` then
  * `fd` cannot have been opened with the `O_DIRECT` flag.
  *
- * @param fd File descriptor
+ * @param fd_direct_off File descriptor without Direct I/O.
  * @param devPtr_base Base address of buffer in device memory.
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to write into.
+ * @param fd_direct_on Optional file descriptor with Direct I/O.
  * @return Size of bytes that were successfully written.
  */
 std::size_t posix_device_write(int fd_direct_off,
