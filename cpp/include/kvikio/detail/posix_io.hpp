@@ -84,11 +84,8 @@ class StreamsByThread {
 template <IOOperationType Operation,
           PartialIO PartialIOStatus,
           typename BounceBufferPoolType = PageAlignedBounceBufferPool>
-ssize_t posix_host_io(int fd_direct_off,
-                      void const* buf,
-                      size_t count,
-                      off_t offset,
-                      std::optional<int> fd_direct_on = std::nullopt)
+ssize_t posix_host_io(
+  int fd_direct_off, void const* buf, size_t count, off_t offset, int fd_direct_on = -1)
 {
   auto pread_or_write = [](int fd, void* buf, size_t count, off_t offset) -> ssize_t {
     ssize_t nbytes{};
@@ -108,7 +105,7 @@ ssize_t posix_host_io(int fd_direct_off,
   while (bytes_remaining > 0) {
     ssize_t nbytes_processed{};
 
-    if (!fd_direct_on.has_value() || !defaults::posix_direct_io_enabled()) {
+    if (fd_direct_on == -1) {
       nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
     } else {
       // Make earnest attempt to perform Direct I/O
@@ -137,15 +134,14 @@ ssize_t posix_host_io(int fd_direct_off,
 
             // Perform Direct I/O
             nbytes_processed =
-              pread_or_write(fd_direct_on.value(), aligned_buf, bytes_requested, cur_offset);
+              pread_or_write(fd_direct_on, aligned_buf, bytes_requested, cur_offset);
 
             if constexpr (Operation == IOOperationType::READ) {
               std::memcpy(buffer, aligned_buf, nbytes_processed);
             }
           } else {
             // Perform Direct I/O
-            nbytes_processed =
-              pread_or_write(fd_direct_on.value(), buffer, bytes_requested, cur_offset);
+            nbytes_processed = pread_or_write(fd_direct_on, buffer, bytes_requested, cur_offset);
           }
         }
       }
@@ -184,7 +180,7 @@ std::size_t posix_device_io(int fd_direct_off,
                             std::size_t size,
                             std::size_t file_offset,
                             std::size_t devPtr_offset,
-                            std::optional<int> fd_direct_on = std::nullopt)
+                            int fd_direct_on = -1)
 {
   auto bounce_buffer      = BounceBufferPoolType::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
@@ -233,11 +229,8 @@ std::size_t posix_device_io(int fd_direct_off,
  * @return Size of bytes that were successfully read.
  */
 template <PartialIO PartialIOStatus>
-std::size_t posix_host_read(int fd_direct_off,
-                            void* buf,
-                            std::size_t size,
-                            std::size_t file_offset,
-                            std::optional<int> fd_direct_on = std::nullopt)
+std::size_t posix_host_read(
+  int fd_direct_off, void* buf, std::size_t size, std::size_t file_offset, int fd_direct_on = -1)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_host_io<IOOperationType::READ, PartialIOStatus>(
@@ -263,7 +256,7 @@ std::size_t posix_host_write(int fd_direct_off,
                              void const* buf,
                              std::size_t size,
                              std::size_t file_offset,
-                             std::optional<int> fd_direct_on = std::nullopt)
+                             int fd_direct_on = -1)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
   return detail::posix_host_io<IOOperationType::WRITE, PartialIOStatus>(
@@ -288,7 +281,7 @@ std::size_t posix_device_read(int fd_direct_off,
                               std::size_t size,
                               std::size_t file_offset,
                               std::size_t devPtr_offset,
-                              std::optional<int> fd_direct_on = std::nullopt);
+                              int fd_direct_on = -1);
 
 /**
  * @brief Write device memory to disk using POSIX
@@ -308,6 +301,6 @@ std::size_t posix_device_write(int fd_direct_off,
                                std::size_t size,
                                std::size_t file_offset,
                                std::size_t devPtr_offset,
-                               std::optional<int> fd_direct_on = std::nullopt);
+                               int fd_direct_on = -1);
 
 }  // namespace kvikio::detail
