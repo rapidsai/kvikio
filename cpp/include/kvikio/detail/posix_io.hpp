@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <map>
-#include <optional>
 #include <thread>
 
 #include <kvikio/bounce_buffer.hpp>
