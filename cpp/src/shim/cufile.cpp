@@ -37,6 +37,7 @@ cuFileAPI::cuFileAPI()
     CUfileError_t const error = GetVersion(&ver);
     if (error.err == CU_FILE_SUCCESS) { version = ver; }
   } catch (std::runtime_error const&) {
+    version = 1070;
   }
 #else
   version = 1070;
