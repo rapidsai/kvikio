@@ -75,7 +75,7 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
 
   // Check cuFile async API
   static bool const is_config_path_empty = config_path().empty();
-  _is_compat_mode_preferred_for_async = _is_compat_mode_preferred || is_config_path_empty;
+  _is_compat_mode_preferred_for_async    = _is_compat_mode_preferred || is_config_path_empty;
 }
 
 void CompatModeManager::validate_compat_mode_for_async() const
