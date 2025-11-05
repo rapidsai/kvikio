@@ -43,8 +43,9 @@ cuFileAPI::cuFileAPI()
 #endif
 
   // Note: CUDA 12.2.0 included cuFile 1.7.0.49, which added all of these symbols.
-  // ref: https://docs.nvidia.com/cuda/archive/12.2.0/cuda-toolkit-release-notes/index.html#cuda-toolkit-major-component-versions
-  // ref: https://docs.nvidia.com/gpudirect-storage/release-notes/index.html#new-features-and-changes
+  // Refs:
+  // * https://docs.nvidia.com/cuda/archive/12.2.0/cuda-toolkit-release-notes/index.html#cuda-toolkit-major-component-versions
+  // * https://docs.nvidia.com/gpudirect-storage/release-notes/index.html#new-features-and-changes
   get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
   get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
   get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
