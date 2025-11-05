@@ -42,23 +42,18 @@ cuFileAPI::cuFileAPI()
   version = 1070;
 #endif
 
-  // Some symbols were introduced in later versions, so version guards are required.
-  // Note: `version` is v1.7 (in CUDA 12.2) for cuFile versions prior to v1.8 (CUDA 12.3)
-  // because `cuFileGetVersion` did not exist until CUDA 12.3 and CUDA 12.2 is the oldest
-  // version we support. This trade-off is made for improved robustness.
-  if (version >= 1060) {
-    get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
-    get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
-    get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
-    get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
-    get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
-  }
-  if (version >= 1070) {
-    get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
-    get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
-    get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
-    get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
-  }
+  // Note: CUDA 12.2.0 included cuFile 1.7.0.49, which added all of these symbols.
+  // ref: https://docs.nvidia.com/cuda/archive/12.2.0/cuda-toolkit-release-notes/index.html#cuda-toolkit-major-component-versions
+  // ref: https://docs.nvidia.com/gpudirect-storage/release-notes/index.html#new-features-and-changes
+  get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
+  get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
+  get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
+  get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
+  get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
+  get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
+  get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
+  get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
+  get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
 }
 #else
 cuFileAPI::cuFileAPI() { KVIKIO_FAIL("KvikIO not compiled with cuFile.h", std::runtime_error); }
