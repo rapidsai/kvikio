@@ -61,7 +61,7 @@ In order to setup a development environment, we recommend Conda:
 .. code-block::
 
   # CUDA 13
-  mamba env create --name kvikio-dev --file conda/environments/all_cuda-130_arch-x86_64.yaml
+  mamba env create --name kvikio-dev --file conda/environments/all_cuda-130_arch-$(arch).yaml
 
 The Python library depends on the C++ library, thus we build and install both:
 
