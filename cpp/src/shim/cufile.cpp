@@ -111,8 +111,4 @@ int cufile_version() noexcept
 int cufile_version() noexcept { return 0; }
 #endif
 
-bool is_batch_api_available() noexcept { return cufile_version() >= 1060; }
-
-bool is_stream_api_available() noexcept { return cufile_version() >= 1070; }
-
 }  // namespace kvikio
