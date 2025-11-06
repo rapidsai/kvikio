@@ -13,7 +13,7 @@ function(find_and_configure_kvikio MIN_VERSION)
     VERSION ${MIN_VERSION}
             GIT_REPOSITORY
             https://github.com/rapidsai/kvikio.git
-    GIT_TAG branch-${MIN_VERSION}
+    GIT_TAG release/${MIN_VERSION}
     GIT_SHALLOW
       TRUE
       SOURCE_SUBDIR
