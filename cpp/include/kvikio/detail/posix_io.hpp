@@ -282,8 +282,12 @@ std::size_t posix_host_read(
   int fd_direct_off, void* buf, std::size_t size, std::size_t file_offset, int fd_direct_on = -1)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
+
+  auto cur_fd_direct_on{-1};
+  if (fd_direct_on != -1 && defaults::posix_direct_io_read()) { cur_fd_direct_on = fd_direct_on; }
+
   return detail::posix_host_io<IOOperationType::READ, PartialIOStatus>(
-    fd_direct_off, buf, size, convert_size2off(file_offset), fd_direct_on);
+    fd_direct_off, buf, size, convert_size2off(file_offset), cur_fd_direct_on);
 }
 
 /**
@@ -309,8 +313,12 @@ std::size_t posix_host_write(int fd_direct_off,
                              int fd_direct_on = -1)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
+
+  auto cur_fd_direct_on{-1};
+  if (fd_direct_on != -1 && defaults::posix_direct_io_write()) { cur_fd_direct_on = fd_direct_on; }
+
   return detail::posix_host_io<IOOperationType::WRITE, PartialIOStatus>(
-    fd_direct_off, buf, size, convert_size2off(file_offset), fd_direct_on);
+    fd_direct_off, buf, size, convert_size2off(file_offset), cur_fd_direct_on);
 }
 
 /**
