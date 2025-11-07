@@ -83,7 +83,7 @@ Overview
 
 By default, POSIX I/O operations perform buffered I/O using the OS page cache. However, Direct I/O (bypassing the page cache) can significantly improve performance in certain scenarios, such as writes and cold page-cache reads.
 
-Traditional Direct I/O has strict requirements: The buffer address must be page-aligned, the file offset must be page-aligned, and the transfer size must be a multiple of page size (typically 4096 bytes). :py:class:`kvikio.CuFile` offers the capability of opportunistic Direct I/O and removes these restrictions by automatically handling alignment. Specifically, KvikIO splits a POSIX I/O operation into unaligned and aligned segments and applies buffered I/O and direct I/O respectively.
+Traditional Direct I/O has strict requirements: The buffer address must be page-aligned, the file offset must be page-aligned, and the transfer size must be a multiple of page size (typically 4096 bytes). :py:class:`kvikio.CuFile` provides the feature of opportunistic Direct I/O, which removes these restrictions by automatically handling alignment. Specifically, KvikIO can split a POSIX I/O operation into unaligned and aligned segments and apply buffered I/O and direct I/O respectively.
 
 Configuration
 ^^^^^^^^^^^^^
