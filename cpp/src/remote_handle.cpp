@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
@@ -26,7 +27,6 @@
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
-#include "kvikio/bounce_buffer.hpp"
 
 namespace kvikio {
 
