@@ -40,6 +40,12 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     long cpp_http_timeout "kvikio::defaults::http_timeout"() except +
     void cpp_set_http_timeout\
         "kvikio::defaults::set_http_timeout"(long timeout_seconds) except +
+    bool cpp_posix_direct_io_read "kvikio::defaults::posix_direct_io_read"() except +
+    void cpp_set_posix_direct_io_read \
+        "kvikio::defaults::set_posix_direct_io_read"(size_t flag) except +
+    bool cpp_posix_direct_io_write "kvikio::defaults::posix_direct_io_write"() except +
+    void cpp_set_posix_direct_io_write \
+        "kvikio::defaults::set_posix_direct_io_write"(size_t flag) except +
 
 
 def is_compat_mode_preferred() -> bool:
@@ -147,3 +153,29 @@ def http_status_codes() -> list[int]:
 def set_http_status_codes(status_codes: list[int]) -> None:
     # Cannot use nogil here because we need the GIL for list conversion
     cpp_set_http_status_codes(status_codes)
+
+
+def posix_direct_io_read() -> bool:
+    cdef bool result
+    with nogil:
+        result = cpp_posix_direct_io_read()
+    return result
+
+
+def set_posix_direct_io_read(flag: bool) -> None:
+    cdef bool cpp_flag = flag
+    with nogil:
+        cpp_set_posix_direct_io_read(cpp_flag)
+
+
+def posix_direct_io_write() -> bool:
+    cdef bool result
+    with nogil:
+        result = cpp_posix_direct_io_write()
+    return result
+
+
+def set_posix_direct_io_write(flag: bool) -> None:
+    cdef bool cpp_flag = flag
+    with nogil:
+        cpp_set_posix_direct_io_write(cpp_flag)
