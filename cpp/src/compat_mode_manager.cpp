@@ -55,11 +55,12 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
   try {
     file_handle->_file_direct_on.open(file_path, flags, true, mode);
   } catch (...) {
+    // Handle different compatibility mode requests when Direct I/O is not supported
     if (compat_mode_requested_v == CompatMode::ON) {
-      // At this point, _file_direct_on.fd() == -1, and O_DIRECT read or write will not be performed
+      // _file_direct_on.fd() == -1, so Direct I/O will never be used on this file handle
       return;
     } else if (compat_mode_requested_v == CompatMode::AUTO) {
-      // Fall back to compatibility mode, if O_DIRECT is not supported
+      // Fall back to compatibility mode
       _is_compat_mode_preferred = true;
     } else {  // CompatMode::OFF
       throw;

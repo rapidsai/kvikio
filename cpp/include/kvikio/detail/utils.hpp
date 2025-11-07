@@ -44,8 +44,22 @@ namespace kvikio::detail {
  */
 [[nodiscard]] void* align_down(void* addr, std::size_t alignment) noexcept;
 
+/**
+ * @brief Whether `value` is a multiple of `alignment`
+ *
+ * @param value Value to be checked
+ * @param alignment Must be a power of 2
+ * @return Boolean answer
+ */
 bool is_aligned(std::size_t value, std::size_t alignment) noexcept;
 
+/**
+ * @brief Whether the address `addr` is a multiple of `alignment`
+ *
+ * @param addr Address to be checked
+ * @param alignment Must be a power of 2
+ * @return Boolean answer
+ */
 bool is_aligned(void* addr, std::size_t alignment) noexcept;
 
 }  // namespace kvikio::detail
