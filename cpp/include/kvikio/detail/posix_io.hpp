@@ -9,9 +9,9 @@
 #include <cstdlib>
 #include <map>
 #include <thread>
+#include <type_traits>
 
 #include <kvikio/bounce_buffer.hpp>
-#include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
@@ -68,17 +68,30 @@ class StreamsByThread {
 };
 
 /**
- * @brief Read or write host memory to or from disk using POSIX
+ * @brief Read or write host memory to or from disk using POSIX with opportunistic Direct I/O
  *
- * @tparam Operation Whether the operation is a read or a write.
- * @tparam PartialIOStatus Whether all requested data are processed or not. If `FULL`, all of
- * `count` bytes are read or written.
- * @param fd_direct_off File descriptor without Direct I/O.
- * @param buf Buffer to write.
- * @param count Number of bytes to write.
- * @param offset File offset.
- * @param fd_direct_on Optional file descriptor with Direct I/O.
- * @return The number of bytes read or written (always gather than zero).
+ * This function attempts to use Direct I/O (O_DIRECT) when alignment requirements are satisfied,
+ * and automatically falls back to buffered I/O when they cannot be met. Direct I/O requires:
+ * - File offset aligned to page boundary
+ * - Buffer address aligned to page boundary
+ * - Transfer size as a multiple of page size
+ *
+ * The implementation handles partial alignment by breaking the I/O into segments:
+ * - Unaligned prefix (if offset not page-aligned): uses buffered I/O to reach page boundary
+ * - Aligned middle section: uses Direct I/O with bounce buffer if needed
+ * - Unaligned suffix (if remaining bytes < page size): uses buffered I/O
+ *
+ * @tparam Operation Whether the operation is a read or a write
+ * @tparam PartialIOStatus If PartialIO::YES, returns after first successful I/O. If PartialIO::NO,
+ * loops until all `count` bytes are processed
+ * @tparam BounceBufferPoolType Pool type for acquiring page-aligned bounce buffers when the user
+ * buffer is not page-aligned (defaults to PageAlignedBounceBufferPool)
+ * @param fd_direct_off File descriptor opened without O_DIRECT (always valid)
+ * @param buf Buffer to read into or write from
+ * @param count Number of bytes to transfer
+ * @param offset File offset in bytes
+ * @param fd_direct_on File descriptor opened with O_DIRECT, or -1 to disable Direct I/O attempts
+ * @return Number of bytes read or written (always greater than zero)
  */
 template <IOOperationType Operation,
           PartialIO PartialIOStatus,
@@ -101,51 +114,62 @@ ssize_t posix_host_io(
   char* buffer           = const_cast<char*>(static_cast<char const*>(buf));
   auto const page_size   = get_page_size();
 
+  // Process all bytes in a loop (unless PartialIO::YES returns early)
   while (bytes_remaining > 0) {
     ssize_t nbytes_processed{};
 
     if (fd_direct_on == -1) {
+      // Direct I/O disabled: use buffered I/O for entire transfer
       nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
     } else {
-      // Make earnest attempt to perform Direct I/O
+      // Direct I/O enabled: attempt to use it when alignment allows
       auto const is_cur_offset_aligned = detail::is_aligned(cur_offset, page_size);
 
       if (!is_cur_offset_aligned) {
+        // Handle unaligned prefix: use buffered I/O to reach next page boundary
+        // This ensures subsequent iterations will have page-aligned offsets
         auto const aligned_cur_offset = detail::align_up(cur_offset, page_size);
         auto const bytes_requested    = std::min(aligned_cur_offset - cur_offset, bytes_remaining);
-        // Use non-Direct I/O from the current file offset to a page boundary
         nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_requested, cur_offset);
       } else {
         if (bytes_remaining < page_size) {
+          // Handle unaligned suffix: remaining bytes are less than a page, use buffered I/O
           nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
         } else {
+          // Offset is page-aligned. Now make transfer size page-aligned too by rounding down
           auto aligned_bytes_remaining = detail::align_down(bytes_remaining, page_size);
           auto const is_buf_aligned    = detail::is_aligned(buffer, page_size);
           auto bytes_requested         = aligned_bytes_remaining;
+
           if (!is_buf_aligned) {
+            // Buffer not page-aligned: use bounce buffer for Direct I/O
             auto bounce_buffer = BounceBufferPoolType::instance().get();
             auto* aligned_buf  = bounce_buffer.get();
-            bytes_requested    = std::min(bytes_requested, bounce_buffer.size());
+            // Limit transfer size to bounce buffer capacity
+            bytes_requested = std::min(bytes_requested, bounce_buffer.size());
 
             if constexpr (Operation == IOOperationType::WRITE) {
+              // Copy user data to aligned bounce buffer before Direct I/O write
               std::memcpy(aligned_buf, buffer, bytes_requested);
             }
 
-            // Perform Direct I/O
+            // Perform Direct I/O using the bounce buffer
             nbytes_processed =
               pread_or_write(fd_direct_on, aligned_buf, bytes_requested, cur_offset);
 
             if constexpr (Operation == IOOperationType::READ) {
+              // Copy data from bounce buffer to user buffer after Direct I/O read
               std::memcpy(buffer, aligned_buf, nbytes_processed);
             }
           } else {
-            // Perform Direct I/O
+            // Buffer is page-aligned: perform Direct I/O directly with user buffer
             nbytes_processed = pread_or_write(fd_direct_on, buffer, bytes_requested, cur_offset);
           }
         }
       }
     }
 
+    // Error handling
     if (nbytes_processed == -1) {
       std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
       KVIKIO_EXPECT(errno != EBADF, "POSIX error: Operation not permitted");
@@ -154,25 +178,41 @@ ssize_t posix_host_io(
     if constexpr (Operation == IOOperationType::READ) {
       KVIKIO_EXPECT(nbytes_processed != 0, "POSIX error on pread: EOF");
     }
+
+    // Return early if partial I/O is allowed
     if constexpr (PartialIOStatus == PartialIO::YES) { return nbytes_processed; }
+
+    // Advance to next segment
     buffer += nbytes_processed;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     cur_offset += nbytes_processed;
     bytes_remaining -= nbytes_processed;
   }
+
   return convert_size2ssize(count);
 }
 
 /**
- * @brief Read or write device memory to or from disk using POSIX
+ * @brief Read or write device memory to or from disk using POSIX with opportunistic Direct I/O
  *
- * @tparam Operation Whether the operation is a read or a write.
- * @param fd_direct_off File descriptor without Direct I/O.
- * @param devPtr_base Device pointer to read or write to.
- * @param size Number of bytes to read or write.
- * @param file_offset Byte offset to the start of the file.
- * @param devPtr_offset Byte offset to the start of the device pointer.
- * @param fd_direct_on Optional file descriptor with Direct I/O
- * @return Number of bytes read or written.
+ * This function transfers data between GPU device memory and files by staging through a host bounce
+ * buffer. Since without GDS Direct I/O cannot be performed directly with device memory, the
+ * operation is split into stages:
+ * - For reads: File --> Host bounce buffer (with Direct I/O if aligned) --> Device memory
+ * - For writes: Device memory --> Host bounce buffer --> File (with Direct I/O if aligned)
+ *
+ * The underlying file I/O uses `posix_host_io` which opportunistically attempts Direct I/O when
+ * alignment requirements are satisfied.
+ *
+ * @tparam Operation Whether the operation is a read or a write
+ * @tparam BounceBufferPoolType Pool type for acquiring CUDA-registered bounce buffers (defaults to
+ * CudaPinnedBounceBufferPool)
+ * @param fd_direct_off File descriptor opened without O_DIRECT (always valid)
+ * @param devPtr_base Base device pointer for the transfer
+ * @param size Total number of bytes to transfer
+ * @param file_offset Byte offset from the start of the file
+ * @param devPtr_offset Byte offset from devPtr_base (allows working with sub-regions)
+ * @param fd_direct_on File descriptor opened with O_DIRECT, or -1 to disable Direct I/O attempts
+ * @return Total number of bytes read or written
  */
 template <IOOperationType Operation, typename BounceBufferPoolType = CudaPinnedBounceBufferPool>
 std::size_t posix_device_io(int fd_direct_off,
@@ -182,6 +222,14 @@ std::size_t posix_device_io(int fd_direct_off,
                             std::size_t devPtr_offset,
                             int fd_direct_on = -1)
 {
+  // Direct I/O requires page-aligned bounce buffers. CudaPinnedBounceBufferPool uses
+  // cudaMemHostAlloc which does not guarantee page alignment.
+  if (fd_direct_on != -1 && std::is_same_v<BounceBufferPoolType, CudaPinnedBounceBufferPool>) {
+    KVIKIO_FAIL(
+      "Direct I/O requires page-aligned bounce buffers. CudaPinnedBounceBufferPool does not "
+      "guarantee page alignment. Use CudaPageAlignedPinnedBounceBufferPool instead.");
+  }
+
   auto bounce_buffer      = BounceBufferPoolType::instance().get();
   CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
   off_t cur_file_offset   = convert_size2off(file_offset);

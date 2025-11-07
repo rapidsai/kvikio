@@ -430,6 +430,8 @@ class FileHandle {
    * @return The associated compatibility mode manager.
    */
   const CompatModeManager& get_compat_mode_manager() const noexcept;
+
+  bool direct_io_suppored() const noexcept;
 };
 
 }  // namespace kvikio

@@ -62,10 +62,10 @@ void CudaPageAlignedPinnedAllocator::deallocate(void* buffer, std::size_t /*size
 }
 
 template <typename Allocator>
-BounceBufferPool<Allocator>::Buffer::Buffer(BounceBufferPool<Allocator>* manager,
+BounceBufferPool<Allocator>::Buffer::Buffer(BounceBufferPool<Allocator>* pool,
                                             void* buffer,
                                             std::size_t size)
-  : _manager(manager), _buffer{buffer}, _size{size}
+  : _pool(pool), _buffer{buffer}, _size{size}
 {
 }
 
@@ -73,7 +73,7 @@ template <typename Allocator>
 BounceBufferPool<Allocator>::Buffer::~Buffer() noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  _manager->put(_buffer, _size);
+  _pool->put(_buffer, _size);
 }
 
 template <typename Allocator>
@@ -100,9 +100,9 @@ template <typename Allocator>
 std::size_t BounceBufferPool<Allocator>::_clear()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::size_t ret = _free_buffers.size() * _size;
+  std::size_t ret = _free_buffers.size() * _buffer_size;
   while (!_free_buffers.empty()) {
-    _allocator.deallocate(_free_buffers.top(), _size);
+    _allocator.deallocate(_free_buffers.top(), _buffer_size);
     _free_buffers.pop();
   }
   return ret;
@@ -113,9 +113,9 @@ void BounceBufferPool<Allocator>::_ensure_buffer_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto const bounce_buffer_size = defaults::bounce_buffer_size();
-  if (_size != bounce_buffer_size) {
+  if (_buffer_size != bounce_buffer_size) {
     _clear();
-    _size = bounce_buffer_size;
+    _buffer_size = bounce_buffer_size;
   }
 }
 
@@ -130,11 +130,11 @@ BounceBufferPool<Allocator>::Buffer BounceBufferPool<Allocator>::get()
   if (!_free_buffers.empty()) {
     void* ret = _free_buffers.top();
     _free_buffers.pop();
-    return Buffer(this, ret, _size);
+    return Buffer(this, ret, _buffer_size);
   }
 
-  auto* buffer = _allocator.allocate(_size);
-  return Buffer(this, buffer, _size);
+  auto* buffer = _allocator.allocate(_buffer_size);
+  return Buffer(this, buffer, _buffer_size);
 }
 
 template <typename Allocator>
@@ -146,7 +146,7 @@ void BounceBufferPool<Allocator>::put(void* buffer, std::size_t size)
 
   // If the size of `buffer` matches the sizes of the retained allocations,
   // it is added to the set of free allocation otherwise it is freed.
-  if (size == _size) {
+  if (size == _buffer_size) {
     _free_buffers.push(buffer);
   } else {
     _allocator.deallocate(buffer, size);

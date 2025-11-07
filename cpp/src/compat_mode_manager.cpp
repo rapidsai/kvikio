@@ -46,20 +46,20 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
   file_handle->_file_direct_off.open(file_path, flags, false, mode);
   _is_compat_mode_preferred = defaults::is_compat_mode_preferred(compat_mode_requested_v);
 
-  // Nothing to do in compatibility mode
-  if (_is_compat_mode_preferred) {
-    if (defaults::posix_direct_io_enabled()) {
-      file_handle->_file_direct_on.open(file_path, flags, true, mode);
-    }
-
+  if (_is_compat_mode_preferred && !defaults::posix_direct_io_read() &&
+      !defaults::posix_direct_io_write()) {
     return;
   }
 
+  // Try to open the file with the O_DIRECT flag.
   try {
     file_handle->_file_direct_on.open(file_path, flags, true, mode);
   } catch (...) {
-    // Try to open the file with the O_DIRECT flag. Fall back to compatibility mode, if it fails.
-    if (compat_mode_requested_v == CompatMode::AUTO) {
+    if (compat_mode_requested_v == CompatMode::ON) {
+      // At this point, _file_direct_on.fd() == -1, and O_DIRECT read or write will not be performed
+      return;
+    } else if (compat_mode_requested_v == CompatMode::AUTO) {
+      // Fall back to compatibility mode, if O_DIRECT is not supported
       _is_compat_mode_preferred = true;
     } else {  // CompatMode::OFF
       throw;

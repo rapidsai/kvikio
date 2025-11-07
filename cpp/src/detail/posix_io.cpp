@@ -54,7 +54,8 @@ std::size_t posix_device_read(int fd_direct_off,
                               int fd_direct_on)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
-  if (fd_direct_on != -1) {
+  // If Direct I/O is supported and requested
+  if (fd_direct_on != -1 && defaults::posix_direct_io_read()) {
     return detail::posix_device_io<IOOperationType::READ, CudaPageAlignedPinnedBounceBufferPool>(
       fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
   } else {
@@ -71,7 +72,8 @@ std::size_t posix_device_write(int fd_direct_off,
                                int fd_direct_on)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
-  if (fd_direct_on != -1) {
+  // If Direct I/O is supported and requested
+  if (fd_direct_on != -1 && defaults::posix_direct_io_write()) {
     return detail::posix_device_io<IOOperationType::WRITE, CudaPageAlignedPinnedBounceBufferPool>(
       fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
   } else {
