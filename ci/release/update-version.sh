@@ -120,7 +120,16 @@ find .devcontainer/ -type f -name devcontainer.json -print0 | while IFS= read -r
     sed_runner "s@rapids-\${localWorkspaceFolderBasename}-[0-9.]*@rapids-\${localWorkspaceFolderBasename}-${NEXT_SHORT_TAG}@g" "${filename}"
 done
 
-# The example of a downstream project
+# Update downstream example GIT_TAG based on context
+if [[ "${RUN_CONTEXT}" == "main" ]]; then
+    # In main context, convert any release/X.Y references to main
+    sed_runner "s|GIT_TAG release/[^[:space:]]*|GIT_TAG main|g" "cpp/examples/downstream/cmake/get_kvikio.cmake"
+elif [[ "${RUN_CONTEXT}" == "release" ]]; then
+    # In release context, convert main to release/X.Y
+    sed_runner "s|GIT_TAG main|GIT_TAG release/${NEXT_SHORT_TAG}|g" "cpp/examples/downstream/cmake/get_kvikio.cmake"
+fi
+
+# The example of a downstream project - update version number
 sed_runner "s/find_and_configure_kvikio(.*)/find_and_configure_kvikio(\"${NEXT_SHORT_TAG}\")/g" "cpp/examples/downstream/cmake/get_kvikio.cmake"
 
 # Java files
