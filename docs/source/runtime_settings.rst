@@ -76,7 +76,7 @@ The Certificate Authority (CA) paths required for TLS/SSL verification in ``libc
 When neither is specified, KvikIO searches several standard system locations for the CA file and directory, and if the search fails falls back to the libcurl compile-time defaults.
 
 Opportunistic POSIX Direct I/O operations ``KVIKIO_AUTO_DIRECT_IO_READ``, ``KVIKIO_AUTO_DIRECT_IO_WRITE``
------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------
 
 Overview
 ^^^^^^^^
