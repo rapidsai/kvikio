@@ -46,8 +46,8 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
   file_handle->_file_direct_off.open(file_path, flags, false, mode);
   _is_compat_mode_preferred = defaults::is_compat_mode_preferred(compat_mode_requested_v);
 
-  if (_is_compat_mode_preferred && !defaults::posix_direct_io_read() &&
-      !defaults::posix_direct_io_write()) {
+  if (_is_compat_mode_preferred && !defaults::auto_direct_io_read() &&
+      !defaults::auto_direct_io_write()) {
     return;
   }
 

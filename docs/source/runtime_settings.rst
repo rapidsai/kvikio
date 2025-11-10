@@ -75,7 +75,7 @@ The Certificate Authority (CA) paths required for TLS/SSL verification in ``libc
 
 When neither is specified, KvikIO searches several standard system locations for the CA file and directory, and if the search fails falls back to the libcurl compile-time defaults.
 
-Opportunistic POSIX Direct I/O operations ``KVIKIO_POSIX_DIRECT_IO_READ``, ``KVIKIO_POSIX_DIRECT_IO_WRITE``
+Opportunistic POSIX Direct I/O operations ``KVIKIO_AUTO_DIRECT_IO_READ``, ``KVIKIO_AUTO_DIRECT_IO_WRITE``
 -----------------------------------------------------------------------------------------------------------
 
 Overview
@@ -88,26 +88,26 @@ Traditional Direct I/O has strict requirements: The buffer address must be page-
 Configuration
 ^^^^^^^^^^^^^
 
-Set the environment variable ``KVIKIO_POSIX_DIRECT_IO_READ`` / ``KVIKIO_POSIX_DIRECT_IO_WRITE`` to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable opportunistic Direct I/O.
+Set the environment variable ``KVIKIO_AUTO_DIRECT_IO_READ`` / ``KVIKIO_AUTO_DIRECT_IO_WRITE`` to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable opportunistic Direct I/O.
 
 .. code-block:: bash
 
-   export KVIKIO_POSIX_DIRECT_IO_READ=1
-   export KVIKIO_POSIX_DIRECT_IO_WRITE=1
+   export KVIKIO_AUTO_DIRECT_IO_READ=1
+   export KVIKIO_AUTO_DIRECT_IO_WRITE=1
 
 Set them to ``false``, ``off``, ``no``, or ``0`` to disable this feature and use buffered I/O.
 
 .. code-block:: bash
 
-   export KVIKIO_POSIX_DIRECT_IO_READ=0
-   export KVIKIO_POSIX_DIRECT_IO_WRITE=0
+   export KVIKIO_AUTO_DIRECT_IO_READ=0
+   export KVIKIO_AUTO_DIRECT_IO_WRITE=0
 
-If not set, the default setting is buffered I/O for POSIX read (``KVIKIO_POSIX_DIRECT_IO_READ=0``) and Direct I/O for POSIX write (``KVIKIO_POSIX_DIRECT_IO_WRITE=1``).
+If not set, the default setting is buffered I/O for POSIX read (``KVIKIO_AUTO_DIRECT_IO_READ=0``) and Direct I/O for POSIX write (``KVIKIO_AUTO_DIRECT_IO_WRITE=1``).
 
 Programmatic Access
 ^^^^^^^^^^^^^^^^^^^
 
-These settings can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``posix_direct_io_read`` and ``posix_direct_io_write``.
+These settings can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``auto_direct_io_read`` and ``auto_direct_io_write``.
 
 Example:
 
@@ -116,8 +116,8 @@ Example:
    import kvikio.defaults
 
    # Check current settings
-   print(kvikio.defaults.get("posix_direct_io_read"))
-   print(kvikio.defaults.get("posix_direct_io_write"))
+   print(kvikio.defaults.get("auto_direct_io_read"))
+   print(kvikio.defaults.get("auto_direct_io_write"))
 
    # Enable Direct I/O for reads, and disable it for writes
-   kvikio.defaults.set({"posix_direct_io_read": True, "posix_direct_io_write": False})
+   kvikio.defaults.set({"auto_direct_io_read": True, "auto_direct_io_write": False})

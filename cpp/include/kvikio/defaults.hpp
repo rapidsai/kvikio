@@ -119,8 +119,8 @@ class defaults {
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
-  bool _posix_direct_io_read;
-  bool _posix_direct_io_write;
+  bool _auto_direct_io_read;
+  bool _auto_direct_io_write;
 
   static unsigned int get_num_threads_from_env();
 
@@ -366,7 +366,7 @@ class defaults {
    *
    * @return Boolean answer
    */
-  static bool posix_direct_io_read();
+  static bool auto_direct_io_read();
 
   /**
    * @brief Enable or disable Direct I/O for POSIX reads
@@ -375,7 +375,7 @@ class defaults {
    *
    * @param flag true to enable opportunistic Direct I/O reads, false to disable
    */
-  static void set_posix_direct_io_read(bool flag);
+  static void set_auto_direct_io_read(bool flag);
 
   /**
    * @brief Check if Direct I/O is enabled for POSIX writes
@@ -384,7 +384,7 @@ class defaults {
    *
    * @return Boolean answer
    */
-  static bool posix_direct_io_write();
+  static bool auto_direct_io_write();
 
   /**
    * @brief Enable or disable Direct I/O for POSIX writes
@@ -393,7 +393,7 @@ class defaults {
    *
    * @param flag true to enable opportunistic Direct I/O writes, false to disable
    */
-  static void set_posix_direct_io_write(bool flag);
+  static void set_auto_direct_io_write(bool flag);
 };
 
 }  // namespace kvikio

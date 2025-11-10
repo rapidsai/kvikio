@@ -136,10 +136,10 @@ defaults::defaults()
       getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
 
-  // Determine the default value of `posix_direct_io_read` and `posix_direct_io_write`
+  // Determine the default value of `auto_direct_io_read` and `auto_direct_io_write`
   {
-    _posix_direct_io_read  = getenv_or("KVIKIO_POSIX_DIRECT_IO_READ", false);
-    _posix_direct_io_write = getenv_or("KVIKIO_POSIX_DIRECT_IO_WRITE", true);
+    _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
+    _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
   }
 }
 
@@ -231,11 +231,11 @@ void defaults::set_http_timeout(long timeout_seconds)
   instance()->_http_timeout = timeout_seconds;
 }
 
-bool defaults::posix_direct_io_read() { return instance()->_posix_direct_io_read; }
+bool defaults::auto_direct_io_read() { return instance()->_auto_direct_io_read; }
 
-void defaults::set_posix_direct_io_read(bool flag) { instance()->_posix_direct_io_read = flag; }
+void defaults::set_auto_direct_io_read(bool flag) { instance()->_auto_direct_io_read = flag; }
 
-bool defaults::posix_direct_io_write() { return instance()->_posix_direct_io_write; }
+bool defaults::auto_direct_io_write() { return instance()->_auto_direct_io_write; }
 
-void defaults::set_posix_direct_io_write(bool flag) { instance()->_posix_direct_io_write = flag; }
+void defaults::set_auto_direct_io_write(bool flag) { instance()->_auto_direct_io_write = flag; }
 }  // namespace kvikio
