@@ -178,6 +178,23 @@ inline void expect_equal(DevBuffer<T> const& a, DevBuffer<T> const& b)
   }
 }
 
+/**
+ * @brief Custom allocator with alignment and element offset support, suitable for use with standard
+ * containers like std::vector.
+ *
+ * @tparam T The type of elements to allocate
+ * @tparam ali Alignment requirement in bytes (must be a power of 2)
+ * @tparam element_offset Number of elements to offset the returned pointer (default: 0)
+ *
+ * Example usage:
+ * @code
+ * // Allocator with 4096-byte alignment, no offset
+ * std::vector<int, CustomHostAllocator<int, 4096>> vec;
+ *
+ * // Allocator with 64-byte alignment and 10-element offset (i.e. 80-byte offset)
+ * std::vector<double, CustomHostAllocator<double, 64, 10>> offset_vec;
+ * @endcode
+ */
 template <class T, std::size_t ali, std::size_t element_offset = 0>
 struct CustomHostAllocator {
   using value_type      = T;
