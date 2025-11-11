@@ -178,4 +178,48 @@ inline void expect_equal(DevBuffer<T> const& a, DevBuffer<T> const& b)
   }
 }
 
+template <class T, std::size_t ali, std::size_t element_offset = 0>
+struct CustomHostAllocator {
+  using value_type      = T;
+  CustomHostAllocator() = default;
+
+  template <class U>
+  constexpr CustomHostAllocator(const CustomHostAllocator<U, ali, element_offset>&) noexcept
+  {
+  }
+
+  template <class U>
+  struct rebind {
+    using other = CustomHostAllocator<U, ali, element_offset>;
+  };
+
+  [[nodiscard]] T* allocate(std::size_t num_elements)
+  {
+    if (num_elements > std::numeric_limits<std::size_t>::max() / sizeof(T))
+      throw std::bad_array_new_length();
+
+    auto total_bytes = (num_elements + element_offset) * sizeof(T);
+    total_bytes      = (total_bytes + ali - 1) & ~(ali - 1);
+
+    if (auto* ptr = static_cast<T*>(std::aligned_alloc(ali, total_bytes))) {
+      auto dst_ptr = reinterpret_cast<std::byte*>(ptr) + element_offset * sizeof(T);
+      return reinterpret_cast<T*>(dst_ptr);
+    }
+
+    throw std::bad_alloc();
+  }
+
+  void deallocate(T* ptr, [[maybe_unused]] std::size_t n) noexcept
+  {
+    auto src_ptr = reinterpret_cast<std::byte*>(ptr) - element_offset * sizeof(T);
+    std::free(src_ptr);
+  }
+
+  template <class U, std::size_t ali_u, std::size_t element_offset_u>
+  bool operator==(const CustomHostAllocator<U, ali_u, element_offset_u>&) const noexcept
+  {
+    return ali == ali_u && element_offset == element_offset_u;
+  }
+};
+
 }  // namespace kvikio::test
