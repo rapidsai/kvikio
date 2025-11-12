@@ -238,4 +238,6 @@ void defaults::set_auto_direct_io_read(bool flag) { instance()->_auto_direct_io_
 bool defaults::auto_direct_io_write() { return instance()->_auto_direct_io_write; }
 
 void defaults::set_auto_direct_io_write(bool flag) { instance()->_auto_direct_io_write = flag; }
+
+bool defaults::io_uring_enabled() { return getenv_or("KVIKIO_IO_URING_ENABLED", false); }
 }  // namespace kvikio

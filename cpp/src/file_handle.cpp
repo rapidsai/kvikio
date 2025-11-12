@@ -13,6 +13,7 @@
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/io_uring.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
@@ -153,16 +154,21 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
-    auto op = [this](void* hostPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t hostPtr_offset) -> std::size_t {
-      char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
-      return detail::posix_host_read<detail::PartialIO::NO>(
-        _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
-    };
+    if (defaults::io_uring_enabled()) {
+      auto bytes_read = detail::io_uring_read_host(_file_direct_off.fd(), buf, size, file_offset);
+      return make_ready_future(bytes_read);
+    } else {
+      auto op = [this](void* hostPtr_base,
+                       std::size_t size,
+                       std::size_t file_offset,
+                       std::size_t hostPtr_offset) -> std::size_t {
+        char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
+        return detail::posix_host_read<detail::PartialIO::NO>(
+          _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
+      };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
+      return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
+    }
   }
 
   CUcontext ctx = get_context_from_pointer(buf);

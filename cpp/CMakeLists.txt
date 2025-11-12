@@ -145,6 +145,7 @@ set(SOURCES
     "src/file_utils.cpp"
     "src/mmap.cpp"
     "src/detail/env.cpp"
+    "src/detail/io_uring.cpp"
     "src/detail/nvtx.cpp"
     "src/detail/posix_io.cpp"
     "src/shim/cuda.cpp"
@@ -182,6 +183,7 @@ target_link_libraries(
   kvikio
   PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
+  uring
 )
 
 target_compile_definitions(

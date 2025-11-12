@@ -394,6 +394,8 @@ class defaults {
    * @param flag true to enable opportunistic Direct I/O writes, false to disable
    */
   static void set_auto_direct_io_write(bool flag);
+
+  static bool io_uring_enabled();
 };
 
 }  // namespace kvikio
