@@ -173,6 +173,12 @@ std::future<std::size_t> FileHandle::pread(void* buf,
 
   CUcontext ctx = get_context_from_pointer(buf);
 
+  if (defaults::io_uring_enabled()) {
+    auto bytes_read =
+      detail::io_uring_read_device(_file_direct_off.fd(), buf, size, file_offset, nullptr);
+    return make_ready_future(bytes_read);
+  }
+
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);

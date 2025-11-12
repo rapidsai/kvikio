@@ -7,6 +7,8 @@
 #include <liburing.h>
 #include <linux/io_uring.h>
 
+#include <kvikio/shim/cuda.hpp>
+
 namespace kvikio::detail {
 
 class IoUringManager {
@@ -14,7 +16,7 @@ class IoUringManager {
   IoUringManager();
   io_uring _ring{};
   unsigned int _queue_depth{};
-  std::size_t _chunk_size{};
+  std::size_t _task_size{};
 
  public:
   static IoUringManager& get();
@@ -27,13 +29,14 @@ class IoUringManager {
 
   io_uring* ring() noexcept;
   unsigned int queue_depth() noexcept;
-  std::size_t chunk_size() noexcept;
+  std::size_t task_size() noexcept;
 };
 
 bool is_io_uring_supported() noexcept;
 
 std::size_t io_uring_read_host(int fd, void* buf, std::size_t size, std::size_t file_offset);
 
-std::size_t io_uring_read_device(int fd, void* buf, std::size_t size, std::size_t file_offset);
+std::size_t io_uring_read_device(
+  int fd, void* buf, std::size_t size, std::size_t file_offset, CUstream stream);
 
 }  // namespace kvikio::detail
