@@ -155,8 +155,13 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
     if (defaults::io_uring_enabled()) {
-      auto bytes_read = detail::io_uring_read_host(_file_direct_off.fd(), buf, size, file_offset);
-      return make_ready_future(bytes_read);
+      auto op = [this](void* host_ptr,
+                       std::size_t size,
+                       std::size_t file_offset,
+                       std::size_t host_ptr_offset) -> std::size_t {
+        return detail::io_uring_read_host(_file_direct_off.fd(), host_ptr, size, file_offset);
+      };
+      return detail::submit_task(op, buf, size, file_offset, 0, call_idx, nvtx_color);
     } else {
       auto op = [this](void* hostPtr_base,
                        std::size_t size,
@@ -174,9 +179,16 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   CUcontext ctx = get_context_from_pointer(buf);
 
   if (defaults::io_uring_enabled()) {
-    auto bytes_read =
-      detail::io_uring_read_device(_file_direct_off.fd(), buf, size, file_offset, nullptr);
-    return make_ready_future(bytes_read);
+    auto op = [this, ctx](void* dev_ptr,
+                          std::size_t size,
+                          std::size_t file_offset,
+                          std::size_t dev_ptr_offset) -> std::size_t {
+      PushAndPopContext c(ctx);
+      CUstream stream = detail::StreamsByThread::get();
+      return detail::io_uring_read_device(
+        _file_direct_off.fd(), dev_ptr, size, file_offset, stream);
+    };
+    return detail::submit_task(op, buf, size, file_offset, 0, call_idx, nvtx_color);
   }
 
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.

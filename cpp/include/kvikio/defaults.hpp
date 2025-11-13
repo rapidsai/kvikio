@@ -121,6 +121,8 @@ class defaults {
   std::vector<int> _http_status_codes;
   bool _auto_direct_io_read;
   bool _auto_direct_io_write;
+  bool _io_uring_enabled;
+  unsigned int _io_uring_queue_depth;
 
   static unsigned int get_num_threads_from_env();
 
@@ -396,6 +398,12 @@ class defaults {
   static void set_auto_direct_io_write(bool flag);
 
   static bool io_uring_enabled();
+
+  static void set_io_uring_enabled(bool flag);
+
+  static unsigned int io_uring_queue_depth();
+
+  static void set_io_uring_queue_depth(unsigned int io_uring_queue_depth);
 };
 
 }  // namespace kvikio

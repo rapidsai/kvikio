@@ -141,6 +141,14 @@ defaults::defaults()
     _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
     _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
   }
+
+  {
+    _io_uring_enabled = getenv_or("KVIKIO_IO_URING_ENABLED", false);
+  }
+
+  {
+    _io_uring_queue_depth = getenv_or("KVIKIO_IO_URING_QUEUE_DEPTH", 32U);
+  }
 }
 
 defaults* defaults::instance()
@@ -239,5 +247,14 @@ bool defaults::auto_direct_io_write() { return instance()->_auto_direct_io_write
 
 void defaults::set_auto_direct_io_write(bool flag) { instance()->_auto_direct_io_write = flag; }
 
-bool defaults::io_uring_enabled() { return getenv_or("KVIKIO_IO_URING_ENABLED", false); }
+bool defaults::io_uring_enabled() { return instance()->_io_uring_enabled; }
+
+void defaults::set_io_uring_enabled(bool flag) { instance()->_io_uring_enabled = flag; }
+
+unsigned int defaults::io_uring_queue_depth() { return instance()->_io_uring_queue_depth; }
+
+void defaults::set_io_uring_queue_depth(unsigned int io_uring_queue_depth)
+{
+  instance()->_io_uring_queue_depth = io_uring_queue_depth;
+}
 }  // namespace kvikio

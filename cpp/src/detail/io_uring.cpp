@@ -3,12 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// TODO: Refinements needed:
+// - Bounce buffer size is made the same with task size
+// - Ring in a singleton
+// - Wait/submit error handling
+
+#include <iostream>
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/io_uring.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/utils.hpp>
-#include <memory>
+#include <stdexcept>
 
 #define IO_URING_CHECK(err_code)                                       \
   do {                                                                 \
@@ -20,15 +26,18 @@ namespace {
 inline void check_io_uring_call(int line_number, char const* filename, int err_code)
 {
   // Success
-  if (err_code == 0) { return; }
+  if (err_code == 0) {
+    return;
+  } else if (err_code < 0) {
+    // On failure, io_uring API returns -errno
+    auto* msg = strerror(-err_code);
 
-  // On failure, io_uring API returns -errno
-  std::stringstream ss;
-  ss << "Linux io_uring error (" << err_code << ") at: " << filename << ":" << line_number;
+    std::stringstream ss;
+    ss << "Linux io_uring error (" << -err_code << ": " << msg << ") at: " << filename << ":"
+       << line_number;
 
-  // std::system_error::what() automatically contains the detailed error description
-  // equivalent to calling strerrordesc_np(errno)
-  throw kvikio::GenericSystemError(ss.str());
+    throw std::runtime_error(ss.str());
+  }
 }
 }  // namespace
 
@@ -75,8 +84,10 @@ std::size_t io_uring_read_host(int fd, void* buf, std::size_t size, std::size_t 
   std::size_t bytes_submitted{0};
   std::size_t bytes_completed{0};
   std::size_t current_offset{file_offset};
+  bool has_error{false};
+  int first_neg_err_code{0};
 
-  while (bytes_completed < size) {
+  while (!has_error && bytes_completed < size) {
     while (inflight_queues < queue_depth && bytes_submitted < size) {
       auto* sqe = io_uring_get_sqe(ring);
 
@@ -96,7 +107,7 @@ std::size_t io_uring_read_host(int fd, void* buf, std::size_t size, std::size_t 
     }
 
     auto num_sqes_submitted = io_uring_submit(ring);
-    if (num_sqes_submitted < 0) { IO_URING_CHECK(num_sqes_submitted); }
+    if (num_sqes_submitted < 0) { IO_URING_CHECK(-num_sqes_submitted); }
 
     // Wait for one completion event
     struct io_uring_cqe* cqe{};
@@ -107,14 +118,42 @@ std::size_t io_uring_read_host(int fd, void* buf, std::size_t size, std::size_t 
     unsigned int num_consumed{0};
     io_uring_for_each_cqe(ring, head, cqe)
     {
-      if (cqe->res < 0) { IO_URING_CHECK(cqe->res); }
-      bytes_completed += cqe->res;
+      if (cqe->res < 0) {
+        if (!has_error) {
+          has_error          = true;
+          first_neg_err_code = cqe->res;
+        }
+        // Don't break here. Finish processing this batch of CQEs
+      } else {
+        bytes_completed += cqe->res;
+      }
+
       --inflight_queues;
       ++num_consumed;
     }
 
     // Mark completion events as consumed
     io_uring_cq_advance(ring, num_consumed);
+  }
+
+  // Drain the ring if async I/O encounters any error
+  if (has_error) {
+    while (inflight_queues > 0) {
+      struct io_uring_cqe* cqe{};
+      IO_URING_CHECK(io_uring_wait_cqe(ring, &cqe));
+
+      unsigned int head{0};
+      unsigned int num_consumed{0};
+      io_uring_for_each_cqe(ring, head, cqe)
+      {
+        --inflight_queues;
+        ++num_consumed;
+      }
+
+      io_uring_cq_advance(ring, num_consumed);
+    }
+
+    IO_URING_CHECK(first_neg_err_code);
   }
 
   KVIKIO_EXPECT(bytes_completed == bytes_submitted,
@@ -124,7 +163,7 @@ std::size_t io_uring_read_host(int fd, void* buf, std::size_t size, std::size_t 
 }
 
 struct IoUringTaskCtx {
-  void* bounce_buffer;
+  void* bounce_buffer{};
   void* src{};
   void* dst{};
   std::size_t size{};
@@ -136,8 +175,8 @@ std::stack<IoUringTaskCtx*>& task_ctx_pool()
     std::vector<IoUringTaskCtx> result(IoUringManager::get().queue_depth());
     for (auto&& task_ctx : result) {
       void* buffer{};
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(
-        &buffer, defaults::bounce_buffer_size(), CU_MEMHOSTALLOC_PORTABLE));
+      CUDA_DRIVER_TRY(
+        cudaAPI::instance().MemHostAlloc(&buffer, defaults::task_size(), CU_MEMHOSTALLOC_PORTABLE));
       task_ctx.bounce_buffer = buffer;
     }
     return result;
@@ -156,10 +195,6 @@ std::stack<IoUringTaskCtx*>& task_ctx_pool()
 std::size_t io_uring_read_device(
   int fd, void* buf, std::size_t size, std::size_t file_offset, CUstream stream)
 {
-  KVIKIO_EXPECT(
-    defaults::bounce_buffer_size() >= defaults::task_size(),
-    "KvikIO requires that the bounce buffer size be no less than the task size for io_uring.");
-
   auto* ring       = IoUringManager::get().ring();
   auto queue_depth = IoUringManager::get().queue_depth();
   auto task_size   = IoUringManager::get().task_size();
@@ -168,8 +203,11 @@ std::size_t io_uring_read_device(
   std::size_t bytes_submitted{0};
   std::size_t bytes_completed{0};
   std::size_t current_offset{file_offset};
+  bool has_error{false};
+  int first_neg_err_code{0};
 
-  while (bytes_completed < size) {
+  while (!has_error && bytes_completed < size) {
+    // Only submit new operations if no error has occurred
     while (inflight_queues < queue_depth && bytes_submitted < size) {
       auto* sqe = io_uring_get_sqe(ring);
 
@@ -196,36 +234,75 @@ std::size_t io_uring_read_device(
       ++inflight_queues;
     }
 
+    if (inflight_queues == 0) { break; }
+
     auto num_sqes_submitted = io_uring_submit(ring);
-    if (num_sqes_submitted < 0) { IO_URING_CHECK(num_sqes_submitted); }
+    if (num_sqes_submitted < 0) { IO_URING_CHECK(-num_sqes_submitted); }
 
     // Wait for one completion event
     struct io_uring_cqe* cqe{};
     IO_URING_CHECK(io_uring_wait_cqe(ring, &cqe));
 
-    // Process all completion events at this point
+    // Process all available completion events
     unsigned int head{0};
     unsigned int num_consumed{0};
     io_uring_for_each_cqe(ring, head, cqe)
     {
-      if (cqe->res < 0) { IO_URING_CHECK(cqe->res); }
-      bytes_completed += cqe->res;
+      auto* task_ctx = static_cast<IoUringTaskCtx*>(io_uring_cqe_get_data(cqe));
+
+      if (cqe->res < 0) {
+        if (!has_error) {
+          has_error          = true;
+          first_neg_err_code = cqe->res;
+        }
+        // Don't break here. Finish processing this batch of CQEs
+      } else {
+        bytes_completed += cqe->res;
+        CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+          convert_void2deviceptr(task_ctx->dst), task_ctx->src, task_ctx->size, stream));
+        CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      }
+      task_ctx->src  = nullptr;
+      task_ctx->dst  = nullptr;
+      task_ctx->size = 0;
+      task_ctx_pool().push(task_ctx);
       --inflight_queues;
       ++num_consumed;
-      auto* task_ctx = static_cast<IoUringTaskCtx*>(io_uring_cqe_get_data(cqe));
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-        convert_void2deviceptr(task_ctx->dst), task_ctx->src, task_ctx->size, stream));
-      task_ctx_pool().push(task_ctx);
     }
 
     // Mark completion events as consumed
     io_uring_cq_advance(ring, num_consumed);
   }
 
-  CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+  // Drain the ring if async I/O encounters any error
+  if (has_error) {
+    while (inflight_queues > 0) {
+      struct io_uring_cqe* cqe{};
+      IO_URING_CHECK(io_uring_wait_cqe(ring, &cqe));
 
-  KVIKIO_EXPECT(bytes_completed == bytes_submitted,
-                "Loss of data: submission and completion mismatch.");
+      unsigned int head{0};
+      unsigned int num_consumed{0};
+      io_uring_for_each_cqe(ring, head, cqe)
+      {
+        auto* task_ctx = static_cast<IoUringTaskCtx*>(io_uring_cqe_get_data(cqe));
+        task_ctx->src  = nullptr;
+        task_ctx->dst  = nullptr;
+        task_ctx->size = 0;
+        task_ctx_pool().push(task_ctx);
+        --inflight_queues;
+        ++num_consumed;
+      }
+
+      io_uring_cq_advance(ring, num_consumed);
+    }
+
+    IO_URING_CHECK(first_neg_err_code);
+  }
+
+  std::stringstream ss;
+  ss << "Loss of data: submission (" << bytes_submitted << ") and completion (" << bytes_completed
+     << ") mismatch.";
+  KVIKIO_EXPECT(bytes_completed == bytes_submitted, ss.str());
 
   return bytes_completed;
 }
