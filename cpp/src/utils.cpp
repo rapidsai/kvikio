@@ -4,7 +4,6 @@
  */
 
 #include <unistd.h>
-#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -170,41 +169,47 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
 
 namespace detail {
 
-std::size_t align_up(std::size_t value, std::size_t alignment) noexcept
+std::size_t align_up(std::size_t value, std::size_t alignment)
 {
-  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
   return (value + alignment - 1) & ~(alignment - 1);
 }
 
-void* align_up(void* addr, std::size_t alignment) noexcept
+void* align_up(void* addr, std::size_t alignment)
 {
-  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
   auto res = (reinterpret_cast<uintptr_t>(addr) + alignment - 1) & ~(alignment - 1);
   return reinterpret_cast<void*>(res);
 }
 
-std::size_t align_down(std::size_t value, std::size_t alignment) noexcept
+std::size_t align_down(std::size_t value, std::size_t alignment)
 {
-  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
   return value & ~(alignment - 1);
 }
 
-void* align_down(void* addr, std::size_t alignment) noexcept
+void* align_down(void* addr, std::size_t alignment)
 {
-  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
   auto res = reinterpret_cast<uintptr_t>(addr) & ~(alignment - 1);
   return reinterpret_cast<void*>(res);
 }
 
-bool is_aligned(std::size_t value, std::size_t alignment) noexcept
+bool is_aligned(std::size_t value, std::size_t alignment)
 {
-  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
   return (value & (alignment - 1)) == 0;
 }
 
-bool is_aligned(void* addr, std::size_t alignment) noexcept
+bool is_aligned(void* addr, std::size_t alignment)
 {
-  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
   return (reinterpret_cast<uintptr_t>(addr) & (alignment - 1)) == 0;
 }
 

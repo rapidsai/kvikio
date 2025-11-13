@@ -212,8 +212,9 @@ struct CustomHostAllocator {
 
   [[nodiscard]] T* allocate(std::size_t num_elements)
   {
-    if (num_elements > std::numeric_limits<std::size_t>::max() / sizeof(T))
+    if (num_elements > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
       throw std::bad_array_new_length();
+    }
 
     auto total_bytes = (num_elements + element_offset) * sizeof(T);
     total_bytes      = (total_bytes + ali - 1) & ~(ali - 1);

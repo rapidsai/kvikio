@@ -324,6 +324,6 @@ const CompatModeManager& FileHandle::get_compat_mode_manager() const noexcept
   return _compat_mode_manager;
 }
 
-bool FileHandle::direct_io_suppored() const noexcept { return _file_direct_on.fd() != -1; }
+bool FileHandle::is_direct_io_supported() const noexcept { return _file_direct_on.fd() != -1; }
 
 }  // namespace kvikio
