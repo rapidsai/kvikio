@@ -41,7 +41,8 @@ inline void check_io_uring_call(int line_number, char const* filename, int err_c
 }
 }  // namespace
 
-IoUringManager::IoUringManager() : _queue_depth{32}, _task_size{defaults::task_size()}
+IoUringManager::IoUringManager()
+  : _queue_depth{defaults::io_uring_queue_depth()}, _task_size{defaults::task_size()}
 {
   IO_URING_CHECK(io_uring_queue_init(_queue_depth, &_ring, 0));
 }
