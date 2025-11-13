@@ -82,6 +82,8 @@ class cudaAPI {
   decltype(cuInit)* Init{nullptr};
   decltype(cuMemHostAlloc)* MemHostAlloc{nullptr};
   decltype(cuMemFreeHost)* MemFreeHost{nullptr};
+  decltype(cuMemHostRegister)* MemHostRegister{nullptr};
+  decltype(cuMemHostUnregister)* MemHostUnregister{nullptr};
   decltype(cuMemcpyHtoDAsync)* MemcpyHtoDAsync{nullptr};
   decltype(cuMemcpyDtoHAsync)* MemcpyDtoHAsync{nullptr};
 

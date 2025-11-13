@@ -61,7 +61,7 @@ function(kvikio_add_test)
   )
 endfunction()
 
-kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp)
+kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp utils/env.cpp)
 
 kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp utils/env.cpp)
 

@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
@@ -37,11 +38,11 @@ namespace {
  * @note Is not thread-safe.
  */
 class BounceBufferH2D {
-  CUstream _stream;                 // The CUDA stream to use.
-  CUdeviceptr _dev;                 // The output device buffer.
-  AllocRetain::Alloc _host_buffer;  // The host buffer to bounce data on.
-  std::ptrdiff_t _dev_offset{0};    // Number of bytes written to `_dev`.
-  std::ptrdiff_t _host_offset{0};   // Number of bytes written to `_host` (resets on flush).
+  CUstream _stream;                                 // The CUDA stream to use.
+  CUdeviceptr _dev;                                 // The output device buffer.
+  CudaPinnedBounceBufferPool::Buffer _host_buffer;  // The host buffer to bounce data on.
+  std::ptrdiff_t _dev_offset{0};                    // Number of bytes written to `_dev`.
+  std::ptrdiff_t _host_offset{0};  // Number of bytes written to `_host` (resets on flush).
 
  public:
   /**
@@ -53,7 +54,7 @@ class BounceBufferH2D {
   BounceBufferH2D(CUstream stream, void* device_buffer)
     : _stream{stream},
       _dev{convert_void2deviceptr(device_buffer)},
-      _host_buffer{AllocRetain::instance().get()}
+      _host_buffer{CudaPinnedBounceBufferPool::instance().get()}
   {
     KVIKIO_NVTX_FUNC_RANGE();
   }

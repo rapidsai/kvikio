@@ -5,7 +5,6 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -136,6 +135,20 @@ defaults::defaults()
     _http_status_codes =
       getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
+
+  // Determine the default value of `auto_direct_io_read` and `auto_direct_io_write`
+  {
+    _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
+    _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
+  }
+
+  {
+    _io_uring_enabled = getenv_or("KVIKIO_IO_URING_ENABLED", false);
+  }
+
+  {
+    _io_uring_queue_depth = getenv_or("KVIKIO_IO_URING_QUEUE_DEPTH", 32U);
+  }
 }
 
 defaults* defaults::instance()
@@ -226,4 +239,22 @@ void defaults::set_http_timeout(long timeout_seconds)
   instance()->_http_timeout = timeout_seconds;
 }
 
+bool defaults::auto_direct_io_read() { return instance()->_auto_direct_io_read; }
+
+void defaults::set_auto_direct_io_read(bool flag) { instance()->_auto_direct_io_read = flag; }
+
+bool defaults::auto_direct_io_write() { return instance()->_auto_direct_io_write; }
+
+void defaults::set_auto_direct_io_write(bool flag) { instance()->_auto_direct_io_write = flag; }
+
+bool defaults::io_uring_enabled() { return instance()->_io_uring_enabled; }
+
+void defaults::set_io_uring_enabled(bool flag) { instance()->_io_uring_enabled = flag; }
+
+unsigned int defaults::io_uring_queue_depth() { return instance()->_io_uring_queue_depth; }
+
+void defaults::set_io_uring_queue_depth(unsigned int io_uring_queue_depth)
+{
+  instance()->_io_uring_queue_depth = io_uring_queue_depth;
+}
 }  // namespace kvikio

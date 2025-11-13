@@ -56,6 +56,8 @@ class ConfigContextManager:
             "http_max_attempts",
             "http_status_codes",
             "http_timeout",
+            "auto_direct_io_read",
+            "auto_direct_io_write",
         ]
 
         property_getters = {}
@@ -123,6 +125,8 @@ def set(*config) -> ConfigContextManager:
         - ``"http_max_attempts"``
         - ``"http_status_codes"``
         - ``"http_timeout"``
+        - ``"auto_direct_io_read"``
+        - ``"auto_direct_io_write"``
 
     Returns
     -------

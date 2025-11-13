@@ -4,6 +4,7 @@
  */
 
 #include <unistd.h>
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -171,24 +172,40 @@ namespace detail {
 
 std::size_t align_up(std::size_t value, std::size_t alignment) noexcept
 {
+  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
   return (value + alignment - 1) & ~(alignment - 1);
 }
 
 void* align_up(void* addr, std::size_t alignment) noexcept
 {
+  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
   auto res = (reinterpret_cast<uintptr_t>(addr) + alignment - 1) & ~(alignment - 1);
   return reinterpret_cast<void*>(res);
 }
 
 std::size_t align_down(std::size_t value, std::size_t alignment) noexcept
 {
+  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
   return value & ~(alignment - 1);
 }
 
 void* align_down(void* addr, std::size_t alignment) noexcept
 {
+  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
   auto res = reinterpret_cast<uintptr_t>(addr) & ~(alignment - 1);
   return reinterpret_cast<void*>(res);
+}
+
+bool is_aligned(std::size_t value, std::size_t alignment) noexcept
+{
+  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
+  return (value & (alignment - 1)) == 0;
+}
+
+bool is_aligned(void* addr, std::size_t alignment) noexcept
+{
+  assert((alignment > 0) && ((alignment & (alignment - 1)) == 0));
+  return (reinterpret_cast<uintptr_t>(addr) & (alignment - 1)) == 0;
 }
 
 }  // namespace detail
