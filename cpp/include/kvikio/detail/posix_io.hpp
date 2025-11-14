@@ -224,8 +224,9 @@ std::size_t posix_device_io(int fd_direct_off,
 {
   // Direct I/O requires page-aligned bounce buffers. CudaPinnedBounceBufferPool uses
   // cudaMemHostAlloc which does not guarantee page alignment.
-  if (fd_direct_on != -1 && std::is_same_v<BounceBufferPoolType, CudaPinnedBounceBufferPool>) {
-    KVIKIO_FAIL(
+  if (std::is_same_v<BounceBufferPoolType, CudaPinnedBounceBufferPool>) {
+    KVIKIO_EXPECT(
+      fd_direct_on == -1,
       "Direct I/O requires page-aligned bounce buffers. CudaPinnedBounceBufferPool does not "
       "guarantee page alignment. Use CudaPageAlignedPinnedBounceBufferPool instead.");
   }
