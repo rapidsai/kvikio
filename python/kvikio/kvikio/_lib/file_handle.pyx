@@ -87,6 +87,7 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t devPtr_offset,
             CUstream stream
         ) except +
+        bool is_direct_io_supported()
 
 
 cdef class CuFile:
@@ -215,6 +216,13 @@ cdef class CuFile:
                 stream,
             )
         return _wrap_stream_future(fut)
+
+    def is_direct_io_supported(self) -> bool:
+        cdef bool result
+        with nogil:
+            result = self._handle.is_direct_io_supported()
+        return result
+
 
 cdef extern from "<kvikio/file_utils.hpp>" nogil:
     pair[size_t, size_t] cpp_get_page_cache_info_str \

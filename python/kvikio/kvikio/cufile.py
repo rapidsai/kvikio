@@ -433,6 +433,21 @@ class CuFile:
         """
         return self._handle.write(buf, size, file_offset, dev_offset)
 
+    def is_direct_io_supported(self) -> bool:
+        """Whether Direct I/O is supported on this file handle.
+
+        This is determined by two factors:
+        - Direct I/O support from the operating system and the file system
+        - KvikIO global setting `auto_direct_io_read` and `auto_direct_io_write`. If
+        both values are false, Direct I/O will not be supported on this file handle.
+
+        Returns
+        -------
+        bool
+            Whether Direct I/O is supported
+        """
+        return self._handle.is_direct_io_supported()
+
 
 def get_page_cache_info(
     file: Union[os.PathLike, str, int, io.IOBase],
