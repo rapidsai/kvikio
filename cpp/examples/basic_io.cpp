@@ -170,7 +170,7 @@ int main()
     cout << "Parallel POSIX read (" << kvikio::defaults::thread_pool_nthreads()
          << " threads): " << read << endl;
   }
-  if (kvikio::is_batch_api_available() && !kvikio::defaults::is_compat_mode_preferred()) {
+  if (!kvikio::defaults::is_compat_mode_preferred()) {
     std::cout << std::endl;
     Timer timer;
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by

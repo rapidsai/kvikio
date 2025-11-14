@@ -110,26 +110,4 @@ bool is_cufile_available() noexcept;
  */
 int cufile_version() noexcept;
 
-/**
- * @brief Check if cuFile's batch API is available.
- *
- * Since `cuFileGetVersion()` first became available in cufile v1.8 (CTK v12.3),
- * this function returns false for versions older than v1.8 even though the batch
- * API became available in v1.6.
- *
- * @return The boolean answer
- */
-bool is_batch_api_available() noexcept;
-
-/**
- * @brief Check if cuFile's stream (async) API is available.
- *
- * Since `cuFileGetVersion()` first became available in cufile v1.8 (CTK v12.3),
- * this function returns false for versions older than v1.8 even though the stream
- * API became available in v1.7.
- *
- * @return The boolean answer
- */
-bool is_stream_api_available() noexcept;
-
 }  // namespace kvikio
