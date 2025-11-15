@@ -119,6 +119,8 @@ class defaults {
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
+  bool _auto_direct_io_read;
+  bool _auto_direct_io_write;
 
   static unsigned int get_num_threads_from_env();
 
@@ -356,6 +358,42 @@ class defaults {
    * @param status_codes The HTTP status codes to retry.
    */
   static void set_http_status_codes(std::vector<int> status_codes);
+
+  /**
+   * @brief Check if Direct I/O is enabled for POSIX reads
+   *
+   * Returns true if KvikIO should attempt to use Direct I/O (O_DIRECT) for POSIX read operations.
+   *
+   * @return Boolean answer
+   */
+  static bool auto_direct_io_read();
+
+  /**
+   * @brief Enable or disable Direct I/O for POSIX reads
+   *
+   * Controls whether KvikIO should attempt to use Direct I/O (O_DIRECT) for POSIX read operations.
+   *
+   * @param flag true to enable opportunistic Direct I/O reads, false to disable
+   */
+  static void set_auto_direct_io_read(bool flag);
+
+  /**
+   * @brief Check if Direct I/O is enabled for POSIX writes
+   *
+   * Returns true if KvikIO should attempt to use Direct I/O (O_DIRECT) for POSIX write operations.
+   *
+   * @return Boolean answer
+   */
+  static bool auto_direct_io_write();
+
+  /**
+   * @brief Enable or disable Direct I/O for POSIX writes
+   *
+   * Controls whether KvikIO should attempt to use Direct I/O (O_DIRECT) for POSIX write operations.
+   *
+   * @param flag true to enable opportunistic Direct I/O writes, false to disable
+   */
+  static void set_auto_direct_io_write(bool flag);
 };
 
 }  // namespace kvikio

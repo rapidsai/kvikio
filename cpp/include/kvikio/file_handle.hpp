@@ -430,6 +430,16 @@ class FileHandle {
    * @return The associated compatibility mode manager.
    */
   const CompatModeManager& get_compat_mode_manager() const noexcept;
+
+  /**
+   * @brief Whether Direct I/O is supported on this file handle. This is determined by two factors:
+   * - Direct I/O support from the operating system and the file system
+   * - KvikIO global setting `auto_direct_io_read` and `auto_direct_io_write`. If both values are
+   * false, Direct I/O will not be supported on this file handle.
+   *
+   * @return Boolean answer.
+   */
+  bool is_direct_io_supported() const noexcept;
 };
 
 }  // namespace kvikio

@@ -5,7 +5,6 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -136,6 +135,12 @@ defaults::defaults()
     _http_status_codes =
       getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
+
+  // Determine the default value of `auto_direct_io_read` and `auto_direct_io_write`
+  {
+    _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
+    _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
+  }
 }
 
 defaults* defaults::instance()
@@ -226,4 +231,11 @@ void defaults::set_http_timeout(long timeout_seconds)
   instance()->_http_timeout = timeout_seconds;
 }
 
+bool defaults::auto_direct_io_read() { return instance()->_auto_direct_io_read; }
+
+void defaults::set_auto_direct_io_read(bool flag) { instance()->_auto_direct_io_read = flag; }
+
+bool defaults::auto_direct_io_write() { return instance()->_auto_direct_io_write; }
+
+void defaults::set_auto_direct_io_write(bool flag) { instance()->_auto_direct_io_write = flag; }
 }  // namespace kvikio
