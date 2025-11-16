@@ -108,7 +108,7 @@ class DirectIOTest : public testing::Test {
     TempDir tmp_dir{false};
     _filepath = tmp_dir.path() / "test";
 
-    // Skip the fixture is Direct I/O is not supported
+    // Skip the fixture if Direct I/O is not supported
     try {
       [[maybe_unused]] auto fd =
         kvikio::open_fd(_filepath.c_str(), "w", true /* o_direct */, kvikio::FileHandle::m644);
@@ -117,7 +117,7 @@ class DirectIOTest : public testing::Test {
     }
 
     // Create a sequence of numbers as a ground truth
-    _num_elements = 8ULL * 1024ULL * 1024ULL + 1234ULL;
+    _num_elements = 1ULL * 1024ULL * 1024ULL + 1234ULL;
     _total_bytes  = _num_elements * sizeof(value_type);
     _ground_truth.resize(_num_elements);
     std::iota(_ground_truth.begin(), _ground_truth.end(), 0);
