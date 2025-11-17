@@ -40,6 +40,8 @@ class FileHandle {
   CompatModeManager _compat_mode_manager;
   friend class CompatModeManager;
 
+  std::unique_ptr<BS_thread_pool> _thread_pool;
+
  public:
   // 644 is a common setting of Unix file permissions: read and write for owner, read-only for group
   // and others.

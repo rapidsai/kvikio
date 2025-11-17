@@ -448,6 +448,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                      offset,
                      task_size,
                      0,  // dst buffer offset initial value
+                     &defaults::thread_pool(),
                      call_idx,
                      nvtx_color);
 }
