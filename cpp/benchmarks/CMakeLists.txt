@@ -61,5 +61,4 @@ endfunction()
 
 kvikio_add_benchmark(NAME THREADPOOL_BENCHMARK SOURCES "threadpool/threadpool_benchmark.cpp")
 
-kvikio_add_benchmark(NAME POSIX_BENCHMARK SOURCES "local/posix_benchmark.cpp")
-
+kvikio_add_benchmark(NAME POSIX_BENCHMARK SOURCES "local/posix_benchmark.cpp" "utils.cpp")
