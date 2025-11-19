@@ -12,13 +12,13 @@
 #include <exception>
 #include <iomanip>
 #include <iostream>
+#include <ratio>
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/detail/utils.hpp>
+#include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
-#include <ratio>
-#include "kvikio/error.hpp"
 
 namespace kvikio::benchmark {
 
