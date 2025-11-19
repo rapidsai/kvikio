@@ -52,14 +52,18 @@ std::size_t parse_size(std::string const& str)
   std::size_t multiplier{1};
 
   // Support both K/Ki, M/Mi, etc. as synonyms (all 1024-based)
+  std::size_t constexpr one_Ki{1024ULL};
+  std::size_t constexpr one_Mi{1024ULL * one_Ki};
+  std::size_t constexpr one_Gi{1024ULL * one_Mi};
+  std::size_t constexpr one_Ti{1024ULL * one_Gi};
   if (suffix == "K" || suffix == "KI") {
-    multiplier = 1024ULL;
+    multiplier = one_Ki;
   } else if (suffix == "M" || suffix == "MI") {
-    multiplier = 1024ULL * 1024;
+    multiplier = one_Mi;
   } else if (suffix == "G" || suffix == "GI") {
-    multiplier = 1024ULL * 1024 * 1024;
+    multiplier = one_Gi;
   } else if (suffix == "T" || suffix == "TI") {
-    multiplier = 1024ULL * 1024 * 1024 * 1024;
+    multiplier = one_Ti;
   } else {
     throw std::invalid_argument("Invalid size suffix: '" + suffix +
                                 "' (use K/Ki, M/Mi, G/Gi, or T/Ti)");
