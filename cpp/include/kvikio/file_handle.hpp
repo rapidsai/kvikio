@@ -21,6 +21,7 @@
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/stream.hpp>
 #include <kvikio/utils.hpp>
+#include "BS_thread_pool.hpp"
 
 namespace kvikio {
 
@@ -39,8 +40,6 @@ class FileHandle {
   CUFileHandleWrapper _cufile_handle{};
   CompatModeManager _compat_mode_manager;
   friend class CompatModeManager;
-
-  std::unique_ptr<BS_thread_pool> _thread_pool;
 
  public:
   // 644 is a common setting of Unix file permissions: read and write for owner, read-only for group
@@ -237,10 +236,11 @@ class FileHandle {
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
-                                 std::size_t file_offset   = 0,
-                                 std::size_t task_size     = defaults::task_size(),
-                                 std::size_t gds_threshold = defaults::gds_threshold(),
-                                 bool sync_default_stream  = true);
+                                 std::size_t file_offset     = 0,
+                                 std::size_t task_size       = defaults::task_size(),
+                                 std::size_t gds_threshold   = defaults::gds_threshold(),
+                                 bool sync_default_stream    = true,
+                                 BS_thread_pool* thread_pool = &defaults::thread_pool());
 
   /**
    * @brief Writes specified bytes from device or host memory into the file in parallel.
@@ -274,10 +274,11 @@ class FileHandle {
    */
   std::future<std::size_t> pwrite(void const* buf,
                                   std::size_t size,
-                                  std::size_t file_offset   = 0,
-                                  std::size_t task_size     = defaults::task_size(),
-                                  std::size_t gds_threshold = defaults::gds_threshold(),
-                                  bool sync_default_stream  = true);
+                                  std::size_t file_offset     = 0,
+                                  std::size_t task_size       = defaults::task_size(),
+                                  std::size_t gds_threshold   = defaults::gds_threshold(),
+                                  bool sync_default_stream    = true,
+                                  BS_thread_pool* thread_pool = &defaults::thread_pool());
 
   /**
    * @brief Reads specified bytes from the file into the device memory asynchronously.
