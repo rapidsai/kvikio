@@ -3,6 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#pragma once
+
+#include "../utils.hpp"
+
 #include <getopt.h>
 #include <memory>
 #include <string>
@@ -12,35 +16,26 @@
 
 namespace kvikio::benchmark {
 
-struct Config {
-  std::size_t num_bytes{4ull * 1024ull * 1024ull * 1024ull};
-  std::vector<std::string> filepaths;
+struct PosixConfig : Config {
   bool overwrite_file{false};
-  bool align_buffer{true};
-  bool o_direct{true};
-  bool drop_file_cache{false};
-  bool compat_mode{true};
-  unsigned int num_threads{1};
-  bool open_file_once{false};
-  int repetition{5};
 
-  static Config parse_args(int argc, char** argv);
-  static void print_usage(std::string const& program_name);
+  virtual void parse_args(int argc, char** argv) override;
+  virtual void print_usage(std::string const& program_name) override;
 };
 
-class BenchmarkManager {
- private:
-  Config const& _config;
+class PosixBenchmark : public Benchmark<PosixBenchmark, PosixConfig> {
+  friend class Benchmark<PosixBenchmark, PosixConfig>;
+
+ protected:
   std::vector<std::unique_ptr<kvikio::FileHandle>> _file_handles;
   std::vector<void*> _bufs;
 
-  void initialize();
-  void cleanup();
-  void run_target();
+  void initialize_impl();
+  void cleanup_impl();
+  void run_target_impl();
 
  public:
-  BenchmarkManager(Config const& config);
-  ~BenchmarkManager();
-  void run();
+  PosixBenchmark(PosixConfig config);
+  ~PosixBenchmark();
 };
 }  // namespace kvikio::benchmark
