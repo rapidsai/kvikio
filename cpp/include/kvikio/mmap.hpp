@@ -9,6 +9,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <optional>
 
 namespace kvikio {

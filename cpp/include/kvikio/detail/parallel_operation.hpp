@@ -17,8 +17,8 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
-#include "kvikio/threadpool_wrapper.hpp"
 
 namespace kvikio {
 

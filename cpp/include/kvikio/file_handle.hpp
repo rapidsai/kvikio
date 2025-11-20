@@ -20,8 +20,8 @@
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/stream.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
-#include "BS_thread_pool.hpp"
 
 namespace kvikio {
 

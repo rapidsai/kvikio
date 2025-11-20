@@ -13,6 +13,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
 struct curl_slist;
