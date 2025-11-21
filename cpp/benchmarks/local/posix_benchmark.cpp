@@ -85,8 +85,7 @@ PosixBenchmark::PosixBenchmark(PosixConfig config) : Benchmark(std::move(config)
     // Initialize file
     // Create the file if the overwrite flag is on, or if the file does not exist.
     if (_config.overwrite_file || access(filepath.c_str(), F_OK) != 0) {
-      kvikio::FileHandle file_handle(
-        filepath, "w", kvikio::FileHandle::m644, kvikio::CompatMode::ON);
+      kvikio::FileHandle file_handle(filepath, "w", kvikio::FileHandle::m644);
       auto fut = file_handle.pwrite(buf, _config.num_bytes);
       fut.get();
     }
@@ -105,8 +104,7 @@ void PosixBenchmark::initialize_impl()
   _file_handles.clear();
 
   for (auto const& filepath : _config.filepaths) {
-    auto p = std::make_unique<kvikio::FileHandle>(
-      filepath, "r", kvikio::FileHandle::m644, kvikio::CompatMode::ON);
+    auto p = std::make_unique<kvikio::FileHandle>(filepath, "r");
 
     if (_config.o_direct) {
       auto file_status_flags = fcntl(p->fd(), F_GETFL);

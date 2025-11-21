@@ -11,7 +11,9 @@
 #include <string>
 #include <vector>
 
+#include <kvikio/defaults.hpp>
 #include <kvikio/file_utils.hpp>
+#include "kvikio/compat_mode.hpp"
 
 namespace kvikio::benchmark {
 // Helper to parse size strings like "1GiB", "1Gi", "1G".
@@ -42,7 +44,12 @@ class Benchmark {
   void run_target() { static_cast<Derived*>(this)->run_target_impl(); }
 
  public:
-  Benchmark(ConfigType config) : _config(std::move(config)) {}
+  Benchmark(ConfigType config) : _config(std::move(config))
+  {
+    defaults::set_thread_pool_nthreads(_config.num_threads);
+    auto compat_mode = _config.compat_mode ? CompatMode::ON : CompatMode::OFF;
+    defaults::set_compat_mode(compat_mode);
+  }
 
   void run()
   {

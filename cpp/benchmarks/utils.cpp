@@ -11,8 +11,6 @@
 #include <sstream>
 #include <stdexcept>
 
-#include <kvikio/defaults.hpp>
-
 namespace kvikio::benchmark {
 
 std::size_t parse_size(std::string const& str)
