@@ -17,6 +17,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/threadpool_roundrobin.hpp>
 #include <string_view>
 
 namespace kvikio {
@@ -172,7 +173,7 @@ bool defaults::is_compat_mode_preferred(CompatMode compat_mode) noexcept
 
 bool defaults::is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
 
-BS_thread_pool& defaults::thread_pool() { return instance()->_thread_pool; }
+RoundRobinThreadPool& defaults::thread_pool() { return instance()->_thread_pool; }
 
 unsigned int defaults::thread_pool_nthreads() { return thread_pool().get_thread_count(); }
 

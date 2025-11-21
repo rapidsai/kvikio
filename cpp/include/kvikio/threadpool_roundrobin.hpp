@@ -138,6 +138,8 @@ class RoundRobinThreadPool {
     destroy_threads();
   }
 
+  unsigned int get_thread_count() { return _num_threads; }
+
   /**
    * @brief Wait until all worker threads complete their tasks. Then join the threads, and
    * reinitialize the thread pool with new threads.
@@ -194,7 +196,7 @@ class RoundRobinThreadPool {
    * @return An std::future<R> object. R can be void or other types.
    */
   template <typename F, typename R = std::invoke_result_t<std::decay_t<F>>>
-  requires std::invocable<std::decay_t<F>> [[nodiscard]] std::future<R> submit_task(F&& task)
+  [[nodiscard]] std::future<R> submit_task(F&& task)
   {
     // The call index is atomically incremented on each submit_task call, and will wrap around once
     // it reaches the maximum value the integer type `std::size_t` can hold (this overflow

@@ -17,6 +17,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/threadpool_roundrobin.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 
 /**
@@ -111,7 +112,7 @@ std::tuple<std::string_view, T, bool> getenv_or(
  */
 class defaults {
  private:
-  BS_thread_pool _thread_pool{get_num_threads_from_env()};
+  RoundRobinThreadPool _thread_pool{get_num_threads_from_env()};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
@@ -212,7 +213,7 @@ class defaults {
    *
    * @return The default thread pool instance.
    */
-  [[nodiscard]] static BS_thread_pool& thread_pool();
+  [[nodiscard]] static RoundRobinThreadPool& thread_pool();
 
   /**
    * @brief Get the number of threads in the default thread pool.
