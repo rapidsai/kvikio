@@ -11,9 +11,9 @@
 #include <string>
 #include <vector>
 
+#include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_utils.hpp>
-#include "kvikio/compat_mode.hpp"
 
 namespace kvikio::benchmark {
 // Helper to parse size strings like "1GiB", "1Gi", "1G".
@@ -71,10 +71,10 @@ class Benchmark {
       if (idx > 0) {
         ++count;
         time_elapsed_total_us += time_elapsed_us;
-        double bandwidth = _config.num_bytes / time_elapsed_us * 1e6 / 1024.0 / 1024.0;
-        std::cout << std::string(4, ' ') << std::left << std::setw(4) << idx << std::setw(10)
-                  << bandwidth << " [MiB/s]" << std::endl;
       }
+      double bandwidth = _config.num_bytes / time_elapsed_us * 1e6 / 1024.0 / 1024.0;
+      std::cout << std::string(4, ' ') << std::left << std::setw(4) << idx << std::setw(10)
+                << bandwidth << " [MiB/s]" << std::endl;
 
       if (!_config.open_file_once) { cleanup(); }
     }
