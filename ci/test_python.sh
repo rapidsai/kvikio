@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
 
@@ -9,8 +10,8 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 . /opt/conda/etc/profile.d/conda.sh
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
+CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
+PYTHON_CHANNEL=$(rapids-download-conda-from-github python)
 
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \

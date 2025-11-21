@@ -11,6 +11,10 @@ CuFile
 .. autoclass:: IOFuture
     :members:
 
+.. autofunction:: get_page_cache_info
+
+.. autofunction:: clear_page_cache
+
 CuFile driver
 -------------
 .. currentmodule:: kvikio.cufile_driver
@@ -29,6 +33,13 @@ CuFile driver
 
 .. autofunction:: initialize
 
+Mmap
+----
+.. currentmodule:: kvikio.mmap
+
+.. autoclass:: Mmap
+    :members:
+
 Zarr
 ----
 .. currentmodule:: kvikio.zarr
@@ -39,6 +50,8 @@ Zarr
 RemoteFile
 ----------
 .. currentmodule:: kvikio.remote_file
+
+.. autoclass:: RemoteEndpointType
 
 .. autoclass:: RemoteFile
     :members:

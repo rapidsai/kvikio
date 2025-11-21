@@ -1,9 +1,12 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
 files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.8"]
+      cuda: ["12.9", "13.0"]
       arch: [aarch64, x86_64]
     includes:
       - build-universal
@@ -13,7 +16,6 @@ files:
       - cuda
       - cuda_version
       - depends_on_cupy
-      - depends_on_nvcomp
       - docs
       - py_version
       - rapids_build_skbuild
@@ -66,7 +68,6 @@ files:
       table: project
     includes:
       - depends_on_cupy
-      - depends_on_nvcomp
       - depends_on_libkvikio
       - run
   py_rapids_build_libkvikio:
@@ -88,6 +89,14 @@ files:
       - build-cpp
       - build-py-wrapper
       - build-use-libkvikio-wheel
+  py_optional_zarr:
+    output: pyproject
+    pyproject_dir: python/kvikio
+    extras:
+      table: project.optional-dependencies
+      key: zarr
+    includes:
+      - zarr
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -96,6 +105,7 @@ files:
       key: test
     includes:
       - test_python
+      - zarr
   test_java:
     output: none
     includes:
@@ -109,7 +119,6 @@ channels:
   - rapidsai
   - rapidsai-nightly
   - conda-forge
-  - nvidia
 dependencies:
   build-universal:
     common:
@@ -122,6 +131,7 @@ dependencies:
       - output_types: conda
         packages:
           - c-compiler
+          - cuda-nvcc
           - cxx-compiler
           - libcurl>=8.5.0,<9.0a0
     specific:
@@ -129,49 +139,19 @@ dependencies:
         matrices:
           - matrix:
               arch: x86_64
-              cuda: "11.8"
             packages:
-              - gcc_linux-64=11.*
+              - gcc_linux-64=14.*
               - sysroot_linux-64=2.28
           - matrix:
               arch: aarch64
-              cuda: "11.8"
             packages:
-              - gcc_linux-aarch64=11.*
+              - gcc_linux-aarch64=14.*
               - sysroot_linux-aarch64=2.28
-          - matrix:
-              arch: x86_64
-              cuda: "12.*"
-            packages:
-              - gcc_linux-64=13.*
-              - sysroot_linux-64=2.28
-          - matrix:
-              arch: aarch64
-              cuda: "12.*"
-            packages:
-              - gcc_linux-aarch64=13.*
-              - sysroot_linux-aarch64=2.28
-      - output_types: conda
-        matrices:
-          - matrix:
-              arch: x86_64
-              cuda: "11.8"
-            packages:
-              - nvcc_linux-64=11.8
-          - matrix:
-              arch: aarch64
-              cuda: "11.8"
-            packages:
-              - nvcc_linux-aarch64=11.8
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - cuda-nvcc
   build-use-libkvikio-wheel:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==25.6.*,>=0.0.0a0
+          - libkvikio==26.2.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -179,18 +159,18 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.6.*,>=0.0.0a0
+              - libkvikio-cu12==26.2.*,>=0.0.0a0
           - matrix:
-              cuda: "11.*"
+              cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu11==25.6.*,>=0.0.0a0
+              - libkvikio-cu13==26.2.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cython>=3.0.0
+          - cython>=3.0.0,<3.2.0a0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -200,22 +180,6 @@ dependencies:
     specific:
       - output_types: conda
         matrices:
-          - matrix:
-              cuda: "11.2"
-            packages:
-              - cuda-version=11.2
-          - matrix:
-              cuda: "11.4"
-            packages:
-              - cuda-version=11.4
-          - matrix:
-              cuda: "11.5"
-            packages:
-              - cuda-version=11.5
-          - matrix:
-              cuda: "11.8"
-            packages:
-              - cuda-version=11.8
           - matrix:
               cuda: "12.0"
             packages:
@@ -232,105 +196,48 @@ dependencies:
               cuda: "12.8"
             packages:
               - cuda-version=12.8
+          - matrix:
+              cuda: "12.9"
+            packages:
+              - cuda-version=12.9
+          - matrix:
+              cuda: "13.0"
+            packages:
+              - cuda-version=13.0
   cuda:
-    specific:
+    common:
       - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "11.*"
-            packages:
-              - cudatoolkit
-          - matrix:
-              cuda: "12.*"
-            packages:
-      - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - libcufile-dev
-          - matrix:
-              arch: aarch64
-              cuda: "11.*"
-            packages:
-          - matrix:
-              cuda: "11.8"
-              arch: x86_64
-            packages:
-              - libcufile=1.4.0.31
-              - libcufile-dev=1.4.0.31
-          - matrix:
-              cuda: "11.5"
-              arch: x86_64
-            packages:
-              - libcufile>=1.1.0.37,<=1.1.1.25
-              - libcufile-dev>=1.1.0.37,<=1.1.1.25
-          - matrix:
-              cuda: "11.4"
-              arch: x86_64
-            packages:
-              - &libcufile_114 libcufile>=1.0.0.82,<=1.0.2.10
-              - &libcufile_dev114 libcufile-dev>=1.0.0.82,<=1.0.2.10
-          - matrix:
-              cuda: "11.2"
-              arch: x86_64
-            packages:
-              # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
-              # so 11.2 uses 11.4 packages (the oldest available).
-              - *libcufile_114
-              - *libcufile_dev114
+        packages:
+          - libcufile-dev
+          - libnuma
   depends_on_cupy:
     common:
       - output_types: conda
         packages:
-          - cupy>=12.0.0
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix: {cuda: "12.*"}
-            packages:
-              - cupy-cuda12x>=12.0.0
-          - matrix: {cuda: "11.*"}
-            packages: &cupy_packages_cu11
-              - cupy-cuda11x>=12.0.0
-          - {matrix: null, packages: *cupy_packages_cu11}
-  depends_on_nvcomp:
-    common:
-      - output_types: conda
-        packages:
-          - nvcomp==4.2.0.11
+          - &cupy_unsuffixed cupy>=13.6.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
-              use_cuda_wheels: "true"
             packages:
-              - nvidia-nvcomp-cu12==4.2.0.11
+              - cupy-cuda12x>=13.6.0
           - matrix:
-              cuda: "11.*"
-              use_cuda_wheels: "true"
+              cuda: "13.*"
             packages:
-              - nvidia-nvcomp-cu11==4.2.0.11
-          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
-          # (e.g. for DLFW and pip devcontainers)
-          - matrix:
-              use_cuda_wheels: "false"
-            packages:
-          # if no matching matrix selectors passed, list the unsuffixed packages
-          # (just as a source of documentation, as this populates pyproject.toml in source control)
+              - &cupy_cu13 cupy-cuda13x>=13.6.0
           - matrix:
             packages:
-              - nvidia-nvcomp==4.2.0.11
+              - *cupy_cu13
   depends_on_libkvikio:
     common:
       - output_types: conda
         packages:
-          - &libkvikio_unsuffixed libkvikio==25.6.*,>=0.0.0a0
+          - &libkvikio_unsuffixed libkvikio==26.2.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for libkvikio-cu{11,12}.
+          # This index is needed for libkvikio-cu{12,13}.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
@@ -340,18 +247,19 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.6.*,>=0.0.0a0
+              - libkvikio-cu12==26.2.*,>=0.0.0a0
           - matrix:
-              cuda: "11.*"
+              cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu11==25.6.*,>=0.0.0a0
+              - libkvikio-cu13==26.2.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   docs:
     common:
       - output_types: [conda, requirements]
         packages:
           - numpydoc
+          - zarr>=3.0.0,<3.2.0a0,<4.0.0
           - sphinx
           - sphinx-click
           - sphinx_rtd_theme
@@ -375,13 +283,17 @@ dependencies:
             packages:
               - python=3.12
           - matrix:
+              py: "3.13"
             packages:
-              - python>=3.10,<3.13
+              - python=3.13
+          - matrix:
+            packages:
+              - python>=3.10,<3.14
   rapids_build_skbuild:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+          - rapids-build-backend>=0.4.0,<0.5.0.dev0
       - output_types: conda
         packages:
           - scikit-build-core>=0.10.0
@@ -393,22 +305,24 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - numpy>=1.23,<3.0a0
-          - zarr>=2.0.0,<4.0.0
-          # See https://github.com/zarr-developers/numcodecs/pull/475
-          - numcodecs !=0.12.0
           - packaging
+  zarr:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          - "zarr>=3.0.0,<3.2.0a0,<4.0.0; python_version >= '3.11'"
   test_libkvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.6.*,>=0.0.0a0
-          - libkvikio-tests==25.6.*,>=0.0.0a0
+          - libkvikio==26.2.*,>=0.0.0a0
+          - libkvikio-tests==26.2.*,>=0.0.0a0
   test_kvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.6.*,>=0.0.0a0
-          - kvikio==25.6.*,>=0.0.0a0
+          - libkvikio==26.2.*,>=0.0.0a0
+          - kvikio==26.2.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -418,8 +332,8 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-dask-dependency==25.6.*,>=0.0.0a0
-          - pytest
+          - rapids-dask-dependency==26.2.*,>=0.0.0a0
+          - pytest<9.0.0a0
           - pytest-asyncio
           - pytest-cov
           - pytest-timeout
@@ -432,15 +346,28 @@ dependencies:
         packages:
           - moto>=4.0.8
     specific:
+      - output_types: [conda]
+        matrices:
+          # zarr 3 is not supported on Python 3.10
+          - matrix:
+              py: "3.1[123]"
+            packages:
+              - zarr>=3.0.0,<3.2.0a0,<4.0.0
+          - matrix:
+            packages:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.6.2,<13.0a0
-          - matrix: # All CUDA 11 versions
+              - cuda-python>=12.9.2,<13.0a0
+          - matrix:
+              cuda: "13.*"
             packages:
-              - cuda-python>=11.8.5,<12.0a0
+              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0a0
+          - matrix:
+            packages:
+              - *cuda_python_cu13
   test_java:
     common:
       - output_types: conda

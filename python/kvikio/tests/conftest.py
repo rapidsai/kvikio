@@ -1,5 +1,5 @@
-# Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 import contextlib
 import multiprocessing as mp
@@ -55,19 +55,6 @@ def run_cmd():
 
     # Kill the command server after the last test
     p.kill()
-
-
-@pytest.fixture()
-def managers():
-    libnvcomp = pytest.importorskip("kvikio.nvcomp")
-    return [
-        libnvcomp.ANSManager,
-        libnvcomp.BitcompManager,
-        libnvcomp.CascadedManager,
-        libnvcomp.GdeflateManager,
-        libnvcomp.LZ4Manager,
-        libnvcomp.SnappyManager,
-    ]
 
 
 @pytest.fixture(

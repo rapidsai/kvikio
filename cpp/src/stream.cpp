@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <sys/types.h>
@@ -21,6 +10,7 @@
 #include <tuple>
 #include <utility>
 
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/cufile.hpp>
@@ -32,6 +22,7 @@ StreamFuture::StreamFuture(
   void* devPtr_base, std::size_t size, off_t file_offset, off_t devPtr_offset, CUstream stream)
   : _devPtr_base{devPtr_base}, _stream{stream}
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   // Notice, we allocate the arguments using malloc() as specified in the cuFile docs:
   // <https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html#cufilewriteasync>
   KVIKIO_EXPECT((_val = static_cast<ArgByVal*>(std::malloc(sizeof(ArgByVal)))) != nullptr,
@@ -61,6 +52,7 @@ StreamFuture& StreamFuture::operator=(StreamFuture&& o) noexcept
 
 std::tuple<void*, std::size_t*, off_t*, off_t*, ssize_t*, CUstream> StreamFuture::get_args() const
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(_val != nullptr, "cannot get arguments from an uninitialized StreamFuture");
 
   return {_devPtr_base,
@@ -73,6 +65,7 @@ std::tuple<void*, std::size_t*, off_t*, off_t*, ssize_t*, CUstream> StreamFuture
 
 std::size_t StreamFuture::check_bytes_done()
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(_val != nullptr, "cannot check bytes done on an uninitialized StreamFuture");
 
   if (!_stream_synchronized) {
@@ -88,6 +81,7 @@ std::size_t StreamFuture::check_bytes_done()
 
 StreamFuture::~StreamFuture() noexcept
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   if (_val != nullptr) {
     try {
       check_bytes_done();

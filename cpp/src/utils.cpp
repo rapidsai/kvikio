@@ -1,32 +1,28 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <unistd.h>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <map>
 #include <optional>
-#include <stdexcept>
 #include <tuple>
-#include <type_traits>
 
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
+
+std::size_t get_page_size()
+{
+  static auto const page_size = static_cast<std::size_t>(sysconf(_SC_PAGESIZE));
+  return page_size;
+}
 
 off_t convert_size2off(std::size_t x)
 {
@@ -48,7 +44,6 @@ CUdeviceptr convert_void2deviceptr(void const* devPtr)
   return reinterpret_cast<CUdeviceptr>(devPtr);
 }
 
-#ifdef KVIKIO_CUDA_FOUND
 bool is_host_memory(void const* ptr)
 {
   CUpointer_attribute attrs[1] = {
@@ -68,7 +63,6 @@ bool is_host_memory(void const* ptr)
   // does it to support `cudaMemoryTypeUnregistered`.
   return memtype == 0 || memtype == CU_MEMORYTYPE_HOST;
 }
-#endif
 
 int get_device_ordinal_from_pointer(CUdeviceptr dev_ptr)
 {
@@ -173,4 +167,51 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
 }
 
+namespace detail {
+
+std::size_t align_up(std::size_t value, std::size_t alignment)
+{
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
+  return (value + alignment - 1) & ~(alignment - 1);
+}
+
+void* align_up(void* addr, std::size_t alignment)
+{
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
+  auto res = (reinterpret_cast<uintptr_t>(addr) + alignment - 1) & ~(alignment - 1);
+  return reinterpret_cast<void*>(res);
+}
+
+std::size_t align_down(std::size_t value, std::size_t alignment)
+{
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
+  return value & ~(alignment - 1);
+}
+
+void* align_down(void* addr, std::size_t alignment)
+{
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
+  auto res = reinterpret_cast<uintptr_t>(addr) & ~(alignment - 1);
+  return reinterpret_cast<void*>(res);
+}
+
+bool is_aligned(std::size_t value, std::size_t alignment)
+{
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
+  return (value & (alignment - 1)) == 0;
+}
+
+bool is_aligned(void* addr, std::size_t alignment)
+{
+  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
+                "Alignment must be a power of 2");
+  return (reinterpret_cast<uintptr_t>(addr) & (alignment - 1)) == 0;
+}
+
+}  // namespace detail
 }  // namespace kvikio

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <dlfcn.h>
@@ -33,24 +22,10 @@ void* load_library(std::string const& name, int mode)
   return ret;
 }
 
-void* load_library(std::vector<std::string> const& names, int mode)
-{
-  std::stringstream ss;
-  for (auto const& name : names) {
-    ss << name << " ";
-    try {
-      return load_library(name, mode);
-    } catch (std::runtime_error const&) {
-    }
-  }
-  KVIKIO_FAIL("cannot open shared object file, tried: " + ss.str(), std::runtime_error);
-  return {};
-}
-
 bool is_running_in_wsl() noexcept
 {
   try {
-    struct utsname buf {};
+    struct utsname buf{};
     int err = ::uname(&buf);
     if (err == 0) {
       std::string const name(static_cast<char*>(buf.release));

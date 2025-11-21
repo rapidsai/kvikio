@@ -1,40 +1,48 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <cassert>
 #include <cstddef>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <optional>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
+
+struct curl_slist;
 
 namespace kvikio {
 
 class CurlHandle;  // Prototype
+
+/**
+ * @brief Types of remote file endpoints supported by KvikIO.
+ *
+ * This enum defines the different protocols and services that can be used to access remote files.
+ * It is used to specify or detect the type of remote endpoint when opening files.
+ */
+enum class RemoteEndpointType : uint8_t {
+  AUTO,  ///< Automatically detect the endpoint type from the URL. KvikIO will attempt to infer the
+         ///< appropriate protocol based on the URL format.
+  S3,    ///< AWS S3 endpoint using credentials-based authentication. Requires AWS environment
+         ///< variables (such as AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION) to be
+         ///< set.
+  S3_PUBLIC,  ///< AWS S3 endpoint for publicly accessible objects. No credentials required as the
+              ///< objects have public read permissions enabled. Used for open datasets and public
+              ///< buckets.
+  S3_PRESIGNED_URL,  ///< AWS S3 endpoint using a presigned URL. No credentials required as
+                     ///< authentication is embedded in the URL with time-limited access.
+  WEBHDFS,  ///< Apache Hadoop WebHDFS (Web-based Hadoop Distributed File System) endpoint for
+            ///< accessing files stored in HDFS over HTTP/HTTPS.
+  HTTP,  ///< Generic HTTP or HTTPS endpoint for accessing files from web servers. This is used for
+         ///< standard web resources that do not fit the other specific categories.
+};
 
 /**
  * @brief Abstract base class for remote endpoints.
@@ -45,7 +53,13 @@ class CurlHandle;  // Prototype
  * its own ctor that takes communication protocol specific arguments.
  */
 class RemoteEndpoint {
+ protected:
+  RemoteEndpointType _remote_endpoint_type{RemoteEndpointType::AUTO};
+  RemoteEndpoint(RemoteEndpointType remote_endpoint_type);
+
  public:
+  virtual ~RemoteEndpoint() = default;
+
   /**
    * @brief Set needed connection options on a curl handle.
    *
@@ -62,11 +76,32 @@ class RemoteEndpoint {
    */
   virtual std::string str() const = 0;
 
-  virtual ~RemoteEndpoint() = default;
+  /**
+   * @brief Get the size of the remote file.
+   *
+   * @return The file size
+   */
+  virtual std::size_t get_file_size() = 0;
+
+  /**
+   * @brief Set up the range request in order to read part of a file given the file offset and read
+   * size.
+   */
+  virtual void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) = 0;
+
+  /**
+   * @brief Get the type of the remote file.
+   *
+   * @return The type of the remote file.
+   */
+  [[nodiscard]] RemoteEndpointType remote_endpoint_type() const noexcept;
 };
 
 /**
- * @brief A remote endpoint using http.
+ * @brief A remote endpoint for HTTP/HTTPS resources
+ *
+ * This endpoint is for accessing files via standard HTTP/HTTPS protocols without any specialized
+ * authentication.
  */
 class HttpEndpoint : public RemoteEndpoint {
  private:
@@ -79,42 +114,40 @@ class HttpEndpoint : public RemoteEndpoint {
    * @param url The full http url to the remote file.
    */
   HttpEndpoint(std::string url);
+
+  ~HttpEndpoint() override = default;
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-  ~HttpEndpoint() override = default;
+  std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for HTTP/HTTPS endpoints.
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 
 /**
- * @brief A remote endpoint using AWS's S3 protocol.
+ * @brief A remote endpoint for AWS S3 storage requiring credentials
+ *
+ * This endpoint is for accessing private S3 objects using AWS credentials (access key, secret key,
+ * region and optional session token).
  */
 class S3Endpoint : public RemoteEndpoint {
  private:
   std::string _url;
   std::string _aws_sigv4;
   std::string _aws_userpwd;
-
-  /**
-   * @brief Unwrap an optional parameter, obtaining a default from the environment.
-   *
-   * If not nullopt, the optional's value is returned. Otherwise, the environment
-   * variable `env_var` is used. If that also doesn't have a value:
-   *   - if `err_msg` is empty, the empty string is returned.
-   *   - if `err_msg` is not empty, `std::invalid_argument(`err_msg`)` is thrown.
-   *
-   * @param value The value to unwrap.
-   * @param env_var The name of the environment variable to check if `value` isn't set.
-   * @param err_msg The error message to throw on error or the empty string.
-   * @return The parsed AWS argument or the empty string.
-   */
-  static std::string unwrap_or_default(std::optional<std::string> aws_arg,
-                                       std::string const& env_var,
-                                       std::string const& err_msg = "");
+  curl_slist* _curl_header_list{};
 
  public:
   /**
    * @brief Get url from a AWS S3 bucket and object name.
    *
-   * @throws std::invalid_argument if no region is specified and no default region is
+   * @exception std::invalid_argument if no region is specified and no default region is
    * specified in the environment.
    *
    * @param bucket_name The name of the S3 bucket.
@@ -126,15 +159,15 @@ class S3Endpoint : public RemoteEndpoint {
    * `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular AWS
    * url scheme is used: "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
    */
-  static std::string url_from_bucket_and_object(std::string const& bucket_name,
-                                                std::string const& object_name,
-                                                std::optional<std::string> const& aws_region,
+  static std::string url_from_bucket_and_object(std::string bucket_name,
+                                                std::string object_name,
+                                                std::optional<std::string> aws_region,
                                                 std::optional<std::string> aws_endpoint_url);
 
   /**
    * @brief Given an url like "s3://<bucket>/<object>", return the name of the bucket and object.
    *
-   * @throws std::invalid_argument if url is ill-formed or is missing the bucket or object name.
+   * @exception std::invalid_argument if url is ill-formed or is missing the bucket or object name.
    *
    * @param s3_url S3 url.
    * @return Pair of strings: [bucket-name, object-name].
@@ -153,17 +186,19 @@ class S3Endpoint : public RemoteEndpoint {
    * `AWS_ACCESS_KEY_ID` environment variable is used.
    * @param aws_secret_access_key The AWS secret access key to use. If nullopt, the value of the
    * `AWS_SECRET_ACCESS_KEY` environment variable is used.
+   * @param aws_session_token The AWS session token to use. If nullopt, the value of the
+   * `AWS_SESSION_TOKEN` environment variable is used.
    */
   S3Endpoint(std::string url,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
-             std::optional<std::string> aws_secret_access_key = std::nullopt);
+             std::optional<std::string> aws_secret_access_key = std::nullopt,
+             std::optional<std::string> aws_session_token     = std::nullopt);
 
   /**
    * @brief Create a S3 endpoint from a bucket and object name.
    *
-   * @param bucket_name The name of the S3 bucket.
-   * @param object_name The name of the S3 object.
+   * @param bucket_and_object_names The bucket and object names of the S3 bucket.
    * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
    * `AWS_DEFAULT_REGION` environment variable is used.
    * @param aws_access_key The AWS access key to use. If nullopt, the value of the
@@ -174,17 +209,85 @@ class S3Endpoint : public RemoteEndpoint {
    * the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If nullopt, the value of the
    * `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular AWS
    * url scheme is used: "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
+   * @param aws_session_token The AWS session token to use. If nullopt, the value of the
+   * `AWS_SESSION_TOKEN` environment variable is used.
    */
-  S3Endpoint(std::string const& bucket_name,
-             std::string const& object_name,
+  S3Endpoint(std::pair<std::string, std::string> bucket_and_object_names,
              std::optional<std::string> aws_region            = std::nullopt,
              std::optional<std::string> aws_access_key        = std::nullopt,
              std::optional<std::string> aws_secret_access_key = std::nullopt,
-             std::optional<std::string> aws_endpoint_url      = std::nullopt);
+             std::optional<std::string> aws_endpoint_url      = std::nullopt,
+             std::optional<std::string> aws_session_token     = std::nullopt);
 
+  ~S3Endpoint() override;
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
-  ~S3Endpoint() override = default;
+  std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for S3 endpoints (excluding presigned URL).
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
+};
+
+/**
+ * @brief A remote endpoint for publicly accessible S3 objects without authentication
+ *
+ * This endpoint is for accessing S3 objects configured with public read permissions,
+ * requiring no authentication. Supports AWS S3 services with anonymous access enabled.
+ */
+class S3PublicEndpoint : public RemoteEndpoint {
+ private:
+  std::string _url;
+
+ public:
+  explicit S3PublicEndpoint(std::string url);
+
+  ~S3PublicEndpoint() override = default;
+  void setopt(CurlHandle& curl) override;
+  std::string str() const override;
+  std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for S3 public endpoints.
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
+};
+
+/**
+ * @brief A remote endpoint for AWS S3 storage using presigned URLs.
+ *
+ * This endpoint is for accessing S3 objects via presigned URLs, which provide time-limited access
+ * without requiring AWS credentials on the client side.
+ */
+class S3EndpointWithPresignedUrl : public RemoteEndpoint {
+ private:
+  std::string _url;
+
+ public:
+  explicit S3EndpointWithPresignedUrl(std::string presigned_url);
+
+  ~S3EndpointWithPresignedUrl() override = default;
+  void setopt(CurlHandle& curl) override;
+  std::string str() const override;
+  std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for S3 endpoints with presigned URL.
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
 };
 
 /**
@@ -196,6 +299,88 @@ class RemoteHandle {
   std::size_t _nbytes;
 
  public:
+  /**
+   * @brief Create a remote file handle from a URL.
+   *
+   * This function creates a RemoteHandle for reading data from various remote endpoints
+   * including HTTP/HTTPS servers, AWS S3 buckets, S3 presigned URLs, and WebHDFS.
+   * The endpoint type can be automatically detected from the URL or explicitly specified.
+   *
+   * @param url The URL of the remote file. Supported formats include:
+   *   - S3 with credentials
+   *   - S3 presigned URL
+   *   - WebHDFS
+   *   - HTTP/HTTPS
+   * @param remote_endpoint_type The type of remote endpoint. Default is RemoteEndpointType::AUTO
+   * which automatically detects the endpoint type from the URL. Can be explicitly set to
+   * RemoteEndpointType::S3, RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, or
+   * RemoteEndpointType::HTTP to force a specific endpoint type.
+   * @param allow_list Optional list of allowed endpoint types. If provided:
+   *   - If remote_endpoint_type is RemoteEndpointType::AUTO, Types are tried in the exact order
+   *     specified until a match is found.
+   *   - In explicit mode, the specified type must be in this list, otherwise an exception is
+   *     thrown.
+   *
+   * If not provided, defaults to all supported types in this order: RemoteEndpointType::S3,
+   * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, and
+   * RemoteEndpointType::HTTP.
+   * @param nbytes Optional file size in bytes. If not provided, the function sends additional
+   * request to the server to query the file size.
+   * @return A RemoteHandle object that can be used to read data from the remote file.
+   * @exception std::runtime_error If:
+   *   - If the URL is malformed or missing required components.
+   *   - RemoteEndpointType::AUTO mode is used and the URL doesn't match any supported endpoint
+   * type.
+   *   - The specified endpoint type is not in the `allow_list`.
+   *   - The URL is invalid for the specified endpoint type.
+   *   - Unable to connect to the remote server or determine file size (when nbytes not provided).
+   *
+   * Example:
+   * - Auto-detect endpoint type from URL
+   *   @code{.cpp}
+   *   auto handle = kvikio::RemoteHandle::open(
+   *       "https://bucket.s3.amazonaws.com/object?X-Amz-Algorithm=AWS4-HMAC-SHA256"
+   *       "&X-Amz-Credential=...&X-Amz-Signature=..."
+   *   );
+   *   @endcode
+   *
+   * - Open S3 file with explicit endpoint type
+   *   @code{.cpp}
+   *
+   *   auto handle = kvikio::RemoteHandle::open(
+   *       "https://my-bucket.s3.us-east-1.amazonaws.com/data.bin",
+   *       kvikio::RemoteEndpointType::S3
+   *   );
+   *   @endcode
+   *
+   * - Restrict endpoint type candidates
+   *   @code{.cpp}
+   *   std::vector<kvikio::RemoteEndpointType> allow_list = {
+   *       kvikio::RemoteEndpointType::HTTP,
+   *       kvikio::RemoteEndpointType::S3_PRESIGNED_URL
+   *   };
+   *   auto handle = kvikio::RemoteHandle::open(
+   *       user_provided_url,
+   *       kvikio::RemoteEndpointType::AUTO,
+   *       allow_list
+   *   );
+   *   @endcode
+   *
+   * - Provide known file size to skip HEAD request
+   *   @code{.cpp}
+   *   auto handle = kvikio::RemoteHandle::open(
+   *       "https://example.com/large-file.bin",
+   *       kvikio::RemoteEndpointType::HTTP,
+   *       std::nullopt,
+   *       1024 * 1024 * 100  // 100 MB
+   *   );
+   *   @endcode
+   */
+  static RemoteHandle open(std::string url,
+                           RemoteEndpointType remote_endpoint_type = RemoteEndpointType::AUTO,
+                           std::optional<std::vector<RemoteEndpointType>> allow_list = std::nullopt,
+                           std::optional<std::size_t> nbytes = std::nullopt);
+
   /**
    * @brief Create a new remote handle from an endpoint and a file size.
    *
@@ -220,9 +405,17 @@ class RemoteHandle {
   RemoteHandle& operator=(RemoteHandle const&) = delete;
 
   /**
+   * @brief Get the type of the remote file.
+   *
+   * @return The type of the remote file.
+   */
+  [[nodiscard]] RemoteEndpointType remote_endpoint_type() const noexcept;
+
+  /**
    * @brief Get the file size.
    *
-   * Note, this is very fast, no communication needed.
+   * Note, the file size is retrieved at construction so this method is very fast, no communication
+   * needed.
    *
    * @return The number of bytes.
    */

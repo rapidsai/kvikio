@@ -15,10 +15,12 @@ Install the **stable release** from the ``rapidsai`` channel like:
 
   # Install in existing environment
   mamba install -c rapidsai -c conda-forge kvikio
+
+  # Create new environment (CUDA 13)
+  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.13 cuda-version=13.0 kvikio
+
   # Create new environment (CUDA 12)
-  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.12 cuda-version=12.8 kvikio
-  # Create new environment (CUDA 11)
-  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.12 cuda-version=11.8 kvikio
+  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.13 cuda-version=12.9 kvikio
 
 Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 
@@ -26,11 +28,12 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 
   # Install in existing environment
   mamba install -c rapidsai-nightly -c conda-forge kvikio
-  # Create new environment (CUDA 12)
-  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.12 cuda-version=12.8 kvikio
-  # Create new environment (CUDA 11)
-  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.12 cuda-version=11.8 kvikio
 
+  # Create new environment (CUDA 13)
+  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.13 cuda-version=13.0 kvikio
+
+  # Create new environment (CUDA 12)
+  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.13 cuda-version=12.9 kvikio
 
 .. note::
 
@@ -44,9 +47,11 @@ KvikIO is also available on PyPI. Install the latest release like:
 
 .. code-block::
 
-  pip install kvikio-cu11 # for CUDA 11
-  pip install kvikio-cu12 # for CUDA 12
+  pip install kvikio-cu13 # for CUDA 13
 
+.. code-block::
+
+  pip install kvikio-cu12 # for CUDA 12
 
 Build from source
 -----------------
@@ -55,10 +60,8 @@ In order to setup a development environment, we recommend Conda:
 
 .. code-block::
 
-  # CUDA 12
-  mamba env create --name kvikio-dev --file conda/environments/all_cuda-128_arch-x86_64.yaml
-  # CUDA 11
-  mamba env create --name kvikio-dev --file conda/environments/all_cuda-118_arch-x86_64.yaml
+  # CUDA 13
+  mamba env create --name kvikio-dev --file conda/environments/all_cuda-130_arch-$(arch).yaml
 
 The Python library depends on the C++ library, thus we build and install both:
 

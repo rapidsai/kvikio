@@ -1,20 +1,21 @@
-# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 import pathlib
 
 import cupy as cp
 import pytest
 
-import kvikio.zarr
-
 pytest.importorskip("zarr", minversion="3.0.0")
 
+# these must follow the pytest.importorskip
 
 import zarr.core.buffer  # noqa: E402
 import zarr.storage  # noqa: E402
 from zarr.core.buffer.gpu import Buffer  # noqa: E402
 from zarr.testing.store import StoreTests  # noqa: E402
+
+import kvikio.zarr  # noqa: E402
 
 
 @pytest.mark.asyncio

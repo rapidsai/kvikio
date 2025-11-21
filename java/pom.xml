@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+SPDX-License-Identifier: Apache-2.0
+-->
 <project  xmlns="http://maven.apache.org/POM/4.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -7,7 +10,7 @@
 
   <groupId>ai.rapids.kvikio</groupId>
   <artifactId>cufile</artifactId>
-  <version>25.06.0-SNAPSHOT</version>
+  <version>26.02.0-SNAPSHOT</version>
 
   <name>cuFile</name>
   <description>
@@ -22,8 +25,7 @@
     <maven.compiler.target>11</maven.compiler.target>
     <junit.version>5.4.2</junit.version>
     <jcuda.version>12.0.0</jcuda.version>
-    <cmake.version>3.30.2-b1</cmake.version>
-    <cmake.download>false</cmake.download>
+    <cmake.version>3.31.5-b1</cmake.version>
   </properties>
 
   <dependencies>

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -282,6 +271,83 @@ template <typename Exception>
 void kvikio_assertion(bool condition, const std::string& msg, int line_number, char const* filename)
 {
   kvikio_assertion<Exception>(condition, msg.c_str(), line_number, filename);
+}
+}  // namespace detail
+
+/**
+ * @addtogroup utility_error
+ * @{
+ */
+
+/**
+ * @brief Error checking macro for Linux system call.
+ *
+ * Error checking for a Linux system call typically involves:
+ * - Check the return value of the system call. A value of -1 indicates failure for the overwhelming
+ *   majority of system calls.
+ * - If failure, check the global error number <a
+ *   href="https://man7.org/linux/man-pages/man3/errno.3.html" target="_blank">errno</a>. Use
+ *   Linux utility functions to obtain detailed error information.
+ *
+ * This macro is used to perform the steps above. A simple SYSCALL_CHECK(ret) is
+ * designed for the common cases where an integer of -1 indicates a failure, whereas a more complex
+ * SYSCALL_CHECK(ret, "extra msg", error_value) for the remaining rare cases, such
+ * as `(void*)-1` for mmap. At any rate, if a failure occurs, this macro throws an exception
+ * (kvikio::GenericSystemError) with detailed error information.
+ *
+ * Example:
+ * ```
+ * // Common case: (int)-1 indicates an error.
+ * SYSCALL_CHECK(open(file_name, flags, mode));
+ *
+ * // Rare case: (void*)-1 indicates an error.
+ * SYSCALL_CHECK(mmap(addr, length,prot, flags, fd, offset), "mmap failed",
+ * reinterpret_cast<void*>(-1));
+ * ```
+ *
+ * @param ... This macro accepts the following arguments:
+ *   - The first argument must be the return value of a Linux system call.
+ *   - When given, the second argument is the extra message for the exception. When not specified,
+ *     defaults to empty.
+ *   - When given, the third argument is the error code value used to indicate an error. When not
+ *     specified, defaults to -1.
+ */
+#define SYSCALL_CHECK(...)                                                                \
+  GET_SYSCALL_CHECK_MACRO(__VA_ARGS__, SYSCALL_CHECK_3, SYSCALL_CHECK_2, SYSCALL_CHECK_1) \
+  (__VA_ARGS__)
+/** @} */
+
+#define GET_SYSCALL_CHECK_MACRO(_1, _2, _3, NAME, ...) NAME
+#define SYSCALL_CHECK_1(_return_value)                                   \
+  do {                                                                   \
+    kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value); \
+  } while (0)
+#define SYSCALL_CHECK_2(_return_value, _extra_msg)                                   \
+  do {                                                                               \
+    kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value, _extra_msg); \
+  } while (0)
+#define SYSCALL_CHECK_3(_return_value, _extra_msg, _error_value)                                   \
+  do {                                                                                             \
+    kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value, _extra_msg, _error_value); \
+  } while (0)
+
+namespace detail {
+void handle_linux_call_error(int line_number, char const* filename, std::string_view extra_msg);
+
+inline void check_linux_call(int line_number,
+                             char const* filename,
+                             int return_value,
+                             std::string_view extra_msg = "",
+                             int error_value            = -1)
+{
+  if (return_value == error_value) { handle_linux_call_error(line_number, filename, extra_msg); }
+}
+
+template <typename T>
+void check_linux_call(
+  int line_number, char const* filename, T return_value, std::string_view extra_msg, T error_value)
+{
+  if (return_value == error_value) { handle_linux_call_error(line_number, filename, extra_msg); }
 }
 }  // namespace detail
 

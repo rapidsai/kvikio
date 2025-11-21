@@ -1,6 +1,8 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
+import io
+import os
 import pathlib
 from typing import Optional, Union
 
@@ -430,3 +432,68 @@ class CuFile:
         to be a multiple of 4096 bytes. When GDS isn't used, this is less critical.
         """
         return self._handle.write(buf, size, file_offset, dev_offset)
+
+    def is_direct_io_supported(self) -> bool:
+        """Whether Direct I/O is supported on this file handle.
+
+        This is determined by two factors:
+        - Direct I/O support from the operating system and the file system
+        - KvikIO global setting `auto_direct_io_read` and `auto_direct_io_write`. If
+        both values are false, Direct I/O will not be supported on this file handle.
+
+        Returns
+        -------
+        bool
+            Whether Direct I/O is supported
+        """
+        return self._handle.is_direct_io_supported()
+
+
+def get_page_cache_info(
+    file: Union[os.PathLike, str, int, io.IOBase],
+) -> tuple[int, int]:
+    """Obtain the page cache residency information for a given file
+
+    Example:
+
+    .. code-block:: python
+
+       num_pages_in_page_cache, num_pages = kvikio.get_page_cache_info(my_file)
+       percent_in_page_cache = num_pages_in_page_cache / num_pages
+
+    Parameters
+    ----------
+    file: a path-like object, or string, or file descriptor, or file object
+        File to check.
+
+    Returns
+    -------
+    tuple[int, int]
+        A pair containing the number of pages resident in the page cache
+        and the total number of pages.
+    """
+    return file_handle.get_page_cache_info(file)
+
+
+def clear_page_cache(
+    reclaim_dentries_and_inodes: bool = True, clear_dirty_pages: bool = True
+) -> bool:
+    """Clear the page cache
+
+    Parameters
+    ----------
+    reclaim_dentries_and_inodes: bool, optional
+        Whether to free reclaimable slab objects which include dentries and inodes.
+
+        - If `true`, equivalent to executing `/sbin/sysctl vm.drop_caches=3`;
+        - If `false`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
+    clear_dirty_pages: bool, optional
+        Whether to trigger the writeback process to clear the dirty pages. If `true`,
+        `sync` will be called prior to cache dropping.
+
+    Returns
+    -------
+    bool
+        Whether the page cache has been successfully cleared.
+    """
+    return file_handle.clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)

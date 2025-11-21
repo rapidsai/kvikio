@@ -1,24 +1,72 @@
 /*
- * Copyright (c) 2022-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
-#include <kvikio/shim/cuda_h_wrapper.hpp>
+#include <any>
+#include <functional>
+
+#include <cuda.h>
 #include <kvikio/shim/utils.hpp>
+#include <stdexcept>
 
 namespace kvikio {
+
+namespace detail {
+/**
+ * @brief Non-templated class to hold any callable that returns CUresult
+ */
+class AnyCallable {
+ private:
+  std::any _callable;
+
+ public:
+  /**
+   * @brief Assign a callable to the object
+   *
+   * @tparam Callable A callable that must return CUresult
+   * @param c The callable object
+   */
+  template <typename Callable>
+  void set(Callable&& c)
+  {
+    _callable = std::function(c);
+  }
+
+  /**
+   * @brief Destroy the contained callable
+   */
+  void reset() { _callable.reset(); }
+
+  /**
+   * @brief Invoke the container callable
+   *
+   * @tparam Args Types of the argument. Must exactly match the parameter types of the contained
+   * callable. For example, if the parameter is `std::size_t*`, an argument of `nullptr` must be
+   * explicitly cast to `std::size_t*`.
+   * @param args Arguments to be passed
+   * @return CUDA driver API error code
+   * @exception std::bad_any_cast if any argument type does not exactly match the parameter type of
+   * the contained callable.
+   */
+  template <typename... Args>
+  CUresult operator()(Args... args)
+  {
+    using T = std::function<CUresult(Args...)>;
+    if (!_callable.has_value()) {
+      throw std::runtime_error("No callable has been assigned to the wrapper yet.");
+    }
+    return std::any_cast<T&>(_callable)(args...);
+  }
+
+  /**
+   * @brief Check if the object holds a callable
+   */
+  operator bool() const { return _callable.has_value(); }
+};
+
+}  // namespace detail
 
 /**
  * @brief Shim layer of the cuda C-API
@@ -29,25 +77,36 @@ namespace kvikio {
  */
 class cudaAPI {
  public:
+  int driver_version{0};
+
   decltype(cuInit)* Init{nullptr};
   decltype(cuMemHostAlloc)* MemHostAlloc{nullptr};
   decltype(cuMemFreeHost)* MemFreeHost{nullptr};
+  decltype(cuMemHostRegister)* MemHostRegister{nullptr};
+  decltype(cuMemHostUnregister)* MemHostUnregister{nullptr};
   decltype(cuMemcpyHtoDAsync)* MemcpyHtoDAsync{nullptr};
   decltype(cuMemcpyDtoHAsync)* MemcpyDtoHAsync{nullptr};
+
+  detail::AnyCallable MemcpyBatchAsync{};
+
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};
   decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};
   decltype(cuCtxPushCurrent)* CtxPushCurrent{nullptr};
   decltype(cuCtxPopCurrent)* CtxPopCurrent{nullptr};
   decltype(cuCtxGetCurrent)* CtxGetCurrent{nullptr};
+  decltype(cuCtxGetDevice)* CtxGetDevice{nullptr};
   decltype(cuMemGetAddressRange)* MemGetAddressRange{nullptr};
   decltype(cuGetErrorName)* GetErrorName{nullptr};
   decltype(cuGetErrorString)* GetErrorString{nullptr};
   decltype(cuDeviceGet)* DeviceGet{nullptr};
+  decltype(cuDeviceGetCount)* DeviceGetCount{nullptr};
+  decltype(cuDeviceGetAttribute)* DeviceGetAttribute{nullptr};
   decltype(cuDevicePrimaryCtxRetain)* DevicePrimaryCtxRetain{nullptr};
   decltype(cuDevicePrimaryCtxRelease)* DevicePrimaryCtxRelease{nullptr};
   decltype(cuStreamSynchronize)* StreamSynchronize{nullptr};
   decltype(cuStreamCreate)* StreamCreate{nullptr};
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
+  decltype(cuDriverGetVersion)* DriverGetVersion{nullptr};
 
  private:
   cudaAPI();
@@ -66,10 +125,6 @@ class cudaAPI {
  *
  * @return The boolean answer
  */
-#ifdef KVIKIO_CUDA_FOUND
 bool is_cuda_available();
-#else
-constexpr bool is_cuda_available() { return false; }
-#endif
 
 }  // namespace kvikio
