@@ -14,10 +14,12 @@
 #include <stdexcept>
 
 #include <kvikio/compat_mode.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 
 namespace kvikio::benchmark {
 void PosixConfig::parse_args(int argc, char** argv)
@@ -33,10 +35,14 @@ void PosixConfig::parse_args(int argc, char** argv)
 
   // "f:"" means "-f" takes an argument
   // "c" means "-c" does not take an argument
-  while ((opt = getopt_long(argc, argv, ":w", long_options, &option_index)) != -1) {
+  while ((opt = getopt_long(argc, argv, ":wp", long_options, &option_index)) != -1) {
     switch (opt) {
       case 'w': {
         overwrite_file = true;
+        break;
+      }
+      case 'p': {
+        per_file_pool = true;
         break;
       }
       case ':': {
@@ -89,6 +95,12 @@ PosixBenchmark::PosixBenchmark(PosixConfig config) : Benchmark(std::move(config)
       auto fut = file_handle.pwrite(buf, _config.num_bytes);
       fut.get();
     }
+
+    // Initialize thread pool
+    if (_config.per_file_pool) {
+      auto thread_pool = std::make_unique<kvikio::BS_thread_pool>(_config.num_threads);
+      _thread_pools.push_back(std::move(thread_pool));
+    }
   }
 }
 
@@ -130,7 +142,19 @@ void PosixBenchmark::run_target_impl()
   for (std::size_t i = 0; i < _file_handles.size(); ++i) {
     auto& file_handle = _file_handles[i];
     auto* buf         = _bufs[i];
-    auto fut          = file_handle->pread(buf, _config.num_bytes);
+
+    std::future<std::size_t> fut;
+    if (_config.per_file_pool) {
+      fut = file_handle->pread(buf,
+                               _config.num_bytes,
+                               0,
+                               defaults::task_size(),
+                               defaults::gds_threshold(),
+                               true,
+                               _thread_pools[i].get());
+    } else {
+      fut = file_handle->pread(buf, _config.num_bytes);
+    }
     futs.push_back(std::move(fut));
   }
 
