@@ -17,6 +17,7 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -75,8 +76,9 @@ std::future<std::size_t> submit_task(F op,
                                      std::size_t size,
                                      std::size_t file_offset,
                                      std::size_t devPtr_offset,
-                                     std::uint64_t nvtx_payload = 0ull,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     BS_thread_pool* thread_pool = &defaults::thread_pool(),
+                                     std::uint64_t nvtx_payload  = 0ull,
+                                     nvtx_color_type nvtx_color  = NvtxManager::default_color())
 {
   static_assert(std::is_invocable_r_v<std::size_t,
                                       decltype(op),
@@ -85,7 +87,7 @@ std::future<std::size_t> submit_task(F op,
                                       decltype(file_offset),
                                       decltype(devPtr_offset)>);
 
-  return defaults::thread_pool().submit_task([=] {
+  return thread_pool->submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
     return op(buf, size, file_offset, devPtr_offset);
   });
@@ -101,12 +103,13 @@ std::future<std::size_t> submit_task(F op,
 template <typename F>
 std::future<std::size_t> submit_move_only_task(
   F op_move_only,
-  std::uint64_t nvtx_payload = 0ull,
-  nvtx_color_type nvtx_color = NvtxManager::default_color())
+  BS_thread_pool* thread_pool = &defaults::thread_pool(),
+  std::uint64_t nvtx_payload  = 0ull,
+  nvtx_color_type nvtx_color  = NvtxManager::default_color())
 {
   static_assert(std::is_invocable_r_v<std::size_t, F>);
   auto op_copyable = make_copyable_lambda(std::move(op_move_only));
-  return defaults::thread_pool().submit_task([=] {
+  return thread_pool->submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
     return op_copyable();
   });
@@ -133,8 +136,9 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t file_offset,
                                      std::size_t task_size,
                                      std::size_t devPtr_offset,
-                                     std::uint64_t call_idx     = 0,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     BS_thread_pool* thread_pool = &defaults::thread_pool(),
+                                     std::uint64_t call_idx      = 0,
+                                     nvtx_color_type nvtx_color  = NvtxManager::default_color())
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   static_assert(std::is_invocable_r_v<std::size_t,
@@ -146,7 +150,8 @@ std::future<std::size_t> parallel_io(F op,
 
   // Single-task guard
   if (task_size >= size || get_page_size() >= size) {
-    return detail::submit_task(op, buf, size, file_offset, devPtr_offset, call_idx, nvtx_color);
+    return detail::submit_task(
+      op, buf, size, file_offset, devPtr_offset, thread_pool, call_idx, nvtx_color);
   }
 
   std::vector<std::future<std::size_t>> tasks;
@@ -154,8 +159,8 @@ std::future<std::size_t> parallel_io(F op,
 
   // 1) Submit all tasks but the last one. These are all `task_size` sized tasks.
   while (size > task_size) {
-    tasks.push_back(
-      detail::submit_task(op, buf, task_size, file_offset, devPtr_offset, call_idx, nvtx_color));
+    tasks.push_back(detail::submit_task(
+      op, buf, task_size, file_offset, devPtr_offset, thread_pool, call_idx, nvtx_color));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
@@ -170,7 +175,7 @@ std::future<std::size_t> parallel_io(F op,
     }
     return ret;
   };
-  return detail::submit_move_only_task(std::move(last_task), call_idx, nvtx_color);
+  return detail::submit_move_only_task(std::move(last_task), thread_pool, call_idx, nvtx_color);
 }
 
 }  // namespace kvikio

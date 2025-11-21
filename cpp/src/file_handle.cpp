@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>
+#include <memory>
 #include <utility>
 
 #include <kvikio/compat_mode.hpp>
@@ -19,6 +20,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 
 namespace kvikio {
 
@@ -148,7 +150,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            std::size_t file_offset,
                                            std::size_t task_size,
                                            std::size_t gds_threshold,
-                                           bool sync_default_stream)
+                                           bool sync_default_stream,
+                                           BS_thread_pool* thread_pool)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
@@ -162,7 +165,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, thread_pool, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -192,8 +195,15 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(
-    task, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
+  return parallel_io(task,
+                     devPtr_base,
+                     size,
+                     file_offset,
+                     task_size,
+                     devPtr_offset,
+                     thread_pool,
+                     call_idx,
+                     nvtx_color);
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -201,7 +211,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             std::size_t file_offset,
                                             std::size_t task_size,
                                             std::size_t gds_threshold,
-                                            bool sync_default_stream)
+                                            bool sync_default_stream,
+                                            BS_thread_pool* thread_pool)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
@@ -215,7 +226,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, thread_pool, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -245,8 +256,15 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     return write(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(
-    op, devPtr_base, size, file_offset, task_size, devPtr_offset, call_idx, nvtx_color);
+  return parallel_io(op,
+                     devPtr_base,
+                     size,
+                     file_offset,
+                     task_size,
+                     devPtr_offset,
+                     thread_pool,
+                     call_idx,
+                     nvtx_color);
 }
 
 void FileHandle::read_async(void* devPtr_base,

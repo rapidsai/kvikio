@@ -9,6 +9,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <optional>
 
 namespace kvikio {
@@ -174,7 +175,8 @@ class MmapHandle {
   std::future<std::size_t> pread(void* buf,
                                  std::optional<std::size_t> size = std::nullopt,
                                  std::size_t offset              = 0,
-                                 std::size_t task_size           = defaults::task_size());
+                                 std::size_t task_size           = defaults::task_size(),
+                                 BS_thread_pool* thread_pool     = &defaults::thread_pool());
 };
 
 }  // namespace kvikio
