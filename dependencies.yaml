@@ -116,8 +116,8 @@ files:
       - test_java
       - depends_on_libkvikio
 channels:
-  - rapidsai
   - rapidsai-nightly
+  - rapidsai
   - conda-forge
 dependencies:
   build-universal:
