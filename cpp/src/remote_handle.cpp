@@ -812,6 +812,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t task_size,
                                              ThreadPool* thread_pool)
 {
+  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);
   auto task = [this](void* devPtr_base,
