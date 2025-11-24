@@ -9,7 +9,6 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>
-#include <memory>
 #include <utility>
 
 #include <kvikio/compat_mode.hpp>
@@ -151,8 +150,9 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            std::size_t task_size,
                                            std::size_t gds_threshold,
                                            bool sync_default_stream,
-                                           BS_thread_pool* thread_pool)
+                                           ThreadPool* thread_pool)
 {
+  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
@@ -212,8 +212,9 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             std::size_t task_size,
                                             std::size_t gds_threshold,
                                             bool sync_default_stream,
-                                            BS_thread_pool* thread_pool)
+                                            ThreadPool* thread_pool)
 {
+  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {

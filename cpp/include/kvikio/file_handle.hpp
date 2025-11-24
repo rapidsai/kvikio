@@ -229,6 +229,8 @@ class FileHandle {
    * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool.
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
@@ -236,11 +238,11 @@ class FileHandle {
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
-                                 std::size_t file_offset     = 0,
-                                 std::size_t task_size       = defaults::task_size(),
-                                 std::size_t gds_threshold   = defaults::gds_threshold(),
-                                 bool sync_default_stream    = true,
-                                 BS_thread_pool* thread_pool = &defaults::thread_pool());
+                                 std::size_t file_offset   = 0,
+                                 std::size_t task_size     = defaults::task_size(),
+                                 std::size_t gds_threshold = defaults::gds_threshold(),
+                                 bool sync_default_stream  = true,
+                                 ThreadPool* thread_pool   = &defaults::thread_pool());
 
   /**
    * @brief Writes specified bytes from device or host memory into the file in parallel.
@@ -267,6 +269,8 @@ class FileHandle {
    * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool.
    * @return Future that on completion returns the size of bytes that were successfully written.
    *
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
@@ -274,11 +278,11 @@ class FileHandle {
    */
   std::future<std::size_t> pwrite(void const* buf,
                                   std::size_t size,
-                                  std::size_t file_offset     = 0,
-                                  std::size_t task_size       = defaults::task_size(),
-                                  std::size_t gds_threshold   = defaults::gds_threshold(),
-                                  bool sync_default_stream    = true,
-                                  BS_thread_pool* thread_pool = &defaults::thread_pool());
+                                  std::size_t file_offset   = 0,
+                                  std::size_t task_size     = defaults::task_size(),
+                                  std::size_t gds_threshold = defaults::gds_threshold(),
+                                  bool sync_default_stream  = true,
+                                  ThreadPool* thread_pool   = &defaults::thread_pool());
 
   /**
    * @brief Reads specified bytes from the file into the device memory asynchronously.
