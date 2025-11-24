@@ -810,7 +810,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t size,
                                              std::size_t file_offset,
                                              std::size_t task_size,
-                                             BS_thread_pool* thread_pool)
+                                             ThreadPool* thread_pool)
 {
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);

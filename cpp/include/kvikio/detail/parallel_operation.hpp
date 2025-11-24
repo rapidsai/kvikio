@@ -76,9 +76,9 @@ std::future<std::size_t> submit_task(F op,
                                      std::size_t size,
                                      std::size_t file_offset,
                                      std::size_t devPtr_offset,
-                                     BS_thread_pool* thread_pool = &defaults::thread_pool(),
-                                     std::uint64_t nvtx_payload  = 0ull,
-                                     nvtx_color_type nvtx_color  = NvtxManager::default_color())
+                                     ThreadPool* thread_pool    = &defaults::thread_pool(),
+                                     std::uint64_t nvtx_payload = 0ull,
+                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   static_assert(std::is_invocable_r_v<std::size_t,
                                       decltype(op),
@@ -103,9 +103,9 @@ std::future<std::size_t> submit_task(F op,
 template <typename F>
 std::future<std::size_t> submit_move_only_task(
   F op_move_only,
-  BS_thread_pool* thread_pool = &defaults::thread_pool(),
-  std::uint64_t nvtx_payload  = 0ull,
-  nvtx_color_type nvtx_color  = NvtxManager::default_color())
+  ThreadPool* thread_pool    = &defaults::thread_pool(),
+  std::uint64_t nvtx_payload = 0ull,
+  nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   static_assert(std::is_invocable_r_v<std::size_t, F>);
   auto op_copyable = make_copyable_lambda(std::move(op_move_only));
@@ -136,9 +136,9 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t file_offset,
                                      std::size_t task_size,
                                      std::size_t devPtr_offset,
-                                     BS_thread_pool* thread_pool = &defaults::thread_pool(),
-                                     std::uint64_t call_idx      = 0,
-                                     nvtx_color_type nvtx_color  = NvtxManager::default_color())
+                                     ThreadPool* thread_pool    = &defaults::thread_pool(),
+                                     std::uint64_t call_idx     = 0,
+                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   static_assert(std::is_invocable_r_v<std::size_t,

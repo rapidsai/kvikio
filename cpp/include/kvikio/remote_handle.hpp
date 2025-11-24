@@ -457,9 +457,9 @@ class RemoteHandle {
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
-                                 std::size_t file_offset     = 0,
-                                 std::size_t task_size       = defaults::task_size(),
-                                 BS_thread_pool* thread_pool = &defaults::thread_pool());
+                                 std::size_t file_offset = 0,
+                                 std::size_t task_size   = defaults::task_size(),
+                                 ThreadPool* thread_pool = &defaults::thread_pool());
 };
 
 }  // namespace kvikio

@@ -416,7 +416,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                                            std::optional<std::size_t> size,
                                            std::size_t offset,
                                            std::size_t task_size,
-                                           BS_thread_pool* thread_pool)
+                                           ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than task size.");

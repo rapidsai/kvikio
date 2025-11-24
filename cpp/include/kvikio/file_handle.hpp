@@ -236,11 +236,11 @@ class FileHandle {
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
-                                 std::size_t file_offset     = 0,
-                                 std::size_t task_size       = defaults::task_size(),
-                                 std::size_t gds_threshold   = defaults::gds_threshold(),
-                                 bool sync_default_stream    = true,
-                                 BS_thread_pool* thread_pool = &defaults::thread_pool());
+                                 std::size_t file_offset   = 0,
+                                 std::size_t task_size     = defaults::task_size(),
+                                 std::size_t gds_threshold = defaults::gds_threshold(),
+                                 bool sync_default_stream  = true,
+                                 ThreadPool* thread_pool   = &defaults::thread_pool());
 
   /**
    * @brief Writes specified bytes from device or host memory into the file in parallel.
@@ -274,11 +274,11 @@ class FileHandle {
    */
   std::future<std::size_t> pwrite(void const* buf,
                                   std::size_t size,
-                                  std::size_t file_offset     = 0,
-                                  std::size_t task_size       = defaults::task_size(),
-                                  std::size_t gds_threshold   = defaults::gds_threshold(),
-                                  bool sync_default_stream    = true,
-                                  BS_thread_pool* thread_pool = &defaults::thread_pool());
+                                  std::size_t file_offset   = 0,
+                                  std::size_t task_size     = defaults::task_size(),
+                                  std::size_t gds_threshold = defaults::gds_threshold(),
+                                  bool sync_default_stream  = true,
+                                  ThreadPool* thread_pool   = &defaults::thread_pool());
 
   /**
    * @brief Reads specified bytes from the file into the device memory asynchronously.
