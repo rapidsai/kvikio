@@ -145,6 +145,7 @@ std::future<std::size_t> parallel_io(F op,
                                      nvtx_color_type nvtx_color = NvtxManager::default_color())
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
+  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
   static_assert(std::is_invocable_r_v<std::size_t,
                                       decltype(op),
                                       decltype(buf),
