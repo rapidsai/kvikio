@@ -9,6 +9,9 @@
 
 namespace kvikio {
 
+/**
+ * @brief Thread pool type used for parallel I/O operations.
+ */
 using ThreadPool = BS::thread_pool;
 
 }  // namespace kvikio
