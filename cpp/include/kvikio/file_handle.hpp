@@ -229,6 +229,8 @@ class FileHandle {
    * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool.
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
@@ -267,6 +269,8 @@ class FileHandle {
    * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool.
    * @return Future that on completion returns the size of bytes that were successfully written.
    *
    * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of

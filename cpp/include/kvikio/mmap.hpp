@@ -163,6 +163,8 @@ class MmapHandle {
    * specified, read starts from `offset` to the end of file
    * @param offset File offset
    * @param task_size Size of each task in bytes
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool.
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
    * @exception std::out_of_range if the read region specified by `offset` and `size` is
