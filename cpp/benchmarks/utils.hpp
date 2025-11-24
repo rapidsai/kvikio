@@ -42,6 +42,7 @@ class Benchmark {
   void initialize() { static_cast<Derived*>(this)->initialize_impl(); }
   void cleanup() { static_cast<Derived*>(this)->cleanup_impl(); }
   void run_target() { static_cast<Derived*>(this)->run_target_impl(); }
+  std::size_t nbytes() { return static_cast<Derived*>(this)->nbytes_impl(); }
 
  public:
   Benchmark(ConfigType config) : _config(std::move(config))
@@ -72,14 +73,13 @@ class Benchmark {
         ++count;
         time_elapsed_total_us += time_elapsed_us;
       }
-      double bandwidth = _config.num_bytes / time_elapsed_us * 1e6 / 1024.0 / 1024.0;
+      double bandwidth = nbytes() / time_elapsed_us * 1e6 / 1024.0 / 1024.0;
       std::cout << std::string(4, ' ') << std::left << std::setw(4) << idx << std::setw(10)
                 << bandwidth << " [MiB/s]" << std::endl;
 
       if (!_config.open_file_once) { cleanup(); }
     }
-    double average_bandwidth =
-      _config.num_bytes * count / time_elapsed_total_us * 1e6 / 1024.0 / 1024.0;
+    double average_bandwidth = nbytes() * count / time_elapsed_total_us * 1e6 / 1024.0 / 1024.0;
     std::cout << std::string(4, ' ') << "Average bandwidth: " << std::setw(10) << average_bandwidth
               << " [MiB/s]" << std::endl;
 
