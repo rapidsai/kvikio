@@ -31,7 +31,7 @@ class PosixBenchmark : public Benchmark<PosixBenchmark, PosixConfig> {
  protected:
   std::vector<std::unique_ptr<kvikio::FileHandle>> _file_handles;
   std::vector<void*> _bufs;
-  std::vector<std::unique_ptr<kvikio::BS_thread_pool>> _thread_pools;
+  std::vector<std::unique_ptr<kvikio::ThreadPool>> _thread_pools;
 
   void initialize_impl();
   void cleanup_impl();

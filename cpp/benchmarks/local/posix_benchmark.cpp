@@ -98,7 +98,7 @@ PosixBenchmark::PosixBenchmark(PosixConfig config) : Benchmark(std::move(config)
 
     // Initialize thread pool
     if (_config.per_file_pool) {
-      auto thread_pool = std::make_unique<kvikio::BS_thread_pool>(_config.num_threads);
+      auto thread_pool = std::make_unique<kvikio::ThreadPool>(_config.num_threads);
       _thread_pools.push_back(std::move(thread_pool));
     }
   }
