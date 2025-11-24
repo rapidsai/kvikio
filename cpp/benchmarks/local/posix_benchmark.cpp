@@ -162,6 +162,8 @@ void PosixBenchmark::run_target_impl()
     fut.get();
   }
 }
+
+std::size_t PosixBenchmark::nbytes_impl() { return _config.num_bytes * _config.filepaths.size(); }
 }  // namespace kvikio::benchmark
 
 int main(int argc, char* argv[])

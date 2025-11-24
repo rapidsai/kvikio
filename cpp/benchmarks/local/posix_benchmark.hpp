@@ -36,6 +36,7 @@ class PosixBenchmark : public Benchmark<PosixBenchmark, PosixConfig> {
   void initialize_impl();
   void cleanup_impl();
   void run_target_impl();
+  std::size_t nbytes_impl();
 
  public:
   PosixBenchmark(PosixConfig config);
