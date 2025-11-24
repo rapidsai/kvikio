@@ -127,6 +127,10 @@ std::future<std::size_t> submit_move_only_task(
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
  * @param task_size Size of each task in bytes.
+ * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into. This parameter
+ * should be used only with registered buffers.
+ * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+ * thread pool.
  * @return A future to be used later to check if the operation has finished its execution.
  */
 template <typename F, typename T>
