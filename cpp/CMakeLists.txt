@@ -94,6 +94,10 @@ else()
     OUTPUT_VARIABLE batch_output
   )
   message(STATUS "Found cuFile Batch API: ${cuFile_BATCH_API_FOUND}")
+  if(NOT cuFile_BATCH_API_FOUND)
+    message(FATAL_ERROR "Missing cuFile Batch API")
+  endif()
+
   try_compile(
     cuFile_STREAM_API_FOUND SOURCE_FROM_CONTENT
     stream.cpp
@@ -109,6 +113,10 @@ else()
     OUTPUT_VARIABLE stream_output
   )
   message(STATUS "Found cuFile Stream API: ${cuFile_STREAM_API_FOUND}")
+  if(NOT cuFile_STREAM_API_FOUND)
+    message(FATAL_ERROR "Missing cuFile Stream API")
+  endif()
+
   try_compile(
     cuFile_VERSION_API_FOUND SOURCE_FROM_CONTENT
     version.cpp
@@ -188,8 +196,6 @@ target_compile_definitions(
   kvikio
   PUBLIC $<$<BOOL:${KvikIO_REMOTE_SUPPORT}>:KVIKIO_LIBCURL_FOUND>
          $<$<BOOL:${cuFile_FOUND}>:KVIKIO_CUFILE_FOUND>
-         $<$<BOOL:${cuFile_BATCH_API_FOUND}>:KVIKIO_CUFILE_BATCH_API_FOUND>
-         $<$<BOOL:${cuFile_STREAM_API_FOUND}>:KVIKIO_CUFILE_STREAM_API_FOUND>
          $<$<BOOL:${cuFile_VERSION_API_FOUND}>:KVIKIO_CUFILE_VERSION_API_FOUND>
 )
 

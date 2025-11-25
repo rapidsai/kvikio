@@ -81,24 +81,18 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
   }
 
   // Check cuFile async API
-  static bool const is_extra_symbol_available = is_stream_api_available();
-  static bool const is_config_path_empty      = config_path().empty();
-  _is_compat_mode_preferred_for_async =
-    _is_compat_mode_preferred || !is_extra_symbol_available || is_config_path_empty;
+  static bool const is_config_path_empty = config_path().empty();
+  _is_compat_mode_preferred_for_async    = _is_compat_mode_preferred || is_config_path_empty;
 }
 
 void CompatModeManager::validate_compat_mode_for_async() const
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (_is_compat_mode_preferred_for_async && _compat_mode_requested == CompatMode::OFF) {
-    std::string err_msg;
-    if (!is_stream_api_available()) { err_msg += "Missing the cuFile stream api."; }
-
-    // When checking for availability, we also check if cuFile's config file exists. This is
-    // because even when the stream API is available, it doesn't work if no config file exists.
-    if (config_path().empty()) { err_msg += " Missing cuFile configuration file."; }
-
-    KVIKIO_FAIL(err_msg, std::runtime_error);
+  // When checking for availability, we check if cuFile's config file exists. This is
+  // because even when the stream API is available, it doesn't work if no config file exists.
+  if (_is_compat_mode_preferred_for_async && _compat_mode_requested == CompatMode::OFF &&
+      config_path().empty()) {
+    KVIKIO_FAIL("Missing cuFile configuration file.", std::runtime_error);
   }
 }
 
