@@ -83,7 +83,8 @@ void CompatModeManager::validate_compat_mode_for_async() const
   KVIKIO_NVTX_FUNC_RANGE();
   // When checking for availability, we check if cuFile's config file exists. This is
   // because even when the stream API is available, it doesn't work if no config file exists.
-  if (_is_compat_mode_preferred_for_async && _compat_mode_requested == CompatMode::OFF && config_path().empty()) {
+  if (_is_compat_mode_preferred_for_async && _compat_mode_requested == CompatMode::OFF &&
+      config_path().empty()) {
     KVIKIO_FAIL("Missing cuFile configuration file.", std::runtime_error);
   }
 }
