@@ -68,38 +68,6 @@ CUfileError_t cuFileDriverSetMaxPinnedMemSize(...);
 // Notice, this doesn't need to be ABI compatible with the cufile definitions and
 // the lack of definitions is not a problem because the linker will never look for
 // these symbols because the "real" function calls are made through the shim instance.
-#ifndef KVIKIO_CUFILE_BATCH_API_FOUND
-typedef enum CUfileOpcode { CUFILE_READ = 0, CUFILE_WRITE } CUfileOpcode_t;
-
-typedef enum CUFILEStatus_enum {
-  CUFILE_WAITING  = 0x000001,  /* required value prior to submission */
-  CUFILE_PENDING  = 0x000002,  /* once enqueued */
-  CUFILE_INVALID  = 0x000004,  /* request was ill-formed or could not be enqueued */
-  CUFILE_CANCELED = 0x000008,  /* request successfully canceled */
-  CUFILE_COMPLETE = 0x0000010, /* request successfully completed */
-  CUFILE_TIMEOUT  = 0x0000020, /* request timed out */
-  CUFILE_FAILED   = 0x0000040  /* unable to complete */
-} CUfileStatus_t;
-
-typedef struct CUfileIOEvents {
-  void* cookie;
-  CUfileStatus_t status; /* status of the operation */
-  size_t ret;            /* -ve error or amount of I/O done. */
-} CUfileIOEvents_t;
-
-CUfileError_t cuFileBatchIOSetUp(...);
-CUfileError_t cuFileBatchIOSubmit(...);
-CUfileError_t cuFileBatchIOGetStatus(...);
-CUfileError_t cuFileBatchIOCancel(...);
-CUfileError_t cuFileBatchIODestroy(...);
-#endif
-
-#ifndef KVIKIO_CUFILE_STREAM_API_FOUND
-CUfileError_t cuFileReadAsync(...);
-CUfileError_t cuFileWriteAsync(...);
-CUfileError_t cuFileStreamRegister(...);
-CUfileError_t cuFileStreamDeregister(...);
-#endif
 
 #ifndef KVIKIO_CUFILE_VERSION_API_FOUND
 CUfileError_t cuFileGetVersion(...);

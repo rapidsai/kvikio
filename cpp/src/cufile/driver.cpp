@@ -150,12 +150,8 @@ void DriverProperties::set_max_pinned_memory_size(std::size_t size_in_kb)
 
 std::size_t DriverProperties::get_max_batch_io_size()
 {
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
   lazy_init();
   return _props.max_batch_io_size;
-#else
-  return 0;
-#endif
 }
 
 #else
