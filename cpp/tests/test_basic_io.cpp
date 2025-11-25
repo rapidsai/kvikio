@@ -7,12 +7,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
 #include "utils/env.hpp"
@@ -27,7 +29,7 @@ class BasicIOTest : public testing::Test {
     TempDir tmp_dir{false};
     _filepath = tmp_dir.path() / "test";
 
-    _dev_a = std::move(DevBuffer<value_type>::arange(100));
+    _dev_a = std::move(DevBuffer<value_type>::arange(1024ULL * 1024ULL + 124ULL));
     _dev_b = std::move(DevBuffer<value_type>::zero_like(_dev_a));
   }
 
@@ -96,6 +98,55 @@ TEST_F(BasicIOTest, write_read_async)
   }
 
   CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
+}
+
+TEST_F(BasicIOTest, threadpool)
+{
+  auto thread_pool = std::make_unique<kvikio::ThreadPool>(4);
+
+  // Write the buffer to a file using an external thread pool
+  {
+    kvikio::FileHandle f(_filepath, "w");
+    auto fut            = f.pwrite(_dev_a.ptr,
+                        _dev_a.nbytes,  // size
+                        0,              // file_offset
+                        kvikio::defaults::task_size(),
+                        kvikio::defaults::gds_threshold(),
+                        true,
+                        thread_pool.get());
+    auto nbytes_written = fut.get();
+    EXPECT_EQ(nbytes_written, _dev_a.nbytes);
+  }
+
+  // Read from the buffer
+  {
+    std::vector<std::future<std::size_t>> futs;
+    std::vector<std::string> filepaths{_filepath, _filepath};
+    std::vector<kvikio::FileHandle> file_handles;
+    std::vector<DevBuffer<value_type>> dev_buffers;
+
+    for (auto const& filepath : filepaths) {
+      file_handles.emplace_back(filepath, "r");
+      dev_buffers.push_back(DevBuffer<value_type>::zero_like(_dev_a));
+    }
+
+    for (std::size_t i = 0; i < file_handles.size(); ++i) {
+      auto fut = file_handles[i].pread(dev_buffers[i].ptr,
+                                       dev_buffers[i].nbytes,
+                                       0,
+                                       kvikio::defaults::task_size(),
+                                       kvikio::defaults::gds_threshold(),
+                                       true,
+                                       thread_pool.get());
+      futs.push_back(std::move(fut));
+    }
+
+    for (std::size_t i = 0; i < file_handles.size(); ++i) {
+      auto nbtyes_read = futs[i].get();
+      EXPECT_EQ(nbtyes_read, _dev_a.nbytes);
+      expect_equal(_dev_a, dev_buffers[i]);
+    }
+  }
 }
 
 class DirectIOTest : public testing::Test {
