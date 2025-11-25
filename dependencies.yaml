@@ -170,7 +170,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cython>=3.0.0
+          - cython>=3.0.0,<3.2.0a0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -255,7 +255,7 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - numpydoc
-          - zarr>=3.0.0,<4.0.0
+          - zarr>=3.0.0,<3.2.0a0,<4.0.0
           - sphinx
           - sphinx-click
           - sphinx_rtd_theme
@@ -306,7 +306,7 @@ dependencies:
     common:
       - output_types: [requirements, pyproject]
         packages:
-          - "zarr>=3.0.0,<4.0.0; python_version >= '3.11'"
+          - "zarr>=3.0.0,<3.2.0a0,<4.0.0; python_version >= '3.11'"
   test_libkvikio:
     common:
       - output_types: conda
@@ -329,7 +329,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - rapids-dask-dependency==25.12.*,>=0.0.0a0
-          - pytest
+          - pytest<9.0.0a0
           - pytest-asyncio
           - pytest-cov
           - pytest-timeout
@@ -348,7 +348,7 @@ dependencies:
           - matrix:
               py: "3.1[123]"
             packages:
-              - zarr>=3.0.0,<4.0.0
+              - zarr>=3.0.0,<3.2.0a0,<4.0.0
           - matrix:
             packages:
       - output_types: [conda, requirements, pyproject]

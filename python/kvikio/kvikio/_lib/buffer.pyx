@@ -30,11 +30,20 @@ def memory_deregister(buf) -> None:
 
 
 cdef extern from "<kvikio/bounce_buffer.hpp>" nogil:
-    size_t cpp_alloc_retain_clear "kvikio::AllocRetain::instance().clear"() except +
+    size_t cpp_page_aligned_bounce_buffer_pool_clear \
+        "kvikio::PageAlignedBounceBufferPool::instance().clear"() except +
+
+    size_t cpp_cuda_pinned_bounce_buffer_pool_clear \
+        "kvikio::CudaPinnedBounceBufferPool::instance().clear"() except +
+
+    size_t cpp_cuda_page_aligned_pinned_bounce_buffer_pool_clear \
+        "kvikio::CudaPageAlignedPinnedBounceBufferPool::instance().clear"() except +
 
 
 def bounce_buffer_free() -> int:
     cdef size_t result
     with nogil:
-        result = cpp_alloc_retain_clear()
+        result = cpp_page_aligned_bounce_buffer_pool_clear() + \
+            cpp_cuda_pinned_bounce_buffer_pool_clear() + \
+            cpp_cuda_page_aligned_pinned_bounce_buffer_pool_clear()
     return result

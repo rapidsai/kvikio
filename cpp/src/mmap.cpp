@@ -13,14 +13,15 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/file_utils.hpp>
 #include <kvikio/mmap.hpp>
 #include <kvikio/utils.hpp>
-#include "kvikio/file_utils.hpp"
 
 namespace kvikio {
 
@@ -230,9 +231,9 @@ void read_impl(void* dst_buf,
     src_devptr = convert_void2deviceptr(src);
     h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
   } else {
-    auto alloc = AllocRetain::instance().get();
-    std::memcpy(alloc.get(), src, size);
-    src_devptr = convert_void2deviceptr(alloc.get());
+    auto bounce_buffer = CudaPinnedBounceBufferPool::instance().get();
+    std::memcpy(bounce_buffer.get(), src, size);
+    src_devptr = convert_void2deviceptr(bounce_buffer.get());
     h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
   }
 }

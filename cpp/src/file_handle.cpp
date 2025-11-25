@@ -9,7 +9,6 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cstdlib>
-#include <stdexcept>
 #include <utility>
 
 #include <kvikio/compat_mode.hpp>
@@ -106,7 +105,7 @@ std::size_t FileHandle::read(void* devPtr_base,
   KVIKIO_NVTX_FUNC_RANGE(size);
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
     return detail::posix_device_read(
-      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -130,7 +129,7 @@ std::size_t FileHandle::write(void const* devPtr_base,
 
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
     return detail::posix_device_write(
-      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset);
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
   }
   if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
 
@@ -160,7 +159,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                      std::size_t hostPtr_offset) -> std::size_t {
       char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
       return detail::posix_host_read<detail::PartialIO::NO>(
-        _file_direct_off.fd(), buf, size, file_offset);
+        _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
     return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
@@ -171,7 +170,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
-    auto bytes_read = detail::posix_device_read(_file_direct_off.fd(), buf, size, file_offset, 0);
+    auto bytes_read = detail::posix_device_read(
+      _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_read);
@@ -212,7 +212,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                      std::size_t hostPtr_offset) -> std::size_t {
       char const* buf = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
       return detail::posix_host_write<detail::PartialIO::NO>(
-        _file_direct_off.fd(), buf, size, file_offset);
+        _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
     return parallel_io(op, buf, size, file_offset, task_size, 0, call_idx, nvtx_color);
@@ -223,7 +223,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
-    auto bytes_write = detail::posix_device_write(_file_direct_off.fd(), buf, size, file_offset, 0);
+    auto bytes_write = detail::posix_device_write(
+      _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_write);
@@ -322,5 +323,7 @@ const CompatModeManager& FileHandle::get_compat_mode_manager() const noexcept
 {
   return _compat_mode_manager;
 }
+
+bool FileHandle::is_direct_io_supported() const noexcept { return _file_direct_on.fd() != -1; }
 
 }  // namespace kvikio

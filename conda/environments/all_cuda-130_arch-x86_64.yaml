@@ -13,7 +13,7 @@ dependencies:
 - cuda-version=13.0
 - cupy>=13.6.0
 - cxx-compiler
-- cython>=3.0.0
+- cython>=3.0.0,<3.2.0a0
 - doxygen=1.9.1
 - gcc_linux-64=14.*
 - libcufile-dev
@@ -25,10 +25,10 @@ dependencies:
 - numpydoc
 - packaging
 - pre-commit
-- pytest
 - pytest-asyncio
 - pytest-cov
 - pytest-timeout
+- pytest<9.0.0a0
 - python>=3.10,<3.14
 - rangehttpserver
 - rapids-build-backend>=0.4.0,<0.5.0.dev0
@@ -38,5 +38,5 @@ dependencies:
 - sphinx-click
 - sphinx_rtd_theme
 - sysroot_linux-64=2.28
-- zarr>=3.0.0,<4.0.0
+- zarr>=3.0.0,<3.2.0a0,<4.0.0
 name: all_cuda-130_arch-x86_64
