@@ -17,7 +17,6 @@
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
-#include <kvikio/threadpool_roundrobin.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 
 /**
