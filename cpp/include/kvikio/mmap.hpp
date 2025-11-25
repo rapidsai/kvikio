@@ -9,6 +9,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <optional>
 
 namespace kvikio {
@@ -162,6 +163,8 @@ class MmapHandle {
    * specified, read starts from `offset` to the end of file
    * @param offset File offset
    * @param task_size Size of each task in bytes
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool.
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
    * @exception std::out_of_range if the read region specified by `offset` and `size` is
@@ -174,7 +177,8 @@ class MmapHandle {
   std::future<std::size_t> pread(void* buf,
                                  std::optional<std::size_t> size = std::nullopt,
                                  std::size_t offset              = 0,
-                                 std::size_t task_size           = defaults::task_size());
+                                 std::size_t task_size           = defaults::task_size(),
+                                 ThreadPool* thread_pool         = &defaults::thread_pool());
 };
 
 }  // namespace kvikio
