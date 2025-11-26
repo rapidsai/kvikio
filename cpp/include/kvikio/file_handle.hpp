@@ -230,11 +230,13 @@ class FileHandle {
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
    * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
-   * thread pool.
+   * thread pool. The caller is responsible for ensuring that the thread pool remains valid until
+   * the returned future is consumed (i.e., until `get()` or `wait()` is called on it).
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
-   * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
-   * the FileHandle object ends. Otherwise, the behavior is undefined.
+   * @note The returned `std::future` object must not outlive either the FileHandle or the thread
+   * pool. Calling `wait()` or `get()` on the future after the FileHandle or thread pool has been
+   * destroyed results in undefined behavior.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
@@ -270,11 +272,13 @@ class FileHandle {
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
    * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
-   * thread pool.
+   * thread pool. The caller is responsible for ensuring that the thread pool remains valid until
+   * the returned future is consumed (i.e., until `get()` or `wait()` is called on it).
    * @return Future that on completion returns the size of bytes that were successfully written.
    *
-   * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
-   * the FileHandle object ends. Otherwise, the behavior is undefined.
+   * @note The returned `std::future` object must not outlive either the FileHandle or the thread
+   * pool. Calling `wait()` or `get()` on the future after the FileHandle or thread pool has been
+   * destroyed results in undefined behavior.
    */
   std::future<std::size_t> pwrite(void const* buf,
                                   std::size_t size,
@@ -289,9 +293,6 @@ class FileHandle {
    *
    * This is an asynchronous version of `.read()`, which will be executed in sequence
    * for the specified stream.
-   *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.read()` but some of them are deferred.
    * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
@@ -331,9 +332,6 @@ class FileHandle {
    * This is an asynchronous version of `.read()`, which will be executed in sequence
    * for the specified stream.
    *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
-   *
    * The arguments have the same meaning as in `.read()` but returns a `StreamFuture` object
    * that the caller must keep alive until all data has been read from disk. One way to do this,
    * is by calling `StreamFuture.check_bytes_done()`, which will synchronize the associated stream
@@ -361,9 +359,6 @@ class FileHandle {
    *
    * This is an asynchronous version of `.write()`, which will be executed in sequence
    * for the specified stream.
-   *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.write()` but some of them are deferred.
    * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
@@ -403,9 +398,6 @@ class FileHandle {
    *
    * This is an asynchronous version of `.write()`, which will be executed in sequence
    * for the specified stream.
-   *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.write()` but returns a `StreamFuture` object
    * that the caller must keep alive until all data has been written to disk. One way to do this,

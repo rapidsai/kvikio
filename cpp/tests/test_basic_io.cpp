@@ -104,7 +104,7 @@ TEST_F(BasicIOTest, threadpool)
 {
   auto thread_pool = std::make_unique<kvikio::ThreadPool>(4);
 
-  // Write the buffer to a file using an external thread pool
+  // Write to a file using an external thread pool
   {
     kvikio::FileHandle f(_filepath, "w");
     auto fut            = f.pwrite(_dev_a.ptr,
@@ -118,7 +118,7 @@ TEST_F(BasicIOTest, threadpool)
     EXPECT_EQ(nbytes_written, _dev_a.nbytes);
   }
 
-  // Read from the buffer
+  // Read from the file using an external thread pool
   {
     std::vector<std::future<std::size_t>> futs;
     std::vector<std::string> filepaths{_filepath, _filepath};
