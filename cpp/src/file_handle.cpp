@@ -23,6 +23,10 @@
 
 namespace kvikio {
 
+namespace {
+ThreadPool* get_thread_pool_per_block_dev() {}
+}  // namespace
+
 FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,

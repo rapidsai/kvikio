@@ -121,6 +121,7 @@ class defaults {
   std::vector<int> _http_status_codes;
   bool _auto_direct_io_read;
   bool _auto_direct_io_write;
+  bool _thread_pool_per_block_dev;
 
   static unsigned int get_num_threads_from_env();
 
