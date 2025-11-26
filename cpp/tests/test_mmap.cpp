@@ -360,3 +360,37 @@ TEST_F(MmapTest, cpp_move)
     do_test(mmap_handle_2);
   }
 }
+
+TEST_F(MmapTest, threadpool)
+{
+  auto thread_pool = std::make_unique<kvikio::ThreadPool>(4);
+
+  // Read from the file using an external thread pool
+  {
+    std::size_t num_elements = _file_size / sizeof(value_type);
+    std::vector<std::future<std::size_t>> futs;
+    std::vector<std::string> filepaths{_filepath, _filepath};
+    std::vector<kvikio::MmapHandle> mmap_handles;
+    std::vector<kvikio::test::DevBuffer<value_type>> dev_buffers;
+
+    for (auto const& filepath : filepaths) {
+      mmap_handles.emplace_back(filepath, "r");
+      dev_buffers.push_back(kvikio::test::DevBuffer<value_type>::zero_like(num_elements));
+    }
+
+    for (std::size_t i = 0; i < mmap_handles.size(); ++i) {
+      auto fut = mmap_handles[i].pread(dev_buffers[i].ptr,
+                                       dev_buffers[i].nbytes,
+                                       0,
+                                       kvikio::defaults::task_size(),
+                                       thread_pool.get());
+      futs.push_back(std::move(fut));
+    }
+
+    for (std::size_t i = 0; i < mmap_handles.size(); ++i) {
+      auto nbtyes_read = futs[i].get();
+      EXPECT_EQ(nbtyes_read, _file_size);
+      EXPECT_EQ(_host_buf, dev_buffers[i].to_vector());
+    }
+  }
+}

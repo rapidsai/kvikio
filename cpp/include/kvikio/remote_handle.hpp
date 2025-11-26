@@ -13,6 +13,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
 struct curl_slist;
@@ -452,12 +453,20 @@ class RemoteHandle {
    * @param size Number of bytes to read.
    * @param file_offset File offset in bytes.
    * @param task_size Size of each task in bytes.
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool. The caller is responsible for ensuring that the thread pool remains valid until
+   * the returned future is consumed (i.e., until `get()` or `wait()` is called on it).
    * @return Future that on completion returns the size of bytes read, which is always `size`.
+   *
+   * @note The returned `std::future` object must not outlive either the RemoteHandle or the thread
+   * pool. Calling `wait()` or `get()` on the future after the RemoteHandle or thread pool has been
+   * destroyed results in undefined behavior.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
                                  std::size_t file_offset = 0,
-                                 std::size_t task_size   = defaults::task_size());
+                                 std::size_t task_size   = defaults::task_size(),
+                                 ThreadPool* thread_pool = &defaults::thread_pool());
 };
 
 }  // namespace kvikio
