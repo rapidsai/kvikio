@@ -5,10 +5,17 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <cstddef>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <regex>
+#include <unordered_map>
 #include <utility>
 
 #include <kvikio/compat_mode.hpp>
@@ -24,7 +31,150 @@
 namespace kvikio {
 
 namespace {
-ThreadPool* get_thread_pool_per_block_dev() {}
+/**
+ * @brief Get the unique device ID for the physical block device hosting a file.
+ *
+ * Resolves the underlying block device for a given file path, handling:
+ * - Partitions: walks up to the parent block device (e.g., sda1 -> sda)
+ * - NVMe namespaces: maps to the controller (e.g., nvme0n1 -> nvme0)
+ * - Other block devices (SATA, SAS, dm, md): returns the device's own ID
+ *
+ * This enables grouping files by physical hardware for I/O thread pool assignment, ensuring files
+ * on the same physical device share a thread pool.
+ *
+ * For device-mapper devices (LVM, dm-crypt), this returns the dm device ID, not the
+ * underlying physical device(s). Multiple LVs on the same physical disk will get separate thread
+ * pools.
+ *
+ * @param file_path Path to the file whose block device ID is to be determined.
+ * @return The block device ID for the physical block device.
+ */
+dev_t get_block_device_id(std::string const& file_path)
+{
+  dev_t block_dev_id{};
+  unsigned dev_major_id{};
+  unsigned dev_minor_id{};
+
+  struct stat st;
+  SYSCALL_CHECK(stat(file_path.c_str(), &st));
+
+  dev_major_id = major(st.st_dev);
+  dev_minor_id = minor(st.st_dev);
+
+  // Construct sysfs path (which is a symlink) for the block device
+  // e.g., /sys/dev/block/259:8
+  std::string sysfs_path =
+    "/sys/dev/block/" + std::to_string(dev_major_id) + ":" + std::to_string(dev_minor_id);
+
+  // Resolve the symlink to the actual sysfs device path
+  // e.g.,
+  // - NVMe:  /sys/devices/pci0000:00/.../nvme/nvme1/nvme1n1/nvme1n1p3
+  // - SATA:  /sys/devices/pci0000:00/.../block/sdb/sdb1
+  char resolved_path[PATH_MAX];
+  SYSCALL_CHECK(realpath(sysfs_path.c_str(), resolved_path),
+                "Path failed to resolve",
+                static_cast<char*>(nullptr));
+
+  // If this is a partition, walk up to the parent block device.
+  // Partitions have a "partition" file in their sysfs directory.
+  std::filesystem::path cur_path(resolved_path);
+  if (std::filesystem::exists(cur_path / "partition")) { cur_path = cur_path.parent_path(); }
+
+  // After walking up, cur_path points to the base block device
+  // e.g.,
+  // - NVMe:  /sys/devices/pci0000:00/.../nvme/nvme1/nvme1n1
+  // - SATA:  /sys/devices/pci0000:00/.../block/sdb
+
+  // Extract block device name block_dev_name
+  // e.g.,
+  // - NVMe: nvme1n1
+  // - SSD: sdb
+  std::string const block_dev_name{cur_path.filename()};
+
+  std::string dev_file;
+
+  // For NVMe, multiple namespaces (nvme0n1, nvme0n2) share the same controller (nvme0) and thus the
+  // same physical hardware. Map namespace to controller.
+  static std::regex const nvme_pattern(R"(^(nvme\d+)n\d+$)");
+  std::smatch match;
+  if (std::regex_match(block_dev_name, match, nvme_pattern)) {
+    // For NVMe, strip namespace, e.g. nvme0n1 -> nvme0
+    std::string controller = match[1].str();  // e.g., "nvme0"
+
+    // Controller's dev file: /sys/class/nvme/nvme0/dev
+    dev_file = "/sys/class/nvme/" + controller + "/dev";
+  } else {
+    // For non-NVMe devices, read dev_t from the block device's sysfs entry
+    // e.g., /sys/devices/pci0000:00/.../block/sdb/dev
+    dev_file = cur_path.string() + "/dev";
+  }
+
+  // Parse "major:minor" from the dev file
+  std::ifstream ifs(dev_file);
+  KVIKIO_EXPECT(!ifs.fail(), "Block device file cannot be opened: " + dev_file);
+  char colon{};
+  ifs >> dev_major_id >> colon >> dev_minor_id;
+  KVIKIO_EXPECT(colon == ':',
+                "Parsing failed. Unexpected character encountered: " + std::string(1, colon));
+  block_dev_id = makedev(dev_major_id, dev_minor_id);
+  return block_dev_id;
+}
+
+/**
+ * @brief Get a thread pool specific to the block device hosting the given file.
+ *
+ * Thread pools are created lazily on first access and cached for subsequent lookups.
+ * Two levels of caching are used:
+ * - File path --> thread pool (fast path for repeated access to the same file)
+ * - Block device ID --> thread pool (groups different files on the same device)
+ *
+ * @param file_path Path to the file where a thread pool is requested for the underlying block
+ * device.
+ * @return Pointer to the appropriate thread pool. The pointer remains valid for the lifetime of the
+ * program (static storage duration).
+ *
+ * @note If device detection fails for any reason (e.g., unsupported filesystem, permission issues),
+ * the default global thread pool is returned and an error is logged.
+ */
+ThreadPool* get_thread_pool_per_block_device(std::string const& file_path)
+{
+  if (!defaults::thread_pool_per_block_device()) { return &defaults::thread_pool(); }
+
+  static std::mutex mtx;
+  std::lock_guard lock(mtx);
+
+  try {
+    // Fast path: check if this exact file path has been seen before
+    static std::unordered_map<std::string, std::shared_ptr<ThreadPool>>
+      file_path_to_thread_pool_map;
+    if (auto it = file_path_to_thread_pool_map.find(file_path);
+        it != file_path_to_thread_pool_map.end()) {
+      return it->second.get();
+    }
+
+    // Resolve file path to its underlying block device
+    auto block_dev_id = get_block_device_id(file_path);
+
+    // Check if we already have a thread pool for this block device
+    static std::unordered_map<dev_t, std::shared_ptr<ThreadPool>> dev_id_to_thread_pool_map;
+    if (auto it = dev_id_to_thread_pool_map.find(block_dev_id);
+        it != dev_id_to_thread_pool_map.end()) {
+      // Cache the file path mapping for future fast-path lookups
+      file_path_to_thread_pool_map.emplace(file_path, it->second);
+      return it->second.get();
+    }
+
+    // First file on this block device: create a new dedicated thread pool
+    auto thread_pool = std::make_shared<ThreadPool>(defaults::num_threads());
+    dev_id_to_thread_pool_map.emplace(block_dev_id, thread_pool);
+    file_path_to_thread_pool_map.emplace(file_path, thread_pool);
+    return thread_pool.get();
+  } catch (std::exception const& ex) {
+    std::string const& msg = std::string(ex.what()) + " Falling back to the default thread pool.";
+    KVIKIO_LOG_ERROR(msg);
+    return &defaults::thread_pool();
+  }
+}
 }  // namespace
 
 FileHandle::FileHandle(std::string const& file_path,
@@ -34,6 +184,7 @@ FileHandle::FileHandle(std::string const& file_path,
   : _initialized{true}, _compat_mode_manager{file_path, flags, mode, compat_mode, this}
 {
   KVIKIO_NVTX_FUNC_RANGE();
+  _thread_pool = get_thread_pool_per_block_device(file_path);
 }
 
 FileHandle::FileHandle(FileHandle&& o) noexcept
@@ -42,7 +193,8 @@ FileHandle::FileHandle(FileHandle&& o) noexcept
     _initialized{std::exchange(o._initialized, false)},
     _nbytes{std::exchange(o._nbytes, 0)},
     _cufile_handle{std::exchange(o._cufile_handle, {})},
-    _compat_mode_manager{std::move(o._compat_mode_manager)}
+    _compat_mode_manager{std::move(o._compat_mode_manager)},
+    _thread_pool{std::exchange(o._thread_pool, {})}
 {
 }
 
@@ -54,6 +206,7 @@ FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
   _nbytes              = std::exchange(o._nbytes, 0);
   _cufile_handle       = std::exchange(o._cufile_handle, {});
   _compat_mode_manager = std::move(o._compat_mode_manager);
+  _thread_pool         = std::exchange(o._thread_pool, {});
   return *this;
 }
 
@@ -75,6 +228,7 @@ void FileHandle::close() noexcept
     _file_direct_on.close();
     _nbytes      = 0;
     _initialized = false;
+    _thread_pool = nullptr;
   } catch (...) {
   }
 }
@@ -157,6 +311,13 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  auto* actual_thread_pool{thread_pool};
+  // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
+  // custom pool
+  if (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) {
+    actual_thread_pool = _thread_pool;
+  }
+
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
@@ -169,7 +330,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, thread_pool, call_idx, nvtx_color);
+    return parallel_io(
+      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -205,7 +367,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                      file_offset,
                      task_size,
                      devPtr_offset,
-                     thread_pool,
+                     actual_thread_pool,
                      call_idx,
                      nvtx_color);
 }
@@ -219,6 +381,13 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  auto* actual_thread_pool{thread_pool};
+  // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
+  // custom pool
+  if (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) {
+    actual_thread_pool = _thread_pool;
+  }
+
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
@@ -231,7 +400,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, thread_pool, call_idx, nvtx_color);
+    return parallel_io(
+      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -267,7 +437,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                      file_offset,
                      task_size,
                      devPtr_offset,
-                     thread_pool,
+                     actual_thread_pool,
                      call_idx,
                      nvtx_color);
 }
