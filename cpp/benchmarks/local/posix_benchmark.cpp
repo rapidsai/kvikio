@@ -19,7 +19,6 @@
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
-#include <kvikio/threadpool_wrapper.hpp>
 
 namespace kvikio::benchmark {
 void PosixConfig::parse_args(int argc, char** argv)
@@ -42,7 +41,7 @@ void PosixConfig::parse_args(int argc, char** argv)
         break;
       }
       case 'p': {
-        per_file_pool = true;
+        per_drive_pool = true;
         break;
       }
       case ':': {
@@ -88,18 +87,15 @@ PosixBenchmark::PosixBenchmark(PosixConfig config) : Benchmark(std::move(config)
 
     _bufs.push_back(buf);
 
+    // Initialize KvikIO setting
+    if (_config.per_drive_pool) { kvikio::defaults::set_thread_pool_per_block_device(true); }
+
     // Initialize file
     // Create the file if the overwrite flag is on, or if the file does not exist.
     if (_config.overwrite_file || access(filepath.c_str(), F_OK) != 0) {
       kvikio::FileHandle file_handle(filepath, "w", kvikio::FileHandle::m644);
       auto fut = file_handle.pwrite(buf, _config.num_bytes);
       fut.get();
-    }
-
-    // Initialize thread pool
-    if (_config.per_file_pool) {
-      auto thread_pool = std::make_unique<kvikio::ThreadPool>(_config.num_threads);
-      _thread_pools.push_back(std::move(thread_pool));
     }
   }
 }
@@ -144,14 +140,8 @@ void PosixBenchmark::run_target_impl()
     auto* buf         = _bufs[i];
 
     std::future<std::size_t> fut;
-    if (_config.per_file_pool) {
-      fut = file_handle->pread(buf,
-                               _config.num_bytes,
-                               0,
-                               defaults::task_size(),
-                               defaults::gds_threshold(),
-                               true,
-                               _thread_pools[i].get());
+    if (_config.per_drive_pool) {
+      fut = file_handle->pread(buf, _config.num_bytes);
     } else {
       fut = file_handle->pread(buf, _config.num_bytes);
     }

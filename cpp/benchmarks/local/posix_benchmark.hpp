@@ -19,7 +19,7 @@ namespace kvikio::benchmark {
 
 struct PosixConfig : Config {
   bool overwrite_file{false};
-  bool per_file_pool{false};
+  bool per_drive_pool{false};
 
   virtual void parse_args(int argc, char** argv) override;
   virtual void print_usage(std::string const& program_name) override;
