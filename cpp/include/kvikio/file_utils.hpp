@@ -200,4 +200,32 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd);
  * @exception kvikio::GenericSystemError if somehow the child process could not be created.
  */
 bool clear_page_cache(bool reclaim_dentries_and_inodes = true, bool clear_dirty_pages = true);
+
+/**
+ * @brief Information about a block device.
+ */
+struct BlockDeviceInfo {
+  dev_t id;          ///< Combined major:minor device ID (suitable for use as map key)
+  unsigned major;    ///< Major device number
+  unsigned minor;    ///< Minor device number
+  std::string name;  ///< Device name (e.g., "nvme0", "sda", "dm-0")
+};
+
+/**
+ * @brief Get the unique block device ID for the physical block device hosting a file.
+ *
+ * Resolves the underlying block device for a given file path, handling:
+ * - Partitions: walks up to the parent block device (e.g., sda1 -> sda)
+ * - NVMe namespaces: maps to the controller (e.g., nvme0n1 -> nvme0)
+ * - Other block devices (SATA, SAS, dm, md): returns the device's own info
+ *
+ * Limitation: For device-mapper devices (LVM, dm-crypt), this returns the dm device ID, not the
+ * underlying physical device(s). This may be suboptimal when multiple LVs share the same underlying
+ * physical drive (over-subscription) or when a single LV is striped across multiple drives
+ * (under-utilization).
+ *
+ * @param file_path Path to the file whose block device ID is to be determined.
+ * @return Block device info for the underlying physical block device.
+ */
+BlockDeviceInfo get_block_device_info(std::string const& file_path);
 }  // namespace kvikio

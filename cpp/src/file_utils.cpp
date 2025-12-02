@@ -6,9 +6,13 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include <array>
+#include <filesystem>
+#include <fstream>
+#include <regex>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -253,4 +257,82 @@ bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
   }
   return false;
 }
+
+BlockDeviceInfo get_block_device_info(std::string const& file_path)
+{
+  BlockDeviceInfo block_dev_info{};
+  unsigned dev_major_id{};
+  unsigned dev_minor_id{};
+
+  struct stat st;
+  SYSCALL_CHECK(stat(file_path.c_str(), &st));
+
+  dev_major_id = major(st.st_dev);
+  dev_minor_id = minor(st.st_dev);
+
+  // Construct sysfs path (which is a symlink) for the block device
+  // e.g., /sys/dev/block/259:8
+  std::string sysfs_path =
+    "/sys/dev/block/" + std::to_string(dev_major_id) + ":" + std::to_string(dev_minor_id);
+
+  // Resolve the symlink to the actual sysfs device path
+  // e.g.,
+  // - NVMe: /sys/devices/pci0000:00/.../nvme/nvme1/nvme1n1/nvme1n1p3
+  // - SATA: /sys/devices/pci0000:00/.../block/sdb/sdb1
+  char resolved_path[PATH_MAX];
+  SYSCALL_CHECK(realpath(sysfs_path.c_str(), resolved_path),
+                "Path failed to resolve",
+                static_cast<char*>(nullptr));
+
+  // If this is a partition, walk up to the parent block device.
+  // Partitions have a "partition" file in their sysfs directory.
+  std::filesystem::path cur_path(resolved_path);
+  if (std::filesystem::exists(cur_path / "partition")) { cur_path = cur_path.parent_path(); }
+
+  // After walking up, cur_path points to the base block device
+  // e.g.,
+  // - NVMe: /sys/devices/pci0000:00/.../nvme/nvme1/nvme1n1
+  // - SATA: /sys/devices/pci0000:00/.../block/sdb
+
+  // Extract block device name block_dev_name
+  // e.g.,
+  // - NVMe: nvme1n1
+  // - SATA: sdb
+  std::string block_dev_name{cur_path.filename()};
+
+  std::string dev_file;
+
+  // For NVMe, multiple namespaces (nvme0n1, nvme0n2) share the same controller (nvme0) and thus the
+  // same physical hardware. We want to create thread pools per controller instead of per namespace.
+  static std::regex const nvme_pattern(R"(^nvme\d+n\d+$)");
+  if (std::regex_match(block_dev_name, nvme_pattern)) {
+    // For NVMe, walk up to controller directory
+    // e.g., cur_path:        /sys/devices/pci0000:00/.../nvme/nvme0/nvme0n1
+    //       controller_path: /sys/devices/pci0000:00/.../nvme/nvme0
+    //       dev_file:        /sys/devices/pci0000:00/.../nvme/nvme0/dev
+    auto controller_path = cur_path.parent_path();
+    dev_file             = (controller_path / "dev").string();
+    block_dev_name       = controller_path.filename().string();  // e.g., "nvme0"
+  } else {
+    // For non-NVMe devices, use the block device's own dev file
+    // e.g., /sys/devices/pci0000:00/.../block/sdb/dev
+    dev_file = cur_path.string() + "/dev";
+  }
+
+  // Parse "major:minor" from the dev file
+  std::ifstream ifs(dev_file);
+  KVIKIO_EXPECT(!ifs.fail(), "Block device file cannot be opened: " + dev_file);
+  char colon{};
+  ifs >> dev_major_id >> colon >> dev_minor_id;
+  KVIKIO_EXPECT(colon == ':',
+                "Parsing failed. Unexpected character encountered: " + std::string(1, colon));
+
+  block_dev_info.major = dev_major_id;
+  block_dev_info.minor = dev_minor_id;
+  block_dev_info.id    = makedev(dev_major_id, dev_minor_id);
+  block_dev_info.name  = std::move(block_dev_name);
+
+  return block_dev_info;
+}
+
 }  // namespace kvikio

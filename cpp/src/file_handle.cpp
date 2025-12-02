@@ -5,16 +5,12 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <cstddef>
 #include <cstdlib>
-#include <filesystem>
-#include <fstream>
 #include <memory>
-#include <regex>
 #include <unordered_map>
 #include <utility>
 
@@ -31,88 +27,6 @@
 namespace kvikio {
 
 namespace {
-/**
- * @brief Get the unique block device ID for the physical block device hosting a file.
- *
- * This enables grouping files by physical hardware for I/O thread pool assignment, ensuring files
- * on the same physical device share a thread pool.
- *
- * Limitation: For device-mapper devices (LVM, dm-crypt), this returns the dm device ID, not the
- * underlying physical device(s). This may be suboptimal when multiple LVs share the same underlying
- * physical drive (over-subscription) or when a single LV is striped across multiple drives
- * (under-utilization).
- *
- * @param file_path Path to the file whose block device ID is to be determined.
- * @return The block device ID for the physical block device.
- */
-dev_t get_block_device_id(std::string const& file_path)
-{
-  dev_t block_dev_id{};
-  unsigned dev_major_id{};
-  unsigned dev_minor_id{};
-
-  struct stat st;
-  SYSCALL_CHECK(stat(file_path.c_str(), &st));
-
-  dev_major_id = major(st.st_dev);
-  dev_minor_id = minor(st.st_dev);
-
-  // Construct sysfs path (which is a symlink) for the block device
-  // e.g., /sys/dev/block/259:8
-  std::string sysfs_path =
-    "/sys/dev/block/" + std::to_string(dev_major_id) + ":" + std::to_string(dev_minor_id);
-
-  // Resolve the symlink to the actual sysfs device path
-  // e.g.,
-  // - NVMe: /sys/devices/pci0000:00/.../nvme/nvme1/nvme1n1/nvme1n1p3
-  // - SATA: /sys/devices/pci0000:00/.../block/sdb/sdb1
-  char resolved_path[PATH_MAX];
-  SYSCALL_CHECK(realpath(sysfs_path.c_str(), resolved_path),
-                "Path failed to resolve",
-                static_cast<char*>(nullptr));
-
-  // If this is a partition, walk up to the parent block device.
-  // Partitions have a "partition" file in their sysfs directory.
-  std::filesystem::path cur_path(resolved_path);
-  if (std::filesystem::exists(cur_path / "partition")) { cur_path = cur_path.parent_path(); }
-
-  // After walking up, cur_path points to the base block device
-  // e.g.,
-  // - NVMe: /sys/devices/pci0000:00/.../nvme/nvme1/nvme1n1
-  // - SATA: /sys/devices/pci0000:00/.../block/sdb
-
-  // Extract block device name block_dev_name
-  // e.g.,
-  // - NVMe: nvme1n1
-  // - SATA: sdb
-  std::string const block_dev_name{cur_path.filename()};
-
-  std::string dev_file;
-
-  // For NVMe, multiple namespaces (nvme0n1, nvme0n2) share the same controller (nvme0) and thus the
-  // same physical hardware. We want to create thread pools per controller instead of per namespace.
-  static std::regex const nvme_pattern(R"(^nvme\d+n\d+$)");
-  if (std::regex_match(block_dev_name, nvme_pattern)) {
-    // For NVMe, walk up to controller directory
-    // e.g., /sys/devices/pci0000:00/.../nvme/nvme0/nvme0n1 ->
-    // /sys/devices/pci0000:00/.../nvme/nvme0/dev
-    dev_file = (cur_path.parent_path() / "dev").string();
-  } else {
-    // For non-NVMe devices, use the block device's own dev file
-    // e.g., /sys/devices/pci0000:00/.../block/sdb/dev
-    dev_file = cur_path.string() + "/dev";
-  }
-
-  // Parse "major:minor" from the dev file
-  std::ifstream ifs(dev_file);
-  KVIKIO_EXPECT(!ifs.fail(), "Block device file cannot be opened: " + dev_file);
-  char colon{};
-  ifs >> dev_major_id >> colon >> dev_minor_id;
-  KVIKIO_EXPECT(colon == ':',
-                "Parsing failed. Unexpected character encountered: " + std::string(1, colon));
-  block_dev_id = makedev(dev_major_id, dev_minor_id);
-  return block_dev_id;
-}
 
 /**
  * @brief Get a thread pool specific to the block device hosting the given file.
@@ -147,11 +61,11 @@ ThreadPool* get_thread_pool_per_block_device(std::string const& file_path)
     }
 
     // Resolve file path to its underlying block device
-    auto block_dev_id = get_block_device_id(file_path);
+    auto block_dev_info = get_block_device_info(file_path);
 
     // Check if we already have a thread pool for this block device
     static std::unordered_map<dev_t, std::shared_ptr<ThreadPool>> dev_id_to_thread_pool_map;
-    if (auto it = dev_id_to_thread_pool_map.find(block_dev_id);
+    if (auto it = dev_id_to_thread_pool_map.find(block_dev_info.id);
         it != dev_id_to_thread_pool_map.end()) {
       // Cache the file path mapping for future fast-path lookups
       file_path_to_thread_pool_map.emplace(file_path, it->second);
@@ -160,7 +74,7 @@ ThreadPool* get_thread_pool_per_block_device(std::string const& file_path)
 
     // First file on this block device: create a new dedicated thread pool
     auto thread_pool = std::make_shared<ThreadPool>(defaults::num_threads());
-    dev_id_to_thread_pool_map.emplace(block_dev_id, thread_pool);
+    dev_id_to_thread_pool_map.emplace(block_dev_info.id, thread_pool);
     file_path_to_thread_pool_map.emplace(file_path, thread_pool);
     return thread_pool.get();
   } catch (std::exception const& ex) {
