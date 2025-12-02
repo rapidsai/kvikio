@@ -272,7 +272,7 @@ BlockDeviceInfo get_block_device_info(std::string const& file_path)
 
   // Construct sysfs path (which is a symlink) for the block device
   // e.g., /sys/dev/block/259:8
-  std::string sysfs_path =
+  std::string const sysfs_path =
     "/sys/dev/block/" + std::to_string(dev_major_id) + ":" + std::to_string(dev_minor_id);
   SYSCALL_CHECK(access(sysfs_path.c_str(), F_OK),
                 "sysfs path \"" + sysfs_path + "\" for file \"" + file_path +
