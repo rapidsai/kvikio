@@ -42,9 +42,10 @@ namespace {
  * This enables grouping files by physical hardware for I/O thread pool assignment, ensuring files
  * on the same physical device share a thread pool.
  *
- * For device-mapper devices (LVM, dm-crypt), this returns the dm device ID, not the
- * underlying physical device(s). Multiple LVs on the same physical disk will get separate thread
- * pools.
+ * Limitation: For device-mapper devices (LVM, dm-crypt), this returns the dm device ID, not the
+ * underlying physical device(s). This may be suboptimal when multiple LVs share the same underlying
+ * physical drive (over-subscription) or when a single LV is striped across multiple drives
+ * (under-utilization).
  *
  * @param file_path Path to the file whose block device ID is to be determined.
  * @return The block device ID for the physical block device.
