@@ -212,20 +212,25 @@ struct BlockDeviceInfo {
 };
 
 /**
- * @brief Get the unique block device ID for the physical block device hosting a file.
+ * @brief Get information about the physical block device hosting a file.
  *
  * Resolves the underlying block device for a given file path, handling:
  * - Partitions: walks up to the parent block device (e.g., sda1 -> sda)
  * - NVMe namespaces: maps to the controller (e.g., nvme0n1 -> nvme0)
  * - Other block devices (SATA, SAS, dm, md): returns the device's own info
  *
- * Limitation: For device-mapper devices (LVM, dm-crypt), this returns the dm device ID, not the
- * underlying physical device(s). This may be suboptimal when multiple LVs share the same underlying
- * physical drive (over-subscription) or when a single LV is striped across multiple drives
+ * @note Limitations:
+ * - For device-mapper devices (LVM, dm-crypt), this returns the dm device ID, not the underlying
+ * physical device(s). This may be suboptimal when multiple LVs share the same underlying physical
+ * drive (over-subscription) or when a single LV is striped across multiple drives
  * (under-utilization).
+ * - Files residing on virtual filesystems (overlayfs, tmpfs) or network filesystems (NFS, CIFS,
+ * FUSE) are not backed by a local block device, and this function will throw.
  *
  * @param file_path Path to the file whose block device ID is to be determined.
  * @return Block device info for the underlying physical block device.
+ * @exception kvikio::GenericSystemError if the file does not exist, or if the block device cannot
+ * be determined (e.g., virtual or network filesystem).
  */
 BlockDeviceInfo get_block_device_info(std::string const& file_path);
 }  // namespace kvikio

@@ -274,6 +274,10 @@ BlockDeviceInfo get_block_device_info(std::string const& file_path)
   // e.g., /sys/dev/block/259:8
   std::string sysfs_path =
     "/sys/dev/block/" + std::to_string(dev_major_id) + ":" + std::to_string(dev_minor_id);
+  SYSCALL_CHECK(access(sysfs_path.c_str(), F_OK),
+                "sysfs path \"" + sysfs_path + "\" for file \"" + file_path +
+                  "\" does not exist. The file may reside on a virtual file system (overlayfs, "
+                  "tmpfs) with no backing block device.");
 
   // Resolve the symlink to the actual sysfs device path
   // e.g.,
