@@ -141,6 +141,11 @@ defaults::defaults()
     _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
     _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
   }
+
+  // Determine the default value of `thread_pool_per_block_device`
+  {
+    _thread_pool_per_block_device = getenv_or("KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE", false);
+  }
 }
 
 defaults* defaults::instance()
@@ -238,4 +243,11 @@ void defaults::set_auto_direct_io_read(bool flag) { instance()->_auto_direct_io_
 bool defaults::auto_direct_io_write() { return instance()->_auto_direct_io_write; }
 
 void defaults::set_auto_direct_io_write(bool flag) { instance()->_auto_direct_io_write = flag; }
+
+bool defaults::thread_pool_per_block_device() { return instance()->_thread_pool_per_block_device; }
+
+void defaults::set_thread_pool_per_block_device(bool flag)
+{
+  instance()->_thread_pool_per_block_device = flag;
+}
 }  // namespace kvikio
