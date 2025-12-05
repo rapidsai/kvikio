@@ -46,25 +46,29 @@ namespace {
  */
 ThreadPool* get_thread_pool_per_block_device(std::string const& file_path)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
+
   if (!defaults::thread_pool_per_block_device()) { return &defaults::thread_pool(); }
 
   static std::mutex mtx;
-  std::lock_guard lock(mtx);
+  static std::unordered_map<std::string, std::shared_ptr<ThreadPool>> file_path_to_thread_pool_map;
+  static std::unordered_map<dev_t, std::shared_ptr<ThreadPool>> dev_id_to_thread_pool_map;
 
   try {
     // Fast path: check if this exact file path has been seen before
-    static std::unordered_map<std::string, std::shared_ptr<ThreadPool>>
-      file_path_to_thread_pool_map;
-    if (auto it = file_path_to_thread_pool_map.find(file_path);
-        it != file_path_to_thread_pool_map.end()) {
-      return it->second.get();
+    {
+      std::lock_guard lock(mtx);
+      if (auto it = file_path_to_thread_pool_map.find(file_path);
+          it != file_path_to_thread_pool_map.end()) {
+        return it->second.get();
+      }
     }
 
     // Resolve file path to its underlying block device
     auto block_dev_info = get_block_device_info(file_path);
 
     // Check if we already have a thread pool for this block device
-    static std::unordered_map<dev_t, std::shared_ptr<ThreadPool>> dev_id_to_thread_pool_map;
+    std::lock_guard lock(mtx);
     if (auto it = dev_id_to_thread_pool_map.find(block_dev_info.id);
         it != dev_id_to_thread_pool_map.end()) {
       // Cache the file path mapping for future fast-path lookups

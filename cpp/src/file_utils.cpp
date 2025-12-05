@@ -260,6 +260,19 @@ bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
 
 BlockDeviceInfo get_block_device_info(std::string const& file_path)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
+
+  static std::mutex mtx;
+  static std::unordered_map<std::string, BlockDeviceInfo> file_path_to_info_map;
+
+  // Fast path: check if this exact file path has been seen before
+  {
+    std::lock_guard lock(mtx);
+    if (auto it = file_path_to_info_map.find(file_path); it != file_path_to_info_map.end()) {
+      return it->second;
+    }
+  }
+
   BlockDeviceInfo block_dev_info{};
   unsigned dev_major_id{};
   unsigned dev_minor_id{};
@@ -335,6 +348,13 @@ BlockDeviceInfo get_block_device_info(std::string const& file_path)
   block_dev_info.minor = dev_minor_id;
   block_dev_info.id    = makedev(dev_major_id, dev_minor_id);
   block_dev_info.name  = std::move(block_dev_name);
+
+  {
+    std::lock_guard lock(mtx);
+    // Two threads with the same uncached file_path both compute the results, but only the first
+    // thread acquiring the lock inserts, the second one performs no-op (not overwriting).
+    file_path_to_info_map.try_emplace(file_path, block_dev_info);
+  }
 
   return block_dev_info;
 }
