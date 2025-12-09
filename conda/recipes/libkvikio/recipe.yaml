@@ -131,7 +131,6 @@ outputs:
       host:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - cuda-cudart-dev
         - libcurl ==${{ libcurl_version }}
         - libcufile-dev
       run:
