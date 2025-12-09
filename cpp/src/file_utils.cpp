@@ -277,7 +277,7 @@ BlockDeviceInfo get_block_device_info(std::string const& file_path)
   unsigned dev_major_id{};
   unsigned dev_minor_id{};
 
-  struct stat st;
+  struct stat st{};
   SYSCALL_CHECK(stat(file_path.c_str(), &st));
 
   dev_major_id = major(st.st_dev);

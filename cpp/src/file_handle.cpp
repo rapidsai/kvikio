@@ -223,12 +223,12 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
-  auto* actual_thread_pool{thread_pool};
+
   // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
   // custom pool
-  if (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) {
-    actual_thread_pool = _thread_pool;
-  }
+  auto* const actual_thread_pool =
+    (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
+                                                                         : thread_pool;
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
@@ -293,12 +293,12 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
-  auto* actual_thread_pool{thread_pool};
+
   // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
   // custom pool
-  if (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) {
-    actual_thread_pool = _thread_pool;
-  }
+  auto* const actual_thread_pool =
+    (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
+                                                                         : thread_pool;
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
