@@ -49,8 +49,9 @@ function(kvikio_add_test)
                CUDA_STANDARD_REQUIRED ON
   )
   target_link_libraries(
-    ${_KVIKIO_NAME} PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest
-                            GTest::gtest_main CUDA::cudart $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
+    ${_KVIKIO_NAME}
+    PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest GTest::gtest_main
+            CUDA::cudart_static $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
   )
 
   rapids_test_add(
