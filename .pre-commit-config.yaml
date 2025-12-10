@@ -29,11 +29,7 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-cachetools, zarr]
-        args: ["--config-file=python/kvikio/pyproject.toml",
-                "python/kvikio/kvikio",
-                "python/kvikio/tests",
-                "python/kvikio/examples"
-              ]
+        args: ["--config-file=python/kvikio/pyproject.toml", "python/kvikio/kvikio", "python/kvikio/tests", "python/kvikio/examples"]
         pass_filenames: false
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v20.1.4
@@ -90,6 +86,10 @@ repos:
             Makefile$|
             pom[.]xml$
       - id: verify-alpha-spec
+        args:
+          - --fix
+          - --mode
+          - release
       - id: verify-codeowners
         args: [--fix, --project-prefix=kvikio]
   - repo: https://github.com/rapidsai/dependency-file-generator
@@ -101,7 +101,5 @@ repos:
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
-
-
 default_language_version:
-      python: python3
+  python: python3
