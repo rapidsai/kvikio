@@ -1,3 +1,40 @@
+# kvikio 25.12.00 (10 Dec 2025)
+
+### 🚨 Breaking Changes
+* Remove ability to build kvikio without CUDA by @vyasr in https://github.com/rapidsai/kvikio/pull/829
+* Minimize transitive includes by moving NVTX-related code to the detail namespace by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/851
+* Implement simple username-based authentication for WebHDFS by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/859
+* Add opportunistic Direct I/O support to POSIX backend by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/863
+* Require CUDA 12.2+ by @jakirkham in https://github.com/rapidsai/kvikio/pull/860
+### 🐛 Bug Fixes
+* Fix an out-of-bounds memory access in file open flags checking by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/853
+* Restore isort for Cython files by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/864
+* refactored update-version.sh to handle new branching strategy by @rockhowse in https://github.com/rapidsai/kvikio/pull/868
+* Pin Cython pre-3.2.0 and PyTest pre-9 by @jakirkham in https://github.com/rapidsai/kvikio/pull/869
+### 📖 Documentation
+* Use current system architecture in conda environment creation command by @bdice in https://github.com/rapidsai/kvikio/pull/867
+### 🛠️ Improvements
+* Simplify async validation condition by @vyasr in https://github.com/rapidsai/kvikio/pull/842
+* Update `RAPIDS_BRANCH`, codify changes in `update-version.sh` by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/843
+* Add named parameters for S3 credentials to Python API by @TomAugspurger in https://github.com/rapidsai/kvikio/pull/846
+* Create utility class URL builder and URL encoder. Fix a tricky URL path issue by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/844
+* Make parameter name more consistent for S3 utility functions by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/848
+* Enable `sccache-dist` connection pool by @trxcllnt in https://github.com/rapidsai/kvikio/pull/852
+* Use main in RAPIDS_BRANCH by @bdice in https://github.com/rapidsai/kvikio/pull/854
+* Use main branch by @bdice in https://github.com/rapidsai/kvikio/pull/855
+* Use ruff and ruff-format instead of flake8, black, isort by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/856
+* Use main shared-workflows branch by @bdice in https://github.com/rapidsai/kvikio/pull/857
+* Use SPDX for all copyright headers by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/858
+* Use `RAPIDS_BRANCH` in cmake-format invocations that need rapids-cmake configs by @bdice in https://github.com/rapidsai/kvikio/pull/862
+* Disable benchmark builds by default, enable in CI by @PointKernel in https://github.com/rapidsai/kvikio/pull/866
+* Use `sccache-dist` build cluster for conda and wheel builds by @trxcllnt in https://github.com/rapidsai/kvikio/pull/865
+
+## New Contributors
+* @PointKernel made their first contribution in https://github.com/rapidsai/kvikio/pull/866
+* @rockhowse made their first contribution in https://github.com/rapidsai/kvikio/pull/868
+
+**Full Changelog**: https://github.com/rapidsai/kvikio/compare/v25.12.00a...release/25.12
+
 # kvikio 25.10.00 (8 Oct 2025)
 
 ## 🚨 Breaking Changes
