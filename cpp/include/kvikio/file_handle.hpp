@@ -40,6 +40,7 @@ class FileHandle {
   CUFileHandleWrapper _cufile_handle{};
   CompatModeManager _compat_mode_manager;
   friend class CompatModeManager;
+  ThreadPool* _thread_pool{};
 
  public:
   // 644 is a common setting of Unix file permissions: read and write for owner, read-only for group
