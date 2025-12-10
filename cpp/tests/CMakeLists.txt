@@ -67,6 +67,8 @@ kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp utils/env.cpp)
 
 kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
 
+kvikio_add_test(NAME FILE_UTILS_TEST SOURCES test_file_utils.cpp)
+
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
 if(KvikIO_REMOTE_SUPPORT)
