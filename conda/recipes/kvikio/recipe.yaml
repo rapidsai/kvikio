@@ -85,7 +85,6 @@ requirements:
     - python =${{ py_version }}
     - rapids-build-backend >=0.4.0,<0.5.0
     - scikit-build-core >=0.10.0
-    - cuda-cudart-dev
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cupy >=13.6.0
@@ -93,10 +92,8 @@ requirements:
     - numpy >=1.23,<3.0
     - packaging
     - python
-    - cuda-cudart
   ignore_run_exports:
     by_name:
-      - cuda-cudart
       - cuda-version
       - libcurl
       - libkvikio
