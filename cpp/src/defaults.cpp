@@ -258,13 +258,12 @@ unsigned int defaults::io_uring_queue_depth() { return instance()->_io_uring_que
 void defaults::set_io_uring_queue_depth(unsigned int io_uring_queue_depth)
 {
   instance()->_io_uring_queue_depth = io_uring_queue_depth;
-  bool defaults::thread_pool_per_block_device()
-  {
-    return instance()->_thread_pool_per_block_device;
-  }
+}
 
-  void defaults::set_thread_pool_per_block_device(bool flag)
-  {
-    instance()->_thread_pool_per_block_device = flag;
-  }
+bool defaults::thread_pool_per_block_device() { return instance()->_thread_pool_per_block_device; }
+
+void defaults::set_thread_pool_per_block_device(bool flag)
+{
+  instance()->_thread_pool_per_block_device = flag;
+}
 }  // namespace kvikio

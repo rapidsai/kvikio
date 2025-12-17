@@ -241,7 +241,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                        std::size_t host_ptr_offset) -> std::size_t {
         return detail::io_uring_read_host(_file_direct_off.fd(), host_ptr, size, file_offset);
       };
-      return detail::submit_task(op, buf, size, file_offset, 0, call_idx, nvtx_color);
+      return detail::submit_task(
+        op, buf, size, file_offset, 0, actual_thread_pool, call_idx, nvtx_color);
     } else {
       auto op = [this](void* hostPtr_base,
                        std::size_t size,
@@ -255,204 +256,205 @@ std::future<std::size_t> FileHandle::pread(void* buf,
       return parallel_io(
         op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
     }
-
-    CUcontext ctx = get_context_from_pointer(buf);
-
-    if (defaults::io_uring_enabled()) {
-      auto op = [this, ctx](void* dev_ptr,
-                            std::size_t size,
-                            std::size_t file_offset,
-                            std::size_t dev_ptr_offset) -> std::size_t {
-        PushAndPopContext c(ctx);
-        CUstream stream = detail::StreamsByThread::get();
-        return detail::io_uring_read_device(
-          _file_direct_off.fd(), dev_ptr, size, file_offset, stream);
-      };
-      return detail::submit_task(op, buf, size, file_offset, 0, call_idx, nvtx_color);
-    }
-
-    // Shortcut that circumvent the threadpool and use the POSIX backend directly.
-    if (size < gds_threshold) {
-      PushAndPopContext c(ctx);
-      auto bytes_read = detail::posix_device_read(
-        _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
-      // Maintain API consistency while making this trivial case synchronous.
-      // The result in the future is immediately available after the call.
-      return make_ready_future(bytes_read);
-    }
-
-    // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
-      PushAndPopContext c(ctx);
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
-    }
-
-    // Regular case that use the threadpool and run the tasks in parallel
-    auto task = [this, ctx](void* devPtr_base,
-                            std::size_t size,
-                            std::size_t file_offset,
-                            std::size_t devPtr_offset) -> std::size_t {
-      PushAndPopContext c(ctx);
-      return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
-    };
-    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-    return parallel_io(task,
-                       devPtr_base,
-                       size,
-                       file_offset,
-                       task_size,
-                       devPtr_offset,
-                       actual_thread_pool,
-                       call_idx,
-                       nvtx_color);
   }
 
-  std::future<std::size_t> FileHandle::pwrite(void const* buf,
-                                              std::size_t size,
-                                              std::size_t file_offset,
-                                              std::size_t task_size,
-                                              std::size_t gds_threshold,
-                                              bool sync_default_stream,
-                                              ThreadPool* thread_pool)
-  {
-    KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  CUcontext ctx = get_context_from_pointer(buf);
 
-    // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
-    // custom pool
-    auto* const actual_thread_pool =
-      (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
-                                                                           : thread_pool;
-
-    auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-    KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
-    if (is_host_memory(buf)) {
-      auto op = [this](void const* hostPtr_base,
-                       std::size_t size,
-                       std::size_t file_offset,
-                       std::size_t hostPtr_offset) -> std::size_t {
-        char const* buf = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
-        return detail::posix_host_write<detail::PartialIO::NO>(
-          _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
-      };
-
-      return parallel_io(
-        op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
-    }
-
-    CUcontext ctx = get_context_from_pointer(buf);
-
-    // Shortcut that circumvent the threadpool and use the POSIX backend directly.
-    if (size < gds_threshold) {
+  if (defaults::io_uring_enabled()) {
+    auto op = [this, ctx](void* dev_ptr,
+                          std::size_t size,
+                          std::size_t file_offset,
+                          std::size_t dev_ptr_offset) -> std::size_t {
       PushAndPopContext c(ctx);
-      auto bytes_write = detail::posix_device_write(
-        _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
-      // Maintain API consistency while making this trivial case synchronous.
-      // The result in the future is immediately available after the call.
-      return make_ready_future(bytes_write);
-    }
+      CUstream stream = detail::StreamsByThread::get();
+      return detail::io_uring_read_device(
+        _file_direct_off.fd(), dev_ptr, size, file_offset, stream);
+    };
+    return detail::submit_task(
+      op, buf, size, file_offset, 0, actual_thread_pool, call_idx, nvtx_color);
+  }
 
-    // Let's synchronize once instead of in each task.
-    if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
-      PushAndPopContext c(ctx);
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
-    }
+  // Shortcut that circumvent the threadpool and use the POSIX backend directly.
+  if (size < gds_threshold) {
+    PushAndPopContext c(ctx);
+    auto bytes_read = detail::posix_device_read(
+      _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
+    // Maintain API consistency while making this trivial case synchronous.
+    // The result in the future is immediately available after the call.
+    return make_ready_future(bytes_read);
+  }
 
-    // Regular case that use the threadpool and run the tasks in parallel
-    auto op = [this, ctx](void const* devPtr_base,
+  // Let's synchronize once instead of in each task.
+  if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
+    PushAndPopContext c(ctx);
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
+  }
+
+  // Regular case that use the threadpool and run the tasks in parallel
+  auto task = [this, ctx](void* devPtr_base,
                           std::size_t size,
                           std::size_t file_offset,
                           std::size_t devPtr_offset) -> std::size_t {
-      PushAndPopContext c(ctx);
-      return write(
-        devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    PushAndPopContext c(ctx);
+    return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+  };
+  auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
+  return parallel_io(task,
+                     devPtr_base,
+                     size,
+                     file_offset,
+                     task_size,
+                     devPtr_offset,
+                     actual_thread_pool,
+                     call_idx,
+                     nvtx_color);
+}
+
+std::future<std::size_t> FileHandle::pwrite(void const* buf,
+                                            std::size_t size,
+                                            std::size_t file_offset,
+                                            std::size_t task_size,
+                                            std::size_t gds_threshold,
+                                            bool sync_default_stream,
+                                            ThreadPool* thread_pool)
+{
+  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+
+  // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
+  // custom pool
+  auto* const actual_thread_pool =
+    (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
+                                                                         : thread_pool;
+
+  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
+  if (is_host_memory(buf)) {
+    auto op = [this](void const* hostPtr_base,
+                     std::size_t size,
+                     std::size_t file_offset,
+                     std::size_t hostPtr_offset) -> std::size_t {
+      char const* buf = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
+      return detail::posix_host_write<detail::PartialIO::NO>(
+        _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
-    auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-    return parallel_io(op,
-                       devPtr_base,
-                       size,
-                       file_offset,
-                       task_size,
-                       devPtr_offset,
-                       actual_thread_pool,
-                       call_idx,
-                       nvtx_color);
+
+    return parallel_io(
+      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
   }
 
-  void FileHandle::read_async(void* devPtr_base,
-                              std::size_t* size_p,
-                              off_t* file_offset_p,
-                              off_t* devPtr_offset_p,
-                              ssize_t* bytes_read_p,
-                              CUstream stream)
-  {
-    KVIKIO_NVTX_FUNC_RANGE();
-    get_compat_mode_manager().validate_compat_mode_for_async();
-    if (get_compat_mode_manager().is_compat_mode_preferred_for_async()) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-      *bytes_read_p =
-        static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-    } else {
-      CUFILE_TRY(cuFileAPI::instance().ReadAsync(_cufile_handle.handle(),
-                                                 devPtr_base,
-                                                 size_p,
-                                                 file_offset_p,
-                                                 devPtr_offset_p,
-                                                 bytes_read_p,
-                                                 stream));
-    }
+  CUcontext ctx = get_context_from_pointer(buf);
+
+  // Shortcut that circumvent the threadpool and use the POSIX backend directly.
+  if (size < gds_threshold) {
+    PushAndPopContext c(ctx);
+    auto bytes_write = detail::posix_device_write(
+      _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
+    // Maintain API consistency while making this trivial case synchronous.
+    // The result in the future is immediately available after the call.
+    return make_ready_future(bytes_write);
   }
 
-  StreamFuture FileHandle::read_async(
-    void* devPtr_base, std::size_t size, off_t file_offset, off_t devPtr_offset, CUstream stream)
-  {
-    KVIKIO_NVTX_FUNC_RANGE();
-    StreamFuture ret(devPtr_base, size, file_offset, devPtr_offset, stream);
-    auto [devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_] =
-      ret.get_args();
-    read_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_);
-    return ret;
+  // Let's synchronize once instead of in each task.
+  if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
+    PushAndPopContext c(ctx);
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
   }
 
-  void FileHandle::write_async(void* devPtr_base,
-                               std::size_t* size_p,
-                               off_t* file_offset_p,
-                               off_t* devPtr_offset_p,
-                               ssize_t* bytes_written_p,
-                               CUstream stream)
-  {
-    KVIKIO_NVTX_FUNC_RANGE();
-    get_compat_mode_manager().validate_compat_mode_for_async();
-    if (get_compat_mode_manager().is_compat_mode_preferred_for_async()) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-      *bytes_written_p =
-        static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
-    } else {
-      CUFILE_TRY(cuFileAPI::instance().WriteAsync(_cufile_handle.handle(),
-                                                  devPtr_base,
-                                                  size_p,
-                                                  file_offset_p,
-                                                  devPtr_offset_p,
-                                                  bytes_written_p,
-                                                  stream));
-    }
-  }
+  // Regular case that use the threadpool and run the tasks in parallel
+  auto op = [this, ctx](void const* devPtr_base,
+                        std::size_t size,
+                        std::size_t file_offset,
+                        std::size_t devPtr_offset) -> std::size_t {
+    PushAndPopContext c(ctx);
+    return write(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+  };
+  auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
+  return parallel_io(op,
+                     devPtr_base,
+                     size,
+                     file_offset,
+                     task_size,
+                     devPtr_offset,
+                     actual_thread_pool,
+                     call_idx,
+                     nvtx_color);
+}
 
-  StreamFuture FileHandle::write_async(
-    void* devPtr_base, std::size_t size, off_t file_offset, off_t devPtr_offset, CUstream stream)
-  {
-    KVIKIO_NVTX_FUNC_RANGE();
-    StreamFuture ret(devPtr_base, size, file_offset, devPtr_offset, stream);
-    auto [devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream_] =
-      ret.get_args();
-    write_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream_);
-    return ret;
+void FileHandle::read_async(void* devPtr_base,
+                            std::size_t* size_p,
+                            off_t* file_offset_p,
+                            off_t* devPtr_offset_p,
+                            ssize_t* bytes_read_p,
+                            CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  get_compat_mode_manager().validate_compat_mode_for_async();
+  if (get_compat_mode_manager().is_compat_mode_preferred_for_async()) {
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    *bytes_read_p =
+      static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+  } else {
+    CUFILE_TRY(cuFileAPI::instance().ReadAsync(_cufile_handle.handle(),
+                                               devPtr_base,
+                                               size_p,
+                                               file_offset_p,
+                                               devPtr_offset_p,
+                                               bytes_read_p,
+                                               stream));
   }
+}
 
-  const CompatModeManager& FileHandle::get_compat_mode_manager() const noexcept
-  {
-    return _compat_mode_manager;
+StreamFuture FileHandle::read_async(
+  void* devPtr_base, std::size_t size, off_t file_offset, off_t devPtr_offset, CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  StreamFuture ret(devPtr_base, size, file_offset, devPtr_offset, stream);
+  auto [devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_] =
+    ret.get_args();
+  read_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_read_p, stream_);
+  return ret;
+}
+
+void FileHandle::write_async(void* devPtr_base,
+                             std::size_t* size_p,
+                             off_t* file_offset_p,
+                             off_t* devPtr_offset_p,
+                             ssize_t* bytes_written_p,
+                             CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  get_compat_mode_manager().validate_compat_mode_for_async();
+  if (get_compat_mode_manager().is_compat_mode_preferred_for_async()) {
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    *bytes_written_p =
+      static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
+  } else {
+    CUFILE_TRY(cuFileAPI::instance().WriteAsync(_cufile_handle.handle(),
+                                                devPtr_base,
+                                                size_p,
+                                                file_offset_p,
+                                                devPtr_offset_p,
+                                                bytes_written_p,
+                                                stream));
   }
+}
 
-  bool FileHandle::is_direct_io_supported() const noexcept { return _file_direct_on.fd() != -1; }
+StreamFuture FileHandle::write_async(
+  void* devPtr_base, std::size_t size, off_t file_offset, off_t devPtr_offset, CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  StreamFuture ret(devPtr_base, size, file_offset, devPtr_offset, stream);
+  auto [devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream_] =
+    ret.get_args();
+  write_async(devPtr_base_, size_p, file_offset_p, devPtr_offset_p, bytes_written_p, stream_);
+  return ret;
+}
+
+const CompatModeManager& FileHandle::get_compat_mode_manager() const noexcept
+{
+  return _compat_mode_manager;
+}
+
+bool FileHandle::is_direct_io_supported() const noexcept { return _file_direct_on.fd() != -1; }
 
 }  // namespace kvikio
