@@ -111,7 +111,7 @@ std::tuple<std::string_view, T, bool> getenv_or(
  */
 class defaults {
  private:
-  BS_thread_pool _thread_pool{get_num_threads_from_env()};
+  ThreadPool _thread_pool{get_num_threads_from_env()};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
@@ -123,6 +123,7 @@ class defaults {
   bool _auto_direct_io_write;
   bool _io_uring_enabled;
   unsigned int _io_uring_queue_depth;
+  bool _thread_pool_per_block_device;
 
   static unsigned int get_num_threads_from_env();
 
@@ -214,7 +215,7 @@ class defaults {
    *
    * @return The default thread pool instance.
    */
-  [[nodiscard]] static BS_thread_pool& thread_pool();
+  [[nodiscard]] static ThreadPool& thread_pool();
 
   /**
    * @brief Get the number of threads in the default thread pool.
@@ -404,6 +405,27 @@ class defaults {
   static unsigned int io_uring_queue_depth();
 
   static void set_io_uring_queue_depth(unsigned int io_uring_queue_depth);
+  /**
+   * @brief Check if per-block-device thread pools are enabled.
+   *
+   * The initial value is determined by the environment variable
+   * `KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE`. If not set, defaults to `false`.
+   *
+   * @return Boolean answer
+   */
+  static bool thread_pool_per_block_device();
+
+  /**
+   * @brief Enable or disable per-block-device thread pools.
+   *
+   * Each pool is initialized with the number of threads specified by `thread_pool_nthreads()`.
+   * Changes take effect only for files opened after this call. Files already opened retain their
+   * existing thread pool assignments.
+   *
+   * @param flag `true` to enable per-block-device thread pools, `false` to use the single global
+   * thread pool for all I/O operations.
+   */
+  static void set_thread_pool_per_block_device(bool flag);
 };
 
 }  // namespace kvikio

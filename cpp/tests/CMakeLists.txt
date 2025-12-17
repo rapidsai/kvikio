@@ -49,8 +49,9 @@ function(kvikio_add_test)
                CUDA_STANDARD_REQUIRED ON
   )
   target_link_libraries(
-    ${_KVIKIO_NAME} PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest
-                            GTest::gtest_main CUDA::cudart $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
+    ${_KVIKIO_NAME}
+    PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest GTest::gtest_main
+            CUDA::cudart_static $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
   )
 
   rapids_test_add(
@@ -66,6 +67,8 @@ kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp utils/env.cpp)
 kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp utils/env.cpp)
 
 kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
+
+kvikio_add_test(NAME FILE_UTILS_TEST SOURCES test_file_utils.cpp)
 
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 

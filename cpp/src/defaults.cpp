@@ -143,11 +143,13 @@ defaults::defaults()
   }
 
   {
-    _io_uring_enabled = getenv_or("KVIKIO_IO_URING_ENABLED", false);
+    _io_uring_enabled     = getenv_or("KVIKIO_IO_URING_ENABLED", false);
+    _io_uring_queue_depth = getenv_or("KVIKIO_IO_URING_QUEUE_DEPTH", 32U);
   }
 
+  // Determine the default value of `thread_pool_per_block_device`
   {
-    _io_uring_queue_depth = getenv_or("KVIKIO_IO_URING_QUEUE_DEPTH", 32U);
+    _thread_pool_per_block_device = getenv_or("KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE", false);
   }
 }
 
@@ -180,7 +182,7 @@ bool defaults::is_compat_mode_preferred(CompatMode compat_mode) noexcept
 
 bool defaults::is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
 
-BS_thread_pool& defaults::thread_pool() { return instance()->_thread_pool; }
+ThreadPool& defaults::thread_pool() { return instance()->_thread_pool; }
 
 unsigned int defaults::thread_pool_nthreads() { return thread_pool().get_thread_count(); }
 
@@ -256,5 +258,13 @@ unsigned int defaults::io_uring_queue_depth() { return instance()->_io_uring_que
 void defaults::set_io_uring_queue_depth(unsigned int io_uring_queue_depth)
 {
   instance()->_io_uring_queue_depth = io_uring_queue_depth;
-}
+  bool defaults::thread_pool_per_block_device()
+  {
+    return instance()->_thread_pool_per_block_device;
+  }
+
+  void defaults::set_thread_pool_per_block_device(bool flag)
+  {
+    instance()->_thread_pool_per_block_device = flag;
+  }
 }  // namespace kvikio

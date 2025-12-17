@@ -65,38 +65,3 @@ Defaults
 .. autofunction:: set
 
 .. autofunction:: get
-
-.. autofunction:: compat_mode
-
-.. autofunction:: num_threads
-
-.. autofunction:: task_size
-
-.. autofunction:: gds_threshold
-
-.. autofunction:: bounce_buffer_size
-
-.. autofunction:: http_status_codes
-
-.. autofunction:: http_max_attempts
-
-.. autofunction:: compat_mode_reset
-.. autofunction:: set_compat_mode
-
-.. autofunction:: num_threads_reset
-.. autofunction:: set_num_threads
-
-.. autofunction:: task_size_reset
-.. autofunction:: set_task_size
-
-.. autofunction:: gds_threshold_reset
-.. autofunction:: set_gds_threshold
-
-.. autofunction:: bounce_buffer_size_reset
-.. autofunction:: set_bounce_buffer_size
-
-.. autofunction:: http_status_codes_reset
-.. autofunction:: set_http_status_codes
-
-.. autofunction:: http_max_attempts_reset
-.. autofunction:: set_http_max_attempts
