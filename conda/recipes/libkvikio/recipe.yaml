@@ -131,7 +131,6 @@ outputs:
       host:
         - ${{ pin_subpackage("libkvikio", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - cuda-cudart-dev
         - libcurl ==${{ libcurl_version }}
         - libcufile-dev
       run:
@@ -140,10 +139,8 @@ outputs:
           - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
           else:
           - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2.0a0") }}
-        - cuda-cudart
       ignore_run_exports:
         by_name:
-          - cuda-cudart
           - cuda-version
           - libnuma
           - libcufile

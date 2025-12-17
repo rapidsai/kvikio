@@ -12,7 +12,7 @@ set(TEST_INSTALL_PATH bin/tests/libkvikio)
 if(CUDAToolkit_FOUND)
   add_executable(BASIC_IO_EXAMPLE basic_io.cpp)
   set_target_properties(BASIC_IO_EXAMPLE PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib")
-  target_link_libraries(BASIC_IO_EXAMPLE PRIVATE kvikio::kvikio CUDA::cudart)
+  target_link_libraries(BASIC_IO_EXAMPLE PRIVATE kvikio::kvikio CUDA::cudart_static)
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
