@@ -7,8 +7,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <cstddef>
 #include <cstdlib>
+#include <memory>
+#include <unordered_map>
 #include <utility>
 
 #include <kvikio/compat_mode.hpp>
@@ -23,6 +26,69 @@
 
 namespace kvikio {
 
+namespace {
+
+/**
+ * @brief Get a thread pool specific to the block device hosting the given file.
+ *
+ * Thread pools are created lazily on first access and cached for subsequent lookups.
+ * Two levels of caching are used:
+ * - File path --> thread pool (fast path for repeated access to the same file)
+ * - Block device ID --> thread pool (groups different files on the same device)
+ *
+ * @param file_path Path to the file where a thread pool is requested for the underlying block
+ * device.
+ * @return Pointer to the appropriate thread pool. The pointer remains valid for the lifetime of the
+ * program (static storage duration).
+ *
+ * @note If device detection fails for any reason (e.g., unsupported filesystem, permission issues),
+ * the default global thread pool is returned and an error is logged.
+ */
+ThreadPool* get_thread_pool_per_block_device(std::string const& file_path)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+
+  if (!defaults::thread_pool_per_block_device()) { return &defaults::thread_pool(); }
+
+  static std::mutex mtx;
+  static std::unordered_map<std::string, std::shared_ptr<ThreadPool>> file_path_to_thread_pool_map;
+  static std::unordered_map<dev_t, std::shared_ptr<ThreadPool>> dev_id_to_thread_pool_map;
+
+  try {
+    // Fast path: check if this exact file path has been seen before
+    {
+      std::lock_guard lock(mtx);
+      if (auto it = file_path_to_thread_pool_map.find(file_path);
+          it != file_path_to_thread_pool_map.end()) {
+        return it->second.get();
+      }
+    }
+
+    // Resolve file path to its underlying block device
+    auto block_dev_info = get_block_device_info(file_path);
+
+    // Check if we already have a thread pool for this block device
+    std::lock_guard lock(mtx);
+    if (auto it = dev_id_to_thread_pool_map.find(block_dev_info.id);
+        it != dev_id_to_thread_pool_map.end()) {
+      // Cache the file path mapping for future fast-path lookups
+      file_path_to_thread_pool_map.emplace(file_path, it->second);
+      return it->second.get();
+    }
+
+    // First file on this block device: create a new dedicated thread pool
+    auto thread_pool = std::make_shared<ThreadPool>(defaults::num_threads());
+    dev_id_to_thread_pool_map.emplace(block_dev_info.id, thread_pool);
+    file_path_to_thread_pool_map.emplace(file_path, thread_pool);
+    return thread_pool.get();
+  } catch (std::exception const& ex) {
+    std::string const& msg = std::string(ex.what()) + " Falling back to the default thread pool.";
+    KVIKIO_LOG_ERROR(msg);
+    return &defaults::thread_pool();
+  }
+}
+}  // namespace
+
 FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
@@ -30,6 +96,7 @@ FileHandle::FileHandle(std::string const& file_path,
   : _initialized{true}, _compat_mode_manager{file_path, flags, mode, compat_mode, this}
 {
   KVIKIO_NVTX_FUNC_RANGE();
+  _thread_pool = get_thread_pool_per_block_device(file_path);
 }
 
 FileHandle::FileHandle(FileHandle&& o) noexcept
@@ -38,7 +105,8 @@ FileHandle::FileHandle(FileHandle&& o) noexcept
     _initialized{std::exchange(o._initialized, false)},
     _nbytes{std::exchange(o._nbytes, 0)},
     _cufile_handle{std::exchange(o._cufile_handle, {})},
-    _compat_mode_manager{std::move(o._compat_mode_manager)}
+    _compat_mode_manager{std::move(o._compat_mode_manager)},
+    _thread_pool{std::exchange(o._thread_pool, {})}
 {
 }
 
@@ -50,6 +118,7 @@ FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
   _nbytes              = std::exchange(o._nbytes, 0);
   _cufile_handle       = std::exchange(o._cufile_handle, {});
   _compat_mode_manager = std::move(o._compat_mode_manager);
+  _thread_pool         = std::exchange(o._thread_pool, {});
   return *this;
 }
 
@@ -71,6 +140,7 @@ void FileHandle::close() noexcept
     _file_direct_on.close();
     _nbytes      = 0;
     _initialized = false;
+    _thread_pool = nullptr;
   } catch (...) {
   }
 }
@@ -153,6 +223,13 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+
+  // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
+  // custom pool
+  auto* const actual_thread_pool =
+    (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
+                                                                         : thread_pool;
+
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
@@ -165,7 +242,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, thread_pool, call_idx, nvtx_color);
+    return parallel_io(
+      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -201,7 +279,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                      file_offset,
                      task_size,
                      devPtr_offset,
-                     thread_pool,
+                     actual_thread_pool,
                      call_idx,
                      nvtx_color);
 }
@@ -215,6 +293,13 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+
+  // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
+  // custom pool
+  auto* const actual_thread_pool =
+    (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
+                                                                         : thread_pool;
+
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
@@ -227,7 +312,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, thread_pool, call_idx, nvtx_color);
+    return parallel_io(
+      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -263,7 +349,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                      file_offset,
                      task_size,
                      devPtr_offset,
-                     thread_pool,
+                     actual_thread_pool,
                      call_idx,
                      nvtx_color);
 }
