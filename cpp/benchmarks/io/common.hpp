@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -15,20 +16,40 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_utils.hpp>
 
+#define KVIKIO_CHECK_CUDA(err_code) kvikio::benchmark::check_cuda(err_code, __FILE__, __LINE__)
+
 namespace kvikio::benchmark {
+inline void check_cuda(cudaError_t err_code, const char* file, int line)
+{
+  if (err_code == cudaError_t::cudaSuccess) { return; }
+  std::stringstream ss;
+  int current_device{};
+  cudaGetDevice(&current_device);
+  ss << "CUDA runtime error on device " << current_device << ": " << cudaGetErrorName(err_code)
+     << " (" << err_code << "): " << cudaGetErrorString(err_code) << " at " << file << ":" << line
+     << "\n";
+  throw std::runtime_error(ss.str());
+}
+
 // Helper to parse size strings like "1GiB", "1Gi", "1G".
 std::size_t parse_size(std::string const& str);
 
+bool parse_flag(std::string const& str);
+
 struct Config {
-  std::size_t num_bytes{4ull * 1024ull * 1024ull * 1024ull};
   std::vector<std::string> filepaths;
-  bool align_buffer{true};
-  bool o_direct{true};
-  bool drop_file_cache{false};
-  bool compat_mode{true};
+  std::size_t num_bytes{4ull * 1024ull * 1024ull * 1024ull};
   unsigned int num_threads{1};
-  bool open_file_once{false};
+  bool use_gpu_buffer{false};
+  int gpu_index{0};
   int repetition{5};
+  bool overwrite_file{false};
+  bool o_direct{true};
+  bool align_buffer{true};
+  bool drop_file_cache{false};
+  bool open_file_once{false};
+  bool compat_mode{true};
+  bool per_block_device_pool{true};
 
   virtual void parse_args(int argc, char** argv);
   virtual void print_usage(std::string const& program_name);
@@ -50,6 +71,7 @@ class Benchmark {
     defaults::set_thread_pool_nthreads(_config.num_threads);
     auto compat_mode = _config.compat_mode ? CompatMode::ON : CompatMode::OFF;
     defaults::set_compat_mode(compat_mode);
+    defaults::set_thread_pool_per_block_device(_config.per_block_device_pool);
   }
 
   void run()
@@ -85,5 +107,12 @@ class Benchmark {
 
     if (_config.open_file_once) { cleanup(); }
   }
+};
+
+class CudaPageAlignedDeviceAllocator {
+ public:
+  void* allocate(std::size_t size);
+
+  void deallocate(void* buffer, std::size_t size);
 };
 }  // namespace kvikio::benchmark

@@ -3,16 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "posix_benchmark.hpp"
-#include "../utils.hpp"
+#include "sequential_benchmark.hpp"
+#include "common.hpp"
 
 #include <fcntl.h>
 
+#include <cuda_runtime.h>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/utils.hpp>
@@ -21,29 +23,19 @@
 #include <kvikio/file_utils.hpp>
 
 namespace kvikio::benchmark {
-void PosixConfig::parse_args(int argc, char** argv)
+void SequentialConfig::parse_args(int argc, char** argv)
 {
   Config::parse_args(argc, argv);
   static option long_options[] = {
-    {"overwrite", no_argument, nullptr, 'w'}, {0, 0, 0, 0}
-    // Sentinel to mark the end of the array. Needed by getopt_long()
+    {0, 0, 0, 0}  // Sentinel to mark the end of the array. Needed by getopt_long()
+
   };
 
   int opt{0};
   int option_index{-1};
 
-  // "f:"" means "-f" takes an argument
-  // "c" means "-c" does not take an argument
-  while ((opt = getopt_long(argc, argv, ":wp", long_options, &option_index)) != -1) {
+  while ((opt = getopt_long(argc, argv, ":", long_options, &option_index)) != -1) {
     switch (opt) {
-      case 'w': {
-        overwrite_file = true;
-        break;
-      }
-      case 'p': {
-        per_drive_pool = true;
-        break;
-      }
       case ':': {
         // The parsed option has missing argument
         std::stringstream ss;
@@ -63,32 +55,35 @@ void PosixConfig::parse_args(int argc, char** argv)
   optind = 1;
 }
 
-void PosixConfig::print_usage(std::string const& program_name)
+void SequentialConfig::print_usage(std::string const& program_name)
 {
   Config::print_usage(program_name);
-  std::cout << "  -w, --overwrite         Overwrite existing file\n";
 }
 
-PosixBenchmark::PosixBenchmark(PosixConfig config) : Benchmark(std::move(config))
+SequentialBenchmark::SequentialBenchmark(SequentialConfig config) : Benchmark(std::move(config))
 {
   for (auto const& filepath : _config.filepaths) {
     // Initialize buffer
     void* buf{};
 
-    if (_config.align_buffer) {
-      auto const page_size    = get_page_size();
-      auto const aligned_size = kvikio::detail::align_up(_config.num_bytes, page_size);
-      buf                     = std::aligned_alloc(page_size, aligned_size);
+    if (_config.use_gpu_buffer) {
+      KVIKIO_CHECK_CUDA(cudaSetDevice(_config.gpu_index));
+      if (_config.align_buffer) {
+        CudaPageAlignedDeviceAllocator alloc;
+        buf = alloc.allocate(_config.num_bytes);
+      } else {
+        KVIKIO_CHECK_CUDA(cudaMalloc(&buf, _config.num_bytes));
+      }
     } else {
-      buf = std::malloc(_config.num_bytes);
+      if (_config.align_buffer) {
+        kvikio::PageAlignedAllocator alloc;
+        buf = alloc.allocate(_config.num_bytes);
+      } else {
+        buf = std::malloc(_config.num_bytes);
+      }
     }
 
-    std::memset(buf, 0, _config.num_bytes);
-
     _bufs.push_back(buf);
-
-    // Initialize KvikIO setting
-    if (_config.per_drive_pool) { kvikio::defaults::set_thread_pool_per_block_device(true); }
 
     // Initialize file
     // Create the file if the overwrite flag is on, or if the file does not exist.
@@ -100,14 +95,21 @@ PosixBenchmark::PosixBenchmark(PosixConfig config) : Benchmark(std::move(config)
   }
 }
 
-PosixBenchmark::~PosixBenchmark()
+SequentialBenchmark::~SequentialBenchmark()
 {
   for (auto&& buf : _bufs) {
-    std::free(buf);
+    if (_config.use_gpu_buffer) {
+      if (_config.align_buffer) {
+      } else {
+        KVIKIO_CHECK_CUDA(cudaFree(buf));
+      }
+    } else {
+      std::free(buf);
+    }
   }
 }
 
-void PosixBenchmark::initialize_impl()
+void SequentialBenchmark::initialize_impl()
 {
   _file_handles.clear();
 
@@ -124,14 +126,14 @@ void PosixBenchmark::initialize_impl()
   }
 }
 
-void PosixBenchmark::cleanup_impl()
+void SequentialBenchmark::cleanup_impl()
 {
   for (auto&& file_handle : _file_handles) {
     file_handle->close();
   }
 }
 
-void PosixBenchmark::run_target_impl()
+void SequentialBenchmark::run_target_impl()
 {
   std::vector<std::future<std::size_t>> futs;
 
@@ -140,11 +142,7 @@ void PosixBenchmark::run_target_impl()
     auto* buf         = _bufs[i];
 
     std::future<std::size_t> fut;
-    if (_config.per_drive_pool) {
-      fut = file_handle->pread(buf, _config.num_bytes);
-    } else {
-      fut = file_handle->pread(buf, _config.num_bytes);
-    }
+    fut = file_handle->pread(buf, _config.num_bytes);
     futs.push_back(std::move(fut));
   }
 
@@ -153,15 +151,18 @@ void PosixBenchmark::run_target_impl()
   }
 }
 
-std::size_t PosixBenchmark::nbytes_impl() { return _config.num_bytes * _config.filepaths.size(); }
+std::size_t SequentialBenchmark::nbytes_impl()
+{
+  return _config.num_bytes * _config.filepaths.size();
+}
 }  // namespace kvikio::benchmark
 
 int main(int argc, char* argv[])
 {
   try {
-    kvikio::benchmark::PosixConfig config;
+    kvikio::benchmark::SequentialConfig config;
     config.parse_args(argc, argv);
-    kvikio::benchmark::PosixBenchmark bench(std::move(config));
+    kvikio::benchmark::SequentialBenchmark bench(std::move(config));
     bench.run();
   } catch (std::exception const& e) {
     std::cerr << "Error: " << e.what() << std::endl;

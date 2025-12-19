@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "../utils.hpp"
+#include "common.hpp"
 
 #include <getopt.h>
 #include <memory>
@@ -17,16 +17,13 @@
 
 namespace kvikio::benchmark {
 
-struct PosixConfig : Config {
-  bool overwrite_file{false};
-  bool per_drive_pool{false};
-
+struct SequentialConfig : Config {
   virtual void parse_args(int argc, char** argv) override;
   virtual void print_usage(std::string const& program_name) override;
 };
 
-class PosixBenchmark : public Benchmark<PosixBenchmark, PosixConfig> {
-  friend class Benchmark<PosixBenchmark, PosixConfig>;
+class SequentialBenchmark : public Benchmark<SequentialBenchmark, SequentialConfig> {
+  friend class Benchmark<SequentialBenchmark, SequentialConfig>;
 
  protected:
   std::vector<std::unique_ptr<kvikio::FileHandle>> _file_handles;
@@ -39,7 +36,7 @@ class PosixBenchmark : public Benchmark<PosixBenchmark, PosixConfig> {
   std::size_t nbytes_impl();
 
  public:
-  PosixBenchmark(PosixConfig config);
-  ~PosixBenchmark();
+  SequentialBenchmark(SequentialConfig config);
+  ~SequentialBenchmark();
 };
 }  // namespace kvikio::benchmark
