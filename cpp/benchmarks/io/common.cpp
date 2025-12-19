@@ -94,8 +94,6 @@ void Config::parse_args(int argc, char** argv)
     ALIGN_BUFFER,
     DROP_CACHE,
     OPEN_ONCE,
-    COMPAT_MODE,
-    PER_BLOCK_DEVICE_POOL,
   };
 
   static option long_options[] = {
@@ -110,8 +108,6 @@ void Config::parse_args(int argc, char** argv)
     {"drop-cache", required_argument, nullptr, LongOnlyOpts::DROP_CACHE},
     {"overwrite", required_argument, nullptr, 'w'},
     {"open-once", required_argument, nullptr, LongOnlyOpts::OPEN_ONCE},
-    {"compat-mode", required_argument, nullptr, LongOnlyOpts::COMPAT_MODE},
-    {"per-block-device-pool", required_argument, nullptr, LongOnlyOpts::PER_BLOCK_DEVICE_POOL},
     {"help", no_argument, nullptr, 'h'},
     {0, 0, 0, 0}  // Sentinel to mark the end of the array. Needed by getopt_long()
   };
@@ -171,14 +167,6 @@ void Config::parse_args(int argc, char** argv)
         open_file_once = parse_flag(optarg);
         break;
       }
-      case LongOnlyOpts::COMPAT_MODE: {
-        compat_mode = parse_flag(optarg);
-        break;
-      }
-      case LongOnlyOpts::PER_BLOCK_DEVICE_POOL: {
-        per_block_device_pool = parse_flag(optarg);
-        break;
-      }
       case 'h': {
         print_usage(argv[0]);
         std::exit(0);
@@ -223,8 +211,6 @@ void Config::print_usage(std::string const& program_name)
     << "  --align-buffer BOOL               Use aligned buffer (default: true)\n"
     << "  --drop-cache BOOL                 Drop page cache before each run (default: false)\n"
     << "  --open-once BOOL                  Open file once, not per repetition (default: false)\n"
-    << "  --compat-mode BOOL                Use compatibility mode (default: true)\n"
-    << "  --per-block-device-pool BOOL      Use per-block-device thread pools (default: true)\n"
     << "  -h, --help                        Show this help message\n";
 }
 

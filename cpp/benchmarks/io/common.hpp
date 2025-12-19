@@ -12,7 +12,6 @@
 #include <string>
 #include <vector>
 
-#include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_utils.hpp>
 
@@ -48,8 +47,6 @@ struct Config {
   bool align_buffer{true};
   bool drop_file_cache{false};
   bool open_file_once{false};
-  bool compat_mode{true};
-  bool per_block_device_pool{true};
 
   virtual void parse_args(int argc, char** argv);
   virtual void print_usage(std::string const& program_name);
@@ -69,9 +66,6 @@ class Benchmark {
   Benchmark(ConfigType config) : _config(std::move(config))
   {
     defaults::set_thread_pool_nthreads(_config.num_threads);
-    auto compat_mode = _config.compat_mode ? CompatMode::ON : CompatMode::OFF;
-    defaults::set_compat_mode(compat_mode);
-    defaults::set_thread_pool_per_block_device(_config.per_block_device_pool);
   }
 
   void run()
