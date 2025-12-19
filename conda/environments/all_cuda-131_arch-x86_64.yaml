@@ -10,7 +10,7 @@ dependencies:
 - cmake>=3.30.4
 - cuda-nvcc
 - cuda-python>=13.0.1,<14.0
-- cuda-version=13.0
+- cuda-version=13.1
 - cupy>=13.6.0
 - cxx-compiler
 - cython>=3.0.0,<3.2.0
@@ -39,4 +39,4 @@ dependencies:
 - sphinx_rtd_theme
 - sysroot_linux-64=2.28
 - zarr>=3.0.0,<3.2.0,<4.0.0
-name: all_cuda-130_arch-x86_64
+name: all_cuda-131_arch-x86_64
