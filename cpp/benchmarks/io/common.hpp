@@ -10,9 +10,12 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 
 #define KVIKIO_CHECK_CUDA(err_code) kvikio::benchmark::check_cuda(err_code, __FILE__, __LINE__)
@@ -29,6 +32,14 @@ inline void check_cuda(cudaError_t err_code, const char* file, int line)
      << "\n";
   throw std::runtime_error(ss.str());
 }
+
+enum Backend {
+  FILEHANDLE,
+  CUFILE,
+};
+
+Backend parse_backend(std::string const& str);
+Backend parse_backend(int argc, char** argv);
 
 // Helper to parse size strings like "1GiB", "1Gi", "1G".
 std::size_t parse_size(std::string const& str);
@@ -55,7 +66,7 @@ struct Config {
 template <typename Derived, typename ConfigType>
 class Benchmark {
  protected:
-  ConfigType _config;
+  ConfigType const& _config;
 
   void initialize() { static_cast<Derived*>(this)->initialize_impl(); }
   void cleanup() { static_cast<Derived*>(this)->cleanup_impl(); }
@@ -63,7 +74,7 @@ class Benchmark {
   std::size_t nbytes() { return static_cast<Derived*>(this)->nbytes_impl(); }
 
  public:
-  Benchmark(ConfigType config) : _config(std::move(config))
+  Benchmark(ConfigType const& config) : _config(config)
   {
     defaults::set_thread_pool_nthreads(_config.num_threads);
   }
@@ -108,5 +119,113 @@ class CudaPageAlignedDeviceAllocator {
   void* allocate(std::size_t size);
 
   void deallocate(void* buffer, std::size_t size);
+};
+
+template <typename ConfigType>
+class Buffer {
+ public:
+  Buffer(ConfigType config) : _config(config) { allocate(); }
+  ~Buffer() { deallocate(); }
+
+  Buffer(Buffer const&)            = delete;
+  Buffer& operator=(Buffer const&) = delete;
+
+  Buffer(Buffer&& o) noexcept
+    : _config(std::exchange(o._config, {})),
+      _data(std::exchange(o._data, {})),
+      _original_data(std::exchange(o._original_data, {}))
+  {
+  }
+
+  Buffer& operator=(Buffer&& o) noexcept
+  {
+    if (this == &o) { return *this; }
+    deallocate();
+    _config        = std::exchange(o._config, {});
+    _data          = std::exchange(o._data, {});
+    _original_data = std::exchange(o._original_data, {});
+  }
+
+  void* data() const { return _data; }
+  void* size() const { return _size; }
+
+ private:
+  void allocate()
+  {
+    if (_config.use_gpu_buffer) {
+      KVIKIO_CHECK_CUDA(cudaSetDevice(_config.gpu_index));
+      if (_config.align_buffer) {
+        CudaPageAlignedDeviceAllocator alloc;
+        _original_data = alloc.allocate(_config.num_bytes);
+      } else {
+        KVIKIO_CHECK_CUDA(cudaMalloc(&_original_data, _config.num_bytes));
+      }
+    } else {
+      if (_config.align_buffer) {
+        PageAlignedAllocator alloc;
+        _original_data = alloc.allocate(_config.num_bytes);
+      } else {
+        _original_data = std::malloc(_config.num_bytes);
+      }
+    }
+
+    _data = _original_data;
+  }
+
+  void deallocate()
+  {
+    if (_config.use_gpu_buffer) {
+      if (_config.align_buffer) {
+      } else {
+        KVIKIO_CHECK_CUDA(cudaFree(_original_data));
+      }
+    } else {
+      std::free(_original_data);
+    }
+
+    _data          = nullptr;
+    _original_data = nullptr;
+    _size          = 0;
+  }
+
+  ConfigType _config;
+  void* _data{};
+  void* _original_data{};
+  std::size_t _size{};
+};
+
+template <typename ConfigType>
+void create_file(ConfigType const& config,
+                 std::string const& filepath,
+                 Buffer<ConfigType> const& buf)
+{
+  // Create the file if the overwrite flag is on, or if the file does not exist, or if the file size
+  // is wrong.
+  if (config.overwrite_file || access(filepath.c_str(), F_OK) != 0 ||
+      get_file_size(filepath) != config.num_bytes) {
+    FileHandle file_handle(filepath, "w", FileHandle::m644);
+    auto fut = file_handle.pwrite(buf.data(), config.num_bytes);
+    fut.get();
+  }
+}
+
+class CuFileHandle {
+ public:
+  CuFileHandle(std::string const& file_path, std::string const& flags, bool o_direct, mode_t mode);
+  ~CuFileHandle() = default;
+
+  CuFileHandle(CuFileHandle const&)            = delete;
+  CuFileHandle& operator=(CuFileHandle const&) = delete;
+
+  CuFileHandle(CuFileHandle&&) noexcept   = default;
+  CuFileHandle& operator=(CuFileHandle&&) = default;
+
+  void close();
+
+  CUfileHandle_t handle() const noexcept;
+
+ private:
+  FileWrapper _file_wrapper;
+  CUFileHandleWrapper _cufile_handle_wrapper;
 };
 }  // namespace kvikio::benchmark

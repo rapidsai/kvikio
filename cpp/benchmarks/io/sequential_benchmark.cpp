@@ -5,6 +5,7 @@
 
 #include "sequential_benchmark.hpp"
 #include "common.hpp"
+#include "kvikio/shim/cufile.hpp"
 
 #include <fcntl.h>
 
@@ -14,7 +15,6 @@
 #include <sstream>
 #include <stdexcept>
 
-#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/utils.hpp>
@@ -23,7 +23,8 @@
 #include <kvikio/file_utils.hpp>
 
 namespace kvikio::benchmark {
-void SequentialConfig::parse_args(int argc, char** argv)
+
+void KvikIOSequentialConfig::parse_args(int argc, char** argv)
 {
   Config::parse_args(argc, argv);
   static option long_options[] = {
@@ -34,7 +35,7 @@ void SequentialConfig::parse_args(int argc, char** argv)
   int opt{0};
   int option_index{-1};
 
-  while ((opt = getopt_long(argc, argv, ":", long_options, &option_index)) != -1) {
+  while ((opt = getopt_long(argc, argv, "-:", long_options, &option_index)) != -1) {
     switch (opt) {
       case ':': {
         // The parsed option has missing argument
@@ -52,69 +53,31 @@ void SequentialConfig::parse_args(int argc, char** argv)
   }
 
   // Reset getopt state for second pass in the future
-  optind = 1;
+  optind = 0;
 }
 
-void SequentialConfig::print_usage(std::string const& program_name)
+void KvikIOSequentialConfig::print_usage(std::string const& program_name)
 {
   Config::print_usage(program_name);
 }
 
-SequentialBenchmark::SequentialBenchmark(SequentialConfig config) : Benchmark(std::move(config))
+KvikIOSequentialBenchmark::KvikIOSequentialBenchmark(KvikIOSequentialConfig const& config)
+  : Benchmark(config)
 {
   for (auto const& filepath : _config.filepaths) {
-    // Initialize buffer
-    void* buf{};
-
-    if (_config.use_gpu_buffer) {
-      KVIKIO_CHECK_CUDA(cudaSetDevice(_config.gpu_index));
-      if (_config.align_buffer) {
-        CudaPageAlignedDeviceAllocator alloc;
-        buf = alloc.allocate(_config.num_bytes);
-      } else {
-        KVIKIO_CHECK_CUDA(cudaMalloc(&buf, _config.num_bytes));
-      }
-    } else {
-      if (_config.align_buffer) {
-        kvikio::PageAlignedAllocator alloc;
-        buf = alloc.allocate(_config.num_bytes);
-      } else {
-        buf = std::malloc(_config.num_bytes);
-      }
-    }
-
-    _bufs.push_back(buf);
-
-    // Initialize file
-    // Create the file if the overwrite flag is on, or if the file does not exist.
-    if (_config.overwrite_file || access(filepath.c_str(), F_OK) != 0) {
-      kvikio::FileHandle file_handle(filepath, "w", kvikio::FileHandle::m644);
-      auto fut = file_handle.pwrite(buf, _config.num_bytes);
-      fut.get();
-    }
+    _bufs.emplace_back(std::make_unique<Buffer<KvikIOSequentialConfig>>(_config));
+    create_file(_config, filepath, *_bufs.back());
   }
 }
 
-SequentialBenchmark::~SequentialBenchmark()
-{
-  for (auto&& buf : _bufs) {
-    if (_config.use_gpu_buffer) {
-      if (_config.align_buffer) {
-      } else {
-        KVIKIO_CHECK_CUDA(cudaFree(buf));
-      }
-    } else {
-      std::free(buf);
-    }
-  }
-}
+KvikIOSequentialBenchmark::~KvikIOSequentialBenchmark() {}
 
-void SequentialBenchmark::initialize_impl()
+void KvikIOSequentialBenchmark::initialize_impl()
 {
   _file_handles.clear();
 
   for (auto const& filepath : _config.filepaths) {
-    auto p = std::make_unique<kvikio::FileHandle>(filepath, "r");
+    auto p = std::make_unique<FileHandle>(filepath, "r");
 
     if (_config.o_direct) {
       auto file_status_flags = fcntl(p->fd(), F_GETFL);
@@ -126,23 +89,19 @@ void SequentialBenchmark::initialize_impl()
   }
 }
 
-void SequentialBenchmark::cleanup_impl()
+void KvikIOSequentialBenchmark::cleanup_impl()
 {
   for (auto&& file_handle : _file_handles) {
     file_handle->close();
   }
 }
 
-void SequentialBenchmark::run_target_impl()
+void KvikIOSequentialBenchmark::run_target_impl()
 {
   std::vector<std::future<std::size_t>> futs;
 
   for (std::size_t i = 0; i < _file_handles.size(); ++i) {
-    auto& file_handle = _file_handles[i];
-    auto* buf         = _bufs[i];
-
-    std::future<std::size_t> fut;
-    fut = file_handle->pread(buf, _config.num_bytes);
+    auto fut = _file_handles[i]->pread(_bufs[i]->data(), _config.num_bytes);
     futs.push_back(std::move(fut));
   }
 
@@ -151,7 +110,88 @@ void SequentialBenchmark::run_target_impl()
   }
 }
 
-std::size_t SequentialBenchmark::nbytes_impl()
+std::size_t KvikIOSequentialBenchmark::nbytes_impl()
+{
+  return _config.num_bytes * _config.filepaths.size();
+}
+
+void CuFileSequentialConfig::parse_args(int argc, char** argv)
+{
+  Config::parse_args(argc, argv);
+  static option long_options[] = {
+    {0, 0, 0, 0}  // Sentinel to mark the end of the array. Needed by getopt_long()
+
+  };
+
+  int opt{0};
+  int option_index{-1};
+
+  while ((opt = getopt_long(argc, argv, "-:", long_options, &option_index)) != -1) {
+    switch (opt) {
+      case ':': {
+        // The parsed option has missing argument
+        std::stringstream ss;
+        ss << "Missing argument for option " << argv[optind - 1] << " (-"
+           << static_cast<char>(optopt) << ")";
+        throw std::runtime_error(ss.str());
+        break;
+      }
+      default: {
+        // Unknown option is deferred to subsequent parsing, if any
+        break;
+      }
+    }
+  }
+
+  // Reset getopt state for second pass in the future
+  optind = 0;
+}
+
+void CuFileSequentialConfig::print_usage(std::string const& program_name)
+{
+  Config::print_usage(program_name);
+}
+
+CuFileSequentialBenchmark::CuFileSequentialBenchmark(CuFileSequentialConfig const& config)
+  : Benchmark(config)
+{
+  for (auto const& filepath : _config.filepaths) {
+    _bufs.emplace_back(std::make_unique<Buffer<CuFileSequentialConfig>>(_config));
+    create_file(_config, filepath, *_bufs.back());
+  }
+}
+
+CuFileSequentialBenchmark::~CuFileSequentialBenchmark() {}
+
+void CuFileSequentialBenchmark::initialize_impl()
+{
+  _file_handles.clear();
+
+  for (auto const& filepath : _config.filepaths) {
+    auto o_direct = _config.o_direct;
+    auto p        = std::make_unique<CuFileHandle>(filepath, "r", o_direct, FileHandle::m644);
+    _file_handles.push_back(std::move(p));
+  }
+}
+
+void CuFileSequentialBenchmark::cleanup_impl()
+{
+  for (auto&& file_handle : _file_handles) {
+    file_handle->close();
+  }
+}
+
+void CuFileSequentialBenchmark::run_target_impl()
+{
+  for (std::size_t i = 0; i < _file_handles.size(); ++i) {
+    off_t file_offset{0};
+    off_t dev_ptr_offset{0};
+    cuFileAPI::instance().Read(
+      _file_handles[i]->handle(), _bufs[i]->data(), _config.num_bytes, file_offset, dev_ptr_offset);
+  }
+}
+
+std::size_t CuFileSequentialBenchmark::nbytes_impl()
 {
   return _config.num_bytes * _config.filepaths.size();
 }
@@ -160,10 +200,19 @@ std::size_t SequentialBenchmark::nbytes_impl()
 int main(int argc, char* argv[])
 {
   try {
-    kvikio::benchmark::SequentialConfig config;
-    config.parse_args(argc, argv);
-    kvikio::benchmark::SequentialBenchmark bench(std::move(config));
-    bench.run();
+    auto backend = kvikio::benchmark::parse_backend(argc, argv);
+
+    if (backend == kvikio::benchmark::Backend::FILEHANDLE) {
+      kvikio::benchmark::KvikIOSequentialConfig config;
+      config.parse_args(argc, argv);
+      kvikio::benchmark::KvikIOSequentialBenchmark bench(config);
+      bench.run();
+    } else {
+      kvikio::benchmark::CuFileSequentialConfig config;
+      config.parse_args(argc, argv);
+      kvikio::benchmark::CuFileSequentialBenchmark bench(config);
+      bench.run();
+    }
   } catch (std::exception const& e) {
     std::cerr << "Error: " << e.what() << std::endl;
     return 1;

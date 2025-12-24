@@ -10,10 +10,28 @@
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>
-#include "kvikio/detail/utils.hpp"
-#include "kvikio/utils.hpp"
+
+#include <kvikio/detail/utils.hpp>
 
 namespace kvikio::benchmark {
+
+Backend parse_backend(std::string const& str)
+{
+  if (str.empty()) { throw std::invalid_argument("Empty size string"); }
+
+  // Normalize to lowercase for case-insensitive comparison
+  auto backend{str};
+  std::transform(backend.begin(), backend.end(), backend.begin(), [](unsigned char c) {
+    return std::tolower(c);
+  });
+  if (backend == "filehandle") {
+    return Backend::FILEHANDLE;
+  } else if (backend == "cufile") {
+    return Backend::CUFILE;
+  } else {
+    throw std::invalid_argument("Invalid flag: '" + str + "' (use \"FileHandle\", \"cuFile\") ");
+  }
+}
 
 std::size_t parse_size(std::string const& str)
 {
@@ -87,6 +105,44 @@ bool parse_flag(std::string const& str)
   }
 }
 
+Backend parse_backend(int argc, char** argv)
+{
+  constexpr int BACKEND = 1000;
+  Backend result{FILEHANDLE};
+  static option long_options[] = {
+    {"backend", required_argument, nullptr, BACKEND}, {0, 0, 0, 0}
+    // Sentinel to mark the end of the array. Needed by getopt_long()
+  };
+
+  int opt{0};
+  int option_index{-1};
+  while ((opt = getopt_long(argc, argv, "-:", long_options, &option_index)) != -1) {
+    switch (opt) {
+      case BACKEND: {
+        result = parse_backend(optarg);
+        break;
+      }
+      case ':': {
+        // The parsed option has missing argument
+        std::stringstream ss;
+        ss << "Missing argument for option " << argv[optind - 1] << " (-"
+           << static_cast<char>(optopt) << ")";
+        throw std::runtime_error(ss.str());
+        break;
+      }
+      default: {
+        // Unknown option is deferred to subsequent parsing, if any
+        break;
+      }
+    }
+  }
+
+  // Reset getopt state for second pass in the future
+  optind = 0;
+
+  return result;
+}
+
 void Config::parse_args(int argc, char** argv)
 {
   enum LongOnlyOpts {
@@ -121,7 +177,7 @@ void Config::parse_args(int argc, char** argv)
   // and its processing is deferred.
   // - "f:" means option "-f" takes an argument
   // - "c" means option "-c" does not take an argument
-  while ((opt = getopt_long(argc, argv, ":f:s:t:g:d:r:w:h", long_options, &option_index)) != -1) {
+  while ((opt = getopt_long(argc, argv, "-:f:s:t:g:d:r:w:h", long_options, &option_index)) != -1) {
     switch (opt) {
       case 'f': {
         filepaths.push_back(optarg);
@@ -191,7 +247,7 @@ void Config::parse_args(int argc, char** argv)
   if (filepaths.empty()) { throw std::invalid_argument("--file is required"); }
 
   // Reset getopt state for second pass in the future
-  optind = 1;
+  optind = 0;
 }
 
 void Config::print_usage(std::string const& program_name)
@@ -220,10 +276,27 @@ void* CudaPageAlignedDeviceAllocator::allocate(std::size_t size)
   auto const page_size = get_page_size();
   auto const up_size   = size + page_size;
   KVIKIO_CHECK_CUDA(cudaMalloc(&buffer, up_size));
-  auto* aligned_buffer = kvikio::detail::align_up(buffer, page_size);
+  auto* aligned_buffer = detail::align_up(buffer, page_size);
   return aligned_buffer;
 }
 
 void CudaPageAlignedDeviceAllocator::deallocate(void* buffer, std::size_t /*size*/) {}
+
+CuFileHandle::CuFileHandle(std::string const& file_path,
+                           std::string const& flags,
+                           bool o_direct,
+                           mode_t mode)
+  : _file_wrapper(file_path, flags, o_direct, mode)
+{
+  _cufile_handle_wrapper.register_handle(_file_wrapper.fd());
+}
+
+void CuFileHandle::close()
+{
+  _cufile_handle_wrapper.unregister_handle();
+  _file_wrapper.close();
+}
+
+CUfileHandle_t CuFileHandle::handle() const noexcept { return _cufile_handle_wrapper.handle(); }
 
 }  // namespace kvikio::benchmark
