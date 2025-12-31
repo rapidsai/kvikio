@@ -111,7 +111,7 @@ outputs:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
     about:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license }}
       summary: ${{ load_from_file("python/libkvikio/pyproject.toml").project.description }}
 
   - package:
@@ -146,5 +146,5 @@ outputs:
           - libcufile
     about:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license }}
       summary: libkvikio tests
