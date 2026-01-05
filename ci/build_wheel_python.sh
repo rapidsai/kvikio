@@ -26,3 +26,9 @@ python -m auditwheel repair \
     ${package_dir}/dist/*
 
 ./ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
+
+# Only use stable ABI package naming for Python >= 3.11
+if [[ "${RAPIDS_PY_VERSION}" != "3.10" ]]; then
+  RAPIDS_PACKAGE_NAME="$(rapids-package-name wheel_python kvikio --stable --cuda)"
+  export RAPIDS_PACKAGE_NAME
+fi
