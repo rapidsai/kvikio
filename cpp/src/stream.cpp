@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -91,5 +91,12 @@ StreamFuture::~StreamFuture() noexcept
     std::free(_val);
   }
 }
+
+void stream_register(CUstream stream, unsigned flags)
+{
+  cuFileAPI::instance().StreamRegister(stream, flags);
+}
+
+void stream_deregister(CUstream stream) { cuFileAPI::instance().StreamDeregister(stream); }
 
 }  // namespace kvikio

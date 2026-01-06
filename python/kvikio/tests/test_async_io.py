@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -60,3 +60,11 @@ def test_read_write(tmp_path, size):
     )
     cupy.testing.assert_array_equal(a, b)
     cupy.testing.assert_array_equal(a, c)
+
+
+@pytest.mark.cufile
+def test_stream_register_deregister(tmp_path):
+    stream = cupy.cuda.Stream()
+    flags = 0x0F
+    kvikio.stream_register(stream.ptr, flags)
+    kvikio.stream_deregister(stream.ptr)
