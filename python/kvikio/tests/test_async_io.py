@@ -64,7 +64,20 @@ def test_read_write(tmp_path, size):
 
 @pytest.mark.cufile
 def test_stream_register_deregister(tmp_path):
+    filename = tmp_path / "test-file"
+
     stream = cupy.cuda.Stream()
     flags = 0x0F
     kvikio.stream_register(stream.ptr, flags)
+
+    a = cupy.arange(1024 * 1024)
+    with kvikio.CuFile(filename, "w") as f:
+        future_stream = f.raw_write_async(a, stream.ptr)
+        assert future_stream.check_bytes_done() == a.nbytes
+
+    b = cupy.empty_like(a)
+    with kvikio.CuFile(filename, "r") as f:
+        future_stream = f.raw_read_async(b, stream.ptr)
+        assert future_stream.check_bytes_done() == a.nbytes
+
     kvikio.stream_deregister(stream.ptr)
