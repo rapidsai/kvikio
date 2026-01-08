@@ -4,8 +4,6 @@
 # distutils: language = c++
 # cython: language_level=3
 
-from libc.stdint cimport uintptr_t
-
 
 cdef extern from "cuda.h":
     ctypedef void* CUstream
@@ -16,14 +14,14 @@ cdef extern from "<kvikio/stream.hpp>" nogil:
     void cpp_stream_deregister "kvikio::stream_deregister"(CUstream stream) except +
 
 
-def stream_register(stream: uintptr_t, flags: int) -> None:
+def stream_register(stream: int, flags: int) -> None:
     cdef CUstream cpp_stream = <CUstream>stream
     cdef unsigned int cpp_flags = flags
     with nogil:
         cpp_stream_register(cpp_stream, cpp_flags)
 
 
-def stream_deregister(stream) -> None:
+def stream_deregister(stream: int) -> None:
     cdef CUstream cpp_stream = <CUstream>stream
     with nogil:
         cpp_stream_deregister(cpp_stream)
