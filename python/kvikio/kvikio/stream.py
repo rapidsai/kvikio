@@ -19,7 +19,7 @@ def stream_register(stream: int, flags: int) -> None:
     stream_module.stream_register(stream, flags)
 
 
-def stream_deregister(stream) -> None:
+def stream_deregister(stream: int) -> None:
     """Deregisters the CUDA stream from the cuFile subsystem.
 
     Parameters
