@@ -5,6 +5,7 @@ import os
 
 import cupy
 import pytest
+import utils
 
 import kvikio
 import kvikio.defaults
@@ -64,20 +65,22 @@ def test_read_write(tmp_path, size):
 
 @pytest.mark.cufile
 def test_stream_register_deregister(tmp_path):
+    """Test the Python API for cuFile stream register and deregister"""
     filename = tmp_path / "test-file"
 
     stream = cupy.cuda.Stream()
     flags = 0x0F
     kvikio.stream_register(stream.ptr, flags)
 
-    a = cupy.arange(1024 * 1024)
+    ref = utils.arange_page_aligned(1024 * 1024)
     with kvikio.CuFile(filename, "w") as f:
-        future_stream = f.raw_write_async(a, stream.ptr)
-        assert future_stream.check_bytes_done() == a.nbytes
+        future_stream = f.raw_write_async(ref, stream.ptr)
+        assert future_stream.check_bytes_done() == ref.nbytes
 
-    b = cupy.empty_like(a)
+    dev_buf = utils.empty_page_aligned(ref.shape)
     with kvikio.CuFile(filename, "r") as f:
-        future_stream = f.raw_read_async(b, stream.ptr)
-        assert future_stream.check_bytes_done() == a.nbytes
+        future_stream = f.raw_read_async(dev_buf, stream.ptr)
+        assert future_stream.check_bytes_done() == ref.nbytes
+    assert cupy.array_equal(dev_buf, ref)
 
     kvikio.stream_deregister(stream.ptr)
