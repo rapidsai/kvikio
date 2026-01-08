@@ -29,10 +29,13 @@ def empty_page_aligned(
 
     Parameters
     ----------
-    shape: Shape of the array. Can be an integer for 1D arrays or a tuple of integers
+    shape: int or tuple of ints
+        Shape of the array. Can be an integer for 1D arrays or a tuple of integers
         for multi-dimensional arrays.
-    dtype: Data type of the array elements. Defaults to ``cupy.float64``.
-    page_size: Page size in bytes. Defaults to 4096 (4KB).
+    dtype: npt.DTypeLike
+        Data type of the array elements. Defaults to ``cupy.float64``.
+    page_size: int
+        Page size in bytes. Defaults to 4096 (4KB).
 
     Returns
     -------
@@ -59,15 +62,19 @@ def arange_page_aligned(
 
     Parameters
     ----------
-    stop: Number of elements. The array will contain values from 0 to ``stop - 1``
+    stop: int
+        Number of elements. The array will contain values from 0 to ``stop - 1``
         (exclusive upper bound).
-    dtype: Data type of the array elements. Defaults to ``cupy.float64``.
-    page_size: Page size in bytes. Defaults to 4096 (4KB).
+    dtype: npt.DTypeLike
+        Data type of the array elements. Defaults to ``cupy.float64``.
+    page_size: int
+        Page size in bytes. Defaults to 4096 (4KB).
 
     Returns
     -------
     A CuPy array with values ``[0, 1, ..., stop-1]`` and page-aligned underlying memory.
     """
-    arr = empty_page_aligned(stop, dtype=dtype, page_size=page_size)
-    arr[:] = cupy.arange(stop, dtype=dtype)
-    return arr
+    arr_aligned = empty_page_aligned(stop, dtype=dtype, page_size=page_size)
+    arr_unaligned = cupy.arange(stop, dtype=dtype)
+    cupy.copyto(arr_aligned, arr_unaligned)
+    return arr_aligned

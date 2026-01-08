@@ -67,20 +67,21 @@ def test_read_write(tmp_path, size):
 def test_stream_register_deregister(tmp_path):
     """Test the Python API for cuFile stream register and deregister"""
     filename = tmp_path / "test-file"
-
     stream = cupy.cuda.Stream()
-    flags = 0x0F
-    kvikio.stream_register(stream.ptr, flags)
+    flags_list = [0x00, 0x01, 0x02, 0x04, 0x08, 0x0F]
 
-    ref = utils.arange_page_aligned(1024 * 1024)
-    with kvikio.CuFile(filename, "w") as f:
-        future_stream = f.raw_write_async(ref, stream.ptr)
-        assert future_stream.check_bytes_done() == ref.nbytes
+    for flags in flags_list:
+        kvikio.stream_register(stream.ptr, flags)
 
-    dev_buf = utils.empty_page_aligned(ref.shape)
-    with kvikio.CuFile(filename, "r") as f:
-        future_stream = f.raw_read_async(dev_buf, stream.ptr)
-        assert future_stream.check_bytes_done() == ref.nbytes
-    assert cupy.array_equal(dev_buf, ref)
+        ref = utils.arange_page_aligned(1024 * 1024)
+        with kvikio.CuFile(filename, "w") as f:
+            future_stream = f.raw_write_async(ref, stream.ptr)
+            assert future_stream.check_bytes_done() == ref.nbytes
 
-    kvikio.stream_deregister(stream.ptr)
+        dev_buf = utils.empty_page_aligned(ref.shape)
+        with kvikio.CuFile(filename, "r") as f:
+            future_stream = f.raw_read_async(dev_buf, stream.ptr)
+            assert future_stream.check_bytes_done() == ref.nbytes
+        assert cupy.array_equal(dev_buf, ref)
+
+        kvikio.stream_deregister(stream.ptr)
