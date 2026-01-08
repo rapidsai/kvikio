@@ -4,7 +4,7 @@
 from kvikio._lib import stream as stream_module  # type: ignore
 
 
-def stream_register(stream, flags: int) -> None:
+def stream_register(stream: int, flags: int) -> None:
     """Registers the CUDA stream to the cuFile subsystem.
 
     Parameters
