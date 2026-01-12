@@ -94,9 +94,14 @@ StreamFuture::~StreamFuture() noexcept
 
 void stream_register(CUstream stream, unsigned flags)
 {
+  KVIKIO_NVTX_FUNC_RANGE();
   cuFileAPI::instance().StreamRegister(stream, flags);
 }
 
-void stream_deregister(CUstream stream) { cuFileAPI::instance().StreamDeregister(stream); }
+void stream_deregister(CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  cuFileAPI::instance().StreamDeregister(stream);
+}
 
 }  // namespace kvikio
