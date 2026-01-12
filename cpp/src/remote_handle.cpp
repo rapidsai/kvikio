@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -21,6 +21,7 @@
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/remote_handle.hpp>
+#include <kvikio/detail/remote_handle_poll_based.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
@@ -815,6 +816,16 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);
+
+  auto const remote_backend =
+    kvikio::getenv_or<std::string>("KVIKIO_REMOTE_BACKEND", "LIBCURL_EASY");
+  if (remote_backend == "LIBCURL_POLL_BASED") {
+    return std::async(std::launch::async, [&, this]() -> std::size_t {
+      detail::RemoteHandlePollBased poll_handle(_endpoint->str());
+      return poll_handle.pread(buf, size, file_offset);
+    });
+  }
+
   auto task = [this](void* devPtr_base,
                      std::size_t size,
                      std::size_t file_offset,

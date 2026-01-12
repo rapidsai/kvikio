@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <utility>
@@ -15,6 +16,7 @@
 #include <kvikio/remote_handle.hpp>
 
 #include "utils/env.hpp"
+#include "utils/utils.hpp"
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
@@ -277,4 +279,23 @@ TEST_F(RemoteHandleTest, test_open)
                   ThrowsMessage<std::runtime_error>(HasSubstr("Invalid URL")));
     }
   }
+}
+
+TEST_F(RemoteHandleTest, poll_based)
+{
+  auto const url = kvikio::getenv_or<std::string>("KVIKIO_REMOTE_URL", "");
+
+  auto endpoint = std::make_unique<kvikio::S3Endpoint>(url);
+  //   auto endpoint = std::make_unique<kvikio::HttpEndpoint>(url);
+
+  kvikio::RemoteHandle remote_handle(std::move(endpoint));
+
+  kvikio::test::DevBuffer<double> dev_buf(remote_handle.nbytes() / sizeof(double));
+  auto fut            = remote_handle.pread(dev_buf.ptr, remote_handle.nbytes());
+  auto num_bytes_read = fut.get();
+
+  EXPECT_EQ(num_bytes_read, remote_handle.nbytes());
+  auto host_buf = dev_buf.to_vector();
+  std::cout << std::fixed << "d[0]: " << host_buf.front() << ", d[n-1]: " << host_buf.back()
+            << "\n";
 }
