@@ -8,7 +8,8 @@
 
 namespace kvikio::detail {
 
-RemoteHandlePollBased::RemoteHandlePollBased(std::string const& url) : _url{url}
+RemoteHandlePollBased::RemoteHandlePollBased(std::string const& url, std::size_t num_conns)
+  : _url{url}, _num_conns{num_conns}
 {
   _multi = curl_multi_init();
   KVIKIO_EXPECT(_multi != nullptr, "Failed to initialize libcurl multi API");

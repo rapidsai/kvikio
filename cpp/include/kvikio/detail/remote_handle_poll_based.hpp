@@ -24,7 +24,7 @@ inline void check_curl_multi(CURLMcode err_code, char const* filename, int line_
 
 class RemoteHandlePollBased {
  public:
-  RemoteHandlePollBased(std::string const& url);
+  RemoteHandlePollBased(std::string const& url, std::size_t num_conns = 8);
 
   ~RemoteHandlePollBased();
 
@@ -33,6 +33,6 @@ class RemoteHandlePollBased {
  private:
   CURLM* _multi;
   std::string _url;
-  std::size_t _num_conns{8};
+  std::size_t _num_conns;
 };
 }  // namespace kvikio::detail
