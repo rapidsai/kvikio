@@ -190,6 +190,20 @@ std::size_t BounceBufferPool<Allocator>::clear()
 }
 
 template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::num_free_buffers() const
+{
+  std::lock_guard const lock(_mutex);
+  return _free_buffers.size();
+}
+
+template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::buffer_size() const
+{
+  std::lock_guard const lock(_mutex);
+  return _buffer_size;
+}
+
+template <typename Allocator>
 BounceBufferPool<Allocator>& BounceBufferPool<Allocator>::instance()
 {
   KVIKIO_NVTX_FUNC_RANGE();

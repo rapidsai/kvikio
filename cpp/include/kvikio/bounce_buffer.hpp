@@ -212,6 +212,10 @@ class BounceBufferPool {
    */
   std::size_t clear();
 
+  std::size_t num_free_buffers() const;
+
+  std::size_t buffer_size() const;
+
   /**
    * @brief Get the singleton instance of the pool
    *
