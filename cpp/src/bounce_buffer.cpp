@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -73,25 +73,53 @@ template <typename Allocator>
 BounceBufferPool<Allocator>::Buffer::~Buffer() noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  _pool->put(_buffer, _size);
+  if (_buffer) {
+    // Only return to the pool if not moved-from
+    _pool->put(_buffer, _size);
+  }
 }
 
 template <typename Allocator>
-void* BounceBufferPool<Allocator>::Buffer::get() noexcept
+BounceBufferPool<Allocator>::Buffer::Buffer(Buffer&& o) noexcept
+  : _pool(std::exchange(o._pool, nullptr)),
+    _buffer(std::exchange(o._buffer, nullptr)),
+    _size(std::exchange(o._size, 0))
+{
+}
+
+template <typename Allocator>
+BounceBufferPool<Allocator>::Buffer& BounceBufferPool<Allocator>::Buffer::operator=(
+  Buffer&& o) noexcept
+{
+  if (this != &o) {
+    if (_buffer) {
+      // Return current buffer to the pool
+      _pool->put(_buffer, _size);
+    }
+    _pool   = std::exchange(o._pool, nullptr);
+    _buffer = std::exchange(o._buffer, nullptr);
+    _size   = std::exchange(o._size, 0);
+  }
+
+  return *this;
+}
+
+template <typename Allocator>
+void* BounceBufferPool<Allocator>::Buffer::get() const noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
   return _buffer;
 }
 
 template <typename Allocator>
-void* BounceBufferPool<Allocator>::Buffer::get(std::ptrdiff_t offset) noexcept
+void* BounceBufferPool<Allocator>::Buffer::get(std::ptrdiff_t offset) const noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
   return static_cast<char*>(_buffer) + offset;
 }
 
 template <typename Allocator>
-std::size_t BounceBufferPool<Allocator>::Buffer::size() noexcept
+std::size_t BounceBufferPool<Allocator>::Buffer::size() const noexcept
 {
   return _size;
 }
@@ -159,6 +187,20 @@ std::size_t BounceBufferPool<Allocator>::clear()
   KVIKIO_NVTX_FUNC_RANGE();
   std::lock_guard const lock(_mutex);
   return _clear();
+}
+
+template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::num_free_buffers() const
+{
+  std::lock_guard const lock(_mutex);
+  return _free_buffers.size();
+}
+
+template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::buffer_size() const
+{
+  std::lock_guard const lock(_mutex);
+  return _buffer_size;
 }
 
 template <typename Allocator>
