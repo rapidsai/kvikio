@@ -212,8 +212,23 @@ class BounceBufferPool {
    */
   std::size_t clear();
 
+  /**
+   * @brief Get the number of free buffers currently available in the pool
+   *
+   * Returns the count of buffers that have been returned to the pool and are ready for reuse.
+   *
+   * @return The number of buffers available for reuse
+   */
   std::size_t num_free_buffers() const;
 
+  /**
+   * @brief Get the current buffer size used by the pool
+   *
+   * Returns the size of buffers currently managed by the pool. This reflects the value of
+   * `defaults::bounce_buffer_size()` as of the last pool operation.
+   *
+   * @return The size in bytes of each buffer in the pool
+   */
   std::size_t buffer_size() const;
 
   /**
