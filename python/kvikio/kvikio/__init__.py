@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # If libkvikio was installed as a wheel, we must request it to load the library symbols.
@@ -17,6 +17,7 @@ from kvikio._version import __git_commit__, __version__
 from kvikio.cufile import CuFile, clear_page_cache, get_page_cache_info
 from kvikio.mmap import Mmap
 from kvikio.remote_file import RemoteEndpointType, RemoteFile, is_remote_file_available
+from kvikio.stream import stream_deregister, stream_register
 
 __all__ = [
     "__git_commit__",
@@ -28,4 +29,6 @@ __all__ = [
     "is_remote_file_available",
     "RemoteEndpointType",
     "RemoteFile",
+    "stream_register",
+    "stream_deregister",
 ]
