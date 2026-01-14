@@ -104,6 +104,8 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
 {
   if (size == 0) return 0;
 
+  std::lock_guard lock{_mutex};
+
   bool const is_host_mem            = is_host_memory(buf);
   auto const chunk_size             = defaults::task_size();
   auto const num_chunks             = (size + chunk_size - 1) / chunk_size;

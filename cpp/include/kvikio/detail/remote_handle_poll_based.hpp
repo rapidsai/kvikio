@@ -46,18 +46,19 @@ struct TransferContext {
 };
 
 class RemoteHandlePollBased {
- public:
-  RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections);
-
-  ~RemoteHandlePollBased();
-
-  std::size_t pread(void* buf, std::size_t size, std::size_t file_offset = 0);
-
  private:
   CURLM* _multi;
   std::size_t _max_connections;
   std::vector<std::unique_ptr<CurlHandle>> _curl_easy_handles;
   std::vector<TransferContext> _transfer_ctxs;
   RemoteEndpoint* _endpoint;
+  mutable std::mutex _mutex;
+
+ public:
+  RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections);
+
+  ~RemoteHandlePollBased();
+
+  std::size_t pread(void* buf, std::size_t size, std::size_t file_offset = 0);
 };
 }  // namespace kvikio::detail

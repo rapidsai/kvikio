@@ -663,6 +663,10 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t
   : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
 {
   KVIKIO_NVTX_FUNC_RANGE();
+  if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
+    _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
+      _endpoint.get(), defaults::remote_max_connections());
+  }
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
@@ -670,12 +674,17 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   KVIKIO_NVTX_FUNC_RANGE();
   _nbytes   = endpoint->get_file_size();
   _endpoint = std::move(endpoint);
+  if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
+    _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
+      _endpoint.get(), defaults::remote_max_connections());
+  }
 }
 
-RemoteHandle::~RemoteHandle() = default;
-
-RemoteHandle::RemoteHandle(RemoteHandle&& o) = default;
-
+// Destructor and move operations must be defined in the .cpp file (not defaulted in the header)
+// because RemoteHandle uses std::unique_ptr<RemoteHandlePollBased> with a forward-declared type.
+// The unique_ptr's deleter requires the complete type definition, which is only available here.
+RemoteHandle::~RemoteHandle()                           = default;
+RemoteHandle::RemoteHandle(RemoteHandle&& o)            = default;
 RemoteHandle& RemoteHandle::operator=(RemoteHandle&& o) = default;
 
 RemoteEndpointType RemoteHandle::remote_endpoint_type() const noexcept
@@ -812,13 +821,10 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
-    std::call_once(_poll_handle_init_flag, [this] {
-      _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
-        _endpoint.get(), defaults::remote_max_connections());
-    });
-
+    KVIKIO_EXPECT(_poll_handle != nullptr,
+                  "Remote backend changed to LIBCURL_MULTI_POLL after RemoteHandle construction. "
+                  "The backend setting at construction time and pread call must match.");
     return thread_pool->submit_task([=, this] {
-      std::lock_guard const lock{_poll_mutex};
       KVIKIO_NVTX_SCOPED_RANGE("task_remote_multi_poll", size, nvtx_color);
       return _poll_handle->pread(buf, size, file_offset);
     });

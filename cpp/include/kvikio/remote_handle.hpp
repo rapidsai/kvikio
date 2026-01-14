@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 
@@ -305,8 +304,6 @@ class RemoteHandle {
   std::unique_ptr<RemoteEndpoint> _endpoint;
   std::size_t _nbytes;
   std::unique_ptr<detail::RemoteHandlePollBased> _poll_handle;
-  std::once_flag _poll_handle_init_flag;
-  mutable std::mutex _poll_mutex;
 
  public:
   /**
