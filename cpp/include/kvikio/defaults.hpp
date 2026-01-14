@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,6 +16,7 @@
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
+#include <kvikio/remote_backend_type.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 
@@ -48,6 +49,9 @@ bool getenv_or(std::string_view env_var_name, bool default_val);
 
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
+
+template <>
+RemoteBackendType getenv_or(std::string_view env_var_name, RemoteBackendType default_val);
 
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val);
@@ -122,6 +126,8 @@ class defaults {
   bool _auto_direct_io_read;
   bool _auto_direct_io_write;
   bool _thread_pool_per_block_device;
+  RemoteBackendType _remote_backend;
+  std::size_t _remote_max_connections;
 
   static unsigned int get_num_threads_from_env();
 
@@ -417,6 +423,14 @@ class defaults {
    * thread pool for all I/O operations.
    */
   static void set_thread_pool_per_block_device(bool flag);
+
+  [[nodiscard]] static RemoteBackendType remote_backend();
+
+  static void set_remote_backend(RemoteBackendType remote_backend);
+
+  [[nodiscard]] static std::size_t remote_max_connections();
+
+  static void set_remote_max_connections(std::size_t remote_max_connections);
 };
 
 }  // namespace kvikio

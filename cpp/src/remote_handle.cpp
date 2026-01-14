@@ -28,6 +28,7 @@
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
+#include "kvikio/remote_backend_type.hpp"
 
 namespace kvikio {
 
@@ -803,9 +804,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);
 
-  auto const remote_backend =
-    kvikio::getenv_or<std::string>("KVIKIO_REMOTE_BACKEND", "LIBCURL_EASY");
-  if (remote_backend == "LIBCURL_POLL_BASED" && is_host_memory(buf)) {
+  if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL && is_host_memory(buf)) {
     return std::async(std::launch::async, [&, this]() -> std::size_t {
       detail::RemoteHandlePollBased poll_handle(_endpoint.get());
       return poll_handle.pread(buf, size, file_offset);

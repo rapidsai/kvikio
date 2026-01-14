@@ -5,7 +5,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/remote_handle.hpp>
@@ -50,7 +49,7 @@ struct TransferContext {
 
 class RemoteHandlePollBased {
  public:
-  RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t num_conns = 8);
+  RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections = 8);
 
   ~RemoteHandlePollBased();
 
@@ -58,7 +57,7 @@ class RemoteHandlePollBased {
 
  private:
   CURLM* _multi;
-  std::size_t _num_conns;
+  std::size_t _max_connections;
   std::vector<std::unique_ptr<CurlHandle>> _curl_easy_handles;
   std::vector<TransferContext> _transfer_ctxs;
   RemoteEndpoint* _endpoint;

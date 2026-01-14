@@ -10,7 +10,7 @@
 #include <kvikio/detail/remote_handle_poll_based.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/libcurl.hpp>
-#include "kvikio/utils.hpp"
+#include <kvikio/utils.hpp>
 
 namespace kvikio::detail {
 namespace {
@@ -58,14 +58,14 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
 
 TransferContext::TransferContext() : bounce_buffer{CudaPinnedBounceBufferPool::instance().get()} {}
 
-RemoteHandlePollBased::RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t num_conns)
-  : _endpoint{endpoint}, _num_conns{num_conns}, _transfer_ctxs(_num_conns)
+RemoteHandlePollBased::RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections)
+  : _endpoint{endpoint}, _max_connections{max_connections}, _transfer_ctxs(_max_connections)
 {
   _multi = curl_multi_init();
   KVIKIO_EXPECT(_multi != nullptr, "Failed to initialize libcurl multi API");
 
-  _curl_easy_handles.reserve(_num_conns);
-  for (std::size_t i = 0; i < _num_conns; ++i) {
+  _curl_easy_handles.reserve(_max_connections);
+  for (std::size_t i = 0; i < _max_connections; ++i) {
     _curl_easy_handles.emplace_back(
       std::make_unique<CurlHandle>(kvikio::LibCurl::instance().get_handle(),
                                    kvikio::detail::fix_conda_file_path_hack(__FILE__),
@@ -99,14 +99,14 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
 
   bool const is_host_mem = is_host_memory(buf);
 
-  auto const chunk_size       = defaults::task_size();
-  auto const num_chunks       = (size + chunk_size - 1) / chunk_size;
-  auto const actual_num_conns = std::min(_num_conns, num_chunks);
+  auto const chunk_size             = defaults::task_size();
+  auto const num_chunks             = (size + chunk_size - 1) / chunk_size;
+  auto const actual_max_connections = std::min(_max_connections, num_chunks);
 
   // Prepare for the run
   std::size_t num_byte_transferred{0};
   std::size_t current_chunk_idx{0};
-  for (std::size_t i = 0; i < actual_num_conns; ++i) {
+  for (std::size_t i = 0; i < actual_max_connections; ++i) {
     reconfig_easy_handle(_curl_easy_handles[i]->handle(),
                          &_transfer_ctxs[i],
                          buf,
