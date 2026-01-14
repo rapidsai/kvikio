@@ -3,16 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/detail/remote_handle_poll_based.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/libcurl.hpp>
-#include "kvikio/bounce_buffer.hpp"
 
 namespace kvikio::detail {
 namespace {
-std::size_t callback_host_memory(char* buffer, std::size_t size, std::size_t nmemb, void* userdata)
+std::size_t callback_memory(char* buffer, std::size_t size, std::size_t nmemb, void* userdata)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto* ctx                = reinterpret_cast<TransferContext*>(userdata);
@@ -23,10 +24,32 @@ std::size_t callback_host_memory(char* buffer, std::size_t size, std::size_t nme
     return CURL_WRITEFUNC_ERROR;
   }
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
-  std::memcpy(ctx->buf + ctx->bytes_transferred, buffer, nbytes);
+  void* dst = ctx->is_host_mem ? ctx->buf : ctx->bounce_buffer.get();
+  std::memcpy(static_cast<char*>(dst) + ctx->bytes_transferred, buffer, nbytes);
   ctx->bytes_transferred += nbytes;
   return nbytes;
 }
+
+void reconfig_easy_handle(CurlHandle& curl_easy_handle,
+                          TransferContext* ctx,
+                          void* buf,
+                          bool is_host_mem,
+                          std::size_t chunk_idx,
+                          std::size_t chunk_size,
+                          std::size_t size,
+                          std::size_t offset)
+{
+  auto const local_offset      = chunk_idx * chunk_size;
+  auto const actual_chunk_size = std::min(chunk_size, size - local_offset);
+
+  ctx->overflow_error    = false;
+  ctx->is_host_mem       = is_host_mem;
+  ctx->buf               = static_cast<char*>(buf) + local_offset;
+  ctx->chunk_size        = actual_chunk_size;
+  ctx->bytes_transferred = 0;
+
+  detail::setup_range_request_impl(curl_easy_handle, offset + local_offset, actual_chunk_size);
+};
 }  // namespace
 
 TransferContext::TransferContext() : bounce_buffer{CudaPinnedBounceBufferPool::instance().get()} {}

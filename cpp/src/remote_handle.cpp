@@ -159,20 +159,6 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
 }
 
 /**
- * @brief Set up the range request for libcurl. Use this method when HTTP range request is supposed.
- *
- * @param curl A curl handle
- * @param file_offset File offset
- * @param size read size
- */
-void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size)
-{
-  std::string const byte_range =
-    std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
-  curl.setopt(CURLOPT_RANGE, byte_range.c_str());
-}
-
-/**
  * @brief Whether the given URL is compatible with the S3 endpoint (including the credential-based
  * access and presigned URL) which uses HTTP/HTTPS.
  *
@@ -254,7 +240,7 @@ std::size_t HttpEndpoint::get_file_size()
 
 void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool HttpEndpoint::is_url_valid(std::string const& url) noexcept
@@ -410,7 +396,7 @@ std::size_t S3Endpoint::get_file_size()
 void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3Endpoint::is_url_valid(std::string const& url) noexcept
@@ -457,7 +443,7 @@ void S3PublicEndpoint::setup_range_request(CurlHandle& curl,
                                            std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3PublicEndpoint::is_url_valid(std::string const& url) noexcept
@@ -553,7 +539,7 @@ void S3EndpointWithPresignedUrl::setup_range_request(CurlHandle& curl,
                                                      std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept

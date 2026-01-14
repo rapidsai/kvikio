@@ -26,7 +26,8 @@ inline void check_curl_multi(CURLMcode err_code, char const* filename, int line_
 }
 
 struct TransferContext {
-  bool overflow_error;
+  bool overflow_error{};
+  bool is_host_mem{};
   char* buf{};
   std::size_t chunk_size{};
   std::size_t bytes_transferred{};

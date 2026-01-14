@@ -1,10 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <cstring>
+
+#include <kvikio/shim/libcurl.hpp>
 
 namespace kvikio::detail {
 /**
@@ -20,4 +22,13 @@ std::size_t callback_get_string_response(char* data,
                                          std::size_t size,
                                          std::size_t num_bytes,
                                          void* userdata);
+
+/**
+ * @brief Set up the range request for libcurl. Use this method when HTTP range request is supposed.
+ *
+ * @param curl A curl handle
+ * @param file_offset File offset
+ * @param size read size
+ */
+void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size);
 }  // namespace kvikio::detail
