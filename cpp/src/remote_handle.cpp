@@ -812,12 +812,10 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
-    if (_poll_handle == nullptr) {
-      std::call_once(_poll_handle_init_flag, [this] {
-        _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
-          _endpoint.get(), defaults::remote_max_connections());
-      });
-    }
+    std::call_once(_poll_handle_init_flag, [this] {
+      _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
+        _endpoint.get(), defaults::remote_max_connections());
+    });
 
     return thread_pool->submit_task([=, this] {
       std::lock_guard const lock{_poll_mutex};
