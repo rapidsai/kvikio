@@ -42,9 +42,7 @@ struct TransferContext {
   char* buf{};
   std::size_t chunk_size{};
   std::size_t bytes_transferred{};
-  CudaPinnedBounceBufferPool::Buffer bounce_buffer;
-
-  TransferContext();
+  std::optional<CudaPinnedBounceBufferPool::Buffer> bounce_buffer;
 };
 
 class RemoteHandlePollBased {

@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-
+#include <iostream>
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
@@ -25,7 +25,7 @@ std::size_t write_callback(char* buffer, std::size_t size, std::size_t nmemb, vo
     return CURL_WRITEFUNC_ERROR;
   }
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
-  void* dst = ctx->is_host_mem ? ctx->buf : ctx->bounce_buffer.get();
+  void* dst = ctx->is_host_mem ? ctx->buf : ctx->bounce_buffer.value().get();
   std::memcpy(static_cast<char*>(dst) + ctx->bytes_transferred, buffer, nbytes);
   ctx->bytes_transferred += nbytes;
   return nbytes;
@@ -49,14 +49,16 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
   ctx->chunk_size        = actual_chunk_size;
   ctx->bytes_transferred = 0;
 
+  if (!is_host_mem && !ctx->bounce_buffer.has_value()) {
+    ctx->bounce_buffer.emplace(CudaPinnedBounceBufferPool::instance().get());
+  }
+
   std::size_t const remote_start = file_offset + local_offset;
   std::size_t const remote_end   = remote_start + actual_chunk_size - 1;
   std::string const byte_range   = std::to_string(remote_start) + "-" + std::to_string(remote_end);
   KVIKIO_CHECK_CURL_EASY(curl_easy_setopt(curl_easy_handle, CURLOPT_RANGE, byte_range.c_str()));
 };
 }  // namespace
-
-TransferContext::TransferContext() : bounce_buffer{CudaPinnedBounceBufferPool::instance().get()} {}
 
 RemoteHandlePollBased::RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections)
   : _endpoint{endpoint}, _max_connections{max_connections}, _transfer_ctxs(_max_connections)

@@ -290,12 +290,20 @@ TEST_F(RemoteHandleTest, poll_based)
 
   kvikio::RemoteHandle remote_handle(std::move(endpoint));
 
-  kvikio::test::DevBuffer<double> dev_buf(remote_handle.nbytes() / sizeof(double));
-  auto fut            = remote_handle.pread(dev_buf.ptr, remote_handle.nbytes());
+  //   kvikio::test::DevBuffer<double> dev_buf(remote_handle.nbytes() / sizeof(double));
+  //   auto fut            = remote_handle.pread(dev_buf.ptr, remote_handle.nbytes());
+  //   auto num_bytes_read = fut.get();
+
+  //   EXPECT_EQ(num_bytes_read, remote_handle.nbytes());
+  //   auto host_buf = dev_buf.to_vector();
+  //   std::cout << std::fixed << "d[0]: " << host_buf.front() << ", d[n-1]: " << host_buf.back()
+  //             << "\n";
+
+  std::vector<double> host_buf(remote_handle.nbytes() / sizeof(double));
+  auto fut            = remote_handle.pread(host_buf.data(), remote_handle.nbytes());
   auto num_bytes_read = fut.get();
 
   EXPECT_EQ(num_bytes_read, remote_handle.nbytes());
-  auto host_buf = dev_buf.to_vector();
   std::cout << std::fixed << "d[0]: " << host_buf.front() << ", d[n-1]: " << host_buf.back()
             << "\n";
 }
