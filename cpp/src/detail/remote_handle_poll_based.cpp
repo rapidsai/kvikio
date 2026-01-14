@@ -10,6 +10,7 @@
 #include <kvikio/detail/remote_handle_poll_based.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include "kvikio/utils.hpp"
 
 namespace kvikio::detail {
 namespace {
@@ -31,24 +32,24 @@ std::size_t callback_memory(char* buffer, std::size_t size, std::size_t nmemb, v
 }
 
 void reconfig_easy_handle(CurlHandle& curl_easy_handle,
-                          TransferContext* ctx,
+                          TransferContext& ctx,
                           void* buf,
                           bool is_host_mem,
-                          std::size_t chunk_idx,
+                          std::size_t current_chunk_idx,
                           std::size_t chunk_size,
                           std::size_t size,
-                          std::size_t offset)
+                          std::size_t file_offset)
 {
-  auto const local_offset      = chunk_idx * chunk_size;
+  auto const local_offset      = current_chunk_idx * chunk_size;
   auto const actual_chunk_size = std::min(chunk_size, size - local_offset);
 
-  ctx->overflow_error    = false;
-  ctx->is_host_mem       = is_host_mem;
-  ctx->buf               = static_cast<char*>(buf) + local_offset;
-  ctx->chunk_size        = actual_chunk_size;
-  ctx->bytes_transferred = 0;
+  ctx.overflow_error    = false;
+  ctx.is_host_mem       = is_host_mem;
+  ctx.buf               = static_cast<char*>(buf) + local_offset;
+  ctx.chunk_size        = actual_chunk_size;
+  ctx.bytes_transferred = 0;
 
-  detail::setup_range_request_impl(curl_easy_handle, offset + local_offset, actual_chunk_size);
+  detail::setup_range_request_impl(curl_easy_handle, file_offset + local_offset, actual_chunk_size);
 };
 }  // namespace
 
@@ -85,10 +86,26 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
 {
   if (size == 0) return 0;
 
-  std::size_t const chunk_size = defaults::task_size();
-  std::size_t num_chunks       = (size + chunk_size - 1) / chunk_size;
-  std::size_t actual_num_conns = std::min(_num_conns, num_chunks);
+  bool const is_host_mem = is_host_memory(buf);
 
-  return 123;
+  auto const chunk_size       = defaults::task_size();
+  auto const num_chunks       = (size + chunk_size - 1) / chunk_size;
+  auto const actual_num_conns = std::min(_num_conns, num_chunks);
+
+  std::size_t num_byte_transferred{0};
+  std::size_t current_chunk_idx{0};
+  for (std::size_t i = 0; i < actual_num_conns; ++i) {
+    reconfig_easy_handle(*_curl_easy_handles[i],
+                         _transfer_ctxs[i],
+                         buf,
+                         is_host_mem,
+                         current_chunk_idx++,
+                         chunk_size,
+                         size,
+                         file_offset);
+    KVIKIO_CHECK_CURL_MULTI(curl_multi_add_handle(_multi, _curl_easy_handles[i].get()));
+  }
+
+  return num_byte_transferred;
 }
 }  // namespace kvikio::detail
