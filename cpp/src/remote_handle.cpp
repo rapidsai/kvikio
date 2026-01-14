@@ -807,7 +807,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     kvikio::getenv_or<std::string>("KVIKIO_REMOTE_BACKEND", "LIBCURL_EASY");
   if (remote_backend == "LIBCURL_POLL_BASED" && is_host_memory(buf)) {
     return std::async(std::launch::async, [&, this]() -> std::size_t {
-      detail::RemoteHandlePollBased poll_handle(_endpoint->str(), _endpoint.get());
+      detail::RemoteHandlePollBased poll_handle(_endpoint.get());
       return poll_handle.pread(buf, size, file_offset);
     });
   }
