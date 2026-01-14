@@ -807,7 +807,8 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL && is_host_memory(buf)) {
     return thread_pool->submit_task([=, this] {
       KVIKIO_NVTX_SCOPED_RANGE("task (multi poll)", size, nvtx_color);
-      detail::RemoteHandlePollBased poll_handle(_endpoint.get());
+      detail::RemoteHandlePollBased poll_handle(_endpoint.get(),
+                                                defaults::remote_max_connections());
       return poll_handle.pread(buf, size, file_offset);
     });
   }

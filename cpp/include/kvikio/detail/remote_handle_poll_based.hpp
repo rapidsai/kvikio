@@ -47,7 +47,7 @@ struct TransferContext {
 
 class RemoteHandlePollBased {
  public:
-  RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections = 8);
+  RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections);
 
   ~RemoteHandlePollBased();
 
