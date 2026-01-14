@@ -2,13 +2,15 @@
  * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <iostream>
+
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/detail/remote_handle_poll_based.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
@@ -63,6 +65,9 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
 RemoteHandlePollBased::RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections)
   : _endpoint{endpoint}, _max_connections{max_connections}, _transfer_ctxs(_max_connections)
 {
+  KVIKIO_EXPECT(defaults::task_size() <= defaults::bounce_buffer_size(),
+                "bounce buffer size cannot be less than task size.");
+
   _multi = curl_multi_init();
   KVIKIO_EXPECT(_multi != nullptr, "Failed to initialize libcurl multi API");
 
@@ -99,11 +104,17 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
 {
   if (size == 0) return 0;
 
-  bool const is_host_mem = is_host_memory(buf);
-
+  bool const is_host_mem            = is_host_memory(buf);
   auto const chunk_size             = defaults::task_size();
   auto const num_chunks             = (size + chunk_size - 1) / chunk_size;
   auto const actual_max_connections = std::min(_max_connections, num_chunks);
+
+  std::optional<PushAndPopContext> cuda_ctx;
+  CUstream stream{};
+  if (!is_host_mem) {
+    cuda_ctx.emplace(get_context_from_pointer(buf));
+    stream = detail::StreamsByThread::get();
+  }
 
   // Prepare for the run
   std::size_t num_byte_transferred{0};
@@ -128,14 +139,25 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
     CURLMsg* msg;
     int msgs_left;
 
+    // Handle the completed messages
     while ((msg = curl_multi_info_read(_multi, &msgs_left))) {
       if (msg->msg != CURLMSG_DONE) continue;
 
       TransferContext* ctx{nullptr};
       KVIKIO_CHECK_CURL_EASY(curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &ctx));
 
+      KVIKIO_EXPECT(ctx != nullptr, "Failed to retrieve transfer context");
       KVIKIO_EXPECT(msg->data.result == CURLE_OK,
                     "Chunked transfer failed in poll-based multi API");
+
+      if (!is_host_mem) {
+        CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(ctx->buf),
+                                                            ctx->bounce_buffer.value().get(),
+                                                            ctx->bytes_transferred,
+                                                            stream));
+        CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+      }
+
       num_byte_transferred += ctx->bytes_transferred;
       KVIKIO_CHECK_CURL_MULTI(curl_multi_remove_handle(_multi, msg->easy_handle));
 
