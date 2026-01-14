@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -83,5 +83,22 @@ class StreamFuture {
    */
   ~StreamFuture() noexcept;
 };
+
+/**
+ * @brief Registers the CUDA stream to the cuFile subsystem.
+ *
+ * @param stream CUDA stream which queues the async I/O operations
+ * @param flags Specifies when the I/O parameters become valid (submission time or execution time)
+ * and what I/O parameters are page-aligned. For details, refer to
+ * https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html#cufilestreamregister
+ */
+void stream_register(CUstream stream, unsigned flags);
+
+/**
+ * @brief Deregisters the CUDA stream from the cuFile subsystem.
+ *
+ * @param stream CUDA stream which queues the async I/O operations
+ */
+void stream_deregister(CUstream stream);
 
 }  // namespace kvikio
