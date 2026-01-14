@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 
@@ -291,6 +292,11 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
   static bool is_url_valid(std::string const& url) noexcept;
 };
 
+// Forward declaration
+namespace detail {
+class RemoteHandlePollBased;
+}
+
 /**
  * @brief Handle of remote file.
  */
@@ -298,6 +304,9 @@ class RemoteHandle {
  private:
   std::unique_ptr<RemoteEndpoint> _endpoint;
   std::size_t _nbytes;
+  std::unique_ptr<detail::RemoteHandlePollBased> _poll_handle;
+  std::once_flag _poll_handle_init_flag;
+  mutable std::mutex _poll_mutex;
 
  public:
   /**
@@ -400,8 +409,9 @@ class RemoteHandle {
   RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint);
 
   // A remote handle is moveable but not copyable.
-  RemoteHandle(RemoteHandle&& o)               = default;
-  RemoteHandle& operator=(RemoteHandle&& o)    = default;
+  ~RemoteHandle();
+  RemoteHandle(RemoteHandle&& o);
+  RemoteHandle& operator=(RemoteHandle&& o);
   RemoteHandle(RemoteHandle const&)            = delete;
   RemoteHandle& operator=(RemoteHandle const&) = delete;
 

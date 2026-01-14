@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -25,10 +26,10 @@
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
+#include <kvikio/remote_backend_type.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
-#include "kvikio/remote_backend_type.hpp"
 
 namespace kvikio {
 
@@ -671,6 +672,12 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   _endpoint = std::move(endpoint);
 }
 
+RemoteHandle::~RemoteHandle() = default;
+
+RemoteHandle::RemoteHandle(RemoteHandle&& o) = default;
+
+RemoteHandle& RemoteHandle::operator=(RemoteHandle&& o) = default;
+
 RemoteEndpointType RemoteHandle::remote_endpoint_type() const noexcept
 {
   return _endpoint->remote_endpoint_type();
@@ -804,12 +811,18 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);
 
-  if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL && is_host_memory(buf)) {
+  if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
+    if (_poll_handle == nullptr) {
+      std::call_once(_poll_handle_init_flag, [this] {
+        _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
+          _endpoint.get(), defaults::remote_max_connections());
+      });
+    }
+
     return thread_pool->submit_task([=, this] {
-      KVIKIO_NVTX_SCOPED_RANGE("task (multi poll)", size, nvtx_color);
-      detail::RemoteHandlePollBased poll_handle(_endpoint.get(),
-                                                defaults::remote_max_connections());
-      return poll_handle.pread(buf, size, file_offset);
+      std::lock_guard const lock{_poll_mutex};
+      KVIKIO_NVTX_SCOPED_RANGE("task_remote_multi_poll", size, nvtx_color);
+      return _poll_handle->pread(buf, size, file_offset);
     });
   }
 
