@@ -3,16 +3,50 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/remote_handle_poll_based.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/shim/libcurl.hpp>
+#include "kvikio/bounce_buffer.hpp"
 
 namespace kvikio::detail {
+namespace {
+std::size_t callback_host_memory(char* buffer, std::size_t size, std::size_t nmemb, void* userdata)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto* ctx                = reinterpret_cast<TransferContext*>(userdata);
+  std::size_t const nbytes = size * nmemb;
 
-RemoteHandlePollBased::RemoteHandlePollBased(std::string const& url, std::size_t num_conns)
-  : _url{url}, _num_conns{num_conns}
+  if (ctx->chunk_size < ctx->bytes_transferred + nbytes) {
+    ctx->overflow_error = true;
+    return CURL_WRITEFUNC_ERROR;
+  }
+  KVIKIO_NVTX_FUNC_RANGE(nbytes);
+  std::memcpy(ctx->buf + ctx->bytes_transferred, buffer, nbytes);
+  ctx->bytes_transferred += nbytes;
+  return nbytes;
+}
+}  // namespace
+
+TransferContext::TransferContext() : bounce_buffer{CudaPinnedBounceBufferPool::instance().get()} {}
+
+RemoteHandlePollBased::RemoteHandlePollBased(std::string const& url,
+                                             RemoteEndpoint* endpoint,
+                                             std::size_t num_conns)
+  : _url{url}, _endpoint{endpoint}, _num_conns{num_conns}, _transfer_ctxs(_num_conns)
 {
   _multi = curl_multi_init();
   KVIKIO_EXPECT(_multi != nullptr, "Failed to initialize libcurl multi API");
+
+  for (std::size_t i = 0; i < _num_conns; ++i) {
+    _curl_easy_handles.emplace_back(
+      std::make_unique<CurlHandle>(kvikio::LibCurl::instance().get_handle(),
+                                   kvikio::detail::fix_conda_file_path_hack(__FILE__),
+                                   KVIKIO_STRINGIFY(__LINE__)));
+    _endpoint->setopt(*_curl_easy_handles.back());
+    _transfer_ctxs.emplace_back();
+  }
 }
 
 RemoteHandlePollBased::~RemoteHandlePollBased()
@@ -26,6 +60,12 @@ RemoteHandlePollBased::~RemoteHandlePollBased()
 
 std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_t file_offset)
 {
+  if (size == 0) return 0;
+
+  std::size_t const chunk_size = defaults::task_size();
+  std::size_t num_chunks       = (size + chunk_size - 1) / chunk_size;
+  std::size_t actual_num_conns = std::min(_num_conns, num_chunks);
+
   return 123;
 }
 }  // namespace kvikio::detail

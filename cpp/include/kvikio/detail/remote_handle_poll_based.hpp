@@ -4,8 +4,11 @@
  */
 #pragma once
 
+#include <memory>
 #include <string>
 
+#include <kvikio/bounce_buffer.hpp>
+#include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 
 #define KVIKIO_CHECK_CURL_MULTI(err_code) \
@@ -22,9 +25,21 @@ inline void check_curl_multi(CURLMcode err_code, char const* filename, int line_
   throw std::runtime_error(ss.str());
 }
 
+struct TransferContext {
+  bool overflow_error;
+  char* buf{};
+  std::size_t chunk_size{};
+  std::size_t bytes_transferred{};
+  CudaPinnedBounceBufferPool::Buffer bounce_buffer;
+
+  TransferContext();
+};
+
 class RemoteHandlePollBased {
  public:
-  RemoteHandlePollBased(std::string const& url, std::size_t num_conns = 8);
+  RemoteHandlePollBased(std::string const& url,
+                        RemoteEndpoint* endpoint,
+                        std::size_t num_conns = 8);
 
   ~RemoteHandlePollBased();
 
@@ -34,5 +49,8 @@ class RemoteHandlePollBased {
   CURLM* _multi;
   std::string _url;
   std::size_t _num_conns;
+  std::vector<std::unique_ptr<CurlHandle>> _curl_easy_handles;
+  std::vector<TransferContext> _transfer_ctxs;
+  RemoteEndpoint* _endpoint;
 };
 }  // namespace kvikio::detail
