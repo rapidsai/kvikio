@@ -36,13 +36,27 @@ inline void check_curl_multi(CURLMcode err_code, char const* filename, int line_
   throw std::runtime_error(ss.str());
 }
 
+class BounceBufferManager {
+ public:
+  BounceBufferManager(std::size_t num_bounce_buffers = 2);
+
+  void* data() const noexcept;
+
+  void copy(void* dst, std::size_t size, CUstream stream);
+
+ private:
+  std::size_t _bounce_buffer_idx{};
+  std::size_t _num_bounce_buffers{};
+  std::vector<CudaPinnedBounceBufferPool::Buffer> _bounce_buffers;
+};
+
 struct TransferContext {
   bool overflow_error{};
   bool is_host_mem{};
   char* buf{};
   std::size_t chunk_size{};
   std::size_t bytes_transferred{};
-  std::optional<CudaPinnedBounceBufferPool::Buffer> bounce_buffer;
+  std::optional<BounceBufferManager> _bounce_buffer_manager;
 };
 
 class RemoteHandlePollBased {

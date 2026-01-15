@@ -27,7 +27,7 @@ std::size_t write_callback(char* buffer, std::size_t size, std::size_t nmemb, vo
     return CURL_WRITEFUNC_ERROR;
   }
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
-  void* dst = ctx->is_host_mem ? ctx->buf : ctx->bounce_buffer.value().get();
+  void* dst = ctx->is_host_mem ? ctx->buf : ctx->_bounce_buffer_manager->data();
   std::memcpy(static_cast<char*>(dst) + ctx->bytes_transferred, buffer, nbytes);
   ctx->bytes_transferred += nbytes;
   return nbytes;
@@ -51,8 +51,8 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
   ctx->chunk_size        = actual_chunk_size;
   ctx->bytes_transferred = 0;
 
-  if (!is_host_mem && !ctx->bounce_buffer.has_value()) {
-    ctx->bounce_buffer.emplace(CudaPinnedBounceBufferPool::instance().get());
+  if (!is_host_mem && !ctx->_bounce_buffer_manager.has_value()) {
+    ctx->_bounce_buffer_manager.emplace();
   }
 
   std::size_t const remote_start = file_offset + local_offset;
@@ -60,78 +60,31 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
   std::string const byte_range   = std::to_string(remote_start) + "-" + std::to_string(remote_end);
   KVIKIO_CHECK_CURL_EASY(curl_easy_setopt(curl_easy_handle, CURLOPT_RANGE, byte_range.c_str()));
 }
-
-class MemcpyHelper {
- private:
-  std::size_t _max_connections;
-  std::vector<CUdeviceptr> _srcs;
-  std::vector<CUdeviceptr> _dsts;
-  std::vector<std::size_t> _sizes;
-  std::size_t _num_entries;
-  CUstream _stream;
-
-  void batch_copy_emulated()
-  {
-    for (std::size_t i = 0; i < _num_entries; ++i) {
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-        _dsts[i], reinterpret_cast<void*>(_srcs[i]), _sizes[i], _stream));
-    }
-  }
-
- public:
-  MemcpyHelper(std::size_t max_connections, CUstream stream)
-    : _max_connections{max_connections},
-      _srcs(max_connections),
-      _dsts(max_connections),
-      _sizes(max_connections),
-      _num_entries{0},
-      _stream{stream}
-  {
-  }
-
-  void reset() { _num_entries = 0; }
-
-  void register_region(void* dst, void* src, std::size_t size)
-  {
-    _dsts[_num_entries]  = convert_void2deviceptr(dst);
-    _srcs[_num_entries]  = convert_void2deviceptr(src);
-    _sizes[_num_entries] = size;
-    ++_num_entries;
-  }
-
-  void batch_copy()
-  {
-    if (_num_entries == 0) return;
-
-#if CUDA_VERSION >= 12080
-    if (cudaAPI::instance().MemcpyBatchAsync) {
-      CUmemcpyAttributes attrs{};
-      std::size_t attrs_idxs[] = {0};
-      attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-      CUDA_DRIVER_TRY(
-        cudaAPI::instance().MemcpyBatchAsync(_dsts.data(),
-                                             _srcs.data(),
-                                             _sizes.data(),
-                                             _num_entries,
-                                             &attrs,
-                                             attrs_idxs,
-                                             static_cast<std::size_t>(1) /* num_attrs */,
-#if CUDA_VERSION < 13000
-                                             static_cast<std::size_t*>(nullptr),
-#endif
-                                             _stream));
-    } else {
-      // Fall back to the conventional H2D copy if the batch copy API is not available.
-      batch_copy_emulated();
-    }
-#else
-    batch_copy_emulated();
-#endif
-
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
-  }
-};
 }  // namespace
+
+BounceBufferManager::BounceBufferManager(std::size_t num_bounce_buffers)
+  : _num_bounce_buffers{num_bounce_buffers}
+{
+  for (std::size_t i = 0; i < _num_bounce_buffers; ++i) {
+    _bounce_buffers.emplace_back(CudaPinnedBounceBufferPool::instance().get());
+  }
+}
+
+void* BounceBufferManager::data() const noexcept
+{
+  return _bounce_buffers[_bounce_buffer_idx].get();
+}
+
+void BounceBufferManager::copy(void* dst, std::size_t size, CUstream stream)
+{
+  CUDA_DRIVER_TRY(
+    cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(dst), data(), size, stream));
+  ++_bounce_buffer_idx;
+  if (_bounce_buffer_idx == _bounce_buffers.size()) {
+    _bounce_buffer_idx = 0;
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+  }
+}
 
 RemoteHandlePollBased::RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections)
   : _endpoint{endpoint}, _max_connections{max_connections}, _transfer_ctxs(_max_connections)
@@ -204,8 +157,6 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
     KVIKIO_CHECK_CURL_MULTI(curl_multi_add_handle(_multi, _curl_easy_handles[i]->handle()));
   }
 
-  MemcpyHelper memcpy_helper(actual_max_connections, stream);
-
   // Start the run
   int still_running{0};
   do {
@@ -213,7 +164,6 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
 
     CURLMsg* msg;
     int msgs_left;
-    if (!is_host_mem) { memcpy_helper.reset(); }
 
     // Handle the completed messages
     while ((msg = curl_multi_info_read(_multi, &msgs_left))) {
@@ -227,8 +177,7 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
                     "Chunked transfer failed in poll-based multi API");
 
       if (!is_host_mem) {
-        memcpy_helper.register_region(
-          ctx->buf, ctx->bounce_buffer.value().get(), ctx->bytes_transferred);
+        ctx->_bounce_buffer_manager->copy(ctx->buf, ctx->bytes_transferred, stream);
       }
 
       num_byte_transferred += ctx->bytes_transferred;
@@ -247,13 +196,14 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
       }
     }
 
-    if (!is_host_mem) { memcpy_helper.batch_copy(); }
-
     if (still_running > 0) {
       KVIKIO_CHECK_CURL_MULTI(curl_multi_poll(_multi, nullptr, 0, 1000, nullptr));
     }
 
   } while (still_running > 0);
+
+  // Ensure all H2D transfers complete before returning
+  if (!is_host_mem) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream)); }
 
   return num_byte_transferred;
 }
