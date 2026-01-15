@@ -59,6 +59,77 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
   std::size_t const remote_end   = remote_start + actual_chunk_size - 1;
   std::string const byte_range   = std::to_string(remote_start) + "-" + std::to_string(remote_end);
   KVIKIO_CHECK_CURL_EASY(curl_easy_setopt(curl_easy_handle, CURLOPT_RANGE, byte_range.c_str()));
+}
+
+class MemcpyHelper {
+ private:
+  std::size_t _max_connections;
+  std::vector<CUdeviceptr> _srcs;
+  std::vector<CUdeviceptr> _dsts;
+  std::vector<std::size_t> _sizes;
+  std::size_t _num_entries;
+  CUstream _stream;
+
+  void batch_copy_emulated()
+  {
+    for (std::size_t i = 0; i < _num_entries; ++i) {
+      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+        _dsts[i], reinterpret_cast<void*>(_srcs[i]), _sizes[i], _stream));
+    }
+  }
+
+ public:
+  MemcpyHelper(std::size_t max_connections, CUstream stream)
+    : _max_connections{max_connections},
+      _srcs(max_connections),
+      _dsts(max_connections),
+      _sizes(max_connections),
+      _num_entries{0},
+      _stream{stream}
+  {
+  }
+
+  void reset() { _num_entries = 0; }
+
+  void register_region(void* dst, void* src, std::size_t size)
+  {
+    _dsts[_num_entries]  = convert_void2deviceptr(dst);
+    _srcs[_num_entries]  = convert_void2deviceptr(src);
+    _sizes[_num_entries] = size;
+    ++_num_entries;
+  }
+
+  void batch_copy()
+  {
+    if (_num_entries == 0) return;
+
+#if CUDA_VERSION >= 12080
+    if (cudaAPI::instance().MemcpyBatchAsync) {
+      CUmemcpyAttributes attrs{};
+      std::size_t attrs_idxs[] = {0};
+      attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
+      CUDA_DRIVER_TRY(
+        cudaAPI::instance().MemcpyBatchAsync(_dsts.data(),
+                                             _srcs.data(),
+                                             _sizes.data(),
+                                             _num_entries,
+                                             &attrs,
+                                             attrs_idxs,
+                                             static_cast<std::size_t>(1) /* num_attrs */,
+#if CUDA_VERSION < 13000
+                                             static_cast<std::size_t*>(nullptr),
+#endif
+                                             _stream));
+    } else {
+      // Fall back to the conventional H2D copy if the batch copy API is not available.
+      batch_copy_emulated();
+    }
+#else
+    batch_copy_emulated();
+#endif
+
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
+  }
 };
 }  // namespace
 
@@ -106,6 +177,7 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
 
   std::lock_guard lock{_mutex};
 
+  // Prepare for the run
   bool const is_host_mem            = is_host_memory(buf);
   auto const chunk_size             = defaults::task_size();
   auto const num_chunks             = (size + chunk_size - 1) / chunk_size;
@@ -118,7 +190,6 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
     stream = detail::StreamsByThread::get();
   }
 
-  // Prepare for the run
   std::size_t num_byte_transferred{0};
   std::size_t current_chunk_idx{0};
   for (std::size_t i = 0; i < actual_max_connections; ++i) {
@@ -133,6 +204,8 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
     KVIKIO_CHECK_CURL_MULTI(curl_multi_add_handle(_multi, _curl_easy_handles[i]->handle()));
   }
 
+  MemcpyHelper memcpy_helper(actual_max_connections, stream);
+
   // Start the run
   int still_running{0};
   do {
@@ -140,6 +213,7 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
 
     CURLMsg* msg;
     int msgs_left;
+    if (!is_host_mem) { memcpy_helper.reset(); }
 
     // Handle the completed messages
     while ((msg = curl_multi_info_read(_multi, &msgs_left))) {
@@ -153,11 +227,8 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
                     "Chunked transfer failed in poll-based multi API");
 
       if (!is_host_mem) {
-        CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(ctx->buf),
-                                                            ctx->bounce_buffer.value().get(),
-                                                            ctx->bytes_transferred,
-                                                            stream));
-        CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+        memcpy_helper.register_region(
+          ctx->buf, ctx->bounce_buffer.value().get(), ctx->bytes_transferred);
       }
 
       num_byte_transferred += ctx->bytes_transferred;
@@ -175,6 +246,8 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
         KVIKIO_CHECK_CURL_MULTI(curl_multi_add_handle(_multi, msg->easy_handle));
       }
     }
+
+    if (!is_host_mem) { memcpy_helper.batch_copy(); }
 
     if (still_running > 0) {
       KVIKIO_CHECK_CURL_MULTI(curl_multi_poll(_multi, nullptr, 0, 1000, nullptr));
