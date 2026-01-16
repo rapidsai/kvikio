@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <memory>
 #include <mutex>
 #include <stack>
 
@@ -91,7 +92,7 @@ template <typename Allocator>
 BounceBufferPool<Allocator>::Buffer& BounceBufferPool<Allocator>::Buffer::operator=(
   Buffer&& o) noexcept
 {
-  if (this != &o) {
+  if (this != std::addressof(o)) {
     if (_buffer) {
       // Return current buffer to the pool
       _pool->put(_buffer, _size);
