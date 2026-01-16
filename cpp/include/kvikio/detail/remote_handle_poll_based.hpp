@@ -9,6 +9,7 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include "kvikio/detail/url.hpp"
 
 /**
  * @brief Check a libcurl easy interface return code and throw on error.
@@ -117,6 +118,7 @@ struct TransferContext {
   bool overflow_error{};
   bool is_host_mem{};
   char* buf{};
+  CurlHandle* curl_easy_handle{};
   std::size_t chunk_size{};
   std::size_t bytes_transferred{};
   std::optional<BounceBufferManager> _bounce_buffer_manager;

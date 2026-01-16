@@ -53,6 +53,7 @@ std::size_t write_callback(char* buffer, std::size_t size, std::size_t nmemb, vo
  * first use.
  *
  * @param curl_easy_handle The libcurl easy handle to reconfigure.
+ * @param endpoint Non-owning pointer to the remote endpoint. Must outlive this object.
  * @param ctx Transfer context to reset and associate with this chunk.
  * @param buf Base destination buffer pointer (host or device memory).
  * @param is_host_mem True if buf points to host memory, false for device memory.
@@ -62,7 +63,8 @@ std::size_t write_callback(char* buffer, std::size_t size, std::size_t nmemb, vo
  * @param file_offset Starting offset in the remote file for the overall read.
  * @exception std::runtime_error if setting the CURLOPT_RANGE option fails.
  */
-void reconfig_easy_handle(CURL* curl_easy_handle,
+void reconfig_easy_handle(CurlHandle& curl_easy_handle,
+                          RemoteEndpoint* endpoint,
                           TransferContext* ctx,
                           void* buf,
                           bool is_host_mem,
@@ -77,6 +79,7 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
   ctx->overflow_error    = false;
   ctx->is_host_mem       = is_host_mem;
   ctx->buf               = static_cast<char*>(buf) + local_offset;
+  ctx->curl_easy_handle  = &curl_easy_handle;
   ctx->chunk_size        = actual_chunk_size;
   ctx->bytes_transferred = 0;
 
@@ -84,10 +87,7 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
     ctx->_bounce_buffer_manager.emplace(defaults::num_bounce_buffers());
   }
 
-  std::size_t const remote_start = file_offset + local_offset;
-  std::size_t const remote_end   = remote_start + actual_chunk_size - 1;
-  std::string const byte_range   = std::to_string(remote_start) + "-" + std::to_string(remote_end);
-  KVIKIO_CHECK_CURL_EASY(curl_easy_setopt(curl_easy_handle, CURLOPT_RANGE, byte_range.c_str()));
+  endpoint->setup_range_request(curl_easy_handle, file_offset + local_offset, actual_chunk_size);
 }
 }  // namespace
 
@@ -177,7 +177,8 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
   std::size_t num_byte_transferred{0};
   std::size_t current_chunk_idx{0};
   for (std::size_t i = 0; i < actual_max_connections; ++i) {
-    reconfig_easy_handle(_curl_easy_handles[i]->handle(),
+    reconfig_easy_handle(*_curl_easy_handles[i],
+                         _endpoint,
                          &_transfer_ctxs[i],
                          buf,
                          is_host_mem,
@@ -218,7 +219,8 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
       KVIKIO_CHECK_CURL_MULTI(curl_multi_remove_handle(_multi, msg->easy_handle));
 
       if (current_chunk_idx < num_chunks) {
-        reconfig_easy_handle(msg->easy_handle,
+        reconfig_easy_handle(*ctx->curl_easy_handle,
+                             _endpoint,
                              ctx,
                              buf,
                              is_host_mem,
