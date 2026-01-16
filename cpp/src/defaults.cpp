@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 #include <BS_thread_pool.hpp>
 
@@ -16,9 +17,8 @@
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
+#include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cufile.hpp>
-#include <string_view>
-#include "kvikio/remote_handle.hpp"
 
 namespace kvikio {
 template <>
