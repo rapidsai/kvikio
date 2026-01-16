@@ -182,16 +182,18 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
                          &_transfer_ctxs[i],
                          buf,
                          is_host_mem,
-                         current_chunk_idx++,
+                         current_chunk_idx,
                          chunk_size,
                          size,
                          file_offset);
     KVIKIO_CHECK_CURL_MULTI(curl_multi_add_handle(_multi, _curl_easy_handles[i]->handle()));
+    ++current_chunk_idx;
   }
 
   // Start the run
+  std::size_t in_flight{actual_max_connections};
   int still_running{0};
-  do {
+  while (in_flight > 0) {
     KVIKIO_CHECK_CURL_MULTI(curl_multi_perform(_multi, &still_running));
 
     CURLMsg* msg;
@@ -216,6 +218,7 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
       }
 
       num_byte_transferred += ctx->bytes_transferred;
+      --in_flight;
       KVIKIO_CHECK_CURL_MULTI(curl_multi_remove_handle(_multi, msg->easy_handle));
 
       if (current_chunk_idx < num_chunks) {
@@ -224,19 +227,21 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
                              ctx,
                              buf,
                              is_host_mem,
-                             current_chunk_idx++,
+                             current_chunk_idx,
                              chunk_size,
                              size,
                              file_offset);
         KVIKIO_CHECK_CURL_MULTI(curl_multi_add_handle(_multi, msg->easy_handle));
+        ++current_chunk_idx;
+        ++in_flight;
       }
     }
 
-    if (still_running > 0) {
-      KVIKIO_CHECK_CURL_MULTI(curl_multi_poll(_multi, nullptr, 0, 1000, nullptr));
+    if (in_flight > 0) {
+      constexpr int timeout_ms{1000};
+      KVIKIO_CHECK_CURL_MULTI(curl_multi_poll(_multi, nullptr, 0, timeout_ms, nullptr));
     }
-
-  } while (still_running > 0);
+  }
 
   // Ensure all H2D transfers complete before returning
   if (!is_host_mem) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream)); }
