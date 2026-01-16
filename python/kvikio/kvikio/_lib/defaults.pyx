@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -14,6 +14,9 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
         OFF = 0
         ON = 1
         AUTO = 2
+    cpdef enum class RemoteBackendType(uint8_t):
+        LIBCURL_EASY = 0
+        LIBCURL_MULTI_POLL = 1
     bool cpp_is_compat_mode_preferred \
         "kvikio::defaults::is_compat_mode_preferred"() except +
     CompatMode cpp_compat_mode "kvikio::defaults::compat_mode"() except +
@@ -42,10 +45,19 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
         "kvikio::defaults::set_http_timeout"(long timeout_seconds) except +
     bool cpp_auto_direct_io_read "kvikio::defaults::auto_direct_io_read"() except +
     void cpp_set_auto_direct_io_read \
-        "kvikio::defaults::set_auto_direct_io_read"(size_t flag) except +
+        "kvikio::defaults::set_auto_direct_io_read"(bool flag) except +
     bool cpp_auto_direct_io_write "kvikio::defaults::auto_direct_io_write"() except +
     void cpp_set_auto_direct_io_write \
-        "kvikio::defaults::set_auto_direct_io_write"(size_t flag) except +
+        "kvikio::defaults::set_auto_direct_io_write"(bool flag) except +
+    RemoteBackendType cpp_remote_backend "kvikio::defaults::remote_backend"() except +
+    void cpp_set_remote_backend \
+        "kvikio::defaults::set_remote_backend"(RemoteBackendType remote_backend) except +
+    size_t cpp_remote_max_connections "kvikio::defaults::remote_max_connections"() except +
+    void cpp_set_remote_max_connections \
+        "kvikio::defaults::set_remote_max_connections"(size_t remote_max_connections) except +
+    size_t cpp_num_bounce_buffers "kvikio::defaults::num_bounce_buffers"() except +
+    void cpp_set_num_bounce_buffers \
+        "kvikio::defaults::set_num_bounce_buffers"(size_t num_bounce_buffers) except +
 
 
 def is_compat_mode_preferred() -> bool:
@@ -179,3 +191,42 @@ def set_auto_direct_io_write(flag: bool) -> None:
     cdef bool cpp_flag = flag
     with nogil:
         cpp_set_auto_direct_io_write(cpp_flag)
+
+
+def remote_backend() -> RemoteBackendType:
+    cdef RemoteBackendType result
+    with nogil:
+        result = cpp_remote_backend()
+    return result
+
+
+def set_remote_backend(remote_backend: RemoteBackendType) -> None:
+    cdef RemoteBackendType cpp_remote_backend = remote_backend
+    with nogil:
+        cpp_set_remote_backend(cpp_remote_backend)
+
+
+def remote_max_connections() -> int:
+    cdef size_t result
+    with nogil:
+        result = cpp_remote_max_connections()
+    return result
+
+
+def set_remote_max_connections(attempts: int) -> None:
+    cdef size_t cpp_attempts = attempts
+    with nogil:
+        cpp_set_remote_max_connections(cpp_attempts)
+
+
+def num_bounce_buffers() -> int:
+    cdef size_t result
+    with nogil:
+        result = cpp_num_bounce_buffers()
+    return result
+
+
+def set_num_bounce_buffers(attempts: int) -> None:
+    cdef size_t cpp_attempts = attempts
+    with nogil:
+        cpp_set_num_bounce_buffers(cpp_attempts)
