@@ -21,8 +21,7 @@ enum class RemoteBackendType : uint8_t {
   LIBCURL_MULTI_POLL,  ///< Use libcurl's multi interface with poll-based concurrent transfers. A
                        ///< single call manages multiple concurrent connections using
                        ///< curl_multi_poll(), with k-way buffering to overlap network I/O with
-                       ///< host-to-device transfers. This can reduce thread overhead for
-                       ///< high-connection-count scenarios.
+                       ///< host-to-device transfers.
 };
 
 }  // namespace kvikio
