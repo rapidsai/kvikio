@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -117,7 +117,7 @@ class CudaPageAlignedPinnedAllocator {
 template <typename Allocator = CudaPinnedAllocator>
 class BounceBufferPool {
  private:
-  std::mutex _mutex{};
+  mutable std::mutex _mutex{};
   // Stack of free allocations (LIFO for cache locality)
   std::stack<void*> _free_buffers{};
   // The size of each allocation in `_free_buffers`
@@ -137,18 +137,18 @@ class BounceBufferPool {
    private:
     BounceBufferPool* _pool;
     void* _buffer;
-    std::size_t const _size;
+    std::size_t _size;
 
    public:
     Buffer(BounceBufferPool<Allocator>* pool, void* buffer, std::size_t size);
     Buffer(Buffer const&)            = delete;
     Buffer& operator=(Buffer const&) = delete;
-    Buffer(Buffer&& o)               = delete;
-    Buffer& operator=(Buffer&& o)    = delete;
+    Buffer(Buffer&& o) noexcept;
+    Buffer& operator=(Buffer&& o) noexcept;
     ~Buffer() noexcept;
-    void* get() noexcept;
-    void* get(std::ptrdiff_t offset) noexcept;
-    std::size_t size() noexcept;
+    void* get() const noexcept;
+    void* get(std::ptrdiff_t offset) const noexcept;
+    std::size_t size() const noexcept;
   };
 
   BounceBufferPool() = default;
@@ -211,6 +211,25 @@ class BounceBufferPool {
    * @return The number of bytes cleared
    */
   std::size_t clear();
+
+  /**
+   * @brief Get the number of free buffers currently available in the pool
+   *
+   * Returns the count of buffers that have been returned to the pool and are ready for reuse.
+   *
+   * @return The number of buffers available for reuse
+   */
+  std::size_t num_free_buffers() const;
+
+  /**
+   * @brief Get the current buffer size used by the pool
+   *
+   * Returns the size of buffers currently managed by the pool. This reflects the value of
+   * `defaults::bounce_buffer_size()` as of the last pool operation.
+   *
+   * @return The size in bytes of each buffer in the pool
+   */
+  std::size_t buffer_size() const;
 
   /**
    * @brief Get the singleton instance of the pool
