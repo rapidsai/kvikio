@@ -128,6 +128,7 @@ class defaults {
   bool _thread_pool_per_block_device;
   RemoteBackendType _remote_backend;
   std::size_t _remote_max_connections;
+  std::size_t _num_bounce_buffers;
 
   static unsigned int get_num_threads_from_env();
 
@@ -431,6 +432,10 @@ class defaults {
   [[nodiscard]] static std::size_t remote_max_connections();
 
   static void set_remote_max_connections(std::size_t remote_max_connections);
+
+  [[nodiscard]] static std::size_t num_bounce_buffers();
+
+  static void set_num_bounce_buffers(std::size_t num_bounce_buffers);
 };
 
 }  // namespace kvikio

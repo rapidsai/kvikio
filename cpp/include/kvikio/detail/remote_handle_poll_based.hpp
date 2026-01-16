@@ -38,7 +38,7 @@ inline void check_curl_multi(CURLMcode err_code, char const* filename, int line_
 
 class BounceBufferManager {
  public:
-  BounceBufferManager(std::size_t num_bounce_buffers = 2);
+  BounceBufferManager(std::size_t num_bounce_buffers);
 
   void* data() const noexcept;
 

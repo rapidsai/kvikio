@@ -170,6 +170,13 @@ defaults::defaults()
       env > 0, "KVIKIO_REMOTE_MAX_CONNECTIONS has to be a positive integer", std::invalid_argument);
     _remote_max_connections = env;
   }
+
+  {
+    auto const env = getenv_or<ssize_t>("KVIKIO_NUM_BOUNCE_BUFFERS", 2);
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_NUM_BOUNCE_BUFFERS has to be a positive integer", std::invalid_argument);
+    _num_bounce_buffers = env;
+  }
 }
 
 defaults* defaults::instance()
@@ -287,5 +294,12 @@ std::size_t defaults::remote_max_connections() { return instance()->_remote_max_
 void defaults::set_remote_max_connections(std::size_t remote_max_connections)
 {
   instance()->_remote_max_connections = remote_max_connections;
+}
+
+std::size_t defaults::num_bounce_buffers() { return instance()->_num_bounce_buffers; }
+
+void defaults::set_num_bounce_buffers(std::size_t num_bounce_buffers)
+{
+  instance()->_num_bounce_buffers = num_bounce_buffers;
 }
 }  // namespace kvikio

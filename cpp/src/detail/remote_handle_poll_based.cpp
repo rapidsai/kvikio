@@ -52,7 +52,7 @@ void reconfig_easy_handle(CURL* curl_easy_handle,
   ctx->bytes_transferred = 0;
 
   if (!is_host_mem && !ctx->_bounce_buffer_manager.has_value()) {
-    ctx->_bounce_buffer_manager.emplace();
+    ctx->_bounce_buffer_manager.emplace(defaults::num_bounce_buffers());
   }
 
   std::size_t const remote_start = file_offset + local_offset;
