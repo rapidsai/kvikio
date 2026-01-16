@@ -16,6 +16,19 @@
 
 namespace kvikio::detail {
 namespace {
+/**
+ * @brief Callback function for libcurl's CURLOPT_WRITEFUNCTION.
+ *
+ * Called by libcurl when data is received from the remote server. Copies the received data either
+ * directly to host memory or to a bounce buffer (for device memory destinations).
+ *
+ * @param buffer Pointer to the received data.
+ * @param size Size of each data element (always 1).
+ * @param nmemb Number of data elements received.
+ * @param userdata Pointer to the TransferContext for this transfer.
+ * @return Number of bytes processed, or CURL_WRITEFUNC_ERROR if the received data would overflow
+ * the expected chunk size.
+ */
 std::size_t write_callback(char* buffer, std::size_t size, std::size_t nmemb, void* userdata)
 {
   auto* ctx                = reinterpret_cast<TransferContext*>(userdata);
@@ -32,6 +45,23 @@ std::size_t write_callback(char* buffer, std::size_t size, std::size_t nmemb, vo
   return nbytes;
 }
 
+/**
+ * @brief Reconfigure a libcurl easy handle for a new chunk transfer.
+ *
+ * Resets the transfer context and configures the easy handle to fetch the next chunk using an HTTP
+ * range request. For device memory destinations, lazily initializes the bounce buffer manager on
+ * first use.
+ *
+ * @param curl_easy_handle The libcurl easy handle to reconfigure.
+ * @param ctx Transfer context to reset and associate with this chunk.
+ * @param buf Base destination buffer pointer (host or device memory).
+ * @param is_host_mem True if buf points to host memory, false for device memory.
+ * @param current_chunk_idx Zero-based index of the chunk to fetch.
+ * @param chunk_size Size of each chunk (from defaults::task_size()).
+ * @param size Total size of the read operation.
+ * @param file_offset Starting offset in the remote file for the overall read.
+ * @exception std::runtime_error if setting the CURLOPT_RANGE option fails.
+ */
 void reconfig_easy_handle(CURL* curl_easy_handle,
                           TransferContext* ctx,
                           void* buf,

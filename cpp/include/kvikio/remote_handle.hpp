@@ -15,6 +15,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
+#include "kvikio/remote_backend_type.hpp"
 
 struct curl_slist;
 
@@ -304,6 +305,7 @@ class RemoteHandle {
   std::unique_ptr<RemoteEndpoint> _endpoint;
   std::size_t _nbytes;
   std::unique_ptr<detail::RemoteHandlePollBased> _poll_handle;
+  RemoteBackendType _remote_backend_type;
 
  public:
   /**

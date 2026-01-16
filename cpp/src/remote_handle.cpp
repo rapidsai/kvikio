@@ -660,21 +660,24 @@ RemoteHandle RemoteHandle::open(std::string url,
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
-  : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
+  : _endpoint{std::move(endpoint)},
+    _nbytes{nbytes},
+    _remote_backend_type{defaults::remote_backend()}
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
+  if (_remote_backend_type == RemoteBackendType::LIBCURL_MULTI_POLL) {
     _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
       _endpoint.get(), defaults::remote_max_connections());
   }
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
+  : _remote_backend_type{defaults::remote_backend()}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   _nbytes   = endpoint->get_file_size();
   _endpoint = std::move(endpoint);
-  if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
+  if (_remote_backend_type == RemoteBackendType::LIBCURL_MULTI_POLL) {
     _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
       _endpoint.get(), defaults::remote_max_connections());
   }
@@ -821,9 +824,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
-    KVIKIO_EXPECT(_poll_handle != nullptr,
-                  "Remote backend changed to LIBCURL_MULTI_POLL after RemoteHandle construction. "
-                  "The backend setting at construction time and pread call must match.");
     return thread_pool->submit_task([=, this] {
       KVIKIO_NVTX_SCOPED_RANGE("task_remote_multi_poll", size, nvtx_color);
       return _poll_handle->pread(buf, size, file_offset);
