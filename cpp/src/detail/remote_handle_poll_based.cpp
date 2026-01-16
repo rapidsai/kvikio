@@ -18,7 +18,6 @@ namespace kvikio::detail {
 namespace {
 std::size_t write_callback(char* buffer, std::size_t size, std::size_t nmemb, void* userdata)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   auto* ctx                = reinterpret_cast<TransferContext*>(userdata);
   std::size_t const nbytes = size * nmemb;
 
@@ -77,6 +76,8 @@ void* BounceBufferManager::data() const noexcept
 
 void BounceBufferManager::copy(void* dst, std::size_t size, CUstream stream)
 {
+  KVIKIO_EXPECT(size <= defaults::bounce_buffer_size(),
+                "Host-to-device copy size exceeds bounce buffer capacity");
   CUDA_DRIVER_TRY(
     cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(dst), data(), size, stream));
   ++_bounce_buffer_idx;
@@ -87,7 +88,7 @@ void BounceBufferManager::copy(void* dst, std::size_t size, CUstream stream)
 }
 
 RemoteHandlePollBased::RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections)
-  : _endpoint{endpoint}, _max_connections{max_connections}, _transfer_ctxs(_max_connections)
+  : _max_connections{max_connections}, _transfer_ctxs(_max_connections), _endpoint{endpoint}
 {
   KVIKIO_EXPECT(defaults::task_size() <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than task size.");
@@ -173,6 +174,9 @@ std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_
       KVIKIO_CHECK_CURL_EASY(curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &ctx));
 
       KVIKIO_EXPECT(ctx != nullptr, "Failed to retrieve transfer context");
+      KVIKIO_EXPECT(!ctx->overflow_error,
+                    "Overflow detected. Maybe the server doesn't support file ranges",
+                    std::overflow_error);
       KVIKIO_EXPECT(msg->data.result == CURLE_OK,
                     "Chunked transfer failed in poll-based multi API");
 

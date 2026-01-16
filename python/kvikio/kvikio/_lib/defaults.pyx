@@ -213,10 +213,10 @@ def remote_max_connections() -> int:
     return result
 
 
-def set_remote_max_connections(attempts: int) -> None:
-    cdef size_t cpp_attempts = attempts
+def set_remote_max_connections(remote_max_connections: int) -> None:
+    cdef size_t cpp_remote_max_connections = remote_max_connections
     with nogil:
-        cpp_set_remote_max_connections(cpp_attempts)
+        cpp_set_remote_max_connections(cpp_remote_max_connections)
 
 
 def num_bounce_buffers() -> int:
