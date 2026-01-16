@@ -226,7 +226,7 @@ def num_bounce_buffers() -> int:
     return result
 
 
-def set_num_bounce_buffers(attempts: int) -> None:
-    cdef size_t cpp_attempts = attempts
+def set_num_bounce_buffers(num_bounce_buffers: int) -> None:
+    cdef size_t cpp_num_bounce_buffers = num_bounce_buffers
     with nogil:
-        cpp_set_num_bounce_buffers(cpp_attempts)
+        cpp_set_num_bounce_buffers(cpp_num_bounce_buffers)
