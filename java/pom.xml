@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 SPDX-License-Identifier: Apache-2.0
 -->
 <project  xmlns="http://maven.apache.org/POM/4.0.0"
@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
   <groupId>ai.rapids.kvikio</groupId>
   <artifactId>cufile</artifactId>
-  <version>26.02.0-SNAPSHOT</version>
+  <version>26.04.0-SNAPSHOT</version>
 
   <name>cuFile</name>
   <description>
