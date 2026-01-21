@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -23,4 +23,4 @@ function(find_and_configure_kvikio MIN_VERSION)
 
 endfunction()
 
-find_and_configure_kvikio("26.02")
+find_and_configure_kvikio("26.04")
