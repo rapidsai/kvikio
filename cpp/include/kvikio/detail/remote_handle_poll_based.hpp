@@ -9,61 +9,8 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
-#include "kvikio/detail/url.hpp"
-
-/**
- * @brief Check a libcurl easy interface return code and throw on error.
- *
- * @param err_code The CURLcode to check.
- * @exception std::runtime_error if err_code is not CURLE_OK.
- */
-#define KVIKIO_CHECK_CURL_EASY(err_code) \
-  kvikio::detail::check_curl_easy(err_code, __FILE__, __LINE__)
-
-/**
- * @brief Check a libcurl multi interface return code and throw on error.
- *
- * @param err_code The CURLMcode to check.
- * @exception std::runtime_error if err_code is not CURLM_OK.
- */
-#define KVIKIO_CHECK_CURL_MULTI(err_code) \
-  kvikio::detail::check_curl_multi(err_code, __FILE__, __LINE__)
 
 namespace kvikio::detail {
-
-/**
- * @brief Check a libcurl easy interface return code and throw on error.
- *
- * @param err_code The CURLcode to check.
- * @param filename Source filename for error reporting.
- * @param line_number Source line number for error reporting.
- * @exception std::runtime_error if err_code is not CURLE_OK.
- */
-inline void check_curl_easy(CURLcode err_code, char const* filename, int line_number)
-{
-  if (err_code == CURLcode::CURLE_OK) { return; }
-  std::stringstream ss;
-  ss << "libcurl error: " << curl_easy_strerror(err_code) << " at: " << filename << ":"
-     << line_number << "\n";
-  throw std::runtime_error(ss.str());
-}
-
-/**
- * @brief Check a libcurl multi interface return code and throw on error.
- *
- * @param err_code The CURLMcode to check.
- * @param filename Source filename for error reporting.
- * @param line_number Source line number for error reporting.
- * @exception std::runtime_error if err_code is not CURLM_OK.
- */
-inline void check_curl_multi(CURLMcode err_code, char const* filename, int line_number)
-{
-  if (err_code == CURLMcode::CURLM_OK) { return; }
-  std::stringstream ss;
-  ss << "libcurl error: " << curl_multi_strerror(err_code) << " at: " << filename << ":"
-     << line_number << "\n";
-  throw std::runtime_error(ss.str());
-}
 
 /**
  * @brief Manages a rotating set of bounce buffers for overlapping network I/O with H2D transfers.

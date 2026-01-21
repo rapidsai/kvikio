@@ -8,6 +8,24 @@
 #include <kvikio/detail/remote_handle.hpp>
 
 namespace kvikio::detail {
+void check_curl_easy(CURLcode err_code, char const* filename, int line_number)
+{
+  if (err_code == CURLcode::CURLE_OK) { return; }
+  std::stringstream ss;
+  ss << "libcurl error: " << curl_easy_strerror(err_code) << " at: " << filename << ":"
+     << line_number << "\n";
+  throw std::runtime_error(ss.str());
+}
+
+void check_curl_multi(CURLMcode err_code, char const* filename, int line_number)
+{
+  if (err_code == CURLMcode::CURLM_OK) { return; }
+  std::stringstream ss;
+  ss << "libcurl error: " << curl_multi_strerror(err_code) << " at: " << filename << ":"
+     << line_number << "\n";
+  throw std::runtime_error(ss.str());
+}
+
 std::size_t callback_get_string_response(char* data,
                                          std::size_t size,
                                          std::size_t num_bytes,
