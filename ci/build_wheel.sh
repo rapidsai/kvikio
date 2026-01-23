@@ -22,11 +22,16 @@ sccache --stop-server 2>/dev/null || true
 
 rapids-logger "Building '${package_name}' wheel"
 
+# TODO: move this variable into `ci-wheel`
+# Format Python limited API version string
+RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
+
 RAPIDS_PIP_WHEEL_ARGS=(
   -w dist
   -v
   --no-deps
   --disable-pip-version-check
+  --config-settings "skbuild.wheel.py-api=${RAPIDS_PY_API}"
 )
 
 # Only use --build-constraint when build isolation is enabled.
