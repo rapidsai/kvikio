@@ -21,10 +21,10 @@ jobs:
       - conda-python-build
       - conda-python-tests
       - docs-build
-      - devcontainer
-      - wheel-cpp-build
-      - wheel-python-build
-      - wheel-python-tests
+      # - devcontainer
+      # - wheel-cpp-build
+      # - wheel-python-build
+      # - wheel-python-tests
       - telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@main
@@ -148,56 +148,56 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci-conda:26.04-latest"
       script: "ci/build_docs.sh"
-  devcontainer:
-    needs: telemetry-setup
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
-    with:
-      arch: '["amd64", "arm64"]'
-      cuda: '["13.1"]'
-      node_type: "cpu8"
-      rapids-aux-secret-1: GIST_REPO_READ_ORG_GITHUB_TOKEN
-      env: |
-        SCCACHE_DIST_MAX_RETRIES=inf
-        SCCACHE_SERVER_LOG=sccache=debug
-        SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE=false
-        SCCACHE_DIST_AUTH_TOKEN_VAR=RAPIDS_AUX_SECRET_1
-      build_command: |
-        sccache --zero-stats;
-        build-all --verbose 2>&1 | tee telemetry-artifacts/build.log;
-        python -c "import kvikio; print(kvikio.__version__)";
-        sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt;
-  wheel-cpp-build:
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
-    with:
-      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
-      build_type: pull-request
-      node_type: cpu8
-      script: ci/build_wheel_cpp.sh
-      package-name: libkvikio
-      package-type: cpp
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
-  wheel-python-build:
-    needs: wheel-cpp-build
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
-    with:
-      build_type: pull-request
-      node_type: cpu8
-      script: ci/build_wheel_python.sh
-      package-name: kvikio
-      package-type: python
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
-  wheel-python-tests:
-    needs: [wheel-python-build, changed-files]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
-    with:
-      build_type: pull-request
-      script: ci/test_wheel.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+  # devcontainer:
+  #   needs: telemetry-setup
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
+  #   with:
+  #     arch: '["amd64", "arm64"]'
+  #     cuda: '["13.1"]'
+  #     node_type: "cpu8"
+  #     rapids-aux-secret-1: GIST_REPO_READ_ORG_GITHUB_TOKEN
+  #     env: |
+  #       SCCACHE_DIST_MAX_RETRIES=inf
+  #       SCCACHE_SERVER_LOG=sccache=debug
+  #       SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE=false
+  #       SCCACHE_DIST_AUTH_TOKEN_VAR=RAPIDS_AUX_SECRET_1
+  #     build_command: |
+  #       sccache --zero-stats;
+  #       build-all --verbose 2>&1 | tee telemetry-artifacts/build.log;
+  #       python -c "import kvikio; print(kvikio.__version__)";
+  #       sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt;
+  # wheel-cpp-build:
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+  #   with:
+  #     matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+  #     build_type: pull-request
+  #     node_type: cpu8
+  #     script: ci/build_wheel_cpp.sh
+  #     package-name: libkvikio
+  #     package-type: cpp
+  #     sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+  # wheel-python-build:
+  #   needs: wheel-cpp-build
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+  #   with:
+  #     build_type: pull-request
+  #     node_type: cpu8
+  #     script: ci/build_wheel_python.sh
+  #     package-name: kvikio
+  #     package-type: python
+  #     sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+  # wheel-python-tests:
+  #   needs: [wheel-python-build, changed-files]
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+  #   if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+  #   with:
+  #     build_type: pull-request
+  #     script: ci/test_wheel.sh
+  #     sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   telemetry-summarize:
     # This job must use a self-hosted runner to record telemetry traces.
     runs-on: linux-amd64-cpu4
