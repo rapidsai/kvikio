@@ -131,7 +131,7 @@ class BounceBufferPool {
    * Automatically returns the buffer to the pool when destroyed (RAII pattern). Provides access to
    * the underlying memory and its size.
    *
-   * @note Non-copyable and non-movable to ensure single ownership
+   * @note Non-copyable but movable to allow transfer of ownership while maintaining RAII
    */
   class Buffer {
    private:
