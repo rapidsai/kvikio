@@ -141,7 +141,7 @@ RemoteHandlePollBased::RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size
   }
 }
 
-RemoteHandlePollBased::~RemoteHandlePollBased()
+RemoteHandlePollBased::~RemoteHandlePollBased() noexcept
 {
   try {
     // Remove any lingering handles before cleanup

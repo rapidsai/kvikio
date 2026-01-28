@@ -111,7 +111,7 @@ class RemoteHandlePollBased {
    * Removes all easy handles from the multi handle and performs cleanup. Errors during cleanup are
    * logged but do not throw.
    */
-  ~RemoteHandlePollBased();
+  ~RemoteHandlePollBased() noexcept;
 
   /**
    * @brief Read data from the remote file into a buffer.
