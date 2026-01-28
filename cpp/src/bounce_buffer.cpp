@@ -93,7 +93,7 @@ BounceBufferPool<Allocator>::Buffer& BounceBufferPool<Allocator>::Buffer::operat
   Buffer&& o) noexcept
 {
   if (this != std::addressof(o)) {
-    if (_buffer) {
+    if (_buffer != nullptr) {
       // Return current buffer to the pool
       _pool->put(_buffer, _size);
     }
