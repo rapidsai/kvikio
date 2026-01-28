@@ -1,0 +1,251 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <kvikio/bounce_buffer.hpp>
+#include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/posix_io.hpp>
+#include <kvikio/detail/remote_handle.hpp>
+#include <kvikio/detail/remote_handle_poll_based.hpp>
+#include <kvikio/error.hpp>
+#include <kvikio/shim/cuda.hpp>
+#include <kvikio/shim/libcurl.hpp>
+#include <kvikio/utils.hpp>
+
+namespace kvikio::detail {
+namespace {
+/**
+ * @brief Callback function for libcurl's CURLOPT_WRITEFUNCTION.
+ *
+ * Called by libcurl when data is received from the remote server. Copies the received data either
+ * directly to host memory or to a bounce buffer (for device memory destinations).
+ *
+ * @param buffer Pointer to the received data.
+ * @param size Size of each data element (always 1).
+ * @param nmemb Number of data elements received.
+ * @param userdata Pointer to the TransferContext for this transfer.
+ * @return Number of bytes processed, or CURL_WRITEFUNC_ERROR if the received data would overflow
+ * the expected chunk size.
+ */
+std::size_t write_callback(char* buffer, std::size_t size, std::size_t nmemb, void* userdata)
+{
+  auto* ctx                = reinterpret_cast<TransferContext*>(userdata);
+  std::size_t const nbytes = size * nmemb;
+
+  if (ctx->chunk_size < ctx->bytes_transferred + nbytes) {
+    ctx->overflow_error = true;
+    return CURL_WRITEFUNC_ERROR;
+  }
+  KVIKIO_NVTX_FUNC_RANGE(nbytes);
+  void* dst = ctx->is_host_mem ? ctx->buf : ctx->_bounce_buffer_manager->data();
+  std::memcpy(static_cast<char*>(dst) + ctx->bytes_transferred, buffer, nbytes);
+  ctx->bytes_transferred += nbytes;
+  return nbytes;
+}
+
+/**
+ * @brief Reconfigure a libcurl easy handle for a new chunk transfer.
+ *
+ * Resets the transfer context and configures the easy handle to fetch the next chunk using an HTTP
+ * range request. For device memory destinations, lazily initializes the bounce buffer manager on
+ * first use.
+ *
+ * @param curl_easy_handle The libcurl easy handle to reconfigure.
+ * @param endpoint Non-owning pointer to the remote endpoint. Must outlive this object.
+ * @param ctx Transfer context to reset and associate with this chunk.
+ * @param buf Base destination buffer pointer (host or device memory).
+ * @param is_host_mem True if buf points to host memory, false for device memory.
+ * @param current_chunk_idx Zero-based index of the chunk to fetch.
+ * @param chunk_size Size of each chunk (from defaults::task_size()).
+ * @param size Total size of the read operation.
+ * @param file_offset Starting offset in the remote file for the overall read.
+ * @exception std::runtime_error if setting the CURLOPT_RANGE option fails.
+ */
+void reconfig_easy_handle(CurlHandle& curl_easy_handle,
+                          RemoteEndpoint* endpoint,
+                          TransferContext* ctx,
+                          void* buf,
+                          bool is_host_mem,
+                          std::size_t current_chunk_idx,
+                          std::size_t chunk_size,
+                          std::size_t size,
+                          std::size_t file_offset)
+{
+  auto const local_offset      = current_chunk_idx * chunk_size;
+  auto const actual_chunk_size = std::min(chunk_size, size - local_offset);
+
+  ctx->overflow_error    = false;
+  ctx->is_host_mem       = is_host_mem;
+  ctx->buf               = static_cast<char*>(buf) + local_offset;
+  ctx->curl_easy_handle  = &curl_easy_handle;
+  ctx->chunk_size        = actual_chunk_size;
+  ctx->bytes_transferred = 0;
+
+  if (!is_host_mem && !ctx->_bounce_buffer_manager.has_value()) {
+    ctx->_bounce_buffer_manager.emplace(defaults::num_bounce_buffers());
+  }
+
+  endpoint->setup_range_request(curl_easy_handle, file_offset + local_offset, actual_chunk_size);
+}
+}  // namespace
+
+BounceBufferManager::BounceBufferManager(std::size_t num_bounce_buffers)
+  : _num_bounce_buffers{num_bounce_buffers}
+{
+  for (std::size_t i = 0; i < _num_bounce_buffers; ++i) {
+    _bounce_buffers.emplace_back(CudaPinnedBounceBufferPool::instance().get());
+  }
+}
+
+void* BounceBufferManager::data() const noexcept
+{
+  return _bounce_buffers[_bounce_buffer_idx].get();
+}
+
+void BounceBufferManager::copy(void* dst, std::size_t size, CUstream stream)
+{
+  KVIKIO_EXPECT(size <= defaults::bounce_buffer_size(),
+                "Host-to-device copy size exceeds bounce buffer capacity");
+  CUDA_DRIVER_TRY(
+    cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(dst), data(), size, stream));
+  ++_bounce_buffer_idx;
+  if (_bounce_buffer_idx == _bounce_buffers.size()) {
+    _bounce_buffer_idx = 0;
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+  }
+}
+
+RemoteHandlePollBased::RemoteHandlePollBased(RemoteEndpoint* endpoint, std::size_t max_connections)
+  : _max_connections{max_connections}, _transfer_ctxs(_max_connections), _endpoint{endpoint}
+{
+  KVIKIO_EXPECT(defaults::task_size() <= defaults::bounce_buffer_size(),
+                "bounce buffer size cannot be less than task size.");
+
+  _multi = curl_multi_init();
+  KVIKIO_EXPECT(_multi != nullptr, "Failed to initialize libcurl multi API");
+
+  _curl_easy_handles.reserve(_max_connections);
+  for (std::size_t i = 0; i < _max_connections; ++i) {
+    _curl_easy_handles.emplace_back(
+      std::make_unique<CurlHandle>(kvikio::LibCurl::instance().get_handle(),
+                                   kvikio::detail::fix_conda_file_path_hack(__FILE__),
+                                   KVIKIO_STRINGIFY(__LINE__)));
+
+    // Initialize easy handle, associate it with transfer context
+    _endpoint->setopt(*_curl_easy_handles.back());
+    _curl_easy_handles.back()->setopt(CURLOPT_WRITEFUNCTION, write_callback);
+    _curl_easy_handles.back()->setopt(CURLOPT_WRITEDATA, &_transfer_ctxs[i]);
+    _curl_easy_handles.back()->setopt(CURLOPT_PRIVATE, &_transfer_ctxs[i]);
+  }
+}
+
+RemoteHandlePollBased::~RemoteHandlePollBased() noexcept
+{
+  try {
+    // Remove any lingering handles before cleanup
+    for (auto& handle : _curl_easy_handles) {
+      // Ignore errors
+      KVIKIO_CHECK_CURL_MULTI(curl_multi_remove_handle(_multi, handle->handle()));
+    }
+    KVIKIO_CHECK_CURL_MULTI(curl_multi_cleanup(_multi));
+  } catch (std::exception const& e) {
+    KVIKIO_LOG_ERROR(e.what());
+  }
+}
+
+std::size_t RemoteHandlePollBased::pread(void* buf, std::size_t size, std::size_t file_offset)
+{
+  if (size == 0) return 0;
+
+  std::lock_guard lock{_mutex};
+
+  // Prepare for the run
+  bool const is_host_mem            = is_host_memory(buf);
+  auto const chunk_size             = defaults::task_size();
+  auto const num_chunks             = (size + chunk_size - 1) / chunk_size;
+  auto const actual_max_connections = std::min(_max_connections, num_chunks);
+
+  std::optional<PushAndPopContext> cuda_ctx;
+  CUstream stream{};
+  if (!is_host_mem) {
+    cuda_ctx.emplace(get_context_from_pointer(buf));
+    stream = detail::StreamsByThread::get();
+  }
+
+  std::size_t num_byte_transferred{0};
+  std::size_t current_chunk_idx{0};
+  for (std::size_t i = 0; i < actual_max_connections; ++i) {
+    reconfig_easy_handle(*_curl_easy_handles[i],
+                         _endpoint,
+                         &_transfer_ctxs[i],
+                         buf,
+                         is_host_mem,
+                         current_chunk_idx,
+                         chunk_size,
+                         size,
+                         file_offset);
+    KVIKIO_CHECK_CURL_MULTI(curl_multi_add_handle(_multi, _curl_easy_handles[i]->handle()));
+    ++current_chunk_idx;
+  }
+
+  // Start the run
+  std::size_t in_flight{actual_max_connections};
+  int still_running{0};
+  while (in_flight > 0) {
+    KVIKIO_CHECK_CURL_MULTI(curl_multi_perform(_multi, &still_running));
+
+    CURLMsg* msg;
+    int msgs_left;
+
+    // Handle the completed messages
+    while ((msg = curl_multi_info_read(_multi, &msgs_left))) {
+      if (msg->msg != CURLMSG_DONE) continue;
+
+      TransferContext* ctx{nullptr};
+      KVIKIO_CHECK_CURL_EASY(curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &ctx));
+
+      KVIKIO_EXPECT(ctx != nullptr, "Failed to retrieve transfer context");
+      KVIKIO_EXPECT(!ctx->overflow_error,
+                    "Overflow detected. Maybe the server doesn't support file ranges",
+                    std::overflow_error);
+      KVIKIO_EXPECT(msg->data.result == CURLE_OK,
+                    "Chunked transfer failed in poll-based multi API");
+
+      if (!is_host_mem) {
+        ctx->_bounce_buffer_manager->copy(ctx->buf, ctx->bytes_transferred, stream);
+      }
+
+      num_byte_transferred += ctx->bytes_transferred;
+      --in_flight;
+      KVIKIO_CHECK_CURL_MULTI(curl_multi_remove_handle(_multi, msg->easy_handle));
+
+      if (current_chunk_idx < num_chunks) {
+        reconfig_easy_handle(*ctx->curl_easy_handle,
+                             _endpoint,
+                             ctx,
+                             buf,
+                             is_host_mem,
+                             current_chunk_idx,
+                             chunk_size,
+                             size,
+                             file_offset);
+        KVIKIO_CHECK_CURL_MULTI(curl_multi_add_handle(_multi, msg->easy_handle));
+        ++current_chunk_idx;
+        ++in_flight;
+      }
+    }
+
+    if (in_flight > 0) {
+      constexpr int timeout_ms{1000};
+      KVIKIO_CHECK_CURL_MULTI(curl_multi_poll(_multi, nullptr, 0, timeout_ms, nullptr));
+    }
+  }
+
+  // Ensure all H2D transfers complete before returning
+  if (!is_host_mem) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream)); }
+
+  return num_byte_transferred;
+}
+}  // namespace kvikio::detail
