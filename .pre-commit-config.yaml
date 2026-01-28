@@ -74,7 +74,7 @@ repos:
             ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v1.3.1
+    rev: v1.3.2
     hooks:
       - id: verify-copyright
         args: [--fix, --spdx]
@@ -105,6 +105,12 @@ repos:
             ^conda/environments/|
             [.](png)$|
             ^cpp/examples/downstream/cmake/get_kvikio[.]cmake$
+      - id: verify-pyproject-license
+        # ignore the top-level pyproject.toml, which doesn't
+        # have or need a [project] table
+        exclude: |
+          (?x)
+            ^pyproject[.]toml$
   - repo: https://github.com/rapidsai/dependency-file-generator
     rev: v1.20.0
     hooks:
