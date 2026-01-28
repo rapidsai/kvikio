@@ -115,7 +115,7 @@ jobs:
       build_type: pull-request
       node_type: "gpu-l4-latest-1"
       arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.02-latest"
+      container_image: "rapidsai/ci-conda:26.04-latest"
       script: "ci/test_java.sh"
   conda-python-build:
     needs: conda-cpp-build
@@ -142,7 +142,7 @@ jobs:
       build_type: pull-request
       node_type: "gpu-l4-latest-1"
       arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.02-latest"
+      container_image: "rapidsai/ci-conda:26.04-latest"
       script: "ci/build_docs.sh"
   devcontainer:
     needs: telemetry-setup
@@ -150,7 +150,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
     with:
       arch: '["amd64", "arm64"]'
-      cuda: '["13.0"]'
+      cuda: '["13.1"]'
       node_type: "cpu8"
       rapids-aux-secret-1: GIST_REPO_READ_ORG_GITHUB_TOKEN
       env: |

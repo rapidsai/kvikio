@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 repos:
@@ -74,7 +74,7 @@ repos:
             ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v1.1.0
+    rev: v1.3.1
     hooks:
       - id: verify-copyright
         args: [--fix, --spdx]
@@ -92,6 +92,19 @@ repos:
       - id: verify-alpha-spec
       - id: verify-codeowners
         args: [--fix, --project-prefix=kvikio]
+      - id: verify-hardcoded-version
+        exclude: |
+          (?x)
+            devcontainer[.]json$|
+            dependencies[.]yaml$|
+            ^[.]github/workflows/|
+            [.]md$|
+            pom[.]xml$|
+            ^[.]pre-commit-config[.]yaml$|
+            [.]rst$|
+            ^conda/environments/|
+            [.](png)$|
+            ^cpp/examples/downstream/cmake/get_kvikio[.]cmake$
   - repo: https://github.com/rapidsai/dependency-file-generator
     rev: v1.20.0
     hooks:
