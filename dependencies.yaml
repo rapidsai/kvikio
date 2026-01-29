@@ -341,15 +341,8 @@ dependencies:
       - output_types: conda
         packages:
           - moto>=4.0.8
+          - zarr>=3.0.0,<3.2.0,<4.0.0
     specific:
-      - output_types: [conda]
-        matrices:
-          - matrix:
-              py: "3.1[123]"
-            packages:
-              - zarr>=3.0.0,<3.2.0,<4.0.0
-          - matrix:
-            packages:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
