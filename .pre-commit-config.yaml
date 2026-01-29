@@ -1,4 +1,5 @@
-# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -12,22 +13,13 @@ repos:
       - id: isort
         args: ["--config-root=python/", "--resolve-all-configs"]
         files: python/.*
-        types_or: [python, cython, pyi]
-  - repo: https://github.com/psf/black
-    rev: 23.3.0
+        types: [cython]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.1
     hooks:
-      - id: black
-        files: python/.*
-        args: ["--config", "python/kvikio/pyproject.toml"]
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1
-    hooks:
-      - id: flake8
-        args: ["--config=.flake8"]
-        files: python/.*$
-        types: [file]
-        types_or: [python, cython]
-        additional_dependencies: ["flake8-force"]
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
   - repo: https://github.com/MarcoGorelli/cython-lint
     rev: v0.15.0
     hooks:
@@ -82,23 +74,42 @@ repos:
             ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v0.6.0
+    rev: v1.3.1
     hooks:
       - id: verify-copyright
+        args: [--fix, --spdx]
         files: |
           (?x)
-              [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
-              ^[.]pre-commit-config[.]yaml$|
-              CMakeLists[.]txt$|
-              meta[.]yaml$
+            [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|pyi|java|bat)$|
+            ^[.]pre-commit-config[.]yaml$|
+            CMakeLists[.]txt$|
+            meta[.]yaml$|
+            pyproject[.]toml$|
+            recipe[.]yaml$|
+            dependencies[.]yaml$|
+            Makefile$|
+            pom[.]xml$
       - id: verify-alpha-spec
       - id: verify-codeowners
         args: [--fix, --project-prefix=kvikio]
+      - id: verify-hardcoded-version
+        exclude: |
+          (?x)
+            devcontainer[.]json$|
+            dependencies[.]yaml$|
+            ^[.]github/workflows/|
+            [.]md$|
+            pom[.]xml$|
+            ^[.]pre-commit-config[.]yaml$|
+            [.]rst$|
+            ^conda/environments/|
+            [.](png)$|
+            ^cpp/examples/downstream/cmake/get_kvikio[.]cmake$
   - repo: https://github.com/rapidsai/dependency-file-generator
-    rev: v1.19.0
+    rev: v1.20.0
     hooks:
       - id: rapids-dependency-file-generator
-        args: ["--clean"]
+        args: ["--clean", "--warn-all", "--strict"]
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.10.0.1
     hooks:

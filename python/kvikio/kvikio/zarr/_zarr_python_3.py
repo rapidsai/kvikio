@@ -1,23 +1,34 @@
-# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 import asyncio
 import functools
 import os
 from pathlib import Path
 
-import packaging
-import zarr.storage
-from zarr.abc.store import (
+import packaging.version
+import zarr
+
+_zarr_version = packaging.version.parse(zarr.__version__)
+
+if _zarr_version < packaging.version.parse("3.0.0"):
+    # We include this runtime package checking to help users who relied on
+    # installing kvikio to also include zarr, which is not an optional dependency.
+    raise ImportError(
+        f"'zarr>=3' is required, but 'zarr=={_zarr_version}' is installed."
+    )
+
+import zarr.storage  # noqa: E402
+from zarr.abc.store import (  # noqa: E402
     ByteRequest,
     OffsetByteRequest,
     RangeByteRequest,
     SuffixByteRequest,
 )
-from zarr.core.buffer import Buffer, BufferPrototype
-from zarr.core.buffer.core import default_buffer_prototype
+from zarr.core.buffer import Buffer, BufferPrototype  # noqa: E402
+from zarr.core.buffer.core import default_buffer_prototype  # noqa: E402
 
-import kvikio
+import kvikio  # noqa: E402
 
 # The GDSStore implementation follows the `LocalStore` implementation
 # at https://github.com/zarr-developers/zarr-python/blob/main/src/zarr/storage/_local.py
@@ -26,7 +37,7 @@ import kvikio
 
 @functools.cache
 def _is_ge_zarr_3_0_7():
-    return packaging.version.parse(zarr.__version__) >= packaging.version.parse("3.0.7")
+    return _zarr_version >= packaging.version.parse("3.0.7")
 
 
 def _get(
@@ -138,10 +149,3 @@ class GDSStore(zarr.storage.LocalStore):
         path = self.root / key
 
         await asyncio.to_thread(_put, path, value, start=None, exclusive=exclusive)
-
-
-# Matching the check that zarr.__version__ > 2.15 that's
-# part of the public API for our zarr 2.x support
-# This module is behind a check that zarr.__version__ > 3
-# so we can just assume it's already checked and supported.
-supported = True

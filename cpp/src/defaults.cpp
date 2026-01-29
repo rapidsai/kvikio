@@ -1,22 +1,10 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cstddef>
 #include <cstdlib>
-#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -25,6 +13,7 @@
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/shim/cufile.hpp>
@@ -146,6 +135,17 @@ defaults::defaults()
     _http_status_codes =
       getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
   }
+
+  // Determine the default value of `auto_direct_io_read` and `auto_direct_io_write`
+  {
+    _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
+    _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
+  }
+
+  // Determine the default value of `thread_pool_per_block_device`
+  {
+    _thread_pool_per_block_device = getenv_or("KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE", false);
+  }
 }
 
 defaults* defaults::instance()
@@ -177,7 +177,7 @@ bool defaults::is_compat_mode_preferred(CompatMode compat_mode) noexcept
 
 bool defaults::is_compat_mode_preferred() { return is_compat_mode_preferred(compat_mode()); }
 
-BS_thread_pool& defaults::thread_pool() { return instance()->_thread_pool; }
+ThreadPool& defaults::thread_pool() { return instance()->_thread_pool; }
 
 unsigned int defaults::thread_pool_nthreads() { return thread_pool().get_thread_count(); }
 
@@ -236,4 +236,18 @@ void defaults::set_http_timeout(long timeout_seconds)
   instance()->_http_timeout = timeout_seconds;
 }
 
+bool defaults::auto_direct_io_read() { return instance()->_auto_direct_io_read; }
+
+void defaults::set_auto_direct_io_read(bool flag) { instance()->_auto_direct_io_read = flag; }
+
+bool defaults::auto_direct_io_write() { return instance()->_auto_direct_io_write; }
+
+void defaults::set_auto_direct_io_write(bool flag) { instance()->_auto_direct_io_write = flag; }
+
+bool defaults::thread_pool_per_block_device() { return instance()->_thread_pool_per_block_device; }
+
+void defaults::set_thread_pool_per_block_device(bool flag)
+{
+  instance()->_thread_pool_per_block_device = flag;
+}
 }  // namespace kvikio

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2022-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
@@ -122,7 +111,7 @@ std::tuple<std::string_view, T, bool> getenv_or(
  */
 class defaults {
  private:
-  BS_thread_pool _thread_pool{get_num_threads_from_env()};
+  ThreadPool _thread_pool{get_num_threads_from_env()};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
@@ -130,6 +119,9 @@ class defaults {
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
+  bool _auto_direct_io_read;
+  bool _auto_direct_io_write;
+  bool _thread_pool_per_block_device;
 
   static unsigned int get_num_threads_from_env();
 
@@ -221,7 +213,7 @@ class defaults {
    *
    * @return The default thread pool instance.
    */
-  [[nodiscard]] static BS_thread_pool& thread_pool();
+  [[nodiscard]] static ThreadPool& thread_pool();
 
   /**
    * @brief Get the number of threads in the default thread pool.
@@ -367,6 +359,64 @@ class defaults {
    * @param status_codes The HTTP status codes to retry.
    */
   static void set_http_status_codes(std::vector<int> status_codes);
+
+  /**
+   * @brief Check if Direct I/O is enabled for POSIX reads
+   *
+   * Returns true if KvikIO should attempt to use Direct I/O (O_DIRECT) for POSIX read operations.
+   *
+   * @return Boolean answer
+   */
+  static bool auto_direct_io_read();
+
+  /**
+   * @brief Enable or disable Direct I/O for POSIX reads
+   *
+   * Controls whether KvikIO should attempt to use Direct I/O (O_DIRECT) for POSIX read operations.
+   *
+   * @param flag true to enable opportunistic Direct I/O reads, false to disable
+   */
+  static void set_auto_direct_io_read(bool flag);
+
+  /**
+   * @brief Check if Direct I/O is enabled for POSIX writes
+   *
+   * Returns true if KvikIO should attempt to use Direct I/O (O_DIRECT) for POSIX write operations.
+   *
+   * @return Boolean answer
+   */
+  static bool auto_direct_io_write();
+
+  /**
+   * @brief Enable or disable Direct I/O for POSIX writes
+   *
+   * Controls whether KvikIO should attempt to use Direct I/O (O_DIRECT) for POSIX write operations.
+   *
+   * @param flag true to enable opportunistic Direct I/O writes, false to disable
+   */
+  static void set_auto_direct_io_write(bool flag);
+
+  /**
+   * @brief Check if per-block-device thread pools are enabled.
+   *
+   * The initial value is determined by the environment variable
+   * `KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE`. If not set, defaults to `false`.
+   *
+   * @return Boolean answer
+   */
+  static bool thread_pool_per_block_device();
+
+  /**
+   * @brief Enable or disable per-block-device thread pools.
+   *
+   * Each pool is initialized with the number of threads specified by `thread_pool_nthreads()`.
+   * Changes take effect only for files opened after this call. Files already opened retain their
+   * existing thread pool assignments.
+   *
+   * @param flag `true` to enable per-block-device thread pools, `false` to use the single global
+   * thread pool for all I/O operations.
+   */
+  static void set_thread_pool_per_block_device(bool flag);
 };
 
 }  // namespace kvikio

@@ -1,15 +1,8 @@
 # =============================================================================
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
-# in compliance with the License. You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software distributed under the License
-# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
-# or implied. See the License for the specific language governing permissions and limitations under
-# the License.
+# cmake-format: off
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+# cmake-format: on
 # =============================================================================
 
 enable_testing()
@@ -56,8 +49,9 @@ function(kvikio_add_test)
                CUDA_STANDARD_REQUIRED ON
   )
   target_link_libraries(
-    ${_KVIKIO_NAME} PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest
-                            GTest::gtest_main CUDA::cudart
+    ${_KVIKIO_NAME}
+    PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest GTest::gtest_main
+            CUDA::cudart_static $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
   )
 
   rapids_test_add(
@@ -68,14 +62,23 @@ function(kvikio_add_test)
   )
 endfunction()
 
-kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp)
+kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp utils/env.cpp)
+
+kvikio_add_test(NAME BOUNCE_BUFFER_TEST SOURCES test_bounce_buffer.cpp)
 
 kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp utils/env.cpp)
 
 kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
 
+kvikio_add_test(NAME FILE_UTILS_TEST SOURCES test_file_utils.cpp)
+
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
-kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
+if(KvikIO_REMOTE_SUPPORT)
+  kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
+  kvikio_add_test(NAME HDFS_TEST SOURCES test_hdfs.cpp utils/hdfs_helper.cpp)
+  kvikio_add_test(NAME TLS_TEST SOURCES test_tls.cpp utils/env.cpp)
+  kvikio_add_test(NAME URL_TEST SOURCES test_url.cpp)
+endif()
 
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/tests/libkvikio)

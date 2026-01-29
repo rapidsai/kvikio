@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <sys/mman.h>
@@ -40,7 +29,7 @@ class MmapTest : public testing::Test {
     _filepath                = tmp_dir.path() / "test.bin";
     std::size_t num_elements = 1024ull * 1024ull;
     _host_buf                = CreateTempFile<value_type>(_filepath, num_elements);
-    _dev_buf                 = kvikio::test::DevBuffer{_host_buf};
+    _dev_buf                 = kvikio::test::DevBuffer<value_type>{_host_buf};
     _page_size               = kvikio::get_page_size();
   }
 
@@ -62,16 +51,15 @@ class MmapTest : public testing::Test {
   std::size_t _file_size;
   std::size_t _page_size;
   std::vector<std::int64_t> _host_buf;
-  kvikio::test::DevBuffer _dev_buf;
-
   using value_type = decltype(_host_buf)::value_type;
+  kvikio::test::DevBuffer<value_type> _dev_buf;
 };
 
 TEST_F(MmapTest, invalid_file_open_flag)
 {
   // Empty file open flag
   EXPECT_THAT(
-    [=] {
+    [&] {
       {
         kvikio::MmapHandle(_filepath, "");
       }
@@ -80,7 +68,7 @@ TEST_F(MmapTest, invalid_file_open_flag)
 
   // Invalid file open flag
   EXPECT_THAT(
-    [=] {
+    [&] {
       {
         kvikio::MmapHandle(_filepath, "z");
       }
@@ -91,7 +79,7 @@ TEST_F(MmapTest, invalid_file_open_flag)
 TEST_F(MmapTest, invalid_mmap_flag)
 {
   EXPECT_THAT(
-    [=] {
+    [&] {
       {
         int invalid_flag{-1};
         kvikio::MmapHandle(_filepath, "r", std::nullopt, 0, kvikio::FileHandle::m644, invalid_flag);
@@ -108,12 +96,12 @@ TEST_F(MmapTest, constructor_invalid_range)
 
   // init_file_offset is too large (by 1 char)
   EXPECT_THAT(
-    [=] { kvikio::MmapHandle(_filepath, "r", std::nullopt, _file_size); },
+    [&] { kvikio::MmapHandle(_filepath, "r", std::nullopt, _file_size); },
     ThrowsMessage<std::out_of_range>(HasSubstr("Offset must be less than the file size")));
 
   // init_size is 0
   EXPECT_THAT(
-    [=] { kvikio::MmapHandle(_filepath, "r", 0); },
+    [&] { kvikio::MmapHandle(_filepath, "r", 0); },
     ThrowsMessage<std::invalid_argument>(HasSubstr("Mapped region should not be zero byte")));
 }
 
@@ -212,7 +200,7 @@ TEST_F(MmapTest, read_seq)
 
     // device
     {
-      kvikio::test::DevBuffer out_device_buf(num_elements_to_read);
+      kvikio::test::DevBuffer<value_type> out_device_buf(num_elements_to_read);
       auto const read_size = mmap_handle.read(out_device_buf.ptr, expected_read_size, offset);
       auto out_host_buf    = out_device_buf.to_vector();
       for (std::size_t i = num_elements_to_skip; i < num_elements_to_read; ++i) {
@@ -250,7 +238,7 @@ TEST_F(MmapTest, read_parallel)
 
       // device
       {
-        kvikio::test::DevBuffer out_device_buf(num_elements_to_read);
+        kvikio::test::DevBuffer<value_type> out_device_buf(num_elements_to_read);
         auto fut             = mmap_handle.pread(out_device_buf.ptr, expected_read_size, offset);
         auto const read_size = fut.get();
         auto out_host_buf    = out_device_buf.to_vector();
@@ -300,7 +288,7 @@ TEST_F(MmapTest, read_with_default_arguments)
 
   // device
   {
-    kvikio::test::DevBuffer out_device_buf(num_elements);
+    kvikio::test::DevBuffer<value_type> out_device_buf(num_elements);
 
     {
       auto const read_size = mmap_handle.read(out_device_buf.ptr);
@@ -370,5 +358,39 @@ TEST_F(MmapTest, cpp_move)
     EXPECT_TRUE(mmap_handle_1.closed());
     EXPECT_FALSE(mmap_handle_2.closed());
     do_test(mmap_handle_2);
+  }
+}
+
+TEST_F(MmapTest, threadpool)
+{
+  auto thread_pool = std::make_unique<kvikio::ThreadPool>(4);
+
+  // Read from the file using an external thread pool
+  {
+    std::size_t num_elements = _file_size / sizeof(value_type);
+    std::vector<std::future<std::size_t>> futs;
+    std::vector<std::string> filepaths{_filepath, _filepath};
+    std::vector<kvikio::MmapHandle> mmap_handles;
+    std::vector<kvikio::test::DevBuffer<value_type>> dev_buffers;
+
+    for (auto const& filepath : filepaths) {
+      mmap_handles.emplace_back(filepath, "r");
+      dev_buffers.push_back(kvikio::test::DevBuffer<value_type>::zero_like(num_elements));
+    }
+
+    for (std::size_t i = 0; i < mmap_handles.size(); ++i) {
+      auto fut = mmap_handles[i].pread(dev_buffers[i].ptr,
+                                       dev_buffers[i].nbytes,
+                                       0,
+                                       kvikio::defaults::task_size(),
+                                       thread_pool.get());
+      futs.push_back(std::move(fut));
+    }
+
+    for (std::size_t i = 0; i < mmap_handles.size(); ++i) {
+      auto nbtyes_read = futs[i].get();
+      EXPECT_EQ(nbtyes_read, _file_size);
+      EXPECT_EQ(_host_buf, dev_buffers[i].to_vector());
+    }
   }
 }

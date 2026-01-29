@@ -1,125 +1,219 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <memory>
 #include <mutex>
 #include <stack>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/nvtx.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
 
-AllocRetain::Alloc::Alloc(AllocRetain* manager, void* alloc, std::size_t size)
-  : _manager(manager), _alloc{alloc}, _size{size}
+void* PageAlignedAllocator::allocate(std::size_t size)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
+  void* buffer{};
+  auto const page_size    = get_page_size();
+  auto const aligned_size = detail::align_up(size, page_size);
+  buffer                  = std::aligned_alloc(page_size, aligned_size);
+  return buffer;
 }
 
-AllocRetain::Alloc::~Alloc() noexcept
+void PageAlignedAllocator::deallocate(void* buffer, std::size_t /*size*/) { std::free(buffer); }
+
+void* CudaPinnedAllocator::allocate(std::size_t size)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
-  _manager->put(_alloc, _size);
+  void* buffer{};
+
+  // If no available allocation, allocate and register a new one
+  // Allocate page-locked host memory
+  // Under unified addressing, host memory allocated this way is automatically portable and
+  // mapped.
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&buffer, size, CU_MEMHOSTALLOC_PORTABLE));
+
+  return buffer;
+}
+void CudaPinnedAllocator::deallocate(void* buffer, std::size_t /*size*/)
+{
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(buffer));
 }
 
-void* AllocRetain::Alloc::get() noexcept
+void* CudaPageAlignedPinnedAllocator::allocate(std::size_t size)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
-  return _alloc;
+  void* buffer{};
+  auto const page_size    = get_page_size();
+  auto const aligned_size = detail::align_up(size, page_size);
+  buffer                  = std::aligned_alloc(page_size, aligned_size);
+  KVIKIO_EXPECT(buffer != nullptr, "Aligned allocation failed");
+  CUDA_DRIVER_TRY(
+    cudaAPI::instance().MemHostRegister(buffer, aligned_size, CU_MEMHOSTALLOC_PORTABLE));
+  return buffer;
 }
 
-void* AllocRetain::Alloc::get(std::ptrdiff_t offset) noexcept
+void CudaPageAlignedPinnedAllocator::deallocate(void* buffer, std::size_t /*size*/)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
-  return static_cast<char*>(_alloc) + offset;
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostUnregister(buffer));
+  std::free(buffer);
 }
 
-std::size_t AllocRetain::Alloc::size() noexcept { return _size; }
+template <typename Allocator>
+BounceBufferPool<Allocator>::Buffer::Buffer(BounceBufferPool<Allocator>* pool,
+                                            void* buffer,
+                                            std::size_t size)
+  : _pool(pool), _buffer{buffer}, _size{size}
+{
+}
 
-std::size_t AllocRetain::_clear()
+template <typename Allocator>
+BounceBufferPool<Allocator>::Buffer::~Buffer() noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::size_t ret = _free_allocs.size() * _size;
-  while (!_free_allocs.empty()) {
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(_free_allocs.top()));
-    _free_allocs.pop();
+  if (_buffer) {
+    // Only return to the pool if not moved-from
+    _pool->put(_buffer, _size);
+  }
+}
+
+template <typename Allocator>
+BounceBufferPool<Allocator>::Buffer::Buffer(Buffer&& o) noexcept
+  : _pool(std::exchange(o._pool, nullptr)),
+    _buffer(std::exchange(o._buffer, nullptr)),
+    _size(std::exchange(o._size, 0))
+{
+}
+
+template <typename Allocator>
+BounceBufferPool<Allocator>::Buffer& BounceBufferPool<Allocator>::Buffer::operator=(
+  Buffer&& o) noexcept
+{
+  if (this != std::addressof(o)) {
+    if (_buffer != nullptr) {
+      // Return current buffer to the pool
+      _pool->put(_buffer, _size);
+    }
+    _pool   = std::exchange(o._pool, nullptr);
+    _buffer = std::exchange(o._buffer, nullptr);
+    _size   = std::exchange(o._size, 0);
+  }
+
+  return *this;
+}
+
+template <typename Allocator>
+void* BounceBufferPool<Allocator>::Buffer::get() const noexcept
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  return _buffer;
+}
+
+template <typename Allocator>
+void* BounceBufferPool<Allocator>::Buffer::get(std::ptrdiff_t offset) const noexcept
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  return static_cast<char*>(_buffer) + offset;
+}
+
+template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::Buffer::size() const noexcept
+{
+  return _size;
+}
+
+template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::_clear()
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  std::size_t ret = _free_buffers.size() * _buffer_size;
+  while (!_free_buffers.empty()) {
+    _allocator.deallocate(_free_buffers.top(), _buffer_size);
+    _free_buffers.pop();
   }
   return ret;
 }
 
-void AllocRetain::_ensure_alloc_size()
+template <typename Allocator>
+void BounceBufferPool<Allocator>::_ensure_buffer_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto const bounce_buffer_size = defaults::bounce_buffer_size();
-  if (_size != bounce_buffer_size) {
+  if (_buffer_size != bounce_buffer_size) {
     _clear();
-    _size = bounce_buffer_size;
+    _buffer_size = bounce_buffer_size;
   }
 }
 
-AllocRetain::Alloc AllocRetain::get()
+template <typename Allocator>
+BounceBufferPool<Allocator>::Buffer BounceBufferPool<Allocator>::get()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   std::lock_guard const lock(_mutex);
-  _ensure_alloc_size();
+  _ensure_buffer_size();
 
   // Check if we have an allocation available
-  if (!_free_allocs.empty()) {
-    void* ret = _free_allocs.top();
-    _free_allocs.pop();
-    return Alloc(this, ret, _size);
+  if (!_free_buffers.empty()) {
+    void* ret = _free_buffers.top();
+    _free_buffers.pop();
+    return Buffer(this, ret, _buffer_size);
   }
 
-  // If no available allocation, allocate and register a new one
-  void* alloc{};
-  // Allocate page-locked host memory
-  // Under unified addressing, host memory allocated this way is automatically portable and mapped.
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&alloc, _size, CU_MEMHOSTALLOC_PORTABLE));
-  return Alloc(this, alloc, _size);
+  auto* buffer = _allocator.allocate(_buffer_size);
+  return Buffer(this, buffer, _buffer_size);
 }
 
-void AllocRetain::put(void* alloc, std::size_t size)
+template <typename Allocator>
+void BounceBufferPool<Allocator>::put(void* buffer, std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   std::lock_guard const lock(_mutex);
-  _ensure_alloc_size();
+  _ensure_buffer_size();
 
-  // If the size of `alloc` matches the sizes of the retained allocations,
+  // If the size of `buffer` matches the sizes of the retained allocations,
   // it is added to the set of free allocation otherwise it is freed.
-  if (size == _size) {
-    _free_allocs.push(alloc);
+  if (size == _buffer_size) {
+    _free_buffers.push(buffer);
   } else {
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(alloc));
+    _allocator.deallocate(buffer, size);
   }
 }
 
-std::size_t AllocRetain::clear()
+template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::clear()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   std::lock_guard const lock(_mutex);
   return _clear();
 }
 
-AllocRetain& AllocRetain::instance()
+template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::num_free_buffers() const
+{
+  std::lock_guard const lock(_mutex);
+  return _free_buffers.size();
+}
+
+template <typename Allocator>
+std::size_t BounceBufferPool<Allocator>::buffer_size() const
+{
+  std::lock_guard const lock(_mutex);
+  return _buffer_size;
+}
+
+template <typename Allocator>
+BounceBufferPool<Allocator>& BounceBufferPool<Allocator>::instance()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  static AllocRetain _instance;
+  static BounceBufferPool _instance;
   return _instance;
 }
 
+// Explicit instantiations
+template class BounceBufferPool<PageAlignedAllocator>;
+template class BounceBufferPool<CudaPinnedAllocator>;
+template class BounceBufferPool<CudaPageAlignedPinnedAllocator>;
 }  // namespace kvikio

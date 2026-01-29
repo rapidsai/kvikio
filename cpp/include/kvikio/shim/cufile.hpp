@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2022-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -120,27 +109,5 @@ bool is_cufile_available() noexcept;
  * @return The version (1000*major + 10*minor) or zero if older than 1080.
  */
 int cufile_version() noexcept;
-
-/**
- * @brief Check if cuFile's batch API is available.
- *
- * Since `cuFileGetVersion()` first became available in cufile v1.8 (CTK v12.3),
- * this function returns false for versions older than v1.8 even though the batch
- * API became available in v1.6.
- *
- * @return The boolean answer
- */
-bool is_batch_api_available() noexcept;
-
-/**
- * @brief Check if cuFile's stream (async) API is available.
- *
- * Since `cuFileGetVersion()` first became available in cufile v1.8 (CTK v12.3),
- * this function returns false for versions older than v1.8 even though the stream
- * API became available in v1.7.
- *
- * @return The boolean answer
- */
-bool is_stream_api_available() noexcept;
 
 }  // namespace kvikio

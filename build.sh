@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
 
 # kvikio build script
 
@@ -18,11 +19,12 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd "$(dirname "$0")"; pwd)
 
-VALIDARGS="clean libkvikio kvikio -v -g -n --pydevelop -h"
-HELP="$0 [clean] [libkvikio] [kvikio] [-v] [-g] [-n] [--cmake-args=\"<args>\"] [-h]
+VALIDARGS="clean libkvikio kvikio benchmarks -v -g -n --pydevelop -h"
+HELP="$0 [clean] [libkvikio] [kvikio] [benchmarks] [-v] [-g] [-n] [--cmake-args=\"<args>\"] [-h]
    clean                       - remove all existing build artifacts and configuration (start over)
    libkvikio                   - build and install the libkvikio C++ code
    kvikio                      - build and install the kvikio Python package (requires libkvikio)
+   benchmarks                  - build benchmarks
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
@@ -39,6 +41,7 @@ BUILD_DIRS="${LIBKVIKIO_BUILD_DIR} ${KVIKIO_BUILD_DIR}"
 VERBOSE_FLAG=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
+BUILD_BENCHMARKS=OFF
 RAN_CMAKE=0
 PYTHON_ARGS_FOR_INSTALL=("-v" "--no-build-isolation" "--no-deps" "--config-settings" "rapidsai.disable-cuda=true")
 
@@ -87,6 +90,7 @@ function ensureCMakeRan {
         cmake -B "${LIBKVIKIO_BUILD_DIR}" -S . \
               -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
               -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+              -DKvikIO_BUILD_BENCHMARKS=${BUILD_BENCHMARKS} \
               "${EXTRA_CMAKE_ARGS[@]}"
         RAN_CMAKE=1
     fi
@@ -123,6 +127,9 @@ if hasArg -g; then
 fi
 if hasArg -n; then
     INSTALL_TARGET=""
+fi
+if hasArg benchmarks; then
+    BUILD_BENCHMARKS=ON
 fi
 if hasArg --pydevelop; then
     PYTHON_ARGS_FOR_INSTALL+=("-e")

@@ -1,5 +1,5 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
 # cython: language_level=3
@@ -17,19 +17,33 @@ def memory_register(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
-    cpp_memory_register(<void*>arr.ptr)
+    with nogil:
+        cpp_memory_register(<void*>arr.ptr)
 
 
 def memory_deregister(buf) -> None:
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
-    cpp_memory_deregister(<void*>arr.ptr)
+    with nogil:
+        cpp_memory_deregister(<void*>arr.ptr)
 
 
 cdef extern from "<kvikio/bounce_buffer.hpp>" nogil:
-    size_t cpp_alloc_retain_clear "kvikio::AllocRetain::instance().clear"() except +
+    size_t cpp_page_aligned_bounce_buffer_pool_clear \
+        "kvikio::PageAlignedBounceBufferPool::instance().clear"() except +
+
+    size_t cpp_cuda_pinned_bounce_buffer_pool_clear \
+        "kvikio::CudaPinnedBounceBufferPool::instance().clear"() except +
+
+    size_t cpp_cuda_page_aligned_pinned_bounce_buffer_pool_clear \
+        "kvikio::CudaPageAlignedPinnedBounceBufferPool::instance().clear"() except +
 
 
 def bounce_buffer_free() -> int:
-    return cpp_alloc_retain_clear()
+    cdef size_t result
+    with nogil:
+        result = cpp_page_aligned_bounce_buffer_pool_clear() + \
+            cpp_cuda_pinned_bounce_buffer_pool_clear() + \
+            cpp_cuda_page_aligned_pinned_bounce_buffer_pool_clear()
+    return result

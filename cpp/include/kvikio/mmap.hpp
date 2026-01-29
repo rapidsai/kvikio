@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -20,6 +9,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/file_handle.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <optional>
 
 namespace kvikio {
@@ -173,19 +163,24 @@ class MmapHandle {
    * specified, read starts from `offset` to the end of file
    * @param offset File offset
    * @param task_size Size of each task in bytes
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool. The caller is responsible for ensuring that the thread pool remains valid until
+   * the returned future is consumed (i.e., until `get()` or `wait()` is called on it).
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
    * @exception std::out_of_range if the read region specified by `offset` and `size` is
    * outside the initial region specified when the mapping handle was constructed
    * @exception std::runtime_error if the mapping handle is closed
    *
-   * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
-   * the MmapHandle object ends. Otherwise, the behavior is undefined.
+   * @note The returned `std::future` object must not outlive either the MmapHandle or the thread
+   * pool. Calling `wait()` or `get()` on the future after the MmapHandle or thread pool has been
+   * destroyed results in undefined behavior.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::optional<std::size_t> size = std::nullopt,
                                  std::size_t offset              = 0,
-                                 std::size_t task_size           = defaults::task_size());
+                                 std::size_t task_size           = defaults::task_size(),
+                                 ThreadPool* thread_pool         = &defaults::thread_pool());
 };
 
 }  // namespace kvikio

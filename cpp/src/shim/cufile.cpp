@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <stdexcept>
@@ -48,27 +37,25 @@ cuFileAPI::cuFileAPI()
     CUfileError_t const error = GetVersion(&ver);
     if (error.err == CU_FILE_SUCCESS) { version = ver; }
   } catch (std::runtime_error const&) {
+    version = 1070;
   }
+#else
+  version = 1070;
 #endif
 
-  // Some symbols were introduced in later versions, so version guards are required.
-  // Note: `version` is 0 for cuFile versions prior to v1.8 because `cuFileGetVersion`
-  // did not exist. As a result, the batch and stream APIs are not loaded in versions
-  // 1.6 and 1.7, respectively, even though they are available. This trade-off is made
-  // for improved robustness.
-  if (version >= 1060) {
-    get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
-    get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
-    get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
-    get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
-    get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
-  }
-  if (version >= 1070) {
-    get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
-    get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
-    get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
-    get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
-  }
+  // Note: CUDA 12.2.0 included cuFile 1.7.0.49, which added all of these symbols.
+  // Refs:
+  // * https://docs.nvidia.com/cuda/archive/12.2.0/cuda-toolkit-release-notes/index.html#cuda-toolkit-major-component-versions
+  // * https://docs.nvidia.com/gpudirect-storage/release-notes/index.html#new-features-and-changes
+  get_symbol(BatchIOSetUp, lib, KVIKIO_STRINGIFY(cuFileBatchIOSetUp));
+  get_symbol(BatchIOSubmit, lib, KVIKIO_STRINGIFY(cuFileBatchIOSubmit));
+  get_symbol(BatchIOGetStatus, lib, KVIKIO_STRINGIFY(cuFileBatchIOGetStatus));
+  get_symbol(BatchIOCancel, lib, KVIKIO_STRINGIFY(cuFileBatchIOCancel));
+  get_symbol(BatchIODestroy, lib, KVIKIO_STRINGIFY(cuFileBatchIODestroy));
+  get_symbol(ReadAsync, lib, KVIKIO_STRINGIFY(cuFileReadAsync));
+  get_symbol(WriteAsync, lib, KVIKIO_STRINGIFY(cuFileWriteAsync));
+  get_symbol(StreamRegister, lib, KVIKIO_STRINGIFY(cuFileStreamRegister));
+  get_symbol(StreamDeregister, lib, KVIKIO_STRINGIFY(cuFileStreamDeregister));
 }
 #else
 cuFileAPI::cuFileAPI() { KVIKIO_FAIL("KvikIO not compiled with cuFile.h", std::runtime_error); }
@@ -125,9 +112,5 @@ int cufile_version() noexcept
 #else
 int cufile_version() noexcept { return 0; }
 #endif
-
-bool is_batch_api_available() noexcept { return cufile_version() >= 1060; }
-
-bool is_stream_api_available() noexcept { return cufile_version() >= 1070; }
 
 }  // namespace kvikio

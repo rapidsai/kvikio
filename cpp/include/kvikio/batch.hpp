@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -43,8 +32,6 @@ struct BatchOp {
   // The operation type: CUFILE_READ or CUFILE_WRITE.
   CUfileOpcode_t opcode;
 };
-
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
 
 /**
  * @brief Handle of an cuFile batch using  semantic.
@@ -114,28 +101,5 @@ class BatchHandle {
 
   void cancel();
 };
-
-#else
-
-class BatchHandle {
- public:
-  BatchHandle() noexcept = default;
-
-  BatchHandle(int max_num_events);
-
-  [[nodiscard]] bool closed() const noexcept;
-
-  void close() noexcept;
-
-  void submit(std::vector<BatchOp> const& operations);
-
-  std::vector<CUfileIOEvents_t> status(unsigned min_nr,
-                                       unsigned max_nr,
-                                       struct timespec* timeout = nullptr);
-
-  void cancel();
-};
-
-#endif
 
 }  // namespace kvikio

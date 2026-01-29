@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -20,21 +9,18 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <stdexcept>
-#include <system_error>
-#include <utility>
 
 #include <kvikio/buffer.hpp>
 #include <kvikio/compat_mode.hpp>
+#include <kvikio/compat_mode_manager.hpp>
 #include <kvikio/cufile/config.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_utils.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/shim/cufile_h_wrapper.hpp>
 #include <kvikio/stream.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -54,6 +40,7 @@ class FileHandle {
   CUFileHandleWrapper _cufile_handle{};
   CompatModeManager _compat_mode_manager;
   friend class CompatModeManager;
+  ThreadPool* _thread_pool{};
 
  public:
   // 644 is a common setting of Unix file permissions: read and write for owner, read-only for group
@@ -243,17 +230,22 @@ class FileHandle {
    * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool. The caller is responsible for ensuring that the thread pool remains valid until
+   * the returned future is consumed (i.e., until `get()` or `wait()` is called on it).
    * @return Future that on completion returns the size of bytes that were successfully read.
    *
-   * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
-   * the FileHandle object ends. Otherwise, the behavior is undefined.
+   * @note The returned `std::future` object must not outlive either the FileHandle or the thread
+   * pool. Calling `wait()` or `get()` on the future after the FileHandle or thread pool has been
+   * destroyed results in undefined behavior.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
                                  std::size_t file_offset   = 0,
                                  std::size_t task_size     = defaults::task_size(),
                                  std::size_t gds_threshold = defaults::gds_threshold(),
-                                 bool sync_default_stream  = true);
+                                 bool sync_default_stream  = true,
+                                 ThreadPool* thread_pool   = &defaults::thread_pool());
 
   /**
    * @brief Writes specified bytes from device or host memory into the file in parallel.
@@ -280,26 +272,28 @@ class FileHandle {
    * in the null stream. When in KvikIO's compatibility mode or when accessing host memory, the
    * operation is always default stream ordered like the rest of the non-async CUDA API. In this
    * case, the value of `sync_default_stream` is ignored.
+   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
+   * thread pool. The caller is responsible for ensuring that the thread pool remains valid until
+   * the returned future is consumed (i.e., until `get()` or `wait()` is called on it).
    * @return Future that on completion returns the size of bytes that were successfully written.
    *
-   * @note The `std::future` object's `wait()` or `get()` should not be called after the lifetime of
-   * the FileHandle object ends. Otherwise, the behavior is undefined.
+   * @note The returned `std::future` object must not outlive either the FileHandle or the thread
+   * pool. Calling `wait()` or `get()` on the future after the FileHandle or thread pool has been
+   * destroyed results in undefined behavior.
    */
   std::future<std::size_t> pwrite(void const* buf,
                                   std::size_t size,
                                   std::size_t file_offset   = 0,
                                   std::size_t task_size     = defaults::task_size(),
                                   std::size_t gds_threshold = defaults::gds_threshold(),
-                                  bool sync_default_stream  = true);
+                                  bool sync_default_stream  = true,
+                                  ThreadPool* thread_pool   = &defaults::thread_pool());
 
   /**
    * @brief Reads specified bytes from the file into the device memory asynchronously.
    *
    * This is an asynchronous version of `.read()`, which will be executed in sequence
    * for the specified stream.
-   *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.read()` but some of them are deferred.
    * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
@@ -339,9 +333,6 @@ class FileHandle {
    * This is an asynchronous version of `.read()`, which will be executed in sequence
    * for the specified stream.
    *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
-   *
    * The arguments have the same meaning as in `.read()` but returns a `StreamFuture` object
    * that the caller must keep alive until all data has been read from disk. One way to do this,
    * is by calling `StreamFuture.check_bytes_done()`, which will synchronize the associated stream
@@ -369,9 +360,6 @@ class FileHandle {
    *
    * This is an asynchronous version of `.write()`, which will be executed in sequence
    * for the specified stream.
-   *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
    *
    * The arguments have the same meaning as in `.write()` but some of them are deferred.
    * That is, the values pointed to by `size_p`, `file_offset_p` and `devPtr_offset_p`
@@ -412,9 +400,6 @@ class FileHandle {
    * This is an asynchronous version of `.write()`, which will be executed in sequence
    * for the specified stream.
    *
-   * When running CUDA v12.1 or older, this function falls back to use `.read()` after
-   * `stream` has been synchronized.
-   *
    * The arguments have the same meaning as in `.write()` but returns a `StreamFuture` object
    * that the caller must keep alive until all data has been written to disk. One way to do this,
    * is by calling `StreamFuture.check_bytes_done()`, which will synchronize the associated stream
@@ -445,6 +430,16 @@ class FileHandle {
    * @return The associated compatibility mode manager.
    */
   const CompatModeManager& get_compat_mode_manager() const noexcept;
+
+  /**
+   * @brief Whether Direct I/O is supported on this file handle. This is determined by two factors:
+   * - Direct I/O support from the operating system and the file system
+   * - KvikIO global setting `auto_direct_io_read` and `auto_direct_io_write`. If both values are
+   * false, Direct I/O will not be supported on this file handle.
+   *
+   * @return Boolean answer.
+   */
+  bool is_direct_io_supported() const noexcept;
 };
 
 }  // namespace kvikio

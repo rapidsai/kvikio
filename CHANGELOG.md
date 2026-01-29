@@ -1,3 +1,141 @@
+# kvikio 25.12.00 (10 Dec 2025)
+
+### 🚨 Breaking Changes
+* Remove ability to build kvikio without CUDA by @vyasr in https://github.com/rapidsai/kvikio/pull/829
+* Minimize transitive includes by moving NVTX-related code to the detail namespace by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/851
+* Implement simple username-based authentication for WebHDFS by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/859
+* Add opportunistic Direct I/O support to POSIX backend by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/863
+* Require CUDA 12.2+ by @jakirkham in https://github.com/rapidsai/kvikio/pull/860
+### 🐛 Bug Fixes
+* Fix an out-of-bounds memory access in file open flags checking by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/853
+* Restore isort for Cython files by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/864
+* refactored update-version.sh to handle new branching strategy by @rockhowse in https://github.com/rapidsai/kvikio/pull/868
+* Pin Cython pre-3.2.0 and PyTest pre-9 by @jakirkham in https://github.com/rapidsai/kvikio/pull/869
+### 📖 Documentation
+* Use current system architecture in conda environment creation command by @bdice in https://github.com/rapidsai/kvikio/pull/867
+### 🛠️ Improvements
+* Simplify async validation condition by @vyasr in https://github.com/rapidsai/kvikio/pull/842
+* Update `RAPIDS_BRANCH`, codify changes in `update-version.sh` by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/843
+* Add named parameters for S3 credentials to Python API by @TomAugspurger in https://github.com/rapidsai/kvikio/pull/846
+* Create utility class URL builder and URL encoder. Fix a tricky URL path issue by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/844
+* Make parameter name more consistent for S3 utility functions by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/848
+* Enable `sccache-dist` connection pool by @trxcllnt in https://github.com/rapidsai/kvikio/pull/852
+* Use main in RAPIDS_BRANCH by @bdice in https://github.com/rapidsai/kvikio/pull/854
+* Use main branch by @bdice in https://github.com/rapidsai/kvikio/pull/855
+* Use ruff and ruff-format instead of flake8, black, isort by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/856
+* Use main shared-workflows branch by @bdice in https://github.com/rapidsai/kvikio/pull/857
+* Use SPDX for all copyright headers by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/858
+* Use `RAPIDS_BRANCH` in cmake-format invocations that need rapids-cmake configs by @bdice in https://github.com/rapidsai/kvikio/pull/862
+* Disable benchmark builds by default, enable in CI by @PointKernel in https://github.com/rapidsai/kvikio/pull/866
+* Use `sccache-dist` build cluster for conda and wheel builds by @trxcllnt in https://github.com/rapidsai/kvikio/pull/865
+
+## New Contributors
+* @PointKernel made their first contribution in https://github.com/rapidsai/kvikio/pull/866
+* @rockhowse made their first contribution in https://github.com/rapidsai/kvikio/pull/868
+
+**Full Changelog**: https://github.com/rapidsai/kvikio/compare/v25.12.00a...release/25.12
+
+# kvikio 25.10.00 (8 Oct 2025)
+
+## 🚨 Breaking Changes
+
+- Support access to public S3 ([#820](https://github.com/rapidsai/kvikio/pull/820)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Reduce duplication between compat manager and defaults ([#816](https://github.com/rapidsai/kvikio/pull/816)) [@vyasr](https://github.com/vyasr)
+- Devendor libnvcomp from libkvikio ([#805](https://github.com/rapidsai/kvikio/pull/805)) [@bdice](https://github.com/bdice)
+- Remove Python nvCOMP bindings and Zarr 2 support ([#798](https://github.com/rapidsai/kvikio/pull/798)) [@vuule](https://github.com/vuule)
+
+## 🐛 Bug Fixes
+
+- Keep string alive until nvtxDomainResourceCreate ([#832](https://github.com/rapidsai/kvikio/pull/832)) [@vyasr](https://github.com/vyasr)
+- Fix a bug in public S3 inference ([#831](https://github.com/rapidsai/kvikio/pull/831)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Fix CUDA 13 handling of libcufile on aarch64 ([#827](https://github.com/rapidsai/kvikio/pull/827)) [@bdice](https://github.com/bdice)
+- Skip max_device_cache_size setter when BAR1 memory isn&#39;t present on the GPUs in the system ([#814](https://github.com/rapidsai/kvikio/pull/814)) [@ahoyle-nvidia](https://github.com/ahoyle-nvidia)
+- Fix an S3 parsing bug in the open function. Improve regex usage ([#810](https://github.com/rapidsai/kvikio/pull/810)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Remove remaining nvcomp references ([#801](https://github.com/rapidsai/kvikio/pull/801)) [@vyasr](https://github.com/vyasr)
+- Revert &quot;Set compiler versions in context ([#755)&quot; (#784](https://github.com/rapidsai/kvikio/pull/755)&quot; (#784)) [@vyasr](https://github.com/vyasr)
+- Relax mmap read requirement. Improve error message. ([#781](https://github.com/rapidsai/kvikio/pull/781)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 🚀 New Features
+
+- Support access to public S3 ([#820](https://github.com/rapidsai/kvikio/pull/820)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Upgrade to nvCOMP 5.0.0.6 ([#800](https://github.com/rapidsai/kvikio/pull/800)) [@vuule](https://github.com/vuule)
+- Remove Python nvCOMP bindings and Zarr 2 support ([#798](https://github.com/rapidsai/kvikio/pull/798)) [@vuule](https://github.com/vuule)
+- Support WebHDFS (2/2): Python binding ([#791](https://github.com/rapidsai/kvikio/pull/791)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Support file size query for S3 presigned URL ([#789](https://github.com/rapidsai/kvikio/pull/789)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Support WebHDFS (1/2): C++ implementation ([#788](https://github.com/rapidsai/kvikio/pull/788)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Support file-backed mapping (2/n): host/device read Python binding ([#742](https://github.com/rapidsai/kvikio/pull/742)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 🛠️ Improvements
+
+- Empty commit to trigger a build ([#840](https://github.com/rapidsai/kvikio/pull/840)) [@msarahan](https://github.com/msarahan)
+- Configure repo for automatic release notes generation ([#825](https://github.com/rapidsai/kvikio/pull/825)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Use C++20 for KvikIO main library ([#819](https://github.com/rapidsai/kvikio/pull/819)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Explicitly manage TLS/SSL CA paths for remote I/O ([#817](https://github.com/rapidsai/kvikio/pull/817)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Reduce duplication between compat manager and defaults ([#816](https://github.com/rapidsai/kvikio/pull/816)) [@vyasr](https://github.com/vyasr)
+- Added KVIKIO_REMOTE_VERBOSE option ([#815](https://github.com/rapidsai/kvikio/pull/815)) [@TomAugspurger](https://github.com/TomAugspurger)
+- Use branch-25.10 again ([#812](https://github.com/rapidsai/kvikio/pull/812)) [@jameslamb](https://github.com/jameslamb)
+- Update rapids-dependency-file-generator ([#809](https://github.com/rapidsai/kvikio/pull/809)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Add a unified remote I/O interface that infers the endpoint type from URL (2/2): Python binding ([#808](https://github.com/rapidsai/kvikio/pull/808)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Devendor libnvcomp from libkvikio ([#805](https://github.com/rapidsai/kvikio/pull/805)) [@bdice](https://github.com/bdice)
+- Remove more nvcomp packaging for conda ([#804](https://github.com/rapidsai/kvikio/pull/804)) [@bdice](https://github.com/bdice)
+- Build and test with CUDA 13.0.0 ([#803](https://github.com/rapidsai/kvikio/pull/803)) [@jameslamb](https://github.com/jameslamb)
+- Optionally require zarr&gt;=3.0.0 ([#802](https://github.com/rapidsai/kvikio/pull/802)) [@TomAugspurger](https://github.com/TomAugspurger)
+- Use build cluster in devcontainers ([#797](https://github.com/rapidsai/kvikio/pull/797)) [@trxcllnt](https://github.com/trxcllnt)
+- Improve KvikIO Python binding performance by releasing GIL wherever deemed necessary ([#796](https://github.com/rapidsai/kvikio/pull/796)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Update rapids_config to handle user defined branch name ([#794](https://github.com/rapidsai/kvikio/pull/794)) [@robertmaynard](https://github.com/robertmaynard)
+- Add a unified remote I/O interface that infers the endpoint type from URL (1/2): C++ implementation ([#793](https://github.com/rapidsai/kvikio/pull/793)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Update rapids-build-backend to 0.4.0 ([#790](https://github.com/rapidsai/kvikio/pull/790)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Fix C++20 warning in the mmap test ([#785](https://github.com/rapidsai/kvikio/pull/785)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Allow latest OS in devcontainers ([#780](https://github.com/rapidsai/kvikio/pull/780)) [@bdice](https://github.com/bdice)
+- Update build infra to support new branching strategy ([#776](https://github.com/rapidsai/kvikio/pull/776)) [@robertmaynard](https://github.com/robertmaynard)
+- Use GCC 14 in conda builds. ([#756](https://github.com/rapidsai/kvikio/pull/756)) [@vyasr](https://github.com/vyasr)
+- Use C++20 standard ([#749](https://github.com/rapidsai/kvikio/pull/749)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+# kvikio 25.08.00 (6 Aug 2025)
+
+## 🚨 Breaking Changes
+
+- Remove CUDA 11 from dependencies.yaml ([#745](https://github.com/rapidsai/kvikio/pull/745)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- stop uploading packages to downloads.rapids.ai ([#734](https://github.com/rapidsai/kvikio/pull/734)) [@jameslamb](https://github.com/jameslamb)
+
+## 🐛 Bug Fixes
+
+- Fix remote I/O file size overflow in Python binding ([#766](https://github.com/rapidsai/kvikio/pull/766)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Fix a case sensitivity bug in S3 remote I/O ([#765](https://github.com/rapidsai/kvikio/pull/765)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Use RAPIDS&#39; CUDA major-minor version in Conda&#39;s `cuda_version` ([#758](https://github.com/rapidsai/kvikio/pull/758)) [@vyasr](https://github.com/vyasr)
+- Fix unit test UB resulting from incorrect initialization ([#751](https://github.com/rapidsai/kvikio/pull/751)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Add an overload getenv_or that supports env var alias. Add new env var KVIKIO_NUM_THREADS. Fix UB. ([#735](https://github.com/rapidsai/kvikio/pull/735)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 📖 Documentation
+
+- Remove CUDA 11 mentions from docs ([#769](https://github.com/rapidsai/kvikio/pull/769)) [@pentschev](https://github.com/pentschev)
+- add docs on CI workflow inputs ([#764](https://github.com/rapidsai/kvikio/pull/764)) [@jameslamb](https://github.com/jameslamb)
+
+## 🚀 New Features
+
+- Add the utility function to clear page cache ([#741](https://github.com/rapidsai/kvikio/pull/741)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Support file-backed mapping (1/n): host/device read C++ implementation ([#740](https://github.com/rapidsai/kvikio/pull/740)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+
+## 🛠️ Improvements
+
+- Use libnvcomp conda package ([#774](https://github.com/rapidsai/kvikio/pull/774)) [@bdice](https://github.com/bdice)
+- fix(docker): use versioned `-latest` tag for all `rapidsai` images ([#771](https://github.com/rapidsai/kvikio/pull/771)) [@gforsyth](https://github.com/gforsyth)
+- Remove CUDA 11 workarounds ([#770](https://github.com/rapidsai/kvikio/pull/770)) [@pentschev](https://github.com/pentschev)
+- Use CUDA 12.9 in Conda, Devcontainers, Spark, GHA, etc. ([#762](https://github.com/rapidsai/kvikio/pull/762)) [@jakirkham](https://github.com/jakirkham)
+- refactor(shellcheck): enable for all files and fix remaining warnings ([#760](https://github.com/rapidsai/kvikio/pull/760)) [@gforsyth](https://github.com/gforsyth)
+- Remove nvidia and dask channels ([#759](https://github.com/rapidsai/kvikio/pull/759)) [@vyasr](https://github.com/vyasr)
+- Set compiler versions in context ([#755](https://github.com/rapidsai/kvikio/pull/755)) [@jakirkham](https://github.com/jakirkham)
+- Use variants to produce separate builds with and without cufile support ([#754](https://github.com/rapidsai/kvikio/pull/754)) [@vyasr](https://github.com/vyasr)
+- Only use cufile on x86 ([#753](https://github.com/rapidsai/kvikio/pull/753)) [@vyasr](https://github.com/vyasr)
+- refactor(rattler): remove explicit `libnuma` pin now that upstream feedstock is fixed ([#752](https://github.com/rapidsai/kvikio/pull/752)) [@gforsyth](https://github.com/gforsyth)
+- Remove CUDA 11 from dependencies.yaml ([#745](https://github.com/rapidsai/kvikio/pull/745)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Add the conda dependency libnuma necessary for GDS I/O ([#744](https://github.com/rapidsai/kvikio/pull/744)) [@kingcrimsontianyu](https://github.com/kingcrimsontianyu)
+- Remove CUDA 11 devcontainers and update CI scripts ([#738](https://github.com/rapidsai/kvikio/pull/738)) [@bdice](https://github.com/bdice)
+- refactor(rattler): remove cuda11 options and general cleanup ([#737](https://github.com/rapidsai/kvikio/pull/737)) [@gforsyth](https://github.com/gforsyth)
+- stop uploading packages to downloads.rapids.ai ([#734](https://github.com/rapidsai/kvikio/pull/734)) [@jameslamb](https://github.com/jameslamb)
+- Forward-merge branch-25.06 into branch-25.08 ([#722](https://github.com/rapidsai/kvikio/pull/722)) [@gforsyth](https://github.com/gforsyth)
+- resolve forward-merge from branch-25.06 to branch-25.08 ([#710](https://github.com/rapidsai/kvikio/pull/710)) [@gforsyth](https://github.com/gforsyth)
+
 # kvikio 25.06.00 (5 Jun 2025)
 
 ## 🚨 Breaking Changes

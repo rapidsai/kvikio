@@ -1,5 +1,5 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
 # cython: language_level=3
@@ -15,7 +15,10 @@ cdef extern from "<kvikio/utils.hpp>" namespace "kvikio" nogil:
 cdef class IOFutureStream:
     """Wrap a C++ StreamFuture in a Python object"""
     def check_bytes_done(self) -> int:
-        return self._handle.check_bytes_done()
+        cdef size_t bytes_done
+        with nogil:
+            bytes_done = self._handle.check_bytes_done()
+        return bytes_done
 
 
 cdef IOFutureStream _wrap_stream_future(cpp_StreamFuture &fut):
@@ -34,7 +37,10 @@ cdef class IOFuture:
         return ret
 
     def done(self) -> bool:
-        return is_future_done(self._handle)
+        cdef bool result
+        with nogil:
+            result = is_future_done(self._handle)
+        return result
 
 
 cdef IOFuture _wrap_io_future(future[size_t] &fut):

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <algorithm>
@@ -29,9 +18,10 @@
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/parallel_operation.hpp>
+#include <kvikio/detail/posix_io.hpp>
+#include <kvikio/detail/tls.hpp>
 #include <kvikio/error.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
@@ -112,6 +102,12 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
 
   // Make requests time out after `value` seconds.
   setopt(CURLOPT_TIMEOUT, kvikio::defaults::http_timeout());
+
+  // Optionally enable verbose output if it's configured.
+  auto const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
+  if (verbose) { setopt(CURLOPT_VERBOSE, 1L); }
+
+  detail::set_up_ca_paths(*this);
 }
 
 CurlHandle::~CurlHandle() noexcept { LibCurl::instance().retain_handle(std::move(_handle)); }

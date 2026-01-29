@@ -1,5 +1,5 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def pprint_sys_info() -> None:
         os.getenv("CUFILE_ENV_PATH_JSON", "/etc/cufile.json")
     )
 
-    if kvikio.defaults.compat_mode():
+    if kvikio.defaults.get("compat_mode"):
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print("   WARNING - KvikIO compat mode   ")
         print("      libcufile.so not used       ")

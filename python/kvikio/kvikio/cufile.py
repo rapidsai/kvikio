@@ -1,5 +1,5 @@
-# Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 import io
 import os
@@ -286,7 +286,7 @@ class CuFile:
     def raw_read_async(
         self,
         buf,
-        stream,
+        raw_stream: int,
         size: Optional[int] = None,
         file_offset: int = 0,
         dev_offset: int = 0,
@@ -300,8 +300,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to read into.
-        stream: cuda.Stream
-            CUDA stream to perform the read operation asynchronously.
+        raw_stream: int
+            Raw CUDA stream to perform the read operation asynchronously.
         size: int, optional
             Size in bytes to read.
         file_offset: int, optional
@@ -316,12 +316,12 @@ class CuFile:
             `IOFutureStream.check_bytes_done()`, which will synchronize the associated
             stream and return the number of bytes read.
         """
-        return self._handle.read_async(buf, size, file_offset, dev_offset, stream)
+        return self._handle.read_async(buf, size, file_offset, dev_offset, raw_stream)
 
     def raw_write_async(
         self,
         buf,
-        stream,
+        raw_stream: int,
         size: Optional[int] = None,
         file_offset: int = 0,
         dev_offset: int = 0,
@@ -335,8 +335,8 @@ class CuFile:
         ----------
         buf: buffer-like or array-like
             Device buffer to write to.
-        stream: cuda.Stream
-            CUDA stream to perform the write operation asynchronously.
+        raw_stream: int
+            Raw CUDA stream to perform the write operation asynchronously.
         size: int, optional
             Size in bytes to write.
         file_offset: int, optional
@@ -351,7 +351,7 @@ class CuFile:
             `IOFutureStream.check_bytes_done()`, which will synchronize the associated
             stream and return the number of bytes written.
         """
-        return self._handle.write_async(buf, size, file_offset, dev_offset, stream)
+        return self._handle.write_async(buf, size, file_offset, dev_offset, raw_stream)
 
     def raw_read(
         self,
@@ -433,9 +433,24 @@ class CuFile:
         """
         return self._handle.write(buf, size, file_offset, dev_offset)
 
+    def is_direct_io_supported(self) -> bool:
+        """Whether Direct I/O is supported on this file handle.
+
+        This is determined by two factors:
+        - Direct I/O support from the operating system and the file system
+        - KvikIO global setting `auto_direct_io_read` and `auto_direct_io_write`. If
+        both values are false, Direct I/O will not be supported on this file handle.
+
+        Returns
+        -------
+        bool
+            Whether Direct I/O is supported
+        """
+        return self._handle.is_direct_io_supported()
+
 
 def get_page_cache_info(
-    file: Union[os.PathLike, str, int, io.IOBase]
+    file: Union[os.PathLike, str, int, io.IOBase],
 ) -> tuple[int, int]:
     """Obtain the page cache residency information for a given file
 

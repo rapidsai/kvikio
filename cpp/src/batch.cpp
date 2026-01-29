@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cstddef>
@@ -25,8 +14,6 @@
 #include <kvikio/shim/cufile.hpp>
 
 namespace kvikio {
-
-#ifdef KVIKIO_CUFILE_BATCH_API_FOUND
 
 BatchHandle::BatchHandle(int max_num_events) : _initialized{true}, _max_num_events{max_num_events}
 {
@@ -88,29 +75,5 @@ std::vector<CUfileIOEvents_t> BatchHandle::status(unsigned min_nr,
 }
 
 void BatchHandle::cancel() { CUFILE_TRY(cuFileAPI::instance().BatchIOCancel(_handle)); }
-
-#else
-
-BatchHandle::BatchHandle(int max_num_events)
-{
-  KVIKIO_FAIL("BatchHandle requires cuFile's batch API, please build with CUDA v12.1+");
-}
-
-bool BatchHandle::closed() const noexcept { return true; }
-
-void BatchHandle::close() noexcept {}
-
-void BatchHandle::submit(std::vector<BatchOp> const& operations) {}
-
-std::vector<CUfileIOEvents_t> BatchHandle::status(unsigned min_nr,
-                                                  unsigned max_nr,
-                                                  struct timespec* timeout)
-{
-  return std::vector<CUfileIOEvents_t>{};
-}
-
-void BatchHandle::cancel() {}
-
-#endif
 
 }  // namespace kvikio

@@ -1,9 +1,12 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
 files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9"]
+      cuda: ["12.9", "13.1"]
       arch: [aarch64, x86_64]
     includes:
       - build-universal
@@ -13,7 +16,6 @@ files:
       - cuda
       - cuda_version
       - depends_on_cupy
-      - depends_on_libnvcomp
       - docs
       - py_version
       - rapids_build_skbuild
@@ -66,10 +68,6 @@ files:
       table: project
     includes:
       - depends_on_cupy
-      # TODO: restore runtime dependency when we no longer vendor nvcomp
-      # (when nvcomp ships C++ wheels)
-      # https://github.com/rapidsai/build-planning/issues/171
-      # - depends_on_libnvcomp
       - depends_on_libkvikio
       - run
   py_rapids_build_libkvikio:
@@ -91,6 +89,14 @@ files:
       - build-cpp
       - build-py-wrapper
       - build-use-libkvikio-wheel
+  py_optional_zarr:
+    output: pyproject
+    pyproject_dir: python/kvikio
+    extras:
+      table: project.optional-dependencies
+      key: zarr
+    includes:
+      - zarr
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -99,6 +105,7 @@ files:
       key: test
     includes:
       - test_python
+      - zarr
   test_java:
     output: none
     includes:
@@ -109,8 +116,8 @@ files:
       - test_java
       - depends_on_libkvikio
 channels:
-  - rapidsai
   - rapidsai-nightly
+  - rapidsai
   - conda-forge
 dependencies:
   build-universal:
@@ -124,34 +131,27 @@ dependencies:
       - output_types: conda
         packages:
           - c-compiler
+          - cuda-nvcc
           - cxx-compiler
-          - libcurl>=8.5.0,<9.0a0
+          - libcurl>=8.5.0,<9.0
     specific:
       - output_types: conda
         matrices:
           - matrix:
               arch: x86_64
-              cuda: "12.*"
             packages:
               - gcc_linux-64=14.*
               - sysroot_linux-64=2.28
           - matrix:
               arch: aarch64
-              cuda: "12.*"
             packages:
               - gcc_linux-aarch64=14.*
               - sysroot_linux-aarch64=2.28
-      - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - cuda-nvcc
   build-use-libkvikio-wheel:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==25.10.*,>=0.0.0a0
+          - libkvikio==26.4.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -159,13 +159,18 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.10.*,>=0.0.0a0
+              - libkvikio-cu12==26.4.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libkvikio-cu13==26.4.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cython>=3.0.0
+          - cython>=3.0.0,<3.2.0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -175,10 +180,6 @@ dependencies:
     specific:
       - output_types: conda
         matrices:
-          - matrix:
-              cuda: "12.0"
-            packages:
-              - cuda-version=12.0
           - matrix:
               cuda: "12.2"
             packages:
@@ -195,45 +196,48 @@ dependencies:
               cuda: "12.9"
             packages:
               - cuda-version=12.9
+          - matrix:
+              cuda: "13.0"
+            packages:
+              - cuda-version=13.0
+          - matrix:
+              cuda: "13.1"
+            packages:
+              - cuda-version=13.1
   cuda:
-    specific:
+    common:
       - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-      - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - libcufile-dev
-              - libnuma
+        packages:
+          - libcufile-dev
+          - libnuma
   depends_on_cupy:
     common:
       - output_types: conda
         packages:
-          - cupy>=12.0.0
+          - &cupy_unsuffixed cupy>=13.6.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: # All CUDA 12 versions
+          - matrix:
+              cuda: "12.*"
             packages:
-              - cupy-cuda12x>=12.0.0
-  depends_on_libnvcomp:
-    common:
-      - output_types: conda
-        packages:
-          - libnvcomp-dev==4.2.0.11
+              - cupy-cuda12x>=13.6.0
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - &cupy_cu13 cupy-cuda13x>=13.6.0
+          - matrix:
+            packages:
+              - *cupy_cu13
   depends_on_libkvikio:
     common:
       - output_types: conda
         packages:
-          - &libkvikio_unsuffixed libkvikio==25.10.*,>=0.0.0a0
+          - &libkvikio_unsuffixed libkvikio==26.4.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for libkvikio-cu12.
+          # This index is needed for libkvikio-cu{12,13}.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
@@ -243,13 +247,19 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==25.10.*,>=0.0.0a0
+              - libkvikio-cu12==26.4.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libkvikio-cu13==26.4.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   docs:
     common:
       - output_types: [conda, requirements]
         packages:
           - numpydoc
+          - zarr>=3.0.0,<3.2.0,<4.0.0
           - sphinx
           - sphinx-click
           - sphinx_rtd_theme
@@ -283,34 +293,36 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+          - rapids-build-backend>=0.4.0,<0.5.0
       - output_types: conda
         packages:
-          - scikit-build-core>=0.10.0
+          - scikit-build-core>=0.11.0
       - output_types: [requirements, pyproject]
         packages:
-          - scikit-build-core[pyproject]>=0.10.0
+          - scikit-build-core[pyproject]>=0.11.0
   run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.23,<3.0a0
-          - zarr>=2.0.0,<4.0.0
-          # See https://github.com/zarr-developers/numcodecs/pull/475
-          - numcodecs !=0.12.0
+          - numpy>=1.23,<3.0
           - packaging
+  zarr:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          - "zarr>=3.0.0,<3.2.0,<4.0.0; python_version >= '3.11'"
   test_libkvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.10.*,>=0.0.0a0
-          - libkvikio-tests==25.10.*,>=0.0.0a0
+          - libkvikio==26.4.*,>=0.0.0a0
+          - libkvikio-tests==26.4.*,>=0.0.0a0
   test_kvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==25.10.*,>=0.0.0a0
-          - kvikio==25.10.*,>=0.0.0a0
+          - libkvikio==26.4.*,>=0.0.0a0
+          - kvikio==26.4.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -320,8 +332,8 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-dask-dependency==25.10.*,>=0.0.0a0
-          - pytest
+          - rapids-dask-dependency==26.4.*,>=0.0.0a0
+          - pytest<9.0.0
           - pytest-asyncio
           - pytest-cov
           - pytest-timeout
@@ -334,11 +346,28 @@ dependencies:
         packages:
           - moto>=4.0.8
     specific:
+      - output_types: [conda]
+        matrices:
+          # zarr 3 is not supported on Python 3.10
+          - matrix:
+              py: "3.1[123]"
+            packages:
+              - zarr>=3.0.0,<3.2.0,<4.0.0
+          - matrix:
+            packages:
       - output_types: [conda, requirements, pyproject]
         matrices:
-          - matrix: # All CUDA 12 versions
+          - matrix:
+              cuda: "12.*"
             packages:
-              - cuda-python>=12.6.2,<13.0a0
+              - cuda-python>=12.9.2,<13.0
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0
+          - matrix:
+            packages:
+              - *cuda_python_cu13
   test_java:
     common:
       - output_types: conda

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #include <sys/mman.h>
 
@@ -24,14 +13,15 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include <kvikio/bounce_buffer.hpp>
+#include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/parallel_operation.hpp>
+#include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/file_utils.hpp>
 #include <kvikio/mmap.hpp>
-#include <kvikio/nvtx.hpp>
-#include <kvikio/parallel_operation.hpp>
-#include <kvikio/posix_io.hpp>
 #include <kvikio/utils.hpp>
-#include "kvikio/file_utils.hpp"
 
 namespace kvikio {
 
@@ -218,7 +208,9 @@ void read_impl(void* dst_buf,
                                                &attrs,
                                                attrs_idxs,
                                                static_cast<std::size_t>(1) /* num_attrs */,
+#if CUDA_VERSION < 13000
                                                static_cast<std::size_t*>(nullptr),
+#endif
                                                stream));
       } else {
         // Fall back to the conventional H2D copy if the batch copy API is not available.
@@ -239,9 +231,9 @@ void read_impl(void* dst_buf,
     src_devptr = convert_void2deviceptr(src);
     h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
   } else {
-    auto alloc = AllocRetain::instance().get();
-    std::memcpy(alloc.get(), src, size);
-    src_devptr = convert_void2deviceptr(alloc.get());
+    auto bounce_buffer = CudaPinnedBounceBufferPool::instance().get();
+    std::memcpy(bounce_buffer.get(), src, size);
+    src_devptr = convert_void2deviceptr(bounce_buffer.get());
     h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
   }
 }
@@ -274,13 +266,25 @@ MmapHandle::MmapHandle(std::string const& file_path,
                        std::size_t initial_map_offset,
                        mode_t mode,
                        std::optional<int> map_flags)
-  : _initial_map_offset(initial_map_offset),
-    _initialized{true},
-    _file_wrapper(file_path, flags, false /* o_direct */, mode)
+  : _initial_map_offset(initial_map_offset), _initialized{true}
 {
   KVIKIO_NVTX_FUNC_RANGE();
 
-  _file_size = get_file_size(_file_wrapper.fd());
+  switch (flags[0]) {
+    case 'r': {
+      _map_protection = PROT_READ;
+      break;
+    }
+    case 'w': {
+      KVIKIO_FAIL("File-backed mmap write is not supported yet", std::invalid_argument);
+    }
+    default: {
+      KVIKIO_FAIL("Unknown file open flag", std::invalid_argument);
+    }
+  }
+
+  _file_wrapper = FileWrapper(file_path, flags, false /* o_direct */, mode);
+  _file_size    = get_file_size(_file_wrapper.fd());
   if (_file_size == 0) { return; }
 
   {
@@ -310,22 +314,7 @@ MmapHandle::MmapHandle(std::string const& file_path,
   _map_offset             = detail::align_down(_initial_map_offset, page_size);
   auto const offset_delta = _initial_map_offset - _map_offset;
   _map_size               = _initial_map_size + offset_delta;
-
-  switch (flags[0]) {
-    case 'r': {
-      _map_protection = PROT_READ;
-      break;
-    }
-    case 'w': {
-      KVIKIO_FAIL("File-backed mmap write is not supported yet", std::invalid_argument);
-    }
-    default: {
-      KVIKIO_FAIL("Unknown file open flag", std::invalid_argument);
-    }
-  }
-
-  _map_flags = map_flags.has_value() ? map_flags.value() : MAP_PRIVATE;
-
+  _map_flags              = map_flags.has_value() ? map_flags.value() : MAP_PRIVATE;
   _map_addr =
     mmap(nullptr, _map_size, _map_protection, _map_flags, _file_wrapper.fd(), _map_offset);
   SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
@@ -426,10 +415,12 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
 std::future<std::size_t> MmapHandle::pread(void* buf,
                                            std::optional<std::size_t> size,
                                            std::size_t offset,
-                                           std::size_t task_size)
+                                           std::size_t task_size,
+                                           ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than task size.");
+  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
   auto actual_size = validate_and_adjust_read_args(size, offset);
   if (actual_size == 0) { return make_ready_future(actual_size); }
 
@@ -459,6 +450,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                      offset,
                      task_size,
                      0,  // dst buffer offset initial value
+                     thread_pool,
                      call_idx,
                      nvtx_color);
 }

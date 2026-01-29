@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -108,6 +97,7 @@ class TempDir {
 /**
  * @brief Help class for creating and comparing buffers.
  */
+template <typename T>
 class DevBuffer {
  public:
   std::size_t nelem;
@@ -116,12 +106,12 @@ class DevBuffer {
 
   DevBuffer() : nelem{0}, nbytes{0} {};
 
-  DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(std::int64_t)}
+  DevBuffer(std::size_t nelem) : nelem{nelem}, nbytes{nelem * sizeof(T)}
   {
     KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes));
     KVIKIO_CHECK_CUDA(cudaMemset(ptr, 0, nbytes));
   }
-  DevBuffer(std::vector<std::int64_t> const& host_buffer) : DevBuffer{host_buffer.size()}
+  DevBuffer(std::vector<T> const& host_buffer) : DevBuffer{host_buffer.size()}
   {
     KVIKIO_CHECK_CUDA(cudaMemcpy(ptr, host_buffer.data(), nbytes, cudaMemcpyHostToDevice));
   }
@@ -143,9 +133,9 @@ class DevBuffer {
 
   ~DevBuffer() noexcept { cudaFree(ptr); }
 
-  [[nodiscard]] static DevBuffer arange(std::size_t nelem, std::int64_t start = 0)
+  [[nodiscard]] static DevBuffer arange(std::size_t nelem, T start = 0)
   {
-    std::vector<std::int64_t> host_buffer(nelem);
+    std::vector<T> host_buffer(nelem);
     std::iota(host_buffer.begin(), host_buffer.end(), start);
     return DevBuffer{host_buffer};
   }
@@ -157,9 +147,9 @@ class DevBuffer {
     return ret;
   }
 
-  [[nodiscard]] std::vector<std::int64_t> to_vector() const
+  [[nodiscard]] std::vector<T> to_vector() const
   {
-    std::vector<std::int64_t> ret(nelem);
+    std::vector<T> ret(nelem);
     KVIKIO_CHECK_CUDA(cudaMemcpy(ret.data(), this->ptr, nbytes, cudaMemcpyDeviceToHost));
     return ret;
   }
@@ -177,7 +167,8 @@ class DevBuffer {
 /**
  * @brief Check that two buffers are equal
  */
-inline void expect_equal(DevBuffer const& a, DevBuffer const& b)
+template <typename T>
+inline void expect_equal(DevBuffer<T> const& a, DevBuffer<T> const& b)
 {
   EXPECT_EQ(a.nbytes, b.nbytes);
   auto a_vec = a.to_vector();
@@ -186,5 +177,67 @@ inline void expect_equal(DevBuffer const& a, DevBuffer const& b)
     EXPECT_EQ(a_vec[i], b_vec[i]) << "Mismatch at index " << i;
   }
 }
+
+/**
+ * @brief Custom allocator with alignment and element offset support, suitable for use with standard
+ * containers like std::vector.
+ *
+ * @tparam T The type of elements to allocate
+ * @tparam ali Alignment requirement in bytes (must be a power of 2)
+ * @tparam element_offset Number of elements to offset the returned pointer (default: 0)
+ *
+ * Example usage:
+ * @code
+ * // Allocator with 4096-byte alignment, no offset
+ * std::vector<int, CustomHostAllocator<int, 4096>> vec;
+ *
+ * // Allocator with 64-byte alignment and 10-element offset (i.e. 80-byte offset)
+ * std::vector<double, CustomHostAllocator<double, 64, 10>> offset_vec;
+ * @endcode
+ */
+template <class T, std::size_t ali, std::size_t element_offset = 0>
+struct CustomHostAllocator {
+  using value_type      = T;
+  CustomHostAllocator() = default;
+
+  template <class U>
+  constexpr CustomHostAllocator(const CustomHostAllocator<U, ali, element_offset>&) noexcept
+  {
+  }
+
+  template <class U>
+  struct rebind {
+    using other = CustomHostAllocator<U, ali, element_offset>;
+  };
+
+  [[nodiscard]] T* allocate(std::size_t num_elements)
+  {
+    if (num_elements > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
+      throw std::bad_array_new_length();
+    }
+
+    auto total_bytes = (num_elements + element_offset) * sizeof(T);
+    total_bytes      = (total_bytes + ali - 1) & ~(ali - 1);
+
+    if (auto* ptr = static_cast<T*>(std::aligned_alloc(ali, total_bytes))) {
+      auto dst_ptr = reinterpret_cast<std::byte*>(ptr) + element_offset * sizeof(T);
+      return reinterpret_cast<T*>(dst_ptr);
+    }
+
+    throw std::bad_alloc();
+  }
+
+  void deallocate(T* ptr, [[maybe_unused]] std::size_t n) noexcept
+  {
+    auto src_ptr = reinterpret_cast<std::byte*>(ptr) - element_offset * sizeof(T);
+    std::free(src_ptr);
+  }
+
+  template <class U, std::size_t ali_u, std::size_t element_offset_u>
+  bool operator==(const CustomHostAllocator<U, ali_u, element_offset_u>&) const noexcept
+  {
+    return ali == ali_u && element_offset == element_offset_u;
+  }
+};
 
 }  // namespace kvikio::test

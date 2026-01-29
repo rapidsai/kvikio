@@ -1,12 +1,11 @@
-# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
 # cython: language_level=3
 
 import io
 import os
-import pathlib
 from typing import Optional, Union
 
 from posix cimport fcntl
@@ -88,6 +87,7 @@ cdef extern from "<kvikio/file_handle.hpp>" namespace "kvikio" nogil:
             size_t devPtr_offset,
             CUstream stream
         ) except +
+        bool is_direct_io_supported()
 
 
 cdef class CuFile:
@@ -95,88 +95,134 @@ cdef class CuFile:
     cdef FileHandle _handle
 
     def __init__(self, file_path, flags="r"):
-        self._handle = move(
-            FileHandle(
-                str.encode(str(pathlib.Path(file_path))),
-                str.encode(str(flags))
+        cdef string cpp_file_path = os.fsencode(file_path)
+        cdef string cpp_flags = str(flags).encode()
+        with nogil:
+            self._handle = move(
+                FileHandle(
+                    cpp_file_path,
+                    cpp_flags
+                )
             )
-        )
 
     def close(self) -> None:
-        self._handle.close()
+        with nogil:
+            self._handle.close()
 
     def closed(self) -> bool:
-        return self._handle.closed()
+        cdef bool result
+        with nogil:
+            result = self._handle.closed()
+        return result
 
     def fileno(self) -> int:
-        return self._handle.fd()
+        cdef int result
+        with nogil:
+            result = self._handle.fd()
+        return result
 
     def open_flags(self) -> int:
-        return self._handle.fd_open_flags()
+        cdef int result
+        with nogil:
+            result = self._handle.fd_open_flags()
+        return result
 
     def pread(self, buf, size: Optional[int], file_offset: int, task_size) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
-        return _wrap_io_future(
-            self._handle.pread(
+        cdef size_t cpp_file_offset = file_offset
+        cdef size_t cpp_task_size = task_size if task_size else defaults.task_size()
+        cdef future[size_t] fut
+        with nogil:
+            fut = self._handle.pread(
                 <void*>info.first,
                 info.second,
-                file_offset,
-                task_size if task_size else defaults.task_size()
+                cpp_file_offset,
+                cpp_task_size
             )
-        )
+        return _wrap_io_future(fut)
 
     def pwrite(self, buf, size: Optional[int], file_offset: int, task_size) -> IOFuture:
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
-        return _wrap_io_future(
-            self._handle.pwrite(
+        cdef size_t cpp_file_offset = file_offset
+        cdef size_t cpp_task_size = task_size if task_size else defaults.task_size()
+        cdef future[size_t] fut
+        with nogil:
+            fut = self._handle.pwrite(
                 <void*>info.first,
                 info.second,
-                file_offset,
-                task_size if task_size else defaults.task_size()
+                cpp_file_offset,
+                cpp_task_size
             )
-        )
+        return _wrap_io_future(fut)
 
     def read(self, buf, size: Optional[int], file_offset: int, dev_offset: int) -> int:
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, False)
-        return self._handle.read(
-            <void*>info.first,
-            info.second,
-            file_offset,
-            dev_offset,
-        )
+        cdef size_t cpp_file_offset = file_offset
+        cdef size_t cpp_dev_offset = dev_offset
+        cdef size_t result
+        with nogil:
+            result = self._handle.read(
+                <void*>info.first,
+                info.second,
+                cpp_file_offset,
+                cpp_dev_offset,
+            )
+        return result
 
     def write(self, buf, size: Optional[int], file_offset: int, dev_offset: int) -> int:
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, False)
-        return self._handle.write(
-            <void*>info.first,
-            info.second,
-            file_offset,
-            dev_offset,
-        )
+        cdef size_t cpp_file_offset = file_offset
+        cdef size_t cpp_dev_offset = dev_offset
+        cdef size_t result
+        with nogil:
+            result = self._handle.write(
+                <void*>info.first,
+                info.second,
+                cpp_file_offset,
+                cpp_dev_offset,
+            )
+        return result
 
     def read_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
                    st: uintptr_t) -> IOFutureStream:
-        stream = <CUstream>st
+        cdef CUstream stream = <CUstream>st
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, False)
-        return _wrap_stream_future(self._handle.read_async(
-            <void*>info.first,
-            info.second,
-            file_offset,
-            dev_offset,
-            stream,
-        ))
+        cdef size_t cpp_file_offset = file_offset
+        cdef size_t cpp_dev_offset = dev_offset
+        cdef cpp_StreamFuture fut
+        with nogil:
+            fut = self._handle.read_async(
+                <void*>info.first,
+                info.second,
+                cpp_file_offset,
+                cpp_dev_offset,
+                stream,
+            )
+        return _wrap_stream_future(fut)
 
     def write_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
                     st: uintptr_t) -> IOFutureStream:
-        stream = <CUstream>st
+        cdef CUstream stream = <CUstream>st
         cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, False)
-        return _wrap_stream_future(self._handle.write_async(
-            <void*>info.first,
-            info.second,
-            file_offset,
-            dev_offset,
-            stream,
-        ))
+        cdef size_t cpp_file_offset = file_offset
+        cdef size_t cpp_dev_offset = dev_offset
+        cdef cpp_StreamFuture fut
+        with nogil:
+            fut = self._handle.write_async(
+                <void*>info.first,
+                info.second,
+                cpp_file_offset,
+                cpp_dev_offset,
+                stream,
+            )
+        return _wrap_stream_future(fut)
+
+    def is_direct_io_supported(self) -> bool:
+        cdef bool result
+        with nogil:
+            result = self._handle.is_direct_io_supported()
+        return result
+
 
 cdef extern from "<kvikio/file_utils.hpp>" nogil:
     pair[size_t, size_t] cpp_get_page_cache_info_str \
@@ -192,21 +238,37 @@ cdef extern from "<kvikio/file_utils.hpp>" nogil:
 
 def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase]) \
         -> tuple[int, int]:
+    cdef pair[size_t, size_t] result
+    cdef string path_bytes
+    cdef int fd
+
     if isinstance(file, os.PathLike) or isinstance(file, str):
         # file is a path or a string object
-        path_bytes = str(pathlib.Path(file)).encode()
-        return cpp_get_page_cache_info_str(path_bytes)
+        path_bytes = os.fsencode(file)
+        with nogil:
+            result = cpp_get_page_cache_info_str(path_bytes)
+        return result
     elif isinstance(file, int):
         # file is a file descriptor
-        return cpp_get_page_cache_info_int(file)
+        fd = file
+        with nogil:
+            result = cpp_get_page_cache_info_int(fd)
+        return result
     elif isinstance(file, io.IOBase):
         # file is a file object
         # pass its file descriptor to the underlying C++ function
-        return cpp_get_page_cache_info_int(file.fileno())
+        fd = file.fileno()
+        with nogil:
+            result = cpp_get_page_cache_info_int(fd)
+        return result
     else:
         raise ValueError("The type of `file` must be `os.PathLike`, `str`, `int`, "
                          "or `io.IOBase`")
 
 
-def clear_page_cache(reclaim_dentries_and_inodes: bool, clear_dirty_pages: bool):
-    return cpp_clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)
+def clear_page_cache(reclaim_dentries_and_inodes: bool,
+                     clear_dirty_pages: bool) -> bool:
+    cdef bool result
+    with nogil:
+        result = cpp_clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)
+    return result
