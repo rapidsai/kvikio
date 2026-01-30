@@ -22,6 +22,7 @@ void* PageAlignedAllocator::allocate(std::size_t size)
   auto const page_size    = get_page_size();
   auto const aligned_size = detail::align_up(size, page_size);
   buffer                  = std::aligned_alloc(page_size, aligned_size);
+  KVIKIO_EXPECT(buffer != nullptr, "Aligned allocation failed");
   return buffer;
 }
 
