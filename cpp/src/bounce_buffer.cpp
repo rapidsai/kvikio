@@ -217,8 +217,73 @@ template class BounceBufferPool<PageAlignedAllocator>;
 template class BounceBufferPool<CudaPinnedAllocator>;
 template class BounceBufferPool<CudaPageAlignedPinnedAllocator>;
 
+namespace {
+void separate_copy(std::span<void*> dsts,
+                   std::span<void*> srcs,
+                   std::span<std::size_t> sizes,
+                   CUstream stream)
+{
+  // Fall back to the conventional H2D copy if the batch copy API is not available.
+  for (std::size_t i = 0; i < srcs.size(); ++i) {
+    CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+      convert_void2deviceptr(dsts[i]), reinterpret_cast<void*>(srcs[i]), sizes[i], stream));
+  }
+}
+
+void batch_copy(std::span<void*> dsts,
+                std::span<void*> srcs,
+                std::span<std::size_t> sizes,
+                CUstream stream)
+{
+  if (srcs.size() == 0) return;
+
+#if CUDA_VERSION >= 12080
+  if (cudaAPI::instance().MemcpyBatchAsync) {
+    CUmemcpyAttributes attrs{};
+    std::size_t attrs_idxs[] = {0};
+    attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
+    CUDA_DRIVER_TRY(
+      cudaAPI::instance().MemcpyBatchAsync(dsts.data(),
+                                           srcs.data(),
+                                           sizes.data(),
+                                           srcs.size(),
+                                           &attrs,
+                                           attrs_idxs,
+                                           static_cast<std::size_t>(1) /* num_attrs */,
+#if CUDA_VERSION < 13000
+                                           static_cast<std::size_t*>(nullptr),
+#endif
+                                           stream));
+  } else {
+    separate_copy(dsts, srcs, sizes, stream);
+  }
+#else
+  separate_copy(dsts, srcs, sizes, stream);
+#endif
+}
+}  // namespace
+
 template <typename Allocator>
-BounceBufferRing<Allocator>::BounceBufferRing(std::size_t num_buffers) : _num_buffers{num_buffers}
+void BounceBufferRing<Allocator>::BatchTransferContext::add_entry(void* dst,
+                                                                  void* src,
+                                                                  std::size_t size)
+{
+  srcs.push_back(src);
+  dsts.push_back(dst);
+  sizes.push_back(size);
+}
+
+template <typename Allocator>
+void BounceBufferRing<Allocator>::BatchTransferContext::clear()
+{
+  srcs.clear();
+  dsts.clear();
+  sizes.clear();
+}
+
+template <typename Allocator>
+BounceBufferRing<Allocator>::BounceBufferRing(std::size_t num_buffers, bool batch_copy)
+  : _num_buffers{num_buffers}, _batch_copy{batch_copy}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(num_buffers >= 1, "BounceBufferRing requires at least 1 buffer");
@@ -230,46 +295,55 @@ BounceBufferRing<Allocator>::BounceBufferRing(std::size_t num_buffers) : _num_bu
 }
 
 template <typename Allocator>
-void BounceBufferRing<Allocator>::copy_to_device(void* device_dst,
-                                                 std::size_t size,
-                                                 CUstream stream)
+void BounceBufferRing<Allocator>::enqueue_h2d(void* device_dst, std::size_t size, CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-    convert_void2deviceptr(device_dst), buffer(), size, stream));
+  if (_batch_copy) {
+    _batch_transfer_ctx.add_entry(device_dst, cur_buffer(), size);
+  } else {
+    CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+      convert_void2deviceptr(device_dst), cur_buffer(), size, stream));
+  }
 }
 
 template <typename Allocator>
-void BounceBufferRing<Allocator>::copy_from_device(void const* device_src,
-                                                   std::size_t size,
-                                                   CUstream stream)
+void BounceBufferRing<Allocator>::enqueue_d2h(void* device_src, std::size_t size, CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoHAsync(
-    buffer(), convert_void2deviceptr(device_src), size, stream));
+  if (_batch_copy) {
+    _batch_transfer_ctx.add_entry(cur_buffer(), device_src, size);
+  } else {
+    CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoHAsync(
+      cur_buffer(), convert_void2deviceptr(device_src), size, stream));
+  }
 }
 
 template <typename Allocator>
 void BounceBufferRing<Allocator>::advance(CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  _cur_buf_offset = 0;
+  _cur_buffer_offset = 0;
   ++_cur_buf_idx;
   if (_cur_buf_idx >= _num_buffers) { _cur_buf_idx = 0; }
   if (_cur_buf_idx == _initial_buf_idx) {
+    if (_batch_copy) {
+      batch_copy(
+        _batch_transfer_ctx.dsts, _batch_transfer_ctx.srcs, _batch_transfer_ctx.sizes, stream);
+      _batch_transfer_ctx.clear();
+    }
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     _initial_buf_idx = _cur_buf_idx;
   }
 }
 
 template <typename Allocator>
-void* BounceBufferRing<Allocator>::buffer() const noexcept
+void* BounceBufferRing<Allocator>::cur_buffer() const noexcept
 {
   return _buffers[_cur_buf_idx].get();
 }
 
 template <typename Allocator>
-void* BounceBufferRing<Allocator>::buffer(std::ptrdiff_t off) const noexcept
+void* BounceBufferRing<Allocator>::cur_buffer(std::ptrdiff_t off) const noexcept
 {
   return _buffers[_cur_buf_idx].get(off);
 }
@@ -287,15 +361,15 @@ std::size_t BounceBufferRing<Allocator>::num_buffers() const noexcept
 }
 
 template <typename Allocator>
-std::size_t BounceBufferRing<Allocator>::offset() const noexcept
+std::size_t BounceBufferRing<Allocator>::cur_buffer_offset() const noexcept
 {
-  return _cur_buf_offset;
+  return _cur_buffer_offset;
 }
 
 template <typename Allocator>
-std::size_t BounceBufferRing<Allocator>::remaining_bytes() const noexcept
+std::size_t BounceBufferRing<Allocator>::cur_buffer_remaining_capacity() const noexcept
 {
-  return buffer_size() - _cur_buf_offset;
+  return buffer_size() - _cur_buffer_offset;
 }
 
 template <typename Allocator>
@@ -305,23 +379,22 @@ void BounceBufferRing<Allocator>::accumulate_and_submit_h2d(void* device_dst,
                                                             CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  auto const* host_str_ptr = static_cast<char const*>(host_src);
+  auto const* host_src_ptr = static_cast<char const*>(host_src);
   auto* device_dst_ptr     = static_cast<char*>(device_dst);
 
   while (size > 0) {
-    auto const cur_remaining_bytes = remaining_bytes();
-    auto const num_bytes_to_copy   = std::min(size, cur_remaining_bytes);
+    auto const remaining_bytes   = cur_buffer_remaining_capacity();
+    auto const num_bytes_to_copy = std::min(size, remaining_bytes);
 
     // Copy from host to bounce buffer
-    std::memcpy(buffer(_cur_buf_offset), host_str_ptr, num_bytes_to_copy);
-    _cur_buf_offset += num_bytes_to_copy;
-    host_str_ptr += num_bytes_to_copy;
+    std::memcpy(cur_buffer(_cur_buffer_offset), host_src_ptr, num_bytes_to_copy);
+    _cur_buffer_offset += num_bytes_to_copy;
+    host_src_ptr += num_bytes_to_copy;
     size -= num_bytes_to_copy;
 
-    if (_cur_buf_offset >= buffer_size()) {
-      copy_to_device(device_dst_ptr, _cur_buf_offset, stream);
-      device_dst_ptr += _cur_buf_offset;
-      advance(stream);
+    if (_cur_buffer_offset >= buffer_size()) {
+      submit_h2d(device_dst_ptr, buffer_size(), stream);
+      device_dst_ptr += buffer_size();
     }
   }
 }
@@ -330,7 +403,7 @@ template <typename Allocator>
 void BounceBufferRing<Allocator>::submit_h2d(void* device_dst, std::size_t size, CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  copy_to_device(device_dst, size, stream);
+  enqueue_h2d(device_dst, size, stream);
   advance(stream);
 }
 
@@ -338,9 +411,9 @@ template <typename Allocator>
 std::size_t BounceBufferRing<Allocator>::flush_h2d(void* device_dst, CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (_cur_buf_offset == 0) { return 0; }
-  auto const flushed = _cur_buf_offset;
-  copy_to_device(device_dst, _cur_buf_offset, stream);
+  if (_cur_buffer_offset == 0) { return 0; }
+  auto const flushed = _cur_buffer_offset;
+  enqueue_h2d(device_dst, _cur_buffer_offset, stream);
   advance(stream);
   return flushed;
 }
@@ -349,6 +422,11 @@ template <typename Allocator>
 void BounceBufferRing<Allocator>::synchronize(CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
+  if (_batch_copy) {
+    batch_copy(
+      _batch_transfer_ctx.dsts, _batch_transfer_ctx.srcs, _batch_transfer_ctx.sizes, stream);
+    _batch_transfer_ctx.clear();
+  }
   CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
 }
 
