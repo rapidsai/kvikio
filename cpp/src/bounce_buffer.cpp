@@ -218,10 +218,10 @@ template class BounceBufferPool<CudaPinnedAllocator>;
 template class BounceBufferPool<CudaPageAlignedPinnedAllocator>;
 
 namespace {
-void separate_copy(std::span<void*> dsts,
-                   std::span<void*> srcs,
-                   std::span<std::size_t> sizes,
-                   CUstream stream)
+void unbatched_copy(std::span<void*> dsts,
+                    std::span<void*> srcs,
+                    std::span<std::size_t> sizes,
+                    CUstream stream)
 {
   // Fall back to the conventional H2D copy if the batch copy API is not available.
   for (std::size_t i = 0; i < srcs.size(); ++i) {
@@ -255,10 +255,10 @@ void batch_copy(std::span<void*> dsts,
 #endif
                                            stream));
   } else {
-    separate_copy(dsts, srcs, sizes, stream);
+    unbatched_copy(dsts, srcs, sizes, stream);
   }
 #else
-  separate_copy(dsts, srcs, sizes, stream);
+  unbatched_copy(dsts, srcs, sizes, stream);
 #endif
 }
 }  // namespace
