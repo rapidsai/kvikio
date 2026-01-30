@@ -268,4 +268,106 @@ using CudaPinnedBounceBufferPool = BounceBufferPool<CudaPinnedAllocator>;
  * Provides both page alignment (for Direct I/O) and CUDA registration (for efficient transfers)
  */
 using CudaPageAlignedPinnedBounceBufferPool = BounceBufferPool<CudaPageAlignedPinnedAllocator>;
+
+/**
+ * @brief K-way bounce buffer ring for overlapping I/O with host-device transfers.
+ *
+ * @tparam Allocator The allocator policy for bounce buffers.
+ */
+template <typename Allocator = CudaPinnedAllocator>
+class BounceBufferRing {
+ private:
+  std::vector<typename BounceBufferPool<Allocator>::Buffer> _buffers;
+  std::size_t _num_buffers;
+  std::size_t _cur_buf_idx{0};
+  std::size_t _initial_buf_idx{0};
+  std::size_t _cur_buf_offset{0};
+
+  /**
+   * @brief Async copy from current bounce buffer to device memory.
+   *
+   * @param device_dst Device memory destination.
+   * @param size Bytes to copy.
+   * @param stream CUDA stream for the async transfer.
+   */
+  void copy_to_device(void* device_dst, std::size_t size, CUstream stream);
+
+  /**
+   * @brief Async copy from device memory to current bounce buffer.
+   *
+   * @param device_src Device memory source.
+   * @param size Bytes to copy.
+   * @param stream CUDA stream for the async transfer.
+   */
+  void copy_from_device(void const* device_src, std::size_t size, CUstream stream);
+
+  /**
+   * @brief Advance to next buffer, sync stream if wrapping around.
+   *
+   * @param stream CUDA stream to synchronize on wrap-around.
+   */
+  void advance(CUstream stream);
+
+  /**
+   * @brief Get remaining number of bytes in current buffer for accumulation.
+   */
+  [[nodiscard]] std::size_t remaining_bytes() const noexcept;
+
+ public:
+  /**
+   * @brief Construct a bounce buffer ring.
+   *
+   * @param num_buffers Number of bounce buffers for k-way overlap (must be >= 1).
+   */
+  explicit BounceBufferRing(std::size_t num_buffers = 1);
+
+  ~BounceBufferRing() noexcept = default;
+
+  // Non-copyable, non-movable
+  BounceBufferRing(BounceBufferRing const&)            = delete;
+  BounceBufferRing& operator=(BounceBufferRing const&) = delete;
+  BounceBufferRing(BounceBufferRing&&)                 = delete;
+  BounceBufferRing& operator=(BounceBufferRing&&)      = delete;
+
+  // Accessors
+  [[nodiscard]] void* buffer() const noexcept;
+  [[nodiscard]] void* buffer(std::ptrdiff_t offset) const noexcept;
+  [[nodiscard]] std::size_t buffer_size() const noexcept;
+  [[nodiscard]] std::size_t num_buffers() const noexcept;
+  [[nodiscard]] std::size_t offset() const noexcept;
+
+  /**
+   * @brief Accumulate data into bounce buffer, auto-flush when full.
+   *
+   * Copies src to internal buffer. When buffer fills, issues async H2D copy to device_dst and
+   * advances to next buffer.
+   *
+   * @param device_dst Current device destination pointer.
+   * @param host_src Source data in host memory.
+   * @param size Bytes to write.
+   * @param stream CUDA stream for async H2D transfers.
+   */
+  void accumulate_and_submit_h2d(void* device_dst,
+                                 void const* host_src,
+                                 std::size_t size,
+                                 CUstream stream);
+
+  void submit_h2d(void* device_dst, std::size_t size, CUstream stream);
+
+  /**
+   * @brief Flush any accumulated data to device.
+   *
+   * @param device_dst Device memory destination.
+   * @param stream CUDA stream for async H2D transfer.
+   * @return Bytes flushed.
+   */
+  std::size_t flush_h2d(void* device_dst, CUstream stream);
+
+  /**
+   * @brief Synchronize the given CUDA stream.
+   *
+   * @param stream CUDA stream to synchronize.
+   */
+  static void synchronize(CUstream stream);
+};
 }  // namespace kvikio

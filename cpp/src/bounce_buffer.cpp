@@ -216,4 +216,144 @@ BounceBufferPool<Allocator>& BounceBufferPool<Allocator>::instance()
 template class BounceBufferPool<PageAlignedAllocator>;
 template class BounceBufferPool<CudaPinnedAllocator>;
 template class BounceBufferPool<CudaPageAlignedPinnedAllocator>;
+
+template <typename Allocator>
+BounceBufferRing<Allocator>::BounceBufferRing(std::size_t num_buffers) : _num_buffers{num_buffers}
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  KVIKIO_EXPECT(num_buffers >= 1, "BounceBufferRing requires at least 1 buffer");
+
+  _buffers.reserve(_num_buffers);
+  for (std::size_t i = 0; i < _num_buffers; ++i) {
+    _buffers.emplace_back(BounceBufferPool<Allocator>::instance().get());
+  }
+}
+
+template <typename Allocator>
+void BounceBufferRing<Allocator>::copy_to_device(void* device_dst,
+                                                 std::size_t size,
+                                                 CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+    convert_void2deviceptr(device_dst), buffer(), size, stream));
+}
+
+template <typename Allocator>
+void BounceBufferRing<Allocator>::copy_from_device(void const* device_src,
+                                                   std::size_t size,
+                                                   CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoHAsync(
+    buffer(), convert_void2deviceptr(device_src), size, stream));
+}
+
+template <typename Allocator>
+void BounceBufferRing<Allocator>::advance(CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  _cur_buf_offset = 0;
+  ++_cur_buf_idx;
+  if (_cur_buf_idx >= _num_buffers) { _cur_buf_idx = 0; }
+  if (_cur_buf_idx == _initial_buf_idx) {
+    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    _initial_buf_idx = _cur_buf_idx;
+  }
+}
+
+template <typename Allocator>
+void* BounceBufferRing<Allocator>::buffer() const noexcept
+{
+  return _buffers[_cur_buf_idx].get();
+}
+
+template <typename Allocator>
+void* BounceBufferRing<Allocator>::buffer(std::ptrdiff_t off) const noexcept
+{
+  return _buffers[_cur_buf_idx].get(off);
+}
+
+template <typename Allocator>
+std::size_t BounceBufferRing<Allocator>::buffer_size() const noexcept
+{
+  return _buffers[_cur_buf_idx].size();
+}
+
+template <typename Allocator>
+std::size_t BounceBufferRing<Allocator>::num_buffers() const noexcept
+{
+  return _num_buffers;
+}
+
+template <typename Allocator>
+std::size_t BounceBufferRing<Allocator>::offset() const noexcept
+{
+  return _cur_buf_offset;
+}
+
+template <typename Allocator>
+std::size_t BounceBufferRing<Allocator>::remaining_bytes() const noexcept
+{
+  return buffer_size() - _cur_buf_offset;
+}
+
+template <typename Allocator>
+void BounceBufferRing<Allocator>::accumulate_and_submit_h2d(void* device_dst,
+                                                            void const* host_src,
+                                                            std::size_t size,
+                                                            CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto const* host_str_ptr = static_cast<char const*>(host_src);
+  auto* device_dst_ptr     = static_cast<char*>(device_dst);
+
+  while (size > 0) {
+    auto const cur_remaining_bytes = remaining_bytes();
+    auto const num_bytes_to_copy   = std::min(size, cur_remaining_bytes);
+
+    // Copy from host to bounce buffer
+    std::memcpy(buffer(_cur_buf_offset), host_str_ptr, num_bytes_to_copy);
+    _cur_buf_offset += num_bytes_to_copy;
+    host_str_ptr += num_bytes_to_copy;
+    size -= num_bytes_to_copy;
+
+    if (_cur_buf_offset >= buffer_size()) {
+      copy_to_device(device_dst_ptr, _cur_buf_offset, stream);
+      device_dst_ptr += _cur_buf_offset;
+      advance(stream);
+    }
+  }
+}
+
+template <typename Allocator>
+void BounceBufferRing<Allocator>::submit_h2d(void* device_dst, std::size_t size, CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  copy_to_device(device_dst, size, stream);
+  advance(stream);
+}
+
+template <typename Allocator>
+std::size_t BounceBufferRing<Allocator>::flush_h2d(void* device_dst, CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  if (_cur_buf_offset == 0) { return 0; }
+  auto const flushed = _cur_buf_offset;
+  copy_to_device(device_dst, _cur_buf_offset, stream);
+  advance(stream);
+  return flushed;
+}
+
+template <typename Allocator>
+void BounceBufferRing<Allocator>::synchronize(CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+}
+
+// Explicit instantiations
+template class BounceBufferRing<CudaPinnedAllocator>;
+template class BounceBufferRing<CudaPageAlignedPinnedAllocator>;
+
 }  // namespace kvikio
