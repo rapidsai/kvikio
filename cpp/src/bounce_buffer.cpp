@@ -39,6 +39,7 @@ void* CudaPinnedAllocator::allocate(std::size_t size)
 
   return buffer;
 }
+
 void CudaPinnedAllocator::deallocate(void* buffer, std::size_t /*size*/)
 {
   CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(buffer));
@@ -116,7 +117,7 @@ template <typename Allocator>
 void* BounceBufferPool<Allocator>::Buffer::get(std::ptrdiff_t offset) const noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return static_cast<char*>(_buffer) + offset;
+  return static_cast<std::byte*>(_buffer) + offset;
 }
 
 template <typename Allocator>
@@ -388,9 +389,10 @@ void BounceBufferRing<Allocator>::accumulate_and_submit_h2d(void* device_dst,
                                                             CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  auto const* host_src_ptr = static_cast<char const*>(host_src);
-  auto* device_dst_ptr     = static_cast<char*>(device_dst);
+  auto const* host_src_ptr = static_cast<std::byte const*>(host_src);
+  auto* device_dst_ptr     = static_cast<std::byte*>(device_dst);
 
+  // The data is split across multiple buffers if its size is greater than buffer_size()
   while (size > 0) {
     auto const remaining_bytes   = cur_buffer_remaining_capacity();
     auto const num_bytes_to_copy = std::min(size, remaining_bytes);
