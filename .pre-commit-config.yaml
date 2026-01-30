@@ -105,6 +105,12 @@ repos:
             ^conda/environments/|
             [.](png)$|
             ^cpp/examples/downstream/cmake/get_kvikio[.]cmake$
+      - id: verify-pyproject-license
+        # ignore the top-level pyproject.toml, which doesn't
+        # have or need a [project] table
+        exclude: |
+          (?x)
+            ^pyproject[.]toml$
   - repo: https://github.com/rapidsai/dependency-file-generator
     rev: v1.20.0
     hooks:
