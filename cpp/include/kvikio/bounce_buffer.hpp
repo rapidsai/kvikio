@@ -423,10 +423,11 @@ class BounceBufferRing {
    * Typical usage for streaming host data to device:
    * @code
    *   while (has_more_data()) {
-   *     ring.accumulate_and_submit_h2d(device_ptr, host_data, chunk_size, stream);
-   *     device_ptr += chunk_size;  // Note: only advance by submitted amount
+   *     auto submitted = ring.accumulate_and_submit_h2d(device_ptr, host_data, chunk_size, stream);
+   *     device_ptr += submitted;
    *   }
-   *   ring.flush_h2d(device_ptr, stream);
+   *   auto flushed = ring.flush_h2d(device_ptr, stream);
+   *   device_ptr += flushed;
    *   ring.synchronize(stream);
    * @endcode
    *
@@ -434,14 +435,15 @@ class BounceBufferRing {
    * @param host_src Source data in host memory.
    * @param size Bytes to copy.
    * @param stream CUDA stream for async H2D transfers.
+   * @return Number of bytes (in buffer sizes) that have actually been submitted for copy.
    *
    * @note Partial buffer contents remain until flush_h2d() is called.
    * @note Final data visibility requires flush_h2d() + synchronize().
    */
-  void accumulate_and_submit_h2d(void* device_dst,
-                                 void const* host_src,
-                                 std::size_t size,
-                                 CUstream stream);
+  std::size_t accumulate_and_submit_h2d(void* device_dst,
+                                        void const* host_src,
+                                        std::size_t size,
+                                        CUstream stream);
 
   /**
    * @brief Submit current buffer contents to device and advance to next buffer.

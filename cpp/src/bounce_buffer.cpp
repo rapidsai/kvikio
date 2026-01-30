@@ -383,10 +383,10 @@ std::size_t BounceBufferRing<Allocator>::cur_buffer_remaining_capacity() const n
 }
 
 template <typename Allocator>
-void BounceBufferRing<Allocator>::accumulate_and_submit_h2d(void* device_dst,
-                                                            void const* host_src,
-                                                            std::size_t size,
-                                                            CUstream stream)
+std::size_t BounceBufferRing<Allocator>::accumulate_and_submit_h2d(void* device_dst,
+                                                                   void const* host_src,
+                                                                   std::size_t size,
+                                                                   CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto const* host_src_ptr = static_cast<std::byte const*>(host_src);
@@ -408,6 +408,8 @@ void BounceBufferRing<Allocator>::accumulate_and_submit_h2d(void* device_dst,
       device_dst_ptr += buffer_size();
     }
   }
+
+  return static_cast<std::size_t>(device_dst_ptr - static_cast<std::byte*>(device_dst));
 }
 
 template <typename Allocator>
