@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import multiprocessing as mp
@@ -112,7 +112,14 @@ def test_read_access(s3_base):
 @pytest.mark.parametrize("nthreads", [1, 3])
 @pytest.mark.parametrize("tasksize", [99, 999])
 @pytest.mark.parametrize("buffer_size", [101, 1001])
-def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
+@pytest.mark.parametrize(
+    "remote_backend",
+    [
+        kvikio.RemoteBackendType.LIBCURL_EASY,
+        kvikio.RemoteBackendType.LIBCURL_MULTI_POLL,
+    ],
+)
+def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size, remote_backend):
     bucket_name = "test_read"
     object_name = "Aa1"
     a = xp.arange(size)
@@ -124,8 +131,16 @@ def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
                 "num_threads": nthreads,
                 "task_size": tasksize,
                 "bounce_buffer_size": buffer_size,
+                "remote_backend": remote_backend,
             }
         ):
+            if (
+                remote_backend == kvikio.RemoteBackendType.LIBCURL_MULTI_POLL
+                and tasksize > buffer_size
+            ):
+                pytest.skip(
+                    "When the remote backend is LIBCURL_MULTI_POLL, task size must not be greater than the buffer size"
+                )
             with kvikio.RemoteFile.open_s3_url(
                 f"{server_address}/{bucket_name}/{object_name}"
             ) as f:
@@ -144,18 +159,26 @@ def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
         (42, int(2**20)),
     ],
 )
-def test_read_with_file_offset(s3_base, xp, start, end):
+@pytest.mark.parametrize(
+    "remote_backend",
+    [
+        kvikio.RemoteBackendType.LIBCURL_EASY,
+        kvikio.RemoteBackendType.LIBCURL_MULTI_POLL,
+    ],
+)
+def test_read_with_file_offset(s3_base, xp, start, end, remote_backend):
     bucket_name = "test_read_with_file_offset"
     object_name = "Aa1"
     a = xp.arange(end, dtype=xp.int64)
     with s3_context(
         s3_base=s3_base, bucket=bucket_name, files={object_name: bytes(a)}
     ) as server_address:
-        url = f"{server_address}/{bucket_name}/{object_name}"
-        with kvikio.RemoteFile.open_s3_url(url) as f:
-            b = xp.zeros(shape=(end - start,), dtype=xp.int64)
-            assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
-            xp.testing.assert_array_equal(a[start:end], b)
+        with kvikio.defaults.set({"remote_backend": remote_backend}):
+            url = f"{server_address}/{bucket_name}/{object_name}"
+            with kvikio.RemoteFile.open_s3_url(url) as f:
+                b = xp.zeros(shape=(end - start,), dtype=xp.int64)
+                assert f.read(b, file_offset=start * a.itemsize) == b.nbytes
+                xp.testing.assert_array_equal(a[start:end], b)
 
 
 @pytest.mark.parametrize("scheme", ["S3"])
