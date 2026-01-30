@@ -271,10 +271,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.10"
-            packages:
-              - python=3.10
-          - matrix:
               py: "3.11"
             packages:
               - python=3.11
@@ -288,7 +284,7 @@ dependencies:
               - python=3.13
           - matrix:
             packages:
-              - python>=3.10,<3.14
+              - python>=3.11,<3.14
   rapids_build_skbuild:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -345,16 +341,8 @@ dependencies:
       - output_types: conda
         packages:
           - moto>=4.0.8
+          - zarr>=3.0.0,<3.2.0,<4.0.0
     specific:
-      - output_types: [conda]
-        matrices:
-          # zarr 3 is not supported on Python 3.10
-          - matrix:
-              py: "3.1[123]"
-            packages:
-              - zarr>=3.0.0,<3.2.0,<4.0.0
-          - matrix:
-            packages:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
