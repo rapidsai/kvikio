@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import io
@@ -9,7 +9,6 @@ from contextlib import contextmanager
 import pytest
 
 import kvikio
-import kvikio.buffer
 import kvikio.defaults
 
 cupy = pytest.importorskip("cupy")
@@ -281,20 +280,20 @@ def test_different_bounce_buffer_sizes(tmp_path, size, tasksize, buffer_size):
 def test_bounce_buffer_free(tmp_path):
     """Test freeing the bounce buffer allocations"""
     filename = tmp_path / "test-file"
-    kvikio.buffer.bounce_buffer_free()
+    kvikio.bounce_buffer_free()
     with kvikio.defaults.set({"compat_mode": kvikio.CompatMode.ON, "num_threads": 1}):
         with kvikio.CuFile(filename, "w") as f:
             with kvikio.defaults.set({"bounce_buffer_size": 1024}):
                 # Notice, since the bounce buffer size is only checked when the buffer
                 # is used, we populate the bounce buffer in between we clear it.
                 f.write(cupy.arange(10))
-                assert kvikio.buffer.bounce_buffer_free() == 1024
-                assert kvikio.buffer.bounce_buffer_free() == 0
+                assert kvikio.bounce_buffer_free() == 1024
+                assert kvikio.bounce_buffer_free() == 0
                 f.write(cupy.arange(10))
             with kvikio.defaults.set({"bounce_buffer_size": 2048}):
                 f.write(cupy.arange(10))
-                assert kvikio.buffer.bounce_buffer_free() == 2048
-                assert kvikio.buffer.bounce_buffer_free() == 0
+                assert kvikio.bounce_buffer_free() == 2048
+                assert kvikio.bounce_buffer_free() == 0
 
 
 def test_get_page_cache_info(tmp_path):

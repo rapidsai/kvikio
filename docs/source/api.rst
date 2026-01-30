@@ -15,6 +15,14 @@ CuFile
 
 .. autofunction:: clear_page_cache
 
+.. currentmodule:: kvikio.buffer
+
+.. autofunction:: memory_register
+
+.. autofunction:: memory_deregister
+
+.. autofunction:: bounce_buffer_free
+
 CuFile driver
 -------------
 .. currentmodule:: kvikio.cufile_driver
