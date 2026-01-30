@@ -43,6 +43,9 @@ class PageAlignedAllocator {
  * transferred to/from GPU device memory. The allocation is only guaranteed to be aligned to "at
  * least 256 bytes". It is NOT guaranteed to be page aligned.
  *
+ * @note Allocations use CU_MEMHOSTALLOC_PORTABLE, making them accessible from all CUDA contexts,
+ * not just the one that performed the allocation. This allows the singleton BounceBufferPool to
+ * safely serve buffers across multiple contexts and devices.
  * @note Do NOT use with Direct I/O - lacks page alignment guarantee
  */
 class CudaPinnedAllocator {
@@ -71,6 +74,9 @@ class CudaPinnedAllocator {
  * (for efficient host-device transfers). Uses std::aligned_alloc followed by
  * cudaMemHostRegister to achieve both properties.
  *
+ * @note Registration uses CU_MEMHOSTALLOC_PORTABLE, making buffers accessible from all CUDA
+ * contexts, not just the one active during allocation. This allows the singleton BounceBufferPool
+ * to safely serve buffers across multiple contexts and devices.
  * @note This is the required allocator for Direct I/O with device memory. Requires a valid CUDA
  * context when allocating.
  */
@@ -111,6 +117,9 @@ class CudaPageAlignedPinnedAllocator {
  * - CudaPinnedAllocator: For device I/O without Direct I/O
  * - CudaPageAlignedPinnedAllocator: For device I/O with Direct I/O
  *
+ * @note The singleton pool is safe for use across multiple CUDA contexts. CUDA-pinned allocators
+ * use CU_MEMHOSTALLOC_PORTABLE, ensuring buffers allocated in one context can be used from any
+ * other context.
  * @note The destructor intentionally leaks allocations to avoid CUDA cleanup issues when static
  * destructors run after CUDA context destruction
  */
