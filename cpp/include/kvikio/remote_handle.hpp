@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
@@ -441,7 +442,10 @@ class RemoteHandle {
    * @param file_offset File offset in bytes.
    * @return Number of bytes read, which is always `size`.
    */
-  std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0);
+  std::size_t read(void* buf,
+                   std::size_t size,
+                   std::size_t file_offset                                   = 0,
+                   BounceBufferRing<CudaPinnedAllocator>* bounce_buffer_ring = nullptr);
 
   /**
    * @brief Read from remote source into buffer (host or device memory) in parallel.
