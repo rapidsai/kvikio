@@ -218,18 +218,27 @@ template class BounceBufferPool<CudaPinnedAllocator>;
 template class BounceBufferPool<CudaPageAlignedPinnedAllocator>;
 
 namespace {
+/**
+ * @brief Issue individual async H2D copies for each transfer.
+ *
+ * Fallback when cuMemcpyBatchAsync is unavailable.
+ */
 void unbatched_copy(std::span<void*> dsts,
                     std::span<void*> srcs,
                     std::span<std::size_t> sizes,
                     CUstream stream)
 {
-  // Fall back to the conventional H2D copy if the batch copy API is not available.
   for (std::size_t i = 0; i < srcs.size(); ++i) {
     CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
       convert_void2deviceptr(dsts[i]), reinterpret_cast<void*>(srcs[i]), sizes[i], stream));
   }
 }
 
+/**
+ * @brief Issue H2D copies using batch API if available, otherwise fall back to individual copies.
+ *
+ * Uses cuMemcpyBatchAsync (CUDA 12.8+) to reduce API overhead for multiple small transfers.
+ */
 void batch_copy(std::span<void*> dsts,
                 std::span<void*> srcs,
                 std::span<std::size_t> sizes,
