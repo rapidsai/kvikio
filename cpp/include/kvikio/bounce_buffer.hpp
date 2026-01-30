@@ -293,6 +293,9 @@ using CudaPageAlignedPinnedBounceBufferPool = BounceBufferPool<CudaPageAlignedPi
  *   - CudaPageAlignedPinnedAllocator: For device I/O with Direct I/O
  *
  * @note This class is NOT thread-safe. Use one ring per thread or per operation.
+ * @note The internal bounce buffers use CU_MEMHOSTALLOC_PORTABLE and are accessible from any CUDA
+ * context. However, each transfer session (from first enqueue/submit through synchronize/reset)
+ * must use a stream and device pointers from a single, consistent CUDA context.
  * @note In batch mode, H2D copies are deferred until wrap-around or synchronize(), trading overlap
  * for reduced API call overhead.
  * @note H2D and D2H operations should not be interleaved within a single transfer session. Call
