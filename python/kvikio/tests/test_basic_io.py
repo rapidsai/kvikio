@@ -90,12 +90,14 @@ def test_incorrect_open_mode_error(tmp_path, xp):
     a.tofile(filename)
     os.sync()
 
+    err_msg_psync = "Operation not permitted"
+    err_msg_io_uring = "Bad file descriptor"
     with kvikio.CuFile(filename, "r") as f:
-        with pytest.raises(RuntimeError, match="Operation not permitted"):
+        with pytest.raises(RuntimeError, match=f"{err_msg_psync}|{err_msg_io_uring}"):
             f.write(xp.arange(10))
 
     with kvikio.CuFile(filename, "w") as f:
-        with pytest.raises(RuntimeError, match="Operation not permitted"):
+        with pytest.raises(RuntimeError, match=f"{err_msg_psync}|{err_msg_io_uring}"):
             f.read(xp.arange(10))
 
 
