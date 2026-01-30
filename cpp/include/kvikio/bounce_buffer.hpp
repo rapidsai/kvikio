@@ -286,6 +286,8 @@ using CudaPageAlignedPinnedBounceBufferPool = BounceBufferPool<CudaPageAlignedPi
  * @note This class is NOT thread-safe. Use one ring per thread or per operation.
  * @note In batch mode, H2D copies are deferred until wrap-around or synchronize(), trading overlap
  * for reduced API call overhead.
+ * @note H2D and D2H operations should not be interleaved within a single transfer session. Call
+ * reset() between direction changes to ensure correct synchronization behavior.
  */
 template <typename Allocator = CudaPinnedAllocator>
 class BounceBufferRing {
@@ -435,7 +437,8 @@ class BounceBufferRing {
    * @param host_src Source data in host memory.
    * @param size Bytes to copy.
    * @param stream CUDA stream for async H2D transfers.
-   * @return Number of bytes (in buffer sizes) that have actually been submitted for copy.
+   * @return Number of bytes submitted to device (always a multiple of buffer_size(); partial buffer
+   * contents remain until flush_h2d()).
    *
    * @note Partial buffer contents remain until flush_h2d() is called.
    * @note Final data visibility requires flush_h2d() + synchronize().
@@ -490,5 +493,15 @@ class BounceBufferRing {
    * @note After synchronize(), the ring can be reused for new transfers.
    */
   void synchronize(CUstream stream);
+
+  /**
+   * @brief Synchronize pending transfers and reset ring state for a new transfer session.
+   *
+   * Ensures all in-flight transfers complete, then resets the ring to its initial state. After
+   * reset(), the ring can be safely reused for either H2D or D2H operations.
+   *
+   * @param stream CUDA stream to synchronize.
+   */
+  void reset(CUstream stream);
 };
 }  // namespace kvikio

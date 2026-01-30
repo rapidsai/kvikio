@@ -109,14 +109,12 @@ BounceBufferPool<Allocator>::Buffer& BounceBufferPool<Allocator>::Buffer::operat
 template <typename Allocator>
 void* BounceBufferPool<Allocator>::Buffer::get() const noexcept
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   return _buffer;
 }
 
 template <typename Allocator>
 void* BounceBufferPool<Allocator>::Buffer::get(std::ptrdiff_t offset) const noexcept
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   return static_cast<std::byte*>(_buffer) + offset;
 }
 
@@ -441,6 +439,15 @@ void BounceBufferRing<Allocator>::synchronize(CUstream stream)
     _batch_transfer_ctx.clear();
   }
   CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+}
+
+template <typename Allocator>
+void BounceBufferRing<Allocator>::reset(CUstream stream)
+{
+  synchronize(stream);
+  _cur_buf_idx       = 0;
+  _initial_buf_idx   = 0;
+  _cur_buffer_offset = 0;
 }
 
 // Explicit instantiations
