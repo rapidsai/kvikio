@@ -22,6 +22,7 @@ void* PageAlignedAllocator::allocate(std::size_t size)
   auto const page_size    = get_page_size();
   auto const aligned_size = detail::align_up(size, page_size);
   buffer                  = std::aligned_alloc(page_size, aligned_size);
+  KVIKIO_EXPECT(buffer != nullptr, "Aligned allocation failed");
   return buffer;
 }
 
@@ -31,10 +32,9 @@ void* CudaPinnedAllocator::allocate(std::size_t size)
 {
   void* buffer{};
 
-  // If no available allocation, allocate and register a new one
-  // Allocate page-locked host memory
-  // Under unified addressing, host memory allocated this way is automatically portable and
-  // mapped.
+  // Allocate page-locked (pinned) host memory with CU_MEMHOSTALLOC_PORTABLE. The PORTABLE flag
+  // ensures this memory is accessible from all CUDA contexts, which is essential for the singleton
+  // BounceBufferPool that may serve multiple contexts and devices.
   CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&buffer, size, CU_MEMHOSTALLOC_PORTABLE));
 
   return buffer;
@@ -52,6 +52,9 @@ void* CudaPageAlignedPinnedAllocator::allocate(std::size_t size)
   auto const aligned_size = detail::align_up(size, page_size);
   buffer                  = std::aligned_alloc(page_size, aligned_size);
   KVIKIO_EXPECT(buffer != nullptr, "Aligned allocation failed");
+  // Register the page-aligned allocation as pinned memory with CU_MEMHOSTALLOC_PORTABLE. The
+  // PORTABLE flag ensures this memory is accessible from all CUDA contexts, which is essential for
+  // the singleton BounceBufferPool that may serve multiple contexts and devices.
   CUDA_DRIVER_TRY(
     cudaAPI::instance().MemHostRegister(buffer, aligned_size, CU_MEMHOSTALLOC_PORTABLE));
   return buffer;
