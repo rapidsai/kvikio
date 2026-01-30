@@ -14,6 +14,7 @@ else:
 
 from kvikio._lib.defaults import CompatMode, RemoteBackendType  # noqa: F401
 from kvikio._version import __git_commit__, __version__
+from kvikio.buffer import bounce_buffer_free, memory_deregister, memory_register
 from kvikio.cufile import CuFile, clear_page_cache, get_page_cache_info
 from kvikio.mmap import Mmap
 from kvikio.remote_file import RemoteEndpointType, RemoteFile, is_remote_file_available
@@ -31,4 +32,7 @@ __all__ = [
     "RemoteFile",
     "stream_register",
     "stream_deregister",
+    "memory_register",
+    "memory_deregister",
+    "bounce_buffer_free",
 ]
