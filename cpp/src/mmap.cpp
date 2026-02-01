@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <sys/mman.h>
@@ -16,7 +16,7 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
-#include <kvikio/detail/posix_io.hpp>
+#include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_utils.hpp>
