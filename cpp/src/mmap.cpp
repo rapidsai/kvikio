@@ -191,7 +191,7 @@ void read_impl(void* dst_buf,
   //   - Copy from the bounce buffer to the device buffer
 
   PushAndPopContext c(ctx);
-  CUstream stream = detail::StreamsByThread::get();
+  CUstream stream = detail::StreamCachePerThreadAndContext::get();
 
   auto h2d_batch_cpy_sync =
     [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {

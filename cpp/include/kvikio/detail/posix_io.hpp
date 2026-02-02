@@ -207,7 +207,7 @@ std::size_t posix_device_io(int fd_direct_off,
   off_t const chunk_size2 = convert_size2off(bounce_buffer.size());
 
   // Get a stream for the current CUDA context and thread
-  CUstream stream = StreamsByThread::get();
+  CUstream stream = StreamCachePerThreadAndContext::get();
 
   while (bytes_remaining > 0) {
     off_t const nbytes_requested = std::min(chunk_size2, bytes_remaining);
