@@ -35,7 +35,6 @@ class StreamCachePerThreadAndContext {
   StreamCachePerThreadAndContext()  = default;
   ~StreamCachePerThreadAndContext() = default;
 
- public:
   /**
    * @brief Get or create a CUDA stream for the specified context and thread.
    *
@@ -49,6 +48,7 @@ class StreamCachePerThreadAndContext {
    */
   KVIKIO_EXPORT static CUstream get(CUcontext ctx, std::thread::id thd_id);
 
+ public:
   /**
    * @brief Get or create a CUDA stream for the current context and thread.
    *
