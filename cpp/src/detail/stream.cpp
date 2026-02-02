@@ -13,7 +13,6 @@ namespace kvikio::detail {
 
 CUstream StreamCachePerThreadAndContext::get(CUcontext ctx, std::thread::id thd_id)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   static StreamCachePerThreadAndContext _instance;
 
   // If no current context, we return the null/default stream

@@ -31,10 +31,11 @@ class StreamCachePerThreadAndContext {
   std::map<std::pair<CUcontext, std::thread::id>, CUstream> _streams;
   std::mutex mutable _mutex;
 
- public:
+ private:
   StreamCachePerThreadAndContext()  = default;
   ~StreamCachePerThreadAndContext() = default;
 
+ public:
   /**
    * @brief Get or create a CUDA stream for the specified context and thread.
    *
