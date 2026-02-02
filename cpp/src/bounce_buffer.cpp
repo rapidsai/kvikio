@@ -457,4 +457,38 @@ void BounceBufferRing<Allocator>::reset(CUstream stream)
 template class BounceBufferRing<CudaPinnedAllocator>;
 template class BounceBufferRing<CudaPageAlignedPinnedAllocator>;
 
+template <typename Allocator>
+BounceBufferRingCachePerThreadAndContext<Allocator>::Ring&
+BounceBufferRingCachePerThreadAndContext<Allocator>::ring()
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+
+  CUcontext ctx{nullptr};
+  CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
+  KVIKIO_EXPECT(ctx != nullptr, "No CUDA context is current");
+  auto key = std::make_pair(ctx, std::this_thread::get_id());
+
+  std::lock_guard const lock(_mutex);
+
+  bool use_batch_copy = getenv_or("KVIKIO_USE_BATCH_COPY", false);
+  auto it             = _rings.find(key);
+  if (it == _rings.end()) {
+    auto ring = std::make_unique<Ring>(defaults::bounce_buffer_count(), use_batch_copy);
+    it        = _rings.emplace(key, std::move(ring)).first;
+  }
+  return *it->second;
+}
+
+template <typename Allocator>
+BounceBufferRingCachePerThreadAndContext<Allocator>&
+BounceBufferRingCachePerThreadAndContext<Allocator>::instance()
+{
+  static BounceBufferRingCachePerThreadAndContext<Allocator> instance;
+  return instance;
+}
+
+// Explicit instantiations
+template class BounceBufferRingCachePerThreadAndContext<CudaPinnedAllocator>;
+template class BounceBufferRingCachePerThreadAndContext<CudaPageAlignedPinnedAllocator>;
+
 }  // namespace kvikio

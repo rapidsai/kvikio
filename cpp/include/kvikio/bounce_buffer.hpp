@@ -4,7 +4,9 @@
  */
 #pragma once
 
+#include <map>
 #include <stack>
+#include <utility>
 
 #include <kvikio/defaults.hpp>
 
@@ -516,4 +518,32 @@ class BounceBufferRing {
    */
   void reset(CUstream stream);
 };
+
+template <typename Allocator = CudaPinnedAllocator>
+class BounceBufferRingCachePerThreadAndContext {
+ public:
+  using Ring = BounceBufferRing<Allocator>;
+
+ private:
+  std::map<std::pair<CUcontext, std::thread::id>, std::unique_ptr<Ring>> _rings;
+  std::mutex mutable _mutex;
+
+  BounceBufferRingCachePerThreadAndContext()  = default;
+  ~BounceBufferRingCachePerThreadAndContext() = default;
+
+ public:
+  // Non-copyable, non-movable singleton
+  BounceBufferRingCachePerThreadAndContext(BounceBufferRingCachePerThreadAndContext const&) =
+    delete;
+  BounceBufferRingCachePerThreadAndContext& operator=(
+    BounceBufferRingCachePerThreadAndContext const&)                                   = delete;
+  BounceBufferRingCachePerThreadAndContext(BounceBufferRingCachePerThreadAndContext&&) = delete;
+  BounceBufferRingCachePerThreadAndContext& operator=(BounceBufferRingCachePerThreadAndContext&&) =
+    delete;
+
+  Ring& ring();
+
+  static BounceBufferRingCachePerThreadAndContext& instance();
+};
+
 }  // namespace kvikio
