@@ -56,28 +56,25 @@ EventPool::Event EventPool::get()
   CUcontext ctx{};
   CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
   KVIKIO_EXPECT(ctx != nullptr, "No CUDA context is current");
-  return get(ctx);
-}
 
-EventPool::Event EventPool::get(CUcontext context)
-{
-  KVIKIO_EXPECT(context != nullptr, "No CUDA context is current");
   CUevent event{};
   {
     std::lock_guard const lock(_mutex);
-    auto it = _pools.find(context);
-    if (it != _pools.end() && !it->second.empty()) {
+    // If the key (`ctx`) is found from the pool, assign the search result to `event`
+    if (auto it = _pools.find(ctx); it != _pools.end() && !it->second.empty()) {
       event = it->second.back();
       it->second.pop_back();
     }
   }
 
-  // Create the event outside the lock
   if (event == nullptr) {
+    // Create an event outside the lock to improve performance.
+    // The pool is not updated here; the returned Event object will automatically return the event
+    // to the pool when it goes out of scope
     CUDA_DRIVER_TRY(cudaAPI::instance().EventCreate(&event, CU_EVENT_DISABLE_TIMING));
   }
 
-  return Event(event, context);
+  return Event(event, ctx);
 }
 
 void EventPool::put(CUevent event, CUcontext context) noexcept
