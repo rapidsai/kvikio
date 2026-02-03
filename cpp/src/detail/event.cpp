@@ -10,34 +10,35 @@
 
 namespace kvikio::detail {
 
-EventPool::Event::Event(CUevent event, CUcontext context) noexcept
-  : _event(event), _context(context)
+EventPool::Event::Event(CUevent event, CUcontext cuda_context) noexcept
+  : _event(event), _cuda_context(cuda_context)
 {
 }
 
 EventPool::Event::~Event() noexcept
 {
-  if (_event != nullptr) { EventPool::instance().put(_event, _context); }
+  if (_event != nullptr) { EventPool::instance().put(_event, _cuda_context); }
 }
 
 EventPool::Event::Event(Event&& other) noexcept
-  : _event(std::exchange(other._event, nullptr)), _context(std::exchange(other._context, nullptr))
+  : _event(std::exchange(other._event, nullptr)),
+    _cuda_context(std::exchange(other._cuda_context, nullptr))
 {
 }
 
 EventPool::Event& EventPool::Event::operator=(Event&& other) noexcept
 {
   if (this != &other) {
-    if (_event != nullptr) { EventPool::instance().put(_event, _context); }
-    _event   = std::exchange(other._event, nullptr);
-    _context = std::exchange(other._context, nullptr);
+    if (_event != nullptr) { EventPool::instance().put(_event, _cuda_context); }
+    _event        = std::exchange(other._event, nullptr);
+    _cuda_context = std::exchange(other._cuda_context, nullptr);
   }
   return *this;
 }
 
 CUevent EventPool::Event::get() const noexcept { return _event; }
 
-CUcontext EventPool::Event::context() const noexcept { return _context; }
+CUcontext EventPool::Event::cuda_context() const noexcept { return _cuda_context; }
 
 void EventPool::Event::record(CUstream stream)
 {
@@ -77,14 +78,14 @@ EventPool::Event EventPool::get()
   return Event(event, ctx);
 }
 
-void EventPool::put(CUevent event, CUcontext context) noexcept
+void EventPool::put(CUevent event, CUcontext cuda_context) noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
   if (event == nullptr) { return; }
 
   try {
     std::lock_guard const lock(_mutex);
-    _pools[context].push_back(event);
+    _pools[cuda_context].push_back(event);
   } catch (std::exception const& e) {
     KVIKIO_LOG_ERROR(e.what());
     try {
@@ -96,10 +97,10 @@ void EventPool::put(CUevent event, CUcontext context) noexcept
   }
 }
 
-std::size_t EventPool::num_free_events(CUcontext context) const
+std::size_t EventPool::num_free_events(CUcontext cuda_context) const
 {
   std::lock_guard const lock(_mutex);
-  auto it = _pools.find(context);
+  auto it = _pools.find(cuda_context);
   return (it != _pools.end()) ? it->second.size() : 0;
 }
 
