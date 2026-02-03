@@ -145,13 +145,16 @@ class BounceBufferPool {
    * @note Non-copyable but movable to allow transfer of ownership while maintaining RAII
    */
   class Buffer {
+    friend BounceBufferPool<Allocator>;
+
    private:
     BounceBufferPool* _pool;
     void* _buffer;
     std::size_t _size;
 
-   public:
     Buffer(BounceBufferPool<Allocator>* pool, void* buffer, std::size_t size);
+
+   public:
     Buffer(Buffer const&)            = delete;
     Buffer& operator=(Buffer const&) = delete;
     Buffer(Buffer&& o) noexcept;
