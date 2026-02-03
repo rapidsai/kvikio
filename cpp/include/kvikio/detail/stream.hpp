@@ -35,29 +35,17 @@ class StreamCachePerThreadAndContext {
   StreamCachePerThreadAndContext()  = default;
   ~StreamCachePerThreadAndContext() = default;
 
-  /**
-   * @brief Get or create a CUDA stream for the specified context and thread.
-   *
-   * If a stream already exists for the given (context, thread) pair, it is returned. Otherwise, a
-   * new stream is created, cached, and returned.
-   *
-   * @param ctx The CUDA context. If null, the null stream is returned.
-   * @param thd_id The thread identifier.
-   * @return The CUDA stream associated with this (context, thread) pair, or nullptr if @p ctx is
-   * null.
-   */
-  KVIKIO_EXPORT static CUstream get(CUcontext ctx, std::thread::id thd_id);
-
  public:
   /**
    * @brief Get or create a CUDA stream for the current context and thread.
    *
-   * Convenience overload that uses the current CUDA context and calling thread's ID.
+   * If a stream already exists for the current (context, thread) pair, it is returned. Otherwise, a
+   * new stream is created, cached, and returned.
    *
    * @return The CUDA stream associated with the current (context, thread) pair, or nullptr if no
    * CUDA context is current.
    */
-  static CUstream get();
+  KVIKIO_EXPORT static CUstream get();
 
   StreamCachePerThreadAndContext(StreamCachePerThreadAndContext const&)            = delete;
   StreamCachePerThreadAndContext& operator=(StreamCachePerThreadAndContext const&) = delete;
