@@ -28,20 +28,30 @@ namespace kvikio::detail {
  */
 class EventPool {
  public:
+  /**
+   * @brief RAII wrapper for a pooled CUDA event
+   *
+   * Automatically returns the event to the pool when destroyed. Provides access to the underlying
+   * CUevent handle and common event operations (record, synchronize).
+   *
+   * @note Non-copyable but movable to allow transfer of ownership while maintaining RAII
+   */
   class Event {
     friend class EventPool;
 
    private:
-    CUevent _event{nullptr};
-    CUcontext _cuda_context{nullptr};
+    EventPool* _pool{};
+    CUevent _event{};
+    CUcontext _cuda_context{};
 
     /**
      * @brief Construct an Event wrapping a CUDA event handle
      *
+     * @param pool The owning EventPool to return this event to on destruction
      * @param event The CUDA event handle to wrap
      * @param context The CUDA context associated with this event
      */
-    explicit Event(CUevent event, CUcontext context) noexcept;
+    explicit Event(EventPool* pool, CUevent event, CUcontext context) noexcept;
 
    public:
     ~Event() noexcept;
@@ -49,8 +59,8 @@ class EventPool {
     // Move-only
     Event(Event const&)            = delete;
     Event& operator=(Event const&) = delete;
-    Event(Event&& other) noexcept;
-    Event& operator=(Event&& other) noexcept;
+    Event(Event&& o) noexcept;
+    Event& operator=(Event&& o) noexcept;
 
     /**
      * @brief Get the underlying CUDA event handle
@@ -74,6 +84,8 @@ class EventPool {
      *
      * @param stream The CUDA stream to record the event on (must belong to the same context as this
      * event)
+     *
+     * @exception CUfileException if the record operation fails
      */
     void record(CUstream stream);
 
@@ -82,7 +94,7 @@ class EventPool {
      *
      * Waits for all work captured by a preceding record() call to complete.
      *
-     * @exception CudaError if the synchronize operation fails
+     * @exception CUfileException if the synchronize operation fails
      */
     void synchronize();
   };
