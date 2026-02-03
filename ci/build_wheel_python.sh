@@ -18,7 +18,13 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 LIBKVIKIO_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
 echo "libkvikio-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBKVIKIO_WHEELHOUSE}"/libkvikio_*.whl)" >> "${PIP_CONSTRAINT}"
 
-./ci/build_wheel.sh "${package_name}" "${package_dir}"
+
+# TODO: move this variable into `ci-wheel`
+# Format Python limited API version string
+RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
+export RAPIDS_PY_API
+
+./ci/build_wheel.sh "${package_name}" "${package_dir}" --stable
 
 python -m auditwheel repair \
     --exclude libkvikio.so \
