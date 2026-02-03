@@ -33,7 +33,7 @@ class EventPool {
 
    private:
     CUevent _event{nullptr};
-    CUcontext _context{nullptr};
+    CUcontext _cuda_context{nullptr};
 
     /**
      * @brief Construct an Event wrapping a CUDA event handle
@@ -64,7 +64,7 @@ class EventPool {
      *
      * @return The CUcontext this event belongs to
      */
-    [[nodiscard]] CUcontext context() const noexcept;
+    [[nodiscard]] CUcontext cuda_context() const noexcept;
 
     /**
      * @brief Record the event on a CUDA stream
@@ -105,7 +105,7 @@ class EventPool {
   EventPool& operator=(EventPool&&)      = delete;
 
   /**
-   * @brief Acquire a CUDA event from the pool
+   * @brief Acquire a CUDA event from the pool for the current CUDA context.
    *
    * Returns a cached event for the current CUDA context if available, otherwise creates a new one.
    * The returned Event object will automatically return the event to the pool when it goes out of
