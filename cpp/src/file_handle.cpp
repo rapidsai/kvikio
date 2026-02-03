@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,8 +14,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/context.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
@@ -246,7 +248,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
       op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
   }
 
-  CUcontext ctx = get_context_from_pointer(buf);
+  CUcontext ctx   = get_context_from_pointer(buf);
+  auto io_context = std::make_shared<detail::IoContext>(ctx);
 
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
@@ -265,11 +268,13 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
-  auto task = [this, ctx](void* devPtr_base,
-                          std::size_t size,
-                          std::size_t file_offset,
-                          std::size_t devPtr_offset) -> std::size_t {
-    PushAndPopContext c(ctx);
+  auto task = [this, io_context = io_context](void* devPtr_base,
+                                              std::size_t size,
+                                              std::size_t file_offset,
+                                              std::size_t devPtr_offset) -> std::size_t {
+    PushAndPopContext c(io_context->cuda_context());
+    auto& bounce_ring =
+      BounceBufferRingCachePerThreadAndContext<CudaPinnedAllocator>::instance().ring();
     return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);

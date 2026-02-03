@@ -152,6 +152,7 @@ set(SOURCES
     "src/file_handle.cpp"
     "src/file_utils.cpp"
     "src/mmap.cpp"
+    "src/detail/context.cpp"
     "src/detail/env.cpp"
     "src/detail/event.cpp"
     "src/detail/nvtx.cpp"
