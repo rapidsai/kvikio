@@ -85,9 +85,14 @@ void EventPool::put(CUevent event, CUcontext context) noexcept
   try {
     std::lock_guard const lock(_mutex);
     _pools[context].push_back(event);
-  } catch (...) {
-    // If returning to pool fails, destroy the event
-    cudaAPI::instance().EventDestroy(event);
+  } catch (std::exception const& e) {
+    KVIKIO_LOG_ERROR(e.what());
+    try {
+      // If returning to pool fails, destroy the event
+      CUDA_DRIVER_TRY(cudaAPI::instance().EventDestroy(event));
+    } catch (std::exception const& e) {
+      KVIKIO_LOG_ERROR(e.what());
+    }
   }
 }
 
