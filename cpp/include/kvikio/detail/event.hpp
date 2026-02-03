@@ -85,7 +85,7 @@ class EventPool {
      * @param stream The CUDA stream to record the event on (must belong to the same context as this
      * event)
      *
-     * @exception CUfileException if the record operation fails
+     * @exception kvikio::CUfileException if the record operation fails
      */
     void record(CUstream stream);
 
@@ -94,7 +94,7 @@ class EventPool {
      *
      * Waits for all work captured by a preceding record() call to complete.
      *
-     * @exception CUfileException if the synchronize operation fails
+     * @exception kvikio::CUfileException if the synchronize operation fails
      */
     void synchronize();
   };
@@ -124,7 +124,7 @@ class EventPool {
    * scope.
    *
    * @return RAII Event object wrapping the acquired CUDA event
-   * @exception CudaError if no CUDA context is current or event creation fails
+   * @exception kvikio::CUfileException if no CUDA context is current or event creation fails
    */
   [[nodiscard]] Event get();
 
