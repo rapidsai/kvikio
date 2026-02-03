@@ -10,28 +10,30 @@
 
 namespace kvikio::detail {
 
-EventPool::Event::Event(CUevent event, CUcontext cuda_context) noexcept
-  : _event(event), _cuda_context(cuda_context)
+EventPool::Event::Event(EventPool* pool, CUevent event, CUcontext cuda_context) noexcept
+  : _pool(pool), _event(event), _cuda_context(cuda_context)
 {
 }
 
 EventPool::Event::~Event() noexcept
 {
-  if (_event != nullptr) { EventPool::instance().put(_event, _cuda_context); }
+  if (_event != nullptr) { _pool->put(_event, _cuda_context); }
 }
 
-EventPool::Event::Event(Event&& other) noexcept
-  : _event(std::exchange(other._event, nullptr)),
-    _cuda_context(std::exchange(other._cuda_context, nullptr))
+EventPool::Event::Event(Event&& o) noexcept
+  : _pool(std::exchange(o._pool, nullptr)),
+    _event(std::exchange(o._event, nullptr)),
+    _cuda_context(std::exchange(o._cuda_context, nullptr))
 {
 }
 
-EventPool::Event& EventPool::Event::operator=(Event&& other) noexcept
+EventPool::Event& EventPool::Event::operator=(Event&& o) noexcept
 {
-  if (this != &other) {
-    if (_event != nullptr) { EventPool::instance().put(_event, _cuda_context); }
-    _event        = std::exchange(other._event, nullptr);
-    _cuda_context = std::exchange(other._cuda_context, nullptr);
+  if (this != &o) {
+    if (_event != nullptr) { _pool->put(_event, _cuda_context); }
+    _pool         = std::exchange(o._pool, nullptr);
+    _event        = std::exchange(o._event, nullptr);
+    _cuda_context = std::exchange(o._cuda_context, nullptr);
   }
   return *this;
 }
@@ -75,7 +77,7 @@ EventPool::Event EventPool::get()
     CUDA_DRIVER_TRY(cudaAPI::instance().EventCreate(&event, CU_EVENT_DISABLE_TIMING));
   }
 
-  return Event(event, ctx);
+  return Event(this, event, ctx);
 }
 
 void EventPool::put(CUevent event, CUcontext cuda_context) noexcept
