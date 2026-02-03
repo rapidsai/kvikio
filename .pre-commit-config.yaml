@@ -74,7 +74,7 @@ repos:
             ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v1.3.3
+    rev: v1.4.2
     hooks:
       - id: verify-copyright
         args: [--fix, --spdx]
@@ -93,18 +93,6 @@ repos:
       - id: verify-codeowners
         args: [--fix, --project-prefix=kvikio]
       - id: verify-hardcoded-version
-        exclude: |
-          (?x)
-            devcontainer[.]json$|
-            dependencies[.]yaml$|
-            ^[.]github/workflows/|
-            [.]md$|
-            pom[.]xml$|
-            ^[.]pre-commit-config[.]yaml$|
-            [.]rst$|
-            ^conda/environments/|
-            [.](png)$|
-            ^cpp/examples/downstream/cmake/get_kvikio[.]cmake$
       - id: verify-pyproject-license
         # ignore the top-level pyproject.toml, which doesn't
         # have or need a [project] table
