@@ -107,7 +107,7 @@ std::size_t EventPool::total_free_events() const
 {
   std::lock_guard const lock(_mutex);
   std::size_t total{0};
-  for (auto const& [ctx, events] : _pools) {
+  for (auto const& [_, events] : _pools) {
     total += events.size();
   }
   return total;
