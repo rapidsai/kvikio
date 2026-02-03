@@ -522,6 +522,22 @@ class BounceBufferRing {
   void reset(CUstream stream);
 };
 
+/**
+ * @brief Thread-safe singleton cache for per-thread, per-context bounce buffer rings.
+ *
+ * Manages a collection of BounceBufferRing instances, each uniquely associated with a (CUDA
+ * context, thread ID) pair. This ensures that each thread operating within a specific CUDA context
+ * gets its own dedicated ring, avoiding synchronization overhead during I/O operations while
+ * maintaining correct behavior across multi-context applications.
+ *
+ * @tparam Allocator The allocator policy for the underlying bounce buffer rings:
+ *   - CudaPinnedAllocator: For device I/O without Direct I/O
+ *   - CudaPageAlignedPinnedAllocator: For device I/O with Direct I/O
+ *
+ * @note Rings are created lazily on first access and persist for the lifetime of the program.
+ * @note The cache itself is thread-safe; individual rings are not (by design, since each ring is
+ * accessed by only one thread within one context).
+ */
 template <typename Allocator = CudaPinnedAllocator>
 class BounceBufferRingCachePerThreadAndContext {
  public:
@@ -544,8 +560,23 @@ class BounceBufferRingCachePerThreadAndContext {
   BounceBufferRingCachePerThreadAndContext& operator=(BounceBufferRingCachePerThreadAndContext&&) =
     delete;
 
+  /**
+   * @brief Get the bounce buffer ring for the current thread and CUDA context.
+   *
+   * Returns the cached ring for the calling thread's current CUDA context, creating one if it
+   * doesn't exist. The ring is configured with `defaults::bounce_buffer_count()` buffers and batch
+   * copy mode controlled by the `KVIKIO_USE_BATCH_COPY` environment variable.
+   *
+   * @return Reference to the ring associated with (current context, current thread).
+   * @exception kvikio::CUfileException if no CUDA context is current.
+   */
   Ring& ring();
 
+  /**
+   * @brief Get the singleton instance of the cache.
+   *
+   * @return Reference to the singleton cache instance.
+   */
   static BounceBufferRingCachePerThreadAndContext& instance();
 };
 
