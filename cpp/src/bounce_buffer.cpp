@@ -473,8 +473,8 @@ BounceBufferRingCachePerThreadAndContext<Allocator>::ring()
   bool use_batch_copy = getenv_or("KVIKIO_USE_BATCH_COPY", false);
   auto it             = _rings.find(key);
   if (it == _rings.end()) {
-    auto ring = std::make_unique<Ring>(defaults::bounce_buffer_count(), use_batch_copy);
-    it        = _rings.emplace(key, std::move(ring)).first;
+    auto ring = new Ring(defaults::bounce_buffer_count(), use_batch_copy);
+    it        = _rings.emplace(key, ring).first;
   }
   return *it->second;
 }
