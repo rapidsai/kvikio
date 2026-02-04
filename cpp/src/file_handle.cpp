@@ -202,18 +202,20 @@ std::size_t FileHandle::read_with_bounce_buffer_ring(detail::IoContext* io_conte
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    auto posix_device_read = [=, this]<typename Allocator>() -> std::size_t {
+    auto posix_device_read = [=, this]<typename Allocator>(int fd_direct_off,
+                                                           int fd_direct_on = -1) -> std::size_t {
       auto num_bytes_read = detail::posix_device_read_with_bounce_buffer_ring_impl<Allocator>(
-        _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
+        fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
       io_context->record_event(detail::StreamCachePerThreadAndContext::get());
       return num_bytes_read;
     };
 
     // If Direct I/O is supported and requested
     if (_file_direct_on.fd() != -1 && defaults::auto_direct_io_read()) {
-      return posix_device_read.operator()<CudaPageAlignedPinnedAllocator>();
+      return posix_device_read.operator()<CudaPageAlignedPinnedAllocator>(_file_direct_off.fd(),
+                                                                          _file_direct_on.fd());
     } else {
-      return posix_device_read.operator()<CudaPinnedAllocator>();
+      return posix_device_read.operator()<CudaPinnedAllocator>(_file_direct_off.fd());
     }
   }
 
