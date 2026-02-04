@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <future>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -21,6 +22,7 @@
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
+#include <kvikio/detail/stream.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
@@ -191,6 +193,41 @@ std::size_t FileHandle::read(void* devPtr_base,
   return ret;
 }
 
+std::size_t FileHandle::read_with_bounce_buffer_ring(detail::IoContext* io_context,
+                                                     void* devPtr_base,
+                                                     std::size_t size,
+                                                     std::size_t file_offset,
+                                                     std::size_t devPtr_offset,
+                                                     bool sync_default_stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE(size);
+  if (get_compat_mode_manager().is_compat_mode_preferred()) {
+    auto posix_device_read = [=, this]<typename Allocator>() -> std::size_t {
+      auto num_bytes_read = detail::posix_device_read_with_bounce_buffer_ring_impl<Allocator>(
+        _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
+      io_context->record_event(detail::StreamCachePerThreadAndContext::get());
+      return num_bytes_read;
+    };
+
+    // If Direct I/O is supported and requested
+    if (_file_direct_on.fd() != -1 && defaults::auto_direct_io_read()) {
+      return posix_device_read.operator()<CudaPageAlignedPinnedAllocator>();
+    } else {
+      return posix_device_read.operator()<CudaPinnedAllocator>();
+    }
+  }
+
+  if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
+
+  ssize_t ret = cuFileAPI::instance().Read(_cufile_handle.handle(),
+                                           devPtr_base,
+                                           size,
+                                           convert_size2off(file_offset),
+                                           convert_size2off(devPtr_offset));
+  CUFILE_CHECK_BYTES_DONE(ret);
+  return ret;
+}
+
 std::size_t FileHandle::write(void const* devPtr_base,
                               std::size_t size,
                               std::size_t file_offset,
@@ -248,12 +285,11 @@ std::future<std::size_t> FileHandle::pread(void* buf,
       op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
   }
 
-  CUcontext ctx   = get_context_from_pointer(buf);
-  auto io_context = std::make_shared<detail::IoContext>(ctx);
+  auto io_context = std::make_shared<detail::IoContext>(get_context_from_pointer(buf));
 
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
-    PushAndPopContext c(ctx);
+    PushAndPopContext c(io_context->cuda_context());
     auto bytes_read = detail::posix_device_read(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
     // Maintain API consistency while making this trivial case synchronous.
@@ -263,7 +299,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
 
   // Let's synchronize once instead of in each task.
   if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
-    PushAndPopContext c(ctx);
+    PushAndPopContext c(io_context->cuda_context());
     CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
   }
 
@@ -275,18 +311,33 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     PushAndPopContext c(io_context->cuda_context());
     auto& bounce_ring =
       BounceBufferRingCachePerThreadAndContext<CudaPinnedAllocator>::instance().ring();
-    return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    return read_with_bounce_buffer_ring(io_context.get(),
+                                        devPtr_base,
+                                        size,
+                                        file_offset,
+                                        devPtr_offset,
+                                        false /* sync_default_stream*/);
   };
+
+  auto ctx{io_context->cuda_context()};
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(task,
-                     devPtr_base,
-                     size,
-                     file_offset,
-                     task_size,
-                     devPtr_offset,
-                     actual_thread_pool,
-                     call_idx,
-                     nvtx_color);
+
+  auto fut = parallel_io(task,
+                         devPtr_base,
+                         size,
+                         file_offset,
+                         task_size,
+                         devPtr_offset,
+                         actual_thread_pool,
+                         call_idx,
+                         nvtx_color);
+
+  return std::async(std::launch::deferred,
+                    [fut = std::move(fut), io_context = io_context]() mutable {
+                      auto num_bytes_read = fut.get();
+                      io_context->sync_all_events();
+                      return num_bytes_read;
+                    });
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,

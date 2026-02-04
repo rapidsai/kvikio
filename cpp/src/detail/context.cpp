@@ -11,6 +11,8 @@
 
 namespace kvikio::detail {
 
+IoContext::IoContext(CUcontext cuda_context) noexcept : _cuda_context(cuda_context) {}
+
 [[nodiscard]] CUcontext IoContext::cuda_context() const noexcept { return _cuda_context; }
 
 void IoContext::record_event(CUstream stream)

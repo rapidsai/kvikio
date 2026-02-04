@@ -333,4 +333,41 @@ std::size_t posix_device_write(int fd_direct_off,
                                std::size_t devPtr_offset,
                                int fd_direct_on = -1);
 
+template <typename Allocator = CudaPinnedAllocator>
+std::size_t posix_device_read_with_bounce_buffer_ring_impl(int fd_direct_off,
+                                                           void const* devPtr_base,
+                                                           std::size_t size,
+                                                           std::size_t file_offset,
+                                                           std::size_t devPtr_offset,
+                                                           int fd_direct_on = -1)
+{
+  // Direct I/O requires page-aligned bounce buffers. CudaPinnedAllocator uses
+  // cudaMemHostAlloc which does not guarantee page alignment.
+  if (std::is_same_v<Allocator, CudaPinnedAllocator>) {
+    KVIKIO_EXPECT(fd_direct_on == -1,
+                  "Direct I/O requires page-aligned bounce buffers. CudaPinnedAllocator does not "
+                  "guarantee page alignment. Use CudaPageAlignedPinnedAllocator instead.");
+  }
+
+  auto devPtr          = convert_void2deviceptr(devPtr_base) + devPtr_offset;
+  auto cur_file_offset = convert_size2off(file_offset);
+  auto bytes_remaining = convert_size2off(size);
+  auto& ring           = BounceBufferRingCachePerThreadAndContext<Allocator>::instance().ring();
+  auto const ring_buffer_size = convert_size2off(ring.buffer_size());
+
+  // Get a stream for the current CUDA context and thread
+  CUstream stream = StreamCachePerThreadAndContext::get();
+
+  while (bytes_remaining > 0) {
+    off_t const nbytes_requested = std::min(ring_buffer_size, bytes_remaining);
+    auto nbytes_got              = nbytes_requested;
+    nbytes_got                   = posix_host_io<IOOperationType::READ, PartialIO::YES>(
+      fd_direct_off, ring.cur_buffer(), nbytes_requested, cur_file_offset, fd_direct_on);
+    ring.enqueue_h2d(reinterpret_cast<void*>(devPtr), nbytes_got, stream);
+    cur_file_offset += nbytes_got;
+    devPtr += nbytes_got;
+    bytes_remaining -= nbytes_got;
+  }
+  return size;
+}
 }  // namespace kvikio::detail
