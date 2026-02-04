@@ -1,3 +1,32 @@
+# kvikio 26.02.00 (4 Feb 2026)
+
+### 🚨 Breaking Changes
+* Add thread pool as function parameters to C++ API by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/876
+* Default to static linking of libcudart by @bdice in https://github.com/rapidsai/kvikio/pull/885
+### 🚀 New Features
+* Expose cuFile stream register API to Python by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/893
+### 🛠️ Improvements
+* Use strict priority in CI conda tests by @bdice in https://github.com/rapidsai/kvikio/pull/877
+* Use strict priority in CI conda tests by @bdice in https://github.com/rapidsai/kvikio/pull/881
+* Remove alpha specs from non-RAPIDS dependencies by @bdice in https://github.com/rapidsai/kvikio/pull/883
+* Enable merge barriers by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/884
+* Add per-block-device thread pools for multi-drive I/O parallelism by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/880
+* Add devcontainer fallback for C++ test location by @bdice in https://github.com/rapidsai/kvikio/pull/887
+* Remove deprecated config setters and getters from python API by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/882
+* Empty commit to trigger a build by @bdice in https://github.com/rapidsai/kvikio/pull/889
+* Use SPDX license identifiers in pyproject.toml, bump build dependency floors by @jameslamb in https://github.com/rapidsai/kvikio/pull/890
+* Add CUDA 13.1 support by @bdice in https://github.com/rapidsai/kvikio/pull/888
+* build and test against CUDA 13.1.0 by @jameslamb in https://github.com/rapidsai/kvikio/pull/891
+* Empty commit to trigger a build by @jameslamb in https://github.com/rapidsai/kvikio/pull/897
+* Use main shared-workflows branch by @jameslamb in https://github.com/rapidsai/kvikio/pull/900
+* wheel builds: react to changes in pip's handling of build constraints by @mmccarty in https://github.com/rapidsai/kvikio/pull/902
+* fix(build): build package on merge to `release/*` branch by @gforsyth in https://github.com/rapidsai/kvikio/pull/907
+
+## New Contributors
+* @mmccarty made their first contribution in https://github.com/rapidsai/kvikio/pull/902
+
+**Full Changelog**: https://github.com/rapidsai/kvikio/compare/v26.02.00a...release/26.02
+
 # kvikio 25.12.00 (10 Dec 2025)
 
 ### 🚨 Breaking Changes
