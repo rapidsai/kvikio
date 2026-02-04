@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 #include <BS_thread_pool.hpp>
 
@@ -16,8 +17,8 @@
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
+#include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cufile.hpp>
-#include <string_view>
 
 namespace kvikio {
 template <>
@@ -61,6 +62,26 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val)
   auto* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
   return detail::parse_compat_mode_str(env_val);
+}
+
+template <>
+RemoteBackendType getenv_or(std::string_view env_var_name, RemoteBackendType default_val)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto* env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return default_val; }
+  std::string str{env_val};
+  std::transform(
+    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
+  std::stringstream trimmer;
+  trimmer << str;
+  str.clear();
+  trimmer >> str;
+  if (str == "libcurl_easy") { return RemoteBackendType::LIBCURL_EASY; }
+  if (str == "libcurl_multi_poll") { return RemoteBackendType::LIBCURL_MULTI_POLL; }
+  KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
+              std::invalid_argument);
+  return {};
 }
 
 template <>
@@ -131,20 +152,30 @@ defaults::defaults()
   }
 
   // Determine the default value of `http_status_codes`
-  {
-    _http_status_codes =
-      getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
-  }
+  _http_status_codes =
+    getenv_or("KVIKIO_HTTP_STATUS_CODES", std::vector<int>{429, 500, 502, 503, 504});
 
   // Determine the default value of `auto_direct_io_read` and `auto_direct_io_write`
-  {
-    _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
-    _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
-  }
+  _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
+  _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
 
   // Determine the default value of `thread_pool_per_block_device`
+  _thread_pool_per_block_device = getenv_or("KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE", false);
+
+  _remote_backend = getenv_or("KVIKIO_REMOTE_BACKEND", RemoteBackendType::LIBCURL_EASY);
+
   {
-    _thread_pool_per_block_device = getenv_or("KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE", false);
+    auto const env = getenv_or<ssize_t>("KVIKIO_REMOTE_MAX_CONNECTIONS", 8);
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_REMOTE_MAX_CONNECTIONS has to be a positive integer", std::invalid_argument);
+    _remote_max_connections = env;
+  }
+
+  {
+    auto const env = getenv_or<ssize_t>("KVIKIO_NUM_BOUNCE_BUFFERS", 2);
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_NUM_BOUNCE_BUFFERS has to be a positive integer", std::invalid_argument);
+    _num_bounce_buffers = env;
   }
 }
 
@@ -249,5 +280,26 @@ bool defaults::thread_pool_per_block_device() { return instance()->_thread_pool_
 void defaults::set_thread_pool_per_block_device(bool flag)
 {
   instance()->_thread_pool_per_block_device = flag;
+}
+
+RemoteBackendType defaults::remote_backend() { return instance()->_remote_backend; }
+
+void defaults::set_remote_backend(RemoteBackendType remote_backend)
+{
+  instance()->_remote_backend = remote_backend;
+}
+
+std::size_t defaults::remote_max_connections() { return instance()->_remote_max_connections; }
+
+void defaults::set_remote_max_connections(std::size_t remote_max_connections)
+{
+  instance()->_remote_max_connections = remote_max_connections;
+}
+
+std::size_t defaults::num_bounce_buffers() { return instance()->_num_bounce_buffers; }
+
+void defaults::set_num_bounce_buffers(std::size_t num_bounce_buffers)
+{
+  instance()->_num_bounce_buffers = num_bounce_buffers;
 }
 }  // namespace kvikio

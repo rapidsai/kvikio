@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -163,8 +163,16 @@ set(SOURCES
 )
 
 if(KvikIO_REMOTE_SUPPORT)
-  list(APPEND SOURCES "src/hdfs.cpp" "src/remote_handle.cpp" "src/detail/remote_handle.cpp"
-       "src/detail/tls.cpp" "src/detail/url.cpp" "src/shim/libcurl.cpp"
+  list(
+    APPEND
+    SOURCES
+    "src/hdfs.cpp"
+    "src/remote_handle.cpp"
+    "src/detail/remote_handle.cpp"
+    "src/detail/remote_handle_poll_based.cpp"
+    "src/detail/tls.cpp"
+    "src/detail/url.cpp"
+    "src/shim/libcurl.cpp"
   )
 endif()
 

@@ -12,7 +12,7 @@ else:
     del libkvikio
 
 
-from kvikio._lib.defaults import CompatMode  # noqa: F401
+from kvikio._lib.defaults import CompatMode, RemoteBackendType  # noqa: F401
 from kvikio._version import __git_commit__, __version__
 from kvikio.buffer import bounce_buffer_free, memory_deregister, memory_register
 from kvikio.cufile import CuFile, clear_page_cache, get_page_cache_info

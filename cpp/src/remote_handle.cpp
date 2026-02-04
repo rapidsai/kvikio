@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -21,9 +22,11 @@
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/remote_handle.hpp>
+#include <kvikio/detail/remote_handle_poll_based.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
+#include <kvikio/remote_backend_type.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
@@ -158,20 +161,6 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
 }
 
 /**
- * @brief Set up the range request for libcurl. Use this method when HTTP range request is supposed.
- *
- * @param curl A curl handle
- * @param file_offset File offset
- * @param size read size
- */
-void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size)
-{
-  std::string const byte_range =
-    std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
-  curl.setopt(CURLOPT_RANGE, byte_range.c_str());
-}
-
-/**
  * @brief Whether the given URL is compatible with the S3 endpoint (including the credential-based
  * access and presigned URL) which uses HTTP/HTTPS.
  *
@@ -253,7 +242,7 @@ std::size_t HttpEndpoint::get_file_size()
 
 void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool HttpEndpoint::is_url_valid(std::string const& url) noexcept
@@ -409,7 +398,7 @@ std::size_t S3Endpoint::get_file_size()
 void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3Endpoint::is_url_valid(std::string const& url) noexcept
@@ -456,7 +445,7 @@ void S3PublicEndpoint::setup_range_request(CurlHandle& curl,
                                            std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3PublicEndpoint::is_url_valid(std::string const& url) noexcept
@@ -552,7 +541,7 @@ void S3EndpointWithPresignedUrl::setup_range_request(CurlHandle& curl,
                                                      std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
@@ -671,17 +660,35 @@ RemoteHandle RemoteHandle::open(std::string url,
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
-  : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
+  : _endpoint{std::move(endpoint)},
+    _nbytes{nbytes},
+    _remote_backend_type{defaults::remote_backend()}
 {
   KVIKIO_NVTX_FUNC_RANGE();
+  if (_remote_backend_type == RemoteBackendType::LIBCURL_MULTI_POLL) {
+    _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
+      _endpoint.get(), defaults::remote_max_connections());
+  }
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
+  : _remote_backend_type{defaults::remote_backend()}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   _nbytes   = endpoint->get_file_size();
   _endpoint = std::move(endpoint);
+  if (_remote_backend_type == RemoteBackendType::LIBCURL_MULTI_POLL) {
+    _poll_handle = std::make_unique<detail::RemoteHandlePollBased>(
+      _endpoint.get(), defaults::remote_max_connections());
+  }
 }
+
+// Destructor and move operations must be defined in the .cpp file (not defaulted in the header)
+// because RemoteHandle uses std::unique_ptr<RemoteHandlePollBased> with a forward-declared type.
+// The unique_ptr's deleter requires the complete type definition, which is only available here.
+RemoteHandle::~RemoteHandle()                           = default;
+RemoteHandle::RemoteHandle(RemoteHandle&& o)            = default;
+RemoteHandle& RemoteHandle::operator=(RemoteHandle&& o) = default;
 
 RemoteEndpointType RemoteHandle::remote_endpoint_type() const noexcept
 {
@@ -815,6 +822,14 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);
+
+  if (defaults::remote_backend() == RemoteBackendType::LIBCURL_MULTI_POLL) {
+    return thread_pool->submit_task([=, this] {
+      KVIKIO_NVTX_SCOPED_RANGE("task_remote_multi_poll", size, nvtx_color);
+      return _poll_handle->pread(buf, size, file_offset);
+    });
+  }
+
   auto task = [this](void* devPtr_base,
                      std::size_t size,
                      std::size_t file_offset,

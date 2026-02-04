@@ -121,3 +121,47 @@ Example:
 
    # Enable Direct I/O for reads, and disable it for writes
    kvikio.defaults.set({"auto_direct_io_read": True, "auto_direct_io_write": False})
+
+Remote Backend ``KVIKIO_REMOTE_BACKEND``
+----------------------------------------
+
+KvikIO supports multiple libcurl-based backends for fetching data from remote endpoints (S3, HTTP, etc.). Set the environment variable ``KVIKIO_REMOTE_BACKEND`` to one of the following options (case-insensitive):
+
+  * ``LIBCURL_EASY``: Use libcurl's easy interface with a thread pool for parallelism. Each chunk is fetched by a separate thread using blocking ``curl_easy_perform()`` calls. This is the default backend.
+  * ``LIBCURL_MULTI_POLL``: Use libcurl's multi interface with poll-based concurrent transfers. A single call manages multiple concurrent connections using ``curl_multi_poll()``, with k-way buffering to overlap network I/O with host-to-device transfers.
+
+If not set, the default value is ``LIBCURL_EASY``.
+
+.. note::
+
+   Changing this setting after creating a ``RemoteHandle`` has no effect on existing handles. The backend is determined at ``RemoteHandle`` construction time.
+
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_backend``.
+
+Remote Max Connections ``KVIKIO_REMOTE_MAX_CONNECTIONS``
+--------------------------------------------------------
+
+When using the ``LIBCURL_MULTI_POLL`` backend, this setting controls the maximum number of concurrent HTTP connections used for parallel chunk downloads. Set the environment variable ``KVIKIO_REMOTE_MAX_CONNECTIONS`` to a positive integer.
+
+If not set, the default value is 8.
+
+.. note::
+
+   This setting only applies when using ``RemoteBackendType.LIBCURL_MULTI_POLL``. It has no effect on the ``LIBCURL_EASY`` backend, which uses the thread pool size (``KVIKIO_NTHREADS``) to control parallelism.
+
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_max_connections``.
+
+Number of Bounce Buffers ``KVIKIO_NUM_BOUNCE_BUFFERS``
+------------------------------------------------------
+
+When using the ``LIBCURL_MULTI_POLL`` backend with device memory destinations, KvikIO uses k-way buffering to overlap network I/O with host-to-device memory transfers. This setting controls the number of bounce buffers allocated per connection.
+
+Set the environment variable ``KVIKIO_NUM_BOUNCE_BUFFERS`` to a positive integer. Higher values allow more overlap between network I/O and H2D transfers but consume more pinned memory. The total pinned memory usage is ``remote_max_connections * num_bounce_buffers * bounce_buffer_size``.
+
+If not set, the default value is 2.
+
+.. note::
+
+   This setting only applies when using ``RemoteBackendType.LIBCURL_MULTI_POLL`` with device memory destinations. For host memory destinations or the ``LIBCURL_EASY`` backend, bounce buffers are not used.
+
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``num_bounce_buffers``.

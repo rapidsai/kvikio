@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,6 +16,7 @@
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
+#include <kvikio/remote_backend_type.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 
@@ -48,6 +49,9 @@ bool getenv_or(std::string_view env_var_name, bool default_val);
 
 template <>
 CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
+
+template <>
+RemoteBackendType getenv_or(std::string_view env_var_name, RemoteBackendType default_val);
 
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val);
@@ -122,6 +126,9 @@ class defaults {
   bool _auto_direct_io_read;
   bool _auto_direct_io_write;
   bool _thread_pool_per_block_device;
+  RemoteBackendType _remote_backend;
+  std::size_t _remote_max_connections;
+  std::size_t _num_bounce_buffers;
 
   static unsigned int get_num_threads_from_env();
 
@@ -417,6 +424,58 @@ class defaults {
    * thread pool for all I/O operations.
    */
   static void set_thread_pool_per_block_device(bool flag);
+
+  /**
+   * @brief Get the current remote I/O backend type.
+   *
+   * @return The currently configured RemoteBackendType.
+   */
+  [[nodiscard]] static RemoteBackendType remote_backend();
+
+  /**
+   * @brief Set the remote I/O backend type.
+   *
+   * Note: Changing this after creating a RemoteHandle has no effect on existing handles. The
+   * backend is determined at RemoteHandle construction time.
+   *
+   * @param remote_backend The backend type to use for new RemoteHandle instances.
+   */
+  static void set_remote_backend(RemoteBackendType remote_backend);
+
+  /**
+   * @brief Get the maximum number of concurrent connections for poll-based remote I/O.
+   *
+   * Only applies when using RemoteBackendType::LIBCURL_MULTI_POLL.
+   *
+   * @return Maximum number of concurrent connections.
+   */
+  [[nodiscard]] static std::size_t remote_max_connections();
+
+  /**
+   * @brief Set the maximum number of concurrent connections for poll-based remote I/O.
+   *
+   * Only applies when using RemoteBackendType::LIBCURL_MULTI_POLL.
+   *
+   * @param remote_max_connections Maximum concurrent connections (must be positive).
+   */
+  static void set_remote_max_connections(std::size_t remote_max_connections);
+
+  /**
+   * @brief Get the number of bounce buffers used per connection for poll-based remote I/O.
+   *
+   * Controls k-way buffering: higher values allow more overlap between network I/O and H2D
+   * transfers but consume more pinned memory.
+   *
+   * @return Number of bounce buffers per connection.
+   */
+  [[nodiscard]] static std::size_t num_bounce_buffers();
+
+  /**
+   * @brief Set the number of bounce buffers used per connection for poll-based remote I/O.
+   *
+   * @param num_bounce_buffers Number of bounce buffers per connection (must be positive).
+   */
+  static void set_num_bounce_buffers(std::size_t num_bounce_buffers);
 };
 
 }  // namespace kvikio
