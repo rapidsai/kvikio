@@ -309,8 +309,6 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                               std::size_t file_offset,
                                               std::size_t devPtr_offset) -> std::size_t {
     PushAndPopContext c(io_context->cuda_context());
-    auto& bounce_ring =
-      BounceBufferRingCachePerThreadAndContext<CudaPinnedAllocator>::instance().ring();
     return read_with_bounce_buffer_ring(io_context.get(),
                                         devPtr_base,
                                         size,

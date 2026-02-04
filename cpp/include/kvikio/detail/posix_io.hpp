@@ -363,7 +363,7 @@ std::size_t posix_device_read_with_bounce_buffer_ring_impl(int fd_direct_off,
     auto nbytes_got              = nbytes_requested;
     nbytes_got                   = posix_host_io<IOOperationType::READ, PartialIO::YES>(
       fd_direct_off, ring.cur_buffer(), nbytes_requested, cur_file_offset, fd_direct_on);
-    ring.enqueue_h2d(reinterpret_cast<void*>(devPtr), nbytes_got, stream);
+    ring.submit_h2d(reinterpret_cast<void*>(devPtr), nbytes_got, stream);
     cur_file_offset += nbytes_got;
     devPtr += nbytes_got;
     bytes_remaining -= nbytes_got;
