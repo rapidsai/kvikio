@@ -537,6 +537,20 @@ class BounceBufferRing {
  * @note Rings are created lazily on first access and persist for the lifetime of the program.
  * @note The cache itself is thread-safe; individual rings are not (by design, since each ring is
  * accessed by only one thread within one context).
+ * @note This class intentionally leaks its Ring allocations to avoid undefined behavior during
+ * process exit. Without this, the following destruction sequence causes crashes. By using raw
+ * pointers and never deleting them, we avoid calling into CUDA during static destruction. The OS
+ * reclaims all process memory at exit regardless.
+ * - `BounceBufferRingCachePerThreadAndContext` singleton is destroyed
+ * - Its map of `Ring*` entries would be deleted
+ * - Each `Ring` destructor destroys its `std::vector<Buffer>`
+ * - Each `Buffer` destructor calls `BounceBufferPool::put()` to return memory
+ * - `put()` may call `CudaPinnedAllocator::deallocate()` which includes CUDA API call
+ * - CUDA driver is already shut down, which leads to heap corruption / crash (sample error message:
+ * "free(): corrupted unsorted chunks")
+ *
+ * @sa BounceBufferPool, EventPool (same intentional leak pattern)
+ * @sa https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization
  */
 template <typename Allocator = CudaPinnedAllocator>
 class BounceBufferRingCachePerThreadAndContext {
