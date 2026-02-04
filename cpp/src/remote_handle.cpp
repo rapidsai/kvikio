@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -702,11 +702,19 @@ struct CallbackContext {
   std::size_t size;       // Total number of bytes to read.
   std::ptrdiff_t offset;  // Offset into `buf` to start reading.
   bool overflow_error;    // Flag to indicate overflow.
-  CallbackContext(void* buf, std::size_t size)
-    : buf{static_cast<char*>(buf)}, size{size}, offset{0}, overflow_error{0}
+  BounceBufferRing<CudaPinnedAllocator>* bounce_buffer_ring{
+    nullptr};  // Only used by callback_device_memory
+
+  CallbackContext(void* a_buf,
+                  std::size_t a_size,
+                  BounceBufferRing<CudaPinnedAllocator>* a_bounce_buffer_ring)
+    : buf{static_cast<char*>(a_buf)},
+      size{a_size},
+      offset{0},
+      overflow_error{false},
+      bounce_buffer_ring{a_bounce_buffer_ring}
   {
   }
-  BounceBufferH2D* bounce_buffer{nullptr};  // Only used by callback_device_memory
 };
 
 /**
@@ -755,13 +763,17 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
   }
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
 
-  ctx->bounce_buffer->write(data, nbytes);
+  ctx->bounce_buffer_ring->accumulate_and_submit_h2d(
+    ctx->buf, data, nbytes, detail::StreamsByThread::get());
   ctx->offset += nbytes;
   return nbytes;
 }
 }  // namespace
 
-std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
+std::size_t RemoteHandle::read(void* buf,
+                               std::size_t size,
+                               std::size_t file_offset,
+                               BounceBufferRing<CudaPinnedAllocator>* bounce_buffer_ring)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
 
@@ -781,7 +793,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   } else {
     curl.setopt(CURLOPT_WRITEFUNCTION, callback_device_memory);
   }
-  CallbackContext ctx{buf, size};
+  CallbackContext ctx{buf, size, bounce_buffer_ring};
   curl.setopt(CURLOPT_WRITEDATA, &ctx);
 
   try {
@@ -791,8 +803,11 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
       PushAndPopContext c(get_context_from_pointer(buf));
       // We use a bounce buffer to avoid many small memory copies to device. Libcurl has a
       // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
-      BounceBufferH2D bounce_buffer(detail::StreamsByThread::get(), buf);
-      ctx.bounce_buffer = &bounce_buffer;
+      std::unique_ptr<BounceBufferRing<CudaPinnedAllocator>> a_bounce_buffer_ring;
+      if (bounce_buffer_ring == nullptr) {
+        a_bounce_buffer_ring   = std::make_unique<BounceBufferRing<CudaPinnedAllocator>>();
+        ctx.bounce_buffer_ring = a_bounce_buffer_ring.get();
+      }
       curl.perform();
     }
   } catch (std::runtime_error const& e) {
@@ -815,11 +830,14 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);
-  auto task = [this](void* devPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t devPtr_offset) -> std::size_t {
-    return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
+  auto bounce_buffer_ring = std::make_shared<BounceBufferRing<CudaPinnedAllocator>>();
+  auto task               = [this, bounce_buffer_ring = bounce_buffer_ring](
+                void* devPtr_base,
+                std::size_t size,
+                std::size_t file_offset,
+                std::size_t devPtr_offset) -> std::size_t {
+    return read(
+      static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset, bounce_buffer_ring.get());
   };
   return parallel_io(task, buf, size, file_offset, task_size, 0, thread_pool, call_idx, nvtx_color);
 }
