@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -19,8 +19,8 @@
 #include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
-#include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/remote_handle.hpp>
+#include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
@@ -791,7 +791,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
       PushAndPopContext c(get_context_from_pointer(buf));
       // We use a bounce buffer to avoid many small memory copies to device. Libcurl has a
       // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
-      BounceBufferH2D bounce_buffer(detail::StreamsByThread::get(), buf);
+      BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
       ctx.bounce_buffer = &bounce_buffer;
       curl.perform();
     }
