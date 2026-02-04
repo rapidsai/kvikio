@@ -544,7 +544,7 @@ class BounceBufferRingCachePerThreadAndContext {
   using Ring = BounceBufferRing<Allocator>;
 
  private:
-  std::map<std::pair<CUcontext, std::thread::id>, std::unique_ptr<Ring>> _rings;
+  std::map<std::pair<CUcontext, std::thread::id>, Ring*> _rings;
   std::mutex mutable _mutex;
 
   BounceBufferRingCachePerThreadAndContext()  = default;
