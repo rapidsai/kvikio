@@ -74,7 +74,7 @@ repos:
             ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v1.4.2
+    rev: v1.4.3
     hooks:
       - id: verify-copyright
         args: [--fix, --spdx]
