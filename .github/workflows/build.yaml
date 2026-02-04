@@ -132,3 +132,4 @@ jobs:
       date: ${{ inputs.date }}
       package-name: kvikio
       package-type: python
+      publish-wheel-search-key: kvikio_wheel_python_abi3
