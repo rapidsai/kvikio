@@ -1,18 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <unistd.h>
+
 #include <cstddef>
 #include <cstdlib>
-#include <map>
-#include <thread>
 #include <type_traits>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
@@ -34,37 +34,6 @@ enum class IOOperationType : uint8_t {
 enum class PartialIO : uint8_t {
   YES,  ///< POSIX read/write is called only once, which may not process all bytes requested.
   NO,   ///< POSIX read/write is called repeatedly until all requested bytes are processed.
-};
-
-/**
- * @brief Singleton class to retrieve a CUDA stream for device-host copying
- *
- * Call `StreamsByThread::get` to get the CUDA stream assigned to the current
- * CUDA context and thread.
- */
-class StreamsByThread {
- private:
-  std::map<std::pair<CUcontext, std::thread::id>, CUstream> _streams;
-
- public:
-  StreamsByThread() = default;
-
-  // Here we intentionally do not destroy in the destructor the CUDA resources
-  // (e.g. CUstream) with static storage duration, but instead let them leak
-  // on program termination. This is to prevent undefined behavior in CUDA. See
-  // <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
-  // This also prevents crash (segmentation fault) if clients call
-  // cuDevicePrimaryCtxReset() or cudaDeviceReset() before program termination.
-  ~StreamsByThread() = default;
-
-  KVIKIO_EXPORT static CUstream get(CUcontext ctx, std::thread::id thd_id);
-
-  static CUstream get();
-
-  StreamsByThread(StreamsByThread const&)            = delete;
-  StreamsByThread& operator=(StreamsByThread const&) = delete;
-  StreamsByThread(StreamsByThread&& o)               = delete;
-  StreamsByThread& operator=(StreamsByThread&& o)    = delete;
 };
 
 /**
@@ -238,7 +207,7 @@ std::size_t posix_device_io(int fd_direct_off,
   off_t const chunk_size2 = convert_size2off(bounce_buffer.size());
 
   // Get a stream for the current CUDA context and thread
-  CUstream stream = StreamsByThread::get();
+  CUstream stream = StreamCachePerThreadAndContext::get();
 
   while (bytes_remaining > 0) {
     off_t const nbytes_requested = std::min(chunk_size2, bytes_remaining);
