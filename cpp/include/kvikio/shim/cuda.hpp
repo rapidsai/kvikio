@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -107,6 +107,10 @@ class cudaAPI {
   decltype(cuStreamCreate)* StreamCreate{nullptr};
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
   decltype(cuDriverGetVersion)* DriverGetVersion{nullptr};
+  decltype(cuEventSynchronize)* EventSynchronize{nullptr};
+  decltype(cuEventCreate)* EventCreate{nullptr};
+  decltype(cuEventDestroy)* EventDestroy{nullptr};
+  decltype(cuEventRecord)* EventRecord{nullptr};
 
  private:
   cudaAPI();

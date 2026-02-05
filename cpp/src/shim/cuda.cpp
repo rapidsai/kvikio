@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -41,6 +41,10 @@ cudaAPI::cudaAPI()
   get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
   get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
   get_symbol(DriverGetVersion, lib, KVIKIO_STRINGIFY(cuDriverGetVersion));
+  get_symbol(EventSynchronize, lib, KVIKIO_STRINGIFY(cuEventSynchronize));
+  get_symbol(EventCreate, lib, KVIKIO_STRINGIFY(cuEventCreate));
+  get_symbol(EventDestroy, lib, KVIKIO_STRINGIFY(cuEventDestroy));
+  get_symbol(EventRecord, lib, KVIKIO_STRINGIFY(cuEventRecord));
 
   CUDA_DRIVER_TRY(DriverGetVersion(&driver_version));
 
