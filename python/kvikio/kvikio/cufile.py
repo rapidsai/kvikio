@@ -527,17 +527,20 @@ def drop_system_page_cache(
 
     Parameters
     ----------
-     @param reclaim_dentries_and_inodes Whether to free reclaimable slab objects which include
-     dentries and inodes.
-     - If `true`, equivalent to executing `/sbin/sysctl vm.drop_caches=3`;
-     - If `false`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
-     @param sync_first Whether to flush dirty pages to disk before dropping. If `true`, `sync` will be
-     called prior to dropping. This ensures dirty pages become clean and thus droppable.
+    reclaim_dentries_and_inodes: bool
+        Whether to free reclaimable slab objects which include dentries and inodes.
+
+        - If `True`, equivalent to executing `/sbin/sysctl vm.drop_caches=3`;
+        - If `False`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
+    sync_first: bool
+        Whether to flush dirty pages to disk before dropping. If `True`, `sync` will be
+        called prior to dropping. This ensures dirty pages become clean and thus
+        droppable.
 
     Returns
     -------
     bool
-       Whether the page cache has been successfully cleared
+       Whether the page cache has been successfully dropped
 
     Notes
     -----
@@ -548,12 +551,12 @@ def drop_system_page_cache(
       - Execute the command without `sudo` prefix. This is for the superuser and also
         for specially configured systems where unprivileged users cannot execute
         `/usr/bin/sudo` but can execute `/sbin/sysctl`. If this step succeeds, the
-        function returns `true` immediately.
+        function returns `True` immediately.
       - Execute the command with `sudo` prefix. This is for the general case where
         selective unprivileged users have permission to run `/sbin/sysctl` with `sudo`
         prefix.
     """
-    return file_handle.clear_page_cache(reclaim_dentries_and_inodes, sync_first)
+    return file_handle.drop_system_page_cache(reclaim_dentries_and_inodes, sync_first)
 
 
 @kvikio_deprecation_notice(
@@ -565,4 +568,6 @@ def clear_page_cache(
     reclaim_dentries_and_inodes: bool = True, clear_dirty_pages: bool = True
 ) -> bool:
     """Drop the system page cache. Deprecated. Use `drop_system_page_cache` instead."""
-    return file_handle.clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)
+    return file_handle.drop_system_page_cache(
+        reclaim_dentries_and_inodes, clear_dirty_pages
+    )

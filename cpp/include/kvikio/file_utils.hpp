@@ -243,7 +243,7 @@ void drop_file_page_cache(std::string const& file_path,
  * - If `false`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
  * @param sync_first Whether to flush dirty pages to disk before dropping. If `true`, `sync` will be
  * called prior to dropping. This ensures dirty pages become clean and thus droppable.
- * @return Whether the page cache has been successfully cleared
+ * @return Whether the page cache has been successfully dropped.
  *
  * @note This drops page cache system-wide, affecting all processes. For dropping cache for a
  * specific file without elevated privileges, see `drop_file_page_cache(int, std::size_t,

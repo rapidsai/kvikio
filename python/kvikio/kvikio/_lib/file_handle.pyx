@@ -311,8 +311,8 @@ def drop_file_page_cache(file: Union[os.PathLike, str, int, io.IOBase],
 def drop_system_page_cache(reclaim_dentries_and_inodes: bool,
                            sync_first: bool) -> bool:
     cdef bool result
-    cdef size_t cpp_reclaim = reclaim_dentries_and_inodes
-    cdef size_t cpp_sync_first = sync_first
+    cdef bool cpp_reclaim = reclaim_dentries_and_inodes
+    cdef bool cpp_sync_first = sync_first
     with nogil:
         result = cpp_drop_system_page_cache(cpp_reclaim, cpp_sync_first)
     return result
