@@ -7,6 +7,7 @@ import pathlib
 from typing import Optional, Union
 
 from kvikio._lib import file_handle  # type: ignore
+from kvikio.utils import kvikio_deprecation_notice
 
 
 class IOFutureStream:
@@ -475,25 +476,93 @@ def get_page_cache_info(
     return file_handle.get_page_cache_info(file)
 
 
-def clear_page_cache(
-    reclaim_dentries_and_inodes: bool = True, clear_dirty_pages: bool = True
-) -> bool:
-    """Clear the page cache
+def drop_file_page_cache(
+    file: Union[os.PathLike, str, int, io.IOBase],
+    offset: int = 0,
+    length: int = 0,
+    sync_first: bool = True,
+) -> None:
+    """Drop page cache for a specific file.
+
+    Advises the kernel to evict cached pages for the specified file descriptor using
+    `posix_fadvise` with `POSIX_FADV_DONTNEED`.
 
     Parameters
     ----------
-    reclaim_dentries_and_inodes: bool, optional
-        Whether to free reclaimable slab objects which include dentries and inodes.
+    file: a path-like object, or string, or file descriptor, or file object
+        File to operate on.
+    offset: int
+        Starting byte offset (default: 0 for beginning of file)
+    length: int
+        Number of bytes to drop (default: 0, meaning entire file from offset)
+    sync_first: bool
+        Whether to flush dirty pages to disk before dropping. If `True`, `fdatasync`
+        will be called prior to dropping. This ensures dirty pages become clean and
+        thus droppable. Can be set to `False` if we are certain no dirty pages exist
+        for this file.
 
-        - If `true`, equivalent to executing `/sbin/sysctl vm.drop_caches=3`;
-        - If `false`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
-    clear_dirty_pages: bool, optional
-        Whether to trigger the writeback process to clear the dirty pages. If `true`,
-        `sync` will be called prior to cache dropping.
+    Notes
+    -----
+    - This is the preferred method for benchmark cache invalidation as it:
+
+      - Requires no elevated privileges
+      - Affects only the specified file, not other processes
+      - Has minimal overhead (no child process spawned)
+
+    - The page cache dropping takes place in granularity of full pages. If the
+      specified range does not align to page boundaries, partial pages at the start
+      and end of the range are retained. Only pages fully contained within the range
+      are dropped.
+
+    - For dropping page cache system-wide (requires elevated privileges), see
+      `drop_system_page_cache()`.
+    """
+    return file_handle.drop_file_page_cache(file, offset, length, sync_first)
+
+
+def drop_system_page_cache(
+    reclaim_dentries_and_inodes: bool = True, sync_first: bool = True
+) -> bool:
+    """Drop the system page cache.
+
+    Parameters
+    ----------
+     @param reclaim_dentries_and_inodes Whether to free reclaimable slab objects which include
+     dentries and inodes.
+     - If `true`, equivalent to executing `/sbin/sysctl vm.drop_caches=3`;
+     - If `false`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
+     @param sync_first Whether to flush dirty pages to disk before dropping. If `true`, `sync` will be
+     called prior to dropping. This ensures dirty pages become clean and thus droppable.
 
     Returns
     -------
     bool
-        Whether the page cache has been successfully cleared.
+       Whether the page cache has been successfully cleared
+
+    Notes
+    -----
+    - This drops page cache system-wide, affecting all processes. For dropping cache
+      for a specific file without elevated privileges, see `drop_file_page_cache`.
+    - This function creates a child process and executes the cache dropping shell
+      command in the following order:
+      - Execute the command without `sudo` prefix. This is for the superuser and also
+        for specially configured systems where unprivileged users cannot execute
+        `/usr/bin/sudo` but can execute `/sbin/sysctl`. If this step succeeds, the
+        function returns `true` immediately.
+      - Execute the command with `sudo` prefix. This is for the general case where
+        selective unprivileged users have permission to run `/sbin/sysctl` with `sudo`
+        prefix.
     """
+    return file_handle.clear_page_cache(reclaim_dentries_and_inodes, sync_first)
+
+
+@kvikio_deprecation_notice(
+    "Use `drop_system_page_cache` instead.",
+    # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
+    since="26.04",
+)
+def clear_page_cache(
+    reclaim_dentries_and_inodes: bool = True, clear_dirty_pages: bool = True
+) -> bool:
+    """Drop the system page cache. Deprecated. Use `drop_system_page_cache` instead."""
     return file_handle.clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)

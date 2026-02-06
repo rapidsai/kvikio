@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -21,6 +21,7 @@ struct CUfileException : public std::runtime_error {
 
 class GenericSystemError : public std::system_error {
  public:
+  GenericSystemError(int err_code, const std::string& msg);
   GenericSystemError(const std::string& msg);
   GenericSystemError(const char* msg);
   GenericSystemError(const GenericSystemError& other)            = default;
