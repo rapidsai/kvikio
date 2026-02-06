@@ -459,8 +459,8 @@ def get_page_cache_info(
 
     .. code-block:: python
 
-       num_pages_in_page_cache, num_pages = kvikio.get_page_cache_info(my_file)
-       percent_in_page_cache = num_pages_in_page_cache / num_pages
+       pages_cached, pages_total = kvikio.get_page_cache_info(my_file)
+       fraction_cached = pages_cached / pages_total
 
     Parameters
     ----------
@@ -515,7 +515,7 @@ def drop_file_page_cache(
       are dropped.
 
     - For dropping page cache system-wide (requires elevated privileges), see
-      `drop_system_page_cache()`.
+      :func:`drop_system_page_cache()`.
     """
     return file_handle.drop_file_page_cache(file, offset, length, sync_first)
 
@@ -545,9 +545,10 @@ def drop_system_page_cache(
     Notes
     -----
     - This drops page cache system-wide, affecting all processes. For dropping cache
-      for a specific file without elevated privileges, see `drop_file_page_cache`.
+      for a specific file without elevated privileges, see :func:`drop_file_page_cache`.
     - This function creates a child process and executes the cache dropping shell
       command in the following order:
+
       - Execute the command without `sudo` prefix. This is for the superuser and also
         for specially configured systems where unprivileged users cannot execute
         `/usr/bin/sudo` but can execute `/sbin/sysctl`. If this step succeeds, the
@@ -560,14 +561,14 @@ def drop_system_page_cache(
 
 
 @kvikio_deprecation_notice(
-    "Use `drop_system_page_cache` instead.",
+    "Use :func:`drop_system_page_cache` instead.",
     # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
     since="26.04",
 )
 def clear_page_cache(
     reclaim_dentries_and_inodes: bool = True, clear_dirty_pages: bool = True
 ) -> bool:
-    """Drop the system page cache. Deprecated. Use `drop_system_page_cache` instead."""
+    """Drop the system page cache. Deprecated. Use :func:`drop_system_page_cache` instead."""
     return file_handle.drop_system_page_cache(
         reclaim_dentries_and_inodes, clear_dirty_pages
     )
