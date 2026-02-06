@@ -82,6 +82,36 @@ TEST_F(PageCacheTest, drop_file_page_cache_partial_range)
   EXPECT_EQ(cached_pages, 6);
 }
 
+// Test the fd-based overload
+TEST_F(PageCacheTest, drop_file_page_cache_with_fd)
+{
+  WarmPageCache(0, _filesize);
+
+  {
+    auto [cached_pages, total_pages] = kvikio::get_page_cache_info(_filepath.string());
+    EXPECT_EQ(cached_pages, total_pages);
+  }
+
+  kvikio::FileHandle file(_filepath.string(), "r");
+  kvikio::drop_file_page_cache(file.fd());
+
+  {
+    auto [cached_pages, _] = kvikio::get_page_cache_info(_filepath.string());
+    EXPECT_EQ(cached_pages, 0);
+  }
+}
+
+TEST_F(PageCacheTest, drop_file_page_cache_invalid_fd)
+{
+  EXPECT_THROW(kvikio::drop_file_page_cache(-1), kvikio::GenericSystemError);
+}
+
+TEST_F(PageCacheTest, drop_file_page_cache_nonexistent_file)
+{
+  EXPECT_THROW(kvikio::drop_file_page_cache("/nonexistent/path/file.bin"),
+               kvikio::GenericSystemError);
+}
+
 TEST_F(PageCacheTest, drop_file_page_cache_unaligned_range)
 {
   // Read the full file
