@@ -491,11 +491,11 @@ def drop_file_page_cache(
     ----------
     file: a path-like object, or string, or file descriptor, or file object
         File to operate on.
-    offset: int
+    offset: int, optional
         Starting byte offset (default: 0 for beginning of file)
-    length: int
+    length: int, optional
         Number of bytes to drop (default: 0, meaning entire file from offset)
-    sync_first: bool
+    sync_first: bool, optional
         Whether to flush dirty pages to disk before dropping. If `True`, `fdatasync`
         will be called prior to dropping. This ensures dirty pages become clean and
         thus droppable. Can be set to `False` if we are certain no dirty pages exist
@@ -527,12 +527,12 @@ def drop_system_page_cache(
 
     Parameters
     ----------
-    reclaim_dentries_and_inodes: bool
+    reclaim_dentries_and_inodes: bool, optional
         Whether to free reclaimable slab objects which include dentries and inodes.
 
         - If `True`, equivalent to executing `/sbin/sysctl vm.drop_caches=3`;
         - If `False`, equivalent to executing `/sbin/sysctl vm.drop_caches=1`.
-    sync_first: bool
+    sync_first: bool, optional
         Whether to flush dirty pages to disk before dropping. If `True`, `sync` will be
         called prior to dropping. This ensures dirty pages become clean and thus
         droppable.
@@ -540,7 +540,7 @@ def drop_system_page_cache(
     Returns
     -------
     bool
-       Whether the page cache has been successfully dropped
+        Whether the page cache has been successfully dropped
 
     Notes
     -----
