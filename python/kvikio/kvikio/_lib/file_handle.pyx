@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -231,9 +231,20 @@ cdef extern from "<kvikio/file_utils.hpp>" nogil:
     pair[size_t, size_t] cpp_get_page_cache_info_int \
         "kvikio::get_page_cache_info"(int fd) except +
 
-    bool cpp_clear_page_cache "kvikio::clear_page_cache" \
-        (bool reclaim_dentries_and_inodes, bool clear_dirty_pages) \
-        except +
+    void cpp_drop_file_page_cache \
+        "kvikio::drop_file_page_cache"(int fd,
+                                       size_t offset,
+                                       size_t length,
+                                       bool sync_first) except +
+
+    void cpp_drop_file_page_cache \
+        "kvikio::drop_file_page_cache"(string file_path,
+                                       size_t offset,
+                                       size_t length,
+                                       bool sync_first) except +
+
+    bool cpp_drop_system_page_cache "kvikio::drop_system_page_cache" \
+        (bool reclaim_dentries_and_inodes, bool sync_first) except +
 
 
 def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase]) \
@@ -266,9 +277,42 @@ def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase]) \
                          "or `io.IOBase`")
 
 
-def clear_page_cache(reclaim_dentries_and_inodes: bool,
-                     clear_dirty_pages: bool) -> bool:
+def drop_file_page_cache(file: Union[os.PathLike, str, int, io.IOBase],
+                         offset: int,
+                         length: int,
+                         sync_first: bool) -> None:
+    cdef string path_bytes
+    cdef int fd
+    cdef size_t cpp_offset = offset
+    cdef size_t cpp_length = length
+    cdef bool cpp_sync_first = sync_first
+
+    if isinstance(file, os.PathLike) or isinstance(file, str):
+        # file is a path or a string object
+        path_bytes = os.fsencode(file)
+        with nogil:
+            cpp_drop_file_page_cache(path_bytes, cpp_offset, cpp_length, cpp_sync_first)
+    elif isinstance(file, int):
+        # file is a file descriptor
+        fd = file
+        with nogil:
+            cpp_drop_file_page_cache(fd, cpp_offset, cpp_length, cpp_sync_first)
+    elif isinstance(file, io.IOBase):
+        # file is a file object
+        # pass its file descriptor to the underlying C++ function
+        fd = file.fileno()
+        with nogil:
+            cpp_drop_file_page_cache(fd, cpp_offset, cpp_length, cpp_sync_first)
+    else:
+        raise ValueError("The type of `file` must be `os.PathLike`, `str`, `int`, "
+                         "or `io.IOBase`")
+
+
+def drop_system_page_cache(reclaim_dentries_and_inodes: bool,
+                           sync_first: bool) -> bool:
     cdef bool result
+    cdef bool cpp_reclaim = reclaim_dentries_and_inodes
+    cdef bool cpp_sync_first = sync_first
     with nogil:
-        result = cpp_clear_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages)
+        result = cpp_drop_system_page_cache(cpp_reclaim, cpp_sync_first)
     return result

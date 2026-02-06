@@ -15,19 +15,29 @@ else:
 from kvikio._lib.defaults import CompatMode  # noqa: F401
 from kvikio._version import __git_commit__, __version__
 from kvikio.buffer import bounce_buffer_free, memory_deregister, memory_register
-from kvikio.cufile import CuFile, clear_page_cache, get_page_cache_info
+from kvikio.cufile import (
+    CuFile,
+    clear_page_cache,
+    drop_file_page_cache,
+    drop_system_page_cache,
+    get_page_cache_info,
+)
 from kvikio.mmap import Mmap
 from kvikio.remote_file import RemoteEndpointType, RemoteFile, is_remote_file_available
 from kvikio.stream import stream_deregister, stream_register
+from kvikio.utils import kvikio_deprecation_notice
 
 __all__ = [
     "__git_commit__",
     "__version__",
     "clear_page_cache",
     "CuFile",
+    "drop_file_page_cache",
+    "drop_system_page_cache",
     "Mmap",
     "get_page_cache_info",
     "is_remote_file_available",
+    "kvikio_deprecation_notice",
     "RemoteEndpointType",
     "RemoteFile",
     "stream_register",
