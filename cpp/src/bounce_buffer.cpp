@@ -242,14 +242,7 @@ void BounceBufferRing<Allocator>::enqueue_h2d(void* device_dst, std::size_t size
 }
 
 template <typename Allocator>
-void BounceBufferRing<Allocator>::enqueue_d2h(void* device_src, std::size_t size, CUstream stream)
-{
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoHAsync(
-    cur_buffer(), convert_void2deviceptr(device_src), size, stream));
-}
-
-template <typename Allocator>
-void BounceBufferRing<Allocator>::advance(CUstream stream)
+void BounceBufferRing<Allocator>::advance()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   _cur_buffer_offset = 0;
