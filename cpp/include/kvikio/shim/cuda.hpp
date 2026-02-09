@@ -111,6 +111,7 @@ class cudaAPI {
   decltype(cuEventCreate)* EventCreate{nullptr};
   decltype(cuEventDestroy)* EventDestroy{nullptr};
   decltype(cuEventRecord)* EventRecord{nullptr};
+  decltype(cuEventQuery)* EventQuery{nullptr};
 
  private:
   cudaAPI();

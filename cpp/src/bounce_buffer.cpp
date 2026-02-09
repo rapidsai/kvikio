@@ -9,6 +9,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/event.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
@@ -52,11 +53,11 @@ void* CudaPageAlignedPinnedAllocator::allocate(std::size_t size)
   auto const aligned_size = detail::align_up(size, page_size);
   buffer                  = std::aligned_alloc(page_size, aligned_size);
   KVIKIO_EXPECT(buffer != nullptr, "Aligned allocation failed");
-  // Register the page-aligned allocation as pinned memory with CU_MEMHOSTALLOC_PORTABLE. The
+  // Register the page-aligned allocation as pinned memory with CU_MEMHOSTREGISTER_PORTABLE. The
   // PORTABLE flag ensures this memory is accessible from all CUDA contexts, which is essential for
   // the singleton BounceBufferPool that may serve multiple contexts and devices.
   CUDA_DRIVER_TRY(
-    cudaAPI::instance().MemHostRegister(buffer, aligned_size, CU_MEMHOSTALLOC_PORTABLE));
+    cudaAPI::instance().MemHostRegister(buffer, aligned_size, CU_MEMHOSTREGISTER_PORTABLE));
   return buffer;
 }
 
@@ -219,114 +220,32 @@ template class BounceBufferPool<PageAlignedAllocator>;
 template class BounceBufferPool<CudaPinnedAllocator>;
 template class BounceBufferPool<CudaPageAlignedPinnedAllocator>;
 
-namespace {
-/**
- * @brief Issue individual async H2D copies for each transfer.
- *
- * Fallback when cuMemcpyBatchAsync is unavailable.
- */
-void unbatched_copy(std::span<void*> dsts,
-                    std::span<void*> srcs,
-                    std::span<std::size_t> sizes,
-                    CUstream stream)
-{
-  for (std::size_t i = 0; i < srcs.size(); ++i) {
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-      convert_void2deviceptr(dsts[i]), reinterpret_cast<void*>(srcs[i]), sizes[i], stream));
-  }
-}
-
-/**
- * @brief Issue H2D copies using batch API if available, otherwise fall back to individual copies.
- *
- * Uses cuMemcpyBatchAsync (CUDA 12.8+) to reduce API overhead for multiple small transfers.
- */
-void batch_copy(std::span<void*> dsts,
-                std::span<void*> srcs,
-                std::span<std::size_t> sizes,
-                CUstream stream)
-{
-  if (srcs.size() == 0) return;
-
-#if CUDA_VERSION >= 12080
-  if (cudaAPI::instance().MemcpyBatchAsync) {
-    CUmemcpyAttributes attrs{};
-    std::size_t attrs_idxs[] = {0};
-    attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-    CUDA_DRIVER_TRY(
-      cudaAPI::instance().MemcpyBatchAsync(dsts.data(),
-                                           srcs.data(),
-                                           sizes.data(),
-                                           srcs.size(),
-                                           &attrs,
-                                           attrs_idxs,
-                                           static_cast<std::size_t>(1) /* num_attrs */,
-#if CUDA_VERSION < 13000
-                                           static_cast<std::size_t*>(nullptr),
-#endif
-                                           stream));
-  } else {
-    unbatched_copy(dsts, srcs, sizes, stream);
-  }
-#else
-  unbatched_copy(dsts, srcs, sizes, stream);
-#endif
-}
-}  // namespace
-
 template <typename Allocator>
-void BounceBufferRing<Allocator>::BatchTransferContext::add_entry(void* dst,
-                                                                  void* src,
-                                                                  std::size_t size)
-{
-  srcs.push_back(src);
-  dsts.push_back(dst);
-  sizes.push_back(size);
-}
-
-template <typename Allocator>
-void BounceBufferRing<Allocator>::BatchTransferContext::clear()
-{
-  srcs.clear();
-  dsts.clear();
-  sizes.clear();
-}
-
-template <typename Allocator>
-BounceBufferRing<Allocator>::BounceBufferRing(std::size_t num_buffers, bool batch_copy)
-  : _num_buffers{num_buffers}, _batch_copy{batch_copy}
+BounceBufferRing<Allocator>::BounceBufferRing(std::size_t num_buffers)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(num_buffers >= 1, "BounceBufferRing requires at least 1 buffer");
 
-  _buffers.reserve(_num_buffers);
-  for (std::size_t i = 0; i < _num_buffers; ++i) {
+  _buffers.reserve(num_buffers);
+  _events.reserve(num_buffers);
+  for (std::size_t i = 0; i < num_buffers; ++i) {
     _buffers.emplace_back(BounceBufferPool<Allocator>::instance().get());
+    _events.emplace_back(detail::EventPool::instance().get());
   }
 }
 
 template <typename Allocator>
 void BounceBufferRing<Allocator>::enqueue_h2d(void* device_dst, std::size_t size, CUstream stream)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
-  if (_batch_copy) {
-    _batch_transfer_ctx.add_entry(device_dst, cur_buffer(), size);
-  } else {
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-      convert_void2deviceptr(device_dst), cur_buffer(), size, stream));
-  }
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+    convert_void2deviceptr(device_dst), cur_buffer(), size, stream));
 }
 
 template <typename Allocator>
 void BounceBufferRing<Allocator>::enqueue_d2h(void* device_src, std::size_t size, CUstream stream)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
-  if (_batch_copy) {
-    _batch_transfer_ctx.add_entry(cur_buffer(), device_src, size);
-  } else {
-    CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoHAsync(
-      cur_buffer(), convert_void2deviceptr(device_src), size, stream));
-  }
+  CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoHAsync(
+    cur_buffer(), convert_void2deviceptr(device_src), size, stream));
 }
 
 template <typename Allocator>
@@ -335,15 +254,15 @@ void BounceBufferRing<Allocator>::advance(CUstream stream)
   KVIKIO_NVTX_FUNC_RANGE();
   _cur_buffer_offset = 0;
   ++_cur_buf_idx;
-  if (_cur_buf_idx >= _num_buffers) { _cur_buf_idx = 0; }
-  if (_cur_buf_idx == _initial_buf_idx) {
-    if (_batch_copy) {
-      batch_copy(
-        _batch_transfer_ctx.dsts, _batch_transfer_ctx.srcs, _batch_transfer_ctx.sizes, stream);
-      _batch_transfer_ctx.clear();
-    }
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    _initial_buf_idx = _cur_buf_idx;
+  if (_cur_buf_idx >= _buffers.size()) { _cur_buf_idx = 0; }
+
+  // Ensure the buffer we are advancing into is not still being read by a prior H2D
+  auto event        = _events[_cur_buf_idx].get();
+  auto event_status = cudaAPI::instance().EventQuery(event);
+  if (event_status == CUDA_ERROR_NOT_READY) {
+    CUDA_DRIVER_TRY(cudaAPI::instance().EventSynchronize(event));
+  } else if (event_status != CUDA_SUCCESS) {
+    CUDA_DRIVER_TRY(event_status);
   }
 }
 
@@ -368,7 +287,7 @@ std::size_t BounceBufferRing<Allocator>::buffer_size() const noexcept
 template <typename Allocator>
 std::size_t BounceBufferRing<Allocator>::num_buffers() const noexcept
 {
-  return _num_buffers;
+  return _buffers.size();
 }
 
 template <typename Allocator>
@@ -418,7 +337,8 @@ void BounceBufferRing<Allocator>::submit_h2d(void* device_dst, std::size_t size,
 {
   KVIKIO_NVTX_FUNC_RANGE();
   enqueue_h2d(device_dst, size, stream);
-  advance(stream);
+  CUDA_DRIVER_TRY(cudaAPI::instance().EventRecord(_events[_cur_buf_idx].get(), stream));
+  advance();
 }
 
 template <typename Allocator>
@@ -427,8 +347,7 @@ std::size_t BounceBufferRing<Allocator>::flush_h2d(void* device_dst, CUstream st
   KVIKIO_NVTX_FUNC_RANGE();
   if (_cur_buffer_offset == 0) { return 0; }
   auto const flushed = _cur_buffer_offset;
-  enqueue_h2d(device_dst, _cur_buffer_offset, stream);
-  advance(stream);
+  submit_h2d(device_dst, _cur_buffer_offset, stream);
   return flushed;
 }
 
@@ -436,11 +355,6 @@ template <typename Allocator>
 void BounceBufferRing<Allocator>::synchronize(CUstream stream)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (_batch_copy) {
-    batch_copy(
-      _batch_transfer_ctx.dsts, _batch_transfer_ctx.srcs, _batch_transfer_ctx.sizes, stream);
-    _batch_transfer_ctx.clear();
-  }
   CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
 }
 
@@ -449,7 +363,6 @@ void BounceBufferRing<Allocator>::reset(CUstream stream)
 {
   synchronize(stream);
   _cur_buf_idx       = 0;
-  _initial_buf_idx   = 0;
   _cur_buffer_offset = 0;
 }
 
@@ -470,10 +383,9 @@ BounceBufferRingCachePerThreadAndContext<Allocator>::ring()
 
   std::lock_guard const lock(_mutex);
 
-  bool use_batch_copy = getenv_or("KVIKIO_USE_BATCH_COPY", false);
-  auto it             = _rings.find(key);
+  auto it = _rings.find(key);
   if (it == _rings.end()) {
-    auto ring = new Ring(defaults::bounce_buffer_count(), use_batch_copy);
+    auto ring = new Ring(defaults::bounce_buffer_count());
     it        = _rings.emplace(key, ring).first;
   }
   return *it->second;

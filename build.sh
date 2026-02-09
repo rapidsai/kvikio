@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # kvikio build script
@@ -43,7 +43,13 @@ BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_BENCHMARKS=OFF
 RAN_CMAKE=0
-PYTHON_ARGS_FOR_INSTALL=("-v" "--no-build-isolation" "--no-deps" "--config-settings" "rapidsai.disable-cuda=true")
+PYTHON_ARGS_FOR_INSTALL=(
+    "-v"
+    "--no-build-isolation"
+    "--no-deps"
+    "--config-settings"
+    "rapidsai.disable-cuda=true"
+)
 
 
 # Set defaults for vars that may not have been defined externally
@@ -159,6 +165,13 @@ if (( NUMARGS == 0 )) || hasArg libkvikio; then
         echo "installing libkvikio..."
         cmake --build "${LIBKVIKIO_BUILD_DIR}" --target install ${VERBOSE_FLAG}
     fi
+fi
+
+
+# If `RAPIDS_PY_VERSION` is set, use that as the lower-bound for the stable ABI CPython version
+if [ -n "${RAPIDS_PY_VERSION:-}" ]; then
+    RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
+    PYTHON_ARGS_FOR_INSTALL+=("--config-settings" "skbuild.wheel.py-api=${RAPIDS_PY_API}")
 fi
 
 # Build and install the kvikio Python package
