@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/event.hpp>
 
 namespace kvikio {
 
@@ -78,7 +79,7 @@ class CudaPinnedAllocator {
  * (for efficient host-device transfers). Uses std::aligned_alloc followed by
  * cudaMemHostRegister to achieve both properties.
  *
- * @note Registration uses CU_MEMHOSTALLOC_PORTABLE, making buffers accessible from all CUDA
+ * @note Registration uses CU_MEMHOSTREGISTER_PORTABLE, making buffers accessible from all CUDA
  * contexts, not just the one active during allocation. This allows the singleton BounceBufferPool
  * to safely serve buffers across multiple contexts and devices.
  * @note This is the required allocator for Direct I/O with device memory. Requires a valid CUDA
@@ -303,17 +304,33 @@ using CudaPageAlignedPinnedBounceBufferPool = BounceBufferPool<CudaPageAlignedPi
  * @note The internal bounce buffers use CU_MEMHOSTALLOC_PORTABLE and are accessible from any CUDA
  * context. However, each transfer session (from first enqueue/submit through synchronize/reset)
  * must use a stream and device pointers from a single, consistent CUDA context.
- * @note H2D and D2H operations should not be interleaved within a single transfer session. Call
- * reset() between direction changes to ensure correct synchronization behavior.
  */
 template <typename Allocator = CudaPinnedAllocator>
 class BounceBufferRing {
  private:
   std::vector<typename BounceBufferPool<Allocator>::Buffer> _buffers;
-  std::size_t _num_buffers;
   std::size_t _cur_buf_idx{0};
-  std::size_t _initial_buf_idx{0};
   std::size_t _cur_buffer_offset{0};
+  std::vector<detail::EventPool::Event> _events;
+
+  /**
+   * @brief Advance to next buffer in the ring.
+   *
+   * Resets current buffer offset and moves to next buffer index. Waits on the target buffer's event
+   * if a prior async transfer is still in flight, ensuring the buffer is safe for CPU writes.
+   */
+  void advance();
+
+  /**
+   * @brief Queue async copy from current bounce buffer to device memory.
+   *
+   * @param device_dst Device memory destination.
+   * @param size Bytes to copy from cur_buffer().
+   * @param stream CUDA stream for the async transfer.
+   *
+   * @note Does NOT advance to next buffer. Call submit_h2d() for copy + advance.
+   */
+  void enqueue_h2d(void* device_dst, std::size_t size, CUstream stream);
 
  public:
   /**
@@ -383,36 +400,6 @@ class BounceBufferRing {
    * @brief Get remaining number of bytes in current buffer for accumulation.
    */
   [[nodiscard]] std::size_t cur_buffer_remaining_capacity() const noexcept;
-
-  /**
-   * @brief Advance to next buffer in the ring.
-   *
-   * Resets current buffer offset and moves to next buffer index. If wrapping around to the oldest
-   * in-flight buffer, synchronizes the stream first to ensure that buffer's transfer is complete.
-   *
-   * @param stream CUDA stream to synchronize on wrap-around.
-   */
-  void advance(CUstream stream);
-
-  /**
-   * @brief Queue async copy from current bounce buffer to device memory.
-   *
-   * @param device_dst Device memory destination.
-   * @param size Bytes to copy from cur_buffer().
-   * @param stream CUDA stream for the async transfer.
-   *
-   * @note Does NOT advance to next buffer. Call submit_h2d() for copy + advance.
-   */
-  void enqueue_h2d(void* device_dst, std::size_t size, CUstream stream);
-
-  /**
-   * @brief Async copy from device memory to current bounce buffer.
-   *
-   * @param device_src Device memory source.
-   * @param size Bytes to copy.
-   * @param stream CUDA stream for the async transfer.
-   */
-  void enqueue_d2h(void* device_src, std::size_t size, CUstream stream);
 
   /**
    * @brief Accumulate data into bounce buffer, auto-submit when full.
@@ -493,8 +480,7 @@ class BounceBufferRing {
   /**
    * @brief Synchronize pending transfers and reset ring state for a new transfer session.
    *
-   * Ensures all in-flight transfers complete, then resets the ring to its initial state. After
-   * reset(), the ring can be safely reused for either H2D or D2H operations.
+   * Ensures all in-flight transfers complete, then resets the ring to its initial state.
    *
    * @param stream CUDA stream to synchronize.
    */

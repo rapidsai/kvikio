@@ -9,6 +9,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/event.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
@@ -52,11 +53,11 @@ void* CudaPageAlignedPinnedAllocator::allocate(std::size_t size)
   auto const aligned_size = detail::align_up(size, page_size);
   buffer                  = std::aligned_alloc(page_size, aligned_size);
   KVIKIO_EXPECT(buffer != nullptr, "Aligned allocation failed");
-  // Register the page-aligned allocation as pinned memory with CU_MEMHOSTALLOC_PORTABLE. The
+  // Register the page-aligned allocation as pinned memory with CU_MEMHOSTREGISTER_PORTABLE. The
   // PORTABLE flag ensures this memory is accessible from all CUDA contexts, which is essential for
   // the singleton BounceBufferPool that may serve multiple contexts and devices.
   CUDA_DRIVER_TRY(
-    cudaAPI::instance().MemHostRegister(buffer, aligned_size, CU_MEMHOSTALLOC_PORTABLE));
+    cudaAPI::instance().MemHostRegister(buffer, aligned_size, CU_MEMHOSTREGISTER_PORTABLE));
   return buffer;
 }
 
@@ -220,21 +221,22 @@ template class BounceBufferPool<CudaPinnedAllocator>;
 template class BounceBufferPool<CudaPageAlignedPinnedAllocator>;
 
 template <typename Allocator>
-BounceBufferRing<Allocator>::BounceBufferRing(std::size_t num_buffers) : _num_buffers{num_buffers}
+BounceBufferRing<Allocator>::BounceBufferRing(std::size_t num_buffers)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_EXPECT(num_buffers >= 1, "BounceBufferRing requires at least 1 buffer");
 
-  _buffers.reserve(_num_buffers);
-  for (std::size_t i = 0; i < _num_buffers; ++i) {
+  _buffers.reserve(num_buffers);
+  _events.reserve(num_buffers);
+  for (std::size_t i = 0; i < num_buffers; ++i) {
     _buffers.emplace_back(BounceBufferPool<Allocator>::instance().get());
+    _events.emplace_back(detail::EventPool::instance().get());
   }
 }
 
 template <typename Allocator>
 void BounceBufferRing<Allocator>::enqueue_h2d(void* device_dst, std::size_t size, CUstream stream)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
     convert_void2deviceptr(device_dst), cur_buffer(), size, stream));
 }
@@ -242,7 +244,6 @@ void BounceBufferRing<Allocator>::enqueue_h2d(void* device_dst, std::size_t size
 template <typename Allocator>
 void BounceBufferRing<Allocator>::enqueue_d2h(void* device_src, std::size_t size, CUstream stream)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
   CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyDtoHAsync(
     cur_buffer(), convert_void2deviceptr(device_src), size, stream));
 }
@@ -253,10 +254,15 @@ void BounceBufferRing<Allocator>::advance(CUstream stream)
   KVIKIO_NVTX_FUNC_RANGE();
   _cur_buffer_offset = 0;
   ++_cur_buf_idx;
-  if (_cur_buf_idx >= _num_buffers) { _cur_buf_idx = 0; }
-  if (_cur_buf_idx == _initial_buf_idx) {
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    _initial_buf_idx = _cur_buf_idx;
+  if (_cur_buf_idx >= _buffers.size()) { _cur_buf_idx = 0; }
+
+  // Ensure the buffer we are advancing into is not still being read by a prior H2D
+  auto event        = _events[_cur_buf_idx].get();
+  auto event_status = cudaAPI::instance().EventQuery(event);
+  if (event_status == CUDA_ERROR_NOT_READY) {
+    CUDA_DRIVER_TRY(cudaAPI::instance().EventSynchronize(event));
+  } else if (event_status != CUDA_SUCCESS) {
+    CUDA_DRIVER_TRY(event_status);
   }
 }
 
@@ -281,7 +287,7 @@ std::size_t BounceBufferRing<Allocator>::buffer_size() const noexcept
 template <typename Allocator>
 std::size_t BounceBufferRing<Allocator>::num_buffers() const noexcept
 {
-  return _num_buffers;
+  return _buffers.size();
 }
 
 template <typename Allocator>
@@ -331,7 +337,8 @@ void BounceBufferRing<Allocator>::submit_h2d(void* device_dst, std::size_t size,
 {
   KVIKIO_NVTX_FUNC_RANGE();
   enqueue_h2d(device_dst, size, stream);
-  advance(stream);
+  CUDA_DRIVER_TRY(cudaAPI::instance().EventRecord(_events[_cur_buf_idx].get(), stream));
+  advance();
 }
 
 template <typename Allocator>
@@ -340,8 +347,7 @@ std::size_t BounceBufferRing<Allocator>::flush_h2d(void* device_dst, CUstream st
   KVIKIO_NVTX_FUNC_RANGE();
   if (_cur_buffer_offset == 0) { return 0; }
   auto const flushed = _cur_buffer_offset;
-  enqueue_h2d(device_dst, _cur_buffer_offset, stream);
-  advance(stream);
+  submit_h2d(device_dst, _cur_buffer_offset, stream);
   return flushed;
 }
 
@@ -357,7 +363,6 @@ void BounceBufferRing<Allocator>::reset(CUstream stream)
 {
   synchronize(stream);
   _cur_buf_idx       = 0;
-  _initial_buf_idx   = 0;
   _cur_buffer_offset = 0;
 }
 
