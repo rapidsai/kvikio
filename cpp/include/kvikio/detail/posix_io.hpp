@@ -193,7 +193,7 @@ std::size_t posix_device_io(int fd_direct_off,
 {
   // Direct I/O requires page-aligned bounce buffers. CudaPinnedBounceBufferPool uses
   // cudaMemHostAlloc which does not guarantee page alignment.
-  if (std::is_same_v<BounceBufferPoolType, CudaPinnedBounceBufferPool>) {
+  if constexpr (std::is_same_v<BounceBufferPoolType, CudaPinnedBounceBufferPool>) {
     KVIKIO_EXPECT(
       fd_direct_on == -1,
       "Direct I/O requires page-aligned bounce buffers. CudaPinnedBounceBufferPool does not "
@@ -333,6 +333,39 @@ std::size_t posix_device_write(int fd_direct_off,
                                std::size_t devPtr_offset,
                                int fd_direct_on = -1);
 
+/**
+ * @brief Read from file into device memory using bounce buffer ring for I/O-H2D overlap.
+ *
+ * Performs the same logical operation as read(), but stages data through a per-(context, thread)
+ * bounce buffer ring to overlap POSIX file reads with asynchronous host-to-device transfers. The
+ * ring is obtained from BounceBufferRingCachePerThreadAndContext and the H2D stream from
+ * StreamCachePerThreadAndContext; both are keyed by the current CUDA context and calling thread.
+ *
+ * After all file data has been submitted to the ring, an event is recorded on the H2D stream via @p
+ * io_context so that the caller can defer synchronization until all parallel tasks have completed.
+ * The caller must invoke `io_context->sync_all_events()` before accessing the device buffer.
+ *
+ * When GDS is available and compatibility mode is not preferred, the call falls through to
+ * cuFileRead directly (identical to read()).
+ *
+ * @param io_context Shared I/O context that collects CUDA events from each parallel task. The
+ * caller is responsible for calling `sync_all_events()` after all tasks finish to guarantee data
+ * visibility on the device.
+ * @param devPtr_base Base address of buffer in device memory. For registered buffers, must remain
+ * set to the base address used in the buffer_register call.
+ * @param size Size in bytes to read.
+ * @param file_offset Offset in the file to read from.
+ * @param devPtr_offset Offset relative to @p devPtr_base to read into. This parameter should be
+ * used only with registered buffers.
+ * @param sync_default_stream Synchronize the CUDA default (null) stream prior to calling cuFile.
+ * Ignored when in compatibility mode (POSIX path is already default-stream-ordered).
+ * @return Size of bytes that were successfully read (always equal to @p size, or throws).
+ *
+ * @exception kvikio::CUfileException on I/O or CUDA errors.
+ *
+ * @note The H2D transfers are asynchronous and may still be in flight when this function returns.
+ * Device data is only safe to consume after `io_context->sync_all_events()`.
+ */
 template <typename Allocator = CudaPinnedAllocator>
 std::size_t posix_device_read_with_bounce_buffer_ring_impl(int fd_direct_off,
                                                            void const* devPtr_base,
@@ -341,9 +374,11 @@ std::size_t posix_device_read_with_bounce_buffer_ring_impl(int fd_direct_off,
                                                            std::size_t devPtr_offset,
                                                            int fd_direct_on = -1)
 {
+  KVIKIO_NVTX_FUNC_RANGE(size);
+
   // Direct I/O requires page-aligned bounce buffers. CudaPinnedAllocator uses
   // cudaMemHostAlloc which does not guarantee page alignment.
-  if (std::is_same_v<Allocator, CudaPinnedAllocator>) {
+  if constexpr (std::is_same_v<Allocator, CudaPinnedAllocator>) {
     KVIKIO_EXPECT(fd_direct_on == -1,
                   "Direct I/O requires page-aligned bounce buffers. CudaPinnedAllocator does not "
                   "guarantee page alignment. Use CudaPageAlignedPinnedAllocator instead.");
