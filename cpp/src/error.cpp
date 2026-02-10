@@ -10,14 +10,14 @@
 
 namespace kvikio {
 
-GenericSystemError::GenericSystemError(int err_code, const std::string& msg)
+GenericSystemError::GenericSystemError(int err_code, std::string const& msg)
   : std::system_error(err_code, std::generic_category(), msg)
 {
 }
 
-GenericSystemError::GenericSystemError(const std::string& msg) : GenericSystemError(msg.c_str()) {}
+GenericSystemError::GenericSystemError(std::string const& msg) : GenericSystemError(msg.c_str()) {}
 
-GenericSystemError::GenericSystemError(const char* msg) : GenericSystemError(errno, msg) {}
+GenericSystemError::GenericSystemError(char const* msg) : GenericSystemError(errno, msg) {}
 
 namespace detail {
 
