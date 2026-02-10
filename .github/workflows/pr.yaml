@@ -172,7 +172,6 @@ jobs:
       build_type: pull-request
       node_type: cpu8
       script: ci/build_cpp.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
@@ -181,7 +180,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-java-tests:
     needs: conda-cpp-build
     secrets: inherit
@@ -199,7 +197,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/build_python.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   conda-python-tests:
@@ -210,7 +207,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_python.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   docs-build:
     needs: [conda-python-build, changed-files]
     secrets: inherit
@@ -230,12 +226,10 @@ jobs:
       arch: '["amd64", "arm64"]'
       cuda: '["13.1"]'
       node_type: "cpu8"
-      rapids-aux-secret-1: GIST_REPO_READ_ORG_GITHUB_TOKEN
       env: |
         SCCACHE_DIST_MAX_RETRIES=inf
         SCCACHE_SERVER_LOG=sccache=debug
         SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE=false
-        SCCACHE_DIST_AUTH_TOKEN_VAR=RAPIDS_AUX_SECRET_1
       build_command: |
         sccache --zero-stats;
         build-all --verbose 2>&1 | tee telemetry-artifacts/build.log;
@@ -251,7 +245,6 @@ jobs:
       script: ci/build_wheel_cpp.sh
       package-name: libkvikio
       package-type: cpp
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-python-build:
     needs: wheel-cpp-build
     secrets: inherit
@@ -262,7 +255,6 @@ jobs:
       script: ci/build_wheel_python.sh
       package-name: kvikio
       package-type: python
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-python-tests:
@@ -273,7 +265,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   telemetry-summarize:
     # This job must use a self-hosted runner to record telemetry traces.
     runs-on: linux-amd64-cpu4
