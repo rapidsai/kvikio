@@ -227,6 +227,7 @@ void drop_file_page_cache(int fd, std::size_t offset, std::size_t length, bool s
 
   // POSIX_FADV_DONTNEED informs the kernel that the specified data will not be accessed in the near
   // future, which subsequently attempts to free the associated cached pages.
+  // A `length` of 0 means until the end of the file from the offset.
   auto err_code = posix_fadvise(
     fd, static_cast<std::size_t>(offset), static_cast<std::size_t>(length), POSIX_FADV_DONTNEED);
   if (err_code != 0) { throw kvikio::GenericSystemError(err_code, "posix_fadvise failed"); }
