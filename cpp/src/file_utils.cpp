@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -219,11 +219,34 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
   return {num_pages_in_page_cache, num_pages};
 }
 
-bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
+void drop_file_page_cache(int fd, std::size_t offset, std::size_t length, bool sync_first)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (clear_dirty_pages) { sync(); }
-  std::string param = reclaim_dentries_and_inodes ? "3" : "1";
+
+  if (sync_first) { SYSCALL_CHECK(fdatasync(fd), "fdatasync failed"); }
+
+  // POSIX_FADV_DONTNEED informs the kernel that the specified data will not be accessed in the near
+  // future, which subsequently attempts to free the associated cached pages.
+  // A `length` of 0 means until the end of the file from the offset.
+  auto err_code = posix_fadvise(
+    fd, static_cast<std::size_t>(offset), static_cast<std::size_t>(length), POSIX_FADV_DONTNEED);
+  if (err_code != 0) { throw kvikio::GenericSystemError(err_code, "posix_fadvise failed"); }
+}
+
+void drop_file_page_cache(std::string const& file_path,
+                          std::size_t offset,
+                          std::size_t length,
+                          bool sync_first)
+{
+  FileWrapper file(file_path, "r", false, FileHandle::m644);
+  drop_file_page_cache(file.fd(), offset, length, sync_first);
+}
+
+bool drop_system_page_cache(bool reclaim_dentries_and_inodes, bool sync_first)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  if (sync_first) { sync(); }
+  std::string const param = reclaim_dentries_and_inodes ? "3" : "1";
 
   auto exec_cmd = [](std::string_view cmd) -> bool {
     // Prevent the output from the command from mixing with the original process' output.
@@ -256,6 +279,11 @@ bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
     if (exec_cmd(cmd)) { return true; }
   }
   return false;
+}
+
+bool clear_page_cache(bool reclaim_dentries_and_inodes, bool clear_dirty_pages)
+{
+  return drop_system_page_cache(reclaim_dentries_and_inodes, clear_dirty_pages);
 }
 
 BlockDeviceInfo get_block_device_info(std::string const& file_path)

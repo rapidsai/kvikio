@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,12 +10,19 @@
 
 namespace kvikio {
 
-GenericSystemError::GenericSystemError(const std::string& msg) : GenericSystemError(msg.c_str()) {}
-
-GenericSystemError::GenericSystemError(const char* msg)
-  : std::system_error(errno, std::generic_category(), msg)
+GenericSystemError::GenericSystemError(int err_code, std::string const& msg)
+  : std::system_error(err_code, std::generic_category(), msg)
 {
 }
+
+GenericSystemError::GenericSystemError(int err_code, char const* msg)
+  : std::system_error(err_code, std::generic_category(), msg)
+{
+}
+
+GenericSystemError::GenericSystemError(std::string const& msg) : GenericSystemError(errno, msg) {}
+
+GenericSystemError::GenericSystemError(char const* msg) : GenericSystemError(errno, msg) {}
 
 namespace detail {
 
