@@ -22,6 +22,7 @@ struct CUfileException : public std::runtime_error {
 class GenericSystemError : public std::system_error {
  public:
   GenericSystemError(int err_code, std::string const& msg);
+  GenericSystemError(int err_code, char const* msg);
   GenericSystemError(std::string const& msg);
   GenericSystemError(char const* msg);
   GenericSystemError(GenericSystemError const& other)            = default;

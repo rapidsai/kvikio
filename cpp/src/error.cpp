@@ -15,7 +15,12 @@ GenericSystemError::GenericSystemError(int err_code, std::string const& msg)
 {
 }
 
-GenericSystemError::GenericSystemError(std::string const& msg) : GenericSystemError(msg.c_str()) {}
+GenericSystemError::GenericSystemError(int err_code, char const* msg)
+  : std::system_error(err_code, std::generic_category(), msg)
+{
+}
+
+GenericSystemError::GenericSystemError(std::string const& msg) : GenericSystemError(errno, msg) {}
 
 GenericSystemError::GenericSystemError(char const* msg) : GenericSystemError(errno, msg) {}
 
