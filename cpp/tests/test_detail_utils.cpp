@@ -41,12 +41,6 @@ TEST(ScopeExitTest, captures_by_reference)
   EXPECT_EQ(b, 1);
 }
 
-TEST(ScopeExitTest, propagates_cleanup_exception_on_normal_exit)
-{
-  EXPECT_THROW(
-    { ScopeExit guard([]() { throw std::runtime_error("Cleanup failed"); }); }, std::runtime_error);
-}
-
 TEST(ScopeExitTest, suppresses_cleanup_exception_during_unwinding)
 {
   EXPECT_THROW(

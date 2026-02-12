@@ -70,9 +70,8 @@ bool is_aligned(void* addr, std::size_t alignment);
  * @brief A simple scope guard that invokes a cleanup callable upon destruction.
  *
  * Guarantees the cleanup action runs when the guard goes out of scope, regardless of how the scope
- * is exited (normal return or exception). If the cleanup callable throws during normal execution,
- * the exception propagates. If it throws during stack unwinding (i.e., another exception is already
- * in flight), the exception is suppressed to avoid calling std::terminate.
+ * is exited (normal return or exception). If the cleanup itself throws an exception, it is
+ * suppressed to avoid calling std::terminate.
  *
  * Usage:
  * @code
@@ -93,24 +92,18 @@ class ScopeExit {
  public:
   /**
    * @brief Constructs a scope guard that will invoke @p cleanup on destruction.
-   * @param cleanup Rvalue reference to the cleanup callable.
+   * @param cleanup The cleanup callable to invoke on destruction
    */
-  [[nodiscard]] explicit ScopeExit(F&& cleanup) noexcept : _cleanup(std::move(cleanup)) {}
+  [[nodiscard]] explicit ScopeExit(F&& cleanup) : _cleanup(std::move(cleanup)) {}
 
-  ~ScopeExit() noexcept(false)
+  ~ScopeExit() noexcept
   {
-    if (std::uncaught_exceptions() > 0) {
-      // An exception is already in flight. Throwing here would call std::terminate, so any
-      // exception from cleanup must be suppressed.
-      try {
-        _cleanup();
-      } catch (std::exception const& e) {
-        KVIKIO_LOG_ERROR(e.what());
-      } catch (...) {
-        KVIKIO_LOG_ERROR("Unhandled exception");
-      }
-    } else {
+    try {
       _cleanup();
+    } catch (std::exception const& e) {
+      KVIKIO_LOG_ERROR(e.what());
+    } catch (...) {
+      KVIKIO_LOG_ERROR("Unhandled exception");
     }
   }
 
