@@ -156,6 +156,7 @@ set(SOURCES
     "src/detail/nvtx.cpp"
     "src/detail/posix_io.cpp"
     "src/detail/stream.cpp"
+    "src/detail/utils.cpp"
     "src/shim/cuda.cpp"
     "src/shim/cufile.cpp"
     "src/shim/utils.cpp"
