@@ -16,6 +16,9 @@
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 
+// Note: Dropping pages from the cache is precise, whereas warming pages usually overshoots by
+// bringing more pages to the cache due to kernel's readahead. Therefore in the tests below we
+// typically follow the method of "warm all pages, then selectively drop pages".
 class PageCacheTest : public testing::Test {
  protected:
   void SetUp() override
