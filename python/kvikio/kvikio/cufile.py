@@ -451,7 +451,7 @@ class CuFile:
 
 
 def get_page_cache_info(
-    file: Union[os.PathLike, str, int, io.IOBase],
+    file: Union[os.PathLike, str, int, io.IOBase], offset: int = 0, length: int = 0
 ) -> tuple[int, int]:
     """Obtain the page cache residency information for a given file
 
@@ -466,14 +466,29 @@ def get_page_cache_info(
     ----------
     file: a path-like object, or string, or file descriptor, or file object
         File to check.
+    offset: int, optional
+        Starting byte offset (default: 0 for beginning of file)
+    length: int, optional
+        Number of bytes to query (default: 0, meaning entire file from offset)
 
     Returns
     -------
     tuple[int, int]
         A pair containing the number of pages resident in the page cache
         and the total number of pages.
+
+    Notes
+    -----
+    - If `offset` is beyond the end of the file, returns (0, 0).
+
+    - If `offset + length` extends beyond the file, the query is clamped to the file
+      size.
+
+    - The page cache residency query takes place in granularity of full pages. If the
+      specified range does not align to page boundaries, partial pages at the start and
+      end of the range are included.
     """
-    return file_handle.get_page_cache_info(file)
+    return file_handle.get_page_cache_info(file, offset, length)
 
 
 def drop_file_page_cache(
