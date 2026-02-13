@@ -225,11 +225,15 @@ cdef class CuFile:
 
 
 cdef extern from "<kvikio/file_utils.hpp>" nogil:
-    pair[size_t, size_t] cpp_get_page_cache_info_str \
-        "kvikio::get_page_cache_info"(string file_path) except +
-
     pair[size_t, size_t] cpp_get_page_cache_info_int \
-        "kvikio::get_page_cache_info"(int fd) except +
+        "kvikio::get_page_cache_info"(int fd,
+                                      size_t offset,
+                                      size_t length) except +
+
+    pair[size_t, size_t] cpp_get_page_cache_info_str \
+        "kvikio::get_page_cache_info"(string file_path,
+                                      size_t offset,
+                                      size_t length) except +
 
     void cpp_drop_file_page_cache \
         "kvikio::drop_file_page_cache"(int fd,
@@ -247,30 +251,33 @@ cdef extern from "<kvikio/file_utils.hpp>" nogil:
         (bool reclaim_dentries_and_inodes, bool sync_first) except +
 
 
-def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase]) \
-        -> tuple[int, int]:
+def get_page_cache_info(file: Union[os.PathLike, str, int, io.IOBase],
+                        offset: int,
+                        length: int) -> tuple[int, int]:
     cdef pair[size_t, size_t] result
     cdef string path_bytes
     cdef int fd
+    cdef size_t cpp_offset = offset
+    cdef size_t cpp_length = length
 
     if isinstance(file, os.PathLike) or isinstance(file, str):
         # file is a path or a string object
         path_bytes = os.fsencode(file)
         with nogil:
-            result = cpp_get_page_cache_info_str(path_bytes)
+            result = cpp_get_page_cache_info_str(path_bytes, cpp_offset, cpp_length)
         return result
     elif isinstance(file, int):
         # file is a file descriptor
         fd = file
         with nogil:
-            result = cpp_get_page_cache_info_int(fd)
+            result = cpp_get_page_cache_info_int(fd, cpp_offset, cpp_length)
         return result
     elif isinstance(file, io.IOBase):
         # file is a file object
         # pass its file descriptor to the underlying C++ function
         fd = file.fileno()
         with nogil:
-            result = cpp_get_page_cache_info_int(fd)
+            result = cpp_get_page_cache_info_int(fd, cpp_offset, cpp_length)
         return result
     else:
         raise ValueError("The type of `file` must be `os.PathLike`, `str`, `int`, "
