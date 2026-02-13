@@ -9,6 +9,7 @@
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -16,11 +17,11 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <utility>
 #include <vector>
 
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
@@ -183,40 +184,53 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
   return static_cast<std::size_t>(st.st_size);
 }
 
-std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_path)
+std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_path,
+                                                        std::size_t offset,
+                                                        std::size_t length)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   std::string const flags{"r"};
   bool const o_direct{false};
   mode_t const mode{FileHandle::m644};
-  auto fd     = open_fd(file_path, flags, o_direct, mode);
-  auto result = get_page_cache_info(fd);
-  SYSCALL_CHECK(close(fd));
+  auto fd = open_fd(file_path, flags, o_direct, mode);
+  detail::ScopeExit guard([&] { SYSCALL_CHECK(close(fd)); });
+  auto result = get_page_cache_info(fd, offset, length);
   return result;
 }
 
-std::pair<std::size_t, std::size_t> get_page_cache_info(int fd)
+std::pair<std::size_t, std::size_t> get_page_cache_info(int fd,
+                                                        std::size_t offset,
+                                                        std::size_t length)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  auto file_size = get_file_size(fd);
 
-  std::size_t offset{0u};
-  auto addr = mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, offset);
-  SYSCALL_CHECK(addr, "mmap failed.", MAP_FAILED);
-
-  std::size_t num_pages = (file_size + get_page_size() - 1) / get_page_size();
-  std::vector<unsigned char> is_in_page_cache(num_pages, {});
-  SYSCALL_CHECK(mincore(addr, file_size, is_in_page_cache.data()));
-  std::size_t num_pages_in_page_cache{0u};
-  for (std::size_t page_idx = 0; page_idx < is_in_page_cache.size(); ++page_idx) {
-    // The least significant bit of each byte will be set if the corresponding page is currently
-    // resident in memory, and be clear otherwise. The settings of the other bits in each byte are
-    // undefined
-    if (static_cast<int>(is_in_page_cache[page_idx]) & 0x1) { ++num_pages_in_page_cache; }
+  auto const page_size      = get_page_size();
+  auto const aligned_offset = detail::align_down(offset, page_size);
+  auto const file_size      = get_file_size(fd);
+  if (offset >= file_size) { return {0, 0}; }
+  std::size_t padded_length{};
+  if (length == 0) {
+    padded_length = file_size - aligned_offset;
+  } else {
+    padded_length = std::min(file_size, length + offset) - aligned_offset;
   }
 
-  SYSCALL_CHECK(munmap(addr, file_size));
-  return {num_pages_in_page_cache, num_pages};
+  auto addr = mmap(nullptr, padded_length, PROT_READ, MAP_PRIVATE, fd, aligned_offset);
+  SYSCALL_CHECK(addr, "mmap failed.", MAP_FAILED);
+  detail::ScopeExit guard([&] { SYSCALL_CHECK(munmap(addr, padded_length)); });
+
+  std::size_t num_pages = (padded_length + page_size - 1) / page_size;
+  std::vector<unsigned char> is_in_page_cache(num_pages, {});
+  SYSCALL_CHECK(mincore(addr, padded_length, is_in_page_cache.data()));
+  auto const num_pages_in_page_cache =
+    std::count_if(is_in_page_cache.begin(), is_in_page_cache.end(), [](auto byte) {
+      // The least significant bit of each byte will be set if the corresponding page is currently
+      // resident in memory, and be clear otherwise. The settings of the other bits in each byte are
+      // undefined
+      return static_cast<int>(byte) & 0x1;
+    });
+
+  return {static_cast<std::size_t>(num_pages_in_page_cache), num_pages};
 }
 
 void drop_file_page_cache(int fd, std::size_t offset, std::size_t length, bool sync_first)

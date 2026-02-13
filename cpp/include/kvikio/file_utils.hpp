@@ -146,7 +146,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
 /**
  * @brief Get file size from file descriptor `fstat(3)`
  *
- * @param file_descriptor Open file descriptor
+ * @param file_path Path to the file
  * @return The number of bytes
  */
 [[nodiscard]] std::size_t get_file_size(std::string const& file_path);
@@ -154,7 +154,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
 /**
  * @brief Get file size given the file path
  *
- * @param file_path Path to a file
+ * @param file_descriptor Open file descriptor
  * @return The number of bytes
  */
 [[nodiscard]] std::size_t get_file_size(int file_descriptor);
@@ -162,21 +162,39 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
 /**
  * @brief Obtain the page cache residency information for a given file
  *
- * @param file_path Path to a file.
+ * @param file_path Path to the file.
+ * @param offset Starting byte offset (default: 0 for beginning of file)
+ * @param length Number of bytes to query (default: 0, meaning entire file from offset)
  * @return A pair containing the number of pages resident in the page cache and the total number of
  * pages.
+ *
+ * @note If @p offset is beyond the end of the file, returns {0, 0}.
+ * @note If @p offset + @p length extends beyond the file, the query is clamped to the file size.
+ * @note The queried region is expanded to page boundaries internally. The starting offset is
+ * rounded down to the nearest page boundary, and the page count is computed to cover the entire
+ * specified range, so any page partially overlapping the range is included in the query.
+ * @note The page cache residency query takes place in granularity of full pages. If the specified
+ * range does not align to page boundaries, partial pages at the start and end of the range are
+ * included.
  */
-std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_path);
+std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_path,
+                                                        std::size_t offset = 0,
+                                                        std::size_t length = 0);
 
 /**
  * @brief Obtain the page cache residency information for a given file
  *
- * @param fd File descriptor.
+ * @param fd Open file descriptor.
+ * @param offset Starting byte offset (default: 0 for beginning of file)
+ * @param length Number of bytes to query (default: 0, meaning entire file from offset)
  * @return A pair containing the number of pages resident in the page cache and the total number of
  * pages.
- * @sa `get_page_cache_info(std::string const&)` overload.
+ *
+ * @note See `get_page_cache_info(int, std::size_t, std::size_t)` for detailed behavior and caveats
  */
-std::pair<std::size_t, std::size_t> get_page_cache_info(int fd);
+std::pair<std::size_t, std::size_t> get_page_cache_info(int fd,
+                                                        std::size_t offset = 0,
+                                                        std::size_t length = 0);
 
 /**
  * @brief Drop page cache for a specific file.
