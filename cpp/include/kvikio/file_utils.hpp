@@ -185,9 +185,6 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_
  *
  * @note If @p offset is beyond the end of the file, returns {0, 0}.
  * @note If @p offset + @p length extends beyond the file, the query is clamped to the file size.
- * @note The queried region is expanded to page boundaries internally. The starting offset is
- * rounded down to the nearest page boundary, and the page count is computed to cover the entire
- * specified range, so any page partially overlapping the range is included in the query.
  * @note The page cache residency query takes place in granularity of full pages. If the specified
  * range does not align to page boundaries, partial pages at the start and end of the range are
  * included.
