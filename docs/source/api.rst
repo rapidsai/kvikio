@@ -13,6 +13,10 @@ CuFile
 
 .. autofunction:: get_page_cache_info
 
+.. autofunction:: drop_file_page_cache
+
+.. autofunction:: drop_system_page_cache
+
 .. autofunction:: clear_page_cache
 
 .. currentmodule:: kvikio.buffer
