@@ -1,10 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <unistd.h>
-#include <cstdint>
+
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -167,51 +167,4 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);
 }
 
-namespace detail {
-
-std::size_t align_up(std::size_t value, std::size_t alignment)
-{
-  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
-                "Alignment must be a power of 2");
-  return (value + alignment - 1) & ~(alignment - 1);
-}
-
-void* align_up(void* addr, std::size_t alignment)
-{
-  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
-                "Alignment must be a power of 2");
-  auto res = (reinterpret_cast<uintptr_t>(addr) + alignment - 1) & ~(alignment - 1);
-  return reinterpret_cast<void*>(res);
-}
-
-std::size_t align_down(std::size_t value, std::size_t alignment)
-{
-  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
-                "Alignment must be a power of 2");
-  return value & ~(alignment - 1);
-}
-
-void* align_down(void* addr, std::size_t alignment)
-{
-  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
-                "Alignment must be a power of 2");
-  auto res = reinterpret_cast<uintptr_t>(addr) & ~(alignment - 1);
-  return reinterpret_cast<void*>(res);
-}
-
-bool is_aligned(std::size_t value, std::size_t alignment)
-{
-  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
-                "Alignment must be a power of 2");
-  return (value & (alignment - 1)) == 0;
-}
-
-bool is_aligned(void* addr, std::size_t alignment)
-{
-  KVIKIO_EXPECT((alignment > 0) && ((alignment & (alignment - 1)) == 0),
-                "Alignment must be a power of 2");
-  return (reinterpret_cast<uintptr_t>(addr) & (alignment - 1)) == 0;
-}
-
-}  // namespace detail
 }  // namespace kvikio
