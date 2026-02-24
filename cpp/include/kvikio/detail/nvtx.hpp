@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -155,7 +155,7 @@ class NvtxManager {
  *
  * void some_function(){
  *    // Specify payload and color
- *    auto const nvtx3::rgb color{0, 255, 0};
+ *    nvtx3::rgb const color{0, 255, 0};
  *    KVIKIO_NVTX_FUNC_RANGE(4096, color);
  *    ...
  * }
