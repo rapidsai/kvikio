@@ -17,10 +17,10 @@ Install the **stable release** from the ``rapidsai`` channel like:
   mamba install -c rapidsai -c conda-forge kvikio
 
   # Create new environment (CUDA 13)
-  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.13 cuda-version=13.1 kvikio
+  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.14 cuda-version=13.1 kvikio
 
   # Create new environment (CUDA 12)
-  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.13 cuda-version=12.9 kvikio
+  mamba create -n kvikio-env -c rapidsai -c conda-forge python=3.14 cuda-version=12.9 kvikio
 
 Install the **nightly release** from the ``rapidsai-nightly`` channel like:
 
@@ -30,10 +30,10 @@ Install the **nightly release** from the ``rapidsai-nightly`` channel like:
   mamba install -c rapidsai-nightly -c conda-forge kvikio
 
   # Create new environment (CUDA 13)
-  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.13 cuda-version=13.1 kvikio
+  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.14 cuda-version=13.1 kvikio
 
   # Create new environment (CUDA 12)
-  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.13 cuda-version=12.9 kvikio
+  mamba create -n kvikio-env -c rapidsai-nightly -c conda-forge python=3.14 cuda-version=12.9 kvikio
 
 .. note::
 
