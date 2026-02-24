@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include <nvtx3/nvtx3.hpp>
@@ -20,8 +21,9 @@ struct libkvikio_domain {
   static constexpr char const* name{"libkvikio"};
 };
 
-using nvtx_scoped_range_type      = nvtx3::scoped_range_in<libkvikio_domain>;
-using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain>;
+using NvtxScopedRange      = nvtx3::scoped_range_in<libkvikio_domain>;
+using NvtxRegisteredString = nvtx3::registered_string_in<libkvikio_domain>;
+using NvtxColor            = nvtx3::color;
 
 // Macro to concatenate two tokens x and y.
 #define KVIKIO_CONCAT_HELPER(x, y) x##y
@@ -29,10 +31,10 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
 
 // Macro to create a static, registered string that will not have a name conflict with any
 // registered string defined in the same scope.
-#define KVIKIO_REGISTER_STRING(message)                              \
-  [](const char* a_message) -> auto& {                               \
-    static kvikio::nvtx_registered_string_type a_reg_str{a_message}; \
-    return a_reg_str;                                                \
+#define KVIKIO_REGISTER_STRING(message)                       \
+  [](const char* a_message) -> auto& {                        \
+    static kvikio::NvtxRegisteredString a_reg_str{a_message}; \
+    return a_reg_str;                                         \
   }(message)
 
 // Implementation of KVIKIO_NVTX_FUNC_RANGE()
@@ -55,16 +57,16 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
   (__VA_ARGS__)
 
 // Implementation of KVIKIO_NVTX_SCOPED_RANGE(...)
-#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(message)                             \
-  kvikio::nvtx_scoped_range_type KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__) \
-  {                                                                          \
-    nvtx3::event_attributes                                                  \
-    {                                                                        \
-      KVIKIO_REGISTER_STRING(message), kvikio::NvtxManager::default_color()  \
-    }                                                                        \
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(message)                            \
+  kvikio::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)       \
+  {                                                                         \
+    nvtx3::event_attributes                                                 \
+    {                                                                       \
+      KVIKIO_REGISTER_STRING(message), kvikio::NvtxManager::default_color() \
+    }                                                                       \
   }
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload_v, color)                                \
-  kvikio::nvtx_scoped_range_type KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                      \
+  kvikio::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                             \
   {                                                                                               \
     nvtx3::event_attributes                                                                       \
     {                                                                                             \
@@ -86,7 +88,20 @@ using nvtx_registered_string_type = nvtx3::registered_string_in<libkvikio_domain
   nvtx3::mark_in<kvikio::libkvikio_domain>(nvtx3::event_attributes{ \
     KVIKIO_REGISTER_STRING(message), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}})
 
-using nvtx_color_type = nvtx3::color;
+struct NvtxContext {
+  NvtxContext();
+  NvtxContext(char const* file_name,
+              std::size_t file_offse,
+              std::size_t size,
+              std::uint64_t call_idx,
+              NvtxColor color);
+
+  char const* file_name{};
+  std::size_t file_offset{};
+  std::size_t size{};
+  std::uint64_t call_idx{};
+  NvtxColor color;
+};
 
 /**
  * @brief Utility singleton class for NVTX annotation.
@@ -100,7 +115,7 @@ class NvtxManager {
    *
    * @return Default color.
    */
-  static const nvtx_color_type& default_color() noexcept;
+  static const NvtxColor& default_color() noexcept;
 
   /**
    * @brief Return the color at the given index from the internal color palette whose size n is a
@@ -110,15 +125,11 @@ class NvtxManager {
    * @param idx The index value.
    * @return The color picked from the internal color palette.
    */
-  static const nvtx_color_type& get_color_by_index(std::uint64_t idx) noexcept;
+  static const NvtxColor& get_color_by_index(std::uint64_t idx) noexcept;
 
-  /**
-   * @brief Rename the current thread under the KvikIO NVTX domain.
-   *
-   * @note This NVTX feature is currently not supported by the Nsight System profiler. As a result,
-   * the OS thread will not be renamed in the nsys-ui.
-   */
-  static void rename_current_thread(std::string_view new_name) noexcept;
+  static NvtxContext get_next_call_context(char const* file_name,
+                                           std::size_t file_offset,
+                                           std::size_t size);
 
   NvtxManager(NvtxManager const&)            = delete;
   NvtxManager& operator=(NvtxManager const&) = delete;
