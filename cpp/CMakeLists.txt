@@ -187,6 +187,11 @@ target_include_directories(
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
+target_include_directories(
+  kvikio BEFORE
+  PUBLIC "$<BUILD_INTERFACE:$<TARGET_PROPERTY:nvtx3::nvtx3-cpp,INTERFACE_INCLUDE_DIRECTORIES>>"
+)
+
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
 target_link_libraries(
   kvikio

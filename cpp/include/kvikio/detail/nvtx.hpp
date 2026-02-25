@@ -103,6 +103,11 @@ class NvtxManager {
  public:
   static NvtxManager& instance() noexcept;
 
+  NvtxManager(NvtxManager const&)            = delete;
+  NvtxManager& operator=(NvtxManager const&) = delete;
+  NvtxManager(NvtxManager&&)                 = delete;
+  NvtxManager& operator=(NvtxManager&&)      = delete;
+
   /**
    * @brief Return the default color.
    *
@@ -122,10 +127,7 @@ class NvtxManager {
 
   static NvtxCallTag next_call_tag();
 
-  NvtxManager(NvtxManager const&)            = delete;
-  NvtxManager& operator=(NvtxManager const&) = delete;
-  NvtxManager(NvtxManager&&)                 = delete;
-  NvtxManager& operator=(NvtxManager&&)      = delete;
+  static NvtxRegisteredString const& get_empty_registered_string();
 
  private:
   NvtxManager() = default;
@@ -204,4 +206,20 @@ class NvtxManager {
  */
 #define KVIKIO_NVTX_MARKER(message, payload) KVIKIO_NVTX_MARKER_IMPL(message, payload)
 
+struct NvtxIoPayload {
+  NvtxRegisteredString file_path;
+  std::size_t file_offset;
+  std::size_t size;
+};
+
 }  // namespace kvikio
+
+NVTX3_DEFINE_SCHEMA_GET(kvikio::libkvikio_domain,
+                        kvikio::NvtxIoPayload,
+                        "KvikIONvtxIOPayload",
+                        NVTX_PAYLOAD_ENTRIES((file_path,
+                                              TYPE_NVTX_REGISTERED_STRING_HANDLE,
+                                              "file_path",
+                                              "Path to the file"),
+                                             (file_offset, TYPE_SIZE, "file_offset", "File offset"),
+                                             (size, TYPE_SIZE, "size", "Transferred bytes")))

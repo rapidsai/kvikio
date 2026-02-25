@@ -63,4 +63,10 @@ NvtxCallTag NvtxManager::next_call_tag()
   return {call_idx, nvtx_color};
 }
 
+NvtxRegisteredString const& NvtxManager::get_empty_registered_string()
+{
+  static NvtxRegisteredString s("");
+  return s;
+}
+
 }  // namespace kvikio
