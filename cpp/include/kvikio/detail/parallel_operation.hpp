@@ -45,24 +45,6 @@ auto make_copyable_lambda(F op)
 }
 
 /**
- * @brief Determine the NVTX color and call index. They are used to identify tasks from different
- * pread/pwrite calls. Tasks from the same pread/pwrite call are given the same color and call
- * index. The call index is atomically incremented on each pread/pwrite call, and will wrap around
- * once it reaches the maximum value the integer type `std::uint64_t` can hold (this overflow
- * behavior is well-defined in C++). The color is picked from an internal color palette according to
- * the call index value.
- *
- * @return A pair of NVTX color and call index.
- */
-// inline const std::pair<const NvtxColor&, std::uint64_t> get_next_color_and_call_idx() noexcept
-// {
-//   static std::atomic_uint64_t call_counter{1ull};
-//   auto call_idx    = call_counter.fetch_add(1ull, std::memory_order_relaxed);
-//   auto& nvtx_color = NvtxManager::get_color_by_index(call_idx);
-//   return {nvtx_color, call_idx};
-// }
-
-/**
  * @brief Submit the task callable to the underlying thread pool.
  *
  * Both the callable and arguments shall satisfy copy-constructible.
@@ -84,10 +66,8 @@ std::future<std::size_t> submit_task(F op,
                                       decltype(devPtr_offset)>);
 
   return thread_pool->submit_task([=] {
-    detail::NvtxIoPayload info{detail::NvtxManager::get_empty_registered_string(),
-                               file_offset,
-                               size,
-                               nvtx_call_tag.call_idx};
+    detail::NvtxIoPayload info{
+      detail::nvtx::get_empty_registered_string(), file_offset, size, nvtx_call_tag.call_idx};
     nvtx3::payload_data payload_data(info);
     static detail::NvtxRegisteredString message{"Task"};
     detail::NvtxScopedRange range(
@@ -170,10 +150,8 @@ std::future<std::size_t> parallel_io(F op,
   // 2) Submit the last task, which consists of performing the last I/O and waiting the previous
   // tasks.
   auto last_task = [=, tasks = std::move(tasks)]() mutable -> std::size_t {
-    detail::NvtxIoPayload info{detail::NvtxManager::get_empty_registered_string(),
-                               file_offset,
-                               size,
-                               nvtx_call_tag.call_idx};
+    detail::NvtxIoPayload info{
+      detail::nvtx::get_empty_registered_string(), file_offset, size, nvtx_call_tag.call_idx};
     nvtx3::payload_data payload_data(info);
     static detail::NvtxRegisteredString message{"Last task"};
     detail::NvtxScopedRange range(

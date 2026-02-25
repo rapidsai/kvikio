@@ -12,26 +12,14 @@
 
 namespace kvikio::detail {
 
-NvtxCallTag::NvtxCallTag() : color(NvtxManager::default_color()) {}
-
-NvtxCallTag::NvtxCallTag(std::uint64_t a_call_idx, NvtxColor a_color)
-  : call_idx(a_call_idx), color(a_color)
-{
-}
-
-NvtxManager& NvtxManager::instance() noexcept
-{
-  static NvtxManager _instance;
-  return _instance;
-}
-
-const NvtxColor& NvtxManager::default_color() noexcept
+namespace nvtx {
+const NvtxColor& default_color() noexcept
 {
   static NvtxColor default_color{nvtx3::argb{0, 255, 255, 255}};
   return default_color;
 }
 
-const NvtxColor& NvtxManager::get_color_by_index(std::uint64_t idx) noexcept
+const NvtxColor& get_color_by_index(std::uint64_t idx) noexcept
 {
   constexpr std::size_t num_color{16};
   static_assert((num_color & (num_color - 1)) == 0);  // Is power of 2
@@ -55,18 +43,19 @@ const NvtxColor& NvtxManager::get_color_by_index(std::uint64_t idx) noexcept
   return color_palette[safe_idx];
 }
 
-NvtxCallTag NvtxManager::next_call_tag()
+NvtxCallTag next_call_tag()
 {
   static std::atomic_uint64_t call_counter{1ull};
   auto call_idx    = call_counter.fetch_add(1ull, std::memory_order_relaxed);
-  auto& nvtx_color = NvtxManager::get_color_by_index(call_idx);
+  auto& nvtx_color = get_color_by_index(call_idx);
   return {call_idx, nvtx_color};
 }
 
-NvtxRegisteredString const& NvtxManager::get_empty_registered_string()
+NvtxRegisteredString const& get_empty_registered_string()
 {
   static NvtxRegisteredString s("");
   return s;
 }
+}  // namespace nvtx
 
 }  // namespace kvikio::detail

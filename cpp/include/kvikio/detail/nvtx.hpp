@@ -25,6 +25,85 @@ using NvtxScopedRange      = nvtx3::scoped_range_in<libkvikio_domain>;
 using NvtxRegisteredString = nvtx3::registered_string_in<libkvikio_domain>;
 using NvtxColor            = nvtx3::color;
 
+/**
+ * @brief Identifies a group of related NVTX ranges originating from a single pread/pwrite call.
+ *
+ * All tasks spawned by the same I/O call share one NvtxCallTag, giving them the same color and call
+ * index in the profiler timeline. This enables visual correlation of parallel tasks across worker
+ * threads.
+ */
+struct NvtxCallTag {
+  std::uint64_t call_idx{};
+  NvtxColor color;
+};
+
+/**
+ * @brief Structured NVTX payload for I/O operations.
+ *
+ * Attached to NVTX ranges via `nvtx3::payload_data` to provide labeled fields in profiling tools
+ * such as Nsight Systems (requires NVTX 3.3+ and Nsight Systems 2024.6+).
+ */
+struct NvtxIoPayload {
+  NvtxRegisteredString file_path;
+  std::size_t file_offset;
+  std::size_t size;
+  std::uint64_t call_idx;
+};
+
+namespace nvtx {
+
+/**
+ * @brief Return the default color.
+ *
+ * @return Default color.
+ */
+const NvtxColor& default_color() noexcept;
+
+/**
+ * @brief Return the color at the given index from the internal color palette whose size n is a
+ * power of 2. The index may exceed the size of the color palette, in which case it wraps around,
+ * i.e. (idx mod n).
+ *
+ * @param idx The index value.
+ * @return The color picked from the internal color palette.
+ */
+NvtxColor const& get_color_by_index(std::uint64_t idx) noexcept;
+
+/**
+ * @brief Create a new call tag for correlating NVTX ranges from a single pread/pwrite call.
+ *
+ * Each invocation atomically increments a global counter and derives a color from the counter
+ * value. The counter wraps around at the maximum value of `std::uint64_t` (well-defined in C++).
+ *
+ * @return A call tag with a unique call index and its associated color.
+ */
+NvtxCallTag next_call_tag();
+
+/**
+ * @brief Return a registered string with empty content.
+ *
+ * Useful as a placeholder for structured payload fields (e.g., file path) that are not yet
+ * populated.
+ *
+ * @return A reference to a statically allocated empty registered string.
+ */
+NvtxRegisteredString const& get_empty_registered_string();
+
+}  // namespace nvtx
+
+}  // namespace kvikio::detail
+
+NVTX3_DEFINE_SCHEMA_GET(kvikio::detail::libkvikio_domain,
+                        kvikio::detail::NvtxIoPayload,
+                        "KvikIONvtxIOPayload",
+                        NVTX_PAYLOAD_ENTRIES((file_path,
+                                              TYPE_NVTX_REGISTERED_STRING_HANDLE,
+                                              "file_path",
+                                              "Path to the file"),
+                                             (file_offset, TYPE_SIZE, "file_offset", "File offset"),
+                                             (size, TYPE_SIZE, "size", "Transferred bytes"),
+                                             (call_idx, TYPE_UINT64, "call_idx", "Call index")))
+
 // Macro to concatenate two tokens x and y.
 #define KVIKIO_CONCAT_HELPER(x, y) x##y
 #define KVIKIO_CONCAT(x, y)        KVIKIO_CONCAT_HELPER(x, y)
@@ -57,13 +136,13 @@ using NvtxColor            = nvtx3::color;
   (__VA_ARGS__)
 
 // Implementation of KVIKIO_NVTX_SCOPED_RANGE(...)
-#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(message)                                    \
-  kvikio::detail::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)       \
-  {                                                                                 \
-    nvtx3::event_attributes                                                         \
-    {                                                                               \
-      KVIKIO_REGISTER_STRING(message), kvikio::detail::NvtxManager::default_color() \
-    }                                                                               \
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(message)                              \
+  kvikio::detail::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__) \
+  {                                                                           \
+    nvtx3::event_attributes                                                   \
+    {                                                                         \
+      KVIKIO_REGISTER_STRING(message), kvikio::detail::nvtx::default_color()  \
+    }                                                                         \
   }
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload_v, color)                                \
   kvikio::detail::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                     \
@@ -74,7 +153,7 @@ using NvtxColor            = nvtx3::color;
     }                                                                                             \
   }
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(message, payload) \
-  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload, kvikio::detail::NvtxManager::default_color())
+  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload, kvikio::detail::nvtx::default_color())
 #define KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(_1, _2, _3, NAME, ...) NAME
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL(...)                           \
   KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(__VA_ARGS__,                     \
@@ -87,51 +166,6 @@ using NvtxColor            = nvtx3::color;
 #define KVIKIO_NVTX_MARKER_IMPL(message, payload_v)                         \
   nvtx3::mark_in<kvikio::detail::libkvikio_domain>(nvtx3::event_attributes{ \
     KVIKIO_REGISTER_STRING(message), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}})
-
-struct NvtxCallTag {
-  NvtxCallTag();
-  NvtxCallTag(std::uint64_t call_idx, NvtxColor color);
-
-  std::uint64_t call_idx{};
-  NvtxColor color;
-};
-
-/**
- * @brief Utility singleton class for NVTX annotation.
- */
-class NvtxManager {
- public:
-  static NvtxManager& instance() noexcept;
-
-  NvtxManager(NvtxManager const&)            = delete;
-  NvtxManager& operator=(NvtxManager const&) = delete;
-  NvtxManager(NvtxManager&&)                 = delete;
-  NvtxManager& operator=(NvtxManager&&)      = delete;
-
-  /**
-   * @brief Return the default color.
-   *
-   * @return Default color.
-   */
-  static const NvtxColor& default_color() noexcept;
-
-  /**
-   * @brief Return the color at the given index from the internal color palette whose size n is a
-   * power of 2. The index may exceed the size of the color palette, in which case it wraps around,
-   * i.e. (idx mod n).
-   *
-   * @param idx The index value.
-   * @return The color picked from the internal color palette.
-   */
-  static const NvtxColor& get_color_by_index(std::uint64_t idx) noexcept;
-
-  static NvtxCallTag next_call_tag();
-
-  static NvtxRegisteredString const& get_empty_registered_string();
-
- private:
-  NvtxManager() = default;
-};
 
 /**
  * @brief Convenience macro for generating an NVTX range in the `libkvikio` domain from the lifetime
@@ -205,23 +239,3 @@ class NvtxManager {
  * ```
  */
 #define KVIKIO_NVTX_MARKER(message, payload) KVIKIO_NVTX_MARKER_IMPL(message, payload)
-
-struct NvtxIoPayload {
-  NvtxRegisteredString file_path;
-  std::size_t file_offset;
-  std::size_t size;
-  std::size_t call_idx;
-};
-
-}  // namespace kvikio::detail
-
-NVTX3_DEFINE_SCHEMA_GET(kvikio::detail::libkvikio_domain,
-                        kvikio::detail::NvtxIoPayload,
-                        "KvikIONvtxIOPayload",
-                        NVTX_PAYLOAD_ENTRIES((file_path,
-                                              TYPE_NVTX_REGISTERED_STRING_HANDLE,
-                                              "file_path",
-                                              "Path to the file"),
-                                             (file_offset, TYPE_SIZE, "file_offset", "File offset"),
-                                             (size, TYPE_SIZE, "size", "Transferred bytes"),
-                                             (call_idx, TYPE_SIZE, "call_idx", "Call index")))

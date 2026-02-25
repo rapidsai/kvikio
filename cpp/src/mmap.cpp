@@ -424,7 +424,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   auto actual_size = validate_and_adjust_read_args(size, offset);
   if (actual_size == 0) { return make_ready_future(actual_size); }
 
-  auto nvtx_call_tag = detail::NvtxManager::next_call_tag();
+  auto nvtx_call_tag = detail::nvtx::next_call_tag();
   KVIKIO_NVTX_FUNC_RANGE(actual_size, nvtx_call_tag.color);
 
   auto const is_dst_buf_host_mem = is_host_memory(buf);
