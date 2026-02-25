@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -230,8 +230,14 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
                                                                          : thread_pool;
 
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
+  auto nvtx_call_tag = detail::nvtx::next_call_tag();
+  detail::NvtxIoPayload info{
+    detail::nvtx::get_empty_registered_string(), file_offset, size, nvtx_call_tag.call_idx};
+  nvtx3::payload_data payload_data(info);
+  static detail::NvtxRegisteredString message{__PRETTY_FUNCTION__};
+  detail::NvtxScopedRange range(
+    nvtx3::event_attributes(message, payload_data, nvtx_call_tag.color));
+
   if (is_host_memory(buf)) {
     auto op = [this](void* hostPtr_base,
                      std::size_t size,
@@ -242,8 +248,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(
-      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, actual_thread_pool, nvtx_call_tag);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -280,8 +285,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                      task_size,
                      devPtr_offset,
                      actual_thread_pool,
-                     call_idx,
-                     nvtx_color);
+                     nvtx_call_tag);
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -300,8 +304,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
                                                                          : thread_pool;
 
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
+  auto nvtx_call_tag = detail::nvtx::next_call_tag();
+  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_call_tag.color);
   if (is_host_memory(buf)) {
     auto op = [this](void const* hostPtr_base,
                      std::size_t size,
@@ -312,8 +316,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(
-      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, actual_thread_pool, nvtx_call_tag);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -350,8 +353,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                      task_size,
                      devPtr_offset,
                      actual_thread_pool,
-                     call_idx,
-                     nvtx_color);
+                     nvtx_call_tag);
 }
 
 void FileHandle::read_async(void* devPtr_base,

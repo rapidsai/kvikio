@@ -1,15 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
-#include <atomic>
 #include <cassert>
 #include <future>
 #include <memory>
-#include <numeric>
-#include <system_error>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -48,24 +45,6 @@ auto make_copyable_lambda(F op)
 }
 
 /**
- * @brief Determine the NVTX color and call index. They are used to identify tasks from different
- * pread/pwrite calls. Tasks from the same pread/pwrite call are given the same color and call
- * index. The call index is atomically incremented on each pread/pwrite call, and will wrap around
- * once it reaches the maximum value the integer type `std::uint64_t` can hold (this overflow
- * behavior is well-defined in C++). The color is picked from an internal color palette according to
- * the call index value.
- *
- * @return A pair of NVTX color and call index.
- */
-inline const std::pair<const nvtx_color_type&, std::uint64_t> get_next_color_and_call_idx() noexcept
-{
-  static std::atomic_uint64_t call_counter{1ull};
-  auto call_idx    = call_counter.fetch_add(1ull, std::memory_order_relaxed);
-  auto& nvtx_color = NvtxManager::get_color_by_index(call_idx);
-  return {nvtx_color, call_idx};
-}
-
-/**
  * @brief Submit the task callable to the underlying thread pool.
  *
  * Both the callable and arguments shall satisfy copy-constructible.
@@ -76,9 +55,8 @@ std::future<std::size_t> submit_task(F op,
                                      std::size_t size,
                                      std::size_t file_offset,
                                      std::size_t devPtr_offset,
-                                     ThreadPool* thread_pool    = &defaults::thread_pool(),
-                                     std::uint64_t nvtx_payload = 0ull,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     ThreadPool* thread_pool           = &defaults::thread_pool(),
+                                     detail::NvtxCallTag nvtx_call_tag = {})
 {
   static_assert(std::is_invocable_r_v<std::size_t,
                                       decltype(op),
@@ -88,7 +66,12 @@ std::future<std::size_t> submit_task(F op,
                                       decltype(devPtr_offset)>);
 
   return thread_pool->submit_task([=] {
-    KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
+    detail::NvtxIoPayload info{
+      detail::nvtx::get_empty_registered_string(), file_offset, size, nvtx_call_tag.call_idx};
+    nvtx3::payload_data payload_data(info);
+    static detail::NvtxRegisteredString message{"Task"};
+    detail::NvtxScopedRange range(
+      nvtx3::event_attributes(message, payload_data, nvtx_call_tag.color));
     return op(buf, size, file_offset, devPtr_offset);
   });
 }
@@ -101,18 +84,12 @@ std::future<std::size_t> submit_task(F op,
  * @return A future to be used later to check if the operation has finished its execution.
  */
 template <typename F>
-std::future<std::size_t> submit_move_only_task(
-  F op_move_only,
-  ThreadPool* thread_pool    = &defaults::thread_pool(),
-  std::uint64_t nvtx_payload = 0ull,
-  nvtx_color_type nvtx_color = NvtxManager::default_color())
+std::future<std::size_t> submit_move_only_task(F op_move_only,
+                                               ThreadPool* thread_pool = &defaults::thread_pool())
 {
   static_assert(std::is_invocable_r_v<std::size_t, F>);
   auto op_copyable = make_copyable_lambda(std::move(op_move_only));
-  return thread_pool->submit_task([=] {
-    KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
-    return op_copyable();
-  });
+  return thread_pool->submit_task([=] { return op_copyable(); });
 }
 
 }  // namespace detail
@@ -140,9 +117,8 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t file_offset,
                                      std::size_t task_size,
                                      std::size_t devPtr_offset,
-                                     ThreadPool* thread_pool    = &defaults::thread_pool(),
-                                     std::uint64_t call_idx     = 0,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     ThreadPool* thread_pool           = &defaults::thread_pool(),
+                                     detail::NvtxCallTag nvtx_call_tag = {})
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
@@ -156,7 +132,7 @@ std::future<std::size_t> parallel_io(F op,
   // Single-task guard
   if (task_size >= size || get_page_size() >= size) {
     return detail::submit_task(
-      op, buf, size, file_offset, devPtr_offset, thread_pool, call_idx, nvtx_color);
+      op, buf, size, file_offset, devPtr_offset, thread_pool, nvtx_call_tag);
   }
 
   std::vector<std::future<std::size_t>> tasks;
@@ -165,7 +141,7 @@ std::future<std::size_t> parallel_io(F op,
   // 1) Submit all tasks but the last one. These are all `task_size` sized tasks.
   while (size > task_size) {
     tasks.push_back(detail::submit_task(
-      op, buf, task_size, file_offset, devPtr_offset, thread_pool, call_idx, nvtx_color));
+      op, buf, task_size, file_offset, devPtr_offset, thread_pool, nvtx_call_tag));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
@@ -174,13 +150,19 @@ std::future<std::size_t> parallel_io(F op,
   // 2) Submit the last task, which consists of performing the last I/O and waiting the previous
   // tasks.
   auto last_task = [=, tasks = std::move(tasks)]() mutable -> std::size_t {
+    detail::NvtxIoPayload info{
+      detail::nvtx::get_empty_registered_string(), file_offset, size, nvtx_call_tag.call_idx};
+    nvtx3::payload_data payload_data(info);
+    static detail::NvtxRegisteredString message{"Last task"};
+    detail::NvtxScopedRange range(
+      nvtx3::event_attributes(message, payload_data, nvtx_call_tag.color));
     auto ret = op(buf, size, file_offset, devPtr_offset);
     for (auto& task : tasks) {
       ret += task.get();
     }
     return ret;
   };
-  return detail::submit_move_only_task(std::move(last_task), thread_pool, call_idx, nvtx_color);
+  return detail::submit_move_only_task(std::move(last_task), thread_pool);
 }
 
 }  // namespace kvikio
