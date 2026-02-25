@@ -111,6 +111,7 @@ ninja.make-fallback = false
 sdist.exclude = ["*tests*"]
 sdist.reproducible = true
 wheel.packages = ["kvikio"]
+wheel.py-api = "cp311" # overridden in CI builds by arguments from `ci/build_wheel_*.sh` scripts.
 wheel.exclude = ["*.pyx", "CMakeLists.txt"]
 
 [tool.scikit-build.metadata.version]
