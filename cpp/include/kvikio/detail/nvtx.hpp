@@ -12,7 +12,7 @@
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
-namespace kvikio {
+namespace kvikio::detail {
 
 /**
  * @brief Tag type for libkvikio's NVTX domain.
@@ -31,10 +31,10 @@ using NvtxColor            = nvtx3::color;
 
 // Macro to create a static, registered string that will not have a name conflict with any
 // registered string defined in the same scope.
-#define KVIKIO_REGISTER_STRING(message)                       \
-  [](const char* a_message) -> auto& {                        \
-    static kvikio::NvtxRegisteredString a_reg_str{a_message}; \
-    return a_reg_str;                                         \
+#define KVIKIO_REGISTER_STRING(message)                               \
+  [](const char* a_message) -> auto& {                                \
+    static kvikio::detail::NvtxRegisteredString a_reg_str{a_message}; \
+    return a_reg_str;                                                 \
   }(message)
 
 // Implementation of KVIKIO_NVTX_FUNC_RANGE()
@@ -57,16 +57,16 @@ using NvtxColor            = nvtx3::color;
   (__VA_ARGS__)
 
 // Implementation of KVIKIO_NVTX_SCOPED_RANGE(...)
-#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(message)                            \
-  kvikio::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)       \
-  {                                                                         \
-    nvtx3::event_attributes                                                 \
-    {                                                                       \
-      KVIKIO_REGISTER_STRING(message), kvikio::NvtxManager::default_color() \
-    }                                                                       \
+#define KVIKIO_NVTX_SCOPED_RANGE_IMPL_1(message)                                    \
+  kvikio::detail::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)       \
+  {                                                                                 \
+    nvtx3::event_attributes                                                         \
+    {                                                                               \
+      KVIKIO_REGISTER_STRING(message), kvikio::detail::NvtxManager::default_color() \
+    }                                                                               \
   }
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload_v, color)                                \
-  kvikio::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                             \
+  kvikio::detail::NvtxScopedRange KVIKIO_CONCAT(_kvikio_nvtx_range, __LINE__)                     \
   {                                                                                               \
     nvtx3::event_attributes                                                                       \
     {                                                                                             \
@@ -74,7 +74,7 @@ using NvtxColor            = nvtx3::color;
     }                                                                                             \
   }
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL_2(message, payload) \
-  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload, kvikio::NvtxManager::default_color())
+  KVIKIO_NVTX_SCOPED_RANGE_IMPL_3(message, payload, kvikio::detail::NvtxManager::default_color())
 #define KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(_1, _2, _3, NAME, ...) NAME
 #define KVIKIO_NVTX_SCOPED_RANGE_IMPL(...)                           \
   KVIKIO_NVTX_SCOPED_RANGE_SELECTOR(__VA_ARGS__,                     \
@@ -84,8 +84,8 @@ using NvtxColor            = nvtx3::color;
   (__VA_ARGS__)
 
 // Implementation of KVIKIO_NVTX_MARKER(message, payload)
-#define KVIKIO_NVTX_MARKER_IMPL(message, payload_v)                 \
-  nvtx3::mark_in<kvikio::libkvikio_domain>(nvtx3::event_attributes{ \
+#define KVIKIO_NVTX_MARKER_IMPL(message, payload_v)                         \
+  nvtx3::mark_in<kvikio::detail::libkvikio_domain>(nvtx3::event_attributes{ \
     KVIKIO_REGISTER_STRING(message), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}})
 
 struct NvtxCallTag {
@@ -210,16 +210,18 @@ struct NvtxIoPayload {
   NvtxRegisteredString file_path;
   std::size_t file_offset;
   std::size_t size;
+  std::size_t call_idx;
 };
 
-}  // namespace kvikio
+}  // namespace kvikio::detail
 
-NVTX3_DEFINE_SCHEMA_GET(kvikio::libkvikio_domain,
-                        kvikio::NvtxIoPayload,
+NVTX3_DEFINE_SCHEMA_GET(kvikio::detail::libkvikio_domain,
+                        kvikio::detail::NvtxIoPayload,
                         "KvikIONvtxIOPayload",
                         NVTX_PAYLOAD_ENTRIES((file_path,
                                               TYPE_NVTX_REGISTERED_STRING_HANDLE,
                                               "file_path",
                                               "Path to the file"),
                                              (file_offset, TYPE_SIZE, "file_offset", "File offset"),
-                                             (size, TYPE_SIZE, "size", "Transferred bytes")))
+                                             (size, TYPE_SIZE, "size", "Transferred bytes"),
+                                             (call_idx, TYPE_SIZE, "call_idx", "Call index")))

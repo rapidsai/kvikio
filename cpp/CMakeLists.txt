@@ -182,14 +182,14 @@ add_library(kvikio::kvikio ALIAS kvikio)
 
 target_include_directories(
   kvikio
-  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-         "$<BUILD_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>"
-  INTERFACE "$<INSTALL_INTERFACE:include>"
+  PUBLIC "$<BUILD_INTERFACE:$<TARGET_PROPERTY:nvtx3::nvtx3-cpp,INTERFACE_INCLUDE_DIRECTORIES>>"
 )
 
 target_include_directories(
-  kvikio BEFORE
-  PUBLIC "$<BUILD_INTERFACE:$<TARGET_PROPERTY:nvtx3::nvtx3-cpp,INTERFACE_INCLUDE_DIRECTORIES>>"
+  kvikio
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+         "$<BUILD_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>"
+  INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.

@@ -10,7 +10,7 @@
 
 #include <kvikio/detail/nvtx.hpp>
 
-namespace kvikio {
+namespace kvikio::detail {
 
 NvtxCallTag::NvtxCallTag() : color(NvtxManager::default_color()) {}
 
@@ -69,4 +69,4 @@ NvtxRegisteredString const& NvtxManager::get_empty_registered_string()
   return s;
 }
 
-}  // namespace kvikio
+}  // namespace kvikio::detail

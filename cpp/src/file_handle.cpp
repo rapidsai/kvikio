@@ -230,8 +230,14 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
                                                                          : thread_pool;
 
-  auto nvtx_call_tag = NvtxManager::next_call_tag();
-  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_call_tag.color);
+  auto nvtx_call_tag = detail::NvtxManager::next_call_tag();
+  detail::NvtxIoPayload info{
+    detail::NvtxManager::get_empty_registered_string(), file_offset, size, nvtx_call_tag.call_idx};
+  nvtx3::payload_data payload_data(info);
+  static detail::NvtxRegisteredString message{__PRETTY_FUNCTION__};
+  detail::NvtxScopedRange range(
+    nvtx3::event_attributes(message, payload_data, nvtx_call_tag.color));
+
   if (is_host_memory(buf)) {
     auto op = [this](void* hostPtr_base,
                      std::size_t size,
@@ -298,7 +304,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
                                                                          : thread_pool;
 
-  auto nvtx_call_tag = NvtxManager::next_call_tag();
+  auto nvtx_call_tag = detail::NvtxManager::next_call_tag();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_call_tag.color);
   if (is_host_memory(buf)) {
     auto op = [this](void const* hostPtr_base,
