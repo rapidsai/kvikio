@@ -424,8 +424,8 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   auto actual_size = validate_and_adjust_read_args(size, offset);
   if (actual_size == 0) { return make_ready_future(actual_size); }
 
-  auto nvtx_ctx = NvtxManager::get_next_call_context(nullptr, offset, actual_size);
-  KVIKIO_NVTX_FUNC_RANGE(actual_size, nvtx_ctx.color);
+  auto nvtx_call_tag = NvtxManager::next_call_tag();
+  KVIKIO_NVTX_FUNC_RANGE(actual_size, nvtx_call_tag.color);
 
   auto const is_dst_buf_host_mem = is_host_memory(buf);
   CUcontext ctx{};
@@ -451,7 +451,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                      task_size,
                      0,  // dst buffer offset initial value
                      thread_pool,
-                     nvtx_ctx);
+                     nvtx_call_tag);
 }
 
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,

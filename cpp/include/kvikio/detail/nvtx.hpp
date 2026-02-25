@@ -88,17 +88,10 @@ using NvtxColor            = nvtx3::color;
   nvtx3::mark_in<kvikio::libkvikio_domain>(nvtx3::event_attributes{ \
     KVIKIO_REGISTER_STRING(message), nvtx3::payload{kvikio::convert_to_64bit(payload_v)}})
 
-struct NvtxContext {
-  NvtxContext();
-  NvtxContext(char const* file_name,
-              std::size_t file_offse,
-              std::size_t size,
-              std::uint64_t call_idx,
-              NvtxColor color);
+struct NvtxCallTag {
+  NvtxCallTag();
+  NvtxCallTag(std::uint64_t call_idx, NvtxColor color);
 
-  char const* file_name{};
-  std::size_t file_offset{};
-  std::size_t size{};
   std::uint64_t call_idx{};
   NvtxColor color;
 };
@@ -127,9 +120,7 @@ class NvtxManager {
    */
   static const NvtxColor& get_color_by_index(std::uint64_t idx) noexcept;
 
-  static NvtxContext get_next_call_context(char const* file_name,
-                                           std::size_t file_offset,
-                                           std::size_t size);
+  static NvtxCallTag next_call_tag();
 
   NvtxManager(NvtxManager const&)            = delete;
   NvtxManager& operator=(NvtxManager const&) = delete;

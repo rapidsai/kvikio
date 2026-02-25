@@ -12,18 +12,10 @@
 
 namespace kvikio {
 
-NvtxContext::NvtxContext() : color(NvtxManager::default_color()) {}
+NvtxCallTag::NvtxCallTag() : color(NvtxManager::default_color()) {}
 
-NvtxContext::NvtxContext(char const* a_file_name,
-                         std::size_t a_file_offset,
-                         std::size_t a_size,
-                         std::uint64_t a_call_idx,
-                         NvtxColor a_color)
-  : file_name(a_file_name),
-    file_offset(a_file_offset),
-    size(a_size),
-    call_idx(a_call_idx),
-    color(a_color)
+NvtxCallTag::NvtxCallTag(std::uint64_t a_call_idx, NvtxColor a_color)
+  : call_idx(a_call_idx), color(a_color)
 {
 }
 
@@ -63,14 +55,12 @@ const NvtxColor& NvtxManager::get_color_by_index(std::uint64_t idx) noexcept
   return color_palette[safe_idx];
 }
 
-NvtxContext NvtxManager::get_next_call_context(char const* file_name,
-                                               std::size_t file_offset,
-                                               std::size_t size)
+NvtxCallTag NvtxManager::next_call_tag()
 {
   static std::atomic_uint64_t call_counter{1ull};
   auto call_idx    = call_counter.fetch_add(1ull, std::memory_order_relaxed);
   auto& nvtx_color = NvtxManager::get_color_by_index(call_idx);
-  return {file_name, file_offset, size, call_idx, nvtx_color};
+  return {call_idx, nvtx_color};
 }
 
 }  // namespace kvikio

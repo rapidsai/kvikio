@@ -93,17 +93,14 @@ FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
                        CompatMode compat_mode)
-  : _file_path{file_path},
-    _initialized{true},
-    _compat_mode_manager{file_path, flags, mode, compat_mode, this}
+  : _initialized{true}, _compat_mode_manager{file_path, flags, mode, compat_mode, this}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   _thread_pool = get_thread_pool_per_block_device(file_path);
 }
 
 FileHandle::FileHandle(FileHandle&& o) noexcept
-  : _file_path{std::exchange(o._file_path, {})},
-    _file_direct_on{std::exchange(o._file_direct_on, {})},
+  : _file_direct_on{std::exchange(o._file_direct_on, {})},
     _file_direct_off{std::exchange(o._file_direct_off, {})},
     _initialized{std::exchange(o._initialized, false)},
     _nbytes{std::exchange(o._nbytes, 0)},
@@ -115,7 +112,6 @@ FileHandle::FileHandle(FileHandle&& o) noexcept
 
 FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
 {
-  _file_path           = std::exchange(o._file_path, {});
   _file_direct_on      = std::exchange(o._file_direct_on, {});
   _file_direct_off     = std::exchange(o._file_direct_off, {});
   _initialized         = std::exchange(o._initialized, false);
@@ -139,7 +135,6 @@ void FileHandle::close() noexcept
   KVIKIO_NVTX_FUNC_RANGE();
   try {
     if (closed()) { return; }
-    _file_path.clear();
     _cufile_handle.unregister_handle();
     _file_direct_off.close();
     _file_direct_on.close();
@@ -235,8 +230,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
                                                                          : thread_pool;
 
-  auto nvtx_ctx = NvtxManager::get_next_call_context(_file_path.c_str(), file_offset, size);
-  KVIKIO_NVTX_FUNC_RANGE(nvtx_ctx.size, nvtx_ctx.color);
+  auto nvtx_call_tag = NvtxManager::next_call_tag();
+  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_call_tag.color);
   if (is_host_memory(buf)) {
     auto op = [this](void* hostPtr_base,
                      std::size_t size,
@@ -247,7 +242,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, actual_thread_pool, nvtx_ctx);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, actual_thread_pool, nvtx_call_tag);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -277,8 +272,14 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(
-    task, devPtr_base, size, file_offset, task_size, devPtr_offset, actual_thread_pool, nvtx_ctx);
+  return parallel_io(task,
+                     devPtr_base,
+                     size,
+                     file_offset,
+                     task_size,
+                     devPtr_offset,
+                     actual_thread_pool,
+                     nvtx_call_tag);
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -297,8 +298,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
                                                                          : thread_pool;
 
-  auto nvtx_ctx = NvtxManager::get_next_call_context(_file_path.c_str(), file_offset, size);
-  KVIKIO_NVTX_FUNC_RANGE(nvtx_ctx.size, nvtx_ctx.color);
+  auto nvtx_call_tag = NvtxManager::next_call_tag();
+  KVIKIO_NVTX_FUNC_RANGE(size, nvtx_call_tag.color);
   if (is_host_memory(buf)) {
     auto op = [this](void const* hostPtr_base,
                      std::size_t size,
@@ -309,7 +310,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(op, buf, size, file_offset, task_size, 0, actual_thread_pool, nvtx_ctx);
+    return parallel_io(op, buf, size, file_offset, task_size, 0, actual_thread_pool, nvtx_call_tag);
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -339,8 +340,14 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     return write(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(
-    op, devPtr_base, size, file_offset, task_size, devPtr_offset, actual_thread_pool, nvtx_ctx);
+  return parallel_io(op,
+                     devPtr_base,
+                     size,
+                     file_offset,
+                     task_size,
+                     devPtr_offset,
+                     actual_thread_pool,
+                     nvtx_call_tag);
 }
 
 void FileHandle::read_async(void* devPtr_base,

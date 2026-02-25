@@ -813,7 +813,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              ThreadPool* thread_pool)
 {
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
-  auto nvtx_ctx = NvtxManager::get_next_call_context(nullptr, file_offset, size);
+  auto nvtx_call_tag = NvtxManager::next_call_tag();
   KVIKIO_NVTX_FUNC_RANGE(size);
   auto task = [this](void* devPtr_base,
                      std::size_t size,
@@ -821,7 +821,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                      std::size_t devPtr_offset) -> std::size_t {
     return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
   };
-  return parallel_io(task, buf, size, file_offset, task_size, 0, thread_pool, nvtx_ctx);
+  return parallel_io(task, buf, size, file_offset, task_size, 0, thread_pool, nvtx_call_tag);
 }
 
 }  // namespace kvikio

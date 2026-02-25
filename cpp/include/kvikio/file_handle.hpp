@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -33,7 +33,6 @@ namespace kvikio {
 class FileHandle {
  private:
   // We use two file descriptors, one opened with the O_DIRECT flag and one without.
-  std::string _file_path;
   FileWrapper _file_direct_on{};
   FileWrapper _file_direct_off{};
   bool _initialized{false};
