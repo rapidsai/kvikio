@@ -22,11 +22,6 @@ project(
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
-# For now, disable CMake's automatic module scanning for C++ files. There is an sccache bug in the
-# version RAPIDS uses in CI that causes it to handle the resulting -M* flags incorrectly with
-# gcc>=14. We can remove this once we upgrade to a newer sccache version.
-set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-
 # Write the version header
 rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
 
