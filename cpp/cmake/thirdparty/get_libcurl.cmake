@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -15,11 +15,11 @@ function(find_and_configure_libcurl)
   endif()
 
   rapids_cpm_find(
-    CURL 8.5.0
+    CURL 8.13.0
     GLOBAL_TARGETS libcurl
     CPM_ARGS
     GIT_REPOSITORY https://github.com/curl/curl
-    GIT_TAG curl-8_5_0
+    GIT_TAG curl-8_13_0
     OPTIONS "BUILD_CURL_EXE OFF" "BUILD_SHARED_LIBS OFF" "BUILD_TESTING OFF" "CURL_USE_LIBPSL OFF"
             "CURL_DISABLE_LDAP ON" "CMAKE_POSITION_INDEPENDENT_CODE ON"
     EXCLUDE_FROM_ALL YES # Don't install libcurl.a (only needed when building libkvikio.so)

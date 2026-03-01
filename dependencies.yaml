@@ -133,7 +133,7 @@ dependencies:
           - c-compiler
           - cuda-nvcc
           - cxx-compiler
-          - libcurl>=8.5.0,<9.0
+          - libcurl>=8.13.0,<9.0
     specific:
       - output_types: conda
         matrices:
