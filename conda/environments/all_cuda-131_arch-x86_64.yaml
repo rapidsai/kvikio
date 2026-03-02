@@ -17,7 +17,7 @@ dependencies:
 - doxygen=1.9.1
 - gcc_linux-64=14.*
 - libcufile-dev
-- libcurl>=8.5.0,<9.0
+- libcurl>=8.13.0,<9.0
 - libnuma
 - moto>=4.0.8
 - ninja
