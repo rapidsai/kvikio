@@ -8,6 +8,7 @@
 #include <cstdlib>
 
 #include <kvikio/bounce_buffer.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/posix_io.hpp>
 #include <kvikio/error.hpp>
@@ -45,6 +46,9 @@ std::size_t posix_device_read_aligned(int fd_direct_off,
     std::size_t aligned_size    = align_up(prefix + nbytes_expected, page_size);
 
     // Pure Direct I/O is expected, with aligned offset, aligned buffer, aligned size
+    // Note: Use PartialIO::YES for posix_host_io, because the requested read size aligned_size may
+    // extend past EOF. With PartialIO::NO, posix_host_io would loop, and eventually hit EOF on
+    // ::pread.
     ssize_t nbytes_io =
       posix_host_io<IOOperationType::READ, PartialIO::YES>(fd_direct_off,
                                                            bounce_buffer.get(),
@@ -76,13 +80,18 @@ std::size_t posix_device_read(int fd_direct_off,
                               int fd_direct_on)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
+  static bool const dio_overread = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", false);
   // The bounce buffer must hold at least 2 pages so that a read straddling two adjacent pages can
   // be satisfied in a single aligned pread.
   static std::size_t const lower_bound = 2 * get_page_size();
   // If Direct I/O is supported and requested and bounce buffer is at least two pages
   if (fd_direct_on != -1 && defaults::auto_direct_io_read() &&
       defaults::bounce_buffer_size() >= lower_bound) {
-    return posix_device_read_aligned(
+    if (dio_overread) {
+      return posix_device_read_aligned(
+        fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
+    }
+    return posix_device_io<IOOperationType::READ, CudaPageAlignedPinnedBounceBufferPool>(
       fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
   } else {
     return posix_device_io<IOOperationType::READ>(

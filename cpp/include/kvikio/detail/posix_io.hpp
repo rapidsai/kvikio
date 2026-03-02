@@ -61,6 +61,9 @@ enum class PartialIO : uint8_t {
  * @param offset File offset in bytes
  * @param fd_direct_on File descriptor opened with O_DIRECT, or -1 to disable Direct I/O attempts
  * @return Number of bytes read or written (always greater than zero)
+ *
+ * @note For reads, `offset + count` must not exceed the file size. Reading past EOF is not
+ * supported and will result in an error.
  */
 template <IOOperationType Operation,
           PartialIO PartialIOStatus,
@@ -109,7 +112,8 @@ ssize_t posix_host_io(
         // Handle unaligned prefix: use buffered I/O to reach next page boundary
         // This ensures subsequent iterations will have page-aligned offsets
         auto const aligned_cur_offset = detail::align_up(cur_offset, page_size);
-        auto const bytes_requested    = std::min(aligned_cur_offset - cur_offset, bytes_remaining);
+        auto const bytes_requested =
+          std::min(aligned_cur_offset - static_cast<std::size_t>(cur_offset), bytes_remaining);
         KVIKIO_NVTX_SCOPED_RANGE(op_name_bio, bytes_requested, color_bio);
         nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_requested, cur_offset);
       } else {
@@ -198,6 +202,9 @@ ssize_t posix_host_io(
  * @param devPtr_offset Byte offset from devPtr_base (allows working with sub-regions)
  * @param fd_direct_on File descriptor opened with O_DIRECT, or -1 to disable Direct I/O attempts
  * @return Total number of bytes read or written
+ *
+ * @note For reads, `offset + count` must not exceed the file size. Reading past EOF is not
+ * supported and will result in an error.
  */
 template <IOOperationType Operation, typename BounceBufferPoolType = CudaPinnedBounceBufferPool>
 std::size_t posix_device_io(int fd_direct_off,
@@ -229,15 +236,17 @@ std::size_t posix_device_io(int fd_direct_off,
     std::size_t const nbytes_requested = std::min(bounce_buffer_size, bytes_remaining);
     std::size_t nbytes_io              = nbytes_requested;
     if constexpr (Operation == IOOperationType::READ) {
-      ssize_t nbytes_read =
-        posix_host_io<IOOperationType::READ, PartialIO::YES>(fd_direct_off,
-                                                             bounce_buffer.get(),
-                                                             nbytes_requested,
-                                                             convert_size2off(cur_file_offset),
-                                                             fd_direct_on);
-      nbytes_io = static_cast<std::size_t>(nbytes_read);
+      // Note: Use PartialIO::NO for posix_host_io, so that it completes the entire BIO -> DIO ->
+      // BIO sequence internally before returning. This fills the bounce buffer in one pass,
+      // enabling a single large H2D transfer instead of one per segment. nbytes_requested never
+      // extends past EOF.
+      posix_host_io<IOOperationType::READ, PartialIO::NO>(fd_direct_off,
+                                                          bounce_buffer.get(),
+                                                          nbytes_requested,
+                                                          convert_size2off(cur_file_offset),
+                                                          fd_direct_on);
       CUDA_DRIVER_TRY(
-        cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_io, stream));
+        cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_requested, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
       CUDA_DRIVER_TRY(
@@ -271,6 +280,9 @@ std::size_t posix_device_io(int fd_direct_off,
  * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
  * @param fd_direct_on File descriptor opened with O_DIRECT.
  * @return Size of bytes that were successfully read.
+ *
+ * @note `file_offset + size` must not exceed the file size. The internal aligned reads may extend
+ * past EOF, which is handled via PartialIO::YES and short read detection.
  */
 std::size_t posix_device_read_aligned(int fd_direct_off,
                                       void const* devPtr_base,
@@ -320,7 +332,7 @@ std::size_t posix_host_read(
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.
  * @param fd_direct_on Optional file descriptor with Direct I/O.
- * @return Size of bytes that were successfully read.
+ * @return Size of bytes that were successfully written.
  */
 template <PartialIO PartialIOStatus>
 std::size_t posix_host_write(int fd_direct_off,
