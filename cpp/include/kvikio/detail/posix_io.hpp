@@ -82,16 +82,23 @@ ssize_t posix_host_io(
   size_t bytes_remaining = count;
   char* buffer           = const_cast<char*>(static_cast<char const*>(buf));
   auto const page_size   = get_page_size();
-  nvtx3::rgb const color_bio{255, 128, 128};
-  nvtx3::rgb const color_dio{128, 255, 128};
-  nvtx3::rgb const color_dio_memcpy{128, 128, 255};
+
+  constexpr char const* op_name_bio =
+    (Operation == IOOperationType::READ) ? "Buffered pread" : "Buffered pwrite";
+  constexpr char const* op_name_dio =
+    (Operation == IOOperationType::READ) ? "Direct pread" : "Direct pwrite";
+  constexpr char const* op_name_dio_bounce =
+    (Operation == IOOperationType::READ) ? "Direct pread with bounce" : "Direct pwrite with bounce";
+  constexpr nvtx3::rgb color_bio{255, 128, 128};
+  constexpr nvtx3::rgb color_dio{128, 255, 128};
+  constexpr nvtx3::rgb color_dio_bounce{128, 128, 255};
 
   // Process all bytes in a loop (unless PartialIO::YES returns early)
   while (bytes_remaining > 0) {
     ssize_t nbytes_processed{};
 
     if (fd_direct_on == -1) {
-      KVIKIO_NVTX_SCOPED_RANGE("Buffered I/O", bytes_remaining, color_bio);
+      KVIKIO_NVTX_SCOPED_RANGE(op_name_bio, bytes_remaining, color_bio);
       // Direct I/O disabled: use buffered I/O for entire transfer
       nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
     } else {
@@ -101,14 +108,13 @@ ssize_t posix_host_io(
       if (!is_cur_offset_aligned) {
         // Handle unaligned prefix: use buffered I/O to reach next page boundary
         // This ensures subsequent iterations will have page-aligned offsets
-        auto const aligned_cur_offset = align_up(cur_offset, page_size);
-        auto const bytes_requested =
-          std::min(static_cast<size_t>(aligned_cur_offset - cur_offset), bytes_remaining);
-        KVIKIO_NVTX_SCOPED_RANGE("Buffered I/O", bytes_requested, color_bio);
+        auto const aligned_cur_offset = detail::align_up(cur_offset, page_size);
+        auto const bytes_requested    = std::min(aligned_cur_offset - cur_offset, bytes_remaining);
+        KVIKIO_NVTX_SCOPED_RANGE(op_name_bio, bytes_requested, color_bio);
         nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_requested, cur_offset);
       } else {
         if (bytes_remaining < page_size) {
-          KVIKIO_NVTX_SCOPED_RANGE("Buffered I/O", bytes_remaining, color_bio);
+          KVIKIO_NVTX_SCOPED_RANGE(op_name_bio, bytes_remaining, color_bio);
           // Handle unaligned suffix: remaining bytes are less than a page, use buffered I/O
           nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
         } else {
@@ -124,7 +130,7 @@ ssize_t posix_host_io(
             // Limit transfer size to bounce buffer capacity
             bytes_requested = std::min(bytes_requested, bounce_buffer.size());
 
-            KVIKIO_NVTX_SCOPED_RANGE("Direct I/O + memcpy", bytes_requested, color_dio_memcpy);
+            KVIKIO_NVTX_SCOPED_RANGE(op_name_dio_bounce, bytes_requested, color_dio_bounce);
 
             if constexpr (Operation == IOOperationType::WRITE) {
               // Copy user data to aligned bounce buffer before Direct I/O write
@@ -140,7 +146,7 @@ ssize_t posix_host_io(
               std::memcpy(buffer, aligned_buf, nbytes_processed);
             }
           } else {
-            KVIKIO_NVTX_SCOPED_RANGE("Direct I/O", bytes_requested, color_dio);
+            KVIKIO_NVTX_SCOPED_RANGE(op_name_dio, bytes_requested, color_dio);
             // Buffer is page-aligned: perform Direct I/O directly with user buffer
             nbytes_processed = pread_or_write(fd_direct_on, buffer, bytes_requested, cur_offset);
           }
