@@ -13,11 +13,11 @@ dependencies:
 - cuda-version=13.1
 - cupy>=13.6.0
 - cxx-compiler
-- cython>=3.0.0,<3.2.0
+- cython>=3.2.2
 - doxygen=1.9.1
 - gcc_linux-64=14.*
 - libcufile-dev
-- libcurl>=8.5.0,<9.0
+- libcurl>=8.13.0,<9.0
 - libnuma
 - moto>=4.0.8
 - ninja
