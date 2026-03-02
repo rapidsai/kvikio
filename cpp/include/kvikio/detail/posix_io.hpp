@@ -236,15 +236,16 @@ std::size_t posix_device_io(int fd_direct_off,
     std::size_t const nbytes_requested = std::min(bounce_buffer_size, bytes_remaining);
     std::size_t nbytes_io              = nbytes_requested;
     if constexpr (Operation == IOOperationType::READ) {
-      // Note: Use PartialIO::NO for posix_host_io, so that it completes the entire BIO -> DIO ->
-      // BIO sequence internally before returning. This fills the bounce buffer in one pass,
-      // enabling a single large H2D transfer instead of one per segment. nbytes_requested never
-      // extends past EOF.
-      posix_host_io<IOOperationType::READ, PartialIO::NO>(fd_direct_off,
-                                                          bounce_buffer.get(),
-                                                          nbytes_requested,
-                                                          convert_size2off(cur_file_offset),
-                                                          fd_direct_on);
+      // Note: Use PartialIO::YES for opportunistic Direct I/O, so that each segment (BIO prefix,
+      // DIO middle, BIO suffix) returns individually. This ensures DIO reads go directly into the
+      // page-aligned CUDA bounce buffer, avoiding an extra memcpy that would occur with
+      // PartialIO::NO (where posix_host_io would allocate its own internal bounce buffer for the
+      // unaligned DIO path).
+      posix_host_io<IOOperationType::READ, PartialIO::YES>(fd_direct_off,
+                                                           bounce_buffer.get(),
+                                                           nbytes_requested,
+                                                           convert_size2off(cur_file_offset),
+                                                           fd_direct_on);
       CUDA_DRIVER_TRY(
         cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_requested, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
