@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -8,14 +8,14 @@
 #include <cassert>
 #include <future>
 #include <memory>
-#include <numeric>
-#include <system_error>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
@@ -142,7 +142,8 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t devPtr_offset,
                                      ThreadPool* thread_pool    = &defaults::thread_pool(),
                                      std::uint64_t call_idx     = 0,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     nvtx_color_type nvtx_color = NvtxManager::default_color(),
+                                     std::optional<std::size_t> first_task_size = std::nullopt)
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
@@ -160,9 +161,18 @@ std::future<std::size_t> parallel_io(F op,
   }
 
   std::vector<std::future<std::size_t>> tasks;
-  tasks.reserve(size / task_size);
+  tasks.reserve(size / task_size + 1);
 
-  // 1) Submit all tasks but the last one. These are all `task_size` sized tasks.
+  // 1) Submit the first task (possibly shorter to satisfy caller alignment needs).
+  auto const actual_first_task_size = first_task_size.value_or(task_size);
+  auto cur_size                     = std::min(actual_first_task_size, size);
+  tasks.push_back(detail::submit_task(
+    op, buf, cur_size, file_offset, devPtr_offset, thread_pool, call_idx, nvtx_color));
+  file_offset += cur_size;
+  devPtr_offset += cur_size;
+  size -= cur_size;
+
+  // 2) Submit remaining tasks but the last. These are all `task_size` sized.
   while (size > task_size) {
     tasks.push_back(detail::submit_task(
       op, buf, task_size, file_offset, devPtr_offset, thread_pool, call_idx, nvtx_color));
@@ -171,7 +181,7 @@ std::future<std::size_t> parallel_io(F op,
     size -= task_size;
   }
 
-  // 2) Submit the last task, which consists of performing the last I/O and waiting the previous
+  // 3) Submit the last task, which consists of performing the last I/O and waiting the previous
   // tasks.
   auto last_task = [=, tasks = std::move(tasks)]() mutable -> std::size_t {
     auto ret = op(buf, size, file_offset, devPtr_offset);

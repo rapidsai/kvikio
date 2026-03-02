@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -23,6 +23,7 @@
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
+#include "kvikio/utils.hpp"
 
 namespace kvikio {
 
@@ -273,6 +274,19 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
+
+  // When using the POSIX path (compat mode) with Direct I/O, shorten the first task so that
+  // subsequent tasks start at a page-aligned file offset, avoiding repeated overread padding in
+  // posix_device_read_aligned.
+  std::optional<std::size_t> first_task_size{};
+  if (get_compat_mode_manager().is_compat_mode_preferred() && _file_direct_on.fd() != -1 &&
+      defaults::auto_direct_io_read()) {
+    auto const misalignment = file_offset - detail::align_down(file_offset, get_page_size());
+    if (misalignment > 0 && misalignment < task_size) {
+      first_task_size = task_size - misalignment;
+    }
+  }
+
   return parallel_io(task,
                      devPtr_base,
                      size,
@@ -281,7 +295,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                      devPtr_offset,
                      actual_thread_pool,
                      call_idx,
-                     nvtx_color);
+                     nvtx_color,
+                     first_task_size);
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
