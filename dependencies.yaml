@@ -331,7 +331,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - rapids-dask-dependency==26.4.*,>=0.0.0a0
-          - pytest<9.0.0
+          - pytest
           - pytest-asyncio
           - pytest-cov
           - pytest-timeout
