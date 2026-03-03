@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -114,6 +114,13 @@ defaults::defaults()
       env > 0, "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer", std::invalid_argument);
     _bounce_buffer_size = env;
   }
+  // Determine the default value of `bounce_buffer_count`
+  {
+    ssize_t const env = getenv_or("KVIKIO_BOUNCE_BUFFER_COUNT", 4);
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_BOUNCE_BUFFER_COUNT has to be a positive integer", std::invalid_argument);
+    _bounce_buffer_count = env;
+  }
   // Determine the default value of `http_max_attempts`
   {
     ssize_t const env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
@@ -211,6 +218,15 @@ void defaults::set_bounce_buffer_size(std::size_t nbytes)
   KVIKIO_EXPECT(
     nbytes > 0, "size of the bounce buffer must be a positive integer", std::invalid_argument);
   instance()->_bounce_buffer_size = nbytes;
+}
+
+std::size_t defaults::bounce_buffer_count() { return instance()->_bounce_buffer_count; }
+
+void defaults::set_bounce_buffer_count(std::size_t count)
+{
+  KVIKIO_EXPECT(
+    count > 0, "Number of the bounce buffers must be a positive integer", std::invalid_argument);
+  instance()->_bounce_buffer_count = count;
 }
 
 std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }
