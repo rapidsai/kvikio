@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <unordered_map>
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/utils.hpp>
@@ -29,7 +30,7 @@ class BasicIOTest : public testing::Test {
     TempDir tmp_dir{false};
     _filepath = tmp_dir.path() / "test";
 
-    _dev_a = std::move(DevBuffer<value_type>::arange(1024ULL * 1024ULL + 124ULL));
+    _dev_a = std::move(DevBuffer<value_type>::arange(1024ull * 1024ull + 124ull));
     _dev_b = std::move(DevBuffer<value_type>::zero_like(_dev_a));
   }
 
@@ -168,7 +169,7 @@ class DirectIOTest : public testing::Test {
     }
 
     // Create a sequence of numbers as a ground truth
-    _num_elements = 1ULL * 1024ULL * 1024ULL + 1234ULL;
+    _num_elements = 1ull * 1024ull * 1024ull + 1234ull;
     _total_bytes  = _num_elements * sizeof(value_type);
     _ground_truth.resize(_num_elements);
     std::iota(_ground_truth.begin(), _ground_truth.end(), 0);
@@ -274,4 +275,174 @@ TEST_F(DirectIOTest, pread)
       }
     }
   }
+}
+
+struct PreadTestParam {
+  std::string test_name;
+  std::unordered_map<std::string, std::string> env_vars;
+  std::size_t num_elements_in_file;
+  std::size_t num_elements_to_read;
+  std::size_t file_offset;
+};
+
+// Value-parameterized tests
+class OpportunisticDirectIOTest : public testing::TestWithParam<PreadTestParam> {
+ public:
+  using value_type = std::int64_t;
+
+ protected:
+  void SetUp() override
+  {
+    TempDir tmp_dir{false};
+    _filepath = tmp_dir.path() / "test";
+    _pagesize = kvikio::get_page_size();
+
+    // Skip if Direct I/O is not supported
+    try {
+      [[maybe_unused]] auto fd =
+        kvikio::open_fd(_filepath.c_str(), "w", true /* o_direct */, kvikio::FileHandle::m644);
+    } catch (...) {
+      GTEST_SKIP() << "Direct I/O is not supported for the test file: " << _filepath;
+    }
+  }
+
+  void TearDown() override {}
+
+  // Write ground truth data to file using raw Linux syscall
+  void WriteGroundTruth(std::vector<value_type> const& data)
+  {
+    auto fd = open(_filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, kvikio::FileHandle::m644);
+    SYSCALL_CHECK(fd, "File cannot be opened");
+    SYSCALL_CHECK(write(fd, data.data(), data.size() * sizeof(value_type)));
+    SYSCALL_CHECK(close(fd));
+  }
+
+  std::filesystem::path _filepath;
+  std::size_t _pagesize{};
+
+  using AlignedAllocator   = kvikio::test::CustomHostAllocator<value_type, 4096>;
+  using UnalignedAllocator = kvikio::test::CustomHostAllocator<value_type, 4096, 123>;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+  OpportunisticDirectIODeviceRead,
+  OpportunisticDirectIOTest,
+  testing::Values(
+    // Both offset and size are aligned
+    PreadTestParam{"aligned_bio",
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}},
+                   1024ull * 1024ull,
+                   1024ull * 1024ull,
+                   0},
+    PreadTestParam{"aligned_dio",
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}},
+                   1024ull * 1024ull,
+                   1024ull * 1024ull,
+                   0},
+    PreadTestParam{
+      "aligned_dio_overread",
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      1024ull * 1024ull,
+      1024ull * 1024ull,
+      0},
+
+    // Offset is unaligned
+    PreadTestParam{"unaligned_offset_bio",
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}},
+                   1024ull * 1024ull,
+                   1024ull * 10ull,
+                   240},
+    PreadTestParam{"unaligned_offset_dio",
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}},
+                   1024ull * 1024ull,
+                   1024ull * 10ull,
+                   240},
+    PreadTestParam{
+      "unaligned_offset_dio_overread",
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      1024ull * 1024ull,
+      1024ull * 10ull,
+      240},
+
+    // Size is unaligned
+    PreadTestParam{"unaligned_size_bio",
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}},
+                   1024ull * 1024ull + 123ull,
+                   1024ull * 1024ull + 123ull,
+                   0},
+    PreadTestParam{"unaligned_size_dio",
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}},
+                   1024ull * 1024ull + 123ull,
+                   1024ull * 1024ull + 123ull,
+                   0},
+    PreadTestParam{
+      "unaligned_size_dio_overread",
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      1024ull * 1024ull + 123ull,
+      1024ull * 1024ull + 123ull,
+      0},
+
+    // Both offset and size are unaligned
+    PreadTestParam{"unaligned_bio",
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}},
+                   1024ull * 1024ull + 123ull,
+                   1024ull * 1024ull + 93ull,
+                   240},
+    PreadTestParam{"unaligned_dio",
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}},
+                   1024ull * 1024ull + 123ull,
+                   1024ull * 1024ull + 93ull,
+                   240},
+    PreadTestParam{
+      "unaligned_dio_overread",
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      1024ull * 1024ull + 123ull,
+      1024ull * 1024ull + 93ull,
+      240},
+
+    // Small range within one page
+    PreadTestParam{
+      "small_subpage_bio", {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}}, 1024ull, 64, 240},
+    PreadTestParam{"small_subpage_dio", {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}}, 1024ull, 64, 240},
+    PreadTestParam{
+      "small_subpage_dio_overread",
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      1024ull,
+      64,
+      240},
+
+    // Small range straddling two pages
+    PreadTestParam{
+      "small_straddling_bio", {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}}, 1024ull, 200ull, 2848ull},
+    PreadTestParam{
+      "small_straddling_dio", {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}}, 1024ull, 200ull, 2848ull},
+    PreadTestParam{
+      "small_straddling_dio_overread",
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      1024ull,
+      200ull,
+      2848ull}));
+
+TEST_P(OpportunisticDirectIOTest, pread_device_correctness)
+{
+  auto const& param               = GetParam();
+  std::size_t total_bytes_to_read = param.num_elements_to_read * sizeof(value_type);
+  std::vector<value_type> ground_truth(param.num_elements_in_file);
+  std::iota(ground_truth.begin(), ground_truth.end(), 0);
+
+  WriteGroundTruth(ground_truth);
+
+  EnvVarContext env(param.env_vars);
+  DevBuffer<value_type> dev_buf(param.num_elements_to_read);
+
+  kvikio::FileHandle f(_filepath, "r");
+  auto nbytes = f.pread(dev_buf.ptr, total_bytes_to_read, param.file_offset).get();
+
+  EXPECT_EQ(nbytes, total_bytes_to_read);
+
+  std::size_t start_element_idx = param.file_offset / sizeof(value_type);
+  std::vector<value_type> expected(
+    ground_truth.begin() + start_element_idx,
+    ground_truth.begin() + start_element_idx + param.num_elements_to_read);
+  EXPECT_EQ(dev_buf.to_vector(), expected);
 }
