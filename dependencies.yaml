@@ -406,12 +406,12 @@ dependencies:
             packages:
               - *cuda_python_cu13
       # 'pip' constraints files cannot include extras like 'moto[server]'. This group
-      # ensures that dependencies ends up in 'kvikio[test]' but not in the output of
-      # 'rapids-generate-pip-constraints' in CI scripts.
+      # ensures that dependencies ends up in 'kvikio[test]' ('dependencies' key not passed)
+      # but not in the output of 'rapids-generate-pip-constraints' in CI scripts ('dependencies' passed).
       - output_types: requirements
         matrices:
           - matrix:
-              dependencies: "latest"
+              dependencies: "*"
             packages:
           - matrix:
             packages:
