@@ -384,9 +384,9 @@ dependencies:
           - pytest-timeout
           - rangehttpserver
           - boto3>=1.21.21
-      - output_types: [requirements, pyproject]
+      - output_types: pyproject
         packages:
-          - moto[server]>=4.0.8
+          - &moto_server moto[server]>=4.0.8
       - output_types: conda
         packages:
           - moto>=4.0.8
@@ -405,6 +405,17 @@ dependencies:
           - matrix:
             packages:
               - *cuda_python_cu13
+      # 'pip' constraints files cannot include extras like 'moto[server]'. This group
+      # ensures that dependencies ends up in 'kvikio[test]' but not in the output of
+      # 'rapids-generate-pip-constraints' in CI scripts.
+      - output_types: requirements
+        matrices:
+          - matrix:
+              dependencies: "latest"
+            packages:
+          - matrix:
+            packages:
+              - *moto_server
   test_java:
     common:
       - output_types: conda
