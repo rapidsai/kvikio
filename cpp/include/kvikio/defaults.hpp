@@ -379,8 +379,26 @@ class defaults {
    */
   static void set_auto_direct_io_read(bool flag);
 
+  /**
+   * @brief Check if Direct I/O over-read alignment is enabled for device reads
+   *
+   * When enabled, device memory reads use pure Direct I/O by aligning offsets down and sizes up to
+   * page boundaries, at the cost of reading extra bytes from disk. When disabled (default),
+   * unaligned portions fall back to buffered I/O. Only affects the device memory read path (disk to
+   * bounce buffer to GPU). Host memory reads are unaffected.
+   *
+   * Requires `auto_direct_io_read()` to be enabled to have any effect.
+   *
+   * @return Boolean answer
+   */
   static bool auto_direct_io_read_overread();
 
+  /**
+   * @brief Enable or disable Direct I/O over-read alignment for device reads
+   *
+   * @param flag true to enable over-read alignment, false to use opportunistic DIO with buffered
+   * I/O fallback for unaligned portions (default)
+   */
   static void set_auto_direct_io_read_overread(bool flag);
 
   /**

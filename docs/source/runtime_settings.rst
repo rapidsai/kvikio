@@ -121,3 +121,12 @@ Example:
 
    # Enable Direct I/O for reads, and disable it for writes
    kvikio.defaults.set({"auto_direct_io_read": True, "auto_direct_io_write": False})
+
+Over-read Alignment ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When opportunistic Direct I/O is enabled for reads, unaligned prefix and suffix portions of each transfer fall back to buffered I/O. Setting ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1`` forces all disk reads to use Direct I/O by aligning offsets down and sizes up to page boundaries, discarding the extra bytes after the read. This only affects the device memory read path (disk to bounce buffer to GPU). Host memory reads are unaffected. Defaults to disabled.
+
+.. code-block:: bash
+
+   export KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1

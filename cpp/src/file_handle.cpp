@@ -23,7 +23,7 @@
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
-#include "kvikio/utils.hpp"
+#include <kvikio/utils.hpp>
 
 namespace kvikio {
 
@@ -276,8 +276,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
 
   // When using the POSIX path (compat mode) with Direct I/O, shorten the first task so that
-  // subsequent tasks start at a page-aligned file offset, avoiding repeated overread padding in
-  // posix_device_read_aligned.
+  // subsequent tasks start at a page-aligned file offset. This eliminates per-task unaligned
+  // prefix handling in both the opportunistic DIO and the overread DIO paths.
   std::optional<std::size_t> first_task_size{};
   if (get_compat_mode_manager().is_compat_mode_preferred() && _file_direct_on.fd() != -1 &&
       defaults::auto_direct_io_read()) {

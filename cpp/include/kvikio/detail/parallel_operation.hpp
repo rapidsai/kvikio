@@ -131,6 +131,10 @@ std::future<std::size_t> submit_move_only_task(
  * only with registered buffers.
  * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
  * thread pool.
+ * @param call_idx NVTX call index for correlating tasks from the same pread/pwrite call.
+ * @param nvtx_color NVTX color for profiling annotations.
+ * @param first_task_size Size of the first task in bytes. If set, the first task uses this size
+ * instead of `task_size`, allowing callers to align subsequent tasks to page boundaries.
  * @return A future to be used later to check if the operation has finished its execution.
  */
 template <typename F, typename T>

@@ -203,7 +203,7 @@ ssize_t posix_host_io(
  * @param fd_direct_on File descriptor opened with O_DIRECT, or -1 to disable Direct I/O attempts
  * @return Total number of bytes read or written
  *
- * @note For reads, `offset + count` must not exceed the file size. Reading past EOF is not
+ * @note For reads, `file_offset + count` must not exceed the file size. Reading past EOF is not
  * supported and will result in an error.
  */
 template <IOOperationType Operation, typename BounceBufferPoolType = CudaPinnedBounceBufferPool>
