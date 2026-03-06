@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -120,6 +120,7 @@ class defaults {
   long _http_timeout;
   std::vector<int> _http_status_codes;
   bool _auto_direct_io_read;
+  bool _auto_direct_io_read_overread;
   bool _auto_direct_io_write;
   bool _thread_pool_per_block_device;
 
@@ -377,6 +378,10 @@ class defaults {
    * @param flag true to enable opportunistic Direct I/O reads, false to disable
    */
   static void set_auto_direct_io_read(bool flag);
+
+  static bool auto_direct_io_read_overread();
+
+  static void set_auto_direct_io_read_overread(bool flag);
 
   /**
    * @brief Check if Direct I/O is enabled for POSIX writes

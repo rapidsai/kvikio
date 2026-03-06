@@ -80,14 +80,13 @@ std::size_t posix_device_read(int fd_direct_off,
                               int fd_direct_on)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
-  static bool const dio_overread = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", false);
   // The bounce buffer must hold at least 2 pages so that a read straddling two adjacent pages can
   // be satisfied in a single aligned pread.
   static std::size_t const lower_bound = 2 * get_page_size();
   // If Direct I/O is supported and requested and bounce buffer is at least two pages
   if (fd_direct_on != -1 && defaults::auto_direct_io_read() &&
       defaults::bounce_buffer_size() >= lower_bound) {
-    if (dio_overread) {
+    if (defaults::auto_direct_io_read_overread()) {
       return posix_device_read_aligned(
         fd_direct_off, devPtr_base, size, file_offset, devPtr_offset, fd_direct_on);
     }
