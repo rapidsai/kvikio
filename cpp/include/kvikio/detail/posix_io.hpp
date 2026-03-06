@@ -241,12 +241,12 @@ std::size_t posix_device_io(int fd_direct_off,
       // page-aligned CUDA bounce buffer, avoiding an extra memcpy that would occur with
       // PartialIO::NO (where posix_host_io would allocate its own internal bounce buffer for the
       // unaligned DIO path).
-      nbytes_io =
+      nbytes_io = static_cast<std::size_t>(
         posix_host_io<IOOperationType::READ, PartialIO::YES>(fd_direct_off,
                                                              bounce_buffer.get(),
                                                              nbytes_requested,
                                                              convert_size2off(cur_file_offset),
-                                                             fd_direct_on);
+                                                             fd_direct_on));
       CUDA_DRIVER_TRY(
         cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_io, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
