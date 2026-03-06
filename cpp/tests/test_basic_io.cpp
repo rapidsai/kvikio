@@ -319,9 +319,6 @@ class OpportunisticDirectIOTest : public testing::TestWithParam<PreadTestParam> 
 
   std::filesystem::path _filepath;
   std::size_t _pagesize{};
-
-  using AlignedAllocator   = kvikio::test::CustomHostAllocator<value_type, 4096>;
-  using UnalignedAllocator = kvikio::test::CustomHostAllocator<value_type, 4096, 123>;
 };
 
 INSTANTIATE_TEST_SUITE_P(
