@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <iostream>
 
 #include <kvikio/logger.hpp>
 
@@ -37,8 +38,14 @@ rapids_logger::sink_ptr make_sink(rapids_logger::level_enum level)
   auto const* path = std::getenv("KVIKIO_LOG_FILE");
   if (path == nullptr) { return std::make_shared<rapids_logger::stderr_sink_mt>(); }
 
-  bool const truncate{true};  // Clear the file when the sink opens it
-  return std::make_shared<rapids_logger::basic_file_sink_mt>(path, truncate);
+  try {
+    bool const truncate{true};  // Clear the file when the sink opens it
+    return std::make_shared<rapids_logger::basic_file_sink_mt>(path, truncate);
+  } catch (std::exception const& e) {
+    std::cerr << "KvikIO warning: Cannot open log file " << path << ": " << e.what()
+              << ". Logging to the standard error instead\n";
+    return std::make_shared<rapids_logger::stderr_sink_mt>();
+  }
 }
 }  // namespace
 
@@ -47,6 +54,7 @@ rapids_logger::logger& default_logger()
   static rapids_logger::logger logger_ = [] {
     auto const level = get_level_from_env();
     rapids_logger::logger logger_{"kvikio", {make_sink(level)}};
+    // Pattern: [thread_id][hours:minutes:seconds:microseconds][level ] message
     logger_.set_pattern("[%6t][%H:%M:%S:%f][%-6l] %v");
     logger_.set_level(level);
     return logger_;
