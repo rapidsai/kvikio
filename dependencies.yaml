@@ -70,8 +70,14 @@ files:
     includes:
       - depends_on_cupy
       - depends_on_libkvikio
-      - depends_on_rapids_logger
       - run
+  py_run_libkvikio:
+    output: pyproject
+    pyproject_dir: python/libkvikio
+    extras:
+      table: project
+    includes:
+      - depends_on_rapids_logger
   py_rapids_build_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
