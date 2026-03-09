@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
@@ -73,6 +73,7 @@ cache:
       - libcurl ==${{ libcurl_version }}
       - libcufile-dev
       - libnuma
+      - rapids-logger =0.2
 
 outputs:
   - package:
@@ -95,6 +96,7 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - libcurl ==${{ libcurl_version }}
+        - rapids-logger =0.2
       run:
         - if: cuda_version >= "13.0"
           then:
@@ -102,6 +104,7 @@ outputs:
           else:
           - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2.0a0") }}
         - libcufile-dev
+        - rapids-logger =0.2
       ignore_run_exports:
         by_name:
           - cuda-version

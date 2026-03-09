@@ -16,6 +16,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_cupy
+      - depends_on_rapids_logger
       - docs
       - py_version
       - rapids_build_skbuild
@@ -69,6 +70,7 @@ files:
     includes:
       - depends_on_cupy
       - depends_on_libkvikio
+      - depends_on_rapids_logger
       - run
   py_rapids_build_libkvikio:
     output: pyproject
@@ -78,6 +80,7 @@ files:
       key: requires
     includes:
       - build-universal
+      - depends_on_rapids_logger
   py_rapids_build_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
@@ -252,6 +255,15 @@ dependencies:
             packages:
               - libkvikio-cu13==26.4.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
+  depends_on_rapids_logger:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - rapids-logger==0.2.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
   docs:
     common:
       - output_types: [conda, requirements]
