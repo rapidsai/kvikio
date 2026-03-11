@@ -327,7 +327,6 @@ class OpportunisticDirectIOTest : public testing::TestWithParam<PreadTestParam> 
   {
     TempDir tmp_dir{false};
     _filepath = tmp_dir.path() / "test";
-    _pagesize = kvikio::get_page_size();
 
     // Skip if Direct I/O is not supported
     try {
@@ -350,7 +349,6 @@ class OpportunisticDirectIOTest : public testing::TestWithParam<PreadTestParam> 
   }
 
   std::filesystem::path _filepath;
-  std::size_t _pagesize{};
 };
 
 INSTANTIATE_TEST_SUITE_P(
