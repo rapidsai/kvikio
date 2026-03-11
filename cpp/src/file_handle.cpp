@@ -243,8 +243,14 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(
-      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
+    return detail::parallel_io(
+      op,
+      buf,
+      size,
+      file_offset,
+      task_size,
+      0,
+      {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -287,16 +293,16 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     }
   }
 
-  return parallel_io(task,
-                     devPtr_base,
-                     size,
-                     file_offset,
-                     task_size,
-                     devPtr_offset,
-                     actual_thread_pool,
-                     call_idx,
-                     nvtx_color,
-                     first_task_size);
+  return detail::parallel_io(task,
+                             devPtr_base,
+                             size,
+                             file_offset,
+                             task_size,
+                             devPtr_offset,
+                             {.thread_pool     = actual_thread_pool,
+                              .call_idx        = call_idx,
+                              .nvtx_color      = nvtx_color,
+                              .first_task_size = first_task_size});
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -327,8 +333,14 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(
-      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
+    return detail::parallel_io(
+      op,
+      buf,
+      size,
+      file_offset,
+      task_size,
+      0,
+      {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -358,15 +370,14 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     return write(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(op,
-                     devPtr_base,
-                     size,
-                     file_offset,
-                     task_size,
-                     devPtr_offset,
-                     actual_thread_pool,
-                     call_idx,
-                     nvtx_color);
+  return detail::parallel_io(
+    op,
+    devPtr_base,
+    size,
+    file_offset,
+    task_size,
+    devPtr_offset,
+    {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
 }
 
 void FileHandle::read_async(void* devPtr_base,
