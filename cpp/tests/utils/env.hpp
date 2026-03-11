@@ -31,12 +31,18 @@ class EnvVarContext {
   /**
    * @brief Set the environment variables to new values
    *
-   * @param env_var_entries User-specified environment variables. Each entry includes the variable
-   * name and value.
+   * @param env_var_entries An initializer list of user-specified environment variables. Each entry
+   * includes the variable name and value.
    */
   EnvVarContext(
     std::initializer_list<std::pair<std::string_view, std::string_view>> env_var_entries);
 
+  /**
+   * @brief Set the environment variables to new values
+   *
+   * @param env_var_entries An unordered map of user-specified environment variables. Each entry
+   * includes the variable name and value.
+   */
   EnvVarContext(std::unordered_map<std::string, std::string> const& entries);
 
   /**

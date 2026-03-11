@@ -23,6 +23,38 @@
 
 using namespace kvikio::test;
 
+class DirectIOSettingRaii {
+ private:
+  bool _previous_dio_read;
+  bool _previous_dio_read_overread;
+  bool _previous_dio_write;
+
+ public:
+  DirectIOSettingRaii(std::unordered_map<std::string, bool> const& entries)
+  {
+    _previous_dio_read          = kvikio::defaults::auto_direct_io_read();
+    _previous_dio_read_overread = kvikio::defaults::auto_direct_io_read_overread();
+    _previous_dio_write         = kvikio::defaults::auto_direct_io_write();
+
+    if (auto it = entries.find("KVIKIO_AUTO_DIRECT_IO_READ"); it != entries.end()) {
+      kvikio::defaults::set_auto_direct_io_read(it->second);
+    }
+    if (auto it = entries.find("KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD"); it != entries.end()) {
+      kvikio::defaults::set_auto_direct_io_read_overread(it->second);
+    }
+    if (auto it = entries.find("KVIKIO_AUTO_DIRECT_IO_WRITE"); it != entries.end()) {
+      kvikio::defaults::set_auto_direct_io_write(it->second);
+    }
+  }
+
+  ~DirectIOSettingRaii()
+  {
+    kvikio::defaults::set_auto_direct_io_read(_previous_dio_read);
+    kvikio::defaults::set_auto_direct_io_read_overread(_previous_dio_read_overread);
+    kvikio::defaults::set_auto_direct_io_write(_previous_dio_write);
+  }
+};
+
 class BasicIOTest : public testing::Test {
  protected:
   void SetUp() override
@@ -199,8 +231,8 @@ TEST_F(DirectIOTest, pwrite)
   std::array auto_direct_io_statuses{true, false};
 
   for (const auto& flag : auto_direct_io_statuses) {
-    std::string flag_str = flag ? "true" : "false";
-    kvikio::test::EnvVarContext env_var_ctx{{"KVIKIO_AUTO_DIRECT_IO_WRITE", flag_str}};
+    std::unordered_map<std::string, bool> setting = {{"KVIKIO_AUTO_DIRECT_IO_WRITE", flag}};
+    DirectIOSettingRaii _(setting);
     for (const auto buf : buffers) {
       // Fill up the buffer and write data to file (using KvikIO's pwrite)
       {
@@ -251,8 +283,8 @@ TEST_F(DirectIOTest, pread)
   std::array auto_direct_io_statuses{true, false};
 
   for (const auto& flag : auto_direct_io_statuses) {
-    std::string flag_str = flag ? "true" : "false";
-    kvikio::test::EnvVarContext env_var_ctx{{"KVIKIO_AUTO_DIRECT_IO_READ", flag_str}};
+    std::unordered_map<std::string, bool> setting = {{"KVIKIO_AUTO_DIRECT_IO_READ", flag}};
+    DirectIOSettingRaii _(setting);
     for (const auto buf : buffers) {
       // Read data from file (using KvikIO's pread) and check correctness
       {
@@ -279,7 +311,7 @@ TEST_F(DirectIOTest, pread)
 
 struct PreadTestParam {
   std::string test_name;
-  std::unordered_map<std::string, std::string> env_vars;
+  std::unordered_map<std::string, bool> env_vars;
   std::size_t num_elements_in_file;
   std::size_t num_elements_to_read;
   std::size_t file_offset;
@@ -327,95 +359,94 @@ INSTANTIATE_TEST_SUITE_P(
   testing::Values(
     // Both offset and size are aligned
     PreadTestParam{"aligned_bio",
-                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}},
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", false}},
                    1024ull * 1024ull,
                    1024ull * 1024ull,
                    0},
     PreadTestParam{"aligned_dio",
-                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}},
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", true}},
                    1024ull * 1024ull,
                    1024ull * 1024ull,
                    0},
     PreadTestParam{
       "aligned_dio_overread",
-      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", true}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", true}},
       1024ull * 1024ull,
       1024ull * 1024ull,
       0},
 
     // Offset is unaligned
     PreadTestParam{"unaligned_offset_bio",
-                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}},
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", false}},
                    1024ull * 1024ull,
                    1024ull * 10ull,
                    240},
     PreadTestParam{"unaligned_offset_dio",
-                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}},
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", true}},
                    1024ull * 1024ull,
                    1024ull * 10ull,
                    240},
     PreadTestParam{
       "unaligned_offset_dio_overread",
-      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", true}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", true}},
       1024ull * 1024ull,
       1024ull * 10ull,
       240},
 
     // Size is unaligned
     PreadTestParam{"unaligned_size_bio",
-                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}},
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", false}},
                    1024ull * 1024ull + 123ull,
                    1024ull * 1024ull + 123ull,
                    0},
     PreadTestParam{"unaligned_size_dio",
-                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}},
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", true}},
                    1024ull * 1024ull + 123ull,
                    1024ull * 1024ull + 123ull,
                    0},
     PreadTestParam{
       "unaligned_size_dio_overread",
-      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", true}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", true}},
       1024ull * 1024ull + 123ull,
       1024ull * 1024ull + 123ull,
       0},
 
     // Both offset and size are unaligned
     PreadTestParam{"unaligned_bio",
-                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}},
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", false}},
                    1024ull * 1024ull + 123ull,
                    1024ull * 1024ull + 93ull,
                    240},
     PreadTestParam{"unaligned_dio",
-                   {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}},
+                   {{"KVIKIO_AUTO_DIRECT_IO_READ", true}},
                    1024ull * 1024ull + 123ull,
                    1024ull * 1024ull + 93ull,
                    240},
     PreadTestParam{
       "unaligned_dio_overread",
-      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", true}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", true}},
       1024ull * 1024ull + 123ull,
       1024ull * 1024ull + 93ull,
       240},
 
     // Small range within one page
-    PreadTestParam{
-      "small_subpage_bio", {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}}, 1024ull, 64, 240},
-    PreadTestParam{"small_subpage_dio", {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}}, 1024ull, 64, 240},
+    PreadTestParam{"small_subpage_bio", {{"KVIKIO_AUTO_DIRECT_IO_READ", false}}, 1024ull, 64, 240},
+    PreadTestParam{"small_subpage_dio", {{"KVIKIO_AUTO_DIRECT_IO_READ", true}}, 1024ull, 64, 240},
     PreadTestParam{
       "small_subpage_dio_overread",
-      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", true}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", true}},
       1024ull,
       64,
       240},
 
     // Small range straddling two pages
     PreadTestParam{
-      "small_straddling_bio", {{"KVIKIO_AUTO_DIRECT_IO_READ", "false"}}, 1024ull, 200ull, 2848ull},
+      "small_straddling_bio", {{"KVIKIO_AUTO_DIRECT_IO_READ", false}}, 1024ull, 200ull, 2848ull},
     PreadTestParam{
-      "small_straddling_dio", {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}}, 1024ull, 200ull, 2848ull},
+      "small_straddling_dio", {{"KVIKIO_AUTO_DIRECT_IO_READ", true}}, 1024ull, 200ull, 2848ull},
     PreadTestParam{
       "small_straddling_dio_overread",
-      {{"KVIKIO_AUTO_DIRECT_IO_READ", "true"}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", "true"}},
+      {{"KVIKIO_AUTO_DIRECT_IO_READ", true}, {"KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", true}},
       1024ull,
       200ull,
       2848ull}));
@@ -429,7 +460,7 @@ TEST_P(OpportunisticDirectIOTest, pread_device_correctness)
 
   WriteGroundTruth(ground_truth);
 
-  EnvVarContext env(param.env_vars);
+  DirectIOSettingRaii _(param.env_vars);
   DevBuffer<value_type> dev_buf(param.num_elements_to_read);
 
   kvikio::FileHandle f(_filepath, "r");
