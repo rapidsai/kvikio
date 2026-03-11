@@ -263,6 +263,10 @@ class defaults {
   /**
    * @brief Set the default task size used for parallel IO operations.
    *
+   * When opportunistic Direct I/O is enabled (`KVIKIO_AUTO_DIRECT_IO_READ=1`), this value should be
+   * a multiple of page size (typically 4 KiB) so that parallel tasks start at page-aligned file
+   * offsets, avoiding buffered I/O fallback.
+   *
    * @param nbytes The default task size in bytes.
    */
   static void set_task_size(std::size_t nbytes);
