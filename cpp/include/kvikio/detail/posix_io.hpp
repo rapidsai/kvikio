@@ -62,8 +62,9 @@ enum class PartialIO : uint8_t {
  * @param fd_direct_on File descriptor opened with O_DIRECT, or -1 to disable Direct I/O attempts
  * @return Number of bytes read or written (always greater than zero)
  *
- * @note For reads, `offset + count` must not exceed the file size. Reading past EOF is not
- * supported and will result in an error.
+ * @note For reads with PartialIO::NO, offset + count must not exceed the file size. With
+ * PartialIO::YES, the read may extend past EOF provided that offset < file_size (::pread returns
+ * partial bytes in that case).
  */
 template <IOOperationType Operation,
           PartialIO PartialIOStatus,
