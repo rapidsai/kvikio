@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -33,6 +33,19 @@ def _load_wheel_installation(soname: str):
 
 
 def load_library():
+    """Dynamically load libkvikio.so and its dependencies"""
+    try:
+        # librapids_logger must be loaded before libkvikio because libkvikio
+        # references it.
+        import rapids_logger
+
+        rapids_logger.load_library()
+    except ModuleNotFoundError:
+        # libkvikio's runtime dependency on librapids_logger may be satisfied by a
+        # natively installed library or a conda package, in which case the import will
+        # fail and we assume the library is discoverable on system paths.
+        pass
+
     return _load_library("libkvikio.so")
 
 

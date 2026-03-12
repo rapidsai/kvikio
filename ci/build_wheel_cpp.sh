@@ -31,6 +31,7 @@ export PIP_NO_BUILD_ISOLATION=0
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 python -m auditwheel repair \
+    --exclude librapids_logger.so \
     -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" \
     ${package_dir}/dist/*
 
