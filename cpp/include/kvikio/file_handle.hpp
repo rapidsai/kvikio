@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -24,6 +24,11 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
+
+// Forward declaration
+namespace detail {
+class IoContext;
+}
 
 /**
  * @brief Handle of an open file registered with cufile.
@@ -167,6 +172,13 @@ class FileHandle {
                    std::size_t file_offset,
                    std::size_t devPtr_offset,
                    bool sync_default_stream = true);
+
+  std::size_t read_with_bounce_buffer_ring(detail::IoContext* io_context,
+                                           void* devPtr_base,
+                                           std::size_t size,
+                                           std::size_t file_offset,
+                                           std::size_t devPtr_offset,
+                                           bool sync_default_stream = true);
 
   /**
    * @brief Writes specified bytes from the device memory into the file.
