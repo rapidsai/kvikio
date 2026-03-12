@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
   <groupId>ai.rapids.kvikio</groupId>
   <artifactId>cufile</artifactId>
-  <version>26.04.0-SNAPSHOT</version>
+  <version>26.06.0-SNAPSHOT</version>
 
   <name>cuFile</name>
   <description>
