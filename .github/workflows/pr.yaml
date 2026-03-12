@@ -243,7 +243,7 @@ jobs:
         sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt;
   wheel-cpp-build:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@python-3.14
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@build-wheels-old-ctk
     with:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: pull-request
@@ -254,7 +254,7 @@ jobs:
   wheel-python-build:
     needs: wheel-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@python-3.14
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@build-wheels-old-ctk
     with:
       build_type: pull-request
       node_type: cpu8
