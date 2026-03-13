@@ -444,15 +444,14 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
     return size;
   };
 
-  return parallel_io(op,
-                     buf,
-                     actual_size,
-                     offset,
-                     task_size,
-                     0,  // dst buffer offset initial value
-                     thread_pool,
-                     call_idx,
-                     nvtx_color);
+  return detail::parallel_io(
+    op,
+    buf,
+    actual_size,
+    offset,
+    task_size,
+    0,  // dst buffer offset initial value
+    {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
 }
 
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,
