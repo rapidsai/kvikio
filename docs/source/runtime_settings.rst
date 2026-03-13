@@ -29,6 +29,8 @@ Task Size ``KVIKIO_TASK_SIZE``
 ------------------------------
 KvikIO splits parallel IO operations into multiple tasks. Set the environment variable ``KVIKIO_TASK_SIZE`` to the maximum task size (in bytes). If not set, the default value is 4194304 (4 MiB).
 
+When opportunistic Direct I/O read is enabled (``KVIKIO_AUTO_DIRECT_IO_READ=1``), this value should be a multiple of page size (typically 4 KiB) so that parallel tasks start at page-aligned file offsets, avoiding buffered I/O fallback.
+
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``task_size``.
 
 GDS Threshold ``KVIKIO_GDS_THRESHOLD``
