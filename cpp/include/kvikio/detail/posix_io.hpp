@@ -70,22 +70,22 @@ template <IOOperationType Operation,
           PartialIO PartialIOStatus,
           typename BounceBufferPoolType = PageAlignedBounceBufferPool>
 ssize_t posix_host_io(
-  int fd_direct_off, void const* buf, size_t count, off_t offset, int fd_direct_on = -1)
+  int fd_direct_off, void const* buf, std::size_t count, std::size_t offset, int fd_direct_on = -1)
 {
-  auto pread_or_write = [](int fd, void* buf, size_t count, off_t offset) -> ssize_t {
+  auto pread_or_write = [](int fd, void* buf, std::size_t count, std::size_t offset) -> ssize_t {
     ssize_t nbytes{};
     if constexpr (Operation == IOOperationType::READ) {
-      nbytes = ::pread(fd, buf, count, offset);
+      nbytes = ::pread(fd, buf, count, convert_size2off(offset));
     } else {
-      nbytes = ::pwrite(fd, buf, count, offset);
+      nbytes = ::pwrite(fd, buf, count, convert_size2off(offset));
     }
     return nbytes;
   };
 
-  off_t cur_offset       = offset;
-  size_t bytes_remaining = count;
-  char* buffer           = const_cast<char*>(static_cast<char const*>(buf));
-  auto const page_size   = get_page_size();
+  std::size_t cur_offset      = offset;
+  std::size_t bytes_remaining = count;
+  char* buffer                = const_cast<char*>(static_cast<char const*>(buf));
+  auto const page_size        = get_page_size();
 
   constexpr char const* op_name_bio =
     (Operation == IOOperationType::READ) ? "Buffered pread" : "Buffered pwrite";
@@ -113,8 +113,7 @@ ssize_t posix_host_io(
         // Handle unaligned prefix: use buffered I/O to reach next page boundary
         // This ensures subsequent iterations will have page-aligned offsets
         auto const aligned_cur_offset = detail::align_up(cur_offset, page_size);
-        auto const bytes_requested =
-          std::min(aligned_cur_offset - static_cast<std::size_t>(cur_offset), bytes_remaining);
+        auto const bytes_requested    = std::min(aligned_cur_offset - cur_offset, bytes_remaining);
         KVIKIO_NVTX_SCOPED_RANGE(op_name_bio, bytes_requested, color_bio);
         nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_requested, cur_offset);
       } else {
@@ -242,12 +241,8 @@ std::size_t posix_device_io(int fd_direct_off,
       // page-aligned CUDA bounce buffer, avoiding an extra memcpy that would occur with
       // PartialIO::NO (where posix_host_io would allocate its own internal bounce buffer for the
       // unaligned DIO path).
-      nbytes_io = static_cast<std::size_t>(
-        posix_host_io<IOOperationType::READ, PartialIO::YES>(fd_direct_off,
-                                                             bounce_buffer.get(),
-                                                             nbytes_requested,
-                                                             convert_size2off(cur_file_offset),
-                                                             fd_direct_on));
+      nbytes_io = static_cast<std::size_t>(posix_host_io<IOOperationType::READ, PartialIO::YES>(
+        fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on));
       CUDA_DRIVER_TRY(
         cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_io, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
@@ -255,11 +250,8 @@ std::size_t posix_device_io(int fd_direct_off,
       CUDA_DRIVER_TRY(
         cudaAPI::instance().MemcpyDtoHAsync(bounce_buffer.get(), devPtr, nbytes_requested, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-      posix_host_io<IOOperationType::WRITE, PartialIO::NO>(fd_direct_off,
-                                                           bounce_buffer.get(),
-                                                           nbytes_requested,
-                                                           convert_size2off(cur_file_offset),
-                                                           fd_direct_on);
+      posix_host_io<IOOperationType::WRITE, PartialIO::NO>(
+        fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on);
     }
     cur_file_offset += nbytes_io;
     devPtr += nbytes_io;
@@ -319,7 +311,7 @@ std::size_t posix_host_read(
   if (fd_direct_on != -1 && defaults::auto_direct_io_read()) { cur_fd_direct_on = fd_direct_on; }
 
   return detail::posix_host_io<IOOperationType::READ, PartialIOStatus>(
-    fd_direct_off, buf, size, convert_size2off(file_offset), cur_fd_direct_on);
+    fd_direct_off, buf, size, file_offset, cur_fd_direct_on);
 }
 
 /**
@@ -350,7 +342,7 @@ std::size_t posix_host_write(int fd_direct_off,
   if (fd_direct_on != -1 && defaults::auto_direct_io_write()) { cur_fd_direct_on = fd_direct_on; }
 
   return detail::posix_host_io<IOOperationType::WRITE, PartialIOStatus>(
-    fd_direct_off, buf, size, convert_size2off(file_offset), cur_fd_direct_on);
+    fd_direct_off, buf, size, file_offset, cur_fd_direct_on);
 }
 
 /**

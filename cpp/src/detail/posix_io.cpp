@@ -49,12 +49,9 @@ std::size_t posix_device_read_aligned(int fd_direct_off,
     // Note: Use PartialIO::YES for posix_host_io, because the requested read size aligned_size may
     // extend past EOF. With PartialIO::NO, posix_host_io would loop, and eventually hit EOF on
     // ::pread.
-    std::size_t nbytes_io = static_cast<std::size_t>(
-      posix_host_io<IOOperationType::READ, PartialIO::YES>(fd_direct_off,
-                                                           bounce_buffer.get(),
-                                                           aligned_size,
-                                                           convert_size2off(aligned_offset),
-                                                           fd_direct_on));
+    std::size_t nbytes_io =
+      static_cast<std::size_t>(posix_host_io<IOOperationType::READ, PartialIO::YES>(
+        fd_direct_off, bounce_buffer.get(), aligned_size, aligned_offset, fd_direct_on));
     KVIKIO_EXPECT(nbytes_io > prefix, "pread(O_DIRECT): unexpected EOF within the requested range");
 
     std::size_t nbytes_processed = std::min(nbytes_expected, nbytes_io - prefix);
