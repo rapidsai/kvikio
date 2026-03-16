@@ -14,7 +14,7 @@ function(find_and_configure_kvikio MIN_VERSION)
             GIT_REPOSITORY
             https://github.com/rapidsai/kvikio.git
     # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
-    GIT_TAG main
+    GIT_TAG release/26.04
     GIT_SHALLOW
       TRUE
       SOURCE_SUBDIR
