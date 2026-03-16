@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -23,6 +23,7 @@
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
+#include <kvikio/utils.hpp>
 
 namespace kvikio {
 
@@ -242,8 +243,14 @@ std::future<std::size_t> FileHandle::pread(void* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(
-      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
+    return detail::parallel_io(
+      op,
+      buf,
+      size,
+      file_offset,
+      task_size,
+      0,
+      {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -273,15 +280,29 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(task,
-                     devPtr_base,
-                     size,
-                     file_offset,
-                     task_size,
-                     devPtr_offset,
-                     actual_thread_pool,
-                     call_idx,
-                     nvtx_color);
+
+  // When using the POSIX path (compat mode) with Direct I/O, shorten the first task so that
+  // subsequent tasks start at a page-aligned file offset. This eliminates per-task unaligned
+  // prefix handling in both the opportunistic DIO and the overread DIO paths.
+  std::optional<std::size_t> first_task_size{};
+  if (get_compat_mode_manager().is_compat_mode_preferred() && _file_direct_on.fd() != -1 &&
+      defaults::auto_direct_io_read()) {
+    auto const misalignment = file_offset - detail::align_down(file_offset, get_page_size());
+    if (misalignment > 0 && misalignment < task_size) {
+      first_task_size = task_size - misalignment;
+    }
+  }
+
+  return detail::parallel_io(task,
+                             devPtr_base,
+                             size,
+                             file_offset,
+                             task_size,
+                             devPtr_offset,
+                             {.thread_pool     = actual_thread_pool,
+                              .call_idx        = call_idx,
+                              .nvtx_color      = nvtx_color,
+                              .first_task_size = first_task_size});
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -312,8 +333,14 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
     };
 
-    return parallel_io(
-      op, buf, size, file_offset, task_size, 0, actual_thread_pool, call_idx, nvtx_color);
+    return detail::parallel_io(
+      op,
+      buf,
+      size,
+      file_offset,
+      task_size,
+      0,
+      {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -343,15 +370,14 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     return write(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return parallel_io(op,
-                     devPtr_base,
-                     size,
-                     file_offset,
-                     task_size,
-                     devPtr_offset,
-                     actual_thread_pool,
-                     call_idx,
-                     nvtx_color);
+  return detail::parallel_io(
+    op,
+    devPtr_base,
+    size,
+    file_offset,
+    task_size,
+    devPtr_offset,
+    {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
 }
 
 void FileHandle::read_async(void* devPtr_base,

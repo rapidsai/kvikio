@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -138,8 +138,9 @@ defaults::defaults()
 
   // Determine the default value of `auto_direct_io_read` and `auto_direct_io_write`
   {
-    _auto_direct_io_read  = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
-    _auto_direct_io_write = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
+    _auto_direct_io_read          = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ", false);
+    _auto_direct_io_read_overread = getenv_or("KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD", false);
+    _auto_direct_io_write         = getenv_or("KVIKIO_AUTO_DIRECT_IO_WRITE", true);
   }
 
   // Determine the default value of `thread_pool_per_block_device`
@@ -239,6 +240,13 @@ void defaults::set_http_timeout(long timeout_seconds)
 bool defaults::auto_direct_io_read() { return instance()->_auto_direct_io_read; }
 
 void defaults::set_auto_direct_io_read(bool flag) { instance()->_auto_direct_io_read = flag; }
+
+bool defaults::auto_direct_io_read_overread() { return instance()->_auto_direct_io_read_overread; }
+
+void defaults::set_auto_direct_io_read_overread(bool flag)
+{
+  instance()->_auto_direct_io_read_overread = flag;
+}
 
 bool defaults::auto_direct_io_write() { return instance()->_auto_direct_io_write; }
 

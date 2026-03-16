@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -8,21 +8,19 @@
 #include <cassert>
 #include <future>
 #include <memory>
-#include <numeric>
-#include <system_error>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
-namespace kvikio {
-
-namespace detail {
+namespace kvikio::detail {
 
 /**
  * @brief Utility function to create a copyable callable from a move-only callable.
@@ -66,6 +64,18 @@ inline const std::pair<const nvtx_color_type&, std::uint64_t> get_next_color_and
 }
 
 /**
+ * @brief Options for a single I/O task submission.
+ */
+struct TaskOptions {
+  /// Thread pool for task execution. Defaults to the global default thread pool.
+  ThreadPool* thread_pool = &defaults::thread_pool();
+  /// NVTX payload value for profiling annotations.
+  std::uint64_t nvtx_payload = 0ull;
+  /// NVTX color for profiling annotations.
+  nvtx_color_type nvtx_color = NvtxManager::default_color();
+};
+
+/**
  * @brief Submit the task callable to the underlying thread pool.
  *
  * Both the callable and arguments shall satisfy copy-constructible.
@@ -76,9 +86,7 @@ std::future<std::size_t> submit_task(F op,
                                      std::size_t size,
                                      std::size_t file_offset,
                                      std::size_t devPtr_offset,
-                                     ThreadPool* thread_pool    = &defaults::thread_pool(),
-                                     std::uint64_t nvtx_payload = 0ull,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     TaskOptions opts = {})
 {
   static_assert(std::is_invocable_r_v<std::size_t,
                                       decltype(op),
@@ -87,8 +95,8 @@ std::future<std::size_t> submit_task(F op,
                                       decltype(file_offset),
                                       decltype(devPtr_offset)>);
 
-  return thread_pool->submit_task([=] {
-    KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
+  return opts.thread_pool->submit_task([=] {
+    KVIKIO_NVTX_SCOPED_RANGE("task", opts.nvtx_payload, opts.nvtx_color);
     return op(buf, size, file_offset, devPtr_offset);
   });
 }
@@ -101,21 +109,37 @@ std::future<std::size_t> submit_task(F op,
  * @return A future to be used later to check if the operation has finished its execution.
  */
 template <typename F>
-std::future<std::size_t> submit_move_only_task(
-  F op_move_only,
-  ThreadPool* thread_pool    = &defaults::thread_pool(),
-  std::uint64_t nvtx_payload = 0ull,
-  nvtx_color_type nvtx_color = NvtxManager::default_color())
+std::future<std::size_t> submit_move_only_task(F op_move_only, TaskOptions opts = {})
 {
   static_assert(std::is_invocable_r_v<std::size_t, F>);
   auto op_copyable = make_copyable_lambda(std::move(op_move_only));
-  return thread_pool->submit_task([=] {
-    KVIKIO_NVTX_SCOPED_RANGE("task", nvtx_payload, nvtx_color);
+  return opts.thread_pool->submit_task([=] {
+    KVIKIO_NVTX_SCOPED_RANGE("task", opts.nvtx_payload, opts.nvtx_color);
     return op_copyable();
   });
 }
 
-}  // namespace detail
+/**
+ * @brief Options for parallel I/O execution.
+ *
+ * @see TaskOptions for per-task options derived via to_task_options().
+ */
+struct ParallelIoOptions {
+  /// Thread pool for task execution. Defaults to the global default thread pool.
+  ThreadPool* thread_pool = &defaults::thread_pool();
+  /// NVTX call index for correlating tasks from the same pread/pwrite call.
+  std::uint64_t call_idx = 0ull;
+  /// NVTX color for profiling annotations.
+  nvtx_color_type nvtx_color = NvtxManager::default_color();
+  /// Size of the first task in bytes. If set, the first task uses this size instead of `task_size`,
+  /// allowing callers to align subsequent tasks to page boundaries.
+  std::optional<std::size_t> first_task_size = std::nullopt;
+
+  TaskOptions to_task_options() const noexcept
+  {
+    return {.thread_pool = thread_pool, .nvtx_payload = call_idx, .nvtx_color = nvtx_color};
+  }
+};
 
 /**
  * @brief Apply read or write operation in parallel.
@@ -127,10 +151,9 @@ std::future<std::size_t> submit_move_only_task(
  * @param size Number of bytes to read or write.
  * @param file_offset Byte offset to the start of the file.
  * @param task_size Size of each task in bytes.
- * @param devPtr_offset Offset relative to the `devPtr_base` pointer. This parameter should be used
- * only with registered buffers.
- * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
- * thread pool.
+ * @param devPtr_offset Offset relative to the `devPtr_base` pointer, used only with registered
+ * buffers.
+ * @param opts Optional parameters for parallel execution. @see ParallelIoOptions.
  * @return A future to be used later to check if the operation has finished its execution.
  */
 template <typename F, typename T>
@@ -140,12 +163,10 @@ std::future<std::size_t> parallel_io(F op,
                                      std::size_t file_offset,
                                      std::size_t task_size,
                                      std::size_t devPtr_offset,
-                                     ThreadPool* thread_pool    = &defaults::thread_pool(),
-                                     std::uint64_t call_idx     = 0,
-                                     nvtx_color_type nvtx_color = NvtxManager::default_color())
+                                     ParallelIoOptions opts = {})
 {
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
-  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  KVIKIO_EXPECT(opts.thread_pool != nullptr, "The thread pool must not be nullptr");
   static_assert(std::is_invocable_r_v<std::size_t,
                                       decltype(op),
                                       decltype(buf),
@@ -155,23 +176,31 @@ std::future<std::size_t> parallel_io(F op,
 
   // Single-task guard
   if (task_size >= size || get_page_size() >= size) {
-    return detail::submit_task(
-      op, buf, size, file_offset, devPtr_offset, thread_pool, call_idx, nvtx_color);
+    return detail::submit_task(op, buf, size, file_offset, devPtr_offset, opts.to_task_options());
   }
 
   std::vector<std::future<std::size_t>> tasks;
-  tasks.reserve(size / task_size);
+  tasks.reserve(size / task_size + 1);
 
-  // 1) Submit all tasks but the last one. These are all `task_size` sized tasks.
+  // 1) Submit the first task (possibly shorter to satisfy caller alignment needs).
+  auto const actual_first_task_size = opts.first_task_size.value_or(task_size);
+  auto cur_size                     = std::min(actual_first_task_size, size);
+  tasks.push_back(
+    detail::submit_task(op, buf, cur_size, file_offset, devPtr_offset, opts.to_task_options()));
+  file_offset += cur_size;
+  devPtr_offset += cur_size;
+  size -= cur_size;
+
+  // 2) Submit remaining tasks but the last. These are all `task_size` sized.
   while (size > task_size) {
-    tasks.push_back(detail::submit_task(
-      op, buf, task_size, file_offset, devPtr_offset, thread_pool, call_idx, nvtx_color));
+    tasks.push_back(
+      detail::submit_task(op, buf, task_size, file_offset, devPtr_offset, opts.to_task_options()));
     file_offset += task_size;
     devPtr_offset += task_size;
     size -= task_size;
   }
 
-  // 2) Submit the last task, which consists of performing the last I/O and waiting the previous
+  // 3) Submit the last task, which consists of performing the last I/O and waiting the previous
   // tasks.
   auto last_task = [=, tasks = std::move(tasks)]() mutable -> std::size_t {
     auto ret = op(buf, size, file_offset, devPtr_offset);
@@ -180,7 +209,7 @@ std::future<std::size_t> parallel_io(F op,
     }
     return ret;
   };
-  return detail::submit_move_only_task(std::move(last_task), thread_pool, call_idx, nvtx_color);
+  return detail::submit_move_only_task(std::move(last_task), opts.to_task_options());
 }
 
-}  // namespace kvikio
+}  // namespace kvikio::detail

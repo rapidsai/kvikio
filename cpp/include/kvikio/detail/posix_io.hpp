@@ -61,27 +61,31 @@ enum class PartialIO : uint8_t {
  * @param offset File offset in bytes
  * @param fd_direct_on File descriptor opened with O_DIRECT, or -1 to disable Direct I/O attempts
  * @return Number of bytes read or written (always greater than zero)
+ *
+ * @note For reads with PartialIO::NO, offset + count must not exceed the file size. With
+ * PartialIO::YES, the read may extend past EOF provided that offset < file_size (::pread returns
+ * partial bytes in that case).
  */
 template <IOOperationType Operation,
           PartialIO PartialIOStatus,
           typename BounceBufferPoolType = PageAlignedBounceBufferPool>
 ssize_t posix_host_io(
-  int fd_direct_off, void const* buf, size_t count, off_t offset, int fd_direct_on = -1)
+  int fd_direct_off, void const* buf, std::size_t count, std::size_t offset, int fd_direct_on = -1)
 {
-  auto pread_or_write = [](int fd, void* buf, size_t count, off_t offset) -> ssize_t {
+  auto pread_or_write = [](int fd, void* buf, std::size_t count, std::size_t offset) -> ssize_t {
     ssize_t nbytes{};
     if constexpr (Operation == IOOperationType::READ) {
-      nbytes = ::pread(fd, buf, count, offset);
+      nbytes = ::pread(fd, buf, count, convert_size2off(offset));
     } else {
-      nbytes = ::pwrite(fd, buf, count, offset);
+      nbytes = ::pwrite(fd, buf, count, convert_size2off(offset));
     }
     return nbytes;
   };
 
-  off_t cur_offset       = offset;
-  size_t bytes_remaining = count;
-  char* buffer           = const_cast<char*>(static_cast<char const*>(buf));
-  auto const page_size   = get_page_size();
+  std::size_t cur_offset      = offset;
+  std::size_t bytes_remaining = count;
+  char* buffer                = const_cast<char*>(static_cast<char const*>(buf));
+  auto const page_size        = get_page_size();
 
   constexpr char const* op_name_bio =
     (Operation == IOOperationType::READ) ? "Buffered pread" : "Buffered pwrite";
@@ -103,7 +107,7 @@ ssize_t posix_host_io(
       nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
     } else {
       // Direct I/O enabled: attempt to use it when alignment allows
-      auto const is_cur_offset_aligned = detail::is_aligned(cur_offset, page_size);
+      auto const is_cur_offset_aligned = is_aligned(cur_offset, page_size);
 
       if (!is_cur_offset_aligned) {
         // Handle unaligned prefix: use buffered I/O to reach next page boundary
@@ -119,8 +123,8 @@ ssize_t posix_host_io(
           nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
         } else {
           // Offset is page-aligned. Now make transfer size page-aligned too by rounding down
-          auto aligned_bytes_remaining = detail::align_down(bytes_remaining, page_size);
-          auto const is_buf_aligned    = detail::is_aligned(buffer, page_size);
+          auto aligned_bytes_remaining = align_down(bytes_remaining, page_size);
+          auto const is_buf_aligned    = is_aligned(buffer, page_size);
           auto bytes_requested         = aligned_bytes_remaining;
 
           if (!is_buf_aligned) {
@@ -198,6 +202,9 @@ ssize_t posix_host_io(
  * @param devPtr_offset Byte offset from devPtr_base (allows working with sub-regions)
  * @param fd_direct_on File descriptor opened with O_DIRECT, or -1 to disable Direct I/O attempts
  * @return Total number of bytes read or written
+ *
+ * @note For reads, `file_offset + size` must not exceed the file size. Reading past EOF is not
+ * supported and will result in an error.
  */
 template <IOOperationType Operation, typename BounceBufferPoolType = CudaPinnedBounceBufferPool>
 std::size_t posix_device_io(int fd_direct_off,
@@ -209,30 +216,35 @@ std::size_t posix_device_io(int fd_direct_off,
 {
   // Direct I/O requires page-aligned bounce buffers. CudaPinnedBounceBufferPool uses
   // cudaMemHostAlloc which does not guarantee page alignment.
-  if (std::is_same_v<BounceBufferPoolType, CudaPinnedBounceBufferPool>) {
+  if constexpr (std::is_same_v<BounceBufferPoolType, CudaPinnedBounceBufferPool>) {
     KVIKIO_EXPECT(
       fd_direct_on == -1,
       "Direct I/O requires page-aligned bounce buffers. CudaPinnedBounceBufferPool does not "
       "guarantee page alignment. Use CudaPageAlignedPinnedBounceBufferPool instead.");
   }
 
-  auto bounce_buffer      = BounceBufferPoolType::instance().get();
-  CUdeviceptr devPtr      = convert_void2deviceptr(devPtr_base) + devPtr_offset;
-  off_t cur_file_offset   = convert_size2off(file_offset);
-  off_t bytes_remaining   = convert_size2off(size);
-  off_t const chunk_size2 = convert_size2off(bounce_buffer.size());
+  auto bounce_buffer                   = BounceBufferPoolType::instance().get();
+  CUdeviceptr devPtr                   = convert_void2deviceptr(devPtr_base) + devPtr_offset;
+  std::size_t const bounce_buffer_size = bounce_buffer.size();
+  std::size_t cur_file_offset          = file_offset;
+  std::size_t bytes_remaining          = size;
 
   // Get a stream for the current CUDA context and thread
   CUstream stream = StreamCachePerThreadAndContext::get();
 
   while (bytes_remaining > 0) {
-    off_t const nbytes_requested = std::min(chunk_size2, bytes_remaining);
-    ssize_t nbytes_got           = nbytes_requested;
+    std::size_t const nbytes_requested = std::min(bounce_buffer_size, bytes_remaining);
+    std::size_t nbytes_io              = nbytes_requested;
     if constexpr (Operation == IOOperationType::READ) {
-      nbytes_got = posix_host_io<IOOperationType::READ, PartialIO::YES>(
-        fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on);
+      // Note: Use PartialIO::YES for opportunistic Direct I/O, so that each segment (BIO prefix,
+      // DIO middle, BIO suffix) returns individually. This ensures DIO reads go directly into the
+      // page-aligned CUDA bounce buffer, avoiding an extra memcpy that would occur with
+      // PartialIO::NO (where posix_host_io would allocate its own internal bounce buffer for the
+      // unaligned DIO path).
+      nbytes_io = static_cast<std::size_t>(posix_host_io<IOOperationType::READ, PartialIO::YES>(
+        fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on));
       CUDA_DRIVER_TRY(
-        cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_got, stream));
+        cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_io, stream));
       CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
       CUDA_DRIVER_TRY(
@@ -241,12 +253,38 @@ std::size_t posix_device_io(int fd_direct_off,
       posix_host_io<IOOperationType::WRITE, PartialIO::NO>(
         fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on);
     }
-    cur_file_offset += nbytes_got;
-    devPtr += nbytes_got;
-    bytes_remaining -= nbytes_got;
+    cur_file_offset += nbytes_io;
+    devPtr += nbytes_io;
+    bytes_remaining -= nbytes_io;
   }
   return size;
 }
+
+/**
+ * @brief Read from disk to device memory using pure Direct I/O with over-read alignment
+ *
+ * Unlike `posix_device_io`, this function ensures all file I/O goes through Direct I/O by aligning
+ * the offset down and the size up to page boundaries, then copying only the requested portion to
+ * device memory.
+ *
+ * @param fd_direct_off File descriptor without Direct I/O. Not expected to be used since all inputs
+ * are page-aligned, but passed through to posix_host_io for robustness.
+ * @param devPtr_base Base address of buffer in device memory.
+ * @param size Size in bytes to read.
+ * @param file_offset Offset in the file to read from.
+ * @param devPtr_offset Offset relative to the `devPtr_base` pointer to read into.
+ * @param fd_direct_on File descriptor opened with O_DIRECT.
+ * @return Size of bytes that were successfully read.
+ *
+ * @note `file_offset + size` must not exceed the file size. The internal aligned reads may extend
+ * past EOF, which is handled via PartialIO::YES and short read detection.
+ */
+std::size_t posix_device_read_aligned(int fd_direct_off,
+                                      void const* devPtr_base,
+                                      std::size_t size,
+                                      std::size_t file_offset,
+                                      std::size_t devPtr_offset,
+                                      int fd_direct_on);
 
 /**
  * @brief Read from disk to host memory using POSIX
@@ -273,7 +311,7 @@ std::size_t posix_host_read(
   if (fd_direct_on != -1 && defaults::auto_direct_io_read()) { cur_fd_direct_on = fd_direct_on; }
 
   return detail::posix_host_io<IOOperationType::READ, PartialIOStatus>(
-    fd_direct_off, buf, size, convert_size2off(file_offset), cur_fd_direct_on);
+    fd_direct_off, buf, size, file_offset, cur_fd_direct_on);
 }
 
 /**
@@ -289,7 +327,7 @@ std::size_t posix_host_read(
  * @param size Size in bytes to write.
  * @param file_offset Offset in the file to write to.
  * @param fd_direct_on Optional file descriptor with Direct I/O.
- * @return Size of bytes that were successfully read.
+ * @return Size of bytes that were successfully written.
  */
 template <PartialIO PartialIOStatus>
 std::size_t posix_host_write(int fd_direct_off,
@@ -304,7 +342,7 @@ std::size_t posix_host_write(int fd_direct_off,
   if (fd_direct_on != -1 && defaults::auto_direct_io_write()) { cur_fd_direct_on = fd_direct_on; }
 
   return detail::posix_host_io<IOOperationType::WRITE, PartialIOStatus>(
-    fd_direct_off, buf, size, convert_size2off(file_offset), cur_fd_direct_on);
+    fd_direct_off, buf, size, file_offset, cur_fd_direct_on);
 }
 
 /**
