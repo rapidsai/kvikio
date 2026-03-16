@@ -25,4 +25,4 @@ function(find_and_configure_kvikio MIN_VERSION)
 endfunction()
 
 # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
-find_and_configure_kvikio("26.04")
+find_and_configure_kvikio("26.06")

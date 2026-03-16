@@ -29,6 +29,8 @@ Task Size ``KVIKIO_TASK_SIZE``
 ------------------------------
 KvikIO splits parallel IO operations into multiple tasks. Set the environment variable ``KVIKIO_TASK_SIZE`` to the maximum task size (in bytes). If not set, the default value is 4194304 (4 MiB).
 
+When opportunistic Direct I/O read is enabled (``KVIKIO_AUTO_DIRECT_IO_READ=1``), this value should be a multiple of page size (typically 4 KiB) so that parallel tasks start at page-aligned file offsets, avoiding buffered I/O fallback.
+
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``task_size``.
 
 GDS Threshold ``KVIKIO_GDS_THRESHOLD``
@@ -129,9 +131,18 @@ By default, logging is disabled and no output is produced.
 
 Set the environment variable ``KVIKIO_LOG_LEVEL`` to enable logging (case-insensitive):
 
-  * ``INFO``
-  * ``DEBUG``: This level includes all ``INFO`` messages.
+  * ``INFO``: Basic I/O information.
+  * ``DEBUG``: Per-I/O operation information. This level includes all ``INFO`` messages.
 
 If not set or set to any other value, logging is disabled.
 
 By default, log output are written to the standard error stream. To write log output to a file, set the environment variable ``KVIKIO_LOG_FILE`` to a file path. The file is overwritten on each process start. If the file cannot be opened (e.g. the parent directory does not exist), KvikIO falls back to the standard error with a warning. ``KVIKIO_LOG_FILE`` has no effect when logging is disabled.
+
+Over-read Alignment ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When opportunistic Direct I/O is enabled for reads, unaligned prefix and suffix portions of each transfer fall back to buffered I/O. Setting ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1`` forces all disk reads to use Direct I/O by aligning offsets down and sizes up to page boundaries, discarding the extra bytes after the read. This only affects the device memory read path (disk to bounce buffer to GPU). Host memory reads are unaffected. Defaults to disabled.
+
+.. code-block:: bash
+
+   export KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1
