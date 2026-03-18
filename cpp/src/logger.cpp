@@ -22,8 +22,13 @@ rapids_logger::level_enum get_level_from_env()
   std::transform(
     val.begin(), val.end(), val.begin(), [](unsigned char c) { return std::tolower(c); });
 
-  if (val == "info") { return rapids_logger::level_enum::info; }
-  if (val == "debug") { return rapids_logger::level_enum::debug; }
+  if (val == "trace") return rapids_logger::level_enum::trace;
+  if (val == "debug") return rapids_logger::level_enum::debug;
+  if (val == "info") return rapids_logger::level_enum::info;
+  if (val == "warn") return rapids_logger::level_enum::warn;
+  if (val == "error") return rapids_logger::level_enum::error;
+  if (val == "critical") return rapids_logger::level_enum::critical;
+  if (val == "off") return rapids_logger::level_enum::off;
 
   // Ignore invalid log value
   return rapids_logger::level_enum::off;

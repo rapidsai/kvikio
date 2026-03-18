@@ -29,10 +29,13 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # Set logging level
 set(KVIKIO_LOGGING_LEVEL
-    "DEBUG"
+    "TRACE"
     CACHE STRING "Choose the logging level."
 )
-set_property(CACHE KVIKIO_LOGGING_LEVEL PROPERTY STRINGS "DEBUG" "INFO" "OFF")
+set_property(
+  CACHE KVIKIO_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
+                                      "OFF"
+)
 message(VERBOSE "KVIKIO: KVIKIO_LOGGING_LEVEL = '${KVIKIO_LOGGING_LEVEL}'.")
 
 # Write the version header

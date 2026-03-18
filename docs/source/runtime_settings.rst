@@ -125,7 +125,7 @@ Example:
    kvikio.defaults.set({"auto_direct_io_read": True, "auto_direct_io_write": False})
 
 Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``
---------------------------------------------------
+-------------------------------------------------
 
 By default, logging is disabled and no output is produced.
 
