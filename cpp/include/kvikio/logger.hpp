@@ -15,8 +15,9 @@ namespace KVIKIO_EXPORT kvikio {
  *
  * The logger is configured once on first access using the following environment variables:
  *
- * - `KVIKIO_LOG_LEVEL`: Sets the log level. Accepted values (case-insensitive) are `INFO` and
- * `DEBUG`. If unset or set to any other value, logging is disabled.
+ * - `KVIKIO_LOG_LEVEL`: Sets the log level. Accepted values (case-insensitive) are `TRACE`,
+ * `DEBUG`, `INFO`, `WARN`, `ERROR`, `CRITICAL`, and `OFF`. If unset or set to any other value,
+ * logging is disabled.
  * - `KVIKIO_LOG_FILE`: If set, log output is written to this file path (overwritten on each process
  * start). If the file cannot be opened, falls back to stderr with a warning. Has no effect when
  * logging is disabled.

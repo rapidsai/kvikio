@@ -129,10 +129,16 @@ Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``
 
 By default, logging is disabled and no output is produced.
 
-Set the environment variable ``KVIKIO_LOG_LEVEL`` to enable logging (case-insensitive):
+Set the environment variable ``KVIKIO_LOG_LEVEL`` to enable logging (case-insensitive). From most to least verbose:
 
-  * ``INFO``: Basic I/O information.
-  * ``DEBUG``: Per-I/O operation information. This level includes all ``INFO`` messages.
+  * ``TRACE``
+  * ``DEBUG``
+  * ``INFO``
+  * ``WARN``
+  * ``ERROR``
+  * ``CRITICAL``
+
+Each level includes all messages from less verbose levels.
 
 If not set or set to any other value, logging is disabled.
 
