@@ -22,6 +22,8 @@
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
@@ -223,6 +225,15 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            bool sync_default_stream,
                                            ThreadPool* thread_pool)
 {
+  KVIKIO_LOG_DEBUG(
+    "FileHandle::pread(buf=%p, size=%zu, file_offset=%zu, task_size=%zu, gds_threshold=%zu, "
+    "sync_default_stream=%d)",
+    buf,
+    size,
+    file_offset,
+    task_size,
+    gds_threshold,
+    sync_default_stream);
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
 
   // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
@@ -313,6 +324,15 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                                             bool sync_default_stream,
                                             ThreadPool* thread_pool)
 {
+  KVIKIO_LOG_DEBUG(
+    "FileHandle::pwrite(buf=%p, size=%zu, file_offset=%zu, task_size=%zu, gds_threshold=%zu, "
+    "sync_default_stream=%d)",
+    buf,
+    size,
+    file_offset,
+    task_size,
+    gds_threshold,
+    sync_default_stream);
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
 
   // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a

@@ -124,6 +124,26 @@ Example:
    # Enable Direct I/O for reads, and disable it for writes
    kvikio.defaults.set({"auto_direct_io_read": True, "auto_direct_io_write": False})
 
+Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``
+-------------------------------------------------
+
+By default, logging is disabled and no output is produced.
+
+Set the environment variable ``KVIKIO_LOG_LEVEL`` to enable logging (case-insensitive). From most to least verbose:
+
+  * ``TRACE``
+  * ``DEBUG``
+  * ``INFO``
+  * ``WARN``
+  * ``ERROR``
+  * ``CRITICAL``
+
+Each level includes all messages from less verbose levels.
+
+If not set or set to any other value, logging is disabled.
+
+By default, log output are written to the standard error stream. To write log output to a file, set the environment variable ``KVIKIO_LOG_FILE`` to a file path. The file is overwritten on each process start. If the file cannot be opened (e.g. the parent directory does not exist), KvikIO falls back to the standard error with a warning. ``KVIKIO_LOG_FILE`` has no effect when logging is disabled.
+
 Over-read Alignment ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
