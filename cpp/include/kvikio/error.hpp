@@ -5,7 +5,6 @@
 #pragma once
 
 #include <cstring>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -147,6 +146,9 @@ class GenericSystemError : public std::system_error {
   KVIKIO_VA_SELECT_3(__VA_ARGS__, KVIKIO_EXPECT_3, KVIKIO_EXPECT_2)(__VA_ARGS__)
 /** @} */
 
+// The message argument is wrapped in a lambda to defer evaluation: any expensive expressions (e.g.,
+// string concatenation, std::to_string) are only evaluated when the condition fails. Without this,
+// the message would be constructed unconditionally at every call site.
 #define KVIKIO_EXPECT_3(_condition, _msg, _exception_type)          \
   do {                                                              \
     if (!(_condition)) {                                            \
@@ -183,6 +185,7 @@ class GenericSystemError : public std::system_error {
 #define KVIKIO_FAIL(...) KVIKIO_VA_SELECT_2(__VA_ARGS__, KVIKIO_FAIL_2, KVIKIO_FAIL_1)(__VA_ARGS__)
 /** @} */
 
+// Wrap the message in a lambda to defer evaluation. See comments for `KVIKIO_EXPECT_3`
 #define KVIKIO_FAIL_2(_msg, _exception_type)                      \
   do {                                                            \
     kvikio::detail::kvikio_fail<_exception_type>(                 \
@@ -335,7 +338,7 @@ template <typename Exception>
 void cufile_check_bytes_done(ssize_t nbytes_done, int line_number, char const* filename)
 {
   if (nbytes_done < 0) {
-    auto const err = std::abs(nbytes_done);
+    auto const err = static_cast<long>(-nbytes_done);
     auto const msg = (err > CUFILEOP_BASE_ERR)
                        ? std::string(cufileop_status_error(static_cast<CUfileOpError>(err)))
                        : std::string(std::strerror(err));
@@ -358,13 +361,12 @@ void cufile_check_bytes_done(ssize_t nbytes_done, int line_number, char const* f
                                                  char const* filename,
                                                  std::string_view extra_msg)
 {
-  std::stringstream ss;
-  if (!extra_msg.empty()) { ss << extra_msg << " "; }
-  ss << "Linux system/library function call error at: " << filename << ":" << line_number;
-
+  auto msg = extra_msg.empty() ? std::string{} : (std::string{extra_msg} + " ");
+  msg += std::string{"Linux system/library function call error at: "} + filename + ":" +
+         std::to_string(line_number);
   // std::system_error::what() automatically contains the detailed error description
   // equivalent to calling strerror(errno)
-  throw kvikio::GenericSystemError(ss.str());
+  throw kvikio::GenericSystemError(msg);
 }
 
 /**
