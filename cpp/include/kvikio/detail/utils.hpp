@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
 
 namespace kvikio::detail {
 

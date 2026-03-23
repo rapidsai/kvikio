@@ -30,7 +30,9 @@ class GenericSystemError : public std::system_error {
   virtual ~GenericSystemError() noexcept                         = default;
 };
 
-#ifndef CUDA_DRIVER_TRY
+#define KVIKIO_VA_SELECT_3(_1, _2, _3, NAME, ...) NAME
+#define KVIKIO_VA_SELECT_2(_1, _2, NAME, ...)     NAME
+
 /**
  * @addtogroup utility_error
  * @{
@@ -56,20 +58,17 @@ class GenericSystemError : public std::system_error {
  *   - When given, the second argument is the exception to be thrown. When not
  *     specified, defaults to kvikio::CUfileException.
  */
-#define CUDA_DRIVER_TRY(...)                                                   \
-  GET_CUDA_DRIVER_TRY_MACRO(__VA_ARGS__, CUDA_DRIVER_TRY_2, CUDA_DRIVER_TRY_1) \
+#define CUDA_DRIVER_TRY(...)                                            \
+  KVIKIO_VA_SELECT_2(__VA_ARGS__, CUDA_DRIVER_TRY_2, CUDA_DRIVER_TRY_1) \
   (__VA_ARGS__)
 /** @} */
 
-#define GET_CUDA_DRIVER_TRY_MACRO(_1, _2, NAME, ...) NAME
-#define CUDA_DRIVER_TRY_2(_call, _exception_type)                                  \
-  do {                                                                             \
-    kvikio::detail::cuda_driver_try_2<_exception_type>(_call, __LINE__, __FILE__); \
+#define CUDA_DRIVER_TRY_2(_call, _exception_type)                                \
+  do {                                                                           \
+    kvikio::detail::cuda_driver_try<_exception_type>(_call, __LINE__, __FILE__); \
   } while (0)
 #define CUDA_DRIVER_TRY_1(_call) CUDA_DRIVER_TRY_2(_call, kvikio::CUfileException)
-#endif
 
-#ifndef CUFILE_TRY
 /**
  * @addtogroup utility_error
  * @{
@@ -95,85 +94,25 @@ class GenericSystemError : public std::system_error {
  *   - When given, the second argument is the exception to be thrown. When not
  *     specified, defaults to kvikio::CUfileException.
  */
-#define CUFILE_TRY(...)                                         \
-  GET_CUFILE_TRY_MACRO(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
+#define CUFILE_TRY(...)                                       \
+  KVIKIO_VA_SELECT_2(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
   (__VA_ARGS__)
 /** @} */
 
-#define GET_CUFILE_TRY_MACRO(_1, _2, NAME, ...) NAME
-#define CUFILE_TRY_2(_call, _exception_type)                                  \
-  do {                                                                        \
-    kvikio::detail::cufile_try_2<_exception_type>(_call, __LINE__, __FILE__); \
+#define CUFILE_TRY_2(_call, _exception_type)                                \
+  do {                                                                      \
+    kvikio::detail::cufile_try<_exception_type>(_call, __LINE__, __FILE__); \
   } while (0)
 #define CUFILE_TRY_1(_call) CUFILE_TRY_2(_call, kvikio::CUfileException)
-#endif
 
-#ifndef CUFILE_CHECK_BYTES_DONE
-#define CUFILE_CHECK_BYTES_DONE(...)                                   \
-  GET_CUFILE_CHECK_BYTES_DONE_MACRO(                                   \
-    __VA_ARGS__, CUFILE_CHECK_BYTES_DONE_2, CUFILE_CHECK_BYTES_DONE_1) \
+#define CUFILE_CHECK_BYTES_DONE(...)                                                    \
+  KVIKIO_VA_SELECT_2(__VA_ARGS__, CUFILE_CHECK_BYTES_DONE_2, CUFILE_CHECK_BYTES_DONE_1) \
   (__VA_ARGS__)
-#define GET_CUFILE_CHECK_BYTES_DONE_MACRO(_1, _2, NAME, ...) NAME
-#define CUFILE_CHECK_BYTES_DONE_2(_nbytes_done, _exception_type)                                  \
-  do {                                                                                            \
-    kvikio::detail::cufile_check_bytes_done_2<_exception_type>(_nbytes_done, __LINE__, __FILE__); \
+#define CUFILE_CHECK_BYTES_DONE_2(_nbytes_done, _exception_type)                                \
+  do {                                                                                          \
+    kvikio::detail::cufile_check_bytes_done<_exception_type>(_nbytes_done, __LINE__, __FILE__); \
   } while (0)
 #define CUFILE_CHECK_BYTES_DONE_1(_call) CUFILE_CHECK_BYTES_DONE_2(_call, kvikio::CUfileException)
-#endif
-
-namespace detail {
-template <typename Exception>
-void cuda_driver_try_2(CUresult error, int line_number, char const* filename)
-{
-  if (error == CUDA_ERROR_STUB_LIBRARY) {
-    throw Exception{std::string{"CUDA error at: "} + std::string(filename) + ":" +
-                    std::to_string(line_number) +
-                    ": CUDA_ERROR_STUB_LIBRARY("
-                    "The CUDA driver loaded is a stub library)"};
-  }
-  if (error != CUDA_SUCCESS) {
-    char const* err_name     = nullptr;
-    char const* err_str      = nullptr;
-    CUresult err_name_status = cudaAPI::instance().GetErrorName(error, &err_name);
-    CUresult err_str_status  = cudaAPI::instance().GetErrorString(error, &err_str);
-    if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }
-    if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }
-    throw Exception{std::string{"CUDA error at: "} + filename + ":" + std::to_string(line_number) +
-                    ": " + std::string(err_name) + "(" + std::string(err_str) + ")"};
-  }
-}
-
-template <typename Exception>
-void cufile_try_2(CUfileError_t error, int line_number, char const* filename)
-{
-  if (error.err != CU_FILE_SUCCESS) {
-    if (error.err == CU_FILE_CUDA_DRIVER_ERROR) {
-      CUresult const cuda_error = error.cu_err;
-      CUDA_DRIVER_TRY(cuda_error);
-    }
-    throw Exception{std::string{"cuFile error at: "} + filename + ":" +
-                    std::to_string(line_number) + ": " +
-                    cufileop_status_error((CUfileOpError)std::abs(error.err))};
-  }
-}
-
-template <typename Exception>
-void cufile_check_bytes_done_2(ssize_t nbytes_done, int line_number, char const* filename)
-{
-  if (nbytes_done < 0) {
-    auto const err = std::abs(nbytes_done);
-    auto const msg = (err > CUFILEOP_BASE_ERR)
-                       ? std::string(cufileop_status_error((CUfileOpError)err))
-                       : std::string(std::strerror(err));
-    throw Exception{std::string{"cuFile error at: "} + filename + ":" +
-                    std::to_string(line_number) + ": " + msg};
-  }
-}
-
-#define KVIKIO_LOG_ERROR(err_msg) kvikio::detail::log_error(err_msg, __LINE__, __FILE__)
-void log_error(std::string_view err_msg, int line_number, char const* filename);
-
-}  // namespace detail
 
 /**
  * @addtogroup utility_error
@@ -205,14 +144,15 @@ void log_error(std::string_view err_msg, int line_number, char const* filename);
  *     specified, defaults to kvikio::CUfileException.
  */
 #define KVIKIO_EXPECT(...) \
-  GET_KVIKIO_EXPECT_MACRO(__VA_ARGS__, KVIKIO_EXPECT_3, KVIKIO_EXPECT_2)(__VA_ARGS__)
+  KVIKIO_VA_SELECT_3(__VA_ARGS__, KVIKIO_EXPECT_3, KVIKIO_EXPECT_2)(__VA_ARGS__)
 /** @} */
 
-#define GET_KVIKIO_EXPECT_MACRO(_1, _2, _3, NAME, ...) NAME
-
-#define KVIKIO_EXPECT_3(_condition, _msg, _exception_type)                                   \
-  do {                                                                                       \
-    kvikio::detail::kvikio_assertion<_exception_type>(_condition, _msg, __LINE__, __FILE__); \
+#define KVIKIO_EXPECT_3(_condition, _msg, _exception_type)          \
+  do {                                                              \
+    if (!(_condition)) {                                            \
+      kvikio::detail::kvikio_fail<_exception_type>(                 \
+        [&]() -> std::string { return _msg; }, __LINE__, __FILE__); \
+    }                                                               \
   } while (0)
 
 #define KVIKIO_EXPECT_2(_condition, _msg) KVIKIO_EXPECT_3(_condition, _msg, kvikio::CUfileException)
@@ -240,41 +180,16 @@ void log_error(std::string_view err_msg, int line_number, char const* filename);
  *   - When given, the second argument is the exception to be thrown. When not
  *     specified, defaults to kvikio::CUfileException.
  */
-#define KVIKIO_FAIL(...) \
-  GET_KVIKIO_FAIL_MACRO(__VA_ARGS__, KVIKIO_FAIL_2, KVIKIO_FAIL_1)(__VA_ARGS__)
+#define KVIKIO_FAIL(...) KVIKIO_VA_SELECT_2(__VA_ARGS__, KVIKIO_FAIL_2, KVIKIO_FAIL_1)(__VA_ARGS__)
 /** @} */
 
-#define GET_KVIKIO_FAIL_MACRO(_1, _2, NAME, ...) NAME
-
-#define KVIKIO_FAIL_2(_msg, _exception_type)                                            \
-  do {                                                                                  \
-    kvikio::detail::kvikio_assertion<_exception_type>(false, _msg, __LINE__, __FILE__); \
+#define KVIKIO_FAIL_2(_msg, _exception_type)                      \
+  do {                                                            \
+    kvikio::detail::kvikio_fail<_exception_type>(                 \
+      [&]() -> std::string { return _msg; }, __LINE__, __FILE__); \
   } while (0)
 
 #define KVIKIO_FAIL_1(_msg) KVIKIO_FAIL_2(_msg, kvikio::CUfileException)
-
-namespace detail {
-template <typename Exception>
-void kvikio_assertion(bool condition, const char* msg, int line_number, char const* filename)
-{
-  if (!condition) {
-    std::stringstream ss;
-    ss << "KvikIO failure at: " << filename << ":" << line_number << ": ";
-    if (msg == nullptr) {
-      ss << "(no message)";
-    } else {
-      ss << msg;
-    }
-    throw Exception{ss.str()};
-  };
-}
-
-template <typename Exception>
-void kvikio_assertion(bool condition, const std::string& msg, int line_number, char const* filename)
-{
-  kvikio_assertion<Exception>(condition, msg.c_str(), line_number, filename);
-}
-}  // namespace detail
 
 /**
  * @addtogroup utility_error
@@ -299,12 +214,11 @@ void kvikio_assertion(bool condition, const std::string& msg, int line_number, c
  *
  * Example:
  * ```
- * // Common case: (int)-1 indicates an error.
+ * // Common case: -1 indicates an error.
  * SYSCALL_CHECK(open(file_name, flags, mode));
  *
  * // Rare case: (void*)-1 indicates an error.
- * SYSCALL_CHECK(mmap(addr, length,prot, flags, fd, offset), "mmap failed",
- * reinterpret_cast<void*>(-1));
+ * SYSCALL_CHECK(mmap(addr, length, prot, flags, fd, offset), "mmap failed", MAP_FAILED);
  * ```
  *
  * @param ... This macro accepts the following arguments:
@@ -314,43 +228,187 @@ void kvikio_assertion(bool condition, const std::string& msg, int line_number, c
  *   - When given, the third argument is the error code value used to indicate an error. When not
  *     specified, defaults to -1.
  */
-#define SYSCALL_CHECK(...)                                                                \
-  GET_SYSCALL_CHECK_MACRO(__VA_ARGS__, SYSCALL_CHECK_3, SYSCALL_CHECK_2, SYSCALL_CHECK_1) \
+#define SYSCALL_CHECK(...)                                                           \
+  KVIKIO_VA_SELECT_3(__VA_ARGS__, SYSCALL_CHECK_3, SYSCALL_CHECK_2, SYSCALL_CHECK_1) \
   (__VA_ARGS__)
 /** @} */
 
-#define GET_SYSCALL_CHECK_MACRO(_1, _2, _3, NAME, ...) NAME
 #define SYSCALL_CHECK_1(_return_value)                                   \
   do {                                                                   \
-    kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value); \
+    kvikio::detail::check_linux_call(_return_value, __LINE__, __FILE__); \
   } while (0)
 #define SYSCALL_CHECK_2(_return_value, _extra_msg)                                   \
   do {                                                                               \
-    kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value, _extra_msg); \
+    kvikio::detail::check_linux_call(_return_value, __LINE__, __FILE__, _extra_msg); \
   } while (0)
 #define SYSCALL_CHECK_3(_return_value, _extra_msg, _error_value)                                   \
   do {                                                                                             \
-    kvikio::detail::check_linux_call(__LINE__, __FILE__, _return_value, _extra_msg, _error_value); \
+    kvikio::detail::check_linux_call(_return_value, __LINE__, __FILE__, _extra_msg, _error_value); \
   } while (0)
 
 namespace detail {
-void handle_linux_call_error(int line_number, char const* filename, std::string_view extra_msg);
+/**
+ * @brief Throw an exception with a formatted error message including source location.
+ *
+ * @tparam Exception The exception type to throw.
+ * @tparam MsgFunc A callable type that returns a std::string error message.
+ * @param msg_func Callable that produces the error message string.
+ * @param line_number Source line number (typically from __LINE__).
+ * @param filename Source file name (typically from __FILE__).
+ * @exception Exception Always thrown with a message containing the source location and user
+ * message.
+ */
+template <typename Exception, typename MsgFunc>
+[[noreturn]] void kvikio_fail(MsgFunc&& msg_func, int line_number, char const* filename)
+{
+  std::string const msg = std::forward<MsgFunc>(msg_func)();
+  throw Exception{std::string{"KvikIO failure at: "} + filename + ":" +
+                  std::to_string(line_number) + ": " + (msg.empty() ? "(no message)" : msg)};
+}
 
-inline void check_linux_call(int line_number,
+/**
+ * @brief Check a CUDA driver API return code and throw on failure.
+ *
+ * @tparam Exception The exception type to throw.
+ * @param error The CUresult return code from a CUDA driver API call.
+ * @param line_number Source line number (typically from __LINE__).
+ * @param filename Source file name (typically from __FILE__).
+ * @exception Exception Thrown if @p error is not CUDA_SUCCESS.
+ */
+template <typename Exception>
+void cuda_driver_try(CUresult error, int line_number, char const* filename)
+{
+  if (error == CUDA_ERROR_STUB_LIBRARY) {
+    throw Exception{std::string{"CUDA error at: "} + std::string(filename) + ":" +
+                    std::to_string(line_number) +
+                    ": CUDA_ERROR_STUB_LIBRARY("
+                    "The CUDA driver loaded is a stub library)"};
+  }
+  if (error != CUDA_SUCCESS) {
+    char const* err_name     = nullptr;
+    char const* err_str      = nullptr;
+    CUresult err_name_status = cudaAPI::instance().GetErrorName(error, &err_name);
+    CUresult err_str_status  = cudaAPI::instance().GetErrorString(error, &err_str);
+    if (err_name_status == CUDA_ERROR_INVALID_VALUE) { err_name = "unknown"; }
+    if (err_str_status == CUDA_ERROR_INVALID_VALUE) { err_str = "unknown"; }
+    throw Exception{std::string{"CUDA error at: "} + filename + ":" + std::to_string(line_number) +
+                    ": " + std::string(err_name) + "(" + std::string(err_str) + ")"};
+  }
+}
+
+/**
+ * @brief Check a cuFile API return code and throw on failure.
+ *
+ * If the error indicates an underlying CUDA driver error, delegates to cuda_driver_try().
+ *
+ * @tparam Exception The exception type to throw.
+ * @param error The CUfileError_t return code from a cuFile API call.
+ * @param line_number Source line number (typically from __LINE__).
+ * @param filename Source file name (typically from __FILE__).
+ * @exception Exception Thrown if @p error does not indicate CU_FILE_SUCCESS.
+ */
+template <typename Exception>
+void cufile_try(CUfileError_t error, int line_number, char const* filename)
+{
+  if (error.err != CU_FILE_SUCCESS) {
+    if (error.err == CU_FILE_CUDA_DRIVER_ERROR) {
+      cuda_driver_try<Exception>(error.cu_err, line_number, filename);
+    }
+    throw Exception{std::string{"cuFile error at: "} + filename + ":" +
+                    std::to_string(line_number) + ": " + cufileop_status_error(error.err)};
+  }
+}
+
+/**
+ * @brief Check the byte count returned by a cuFile read/write and throw on failure.
+ *
+ * A negative value encodes an error: either a cuFile operation error (if above CUFILEOP_BASE_ERR)
+ * or a standard errno value.
+ *
+ * @tparam Exception The exception type to throw.
+ * @param nbytes_done The byte count returned by a cuFile read/write operation.
+ * @param line_number Source line number (typically from __LINE__).
+ * @param filename Source file name (typically from __FILE__).
+ * @exception Exception Thrown if @p nbytes_done is negative.
+ */
+template <typename Exception>
+void cufile_check_bytes_done(ssize_t nbytes_done, int line_number, char const* filename)
+{
+  if (nbytes_done < 0) {
+    auto const err = std::abs(nbytes_done);
+    auto const msg = (err > CUFILEOP_BASE_ERR)
+                       ? std::string(cufileop_status_error(static_cast<CUfileOpError>(err)))
+                       : std::string(std::strerror(err));
+    throw Exception{std::string{"cuFile error at: "} + filename + ":" +
+                    std::to_string(line_number) + ": " + msg};
+  }
+}
+
+/**
+ * @brief Throw a GenericSystemError with the current errno and a formatted message.
+ *
+ * This is the shared error-reporting path for check_linux_call() overloads.
+ *
+ * @param line_number Source line number (typically from __LINE__).
+ * @param filename Source file name (typically from __FILE__).
+ * @param extra_msg Optional extra context prepended to the error message.
+ * @exception kvikio::GenericSystemError Always thrown, capturing the current errno.
+ */
+[[noreturn]] inline void handle_linux_call_error(int line_number,
+                                                 char const* filename,
+                                                 std::string_view extra_msg)
+{
+  std::stringstream ss;
+  if (!extra_msg.empty()) { ss << extra_msg << " "; }
+  ss << "Linux system/library function call error at: " << filename << ":" << line_number;
+
+  // std::system_error::what() automatically contains the detailed error description
+  // equivalent to calling strerror(errno)
+  throw kvikio::GenericSystemError(ss.str());
+}
+
+/**
+ * @brief Check the return value of a Linux system call and throw on failure.
+ *
+ * This non-template overload handles the common case where the return value is a long type (Linux
+ * system call return type).
+ *
+ * @param return_value The return value of the system call.
+ * @param line_number Source line number (typically from __LINE__).
+ * @param filename Source file name (typically from __FILE__).
+ * @param extra_msg Optional extra context for the error message (default: empty).
+ * @param error_value The sentinel value indicating failure (default: -1).
+ * @exception kvikio::GenericSystemError Thrown if @p return_value equals @p error_value.
+ */
+inline void check_linux_call(long return_value,
+                             int line_number,
                              char const* filename,
-                             int return_value,
                              std::string_view extra_msg = "",
-                             int error_value            = -1)
+                             long error_value           = -1)
 {
   if (return_value == error_value) { handle_linux_call_error(line_number, filename, extra_msg); }
 }
 
+/**
+ * @brief Check the return value of a Linux system call and throw on failure.
+ *
+ * This template overload handles non-integer return types such as `void*` from mmap().
+ *
+ * @tparam T The return type of the system call.
+ * @param return_value The return value of the system call.
+ * @param line_number Source line number (typically from __LINE__).
+ * @param filename Source file name (typically from __FILE__).
+ * @param extra_msg Extra context for the error message.
+ * @param error_value The sentinel value indicating failure (e.g. MAP_FAILED for mmap).
+ * @exception kvikio::GenericSystemError Thrown if @p return_value equals @p error_value.
+ */
 template <typename T>
 void check_linux_call(
-  int line_number, char const* filename, T return_value, std::string_view extra_msg, T error_value)
+  T return_value, int line_number, char const* filename, std::string_view extra_msg, T error_value)
 {
   if (return_value == error_value) { handle_linux_call_error(line_number, filename, extra_msg); }
 }
+
 }  // namespace detail
 
 }  // namespace kvikio
