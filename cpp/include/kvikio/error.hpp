@@ -186,11 +186,9 @@ class GenericSystemError : public std::system_error {
 /** @} */
 
 // Wrap the message in a lambda to defer evaluation. See comments for `KVIKIO_EXPECT_3`
-#define KVIKIO_FAIL_2(_msg, _exception_type)                      \
-  do {                                                            \
-    kvikio::detail::kvikio_fail<_exception_type>(                 \
-      [&]() -> std::string { return _msg; }, __LINE__, __FILE__); \
-  } while (0)
+#define KVIKIO_FAIL_2(_msg, _exception_type)    \
+  kvikio::detail::kvikio_fail<_exception_type>( \
+    [&]() -> std::string { return _msg; }, __LINE__, __FILE__);
 
 #define KVIKIO_FAIL_1(_msg) KVIKIO_FAIL_2(_msg, kvikio::CUfileException)
 

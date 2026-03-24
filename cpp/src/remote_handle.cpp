@@ -213,10 +213,8 @@ char const* get_remote_endpoint_type_name(RemoteEndpointType remote_endpoint_typ
     case RemoteEndpointType::HTTP: return "HTTP";
     case RemoteEndpointType::AUTO: return "AUTO";
     default:
-      // Unreachable
       KVIKIO_FAIL("Unknown RemoteEndpointType: " +
                   std::to_string(static_cast<int>(remote_endpoint_type)));
-      return "UNKNOWN";
   }
 }
 
@@ -312,7 +310,6 @@ std::pair<std::string, std::string> S3Endpoint::parse_s3_url(std::string const& 
   std::smatch matches;
   if (std::regex_match(s3_url, matches, pattern)) { return {matches[1].str(), matches[2].str()}; }
   KVIKIO_FAIL("Input string does not match the expected S3 URL format.", std::invalid_argument);
-  return {};
 }
 
 S3Endpoint::S3Endpoint(std::string url,

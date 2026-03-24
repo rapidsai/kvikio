@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,7 +30,6 @@ CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
   } else {
     KVIKIO_FAIL("Unknown compatibility mode: " + std::string{tmp}, std::invalid_argument);
   }
-  return {};
 }
 
 }  // namespace detail
