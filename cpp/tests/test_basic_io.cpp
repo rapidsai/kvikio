@@ -93,7 +93,7 @@ TEST_F(BasicIOTest, write_read)
 TEST_F(BasicIOTest, write_read_async)
 {
   CUstream stream{};
-  CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamCreate(&stream, CU_STREAM_NON_BLOCKING));
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamCreate(&stream, CU_STREAM_NON_BLOCKING));
 
   // Default compatibility mode (AUTO)
   {
@@ -130,7 +130,7 @@ TEST_F(BasicIOTest, write_read_async)
     }
   }
 
-  CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }
 
 TEST_F(BasicIOTest, threadpool)
@@ -252,13 +252,13 @@ TEST_F(DirectIOTest, pwrite)
       // Read data from file (using Linux syscall) and check correctness
       {
         auto fd = open(_filepath.c_str(), O_RDONLY);
-        SYSCALL_CHECK(fd, "File cannot be opened");
+        KVIKIO_SYSCALL_CHECK(fd, "File cannot be opened");
 
         std::vector<value_type> result(_ground_truth.size(), 0);
-        SYSCALL_CHECK(read(fd, result.data(), _total_bytes));
+        KVIKIO_SYSCALL_CHECK(read(fd, result.data(), _total_bytes));
         EXPECT_EQ(result, _ground_truth);
 
-        SYSCALL_CHECK(close(fd));
+        KVIKIO_SYSCALL_CHECK(close(fd));
       }
     }
   }
@@ -269,9 +269,9 @@ TEST_F(DirectIOTest, pread)
   // Write ground truth data to file (using Linux syscall)
   {
     auto fd = open(_filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, kvikio::FileHandle::m644);
-    SYSCALL_CHECK(fd, "File cannot be opened");
-    SYSCALL_CHECK(write(fd, _ground_truth.data(), _total_bytes));
-    SYSCALL_CHECK(close(fd));
+    KVIKIO_SYSCALL_CHECK(fd, "File cannot be opened");
+    KVIKIO_SYSCALL_CHECK(write(fd, _ground_truth.data(), _total_bytes));
+    KVIKIO_SYSCALL_CHECK(close(fd));
   }
 
   // Create host buffers (page-aligned and unaligned) and device buffer for testing
@@ -343,9 +343,9 @@ class OpportunisticDirectIOTest : public testing::TestWithParam<PreadTestParam> 
   void WriteGroundTruth(std::vector<value_type> const& data)
   {
     auto fd = open(_filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, kvikio::FileHandle::m644);
-    SYSCALL_CHECK(fd, "File cannot be opened");
-    SYSCALL_CHECK(write(fd, data.data(), data.size() * sizeof(value_type)));
-    SYSCALL_CHECK(close(fd));
+    KVIKIO_SYSCALL_CHECK(fd, "File cannot be opened");
+    KVIKIO_SYSCALL_CHECK(write(fd, data.data(), data.size() * sizeof(value_type)));
+    KVIKIO_SYSCALL_CHECK(close(fd));
   }
 
   std::filesystem::path _filepath;

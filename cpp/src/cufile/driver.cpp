@@ -50,7 +50,7 @@ void DriverProperties::lazy_init()
 {
   if (_initialized) { return; }
   _initialized = true;
-  CUFILE_TRY(cuFileAPI::instance().DriverGetProperties(&_props));
+  KVIKIO_CUFILE_TRY(cuFileAPI::instance().DriverGetProperties(&_props));
 }
 
 bool DriverProperties::is_gds_available()
@@ -92,14 +92,14 @@ std::size_t DriverProperties::get_nvfs_poll_thresh_size()
 void DriverProperties::set_nvfs_poll_mode(bool enable)
 {
   lazy_init();
-  CUFILE_TRY(cuFileAPI::instance().DriverSetPollMode(enable, get_nvfs_poll_thresh_size()));
+  KVIKIO_CUFILE_TRY(cuFileAPI::instance().DriverSetPollMode(enable, get_nvfs_poll_thresh_size()));
   set_driver_flag(_props.nvfs.dcontrolflags, CU_FILE_USE_POLL_MODE, enable);
 }
 
 void DriverProperties::set_nvfs_poll_thresh_size(std::size_t size_in_kb)
 {
   lazy_init();
-  CUFILE_TRY(cuFileAPI::instance().DriverSetPollMode(get_nvfs_poll_mode(), size_in_kb));
+  KVIKIO_CUFILE_TRY(cuFileAPI::instance().DriverSetPollMode(get_nvfs_poll_mode(), size_in_kb));
   _props.nvfs.poll_thresh_size = size_in_kb;
 }
 
@@ -125,7 +125,7 @@ std::size_t DriverProperties::get_max_device_cache_size()
 void DriverProperties::set_max_device_cache_size(std::size_t size_in_kb)
 {
   lazy_init();
-  CUFILE_TRY(cuFileAPI::instance().DriverSetMaxCacheSize(size_in_kb));
+  KVIKIO_CUFILE_TRY(cuFileAPI::instance().DriverSetMaxCacheSize(size_in_kb));
   _props.max_device_cache_size = size_in_kb;
 }
 
@@ -144,7 +144,7 @@ std::size_t DriverProperties::get_max_pinned_memory_size()
 void DriverProperties::set_max_pinned_memory_size(std::size_t size_in_kb)
 {
   lazy_init();
-  CUFILE_TRY(cuFileAPI::instance().DriverSetMaxPinnedMemSize(size_in_kb));
+  KVIKIO_CUFILE_TRY(cuFileAPI::instance().DriverSetMaxPinnedMemSize(size_in_kb));
   _props.max_device_pinned_mem_size = size_in_kb;
 }
 

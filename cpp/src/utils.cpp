@@ -56,7 +56,7 @@ bool is_host_memory(void const* ptr)
 
   // We assume that `ptr` is host memory when CUDA_ERROR_NOT_INITIALIZED
   if (result == CUDA_ERROR_NOT_INITIALIZED) { return true; }
-  CUDA_DRIVER_TRY(result);
+  KVIKIO_CUDA_DRIVER_TRY(result);
 
   // Notice, queying `CU_POINTER_ATTRIBUTE_MEMORY_TYPE` returns zero when the memory
   // is unregistered host memory. This is undocumented but how the Runtime CUDA API
@@ -67,7 +67,7 @@ bool is_host_memory(void const* ptr)
 int get_device_ordinal_from_pointer(CUdeviceptr dev_ptr)
 {
   int ret = 0;
-  CUDA_DRIVER_TRY(
+  KVIKIO_CUDA_DRIVER_TRY(
     cudaAPI::instance().PointerGetAttribute(&ret, CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL, dev_ptr));
   return ret;
 }
@@ -81,12 +81,12 @@ CUcontext get_primary_cuda_context(int ordinal)
   if (_cache.find(ordinal) == _cache.end()) {
     CUdevice dev{};
     CUcontext ctx{};
-    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, ordinal));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&dev, ordinal));
 
     // Notice, we let the primary context leak at program exit. We do this because `_cache`
     // is static and we are not allowed to call `cuDevicePrimaryCtxRelease()` after main:
     // <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#initialization>
-    CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().DevicePrimaryCtxRetain(&ctx, dev));
     _cache.emplace(ordinal, ctx);
   }
   return _cache.at(ordinal);
@@ -98,7 +98,7 @@ std::optional<CUcontext> get_context_associated_pointer(CUdeviceptr dev_ptr)
   CUresult const err =
     cudaAPI::instance().PointerGetAttribute(&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, dev_ptr);
   if (err == CUDA_SUCCESS && ctx != nullptr) { return ctx; }
-  if (err != CUDA_ERROR_INVALID_VALUE) { CUDA_DRIVER_TRY(err); }
+  if (err != CUDA_ERROR_INVALID_VALUE) { KVIKIO_CUDA_DRIVER_TRY(err); }
   return {};
 }
 
@@ -108,7 +108,7 @@ bool current_context_can_access_pointer(CUdeviceptr dev_ptr)
   CUresult const err = cudaAPI::instance().PointerGetAttribute(
     &current_ctx_dev_ptr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER, dev_ptr);
   if (err == CUDA_SUCCESS && current_ctx_dev_ptr == dev_ptr) { return true; }
-  if (err != CUDA_ERROR_INVALID_VALUE) { CUDA_DRIVER_TRY(err); }
+  if (err != CUDA_ERROR_INVALID_VALUE) { KVIKIO_CUDA_DRIVER_TRY(err); }
   return false;
 }
 
@@ -126,7 +126,7 @@ CUcontext get_context_from_pointer(void const* devPtr)
   // return the current context.
   {
     CUcontext ctx = nullptr;
-    CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
     if (ctx != nullptr && current_context_can_access_pointer(dev_ptr)) { return ctx; }
   }
 
@@ -137,13 +137,13 @@ CUcontext get_context_from_pointer(void const* devPtr)
 
 PushAndPopContext::PushAndPopContext(CUcontext ctx) : _ctx{ctx}
 {
-  CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(_ctx));
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().CtxPushCurrent(_ctx));
 }
 
 PushAndPopContext::~PushAndPopContext()
 {
   try {
-    CUDA_DRIVER_TRY(cudaAPI::instance().CtxPopCurrent(&_ctx), CUfileException);
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().CtxPopCurrent(&_ctx), CUfileException);
   } catch (CUfileException const& e) {
     std::cerr << e.what() << std::endl;
   }
@@ -161,7 +161,7 @@ std::tuple<void*, std::size_t, std::size_t> get_alloc_info(void const* devPtr, C
     _ctx = get_context_from_pointer(devPtr);
   }
   PushAndPopContext context(_ctx);
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemGetAddressRange(&base_ptr, &base_size, dev));
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemGetAddressRange(&base_ptr, &base_size, dev));
   std::size_t offset = dev - base_ptr;
   // NOLINTNEXTLINE(performance-no-int-to-ptr, cppcoreguidelines-pro-type-reinterpret-cast)
   return std::make_tuple(reinterpret_cast<void*>(base_ptr), base_size, offset);

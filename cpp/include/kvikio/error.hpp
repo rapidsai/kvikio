@@ -46,10 +46,10 @@ class GenericSystemError : public std::system_error {
  * Example:
  * ```
  * // Throws kvikio::CUfileException
- * CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
+ * KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
  *
  * // Throws std::runtime_error
- * CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream), std::runtime_error);
+ * KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream), std::runtime_error);
  * ```
  *
  * @param ... This macro accepts either one or two arguments:
@@ -57,16 +57,16 @@ class GenericSystemError : public std::system_error {
  *   - When given, the second argument is the exception to be thrown. When not
  *     specified, defaults to kvikio::CUfileException.
  */
-#define CUDA_DRIVER_TRY(...)                                            \
-  KVIKIO_VA_SELECT_2(__VA_ARGS__, CUDA_DRIVER_TRY_2, CUDA_DRIVER_TRY_1) \
+#define KVIKIO_CUDA_DRIVER_TRY(...)                                                   \
+  KVIKIO_VA_SELECT_2(__VA_ARGS__, KVIKIO_CUDA_DRIVER_TRY_2, KVIKIO_CUDA_DRIVER_TRY_1) \
   (__VA_ARGS__)
 /** @} */
 
-#define CUDA_DRIVER_TRY_2(_call, _exception_type)                                \
+#define KVIKIO_CUDA_DRIVER_TRY_2(_call, _exception_type)                         \
   do {                                                                           \
     kvikio::detail::cuda_driver_try<_exception_type>(_call, __LINE__, __FILE__); \
   } while (0)
-#define CUDA_DRIVER_TRY_1(_call) CUDA_DRIVER_TRY_2(_call, kvikio::CUfileException)
+#define KVIKIO_CUDA_DRIVER_TRY_1(_call) KVIKIO_CUDA_DRIVER_TRY_2(_call, kvikio::CUfileException)
 
 /**
  * @addtogroup utility_error
@@ -82,10 +82,10 @@ class GenericSystemError : public std::system_error {
  * Example:
  * ```
  * // Throws kvikio::CUfileException
- * CUFILE_TRY(cuFileAPI::instance().ReadAsync(...));
+ * KVIKIO_CUFILE_TRY(cuFileAPI::instance().ReadAsync(...));
  *
  * // Throws std::runtime_error
- * CUFILE_TRY(cuFileAPI::instance().ReadAsync(...), std::runtime_error);
+ * KVIKIO_CUFILE_TRY(cuFileAPI::instance().ReadAsync(...), std::runtime_error);
  * ```
  *
  * @param ... This macro accepts either one or two arguments:
@@ -93,25 +93,27 @@ class GenericSystemError : public std::system_error {
  *   - When given, the second argument is the exception to be thrown. When not
  *     specified, defaults to kvikio::CUfileException.
  */
-#define CUFILE_TRY(...)                                       \
-  KVIKIO_VA_SELECT_2(__VA_ARGS__, CUFILE_TRY_2, CUFILE_TRY_1) \
+#define KVIKIO_CUFILE_TRY(...)                                              \
+  KVIKIO_VA_SELECT_2(__VA_ARGS__, KVIKIO_CUFILE_TRY_2, KVIKIO_CUFILE_TRY_1) \
   (__VA_ARGS__)
 /** @} */
 
-#define CUFILE_TRY_2(_call, _exception_type)                                \
+#define KVIKIO_CUFILE_TRY_2(_call, _exception_type)                         \
   do {                                                                      \
     kvikio::detail::cufile_try<_exception_type>(_call, __LINE__, __FILE__); \
   } while (0)
-#define CUFILE_TRY_1(_call) CUFILE_TRY_2(_call, kvikio::CUfileException)
+#define KVIKIO_CUFILE_TRY_1(_call) KVIKIO_CUFILE_TRY_2(_call, kvikio::CUfileException)
 
-#define CUFILE_CHECK_BYTES_DONE(...)                                                    \
-  KVIKIO_VA_SELECT_2(__VA_ARGS__, CUFILE_CHECK_BYTES_DONE_2, CUFILE_CHECK_BYTES_DONE_1) \
+#define KVIKIO_CUFILE_CHECK_BYTES_DONE(...)                                          \
+  KVIKIO_VA_SELECT_2(                                                                \
+    __VA_ARGS__, KVIKIO_CUFILE_CHECK_BYTES_DONE_2, KVIKIO_CUFILE_CHECK_BYTES_DONE_1) \
   (__VA_ARGS__)
-#define CUFILE_CHECK_BYTES_DONE_2(_nbytes_done, _exception_type)                                \
+#define KVIKIO_CUFILE_CHECK_BYTES_DONE_2(_nbytes_done, _exception_type)                         \
   do {                                                                                          \
     kvikio::detail::cufile_check_bytes_done<_exception_type>(_nbytes_done, __LINE__, __FILE__); \
   } while (0)
-#define CUFILE_CHECK_BYTES_DONE_1(_call) CUFILE_CHECK_BYTES_DONE_2(_call, kvikio::CUfileException)
+#define KVIKIO_CUFILE_CHECK_BYTES_DONE_1(_call) \
+  KVIKIO_CUFILE_CHECK_BYTES_DONE_2(_call, kvikio::CUfileException)
 
 /**
  * @addtogroup utility_error
@@ -207,19 +209,19 @@ class GenericSystemError : public std::system_error {
  *   href="https://man7.org/linux/man-pages/man3/errno.3.html" target="_blank">errno</a>. Use
  *   Linux utility functions to obtain detailed error information.
  *
- * This macro is used to perform the steps above. A simple SYSCALL_CHECK(ret) is
+ * This macro is used to perform the steps above. A simple KVIKIO_SYSCALL_CHECK(ret) is
  * designed for the common cases where an integer of -1 indicates a failure, whereas a more complex
- * SYSCALL_CHECK(ret, "extra msg", error_value) for the remaining rare cases, such
+ * KVIKIO_SYSCALL_CHECK(ret, "extra msg", error_value) for the remaining rare cases, such
  * as `(void*)-1` for mmap. At any rate, if a failure occurs, this macro throws an exception
  * (kvikio::GenericSystemError) with detailed error information.
  *
  * Example:
  * ```
  * // Common case: -1 indicates an error.
- * SYSCALL_CHECK(open(file_name, flags, mode));
+ * KVIKIO_SYSCALL_CHECK(open(file_name, flags, mode));
  *
  * // Rare case: (void*)-1 indicates an error.
- * SYSCALL_CHECK(mmap(addr, length, prot, flags, fd, offset), "mmap failed", MAP_FAILED);
+ * KVIKIO_SYSCALL_CHECK(mmap(addr, length, prot, flags, fd, offset), "mmap failed", MAP_FAILED);
  * ```
  *
  * @param ... This macro accepts the following arguments:
@@ -229,20 +231,21 @@ class GenericSystemError : public std::system_error {
  *   - When given, the third argument is the error code value used to indicate an error. When not
  *     specified, defaults to -1.
  */
-#define SYSCALL_CHECK(...)                                                           \
-  KVIKIO_VA_SELECT_3(__VA_ARGS__, SYSCALL_CHECK_3, SYSCALL_CHECK_2, SYSCALL_CHECK_1) \
+#define KVIKIO_SYSCALL_CHECK(...)                                                        \
+  KVIKIO_VA_SELECT_3(                                                                    \
+    __VA_ARGS__, KVIKIO_SYSCALL_CHECK_3, KVIKIO_SYSCALL_CHECK_2, KVIKIO_SYSCALL_CHECK_1) \
   (__VA_ARGS__)
 /** @} */
 
-#define SYSCALL_CHECK_1(_return_value)                                   \
+#define KVIKIO_SYSCALL_CHECK_1(_return_value)                            \
   do {                                                                   \
     kvikio::detail::check_linux_call(_return_value, __LINE__, __FILE__); \
   } while (0)
-#define SYSCALL_CHECK_2(_return_value, _extra_msg)                                   \
+#define KVIKIO_SYSCALL_CHECK_2(_return_value, _extra_msg)                            \
   do {                                                                               \
     kvikio::detail::check_linux_call(_return_value, __LINE__, __FILE__, _extra_msg); \
   } while (0)
-#define SYSCALL_CHECK_3(_return_value, _extra_msg, _error_value)                                   \
+#define KVIKIO_SYSCALL_CHECK_3(_return_value, _extra_msg, _error_value)                            \
   do {                                                                                             \
     kvikio::detail::check_linux_call(_return_value, __LINE__, __FILE__, _extra_msg, _error_value); \
   } while (0)

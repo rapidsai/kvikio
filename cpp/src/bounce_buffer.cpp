@@ -36,13 +36,13 @@ void* CudaPinnedAllocator::allocate(std::size_t size)
   // Allocate page-locked host memory
   // Under unified addressing, host memory allocated this way is automatically portable and
   // mapped.
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&buffer, size, CU_MEMHOSTALLOC_PORTABLE));
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&buffer, size, CU_MEMHOSTALLOC_PORTABLE));
 
   return buffer;
 }
 void CudaPinnedAllocator::deallocate(void* buffer, std::size_t /*size*/)
 {
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(buffer));
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(buffer));
 }
 
 void* CudaPageAlignedPinnedAllocator::allocate(std::size_t size)
@@ -52,14 +52,14 @@ void* CudaPageAlignedPinnedAllocator::allocate(std::size_t size)
   auto const aligned_size = detail::align_up(size, page_size);
   buffer                  = std::aligned_alloc(page_size, aligned_size);
   KVIKIO_EXPECT(buffer != nullptr, "Aligned allocation failed");
-  CUDA_DRIVER_TRY(
+  KVIKIO_CUDA_DRIVER_TRY(
     cudaAPI::instance().MemHostRegister(buffer, aligned_size, CU_MEMHOSTALLOC_PORTABLE));
   return buffer;
 }
 
 void CudaPageAlignedPinnedAllocator::deallocate(void* buffer, std::size_t /*size*/)
 {
-  CUDA_DRIVER_TRY(cudaAPI::instance().MemHostUnregister(buffer));
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemHostUnregister(buffer));
   std::free(buffer);
 }
 
