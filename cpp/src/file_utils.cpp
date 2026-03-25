@@ -151,7 +151,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
   KVIKIO_NVTX_FUNC_RANGE();
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int fd = ::open(file_path.c_str(), open_fd_parse_flags(flags, o_direct), mode);
-  SYSCALL_CHECK(fd, "Unable to open file.");
+  KVIKIO_SYSCALL_CHECK(fd, "Unable to open file.");
   return fd;
 }
 
@@ -159,7 +159,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
 {
   KVIKIO_NVTX_FUNC_RANGE();
   int ret = fcntl(fd, F_GETFL);  // NOLINT(cppcoreguidelines-pro-type-vararg)
-  SYSCALL_CHECK(ret, "Unable to retrieve open flags.");
+  KVIKIO_SYSCALL_CHECK(ret, "Unable to retrieve open flags.");
   return ret;
 }
 
@@ -171,7 +171,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
   mode_t const mode{FileHandle::m644};
   auto fd     = open_fd(file_path, flags, o_direct, mode);
   auto result = get_file_size(fd);
-  SYSCALL_CHECK(close(fd));
+  KVIKIO_SYSCALL_CHECK(close(fd));
   return result;
 }
 
@@ -180,7 +180,7 @@ int open_fd(std::string const& file_path, std::string const& flags, bool o_direc
   KVIKIO_NVTX_FUNC_RANGE();
   struct stat st{};
   int ret = fstat(file_descriptor, &st);
-  SYSCALL_CHECK(ret, "Unable to query file size.");
+  KVIKIO_SYSCALL_CHECK(ret, "Unable to query file size.");
   return static_cast<std::size_t>(st.st_size);
 }
 
@@ -193,7 +193,7 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(std::string const& file_
   bool const o_direct{false};
   mode_t const mode{FileHandle::m644};
   auto fd = open_fd(file_path, flags, o_direct, mode);
-  detail::ScopeExit guard([&] { SYSCALL_CHECK(close(fd)); });
+  detail::ScopeExit guard([&] { KVIKIO_SYSCALL_CHECK(close(fd)); });
   auto result = get_page_cache_info(fd, offset, length);
   return result;
 }
@@ -216,12 +216,12 @@ std::pair<std::size_t, std::size_t> get_page_cache_info(int fd,
   }
 
   auto addr = mmap(nullptr, padded_length, PROT_READ, MAP_PRIVATE, fd, aligned_offset);
-  SYSCALL_CHECK(addr, "mmap failed.", MAP_FAILED);
-  detail::ScopeExit guard([&] { SYSCALL_CHECK(munmap(addr, padded_length)); });
+  KVIKIO_SYSCALL_CHECK(addr, "mmap failed.", MAP_FAILED);
+  detail::ScopeExit guard([&] { KVIKIO_SYSCALL_CHECK(munmap(addr, padded_length)); });
 
   std::size_t num_pages = (padded_length + page_size - 1) / page_size;
   std::vector<unsigned char> is_in_page_cache(num_pages, {});
-  SYSCALL_CHECK(mincore(addr, padded_length, is_in_page_cache.data()));
+  KVIKIO_SYSCALL_CHECK(mincore(addr, padded_length, is_in_page_cache.data()));
   auto const num_pages_in_page_cache =
     std::count_if(is_in_page_cache.begin(), is_in_page_cache.end(), [](auto byte) {
       // The least significant bit of each byte will be set if the corresponding page is currently
@@ -237,7 +237,7 @@ void drop_file_page_cache(int fd, std::size_t offset, std::size_t length, bool s
 {
   KVIKIO_NVTX_FUNC_RANGE();
 
-  if (sync_first) { SYSCALL_CHECK(fdatasync(fd), "fdatasync failed"); }
+  if (sync_first) { KVIKIO_SYSCALL_CHECK(fdatasync(fd), "fdatasync failed"); }
 
   // POSIX_FADV_DONTNEED informs the kernel that the specified data will not be accessed in the near
   // future, which subsequently attempts to free the associated cached pages.
@@ -320,7 +320,7 @@ BlockDeviceInfo get_block_device_info(std::string const& file_path)
   unsigned dev_minor_id{};
 
   struct stat st{};
-  SYSCALL_CHECK(stat(file_path.c_str(), &st));
+  KVIKIO_SYSCALL_CHECK(stat(file_path.c_str(), &st));
 
   dev_major_id = major(st.st_dev);
   dev_minor_id = minor(st.st_dev);
@@ -329,19 +329,20 @@ BlockDeviceInfo get_block_device_info(std::string const& file_path)
   // e.g., /sys/dev/block/259:8
   std::string const sysfs_path =
     "/sys/dev/block/" + std::to_string(dev_major_id) + ":" + std::to_string(dev_minor_id);
-  SYSCALL_CHECK(access(sysfs_path.c_str(), F_OK),
-                "sysfs path \"" + sysfs_path + "\" for file \"" + file_path +
-                  "\" does not exist. The file may reside on a virtual file system (overlayfs, "
-                  "tmpfs) with no backing block device.");
+  KVIKIO_SYSCALL_CHECK(
+    access(sysfs_path.c_str(), F_OK),
+    "sysfs path \"" + sysfs_path + "\" for file \"" + file_path +
+      "\" does not exist. The file may reside on a virtual file system (overlayfs, "
+      "tmpfs) with no backing block device.");
 
   // Resolve the symlink to the actual sysfs device path
   // e.g.,
   // - NVMe: /sys/devices/pci0000:00/.../nvme/nvme1/nvme1n1/nvme1n1p3
   // - SATA: /sys/devices/pci0000:00/.../block/sdb/sdb1
   char resolved_path[PATH_MAX];
-  SYSCALL_CHECK(realpath(sysfs_path.c_str(), resolved_path),
-                "Path failed to resolve",
-                static_cast<char*>(nullptr));
+  KVIKIO_SYSCALL_CHECK(realpath(sysfs_path.c_str(), resolved_path),
+                       "Path failed to resolve",
+                       static_cast<char*>(nullptr));
 
   // If this is a partition, walk up to the parent block device.
   // Partitions have a "partition" file in their sysfs directory.

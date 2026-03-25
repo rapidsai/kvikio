@@ -181,14 +181,16 @@ std::size_t FileHandle::read(void* devPtr_base,
     return detail::posix_device_read(
       _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
   }
-  if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
+  if (sync_default_stream) {
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
+  }
 
   ssize_t ret = cuFileAPI::instance().Read(_cufile_handle.handle(),
                                            devPtr_base,
                                            size,
                                            convert_size2off(file_offset),
                                            convert_size2off(devPtr_offset));
-  CUFILE_CHECK_BYTES_DONE(ret);
+  KVIKIO_CUFILE_CHECK_BYTES_DONE(ret);
   return ret;
 }
 
@@ -205,7 +207,9 @@ std::size_t FileHandle::write(void const* devPtr_base,
     return detail::posix_device_write(
       _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
   }
-  if (sync_default_stream) { CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr)); }
+  if (sync_default_stream) {
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
+  }
 
   ssize_t ret = cuFileAPI::instance().Write(_cufile_handle.handle(),
                                             devPtr_base,
@@ -279,7 +283,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   // Let's synchronize once instead of in each task.
   if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
     PushAndPopContext c(ctx);
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
@@ -378,7 +382,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   // Let's synchronize once instead of in each task.
   if (sync_default_stream && !get_compat_mode_manager().is_compat_mode_preferred()) {
     PushAndPopContext c(ctx);
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
@@ -410,17 +414,17 @@ void FileHandle::read_async(void* devPtr_base,
   KVIKIO_NVTX_FUNC_RANGE();
   get_compat_mode_manager().validate_compat_mode_for_async();
   if (get_compat_mode_manager().is_compat_mode_preferred_for_async()) {
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     *bytes_read_p =
       static_cast<ssize_t>(read(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   } else {
-    CUFILE_TRY(cuFileAPI::instance().ReadAsync(_cufile_handle.handle(),
-                                               devPtr_base,
-                                               size_p,
-                                               file_offset_p,
-                                               devPtr_offset_p,
-                                               bytes_read_p,
-                                               stream));
+    KVIKIO_CUFILE_TRY(cuFileAPI::instance().ReadAsync(_cufile_handle.handle(),
+                                                      devPtr_base,
+                                                      size_p,
+                                                      file_offset_p,
+                                                      devPtr_offset_p,
+                                                      bytes_read_p,
+                                                      stream));
   }
 }
 
@@ -445,17 +449,17 @@ void FileHandle::write_async(void* devPtr_base,
   KVIKIO_NVTX_FUNC_RANGE();
   get_compat_mode_manager().validate_compat_mode_for_async();
   if (get_compat_mode_manager().is_compat_mode_preferred_for_async()) {
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     *bytes_written_p =
       static_cast<ssize_t>(write(devPtr_base, *size_p, *file_offset_p, *devPtr_offset_p));
   } else {
-    CUFILE_TRY(cuFileAPI::instance().WriteAsync(_cufile_handle.handle(),
-                                                devPtr_base,
-                                                size_p,
-                                                file_offset_p,
-                                                devPtr_offset_p,
-                                                bytes_written_p,
-                                                stream));
+    KVIKIO_CUFILE_TRY(cuFileAPI::instance().WriteAsync(_cufile_handle.handle(),
+                                                       devPtr_base,
+                                                       size_p,
+                                                       file_offset_p,
+                                                       devPtr_offset_p,
+                                                       bytes_written_p,
+                                                       stream));
   }
 }
 

@@ -51,7 +51,6 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
   if (str == "false" || str == "off" || str == "no") { return false; }
   KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
               std::invalid_argument);
-  return {};
 }
 
 template <>

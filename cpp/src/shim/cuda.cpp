@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -42,7 +42,7 @@ cudaAPI::cudaAPI()
   get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
   get_symbol(DriverGetVersion, lib, KVIKIO_STRINGIFY(cuDriverGetVersion));
 
-  CUDA_DRIVER_TRY(DriverGetVersion(&driver_version));
+  KVIKIO_CUDA_DRIVER_TRY(DriverGetVersion(&driver_version));
 
 #if CUDA_VERSION >= 12080
   // cuMemcpyBatchAsync was introduced in CUDA 12.8, and its parameters were changed in CUDA 13.0.

@@ -31,9 +31,10 @@ EnvVarContext::~EnvVarContext()
 {
   for (auto const& [key, state] : _env_var_map) {
     if (state.existed_before) {
-      SYSCALL_CHECK(setenv(key.c_str(), state.previous_value.c_str(), 1 /* allow overwrite */));
+      KVIKIO_SYSCALL_CHECK(
+        setenv(key.c_str(), state.previous_value.c_str(), 1 /* allow overwrite */));
     } else {
-      SYSCALL_CHECK(unsetenv(key.c_str()));
+      KVIKIO_SYSCALL_CHECK(unsetenv(key.c_str()));
     }
   }
 }
@@ -49,7 +50,7 @@ void EnvVarContext::add_entry(std::string_view key, std::string_view value)
     state.existed_before = true;
     state.previous_value = res;
   }
-  SYSCALL_CHECK(setenv(key.data(), value.data(), 1 /* allow overwrite */));
+  KVIKIO_SYSCALL_CHECK(setenv(key.data(), value.data(), 1 /* allow overwrite */));
   _env_var_map.insert({std::move(key_str), std::move(state)});
 }
 }  // namespace kvikio::test

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -77,7 +77,7 @@ CompatModeManager::CompatModeManager(std::string const& file_path,
   if (compat_mode_requested_v == CompatMode::AUTO && error_code.value().err != CU_FILE_SUCCESS) {
     _is_compat_mode_preferred = true;
   } else {
-    CUFILE_TRY(error_code.value());
+    KVIKIO_CUFILE_TRY(error_code.value());
   }
 
   // Check cuFile async API

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@ namespace kvikio {
 
 BatchHandle::BatchHandle(int max_num_events) : _initialized{true}, _max_num_events{max_num_events}
 {
-  CUFILE_TRY(cuFileAPI::instance().BatchIOSetUp(&_handle, max_num_events));
+  KVIKIO_CUFILE_TRY(cuFileAPI::instance().BatchIOSetUp(&_handle, max_num_events));
 }
 
 BatchHandle::BatchHandle(BatchHandle&& o) noexcept
@@ -59,7 +59,7 @@ void BatchHandle::submit(std::vector<BatchOp> const& operations)
                                                .cookie = nullptr});
   }
 
-  CUFILE_TRY(cuFileAPI::instance().BatchIOSubmit(
+  KVIKIO_CUFILE_TRY(cuFileAPI::instance().BatchIOSubmit(
     _handle, io_batch_params.size(), io_batch_params.data(), 0));
 }
 
@@ -69,11 +69,12 @@ std::vector<CUfileIOEvents_t> BatchHandle::status(unsigned min_nr,
 {
   std::vector<CUfileIOEvents_t> ret;
   ret.resize(_max_num_events);
-  CUFILE_TRY(cuFileAPI::instance().BatchIOGetStatus(_handle, min_nr, &max_nr, &ret[0], timeout));
+  KVIKIO_CUFILE_TRY(
+    cuFileAPI::instance().BatchIOGetStatus(_handle, min_nr, &max_nr, &ret[0], timeout));
   ret.resize(max_nr);
   return ret;
 }
 
-void BatchHandle::cancel() { CUFILE_TRY(cuFileAPI::instance().BatchIOCancel(_handle)); }
+void BatchHandle::cancel() { KVIKIO_CUFILE_TRY(cuFileAPI::instance().BatchIOCancel(_handle)); }
 
 }  // namespace kvikio
