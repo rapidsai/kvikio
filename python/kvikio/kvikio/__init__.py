@@ -14,6 +14,14 @@ else:
 
 from kvikio._lib.defaults import CompatMode  # noqa: F401
 from kvikio._version import __git_commit__, __version__
+from kvikio.aws_credentials import (
+    AwsCredential,
+    AwsDefaultCredential,
+    AwsEnvironmentCredential,
+    AwsIamRoleCredential,
+    AwsLegacyCredential,
+    AwsStaticCredential,
+)
 from kvikio.buffer import bounce_buffer_free, memory_deregister, memory_register
 from kvikio.cufile import (
     CuFile,
@@ -30,6 +38,12 @@ from kvikio.utils import kvikio_deprecation_notice
 __all__ = [
     "__git_commit__",
     "__version__",
+    "AwsCredential",
+    "AwsDefaultCredential",
+    "AwsIamRoleCredential",
+    "AwsEnvironmentCredential",
+    "AwsLegacyCredential",
+    "AwsStaticCredential",
     "clear_page_cache",
     "CuFile",
     "drop_file_page_cache",

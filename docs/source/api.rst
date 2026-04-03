@@ -68,6 +68,20 @@ RemoteFile
 .. autoclass:: RemoteFile
     :members:
 
+AWS S3 credentials
+------------------
+.. currentmodule:: kvikio.aws_credentials
+
+.. autoclass:: AwsDefaultCredential
+
+.. autoclass:: AwsEnvironmentCredential
+
+.. autoclass:: AwsLegacyCredential
+
+.. autoclass:: AwsStaticCredential
+
+.. autoclass:: AwsIamRoleCredential
+
 Defaults
 --------
 .. currentmodule:: kvikio.defaults
