@@ -56,8 +56,11 @@ std::size_t posix_device_read_aligned(int fd_direct_off,
 
     std::size_t nbytes_processed = std::min(nbytes_expected, nbytes_io - prefix);
 
-    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-      devPtr, static_cast<std::byte*>(bounce_buffer.get()) + prefix, nbytes_processed, stream));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(
+      devPtr,
+      convert_void2deviceptr(static_cast<std::byte*>(bounce_buffer.get()) + prefix),
+      nbytes_processed,
+      stream));
     KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
 
     cur_file_offset += nbytes_processed;

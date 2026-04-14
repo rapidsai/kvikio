@@ -78,7 +78,10 @@ bool is_cuda_available()
   return true;
 }
 
-CUresult cuda_memcpy_async(CUdeviceptr dst, CUdeviceptr src, std::size_t size, CUstream stream)
+CUresult cudaAPI::cuda_memcpy_async(CUdeviceptr dst,
+                                    CUdeviceptr src,
+                                    std::size_t size,
+                                    CUstream stream)
 {
 #if CUDA_VERSION >= 12080
   if (cudaAPI::instance().MemcpyBatchAsync) {

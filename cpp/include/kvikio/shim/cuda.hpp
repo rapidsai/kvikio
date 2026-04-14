@@ -117,6 +117,23 @@ class cudaAPI {
   void operator=(cudaAPI const&) = delete;
 
   KVIKIO_EXPORT static cudaAPI& instance();
+
+  /**
+   * @brief Copy memory asynchronously, preferring the batched API when available.
+   *
+   * Uses `cuMemcpyBatchAsync` with stream-ordered source access when the CUDA driver supports it
+   * (CUDA >= 12.8); otherwise falls back to `cuMemcpyAsync`.
+   *
+   * @param dst Destination device pointer.
+   * @param src Source device pointer (may alias host-registered memory under UVA).
+   * @param size Number of bytes to copy.
+   * @param stream CUDA stream for ordering.
+   * @return CUresult from the underlying driver call.
+   */
+  static CUresult cuda_memcpy_async(CUdeviceptr dst,
+                                    CUdeviceptr src,
+                                    size_t ByteCount,
+                                    CUstream hStream);
 };
 
 /**
@@ -127,19 +144,5 @@ class cudaAPI {
  * @return The boolean answer
  */
 bool is_cuda_available();
-
-/**
- * @brief Copy memory asynchronously, preferring the batched API when available.
- *
- * Uses `cuMemcpyBatchAsync` with stream-ordered source access when the CUDA driver supports it
- * (CUDA >= 12.8); otherwise falls back to `cuMemcpyAsync`.
- *
- * @param dst Destination device pointer.
- * @param src Source device pointer (may alias host-registered memory under UVA).
- * @param size Number of bytes to copy.
- * @param stream CUDA stream for ordering.
- * @return CUresult from the underlying driver call.
- */
-CUresult cuda_memcpy_async(CUdeviceptr dst, CUdeviceptr src, size_t ByteCount, CUstream hStream);
 
 }  // namespace kvikio
