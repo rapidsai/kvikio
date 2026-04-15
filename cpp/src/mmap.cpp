@@ -193,37 +193,6 @@ void read_impl(void* dst_buf,
 
   PushAndPopContext c(ctx);
   CUstream stream = detail::StreamCachePerThreadAndContext::get();
-
-  auto h2d_batch_cpy_sync =
-    [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
-#if CUDA_VERSION >= 12080
-      if (cudaAPI::instance().MemcpyBatchAsync) {
-        CUmemcpyAttributes attrs{};
-        std::size_t attrs_idxs[] = {0};
-        attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-        KVIKIO_CUDA_DRIVER_TRY(
-          cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
-                                               &src_devptr,
-                                               &size,
-                                               static_cast<std::size_t>(1) /* count */,
-                                               &attrs,
-                                               attrs_idxs,
-                                               static_cast<std::size_t>(1) /* num_attrs */,
-#if CUDA_VERSION < 13000
-                                               static_cast<std::size_t*>(nullptr),
-#endif
-                                               stream));
-      } else {
-        // Fall back to the conventional H2D copy if the batch copy API is not available.
-        KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-          dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
-      }
-#else
-      KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-        dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
-#endif
-    };
-
   auto dst_devptr = convert_void2deviceptr(dst);
   CUdeviceptr src_devptr{};
   if (detail::is_ats_available()) {
