@@ -198,13 +198,14 @@ void read_impl(void* dst_buf,
   if (detail::is_ats_available()) {
     perform_prefault(src, size);
     src_devptr = convert_void2deviceptr(src);
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(dst_devptr, src_devptr, size, stream));
   } else {
     auto bounce_buffer = CudaPinnedBounceBufferPool::instance().get();
     std::memcpy(bounce_buffer.get(), src, size);
     src_devptr = convert_void2deviceptr(bounce_buffer.get());
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(dst_devptr, src_devptr, size, stream));
   }
 
-  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(dst_devptr, src_devptr, size, stream));
   KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
 }
 

@@ -132,8 +132,8 @@ class cudaAPI {
    */
   static CUresult cuda_memcpy_async(CUdeviceptr dst,
                                     CUdeviceptr src,
-                                    size_t ByteCount,
-                                    CUstream hStream);
+                                    std::size_t size,
+                                    CUstream stream);
 };
 
 /**
