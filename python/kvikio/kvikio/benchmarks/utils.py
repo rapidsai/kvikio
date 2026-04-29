@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -16,11 +16,11 @@ import kvikio
 import kvikio.cufile_driver
 import kvikio.defaults
 
-has_pynvml = False
+has_cuda_core_system = False
 with contextlib.suppress(ImportError):
-    import pynvml
+    from cuda.core import system
 
-    has_pynvml = True
+    has_cuda_core_system = system.CUDA_BINDINGS_IS_NVML_COMPATIBLE
 
 
 def drop_vm_cache() -> None:
@@ -38,21 +38,20 @@ def pprint_sys_info() -> None:
     props = kvikio.cufile_driver.properties
 
     gpu_name = mem_total = bar1_total = "Unknown (install nvidia-ml-py)"
-    if has_pynvml:
+    if has_cuda_core_system:
         dev = None
-        with contextlib.suppress(pynvml.NVMLError):
-            pynvml.nvmlInit()
-            dev = pynvml.nvmlDeviceGetHandleByIndex(0)
+        with contextlib.suppress(system.NvmlError):
+            dev = system.Device(index=0)
 
         if dev is not None:
-            gpu_name = f"{pynvml.nvmlDeviceGetName(dev)} (dev #0)"
+            gpu_name = f"{dev.name} (dev #0)"
             try:
-                mem_total = format_bytes(pynvml.nvmlDeviceGetMemoryInfo(dev).total)
-            except pynvml.NVMLError_NotSupported:
+                mem_total = format_bytes(dev.memory_info.total)
+            except system.NotSupportedError:
                 mem_total = "Device has no memory resource"
             try:
-                bar1_total = pynvml.nvmlDeviceGetBAR1MemoryInfo(dev).bar1Total
-            except pynvml.NVMLError_NotSupported:
+                bar1_total = dev.bar1_memory_info.total
+            except system.NotSupportedError:
                 bar1_total = "Device has no BAR1 support"
 
     if version == (0, 0):
