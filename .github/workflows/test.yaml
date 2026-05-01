@@ -26,7 +26,7 @@ permissions: {}
 
 jobs:
   cpp-tests:
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -41,7 +41,7 @@ jobs:
       script: ci/test_cpp.sh
       sha: ${{ inputs.sha }}
   python-tests:
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -56,7 +56,7 @@ jobs:
       script: ci/test_python.sh
       sha: ${{ inputs.sha }}
   conda-java-tests:
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read

@@ -28,7 +28,7 @@ jobs:
       - wheel-python-build
       - wheel-python-tests
       - telemetry-setup
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -58,7 +58,7 @@ jobs:
           repo: ${{ github.repository }}
           target-branch: ${{ fromJSON(steps.get-pr-info.outputs.pr-info).base.ref }}
   changed-files:
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -183,7 +183,7 @@ jobs:
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
         uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   checks:
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -196,7 +196,7 @@ jobs:
       ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
     needs: checks
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -210,7 +210,7 @@ jobs:
       script: ci/build_cpp.sh
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -224,7 +224,7 @@ jobs:
       script: ci/test_cpp.sh
   conda-java-tests:
     needs: conda-cpp-build
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -240,7 +240,7 @@ jobs:
       script: "ci/test_java.sh"
   conda-python-build:
     needs: conda-cpp-build
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -255,7 +255,7 @@ jobs:
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   conda-python-tests:
     needs: [conda-python-build, changed-files]
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -269,7 +269,7 @@ jobs:
       script: ci/test_python.sh
   docs-build:
     needs: [conda-python-build, changed-files]
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -286,7 +286,7 @@ jobs:
       script: "ci/build_docs.sh"
   devcontainer:
     needs: telemetry-setup
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -308,7 +308,7 @@ jobs:
         python -c "import kvikio; print(kvikio.__version__)";
         sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt;
   wheel-cpp-build:
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -325,7 +325,7 @@ jobs:
       package-type: cpp
   wheel-python-build:
     needs: wheel-cpp-build
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
@@ -343,7 +343,7 @@ jobs:
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-python-tests:
     needs: [wheel-python-build, changed-files]
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
