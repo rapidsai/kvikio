@@ -3,6 +3,16 @@ Remote File
 
 KvikIO provides direct access to remote files, including AWS S3, WebHDFS, and generic HTTP/HTTPS.
 
+AWS S3 credentials
+------------------
+
+For :meth:`kvikio.RemoteFile.open_s3` and :meth:`kvikio.RemoteFile.open_s3_url`, pass a
+``credential`` object from :mod:`kvikio.aws_credentials`. The default (``credential=None``)
+uses environment variables when ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` are
+set; otherwise KvikIO attempts IAM role credentials from the compute metadata service (`IMDSv2
+<https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-metadata-security-credentials.html>`_),
+with caching in the C++ layer until credentials are close to expiry.
+
 Example
 -------
 
