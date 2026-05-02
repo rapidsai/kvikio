@@ -23,6 +23,7 @@ cudaAPI::cudaAPI()
   get_symbol(MemHostUnregister, lib, KVIKIO_STRINGIFY(cuMemHostUnregister));
   get_symbol(MemcpyHtoDAsync, lib, KVIKIO_STRINGIFY(cuMemcpyHtoDAsync));
   get_symbol(MemcpyDtoHAsync, lib, KVIKIO_STRINGIFY(cuMemcpyDtoHAsync));
+  get_symbol(MemcpyAsync, lib, KVIKIO_STRINGIFY(cuMemcpyAsync));
   get_symbol(PointerGetAttribute, lib, KVIKIO_STRINGIFY(cuPointerGetAttribute));
   get_symbol(PointerGetAttributes, lib, KVIKIO_STRINGIFY(cuPointerGetAttributes));
   get_symbol(CtxPushCurrent, lib, KVIKIO_STRINGIFY(cuCtxPushCurrent));
@@ -75,6 +76,36 @@ bool is_cuda_available()
     return false;
   }
   return true;
+}
+
+CUresult cudaAPI::cuda_memcpy_async(CUdeviceptr dst,
+                                    CUdeviceptr src,
+                                    std::size_t size,
+                                    CUstream stream)
+{
+#if CUDA_VERSION >= 12080
+  if (cudaAPI::instance().MemcpyBatchAsync) {
+    CUmemcpyAttributes attrs{.srcAccessOrder =
+                               CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM};
+    std::size_t attrs_idxs[] = {0};
+    return cudaAPI::instance().MemcpyBatchAsync(&dst,
+                                                &src,
+                                                &size,
+                                                static_cast<std::size_t>(1) /* count */,
+                                                &attrs,
+                                                attrs_idxs,
+                                                static_cast<std::size_t>(1) /* num_attrs */,
+#if CUDA_VERSION < 13000
+                                                static_cast<std::size_t*>(nullptr),
+#endif
+                                                stream);
+  } else {
+    // Fall back to the conventional memory copy if the batch copy API is not available.
+    return cudaAPI::instance().MemcpyAsync(dst, src, size, stream);
+  }
+#else
+  return cudaAPI::instance().MemcpyAsync(dst, src, size, stream);
+#endif
 }
 
 }  // namespace kvikio
