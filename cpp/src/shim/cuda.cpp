@@ -84,7 +84,7 @@ CUresult cudaAPI::cuda_memcpy_async(CUdeviceptr dst,
                                     CUstream stream)
 {
 #if CUDA_VERSION >= 12080
-  if (cudaAPI::instance().MemcpyBatchAsync) {
+  if (cudaAPI::instance().MemcpyBatchAsync && stream != nullptr) {
     CUmemcpyAttributes attrs{.srcAccessOrder =
                                CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM};
     std::size_t attrs_idxs[] = {0};

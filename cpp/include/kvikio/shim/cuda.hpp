@@ -119,10 +119,11 @@ class cudaAPI {
   KVIKIO_EXPORT static cudaAPI& instance();
 
   /**
-   * @brief Copy memory asynchronously, preferring the batched API when available.
+   * @brief Copy memory asynchronously, preferring the batched API when available for non-default
+   * stream.
    *
    * Uses `cuMemcpyBatchAsync` with stream-ordered source access when the CUDA driver supports it
-   * (CUDA >= 12.8); otherwise falls back to `cuMemcpyAsync`.
+   * (CUDA >= 12.8) for non-default stream; otherwise falls back to `cuMemcpyAsync`.
    *
    * @param dst Destination device pointer.
    * @param src Source device pointer (may alias host-registered memory under UVA).
