@@ -243,12 +243,12 @@ std::size_t posix_device_io(int fd_direct_off,
       // unaligned DIO path).
       nbytes_io = static_cast<std::size_t>(posix_host_io<IOOperationType::READ, PartialIO::YES>(
         fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on));
-      KVIKIO_CUDA_DRIVER_TRY(
-        cudaAPI::instance().MemcpyHtoDAsync(devPtr, bounce_buffer.get(), nbytes_io, stream));
+      KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(
+        devPtr, convert_void2deviceptr(bounce_buffer.get()), nbytes_io, stream));
       KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
     } else {  // Is a write operation
-      KVIKIO_CUDA_DRIVER_TRY(
-        cudaAPI::instance().MemcpyDtoHAsync(bounce_buffer.get(), devPtr, nbytes_requested, stream));
+      KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(
+        convert_void2deviceptr(bounce_buffer.get()), devPtr, nbytes_requested, stream));
       KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
       posix_host_io<IOOperationType::WRITE, PartialIO::NO>(
         fd_direct_off, bounce_buffer.get(), nbytes_requested, cur_file_offset, fd_direct_on);

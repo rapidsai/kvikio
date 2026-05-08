@@ -86,7 +86,7 @@ class BounceBufferH2D {
     KVIKIO_NVTX_FUNC_RANGE();
     if (size > 0) {
       KVIKIO_CUDA_DRIVER_TRY(
-        cudaAPI::instance().MemcpyHtoDAsync(_dev + _dev_offset, src, size, _stream));
+        cudaAPI::cuda_memcpy_async(_dev + _dev_offset, convert_void2deviceptr(src), size, _stream));
       KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
       _dev_offset += size;
     }

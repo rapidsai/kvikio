@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -86,6 +86,7 @@ class cudaAPI {
   decltype(cuMemHostUnregister)* MemHostUnregister{nullptr};
   decltype(cuMemcpyHtoDAsync)* MemcpyHtoDAsync{nullptr};
   decltype(cuMemcpyDtoHAsync)* MemcpyDtoHAsync{nullptr};
+  decltype(cuMemcpyAsync)* MemcpyAsync{nullptr};
 
   detail::AnyCallable MemcpyBatchAsync{};
 
@@ -116,6 +117,25 @@ class cudaAPI {
   void operator=(cudaAPI const&) = delete;
 
   KVIKIO_EXPORT static cudaAPI& instance();
+
+  /**
+   * @brief Asynchronous memcpy that prefers `cuMemcpyBatchAsync` when supported.
+   *
+   * Dispatches to `cuMemcpyBatchAsync` with `CU_MEMCPY_SRC_ACCESS_ORDER_STREAM`
+   * on CUDA >= 12.8 when `stream` is non-default; otherwise falls back to
+   * `cuMemcpyAsync`. The fallback is mandatory on the default (NULL) stream,
+   * which `cuMemcpyBatchAsync` rejects.
+   *
+   * @param dst    Destination pointer (host or device under UVA).
+   * @param src    Source pointer (host or device under UVA).
+   * @param size   Number of bytes to copy.
+   * @param stream CUDA stream for ordering.
+   * @return CUresult from the underlying driver call.
+   */
+  static CUresult cuda_memcpy_async(CUdeviceptr dst,
+                                    CUdeviceptr src,
+                                    std::size_t size,
+                                    CUstream stream);
 };
 
 /**
