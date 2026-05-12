@@ -16,6 +16,7 @@
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
+#include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <string_view>
 
@@ -72,6 +73,48 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
   if (int_str.empty()) { return std::move(default_val); }
 
   return detail::parse_http_status_codes(env_var_name, int_str);
+}
+
+namespace {
+// Lowercase + whitespace-trimmed copy of `s`. Used by the enum parsers below to accept
+// case-insensitive and slightly sloppy values for `KVIKIO_REMOTE_IO_*` env vars.
+std::string normalize_env_value(std::string_view s)
+{
+  std::string str{s};
+  std::transform(
+    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
+  std::stringstream trimmer;
+  trimmer << str;
+  str.clear();
+  trimmer >> str;
+  return str;
+}
+}  // namespace
+
+template <>
+RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default_val)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto const* env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return default_val; }
+  auto const normalized = normalize_env_value(env_val);
+  if (normalized == "easy_threadpool") { return RemoteIOBackend::EASY_THREADPOOL; }
+  if (normalized == "multi_poll") { return RemoteIOBackend::MULTI_POLL; }
+  KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
+              std::invalid_argument);
+}
+
+template <>
+RemoteReactorSharding getenv_or(std::string_view env_var_name, RemoteReactorSharding default_val)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto const* env_val = std::getenv(env_var_name.data());
+  if (env_val == nullptr) { return default_val; }
+  auto const normalized = normalize_env_value(env_val);
+  if (normalized == "per_chunk") { return RemoteReactorSharding::PER_CHUNK; }
+  if (normalized == "per_pread") { return RemoteReactorSharding::PER_PREAD; }
+  KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
+              std::invalid_argument);
 }
 
 unsigned int defaults::get_num_threads_from_env()
@@ -145,6 +188,21 @@ defaults::defaults()
   // Determine the default value of `thread_pool_per_block_device`
   {
     _thread_pool_per_block_device = getenv_or("KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE", false);
+  }
+
+  // Determine the remote-IO backend selectors.
+  {
+    _remote_io_backend = getenv_or("KVIKIO_REMOTE_IO_BACKEND", RemoteIOBackend::EASY_THREADPOOL);
+  }
+  {
+    ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_NUM_REACTORS", 1);
+    KVIKIO_EXPECT(
+      env > 0, "KVIKIO_REMOTE_IO_NUM_REACTORS has to be a positive integer", std::invalid_argument);
+    _remote_io_num_reactors = static_cast<unsigned int>(env);
+  }
+  {
+    _remote_io_reactor_sharding =
+      getenv_or("KVIKIO_REMOTE_IO_REACTOR_SHARDING", RemoteReactorSharding::PER_CHUNK);
   }
 }
 
@@ -256,5 +314,14 @@ bool defaults::thread_pool_per_block_device() { return instance()->_thread_pool_
 void defaults::set_thread_pool_per_block_device(bool flag)
 {
   instance()->_thread_pool_per_block_device = flag;
+}
+
+RemoteIOBackend defaults::remote_io_backend() { return instance()->_remote_io_backend; }
+
+unsigned int defaults::remote_io_num_reactors() { return instance()->_remote_io_num_reactors; }
+
+RemoteReactorSharding defaults::remote_io_reactor_sharding()
+{
+  return instance()->_remote_io_reactor_sharding;
 }
 }  // namespace kvikio

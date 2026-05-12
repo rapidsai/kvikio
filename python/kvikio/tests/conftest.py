@@ -1,8 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
 import multiprocessing as mp
+import os
 import subprocess
 from multiprocessing.connection import Connection
 from typing import Iterable
@@ -10,6 +11,33 @@ from typing import Iterable
 import pytest
 
 import kvikio.defaults
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip cupy / device-buffer parametrizations when the MULTI_POLL remote-IO
+    backend is active.
+
+    The MULTI_POLL backend is host-only in this release; calling
+    ``RemoteHandle::pread()`` with a device pointer raises ``std::invalid_argument``
+    from C++. The existing remote-IO pytest cases parametrize over the ``xp``
+    fixture (``cupy``, ``cupy_async``, ``numpy``); under ``multi_poll`` only the
+    ``numpy`` variants are exercised, so we mark the cupy variants as skipped
+    upfront rather than letting them fail.
+    """
+    backend = os.environ.get("KVIKIO_REMOTE_IO_BACKEND", "").strip().lower()
+    if backend != "multi_poll":
+        return
+
+    skip_device = pytest.mark.skip(
+        reason="MULTI_POLL backend is host-only in this release; "
+        "cupy/device parametrizations skipped."
+    )
+    for item in items:
+        # The xp fixture's parametrize ids are 'cupy', 'cupy_async', 'numpy'.
+        # Pytest encodes them into the item name like 'test_read[cupy-...]'.
+        if "cupy" in item.name:
+            item.add_marker(skip_device)
+
 
 mp = mp.get_context("spawn")  # type: ignore
 

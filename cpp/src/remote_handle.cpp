@@ -17,8 +17,10 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
+#include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
+#include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/url.hpp>
@@ -30,12 +32,15 @@
 
 namespace kvikio {
 
-namespace {
+namespace detail {
 
 /**
  * @brief Bounce buffer in pinned host memory.
  *
- * @note Is not thread-safe.
+ * @note Not thread-safe. Lives in `kvikio::detail` (rather than the anonymous namespace it
+ * previously occupied) so the type name is consistent with the forward declaration in
+ * [remote_callback.hpp](../include/kvikio/detail/remote_callback.hpp), which the multi-handle
+ * backend also includes.
  */
 class BounceBufferH2D {
   CUstream _stream;                                 // The CUDA stream to use.
@@ -129,6 +134,10 @@ class BounceBufferH2D {
     }
   }
 };
+
+}  // namespace detail
+
+namespace {
 
 /**
  * @brief Get the file size, if using `HEAD` request to obtain the content-length header is
@@ -690,22 +699,12 @@ std::size_t RemoteHandle::nbytes() const noexcept { return _nbytes; }
 
 RemoteEndpoint const& RemoteHandle::endpoint() const noexcept { return *_endpoint; }
 
-namespace {
+namespace detail {
 
-/**
- * @brief Context used by the "CURLOPT_WRITEFUNCTION" callbacks.
- */
-struct CallbackContext {
-  char* buf;              // Output buffer to read into.
-  std::size_t size;       // Total number of bytes to read.
-  std::ptrdiff_t offset;  // Offset into `buf` to start reading.
-  bool overflow_error;    // Flag to indicate overflow.
-  CallbackContext(void* buf, std::size_t size)
-    : buf{static_cast<char*>(buf)}, size{size}, offset{0}, overflow_error{0}
-  {
-  }
-  BounceBufferH2D* bounce_buffer{nullptr};  // Only used by callback_device_memory
-};
+// `CallbackContext` is declared in <kvikio/detail/remote_callback.hpp> so the multi-handle
+// reactor backend can reference the same type. The host and device write callbacks below
+// are also declared there and given external linkage here, replacing the previous
+// anonymous-namespace definitions.
 
 /**
  * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output host buffer.
@@ -757,7 +756,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
   ctx->offset += nbytes;
   return nbytes;
 }
-}  // namespace
+}  // namespace detail
 
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
@@ -775,11 +774,11 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   _endpoint->setup_range_request(curl, file_offset, size);
 
   if (is_host_mem) {
-    curl.setopt(CURLOPT_WRITEFUNCTION, callback_host_memory);
+    curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_host_memory);
   } else {
-    curl.setopt(CURLOPT_WRITEFUNCTION, callback_device_memory);
+    curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_device_memory);
   }
-  CallbackContext ctx{buf, size};
+  detail::CallbackContext ctx{buf, size};
   curl.setopt(CURLOPT_WRITEDATA, &ctx);
 
   try {
@@ -789,7 +788,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
       PushAndPopContext c(get_context_from_pointer(buf));
       // We use a bounce buffer to avoid many small memory copies to device. Libcurl has a
       // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
-      BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
+      detail::BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
       ctx.bounce_buffer = &bounce_buffer;
       curl.perform();
     }
@@ -810,23 +809,82 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t task_size,
                                              ThreadPool* thread_pool)
 {
-  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);
-  auto task = [this](void* devPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t devPtr_offset) -> std::size_t {
-    return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
-  };
-  return detail::parallel_io(
-    task,
-    buf,
-    size,
-    file_offset,
-    task_size,
-    0,
-    {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+
+  // Backend captured at `defaults` construction from KVIKIO_REMOTE_IO_BACKEND. There is
+  // intentionally no runtime setter and no per-call override in this release: switch
+  // backends by restarting with a different env var.
+  auto const chosen = defaults::remote_io_backend();
+
+  if (chosen == RemoteIOBackend::EASY_THREADPOOL) {
+    KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+    auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+    auto task                    = [this](void* devPtr_base,
+                       std::size_t size,
+                       std::size_t file_offset,
+                       std::size_t devPtr_offset) -> std::size_t {
+      return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
+    };
+    return detail::parallel_io(
+      task,
+      buf,
+      size,
+      file_offset,
+      task_size,
+      0,
+      {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+  }
+
+  KVIKIO_EXPECT(
+    chosen == RemoteIOBackend::MULTI_POLL, "Unknown RemoteIOBackend value", std::runtime_error);
+
+  // MULTI_POLL path: build one CurlHandle per sub-range, then hand them all to the
+  // process-wide reactor pool.
+  KVIKIO_EXPECT(is_host_memory(buf),
+                "MULTI_POLL backend currently supports host memory only. "
+                "Use EASY_THREADPOOL (KVIKIO_REMOTE_IO_BACKEND=easy_threadpool) for "
+                "device-memory buffers.",
+                std::invalid_argument);
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
+  if (file_offset + size > _nbytes) {
+    std::stringstream ss;
+    ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
+       << " bytes file (" << _endpoint->str() << ")";
+    KVIKIO_FAIL(ss.str(), std::invalid_argument);
+  }
+
+  std::size_t const n_sub = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
+  auto agg                = std::make_shared<detail::RemoteMultiAggregateContext>(n_sub);
+  auto fut                = agg->get_future();
+
+  std::vector<std::unique_ptr<detail::RemoteMultiTransfer>> transfers;
+  transfers.reserve(n_sub);
+
+  std::size_t remaining = size;
+  std::size_t cur_off   = file_offset;
+  auto cur_buf          = static_cast<char*>(buf);
+  for (std::size_t i = 0; i < n_sub; ++i) {
+    std::size_t const sub = std::min(task_size, remaining);
+    auto t                = std::make_unique<detail::RemoteMultiTransfer>();
+    t->curl               = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
+                                           detail::fix_conda_file_path_hack(__FILE__),
+                                           KVIKIO_STRINGIFY(__LINE__));
+    _endpoint->setopt(*t->curl);
+    _endpoint->setup_range_request(*t->curl, cur_off, sub);
+    t->ctx.buf  = cur_buf;
+    t->ctx.size = sub;
+    t->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
+    t->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&t->ctx));
+    t->agg = agg;
+    transfers.push_back(std::move(t));
+    cur_buf += sub;
+    cur_off += sub;
+    remaining -= sub;
+  }
+
+  // One pool call per pread(): the pool consults the captured sharding mode internally.
+  detail::MultiReactorPool::instance().submit_pread(std::move(transfers));
+  return fut;
 }
 
 }  // namespace kvikio

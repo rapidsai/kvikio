@@ -23,7 +23,13 @@ from kvikio.cufile import (
     get_page_cache_info,
 )
 from kvikio.mmap import Mmap
-from kvikio.remote_file import RemoteEndpointType, RemoteFile, is_remote_file_available
+from kvikio.remote_file import (
+    RemoteEndpointType,
+    RemoteFile,
+    RemoteIOBackend,
+    RemoteReactorSharding,
+    is_remote_file_available,
+)
 from kvikio.stream import stream_deregister, stream_register
 from kvikio.utils import kvikio_deprecation_notice
 
@@ -40,6 +46,8 @@ __all__ = [
     "kvikio_deprecation_notice",
     "RemoteEndpointType",
     "RemoteFile",
+    "RemoteIOBackend",
+    "RemoteReactorSharding",
     "stream_register",
     "stream_deregister",
     "memory_register",

@@ -24,6 +24,10 @@
  */
 namespace kvikio {
 
+// Forward declarations of the remote-IO selector enums.
+enum class RemoteIOBackend : uint8_t;
+enum class RemoteReactorSharding : uint8_t;
+
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
@@ -51,6 +55,12 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val);
+
+template <>
+RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default_val);
+
+template <>
+RemoteReactorSharding getenv_or(std::string_view env_var_name, RemoteReactorSharding default_val);
 
 /**
  * @brief Get the environment variable value from a candidate list
@@ -123,6 +133,12 @@ class defaults {
   bool _auto_direct_io_read_overread;
   bool _auto_direct_io_write;
   bool _thread_pool_per_block_device;
+  // Remote-IO backend selectors. All three are env-var only in this release; no setters.
+  // The values are captured once in the constructor and remain immutable for the process
+  // lifetime; users switch values by restarting with different env vars.
+  RemoteIOBackend _remote_io_backend;
+  unsigned int _remote_io_num_reactors;
+  RemoteReactorSharding _remote_io_reactor_sharding;
 
   static unsigned int get_num_threads_from_env();
 
@@ -444,6 +460,44 @@ class defaults {
    * thread pool for all I/O operations.
    */
   static void set_thread_pool_per_block_device(bool flag);
+
+  /**
+   * @brief The remote I/O backend selected for this process.
+   *
+   * Controlled by the environment variable `KVIKIO_REMOTE_IO_BACKEND`, parsed case-insensitively.
+   * The only accepted values are the canonical names `easy_threadpool` and `multi_poll`; short
+   * aliases like `easy` or `multi` are deliberately rejected to avoid ambiguity when `multi_socket`
+   * is added in a future release. If unset, defaults to `EASY_THREADPOOL`. The value is captured
+   * once at library initialization; there is intentionally no setter in this release.
+   *
+   * @return The remote I/O backend.
+   */
+  [[nodiscard]] static RemoteIOBackend remote_io_backend();
+
+  /**
+   * @brief Number of reactor threads used by the `MULTI_POLL` remote I/O backend.
+   *
+   * Controlled by `KVIKIO_REMOTE_IO_NUM_REACTORS`. Must be a positive integer. Defaults to 1.
+   * Ignored when the active backend is not `MULTI_POLL`. The value is captured once at library
+   * initialization; there is intentionally no setter in this release.
+   *
+   * @return The configured reactor count.
+   */
+  [[nodiscard]] static unsigned int remote_io_num_reactors();
+
+  /**
+   * @brief How sub-ranges of one `pread()` are distributed across reactor threads under the
+   * `MULTI_POLL` remote I/O backend.
+   *
+   * Controlled by `KVIKIO_REMOTE_IO_REACTOR_SHARDING`, parsed case-insensitively:
+   * `per_chunk` => `RemoteReactorSharding::PER_CHUNK` (default), `per_pread` =>
+   * `RemoteReactorSharding::PER_PREAD`. With a single reactor, both modes are equivalent. The
+   * value is captured once at library initialization; there is intentionally no setter in this
+   * release.
+   *
+   * @return The reactor sharding mode.
+   */
+  [[nodiscard]] static RemoteReactorSharding remote_io_reactor_sharding();
 };
 
 }  // namespace kvikio
