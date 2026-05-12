@@ -1,16 +1,12 @@
 name: pr
-
 on:
   push:
     branches:
       - "pull-request/[0-9]+"
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 permissions: {}
-
 jobs:
   pr-builder:
     needs:
@@ -361,7 +357,7 @@ jobs:
     needs: pr-builder
     if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
     permissions:
-      actions: read
+      actions: write
     continue-on-error: true
     steps:
       - name: Telemetry summarize
