@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -58,40 +58,14 @@ class ConfigContextManager:
             "http_timeout",
             "auto_direct_io_read",
             "auto_direct_io_write",
-            # Env-var-only properties (no Python or C++ setter; see comment below):
-            "remote_io_backend",
-            "remote_io_num_reactors",
-            "remote_io_reactor_dispatch",
         ]
-
-        # Properties that are read-only after library initialization. Calling
-        # kvikio.defaults.set("<name>", ...) on any of these raises RuntimeError; to
-        # change them, restart the process with the matching KVIKIO_* env var.
-        env_var_only = {
-            "remote_io_backend": "KVIKIO_REMOTE_IO_BACKEND",
-            "remote_io_num_reactors": "KVIKIO_REMOTE_IO_NUM_REACTORS",
-            "remote_io_reactor_dispatch": "KVIKIO_REMOTE_IO_REACTOR_DISPATCH",
-        }
-
-        def _make_env_only_setter(prop_name: str, env_name: str):
-            def _raise(_value):
-                raise RuntimeError(
-                    f"{prop_name!r} is env-var-only in this KvikIO release; "
-                    f"set {env_name} in the environment before launching the "
-                    f"process to change it."
-                )
-
-            return _raise
 
         property_getters = {}
         property_setters = {}
 
         for name in property_getter_names:
             property_getters[name] = module_dict[name]
-            if name in env_var_only:
-                property_setters[name] = _make_env_only_setter(name, env_var_only[name])
-            else:
-                property_setters[name] = module_dict["set_" + name]
+            property_setters[name] = module_dict["set_" + name]
         return property_getters, property_setters
 
 
@@ -154,14 +128,6 @@ def set(*config) -> ConfigContextManager:
         - ``"auto_direct_io_read"``
         - ``"auto_direct_io_write"``
 
-        The following are **read-only** in this release (calling ``set`` on them
-        raises ``RuntimeError``); change them by restarting with the matching
-        ``KVIKIO_*`` environment variable:
-
-        - ``"remote_io_backend"`` (env: ``KVIKIO_REMOTE_IO_BACKEND``)
-        - ``"remote_io_num_reactors"`` (env: ``KVIKIO_REMOTE_IO_NUM_REACTORS``)
-        - ``"remote_io_reactor_dispatch"`` (env: ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``)
-
     Returns
     -------
     ConfigContextManager
@@ -206,9 +172,6 @@ def get(config_name: str) -> Any:
         - ``"http_timeout"``
         - ``"auto_direct_io_read"``
         - ``"auto_direct_io_write"``
-        - ``"remote_io_backend"`` (read-only; controlled by ``KVIKIO_REMOTE_IO_BACKEND``)
-        - ``"remote_io_num_reactors"`` (read-only; controlled by ``KVIKIO_REMOTE_IO_NUM_REACTORS``)
-        - ``"remote_io_reactor_dispatch"`` (read-only; controlled by ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``)
 
     Returns
     -------

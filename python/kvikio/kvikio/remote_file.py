@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -58,65 +58,6 @@ class RemoteEndpointType(enum.Enum):
     @staticmethod
     def _map_to_internal(remote_endpoint_type: RemoteEndpointType):
         return _get_remote_module().RemoteEndpointType[remote_endpoint_type.name]
-
-
-class RemoteIOBackend(enum.Enum):
-    """
-    Selects the execution strategy used by remote reads.
-
-    Controlled by the environment variable ``KVIKIO_REMOTE_IO_BACKEND``
-    (read once at library initialization). There is intentionally no runtime
-    setter and no per-call override on :py:meth:`RemoteFile.pread` in this
-    release; switch backends by restarting with a different value.
-
-    Attributes
-    ----------
-    EASY_THREADPOOL : int
-        (default) libcurl easy API + KvikIO thread pool: each byte-range
-        chunk runs in a worker thread that blocks in ``curl_easy_perform()``.
-        Supports both host and device buffers and retries failed requests.
-    MULTI_POLL : int
-        libcurl multi API + N reactor threads (``curl_multi_poll()``). Each
-        reactor multiplexes many easy handles. Host buffers only in this
-        release; no retries. See ``KVIKIO_REMOTE_IO_NUM_REACTORS`` and
-        ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``.
-    """
-
-    EASY_THREADPOOL = 0
-    MULTI_POLL = 1
-
-    @staticmethod
-    def _map_to_internal(backend: RemoteIOBackend):
-        return _get_remote_module().RemoteIOBackend[backend.name]
-
-
-class RemoteReactorDispatch(enum.Enum):
-    """
-    How sub-ranges of one ``pread()`` are distributed across reactor threads
-    under the ``MULTI_POLL`` backend.
-
-    Controlled by ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH`` (env-var only in this
-    release; no runtime setter). With only one reactor, both modes are
-    equivalent.
-
-    Attributes
-    ----------
-    PER_CHUNK : int
-        (default) Each sub-range round-robins across reactors. Maximizes
-        load distribution; may use distinct TCP/TLS connections for sub-ranges
-        of the same file.
-    PER_PREAD : int
-        All sub-ranges of one ``pread()`` go to the same reactor (round-robin
-        per call). Preserves per-``CURLM`` connection-pool reuse; useful for
-        HTTPS/S3 workloads where TLS-handshake amortization matters.
-    """
-
-    PER_CHUNK = 0
-    PER_PREAD = 1
-
-    @staticmethod
-    def _map_to_internal(dispatch: RemoteReactorDispatch):
-        return _get_remote_module().RemoteReactorDispatch[dispatch.name]
 
 
 @functools.cache

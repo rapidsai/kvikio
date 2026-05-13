@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -8,18 +8,6 @@ from libc.stdint cimport uint8_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
 
-
-cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
-    # FFI-only re-declarations: the public Python types live in
-    # kvikio._lib.remote_handle. We re-declare here so Cython can name the C++ enum
-    # return type of the new defaults getters below. Declared `cdef` (not `cpdef`)
-    # so we don't create duplicate Python types.
-    cdef enum class RemoteIOBackend(uint8_t):
-        EASY_THREADPOOL = 0
-        MULTI_POLL = 1
-    cdef enum class RemoteReactorDispatch(uint8_t):
-        PER_CHUNK = 0
-        PER_PREAD = 1
 
 cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     cpdef enum class CompatMode(uint8_t):
@@ -58,13 +46,6 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     bool cpp_auto_direct_io_write "kvikio::defaults::auto_direct_io_write"() except +
     void cpp_set_auto_direct_io_write \
         "kvikio::defaults::set_auto_direct_io_write"(size_t flag) except +
-    # New remote-IO selectors: getters only, no setters in this release.
-    RemoteIOBackend cpp_remote_io_backend \
-        "kvikio::defaults::remote_io_backend"() except +
-    unsigned int cpp_remote_io_num_reactors \
-        "kvikio::defaults::remote_io_num_reactors"() except +
-    RemoteReactorDispatch cpp_remote_io_reactor_dispatch \
-        "kvikio::defaults::remote_io_reactor_dispatch"() except +
 
 
 def is_compat_mode_preferred() -> bool:
@@ -198,31 +179,3 @@ def set_auto_direct_io_write(flag: bool) -> None:
     cdef bool cpp_flag = flag
     with nogil:
         cpp_set_auto_direct_io_write(cpp_flag)
-
-
-# Remote-IO backend selectors. All three are env-var only in this release; no setters
-# are exposed. To switch values, restart the process with the matching KVIKIO_* env var.
-
-def remote_io_backend():
-    # Returns the kvikio._lib.remote_handle.RemoteIOBackend Python enum.
-    from kvikio._lib.remote_handle import RemoteIOBackend as _RIB
-    cdef int result
-    with nogil:
-        result = <int>cpp_remote_io_backend()
-    return _RIB(result)
-
-
-def remote_io_num_reactors() -> int:
-    cdef unsigned int result
-    with nogil:
-        result = cpp_remote_io_num_reactors()
-    return result
-
-
-def remote_io_reactor_dispatch():
-    # Returns the kvikio._lib.remote_handle.RemoteReactorDispatch Python enum.
-    from kvikio._lib.remote_handle import RemoteReactorDispatch as _RRS
-    cdef int result
-    with nogil:
-        result = <int>cpp_remote_io_reactor_dispatch()
-    return _RRS(result)

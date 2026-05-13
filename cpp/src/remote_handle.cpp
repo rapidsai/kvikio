@@ -832,36 +832,36 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     KVIKIO_FAIL(ss.str(), std::invalid_argument);
   }
 
-  std::size_t const n_sub = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
-  auto agg                = std::make_shared<detail::RemoteMultiAggregateContext>(n_sub);
-  auto fut                = agg->get_future();
+  std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
+  auto agg = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
+  auto fut = agg->get_future();
 
   std::vector<std::unique_ptr<detail::RemoteMultiTransfer>> transfers;
-  transfers.reserve(n_sub);
+  transfers.reserve(num_subranges);
 
   std::size_t remaining = size;
   std::size_t cur_off   = file_offset;
   auto cur_buf          = static_cast<char*>(buf);
-  for (std::size_t i = 0; i < n_sub; ++i) {
-    std::size_t const sub = std::min(task_size, remaining);
-    auto t                = std::make_unique<detail::RemoteMultiTransfer>();
-    t->curl               = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
+  for (std::size_t i = 0; i < num_subranges; ++i) {
+    std::size_t const subrange_size = std::min(task_size, remaining);
+    auto t                          = std::make_unique<detail::RemoteMultiTransfer>();
+    t->curl                         = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
                                            detail::fix_conda_file_path_hack(__FILE__),
                                            KVIKIO_STRINGIFY(__LINE__));
     _endpoint->setopt(*t->curl);
-    _endpoint->setup_range_request(*t->curl, cur_off, sub);
+    _endpoint->setup_range_request(*t->curl, cur_off, subrange_size);
     t->ctx.buf  = cur_buf;
-    t->ctx.size = sub;
+    t->ctx.size = subrange_size;
     t->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
     t->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&t->ctx));
     t->agg = agg;
     transfers.push_back(std::move(t));
-    cur_buf += sub;
-    cur_off += sub;
-    remaining -= sub;
+    cur_buf += subrange_size;
+    cur_off += subrange_size;
+    remaining -= subrange_size;
   }
 
-  // One pool call per pread(): the pool consults the captured dispatch policy internally.
+  // One pool call per pread(). The pool consults the captured dispatch policy internally.
   detail::MultiReactorPool::instance().submit_pread(std::move(transfers));
   return fut;
 }
