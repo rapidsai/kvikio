@@ -21,7 +21,6 @@
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/remote_callback.hpp>
-#include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
@@ -698,30 +697,8 @@ RemoteEndpoint const& RemoteHandle::endpoint() const noexcept { return *_endpoin
 
 namespace detail {
 
-/**
- * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output host buffer.
- *
- * See <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>.
- *
- * @param data Data downloaded by libcurl that is ready for consumption.
- * @param size Size of each element in `nmemb`; size is always 1.
- * @param nmemb Size of the data in `nmemb`.
- * @param context A pointer to an instance of `CallbackContext`.
- */
-std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto ctx                 = reinterpret_cast<CallbackContext*>(context);
-  std::size_t const nbytes = size * nmemb;
-  if (ctx->size < ctx->offset + nbytes) {
-    ctx->overflow_error = true;
-    return CURL_WRITEFUNC_ERROR;
-  }
-  KVIKIO_NVTX_FUNC_RANGE(nbytes);
-  std::memcpy(ctx->buf + ctx->offset, data, nbytes);
-  ctx->offset += nbytes;
-  return nbytes;
-}
+// Todo: Move `callback_device_memory` to detail/remote_callback.cpp once the multi-poll device
+// buffer is supported, which depend on the bounce buffer ring and event pool PRs.
 
 /**
  * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output device buffer.

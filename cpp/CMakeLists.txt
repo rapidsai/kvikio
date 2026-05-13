@@ -182,8 +182,15 @@ set(SOURCES
 
 if(KvikIO_REMOTE_SUPPORT)
   list(
-    APPEND SOURCES "src/hdfs.cpp" "src/remote_handle.cpp" "src/detail/multi_poll_reactor.cpp"
-    "src/detail/remote_handle.cpp" "src/detail/tls.cpp" "src/detail/url.cpp" "src/shim/libcurl.cpp"
+    APPEND
+    SOURCES
+    "src/hdfs.cpp"
+    "src/remote_handle.cpp"
+    "src/detail/multi_poll_reactor.cpp"
+    "src/detail/remote_callback.cpp"
+    "src/detail/tls.cpp"
+    "src/detail/url.cpp"
+    "src/shim/libcurl.cpp"
   )
 endif()
 
