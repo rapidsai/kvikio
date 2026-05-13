@@ -697,8 +697,8 @@ RemoteEndpoint const& RemoteHandle::endpoint() const noexcept { return *_endpoin
 
 namespace detail {
 
-// Todo: Move `callback_device_memory` to detail/remote_callback.cpp once the multi-poll device
-// buffer is supported, which depend on the bounce buffer ring and event pool PRs.
+// TODO: Move `callback_device_memory` to detail/remote_callback.cpp once device buffer is
+// supported for the multi-poll backend, which depends on the bounce buffer ring and event pool PRs.
 
 /**
  * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output device buffer.

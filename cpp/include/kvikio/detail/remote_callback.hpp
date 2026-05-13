@@ -35,33 +35,30 @@ struct CallbackContext {
 };
 
 /**
- * @brief Libcurl write callback that copies received bytes directly into a host buffer.
+ * @brief Callback for `CURLOPT_WRITEFUNCTION` that copies received bytes directly into a host
+ * buffer.
  *
- * Compatible with `CURLOPT_WRITEFUNCTION`. The `context` argument must point to a `CallbackContext`
- * with the destination host buffer in `ctx->buf` and the expected total size in `ctx->size`. On
- * overflow the function sets `ctx->overflow_error = true` and returns `CURL_WRITEFUNC_ERROR`, which
- * causes the surrounding `curl_easy_perform()` / `curl_multi_perform()` to fail with
- * `CURLE_WRITE_ERROR`.
+ * The `context->buf` must be the destination host buffer. On overflow the function sets
+ * `context->overflow_error = true` and returns `CURL_WRITEFUNC_ERROR`, which causes the surrounding
+ * `curl_easy_perform()` / `curl_multi_perform()` to fail with `CURLE_WRITE_ERROR`.
  *
  * @param data Pointer to the libcurl-owned buffer of received bytes.
  * @param size Size of each element (always 1 per libcurl convention).
- * @param nmemb Number of elements (i.e., the byte count).
+ * @param nmemb Number of bytes received
  * @param context Pointer to a `CallbackContext`.
  * @return Number of bytes consumed, or `CURL_WRITEFUNC_ERROR` on overflow.
  */
 std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb, void* context);
 
 /**
- * @brief Libcurl write callback that stages received bytes through a pinned host bounce buffer
- * into device memory.
+ * @brief Callback for `CURLOPT_WRITEFUNCTION` that stages received bytes through a pinned host
+ * bounce buffer into device memory.
  *
- * Compatible with `CURLOPT_WRITEFUNCTION`. The `context` must point to a `CallbackContext` whose
- * `bounce_buffer` field has been set to a live `BounceBufferH2D`. Only used by the EASY_THREADPOOL
- * backend in this release; MULTI_POLL is host-only in v1.
+ * The `context->bounce_buffer` must be a `BounceBufferH2D`.
  *
  * @param data Pointer to the libcurl-owned buffer of received bytes.
  * @param size Size of each element (always 1 per libcurl convention).
- * @param nmemb Number of elements.
+ * @param nmemb Number of bytes received
  * @param context Pointer to a `CallbackContext` with a non-null `bounce_buffer`.
  * @return Number of bytes consumed, or `CURL_WRITEFUNC_ERROR` on overflow.
  */
@@ -70,8 +67,8 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 /**
  * @brief Callback for `CURLOPT_WRITEFUNCTION` that copies received data into a `std::string`.
  *
- * @param data Received data
- * @param size Curl internal implementation always sets this parameter to 1
+ * @param data Pointer to the libcurl-owned buffer of received bytes.
+ * @param size Size of each element (always 1 per libcurl convention).
  * @param num_bytes Number of bytes received
  * @param userdata Must be cast from `std::string*`
  * @return The number of bytes consumed by the callback
