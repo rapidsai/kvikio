@@ -37,10 +37,7 @@ namespace detail {
 /**
  * @brief Bounce buffer in pinned host memory.
  *
- * @note Not thread-safe. Lives in `kvikio::detail` (rather than the anonymous namespace it
- * previously occupied) so the type name is consistent with the forward declaration in
- * [remote_callback.hpp](../include/kvikio/detail/remote_callback.hpp), which the multi-handle
- * backend also includes.
+ * @note Not thread-safe.
  */
 class BounceBufferH2D {
   CUstream _stream;                                 // The CUDA stream to use.
@@ -701,11 +698,6 @@ RemoteEndpoint const& RemoteHandle::endpoint() const noexcept { return *_endpoin
 
 namespace detail {
 
-// `CallbackContext` is declared in <kvikio/detail/remote_callback.hpp> so the multi-handle
-// reactor backend can reference the same type. The host and device write callbacks below
-// are also declared there and given external linkage here, replacing the previous
-// anonymous-namespace definitions.
-
 /**
  * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output host buffer.
  *
@@ -811,15 +803,13 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
 
-  // Backend captured at `defaults` construction from KVIKIO_REMOTE_IO_BACKEND. There is
-  // intentionally no runtime setter and no per-call override in this release: switch
-  // backends by restarting with a different env var.
-  auto const chosen = defaults::remote_io_backend();
+  auto const io_backend = defaults::remote_io_backend();
 
-  if (chosen == RemoteIOBackend::EASY_THREADPOOL) {
+  if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
     KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
     auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-    auto task                    = [this](void* devPtr_base,
+
+    auto task = [this](void* devPtr_base,
                        std::size_t size,
                        std::size_t file_offset,
                        std::size_t devPtr_offset) -> std::size_t {
@@ -836,10 +826,22 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   }
 
   KVIKIO_EXPECT(
-    chosen == RemoteIOBackend::MULTI_POLL, "Unknown RemoteIOBackend value", std::runtime_error);
+    io_backend == RemoteIOBackend::MULTI_POLL, "Unknown RemoteIOBackend value", std::runtime_error);
 
-  // MULTI_POLL path: build one CurlHandle per sub-range, then hand them all to the
-  // process-wide reactor pool.
+  // MULTI_POLL path. The lifecycle of one pread() call uses four cooperating pieces:
+  // - One `RemoteMultiAggregateContext` per pread(). It owns the std::promise that the
+  //   caller will observe and counts down as completions arrive.
+  // - N `RemoteMultiTransfer` objects, one per sub-range. Each owns its own `CurlHandle`
+  //   (a libcurl easy handle wrapper) plus a per-transfer `CallbackContext`, and holds a
+  //   shared_ptr back to the aggregate.
+  // - The `MultiReactorPool` routes the N transfers to one or more `MultiPollReactor`
+  //   threads per the captured dispatch policy. Each reactor drives its easy handles via
+  //   curl_multi_poll() and fires the aggregate's per-subrange callback on completion or
+  //   failure.
+  // - The aggregate fulfills the promise as soon as all sub-ranges have reported (or one
+  //   of them fails).
+  //
+  // Build all N transfers here, then hand them off in a single pool call.
   KVIKIO_EXPECT(is_host_memory(buf),
                 "MULTI_POLL backend currently supports host memory only. "
                 "Use EASY_THREADPOOL (KVIKIO_REMOTE_IO_BACKEND=easy_threadpool) for "
