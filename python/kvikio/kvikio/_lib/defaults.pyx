@@ -17,7 +17,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cdef enum class RemoteIOBackend(uint8_t):
         EASY_THREADPOOL = 0
         MULTI_POLL = 1
-    cdef enum class RemoteReactorSharding(uint8_t):
+    cdef enum class RemoteReactorDispatch(uint8_t):
         PER_CHUNK = 0
         PER_PREAD = 1
 
@@ -63,8 +63,8 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
         "kvikio::defaults::remote_io_backend"() except +
     unsigned int cpp_remote_io_num_reactors \
         "kvikio::defaults::remote_io_num_reactors"() except +
-    RemoteReactorSharding cpp_remote_io_reactor_sharding \
-        "kvikio::defaults::remote_io_reactor_sharding"() except +
+    RemoteReactorDispatch cpp_remote_io_reactor_dispatch \
+        "kvikio::defaults::remote_io_reactor_dispatch"() except +
 
 
 def is_compat_mode_preferred() -> bool:
@@ -219,10 +219,10 @@ def remote_io_num_reactors() -> int:
     return result
 
 
-def remote_io_reactor_sharding():
-    # Returns the kvikio._lib.remote_handle.RemoteReactorSharding Python enum.
-    from kvikio._lib.remote_handle import RemoteReactorSharding as _RRS
+def remote_io_reactor_dispatch():
+    # Returns the kvikio._lib.remote_handle.RemoteReactorDispatch Python enum.
+    from kvikio._lib.remote_handle import RemoteReactorDispatch as _RRS
     cdef int result
     with nogil:
-        result = <int>cpp_remote_io_reactor_sharding()
+        result = <int>cpp_remote_io_reactor_dispatch()
     return _RRS(result)

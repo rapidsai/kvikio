@@ -46,39 +46,31 @@ enum class RemoteEndpointType : uint8_t {
 };
 
 /**
- * @brief Selects the execution strategy used by remote reads.
+ * @brief Selects the remote I/O backend.
  *
- * Naming scheme: `<libcurl-API-flavor>_<execution-runner>`.
- *
- * Selection is controlled by the environment variable `KVIKIO_REMOTE_IO_BACKEND` (read once at
- * library initialization). There is intentionally no runtime setter and no per-call override on
- * `pread()` in this release: switch backends by restarting the process with a different value.
+ * Naming scheme is `<libcurl-API-flavor>_<execution-method>`. Selection is controlled by the
+ * environment variable `KVIKIO_REMOTE_IO_BACKEND`.
  */
 enum class RemoteIOBackend : uint8_t {
-  EASY_THREADPOOL = 0,  ///< (default) libcurl easy API + KvikIO thread pool: each byte-range chunk
-                        ///< runs in a worker thread that blocks in `curl_easy_perform()`.
-                        ///< Supports both host and device buffers and retries failed requests.
-  MULTI_POLL = 1,       ///< libcurl multi API + N reactor threads (`curl_multi_poll()`). Each
-                        ///< reactor multiplexes many easy handles. Host buffers only; no retries.
-                        ///< See `KVIKIO_REMOTE_IO_NUM_REACTORS` and
-                        ///< `KVIKIO_REMOTE_IO_REACTOR_SHARDING`.
+  EASY_THREADPOOL = 0,  ///< Libcurl easy API + KvikIO thread pool. Each byte-range chunk runs in a
+                        ///< worker thread that blocks in `curl_easy_perform()`.
+  MULTI_POLL = 1,  ///< Libcurl multi API + N reactor threads (`curl_multi_poll()`). Each reactor
+                   ///< multiplexes many easy handles. Related environment variables are
+                   ///< `KVIKIO_REMOTE_IO_NUM_REACTORS` and `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
 };
 
 /**
  * @brief How sub-ranges of a single `pread()` are distributed across reactor threads when the
  * `MULTI_POLL` backend is active.
  *
- * Controlled by `KVIKIO_REMOTE_IO_REACTOR_SHARDING` (env-var only in this release; no runtime
- * setter is exposed). With only one reactor (the default value of `num_reactors`), both modes are
+ * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`. When only one reactor is used, both modes are
  * equivalent.
  */
-enum class RemoteReactorSharding : uint8_t {
-  PER_CHUNK = 0,  ///< (default) Each sub-range round-robins across reactors. Maximizes load
-                  ///< balance; may use distinct TCP/TLS connections for sub-ranges of the same
-                  ///< file.
+enum class RemoteReactorDispatch : uint8_t {
+  PER_CHUNK = 0,  ///< Each sub-range round-robins across reactors. Maximizes load balance. May use
+                  ///< distinct TCP/TLS connections for sub-ranges of the same file.
   PER_PREAD = 1,  ///< All sub-ranges of one `pread()` go to the same reactor (round-robin per
-                  ///< call). Preserves per-`CURLM` connection-pool reuse; useful for HTTPS/S3
-                  ///< workloads where TLS-handshake amortization matters.
+                  ///< call).
 };
 
 /**

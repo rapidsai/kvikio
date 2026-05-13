@@ -27,7 +27,7 @@ from kvikio.remote_file import (
     RemoteEndpointType,
     RemoteFile,
     RemoteIOBackend,
-    RemoteReactorSharding,
+    RemoteReactorDispatch,
     is_remote_file_available,
 )
 from kvikio.stream import stream_deregister, stream_register
@@ -47,7 +47,7 @@ __all__ = [
     "RemoteEndpointType",
     "RemoteFile",
     "RemoteIOBackend",
-    "RemoteReactorSharding",
+    "RemoteReactorDispatch",
     "stream_register",
     "stream_deregister",
     "memory_register",

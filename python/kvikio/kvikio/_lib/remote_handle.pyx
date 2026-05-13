@@ -30,7 +30,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cpdef enum class RemoteIOBackend(uint8_t):
         EASY_THREADPOOL = 0
         MULTI_POLL = 1
-    cpdef enum class RemoteReactorSharding(uint8_t):
+    cpdef enum class RemoteReactorDispatch(uint8_t):
         PER_CHUNK = 0
         PER_PREAD = 1
     cdef cppclass cpp_RemoteEndpoint "kvikio::RemoteEndpoint":

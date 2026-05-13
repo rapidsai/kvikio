@@ -79,7 +79,7 @@ class RemoteIOBackend(enum.Enum):
         libcurl multi API + N reactor threads (``curl_multi_poll()``). Each
         reactor multiplexes many easy handles. Host buffers only in this
         release; no retries. See ``KVIKIO_REMOTE_IO_NUM_REACTORS`` and
-        ``KVIKIO_REMOTE_IO_REACTOR_SHARDING``.
+        ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``.
     """
 
     EASY_THREADPOOL = 0
@@ -90,12 +90,12 @@ class RemoteIOBackend(enum.Enum):
         return _get_remote_module().RemoteIOBackend[backend.name]
 
 
-class RemoteReactorSharding(enum.Enum):
+class RemoteReactorDispatch(enum.Enum):
     """
     How sub-ranges of one ``pread()`` are distributed across reactor threads
     under the ``MULTI_POLL`` backend.
 
-    Controlled by ``KVIKIO_REMOTE_IO_REACTOR_SHARDING`` (env-var only in this
+    Controlled by ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH`` (env-var only in this
     release; no runtime setter). With only one reactor, both modes are
     equivalent.
 
@@ -115,8 +115,8 @@ class RemoteReactorSharding(enum.Enum):
     PER_PREAD = 1
 
     @staticmethod
-    def _map_to_internal(sharding: RemoteReactorSharding):
-        return _get_remote_module().RemoteReactorSharding[sharding.name]
+    def _map_to_internal(dispatch: RemoteReactorDispatch):
+        return _get_remote_module().RemoteReactorDispatch[dispatch.name]
 
 
 @functools.cache

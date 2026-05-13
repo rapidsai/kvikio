@@ -179,7 +179,7 @@ void MultiPollReactor::io_thread_main()
 // MultiReactorPool
 // ---------------------------------------------------------------------------
 
-MultiReactorPool::MultiReactorPool() : _sharding{defaults::remote_io_reactor_sharding()}
+MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dispatch()}
 {
   // Force LibCurl global init before any reactor opens a multi handle.
   (void)LibCurl::instance();
@@ -212,7 +212,7 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
   auto const n = _reactors.size();
   KVIKIO_EXPECT(n > 0, "MultiReactorPool has no reactors", std::runtime_error);
 
-  if (_sharding == RemoteReactorSharding::PER_PREAD) {
+  if (_dispatch == RemoteReactorDispatch::PER_PREAD) {
     // One reactor for the whole pread() call: preserves per-CURLM connection-pool reuse.
     auto const idx = _pread_counter.fetch_add(1, std::memory_order_relaxed) % n;
     for (auto& t : transfers) {

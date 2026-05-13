@@ -131,12 +131,12 @@ class MultiPollReactor {
 /**
  * @brief Process-wide pool that owns N reactors and dispatches sub-range transfers to them.
  *
- * Accessed via the leaked-pointer singleton `instance()`. Both `num_reactors` and the sharding
+ * Accessed via the leaked-pointer singleton `instance()`. Both `num_reactors` and the dispatch
  * mode are captured once at first use from `kvikio::defaults` and remain immutable for the process
  * lifetime: switching either requires restarting with different `KVIKIO_REMOTE_IO_NUM_REACTORS` /
- * `KVIKIO_REMOTE_IO_REACTOR_SHARDING` env vars.
+ * `KVIKIO_REMOTE_IO_REACTOR_DISPATCH` env vars.
  *
- * Sharding rules (with `N = _reactors.size()`):
+ * Dispatch rules (with `N = _reactors.size()`):
  *  - `PER_CHUNK` (default): each sub-range is routed independently via a round-robin atomic
  *    counter. Maximizes load distribution; may cause sub-ranges of the same file to use distinct
  *    TCP/TLS connections.
@@ -163,7 +163,7 @@ class MultiReactorPool {
   /**
    * @brief Submit all sub-range transfers belonging to one `RemoteHandle::pread()` call.
    *
-   * Routes each transfer to a reactor according to the captured sharding mode. The caller must
+   * Routes each transfer to a reactor according to the captured dispatch policy. The caller must
    * have already obtained the aggregate future from the shared `RemoteMultiAggregateContext`
    * before invoking this, because as soon as the pool returns the reactors may have already
    * started completing the transfers.
@@ -177,7 +177,7 @@ class MultiReactorPool {
   ~MultiReactorPool() noexcept;
 
   std::vector<std::unique_ptr<MultiPollReactor>> _reactors;
-  RemoteReactorSharding _sharding;
+  RemoteReactorDispatch _dispatch;
   std::atomic<std::size_t> _pread_counter{0};  // Round-robin counter for PER_PREAD mode.
   std::atomic<std::size_t> _chunk_counter{0};  // Round-robin counter for PER_CHUNK mode.
 };

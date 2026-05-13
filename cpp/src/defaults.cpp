@@ -5,7 +5,6 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -14,6 +13,7 @@
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/remote_handle.hpp>
@@ -32,24 +32,9 @@ bool getenv_or(std::string_view env_var_name, bool default_val)
     return static_cast<bool>(std::stoi(env_val));
   } catch (std::invalid_argument const&) {
   }
-  // Convert to lowercase
-  std::string str{env_val};
-  // Special considerations regarding the case conversion:
-  // - std::tolower() is not an addressable function. Passing it to std::transform() as
-  //   a function pointer, if the compile turns out successful, causes the program behavior
-  //   "unspecified (possibly ill-formed)", hence the lambda. ::tolower() is addressable
-  //   and does not have this problem, but the following item still applies.
-  // - To avoid UB in std::tolower() or ::tolower(), the character must be cast to unsigned char.
-  std::transform(
-    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
-  // Trim whitespaces
-  std::stringstream trimmer;
-  trimmer << str;
-  str.clear();
-  trimmer >> str;
-  // Match value
-  if (str == "true" || str == "on" || str == "yes") { return true; }
-  if (str == "false" || str == "off" || str == "no") { return false; }
+  auto const normalized = detail::normalize_env_value(env_val);
+  if (normalized == "true" || normalized == "on" || normalized == "yes") { return true; }
+  if (normalized == "false" || normalized == "off" || normalized == "no") { return false; }
   KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
               std::invalid_argument);
 }
@@ -75,29 +60,13 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
   return detail::parse_http_status_codes(env_var_name, int_str);
 }
 
-namespace {
-// Lowercase + whitespace-trimmed copy of `s`. Used by the enum parsers below to accept
-// case-insensitive and slightly sloppy values for `KVIKIO_REMOTE_IO_*` env vars.
-std::string normalize_env_value(std::string_view s)
-{
-  std::string str{s};
-  std::transform(
-    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
-  std::stringstream trimmer;
-  trimmer << str;
-  str.clear();
-  trimmer >> str;
-  return str;
-}
-}  // namespace
-
 template <>
 RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default_val)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
-  auto const normalized = normalize_env_value(env_val);
+  auto const normalized = detail::normalize_env_value(env_val);
   if (normalized == "easy_threadpool") { return RemoteIOBackend::EASY_THREADPOOL; }
   if (normalized == "multi_poll") { return RemoteIOBackend::MULTI_POLL; }
   KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
@@ -105,14 +74,14 @@ RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default
 }
 
 template <>
-RemoteReactorSharding getenv_or(std::string_view env_var_name, RemoteReactorSharding default_val)
+RemoteReactorDispatch getenv_or(std::string_view env_var_name, RemoteReactorDispatch default_val)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto const* env_val = std::getenv(env_var_name.data());
   if (env_val == nullptr) { return default_val; }
-  auto const normalized = normalize_env_value(env_val);
-  if (normalized == "per_chunk") { return RemoteReactorSharding::PER_CHUNK; }
-  if (normalized == "per_pread") { return RemoteReactorSharding::PER_PREAD; }
+  auto const normalized = detail::normalize_env_value(env_val);
+  if (normalized == "per_chunk") { return RemoteReactorDispatch::PER_CHUNK; }
+  if (normalized == "per_pread") { return RemoteReactorDispatch::PER_PREAD; }
   KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
               std::invalid_argument);
 }
@@ -201,8 +170,8 @@ defaults::defaults()
     _remote_io_num_reactors = static_cast<unsigned int>(env);
   }
   {
-    _remote_io_reactor_sharding =
-      getenv_or("KVIKIO_REMOTE_IO_REACTOR_SHARDING", RemoteReactorSharding::PER_CHUNK);
+    _remote_io_reactor_dispatch =
+      getenv_or("KVIKIO_REMOTE_IO_REACTOR_DISPATCH", RemoteReactorDispatch::PER_CHUNK);
   }
 }
 
@@ -320,8 +289,8 @@ RemoteIOBackend defaults::remote_io_backend() { return instance()->_remote_io_ba
 
 unsigned int defaults::remote_io_num_reactors() { return instance()->_remote_io_num_reactors; }
 
-RemoteReactorSharding defaults::remote_io_reactor_sharding()
+RemoteReactorDispatch defaults::remote_io_reactor_dispatch()
 {
-  return instance()->_remote_io_reactor_sharding;
+  return instance()->_remote_io_reactor_dispatch;
 }
 }  // namespace kvikio

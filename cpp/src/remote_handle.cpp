@@ -882,7 +882,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     remaining -= sub;
   }
 
-  // One pool call per pread(): the pool consults the captured sharding mode internally.
+  // One pool call per pread(): the pool consults the captured dispatch policy internally.
   detail::MultiReactorPool::instance().submit_pread(std::move(transfers));
   return fut;
 }

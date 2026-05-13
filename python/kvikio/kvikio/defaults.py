@@ -61,7 +61,7 @@ class ConfigContextManager:
             # Env-var-only properties (no Python or C++ setter; see comment below):
             "remote_io_backend",
             "remote_io_num_reactors",
-            "remote_io_reactor_sharding",
+            "remote_io_reactor_dispatch",
         ]
 
         # Properties that are read-only after library initialization. Calling
@@ -70,7 +70,7 @@ class ConfigContextManager:
         env_var_only = {
             "remote_io_backend": "KVIKIO_REMOTE_IO_BACKEND",
             "remote_io_num_reactors": "KVIKIO_REMOTE_IO_NUM_REACTORS",
-            "remote_io_reactor_sharding": "KVIKIO_REMOTE_IO_REACTOR_SHARDING",
+            "remote_io_reactor_dispatch": "KVIKIO_REMOTE_IO_REACTOR_DISPATCH",
         }
 
         def _make_env_only_setter(prop_name: str, env_name: str):
@@ -160,7 +160,7 @@ def set(*config) -> ConfigContextManager:
 
         - ``"remote_io_backend"`` (env: ``KVIKIO_REMOTE_IO_BACKEND``)
         - ``"remote_io_num_reactors"`` (env: ``KVIKIO_REMOTE_IO_NUM_REACTORS``)
-        - ``"remote_io_reactor_sharding"`` (env: ``KVIKIO_REMOTE_IO_REACTOR_SHARDING``)
+        - ``"remote_io_reactor_dispatch"`` (env: ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``)
 
     Returns
     -------
@@ -208,7 +208,7 @@ def get(config_name: str) -> Any:
         - ``"auto_direct_io_write"``
         - ``"remote_io_backend"`` (read-only; controlled by ``KVIKIO_REMOTE_IO_BACKEND``)
         - ``"remote_io_num_reactors"`` (read-only; controlled by ``KVIKIO_REMOTE_IO_NUM_REACTORS``)
-        - ``"remote_io_reactor_sharding"`` (read-only; controlled by ``KVIKIO_REMOTE_IO_REACTOR_SHARDING``)
+        - ``"remote_io_reactor_dispatch"`` (read-only; controlled by ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``)
 
     Returns
     -------
