@@ -33,6 +33,10 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
 {
   _total_bytes.fetch_add(bytes, std::memory_order_relaxed);
   // Last thread to decrement to zero fulfills the promise.
+  // _subranges_left needs "release" in order to publish a thread's own relaxed _total_bytes. It
+  // also needs "acquire" in order to load other threads' relaxed _total_bytes to fulfill the
+  // `_promise`. There is no need to worry about _first_exception, because its update is done in a
+  // mutex which gives memory ordering guarantee.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
     if (_first_exception) {

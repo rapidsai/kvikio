@@ -75,8 +75,8 @@ class RemoteMultiAggregateContext {
  * @brief Per-transfer state owned by a `MultiPollReactor` between submission and completion.
  *
  * One `RemoteMultiTransfer` corresponds to one libcurl easy handle, which corresponds to one HTTP
- * range request. Sub-ranges of the same `pread()` share the same `agg`. The `curl` member is held
- * by `std::unique_ptr` because `CurlHandle` is intentionally non-movable.
+ * range request. Sub-ranges of the same `pread()` share the same `aggregate`. The `curl` member is
+ * held by `std::unique_ptr` because `CurlHandle` is intentionally non-movable.
  */
 struct RemoteMultiTransfer {
   std::unique_ptr<CurlHandle> curl;
@@ -109,8 +109,8 @@ class MultiPollReactor {
    * @brief Hand off a prepared transfer to this reactor. Thread-safe.
    *
    * The reactor picks the transfer up on its next loop iteration. The caller must have already
-   * obtained the aggregate future via `agg->get_future()` before calling this, because once the
-   * transfer is in the queue the reactor may complete it (and the promise) at any time.
+   * obtained the aggregate future via `aggregate->get_future()` before calling this, because once
+   * the transfer is in the queue the reactor may complete it (and the promise) at any time.
    *
    * @param transfer Per-transfer state, ownership transferred to the reactor.
    */
