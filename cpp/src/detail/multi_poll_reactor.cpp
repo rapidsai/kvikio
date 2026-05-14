@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <pthread.h>
-
 #include <cstddef>
 #include <exception>
 #include <memory>
@@ -45,12 +43,13 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
   }
 }
 
-void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr ep)
+void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr eptr)
 {
   {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
-    if (!_first_exception) { _first_exception = ep; }
+    if (!_first_exception) { _first_exception = eptr; }
   }
+  // Last thread to decrement to zero fulfills the promise.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
     _promise.set_exception(_first_exception);
@@ -91,14 +90,6 @@ void MultiPollReactor::submit(std::unique_ptr<RemoteMultiTransfer> transfer)
 
 void MultiPollReactor::io_thread_main()
 {
-  // Best-effort thread naming for profilers and `htop`. Ignored on systems where the
-  // name is unavailable. We don't use the reactor index here (the pool sets a more
-  // specific name immediately after construction if it wants to); fall back to a
-  // generic label.
-  pthread_setname_np(pthread_self(), "kvikio-mpoll");
-
-  // The pool is a leaked-pointer singleton; this loop runs until process exit. No stop flag is
-  // needed because nothing ever stops us.
   while (true) {
     // (1) Drain submit queue: attach each pending easy handle to the multi.
     {
@@ -108,8 +99,7 @@ void MultiPollReactor::io_thread_main()
         _inbox.pop_front();
         lock.unlock();
         CURL* easy = transfer->curl->handle();
-        // The caller already set WRITEFUNCTION/WRITEDATA and the endpoint options. We
-        // just attach.
+        // The caller already set WRITEFUNCTION/WRITEDATA and the endpoint options. We just attach.
         CURLMcode const mc = curl_multi_add_handle(_curl_multi, easy);
         if (mc != CURLM_OK) {
           auto eptr = std::make_exception_ptr(
@@ -196,10 +186,9 @@ MultiReactorPool& MultiReactorPool::instance()
 void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers)
 {
   auto const reactor_count = _reactors.size();
-  KVIKIO_EXPECT(reactor_count > 0, "MultiReactorPool has no reactors", std::runtime_error);
 
+  // PER_PREAD: one reactor for the whole pread() call. Preserves per-CURLM connection-pool reuse.
   if (_dispatch == RemoteReactorDispatch::PER_PREAD) {
-    // One reactor for the whole pread() call: preserves per-CURLM connection-pool reuse.
     auto const idx = _per_pread_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
     for (auto& transfer : transfers) {
       _reactors[idx]->submit(std::move(transfer));
@@ -207,7 +196,7 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
     return;
   }
 
-  // PER_CHUNK (default): round-robin sub-ranges across reactors.
+  // PER_CHUNK: round-robin sub-ranges across reactors.
   for (auto& transfer : transfers) {
     auto const idx = _per_chunk_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
     _reactors[idx]->submit(std::move(transfer));

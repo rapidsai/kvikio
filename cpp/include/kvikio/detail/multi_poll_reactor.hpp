@@ -53,9 +53,9 @@ class RemoteMultiAggregateContext {
   /**
    * @brief Report that one sub-range transfer failed. The first exception captured wins.
    *
-   * @param ep The exception describing the failure.
+   * @param eptr The exception describing the failure.
    */
-  void on_subrange_failed(std::exception_ptr ep);
+  void on_subrange_failed(std::exception_ptr eptr);
 
   /**
    * @brief Obtain the future the caller will observe. Must be called exactly once, before any
