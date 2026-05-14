@@ -78,8 +78,8 @@ MultiPollReactor::~MultiPollReactor() noexcept
   // Intentionally empty body. `MultiReactorPool` is a leaked-pointer singleton, so its
   // `_reactors` vector and the `std::unique_ptr<MultiPollReactor>` elements inside it
   // are never destroyed. We declare this dtor so the type is complete and usable in
-  // `std::unique_ptr`; running it would attempt `~std::thread()` on an unjoined thread
-  // and call `std::terminate()`.
+  // `std::unique_ptr`. Running it would call dtor on an unjoined thread and call
+  // `std::terminate()`.
 }
 
 void MultiPollReactor::submit(std::unique_ptr<RemoteMultiTransfer> transfer)
@@ -174,15 +174,14 @@ MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dis
 
 MultiReactorPool::~MultiReactorPool() noexcept
 {
-  // Intentionally empty body. The pool is a leaked-pointer singleton (see `instance()`),
-  // so this destructor is never invoked.
+  // Intentionally empty body. The pool is a leaked-pointer singleton so this destructor is never
+  // invoked.
 }
 
 MultiReactorPool& MultiReactorPool::instance()
 {
-  // Heap-leaked singleton: matches the convention used by `BounceBufferPool` and
-  // `StreamCachePerThreadAndContext`. The pool, its reactors, and their `std::thread`s
-  // are never destroyed; the OS reclaims them at process exit.
+  // Heap-leaked singleton. The pool, its reactors, and their `std::thread`s are never destroyed.
+  // Resources are cleaned on process exit.
   static MultiReactorPool* inst = new MultiReactorPool();
   return *inst;
 }
