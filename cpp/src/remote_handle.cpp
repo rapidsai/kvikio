@@ -833,8 +833,8 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   }
 
   std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
-  auto agg = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
-  auto fut = agg->get_future();
+  auto aggregate = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
+  auto fut       = aggregate->get_future();
 
   std::vector<std::unique_ptr<detail::RemoteMultiTransfer>> transfers;
   transfers.reserve(num_subranges);
@@ -844,18 +844,18 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   auto cur_buf          = static_cast<char*>(buf);
   for (std::size_t i = 0; i < num_subranges; ++i) {
     std::size_t const subrange_size = std::min(task_size, remaining);
-    auto t                          = std::make_unique<detail::RemoteMultiTransfer>();
-    t->curl                         = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
-                                           detail::fix_conda_file_path_hack(__FILE__),
-                                           KVIKIO_STRINGIFY(__LINE__));
-    _endpoint->setopt(*t->curl);
-    _endpoint->setup_range_request(*t->curl, cur_off, subrange_size);
-    t->ctx.buf  = cur_buf;
-    t->ctx.size = subrange_size;
-    t->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
-    t->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&t->ctx));
-    t->agg = agg;
-    transfers.push_back(std::move(t));
+    auto transfer                   = std::make_unique<detail::RemoteMultiTransfer>();
+    transfer->curl                  = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
+                                                  detail::fix_conda_file_path_hack(__FILE__),
+                                                  KVIKIO_STRINGIFY(__LINE__));
+    _endpoint->setopt(*transfer->curl);
+    _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);
+    transfer->ctx.buf  = cur_buf;
+    transfer->ctx.size = subrange_size;
+    transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
+    transfer->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&transfer->ctx));
+    transfer->aggregate = aggregate;
+    transfers.push_back(std::move(transfer));
     cur_buf += subrange_size;
     cur_off += subrange_size;
     remaining -= subrange_size;

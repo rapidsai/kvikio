@@ -30,9 +30,9 @@ namespace kvikio::detail {
  * Every sub-range transfer belonging to a single `RemoteHandle::pread()` call holds a
  * `std::shared_ptr<RemoteMultiAggregateContext>`. As completions arrive on the reactor threads
  * (potentially in parallel when `KVIKIO_REMOTE_IO_NUM_REACTORS > 1`), each one calls
- * `on_subrange_complete()` or `on_subrange_failed()`. The thread that decrements `_remaining` to
- * zero fulfills `_promise`, with the accumulated byte total on success, or with the first captured
- * exception on failure.
+ * `on_subrange_complete()` or `on_subrange_failed()`. The thread that decrements `_subranges_left`
+ * to zero fulfills `_promise`, with the accumulated byte total on success, or with the first
+ * captured exception on failure.
  */
 class RemoteMultiAggregateContext {
  public:
@@ -64,9 +64,9 @@ class RemoteMultiAggregateContext {
   std::future<std::size_t> get_future();
 
  private:
-  std::atomic<std::size_t> _remaining;
-  std::atomic<std::size_t> _bytes_acc{0};
-  std::mutex _failure_mutex;
+  std::atomic<std::size_t> _subranges_left;
+  std::atomic<std::size_t> _total_bytes{0};
+  std::mutex _exception_mutex;
   std::exception_ptr _first_exception;
   std::promise<std::size_t> _promise;
 };
@@ -76,13 +76,12 @@ class RemoteMultiAggregateContext {
  *
  * One `RemoteMultiTransfer` corresponds to one libcurl easy handle, which corresponds to one HTTP
  * range request. Sub-ranges of the same `pread()` share the same `agg`. The `curl` member is held
- * by `std::unique_ptr` because `CurlHandle` is intentionally non-movable (see
- * `cpp/include/kvikio/shim/libcurl.hpp`).
+ * by `std::unique_ptr` because `CurlHandle` is intentionally non-movable.
  */
 struct RemoteMultiTransfer {
   std::unique_ptr<CurlHandle> curl;
   CallbackContext ctx;
-  std::shared_ptr<RemoteMultiAggregateContext> agg;
+  std::shared_ptr<RemoteMultiAggregateContext> aggregate;
 };
 
 /**
@@ -120,11 +119,10 @@ class MultiPollReactor {
  private:
   void io_thread_main();
 
-  CURLM* _multi{nullptr};
+  CURLM* _curl_multi{nullptr};
   std::thread _io_thread;
-  std::atomic<bool> _stop{false};  ///< Retained for test/teardown hooks; never set in prod.
   std::mutex _submit_mutex;
-  std::deque<std::unique_ptr<RemoteMultiTransfer>> _pending_add;
+  std::deque<std::unique_ptr<RemoteMultiTransfer>> _inbox;
   std::unordered_map<CURL*, std::unique_ptr<RemoteMultiTransfer>> _in_flight;
 };
 
@@ -178,8 +176,8 @@ class MultiReactorPool {
 
   std::vector<std::unique_ptr<MultiPollReactor>> _reactors;
   RemoteReactorDispatch _dispatch;
-  std::atomic<std::size_t> _pread_counter{0};  // Round-robin counter for PER_PREAD mode.
-  std::atomic<std::size_t> _chunk_counter{0};  // Round-robin counter for PER_CHUNK mode.
+  std::atomic<std::size_t> _per_pread_counter{0};  // Round-robin counter for PER_PREAD mode.
+  std::atomic<std::size_t> _per_chunk_counter{0};  // Round-robin counter for PER_CHUNK mode.
 };
 
 }  // namespace kvikio::detail

@@ -5,7 +5,6 @@
 
 #include <pthread.h>
 
-#include <chrono>
 #include <cstddef>
 #include <exception>
 #include <memory>
@@ -24,12 +23,8 @@
 
 namespace kvikio::detail {
 
-// ---------------------------------------------------------------------------
-// RemoteMultiAggregateContext
-// ---------------------------------------------------------------------------
-
 RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subranges)
-  : _remaining{num_subranges}
+  : _subranges_left{num_subranges}
 {
   KVIKIO_EXPECT(num_subranges > 0,
                 "RemoteMultiAggregateContext requires at least one sub-range",
@@ -38,14 +33,14 @@ RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subrang
 
 void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
 {
-  _bytes_acc.fetch_add(bytes, std::memory_order_relaxed);
+  _total_bytes.fetch_add(bytes, std::memory_order_relaxed);
   // Last thread to decrement to zero fulfills the promise.
-  if (_remaining.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-    std::lock_guard<std::mutex> lk(_failure_mutex);
+  if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+    std::lock_guard<std::mutex> const lock(_exception_mutex);
     if (_first_exception) {
       _promise.set_exception(_first_exception);
     } else {
-      _promise.set_value(_bytes_acc.load(std::memory_order_relaxed));
+      _promise.set_value(_total_bytes.load(std::memory_order_relaxed));
     }
   }
 }
@@ -53,20 +48,16 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
 void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr ep)
 {
   {
-    std::lock_guard<std::mutex> lk(_failure_mutex);
+    std::lock_guard<std::mutex> const lock(_exception_mutex);
     if (!_first_exception) { _first_exception = ep; }
   }
-  if (_remaining.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-    std::lock_guard<std::mutex> lk(_failure_mutex);
+  if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+    std::lock_guard<std::mutex> const lock(_exception_mutex);
     _promise.set_exception(_first_exception);
   }
 }
 
 std::future<std::size_t> RemoteMultiAggregateContext::get_future() { return _promise.get_future(); }
-
-// ---------------------------------------------------------------------------
-// MultiPollReactor
-// ---------------------------------------------------------------------------
 
 MultiPollReactor::MultiPollReactor()
 {
@@ -74,8 +65,8 @@ MultiPollReactor::MultiPollReactor()
   // Meyers singleton; we don't care about its destruction order because the pool is
   // leaked and so are we.)
   (void)LibCurl::instance();
-  _multi = curl_multi_init();
-  KVIKIO_EXPECT(_multi != nullptr, "curl_multi_init() failed", std::runtime_error);
+  _curl_multi = curl_multi_init();
+  KVIKIO_EXPECT(_curl_multi != nullptr, "curl_multi_init() failed", std::runtime_error);
   _io_thread = std::thread(&MultiPollReactor::io_thread_main, this);
 }
 
@@ -91,11 +82,11 @@ MultiPollReactor::~MultiPollReactor() noexcept
 void MultiPollReactor::submit(std::unique_ptr<RemoteMultiTransfer> transfer)
 {
   {
-    std::lock_guard<std::mutex> lk(_submit_mutex);
-    _pending_add.push_back(std::move(transfer));
+    std::lock_guard<std::mutex> const lock(_submit_mutex);
+    _inbox.push_back(std::move(transfer));
   }
   // Thread-safe: the only multi-handle call we make from outside the I/O thread.
-  curl_multi_wakeup(_multi);
+  curl_multi_wakeup(_curl_multi);
 }
 
 void MultiPollReactor::io_thread_main()
@@ -106,40 +97,42 @@ void MultiPollReactor::io_thread_main()
   // generic label.
   pthread_setname_np(pthread_self(), "kvikio-mpoll");
 
-  while (!_stop.load(std::memory_order_acquire)) {
+  // The pool is a leaked-pointer singleton; this loop runs until process exit. No stop flag is
+  // needed because nothing ever stops us.
+  while (true) {
     // (1) Drain submit queue: attach each pending easy handle to the multi.
     {
-      std::unique_lock<std::mutex> lk(_submit_mutex);
-      while (!_pending_add.empty()) {
-        auto t = std::move(_pending_add.front());
-        _pending_add.pop_front();
-        lk.unlock();
-        CURL* easy = t->curl->handle();
+      std::unique_lock<std::mutex> lock(_submit_mutex);
+      while (!_inbox.empty()) {
+        auto transfer = std::move(_inbox.front());
+        _inbox.pop_front();
+        lock.unlock();
+        CURL* easy = transfer->curl->handle();
         // The caller already set WRITEFUNCTION/WRITEDATA and the endpoint options. We
         // just attach.
-        CURLMcode const mc = curl_multi_add_handle(_multi, easy);
+        CURLMcode const mc = curl_multi_add_handle(_curl_multi, easy);
         if (mc != CURLM_OK) {
-          auto ep = std::make_exception_ptr(
+          auto eptr = std::make_exception_ptr(
             std::runtime_error(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc)));
-          t->agg->on_subrange_failed(ep);
+          transfer->aggregate->on_subrange_failed(eptr);
           // unique_ptr drops here, returning the easy handle to the LibCurl pool.
         } else {
-          _in_flight.emplace(easy, std::move(t));
+          _in_flight.emplace(easy, std::move(transfer));
         }
-        lk.lock();
+        lock.lock();
       }
     }
 
     // (2) Drive transfers (non-blocking).
     int running_handles = 0;
-    curl_multi_perform(_multi, &running_handles);
+    curl_multi_perform(_curl_multi, &running_handles);
 
     // (3) Drain completions.
     int msgs_left = 0;
-    while (CURLMsg* m = curl_multi_info_read(_multi, &msgs_left)) {
-      if (m->msg != CURLMSG_DONE) { continue; }
-      CURL* easy   = m->easy_handle;
-      CURLcode res = m->data.result;
+    while (CURLMsg* msg = curl_multi_info_read(_curl_multi, &msgs_left)) {
+      if (msg->msg != CURLMSG_DONE) { continue; }
+      CURL* easy   = msg->easy_handle;
+      CURLcode res = msg->data.result;
 
       auto it = _in_flight.find(easy);
       KVIKIO_EXPECT(it != _in_flight.end(),
@@ -149,10 +142,10 @@ void MultiPollReactor::io_thread_main()
       _in_flight.erase(it);
       // *** Critical ordering: remove from multi BEFORE the transfer (and its CurlHandle)
       // is destroyed at end of scope. Otherwise libcurl undefined behavior. ***
-      curl_multi_remove_handle(_multi, easy);
+      curl_multi_remove_handle(_curl_multi, easy);
 
       if (res == CURLE_OK && !transfer->ctx.overflow_error) {
-        transfer->agg->on_subrange_complete(transfer->ctx.size);
+        transfer->aggregate->on_subrange_complete(transfer->ctx.size);
       } else {
         std::stringstream ss;
         ss << "curl_multi transfer failed (" << curl_easy_strerror(res) << ")";
@@ -160,24 +153,17 @@ void MultiPollReactor::io_thread_main()
           ss << " [server returned more bytes than requested; maybe range support "
                 "missing?]";
         }
-        transfer->agg->on_subrange_failed(std::make_exception_ptr(std::runtime_error(ss.str())));
+        transfer->aggregate->on_subrange_failed(
+          std::make_exception_ptr(std::runtime_error(ss.str())));
       }
       // transfer (unique_ptr) drops here, returning easy to the LibCurl pool.
     }
 
-    // (4) Wait for activity, wakeup, or a bounded timeout. The bounded timeout is only
-    // useful for test/teardown paths; in production the loop runs until process exit.
+    // (4) Wait for activity, wakeup, or a bounded timeout.
     int numfds = 0;
-    curl_multi_poll(_multi, nullptr, 0, /*timeout_ms=*/1000, &numfds);
+    curl_multi_poll(_curl_multi, nullptr, 0, /*timeout_ms=*/1000, &numfds);
   }
-
-  // Unreachable in production: `_stop` is never set, the loop runs until the OS kills
-  // the thread at process exit. Retained for symmetry with future test hooks.
 }
-
-// ---------------------------------------------------------------------------
-// MultiReactorPool
-// ---------------------------------------------------------------------------
 
 MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dispatch()}
 {
@@ -209,22 +195,22 @@ MultiReactorPool& MultiReactorPool::instance()
 
 void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers)
 {
-  auto const n = _reactors.size();
-  KVIKIO_EXPECT(n > 0, "MultiReactorPool has no reactors", std::runtime_error);
+  auto const reactor_count = _reactors.size();
+  KVIKIO_EXPECT(reactor_count > 0, "MultiReactorPool has no reactors", std::runtime_error);
 
   if (_dispatch == RemoteReactorDispatch::PER_PREAD) {
     // One reactor for the whole pread() call: preserves per-CURLM connection-pool reuse.
-    auto const idx = _pread_counter.fetch_add(1, std::memory_order_relaxed) % n;
-    for (auto& t : transfers) {
-      _reactors[idx]->submit(std::move(t));
+    auto const idx = _per_pread_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
+    for (auto& transfer : transfers) {
+      _reactors[idx]->submit(std::move(transfer));
     }
     return;
   }
 
   // PER_CHUNK (default): round-robin sub-ranges across reactors.
-  for (auto& t : transfers) {
-    auto const idx = _chunk_counter.fetch_add(1, std::memory_order_relaxed) % n;
-    _reactors[idx]->submit(std::move(t));
+  for (auto& transfer : transfers) {
+    auto const idx = _per_chunk_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
+    _reactors[idx]->submit(std::move(transfer));
   }
 }
 
