@@ -52,11 +52,16 @@ enum class RemoteEndpointType : uint8_t {
  * environment variable `KVIKIO_REMOTE_IO_BACKEND`.
  */
 enum class RemoteIOBackend : uint8_t {
-  EASY_THREADPOOL = 0,  ///< Libcurl easy API + KvikIO thread pool. Each byte-range chunk runs in a
-                        ///< worker thread that blocks in `curl_easy_perform()`.
-  MULTI_POLL = 1,  ///< Libcurl multi API + N reactor threads (`curl_multi_poll()`). Each reactor
-                   ///< multiplexes many easy handles. Related environment variables are
-                   ///< `KVIKIO_REMOTE_IO_NUM_REACTORS` and `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
+  EASY_THREADPOOL =
+    0,  ///< Libcurl easy API running in the KvikIO thread pool. Each sub-range of a `pread()` is
+        ///< dispatched to a worker thread that blocks in `curl_easy_perform()` until its transfer
+        ///< completes. Concurrency is bounded by the thread pool size: one busy thread per
+        ///< in-flight transfer.
+  MULTI_POLL =
+    1,  ///< Libcurl multi API driven by N reactor threads, each of which blocks in
+        ///< `curl_multi_poll()`. A single reactor multiplexes many in-flight easy handles
+        ///< concurrently, so the number of simultaneous transfers is not bounded by the reactor
+        ///< count. See `KVIKIO_REMOTE_IO_NUM_REACTORS` and `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
 };
 
 /**
@@ -67,10 +72,16 @@ enum class RemoteIOBackend : uint8_t {
  * equivalent.
  */
 enum class RemoteReactorDispatch : uint8_t {
-  PER_CHUNK = 0,  ///< Each sub-range round-robins across reactors. Maximizes load balance. May use
-                  ///< distinct TCP/TLS connections for sub-ranges of the same file.
-  PER_PREAD = 1,  ///< All sub-ranges of one `pread()` go to the same reactor (round-robin per
-                  ///< call).
+  PER_CHUNK =
+    0,  ///< Sub-ranges are routed to reactors round-robin, independently of which `pread()` they
+        ///< belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of
+        ///< the same file may land on different reactors, each with its own libcurl connection
+        ///< cache, so they may not share an established TCP/TLS connection.
+  PER_PREAD =
+    1,  ///< All sub-ranges of a single `pread()` are submitted to the same reactor (the reactor is
+        ///< itself chosen round-robin per `pread()` call). The sub-ranges then share that reactor's
+        ///< libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best
+        ///< for HTTPS, where the TLS handshake cost is non-trivial.
 };
 
 /**

@@ -67,6 +67,22 @@ Set the environment variable ``KVIKIO_REMOTE_VERBOSE`` to ``true``, ``on``, ``ye
 
    This may show sensitive contents from headers and data.
 
+Remote I/O Backend ``KVIKIO_REMOTE_IO_BACKEND``, ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
+-------------------------------------------------------------------------------------------------------------------------
+
+KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected at process startup via the environment variable ``KVIKIO_REMOTE_IO_BACKEND``. The accepted values (case-insensitive) are:
+
+  * ``EASY_THREADPOOL`` (default): Libcurl easy API running in the KvikIO thread pool. Each sub-range of a :py:func:`kvikio.RemoteFile.pread` is dispatched to a worker thread that blocks in ``curl_easy_perform()`` until its transfer completes. Concurrency is bounded by the thread pool size: one busy thread per in-flight transfer.
+  * ``MULTI_POLL``: Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is not bounded by the reactor count. See ``KVIKIO_REMOTE_IO_NUM_REACTORS`` and ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``.
+
+When ``MULTI_POLL`` is selected, two additional settings are honored:
+
+  * ``KVIKIO_REMOTE_IO_NUM_REACTORS`` (default ``1``): number of reactor threads. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. Increase beyond ``1`` to spread the in-callback ``memcpy`` cost when one reactor's CPU is the bottleneck.
+  * ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``: how sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are distributed across reactor threads when ``MULTI_POLL`` is active. When only one reactor is used, both modes are equivalent. The accepted values (case-insensitive) are:
+
+    * ``PER_CHUNK`` (default): Sub-ranges are routed to reactors round-robin, independently of which :py:func:`kvikio.RemoteFile.pread` they belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of the same file may land on different reactors, each with its own libcurl connection cache, so they may not share an established TCP/TLS connection.
+    * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
+
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------
 
