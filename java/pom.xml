@@ -116,7 +116,7 @@ SPDX-License-Identifier: Apache-2.0
     </pluginManagement>
     <plugins>
       <plugin>
-        <groupId>io.github.cmake-maven-project</groupId>
+        <groupId>io.github.cmake-maven-plugin</groupId>
         <artifactId>cmake-maven-plugin</artifactId>
         <version>${cmake.version}</version>
         <executions>
