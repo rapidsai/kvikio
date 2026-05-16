@@ -127,7 +127,7 @@ SPDX-License-Identifier: Apache-2.0
               </goals>
               <configuration>
                 <sourcePath>${project.basedir}/src/main/native</sourcePath>
-                <targetPath>${project.build.directory}/native-build</targetPath>
+                <projectDirectory>${project.build.directory}/native-build</projectDirectory>
                 <options>
                   <option>-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${project.build.directory}</option>
                 </options>
