@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import multiprocessing as mp
@@ -161,7 +161,7 @@ def test_read_with_file_offset(s3_base, xp, start, end):
 @pytest.mark.parametrize("scheme", ["S3"])
 @pytest.mark.parametrize(
     "remote_endpoint_type",
-    [kvikio.RemoteEndpointType.S3.AUTO, kvikio.RemoteEndpointType.S3],
+    [kvikio.RemoteEndpointType.AUTO, kvikio.RemoteEndpointType.S3],
 )
 @pytest.mark.parametrize("allow_list", [None, [kvikio.RemoteEndpointType.S3]])
 @pytest.mark.parametrize("nbytes", [None, 1])
@@ -217,3 +217,15 @@ def test_open_invalid(s3_base):
             kvikio.RemoteFile.open(url)
         with pytest.raises(RuntimeError, match="Invalid URL"):
             kvikio.RemoteFile.open(url, kvikio.RemoteEndpointType.S3)
+
+
+def test_deprecated_legacy_aws_credential_kwargs_emits_warning():
+    from kvikio.remote_file import _s3_credential_bridge_kwargs
+
+    with pytest.warns(FutureWarning, match="aws_access_key_id"):
+        _s3_credential_bridge_kwargs(
+            None,
+            aws_access_key_id="x",
+            aws_secret_access_key=None,
+            aws_session_token=None,
+        )
