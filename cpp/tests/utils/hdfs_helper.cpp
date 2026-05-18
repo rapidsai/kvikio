@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,7 +11,7 @@
 #include <sstream>
 #include <string>
 
-#include <kvikio/detail/remote_handle.hpp>
+#include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/shim/libcurl.hpp>
 
 namespace kvikio::test {

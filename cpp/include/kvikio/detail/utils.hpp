@@ -6,12 +6,25 @@
 
 #include <cstring>
 #include <exception>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include <kvikio/error.hpp>
 #include <kvikio/logger.hpp>
 
 namespace kvikio::detail {
+
+/**
+ * @brief Lowercase and whitespace-trim a copy of an environment-variable value.
+ *
+ * Used by the env-var parsers to accept case-insensitive values with optional surrounding
+ * whitespace. The original string is left unchanged.
+ *
+ * @param s The raw environment-variable value (as returned by `std::getenv`).
+ * @return A new `std::string` containing the lowercased, trimmed value.
+ */
+[[nodiscard]] std::string normalize_env_value(std::string_view s);
 
 /**
  * @brief Round up `value` to multiples of `alignment`

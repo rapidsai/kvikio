@@ -24,6 +24,10 @@
  */
 namespace kvikio {
 
+// Forward declarations of the remote-IO selector enums.
+enum class RemoteIOBackend : uint8_t;
+enum class RemoteReactorDispatch : uint8_t;
+
 template <typename T>
 T getenv_or(std::string_view env_var_name, T default_val)
 {
@@ -51,6 +55,12 @@ CompatMode getenv_or(std::string_view env_var_name, CompatMode default_val);
 
 template <>
 std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> default_val);
+
+template <>
+RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default_val);
+
+template <>
+RemoteReactorDispatch getenv_or(std::string_view env_var_name, RemoteReactorDispatch default_val);
 
 /**
  * @brief Get the environment variable value from a candidate list
@@ -123,6 +133,9 @@ class defaults {
   bool _auto_direct_io_read_overread;
   bool _auto_direct_io_write;
   bool _thread_pool_per_block_device;
+  RemoteIOBackend _remote_io_backend;
+  unsigned int _remote_io_num_reactors;
+  RemoteReactorDispatch _remote_io_reactor_dispatch;
 
   static unsigned int get_num_threads_from_env();
 
@@ -444,6 +457,40 @@ class defaults {
    * thread pool for all I/O operations.
    */
   static void set_thread_pool_per_block_device(bool flag);
+
+  /**
+   * @brief The remote I/O backend selected.
+   *
+   * Controlled by the environment variable `KVIKIO_REMOTE_IO_BACKEND`, parsed case-insensitively.
+   * The only accepted values are the canonical names `EASY_THREADPOOL` and `MULTI_POLL`. If unset,
+   * defaults to `EASY_THREADPOOL`.
+   *
+   * @return The remote I/O backend.
+   */
+  [[nodiscard]] static RemoteIOBackend remote_io_backend();
+
+  /**
+   * @brief Number of reactor threads used by the `MULTI_POLL` remote I/O backend.
+   *
+   * Controlled by `KVIKIO_REMOTE_IO_NUM_REACTORS`. Must be a positive integer. Defaults to 1.
+   * Ignored when the active backend is not `MULTI_POLL`.
+   *
+   * @return The configured reactor count.
+   */
+  [[nodiscard]] static unsigned int remote_io_num_reactors();
+
+  /**
+   * @brief How sub-ranges of one `pread()` are distributed across reactor threads under the
+   * `MULTI_POLL` remote I/O backend.
+   *
+   * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`, parsed case-insensitively.
+   * - `PER_CHUNK`: `RemoteReactorDispatch::PER_CHUNK` (default).
+   * - `PER_PREAD`: `RemoteReactorDispatch::PER_PREAD`.
+   * When a single reactor is used, both modes are equivalent.
+   *
+   * @return The reactor dispatch policy.
+   */
+  [[nodiscard]] static RemoteReactorDispatch remote_io_reactor_dispatch();
 };
 
 }  // namespace kvikio
