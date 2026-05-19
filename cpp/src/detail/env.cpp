@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,6 +18,5 @@ std::optional<std::string> unwrap_or_env(std::optional<std::string> value,
   if (env != nullptr) { return std::string(env); }
   if (!err_msg.has_value()) { return std::nullopt; }
   KVIKIO_FAIL(*err_msg, std::invalid_argument);
-  return std::nullopt;
 }
 }  // namespace kvikio::detail

@@ -21,6 +21,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/mmap.hpp>
+#include <kvikio/shim/cuda.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -87,12 +88,12 @@ bool is_ats_available()
   static auto const ats_availability = []() -> auto {
     std::unordered_map<CUdevice, int> result;
     int num_devices{};
-    CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetCount(&num_devices));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetCount(&num_devices));
     for (int device_ordinal = 0; device_ordinal < num_devices; ++device_ordinal) {
       CUdevice device_handle{};
-      CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&device_handle, device_ordinal));
+      KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGet(&device_handle, device_ordinal));
       int attr{};
-      CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetAttribute(
+      KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().DeviceGetAttribute(
         &attr,
         CUdevice_attribute::CU_DEVICE_ATTRIBUTE_PAGEABLE_MEMORY_ACCESS_USES_HOST_PAGE_TABLES,
         device_handle));
@@ -103,7 +104,7 @@ bool is_ats_available()
 
   // Get current device
   CUdevice device_handle{};
-  CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetDevice(&device_handle));
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetDevice(&device_handle));
 
   // Look up the record
   return ats_availability.at(device_handle);
@@ -192,49 +193,19 @@ void read_impl(void* dst_buf,
 
   PushAndPopContext c(ctx);
   CUstream stream = detail::StreamCachePerThreadAndContext::get();
-
-  auto h2d_batch_cpy_sync =
-    [](CUdeviceptr dst_devptr, CUdeviceptr src_devptr, std::size_t size, CUstream stream) {
-#if CUDA_VERSION >= 12080
-      if (cudaAPI::instance().MemcpyBatchAsync) {
-        CUmemcpyAttributes attrs{};
-        std::size_t attrs_idxs[] = {0};
-        attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
-        CUDA_DRIVER_TRY(
-          cudaAPI::instance().MemcpyBatchAsync(&dst_devptr,
-                                               &src_devptr,
-                                               &size,
-                                               static_cast<std::size_t>(1) /* count */,
-                                               &attrs,
-                                               attrs_idxs,
-                                               static_cast<std::size_t>(1) /* num_attrs */,
-#if CUDA_VERSION < 13000
-                                               static_cast<std::size_t*>(nullptr),
-#endif
-                                               stream));
-      } else {
-        // Fall back to the conventional H2D copy if the batch copy API is not available.
-        CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-          dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
-      }
-#else
-      CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-        dst_devptr, reinterpret_cast<void*>(src_devptr), size, stream));
-#endif
-      CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-    };
-
   auto dst_devptr = convert_void2deviceptr(dst);
   CUdeviceptr src_devptr{};
   if (detail::is_ats_available()) {
     perform_prefault(src, size);
     src_devptr = convert_void2deviceptr(src);
-    h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(dst_devptr, src_devptr, size, stream));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
   } else {
     auto bounce_buffer = CudaPinnedBounceBufferPool::instance().get();
     std::memcpy(bounce_buffer.get(), src, size);
     src_devptr = convert_void2deviceptr(bounce_buffer.get());
-    h2d_batch_cpy_sync(dst_devptr, src_devptr, size, stream);
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(dst_devptr, src_devptr, size, stream));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
   }
 }
 
@@ -317,7 +288,7 @@ MmapHandle::MmapHandle(std::string const& file_path,
   _map_flags              = map_flags.has_value() ? map_flags.value() : MAP_PRIVATE;
   _map_addr =
     mmap(nullptr, _map_size, _map_protection, _map_flags, _file_wrapper.fd(), _map_offset);
-  SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
+  KVIKIO_SYSCALL_CHECK(_map_addr, "Cannot create memory mapping", MAP_FAILED);
   _buf = detail::pointer_add(_map_addr, offset_delta);
 }
 
@@ -367,7 +338,7 @@ void MmapHandle::close() noexcept
   if (closed() || _map_addr == nullptr) { return; }
   try {
     auto ret = munmap(_map_addr, _map_size);
-    SYSCALL_CHECK(ret);
+    KVIKIO_SYSCALL_CHECK(ret);
   } catch (...) {
   }
   _buf                = {};
@@ -444,15 +415,14 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
     return size;
   };
 
-  return parallel_io(op,
-                     buf,
-                     actual_size,
-                     offset,
-                     task_size,
-                     0,  // dst buffer offset initial value
-                     thread_pool,
-                     call_idx,
-                     nvtx_color);
+  return detail::parallel_io(
+    op,
+    buf,
+    actual_size,
+    offset,
+    task_size,
+    0,  // dst buffer offset initial value
+    {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
 }
 
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,

@@ -28,7 +28,7 @@ void buffer_register(void const* devPtr_base,
     // Check if `status.err` is in `errors_to_ignore`
     if (std::find(errors_to_ignore.begin(), errors_to_ignore.end(), status.err) ==
         errors_to_ignore.end()) {
-      CUFILE_TRY(status);
+      KVIKIO_CUFILE_TRY(status);
     }
   }
 }
@@ -37,7 +37,7 @@ void buffer_deregister(void const* devPtr_base)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   if (defaults::is_compat_mode_preferred()) { return; }
-  CUFILE_TRY(cuFileAPI::instance().BufDeregister(devPtr_base));
+  KVIKIO_CUFILE_TRY(cuFileAPI::instance().BufDeregister(devPtr_base));
 }
 
 void memory_register(void const* devPtr, int flags, std::vector<int> const& errors_to_ignore)

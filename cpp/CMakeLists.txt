@@ -5,7 +5,7 @@
 # cmake-format: on
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
 include(../cmake/rapids_config.cmake)
 include(rapids-cmake)
@@ -26,6 +26,17 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Mo
 # version RAPIDS uses in CI that causes it to handle the resulting -M* flags incorrectly with
 # gcc>=14. We can remove this once we upgrade to a newer sccache version.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+# Set logging level
+set(KVIKIO_LOGGING_LEVEL
+    "TRACE"
+    CACHE STRING "Choose the logging level."
+)
+set_property(
+  CACHE KVIKIO_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
+                                      "OFF"
+)
+message(VERBOSE "KVIKIO: KVIKIO_LOGGING_LEVEL = '${KVIKIO_LOGGING_LEVEL}'.")
 
 # Write the version header
 rapids_cmake_write_version_file(include/kvikio/version_config.hpp)
@@ -50,6 +61,10 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 # * dependencies -----------------------------------------------------------------------------------
 
 rapids_cpm_init()
+
+include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
+rapids_cpm_rapids_logger(BUILD_EXPORT_SET kvikio-exports INSTALL_EXPORT_SET kvikio-exports)
+create_logger_macros(KVIKIO "kvikio::default_logger()" include/kvikio)
 
 rapids_find_package(
   Threads REQUIRED
@@ -151,12 +166,14 @@ set(SOURCES
     "src/error.cpp"
     "src/file_handle.cpp"
     "src/file_utils.cpp"
+    "src/logger.cpp"
     "src/mmap.cpp"
     "src/detail/env.cpp"
     "src/detail/event.cpp"
     "src/detail/nvtx.cpp"
     "src/detail/posix_io.cpp"
     "src/detail/stream.cpp"
+    "src/detail/utils.cpp"
     "src/shim/cuda.cpp"
     "src/shim/cufile.cpp"
     "src/shim/utils.cpp"
@@ -183,14 +200,21 @@ add_library(kvikio::kvikio ALIAS kvikio)
 target_include_directories(
   kvikio
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+         "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
          "$<BUILD_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
+)
+
+# Define logging level
+target_compile_definitions(
+  kvikio PRIVATE "KVIKIO_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LOG_LEVEL_${KVIKIO_LOGGING_LEVEL}"
 )
 
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
 target_link_libraries(
   kvikio
   PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
+         rapids_logger::rapids_logger
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
 )
 

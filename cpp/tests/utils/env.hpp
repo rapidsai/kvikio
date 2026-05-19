@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -31,11 +31,19 @@ class EnvVarContext {
   /**
    * @brief Set the environment variables to new values
    *
-   * @param env_var_entries User-specified environment variables. Each entry includes the variable
-   * name and value.
+   * @param env_var_entries An initializer list of user-specified environment variables. Each entry
+   * includes the variable name and value.
    */
   EnvVarContext(
     std::initializer_list<std::pair<std::string_view, std::string_view>> env_var_entries);
+
+  /**
+   * @brief Set the environment variables to new values
+   *
+   * @param env_var_entries An unordered map of user-specified environment variables. Each entry
+   * includes the variable name and value.
+   */
+  EnvVarContext(std::unordered_map<std::string, std::string> const& entries);
 
   /**
    * @brief Restore the environment variables to previous values
@@ -52,6 +60,8 @@ class EnvVarContext {
   EnvVarContext& operator=(EnvVarContext&&)      = delete;
 
  private:
+  void add_entry(std::string_view key, std::string_view value);
+
   std::unordered_map<std::string, EnvVarState> _env_var_map;
 };
 }  // namespace kvikio::test

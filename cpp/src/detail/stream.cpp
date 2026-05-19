@@ -16,7 +16,7 @@ CUstream StreamCachePerThreadAndContext::get()
   KVIKIO_NVTX_FUNC_RANGE();
 
   CUcontext ctx{nullptr};
-  CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().CtxGetCurrent(&ctx));
   // If no current context, we return the null/default stream
   if (ctx == nullptr) { return nullptr; }
 
@@ -28,7 +28,7 @@ CUstream StreamCachePerThreadAndContext::get()
   // Create a new stream if the (context, thread) pair doesn't have one.
   if (auto search = _instance._streams.find(key); search == _instance._streams.end()) {
     CUstream stream{};
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
     _instance._streams[key] = stream;
     return stream;
   } else {

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -120,6 +120,7 @@ class defaults {
   long _http_timeout;
   std::vector<int> _http_status_codes;
   bool _auto_direct_io_read;
+  bool _auto_direct_io_read_overread;
   bool _auto_direct_io_write;
   bool _thread_pool_per_block_device;
 
@@ -262,6 +263,10 @@ class defaults {
   /**
    * @brief Set the default task size used for parallel IO operations.
    *
+   * When opportunistic Direct I/O read is enabled (`KVIKIO_AUTO_DIRECT_IO_READ=1`), this value
+   * should be a multiple of page size (typically 4 KiB) so that parallel tasks start at
+   * page-aligned file offsets, avoiding buffered I/O fallback.
+   *
    * @param nbytes The default task size in bytes.
    */
   static void set_task_size(std::size_t nbytes);
@@ -377,6 +382,28 @@ class defaults {
    * @param flag true to enable opportunistic Direct I/O reads, false to disable
    */
   static void set_auto_direct_io_read(bool flag);
+
+  /**
+   * @brief Check if Direct I/O over-read alignment is enabled for device reads
+   *
+   * When enabled, device memory reads use pure Direct I/O by aligning offsets down and sizes up to
+   * page boundaries, at the cost of reading extra bytes from disk. When disabled (default),
+   * unaligned portions fall back to buffered I/O. Only affects the device memory read path (disk to
+   * bounce buffer to GPU). Host memory reads are unaffected.
+   *
+   * Requires `auto_direct_io_read()` to be enabled to have any effect.
+   *
+   * @return Boolean answer
+   */
+  static bool auto_direct_io_read_overread();
+
+  /**
+   * @brief Enable or disable Direct I/O over-read alignment for device reads
+   *
+   * @param flag true to enable over-read alignment, false to use opportunistic DIO with buffered
+   * I/O fallback for unaligned portions (default)
+   */
+  static void set_auto_direct_io_read_overread(bool flag);
 
   /**
    * @brief Check if Direct I/O is enabled for POSIX writes

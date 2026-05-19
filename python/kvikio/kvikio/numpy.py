@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import io
 import os
 import os.path
-from typing import Protocol, Union, runtime_checkable
+from typing import Optional, Protocol, Union, runtime_checkable
 
 import numpy as np
 from numpy.typing import ArrayLike, DTypeLike
@@ -70,7 +70,7 @@ def fromfile(
     sep: str = "",
     offset: int = 0,
     *,
-    like: ArrayLike = None,
+    like: Optional[ArrayLike] = None,
 ) -> ArrayLike:
     """Construct an array from file using KvikIO
 
