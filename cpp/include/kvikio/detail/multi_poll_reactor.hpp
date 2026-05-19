@@ -23,6 +23,9 @@
 
 namespace kvikio::detail {
 
+class MultiReactorPool;  // Forward declaration, because reactors needs to hold a back-pointer to
+                         // the pool.
+
 /**
  * @brief Collects results from N sub-range transfers and resolves one top-level future once all of
  * them have either succeeded or one has failed.
@@ -98,7 +101,14 @@ struct RemoteMultiTransfer {
  */
 class MultiPollReactor {
  public:
-  MultiPollReactor();
+  /**
+   * @brief Construct a reactor owned by the given pool.
+   *
+   * @param pool Non-owning back-pointer to the pool that owns this reactor. Used to observe and
+   * propagate pool-wide death state. The pool must outlive the reactor, which is guaranteed because
+   * the pool is a leaked singleton that owns this reactor by `unique_ptr`.
+   */
+  explicit MultiPollReactor(MultiReactorPool* pool);
   ~MultiPollReactor() noexcept;
   MultiPollReactor(MultiPollReactor const&)            = delete;
   MultiPollReactor& operator=(MultiPollReactor const&) = delete;
@@ -110,15 +120,36 @@ class MultiPollReactor {
    *
    * The reactor picks the transfer up on its next loop iteration. The caller must have already
    * obtained the aggregate future via `aggregate->get_future()` before calling this, because once
-   * the transfer is in the queue the reactor may complete it (and the promise) at any time.
+   * the transfer is in the queue the reactor may complete it (and the promise) at any time. If the
+   * pool has already declared death, the transfer is failed immediately with the recorded death
+   * reason and never enters the inbox.
    *
    * @param transfer Per-transfer state, ownership transferred to the reactor.
    */
   void submit(std::unique_ptr<RemoteMultiTransfer> transfer);
 
+  /**
+   * @brief Wake up the reactor out of its `curl_multi_poll()` wait. Thread-safe.
+   *
+   * This method calls `curl_multi_wakeup()`. If it fails (which is rare) the reactor still wakes on
+   * its bounded poll timeout. Used by `MultiReactorPool::signal_death` to make every reactor notice
+   * pool death promptly rather than waiting for the timeout.
+   */
+  void wakeup() noexcept;
+
  private:
   void io_thread_main();
 
+  /**
+   * @brief Fail every transfer this reactor is responsible for and exit the loop.
+   *
+   * Called from the I/O thread on its way out, either because this reactor caught an exception or
+   * because another reactor signaled pool death. Drains the inbox, removes each in-flight easy
+   * handle from the multi handle, and resolves each transfer's aggregate with the given exception.
+   */
+  void fail_all_pending(std::exception_ptr eptr);
+
+  MultiReactorPool* _pool;
   CURLM* _curl_multi{nullptr};
   std::thread _io_thread;
   std::mutex _submit_mutex;
@@ -170,14 +201,43 @@ class MultiReactorPool {
    */
   void submit_pread(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers);
 
+  /**
+   * @brief Whether the pool has been marked dead by a reactor that has caught a fatal libcurl
+   * error.
+   *
+   * Once dead, the pool stays dead for the rest of the process lifetime. All in-flight and
+   * subsequently submitted transfers fail with the recorded death reason.
+   */
+  [[nodiscard]] bool is_dead() const noexcept;
+
+  /**
+   * @brief Get the exception that caused pool death, or a null `exception_ptr` if alive.
+   *
+   * Safe to call from any thread. Returns the same value once `is_dead()` returns `true`.
+   */
+  [[nodiscard]] std::exception_ptr death_reason() const noexcept;
+
+  /**
+   * @brief Mark the pool as dead with the given exception as the cause, then wake every reactor so
+   * each notices the death state promptly. Thread-safe. Only the first call wins. All subsequent
+   * calls are silently ignored.
+   *
+   * @param eptr The exception that causes pool death. Will be propagated to every in-flight and
+   * subsequently submitted transfer via `RemoteMultiAggregateContext::on_subrange_failed`.
+   */
+  void signal_death(std::exception_ptr eptr) noexcept;
+
  private:
   MultiReactorPool();
   ~MultiReactorPool() noexcept;
 
   std::vector<std::unique_ptr<MultiPollReactor>> _reactors;
   RemoteReactorDispatch _dispatch;
-  std::atomic<std::size_t> _per_pread_counter{0};  // Round-robin counter for PER_PREAD mode.
-  std::atomic<std::size_t> _per_chunk_counter{0};  // Round-robin counter for PER_CHUNK mode.
+  // Round-robin counter. Incremented per pread (PER_PREAD) or per chunk (PER_CHUNK).
+  std::atomic<std::size_t> _next_reactor_counter{0};
+  std::atomic<bool> _dead{false};
+  std::mutex mutable _death_mutex;  // Protects writes to `_death_reason`.
+  std::exception_ptr _death_reason;
 };
 
 }  // namespace kvikio::detail

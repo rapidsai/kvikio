@@ -62,8 +62,10 @@ void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr eptr)
 
 std::future<std::size_t> RemoteMultiAggregateContext::get_future() { return _promise.get_future(); }
 
-MultiPollReactor::MultiPollReactor()
+MultiPollReactor::MultiPollReactor(MultiReactorPool* pool) : _pool{pool}
 {
+  KVIKIO_EXPECT(
+    _pool != nullptr, "MultiPollReactor requires a non-null pool", std::invalid_argument);
   // Force LibCurl global init before we create the multi handle.
   (void)LibCurl::instance();
   _curl_multi = curl_multi_init();
@@ -80,99 +82,149 @@ MultiPollReactor::~MultiPollReactor() noexcept
   // `std::terminate()`.
 }
 
+void MultiPollReactor::wakeup() noexcept { (void)curl_multi_wakeup(_curl_multi); }
+
 void MultiPollReactor::submit(std::unique_ptr<RemoteMultiTransfer> transfer)
 {
+  std::exception_ptr fail_reason;
   {
     std::lock_guard<std::mutex> const lock(_submit_mutex);
-    _inbox.push_back(std::move(transfer));
+    if (_pool->is_dead()) {
+      // The pool is dead. Fail this transfer immediately rather than pushing into an inbox that
+      // will never be drained. Reading death_reason inside the lock is overkill but harmless.
+      fail_reason = _pool->death_reason();
+    } else {
+      _inbox.push_back(std::move(transfer));
+    }
   }
-  // This multi API is thread safe.
-  auto const mc = curl_multi_wakeup(_curl_multi);
-  KVIKIO_EXPECT(mc == CURLM_OK,
-                std::string("curl_multi_wakeup: ") + curl_multi_strerror(mc),
-                std::runtime_error);
+  if (fail_reason) {
+    transfer->aggregate->on_subrange_failed(fail_reason);
+    return;
+  }
+  wakeup();
 }
 
 void MultiPollReactor::io_thread_main()
 {
-  while (true) {
-    // (1) Drain submission queue. Attach each pending easy handle to the multi handle.
-    {
-      // Lock is needed since _inbox is shared between the I/O thread and the caller thread.
-      std::unique_lock<std::mutex> lock(_submit_mutex);
-      while (!_inbox.empty()) {
-        auto transfer = std::move(_inbox.front());
-        _inbox.pop_front();
-        lock.unlock();
+  try {
+    while (!_pool->is_dead()) {
+      // (1) Drain submission queue. Attach each pending easy handle to the multi handle.
+      {
+        // Lock is needed since _inbox is shared between the I/O thread and the caller thread.
+        std::unique_lock<std::mutex> lock(_submit_mutex);
+        while (!_inbox.empty()) {
+          auto transfer = std::move(_inbox.front());
+          _inbox.pop_front();
+          lock.unlock();
 
-        CURL* easy = transfer->curl->handle();
-        // The caller already set WRITEFUNCTION/WRITEDATA and the endpoint options for the easy
-        // handle. We just attach it to the multi handle.
-        auto const mc = curl_multi_add_handle(_curl_multi, easy);
-        if (mc != CURLM_OK) {
-          auto eptr = std::make_exception_ptr(
-            std::runtime_error(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc)));
-          transfer->aggregate->on_subrange_failed(eptr);
-          // unique_ptr drops here, returning the easy handle to the LibCurl pool.
-        } else {
+          CURL* easy = transfer->curl->handle();
+          // The caller already set WRITEFUNCTION/WRITEDATA and the endpoint options for the easy
+          // handle. We just attach it to the multi handle.
+          auto const mc = curl_multi_add_handle(_curl_multi, easy);
+          if (mc != CURLM_OK) {
+            // This transfer is now in transit between _inbox and _in_flight. fail_all_pending (run
+            // on the catch path below) iterates only those two containers, so it cannot find this
+            // transfer. We must mark its aggregate as failed here to maintain the per-aggregate
+            // sub-range count invariant. Otherwise the aggregate's _promise would not be resolved,
+            // and the caller's future.get() would hang.
+            transfer->aggregate->on_subrange_failed(std::make_exception_ptr(std::runtime_error(
+              std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc))));
+            KVIKIO_FAIL(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc),
+                        std::runtime_error);
+          }
           _in_flight.emplace(easy, std::move(transfer));
+          lock.lock();
         }
-        lock.lock();
       }
-    }
 
-    // (2) Drive transfers in a non-blocking way.
-    int running_handles   = 0;
-    auto const perform_mc = curl_multi_perform(_curl_multi, &running_handles);
-    KVIKIO_EXPECT(perform_mc == CURLM_OK,
-                  std::string("curl_multi_perform: ") + curl_multi_strerror(perform_mc),
-                  std::runtime_error);
-
-    // (3) Drain completions.
-    int msgs_left = 0;
-    while (auto* msg = curl_multi_info_read(_curl_multi, &msgs_left)) {
-      if (msg->msg != CURLMSG_DONE) { continue; }
-      auto* easy = msg->easy_handle;
-      auto res   = msg->data.result;
-
-      auto it = _in_flight.find(easy);
-      KVIKIO_EXPECT(it != _in_flight.end(),
-                    "MultiPollReactor: completion for unknown handle",
-                    std::runtime_error);
-      auto transfer = std::move(it->second);
-      _in_flight.erase(it);
-      // Critical ordering: remove from multi BEFORE the transfer (and its CurlHandle) is destroyed
-      // at end of scope. Otherwise libcurl undefined behavior.
-      auto const remove_mc = curl_multi_remove_handle(_curl_multi, easy);
-      KVIKIO_EXPECT(remove_mc == CURLM_OK,
-                    std::string("curl_multi_remove_handle: ") + curl_multi_strerror(remove_mc),
+      // (2) Drive transfers in a non-blocking way.
+      int running_handles   = 0;
+      auto const perform_mc = curl_multi_perform(_curl_multi, &running_handles);
+      KVIKIO_EXPECT(perform_mc == CURLM_OK,
+                    std::string("curl_multi_perform: ") + curl_multi_strerror(perform_mc),
                     std::runtime_error);
 
-      if (res == CURLE_OK && !transfer->ctx.overflow_error) {
-        transfer->aggregate->on_subrange_complete(transfer->ctx.size);
-      } else {
-        std::stringstream ss;
-        ss << "curl_multi transfer failed (" << curl_easy_strerror(res) << ")";
-        if (transfer->ctx.overflow_error) {
-          ss << " [server returned more bytes than requested; maybe range support "
-                "missing?]";
-        }
-        transfer->aggregate->on_subrange_failed(
-          std::make_exception_ptr(std::runtime_error(ss.str())));
-      }
-      // transfer (unique_ptr) drops here, returning easy to the LibCurl pool.
-    }
+      // (3) Drain completions.
+      int msgs_left = 0;
+      while (auto* msg = curl_multi_info_read(_curl_multi, &msgs_left)) {
+        if (msg->msg != CURLMSG_DONE) { continue; }
+        auto* easy = msg->easy_handle;
+        auto res   = msg->data.result;
 
-    // (4) Wait for activity, wakeup, or a bounded timeout.
-    auto const poll_mc = curl_multi_poll(_curl_multi,
-                                         nullptr,   // extra_fds
-                                         0,         // extra_nfds
-                                         1000,      // timeout_ms
-                                         nullptr);  // numfds
-    KVIKIO_EXPECT(poll_mc == CURLM_OK,
-                  std::string("curl_multi_poll: ") + curl_multi_strerror(poll_mc),
-                  std::runtime_error);
+        auto it = _in_flight.find(easy);
+        KVIKIO_EXPECT(it != _in_flight.end(),
+                      "MultiPollReactor: completion for unknown handle",
+                      std::runtime_error);
+        auto transfer = std::move(it->second);
+        _in_flight.erase(it);
+        // Critical ordering: remove from multi BEFORE the transfer (and its CurlHandle) is
+        // destroyed at end of scope. Otherwise libcurl undefined behavior.
+        auto const remove_mc = curl_multi_remove_handle(_curl_multi, easy);
+        KVIKIO_EXPECT(remove_mc == CURLM_OK,
+                      std::string("curl_multi_remove_handle: ") + curl_multi_strerror(remove_mc),
+                      std::runtime_error);
+
+        if (res == CURLE_OK && !transfer->ctx.overflow_error) {
+          transfer->aggregate->on_subrange_complete(transfer->ctx.size);
+        } else {
+          std::stringstream ss;
+          ss << "curl_multi transfer failed (" << curl_easy_strerror(res) << ")";
+          if (transfer->ctx.overflow_error) {
+            ss << " [server returned more bytes than requested; maybe range support "
+                  "missing?]";
+          }
+          transfer->aggregate->on_subrange_failed(
+            std::make_exception_ptr(std::runtime_error(ss.str())));
+        }
+        // transfer (unique_ptr) drops here, returning easy to the LibCurl pool.
+      }
+
+      // (4) Wait for activity, wakeup, or a bounded timeout.
+      auto const poll_mc = curl_multi_poll(_curl_multi,
+                                           nullptr,   // extra_fds
+                                           0,         // extra_nfds
+                                           1000,      // timeout_ms
+                                           nullptr);  // numfds
+      KVIKIO_EXPECT(poll_mc == CURLM_OK,
+                    std::string("curl_multi_poll: ") + curl_multi_strerror(poll_mc),
+                    std::runtime_error);
+    }
+  } catch (...) {
+    // Any libcurl multi-API error caught above declares pool-wide death. The first reactor to
+    // signal wins. Subsequent signals are silently ignored.
+    _pool->signal_death(std::current_exception());
   }
+  // At this point, we have caught the exception above, or noticed that _pool->is_dead() at loop
+  // top. In either case, now drain our own state with the recorded reason to satisfy the
+  // aggregate's _promise, so that no call's future.get() hangs.
+  fail_all_pending(_pool->death_reason());
+}
+
+void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
+{
+  // Drain the inbox under the submit mutex. New submissions are blocked from accumulating by the
+  // _pool->is_dead() check in submit(), which is already true by the time we get here.
+  {
+    std::lock_guard<std::mutex> const lock(_submit_mutex);
+    while (!_inbox.empty()) {
+      auto transfer = std::move(_inbox.front());
+      _inbox.pop_front();
+      transfer->aggregate->on_subrange_failed(eptr);
+    }
+  }
+
+  // In-flight is touched only by the I/O thread, which is us, so no lock needed.
+  for (auto& [easy, transfer] : _in_flight) {
+    // Best-effort removal.
+    // TODO: Known issue: if curl_multi_remove_handle fails (rarely happens), the easy handle
+    // remains attached to the multi handle. _in_flight.clear() below then destroys the transfer's
+    // CurlHandle, which unconditionally returns the easy handle to the LibCurl free pool. A future
+    // caller that pulls this handle would operate on a handle that libcurl still considers
+    // attached, which is undefined behavior.
+    (void)curl_multi_remove_handle(_curl_multi, easy);
+    transfer->aggregate->on_subrange_failed(eptr);
+  }
+  _in_flight.clear();
 }
 
 MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dispatch()}
@@ -184,7 +236,7 @@ MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dis
   KVIKIO_EXPECT(n > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
   _reactors.reserve(n);
   for (unsigned int i = 0; i < n; ++i) {
-    _reactors.emplace_back(std::make_unique<MultiPollReactor>());
+    _reactors.emplace_back(std::make_unique<MultiPollReactor>(this));
   }
 }
 
@@ -208,7 +260,7 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
 
   // PER_PREAD: one reactor for the whole pread() call. Preserves per-CURLM connection-pool reuse.
   if (_dispatch == RemoteReactorDispatch::PER_PREAD) {
-    auto const idx = _per_pread_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
+    auto const idx = _next_reactor_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
     for (auto& transfer : transfers) {
       _reactors[idx]->submit(std::move(transfer));
     }
@@ -217,8 +269,45 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
 
   // PER_CHUNK: round-robin sub-ranges across reactors.
   for (auto& transfer : transfers) {
-    auto const idx = _per_chunk_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
+    auto const idx = _next_reactor_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
     _reactors[idx]->submit(std::move(transfer));
+  }
+}
+
+bool MultiReactorPool::is_dead() const noexcept
+{
+  // This function is on a hot path, so we use atomic instead of a mutex.
+  return _dead.load(std::memory_order_acquire);
+}
+
+std::exception_ptr MultiReactorPool::death_reason() const noexcept
+{
+  std::lock_guard<std::mutex> const lock(_death_mutex);
+  return _death_reason;
+}
+
+void MultiReactorPool::signal_death(std::exception_ptr eptr) noexcept
+{
+  // - The lock is needed to avoid multiple threads updating _death_reason at the same time.
+  // - The store needs to stay inside the scope of lock. Otherwise, multiple threads may own the
+  // mutex at different point of time and the last thread writes to _death_reason, whereas here we
+  // want the first thread to win.
+  // - The store needs to use `release` to pair with the load's `acquire` in `is_dead()`.
+  // - The load can be relaxed. `acquire` or `seq_cst` will be an overkill.
+  {
+    std::lock_guard<std::mutex> const lock(_death_mutex);
+    // Only the first reactor I/O thread that reaches here updates _death_reason and performs the
+    // wakeup. Subsequent calls will early exit.
+    if (_dead.load(std::memory_order_relaxed)) { return; }
+    _death_reason = eptr;
+    _dead.store(true, std::memory_order_release);
+  }
+
+  // Wake up every reactor out of its curl_multi_poll so they notice _dead promptly.
+  // At this point the caller's own reactor just exited the loop body to enter the catch. So
+  // including it here is harmless.
+  for (auto const& r : _reactors) {
+    r->wakeup();
   }
 }
 
