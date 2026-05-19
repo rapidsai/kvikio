@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -243,8 +243,8 @@ int main()
     // After synchronizing `stream`, we can read the number of bytes written
     check(cudaStreamSynchronize(stream) == cudaSuccess);
     // Note, `*bytes_done_p` might be negative, which indicate an IO error thus we
-    // use `CUFILE_CHECK_BYTES_DONE` to check for errors.
-    CUFILE_CHECK_BYTES_DONE(*bytes_done_p);
+    // use `KVIKIO_CUFILE_CHECK_BYTES_DONE` to check for errors.
+    KVIKIO_CUFILE_CHECK_BYTES_DONE(*bytes_done_p);
     check(*bytes_done_p == SIZE);
     cout << "File async write: " << *bytes_done_p << endl;
 
@@ -252,7 +252,7 @@ int main()
     *bytes_done_p = 0;
     f_handle.read_async(c_dev, &io_size, &f_off, &d_off, bytes_done_p, stream);
     check(cudaStreamSynchronize(stream) == cudaSuccess);
-    CUFILE_CHECK_BYTES_DONE(*bytes_done_p);
+    KVIKIO_CUFILE_CHECK_BYTES_DONE(*bytes_done_p);
     check(*bytes_done_p == SIZE);
     cout << "File async read: " << *bytes_done_p << endl;
     check(cudaFreeHost((void*)bytes_done_p) == cudaSuccess);

@@ -1,3 +1,40 @@
+# kvikio 26.04.00 (8 Apr 2026)
+
+### 🚨 Breaking Changes
+* Make the bounce buffer move constructible and move assignable by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/898
+### 🐛 Bug Fixes
+* Fix a tricky bug in Cython stream casting by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/904
+* Fix per-thread, per-context stream race condition by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/917
+### 📖 Documentation
+* Improve documentation for buffer and memory registration by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/912
+### 🛠️ Improvements
+* Use verify-hardcoded-version pre-commit hook by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/906
+* Drop Python 3.10 support by @gforsyth in https://github.com/rapidsai/kvikio/pull/910
+* Bump pre-commit-hooks to 1.3.3 by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/909
+* Small bounce buffer improvement: add nullptr check by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/915
+* tighten wheel size limits, expand CI-skipping logic, other small build changes by @jameslamb in https://github.com/rapidsai/kvikio/pull/911
+* remove pip.conf migration code in CI scripts, update CI-skipping rules by @jameslamb in https://github.com/rapidsai/kvikio/pull/918
+* Bump pre-commit-hooks to version 1.4.3 by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/922
+* refactor: build wheels and conda packages using Python limited API by @gforsyth in https://github.com/rapidsai/kvikio/pull/920
+* Add a better page cache dropping function for per file, unprivileged use by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/925
+* Use GHA id-token for `sccache-dist` auth token by @trxcllnt in https://github.com/rapidsai/kvikio/pull/926
+* Add ScopeExit utility for RAII-based cleanup by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/927
+* Improve the page cache residency query utility by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/928
+* check-nightly-ci: update to new version by @jameslamb in https://github.com/rapidsai/kvikio/pull/930
+* check-nightly-ci: remove testing config by @jameslamb in https://github.com/rapidsai/kvikio/pull/931
+* Add support for Python 3.14 by @gforsyth in https://github.com/rapidsai/kvikio/pull/933
+* refactor(limited api): add explicit `wheel.py-api` to `pyproject.toml`
+ by @gforsyth in https://github.com/rapidsai/kvikio/pull/934
+* Improve NVTX annotation for opportunistic I/O by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/937
+* Update Cython lower bound pin to 3.2.2 by @vyasr in https://github.com/rapidsai/kvikio/pull/936
+* Bump libcurl version to 8.13.0 to eliminate C++ warning messages by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/938
+* Remove pytest upper bound pin by @vyasr in https://github.com/rapidsai/kvikio/pull/940
+* build wheels with CUDA 13.0.x, test wheels against mix of CTK versions by @jameslamb in https://github.com/rapidsai/kvikio/pull/942
+
+## New Contributors
+
+**Full Changelog**: https://github.com/rapidsai/kvikio/compare/v26.04.00a...release/26.04
+
 # kvikio 26.02.00 (4 Feb 2026)
 
 ### 🚨 Breaking Changes

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -24,9 +24,9 @@ TEST(ErrorTest, syscall_check_for_int_return_value)
 
   // If the file does not exist, open() returns (int)-1, and the error number is ENOENT (No such
   // file or directory).
-  EXPECT_THAT([=] { SYSCALL_CHECK(open_nonexistent_file()); },
+  EXPECT_THAT([=] { KVIKIO_SYSCALL_CHECK(open_nonexistent_file()); },
               ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("No such file or directory")));
-  EXPECT_THAT([=] { SYSCALL_CHECK(open_nonexistent_file(), "open failed.", -1); },
+  EXPECT_THAT([=] { KVIKIO_SYSCALL_CHECK(open_nonexistent_file(), "open failed.", -1); },
               ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("No such file or directory")));
 }
 
@@ -41,6 +41,7 @@ TEST(ErrorTest, syscall_check_for_voidp_return_value)
 
   // If the mapping fails, mmap() returns MAP_FAILED i.e. (void*)-1, and the error number is EINVAL
   // (invalid argument).
-  EXPECT_THAT([=] { SYSCALL_CHECK(map_anonymous_with_0_length(), "mmap failed.", MAP_FAILED); },
-              ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("Invalid argument")));
+  EXPECT_THAT(
+    [=] { KVIKIO_SYSCALL_CHECK(map_anonymous_with_0_length(), "mmap failed.", MAP_FAILED); },
+    ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("Invalid argument")));
 }

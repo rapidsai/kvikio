@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -177,38 +177,40 @@ class TestWebHdfsOperations:
             assert np.array_equal(result_buf_np, expected_buf)
 
 
+def run_bad_server(queue: Queue[int]) -> None:
+    """Run a bad WebHDFS server that returns JSON missing the 'length' field"""
+
+    class BadHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            parsed = urllib.parse.urlparse(self.path)
+            query = urllib.parse.parse_qs(parsed.query)
+
+            if query.get("op") == ["GETFILESTATUS"]:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                # Missing "length" field
+                response = json.dumps({})
+                self.wfile.write(response.encode())
+            else:
+                self.send_response(400)
+                self.end_headers()
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    port = utils.find_free_port()
+    server = HTTPServer((utils.localhost(), port), BadHandler)
+    queue.put(port)
+    server.serve_forever()
+
+
 class TestWebHdfsErrors:
     @pytest.fixture
     def mock_bad_server(
         self, remote_file_data: RemoteFileData
     ) -> Generator[str, None, None]:
         """Start a bad WebHDFS server that returns invalid JSON"""
-
-        def run_bad_server(queue: Queue[int]) -> None:
-            class BadHandler(BaseHTTPRequestHandler):
-                def do_GET(self):
-                    parsed = urllib.parse.urlparse(self.path)
-                    query = urllib.parse.parse_qs(parsed.query)
-
-                    if query.get("op") == ["GETFILESTATUS"]:
-                        self.send_response(200)
-                        self.send_header("Content-Type", "application/json")
-                        self.end_headers()
-                        # Missing "length" field
-                        response = json.dumps({})
-                        self.wfile.write(response.encode())
-                    else:
-                        self.send_response(400)
-                        self.end_headers()
-
-                def log_message(self, format, *args):
-                    pass
-
-            port = utils.find_free_port()
-            server = HTTPServer((utils.localhost(), port), BadHandler)
-            queue.put(port)
-            server.serve_forever()
-
         queue: Queue[int] = Queue()
         server_process = Process(target=run_bad_server, args=(queue,), daemon=True)
         server_process.start()

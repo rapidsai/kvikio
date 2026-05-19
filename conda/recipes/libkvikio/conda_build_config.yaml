@@ -1,5 +1,5 @@
 cmake_version:
-  - ">=3.30.4"
+  - ">=4.0"
 
 cuda_compiler:
   - cuda-nvcc
@@ -11,4 +11,4 @@ c_stdlib_version:
   - "2.28"
 
 libcurl_version:
-  - "8.5.0"
+  - "8.13.0"

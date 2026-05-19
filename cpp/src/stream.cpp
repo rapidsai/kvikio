@@ -70,12 +70,12 @@ std::size_t StreamFuture::check_bytes_done()
 
   if (!_stream_synchronized) {
     _stream_synchronized = true;
-    CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(_stream));
   }
 
-  CUFILE_CHECK_BYTES_DONE(_val->bytes_done);
+  KVIKIO_CUFILE_CHECK_BYTES_DONE(_val->bytes_done);
   // At this point, we know `_val->bytes_done` is a positive value otherwise
-  // CUFILE_CHECK_BYTES_DONE() would have raised an exception.
+  // KVIKIO_CUFILE_CHECK_BYTES_DONE() would have raised an exception.
   return static_cast<std::size_t>(_val->bytes_done);
 }
 
