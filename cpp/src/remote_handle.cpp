@@ -780,6 +780,8 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
 
+  if (size == 0) { return make_ready_future(static_cast<std::size_t>(0)); }
+
   auto const io_backend = defaults::remote_io_backend();
 
   if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
