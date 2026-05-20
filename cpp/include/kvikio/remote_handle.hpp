@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -16,11 +16,11 @@
 #include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
 
-struct curl_slist;
-
 namespace kvikio {
 
 class CurlHandle;  // Prototype
+class AwsAuthMaterial;
+class AwsCredentialProvider;
 
 /**
  * @brief Types of remote file endpoints supported by KvikIO.
@@ -135,14 +135,14 @@ class HttpEndpoint : public RemoteEndpoint {
  * @brief A remote endpoint for AWS S3 storage requiring credentials
  *
  * This endpoint is for accessing private S3 objects using AWS credentials (access key, secret key,
- * region and optional session token).
+ * region and optional session token), optionally sourced from the environment, explicit parameters,
+ * or IAM role credentials via the compute metadata service (IMDSv2).
  */
 class S3Endpoint : public RemoteEndpoint {
  private:
   std::string _url;
   std::string _aws_sigv4;
-  std::string _aws_userpwd;
-  curl_slist* _curl_header_list{};
+  std::shared_ptr<AwsCredentialProvider> _credential_provider;
 
  public:
   /**
@@ -176,19 +176,21 @@ class S3Endpoint : public RemoteEndpoint {
   [[nodiscard]] static std::pair<std::string, std::string> parse_s3_url(std::string const& s3_url);
 
   /**
-   * @brief Create a S3 endpoint from a url.
+   * @brief Create a S3 endpoint from a url and credential provider.
    *
    * @param url The full http url to the S3 file. NB: this should be an url starting with
    * "http://" or "https://". If you have an S3 url of the form "s3://<bucket>/<object>", please
    * use `S3Endpoint::parse_s3_url()` and `S3Endpoint::url_from_bucket_and_object() to convert it.
    * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
    * `AWS_DEFAULT_REGION` environment variable is used.
-   * @param aws_access_key The AWS access key to use. If nullopt, the value of the
-   * `AWS_ACCESS_KEY_ID` environment variable is used.
-   * @param aws_secret_access_key The AWS secret access key to use. If nullopt, the value of the
-   * `AWS_SECRET_ACCESS_KEY` environment variable is used.
-   * @param aws_session_token The AWS session token to use. If nullopt, the value of the
-   * `AWS_SESSION_TOKEN` environment variable is used.
+   * @param credential_provider Source for AWS access key, secret, and optional session token.
+   */
+  S3Endpoint(std::string url,
+             std::optional<std::string> aws_region,
+             std::shared_ptr<AwsCredentialProvider> credential_provider);
+
+  /**
+   * @brief Create a S3 endpoint from a url (legacy optional arguments and environment variables).
    */
   S3Endpoint(std::string url,
              std::optional<std::string> aws_region            = std::nullopt,
@@ -197,21 +199,15 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_session_token     = std::nullopt);
 
   /**
-   * @brief Create a S3 endpoint from a bucket and object name.
-   *
-   * @param bucket_and_object_names The bucket and object names of the S3 bucket.
-   * @param aws_region The AWS region, such as "us-east-1", to use. If nullopt, the value of the
-   * `AWS_DEFAULT_REGION` environment variable is used.
-   * @param aws_access_key The AWS access key to use. If nullopt, the value of the
-   * `AWS_ACCESS_KEY_ID` environment variable is used.
-   * @param aws_secret_access_key The AWS secret access key to use. If nullopt, the value of the
-   * `AWS_SECRET_ACCESS_KEY` environment variable is used.
-   * @param aws_endpoint_url Overwrite the endpoint url (including the protocol part) by using
-   * the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If nullopt, the value of the
-   * `AWS_ENDPOINT_URL` environment variable is used. If this is also not set, the regular AWS
-   * url scheme is used: "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
-   * @param aws_session_token The AWS session token to use. If nullopt, the value of the
-   * `AWS_SESSION_TOKEN` environment variable is used.
+   * @brief Create a S3 endpoint from a bucket and object name and credential provider.
+   */
+  S3Endpoint(std::pair<std::string, std::string> bucket_and_object_names,
+             std::optional<std::string> aws_region,
+             std::optional<std::string> aws_endpoint_url,
+             std::shared_ptr<AwsCredentialProvider> credential_provider);
+
+  /**
+   * @brief Create a S3 endpoint from a bucket and object name (legacy optional arguments).
    */
   S3Endpoint(std::pair<std::string, std::string> bucket_and_object_names,
              std::optional<std::string> aws_region            = std::nullopt,
@@ -222,6 +218,13 @@ class S3Endpoint : public RemoteEndpoint {
 
   ~S3Endpoint() override;
   void setopt(CurlHandle& curl) override;
+  /**
+   * @brief Apply SigV4 user/password and session token headers from `material` to `curl`.
+   *
+   * Call after `setopt()` on the same handle. Hold `material` alive until `curl.perform()` returns.
+   */
+  void apply_auth_to_curl(CurlHandle& curl, AwsAuthMaterial const& material) const;
+  [[nodiscard]] std::shared_ptr<AwsAuthMaterial const> get_auth_material();
   std::string str() const override;
   std::size_t get_file_size() override;
   void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;

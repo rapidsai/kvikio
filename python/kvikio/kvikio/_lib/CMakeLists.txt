@@ -25,3 +25,10 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_modules}"
   LINKED_LIBRARIES kvikio::kvikio
 )
+
+if(KvikIO_REMOTE_SUPPORT AND TARGET remote_handle)
+  get_filename_component(
+    KVIKIO_CPP_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../cpp/include" ABSOLUTE
+  )
+  target_include_directories(remote_handle PRIVATE "${KVIKIO_CPP_INCLUDE_DIR}")
+endif()

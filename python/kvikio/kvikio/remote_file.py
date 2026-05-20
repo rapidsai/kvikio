@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -6,9 +6,107 @@ from __future__ import annotations
 import enum
 import functools
 import urllib.parse
-from typing import Optional
+import warnings
+from typing import Any, Optional
 
+from kvikio.aws_credentials import (
+    AwsCredential,
+    AwsDefaultCredential,
+    AwsEnvironmentCredential,
+    AwsIamRoleCredential,
+    AwsLegacyCredential,
+    AwsStaticCredential,
+)
 from kvikio.cufile import IOFuture
+
+_LEGACY_S3_CREDENTIAL_KWARGS = (
+    "Passing aws_access_key_id, aws_secret_access_key, or aws_session_token is deprecated; "
+    "use `credential=kvikio.aws_credentials.AwsStaticCredential(...)`, "
+    "`AwsEnvironmentCredential()`, `AwsDefaultCredential()`, or "
+    "`AwsLegacyCredential(...)` instead. "
+    "See the KvikIO documentation for S3 remote files."
+)
+
+
+def _s3_credential_bridge_kwargs(
+    credential: Optional[AwsCredential],
+    *,
+    aws_access_key_id: Optional[str],
+    aws_secret_access_key: Optional[str],
+    aws_session_token: Optional[str],
+) -> dict[str, Any]:
+    """Map high-level `credential` / legacy kwargs to the Cython S3 open parameters."""
+    legacy = (
+        aws_access_key_id is not None
+        or aws_secret_access_key is not None
+        or aws_session_token is not None
+    )
+    if legacy:
+        warnings.warn(_LEGACY_S3_CREDENTIAL_KWARGS, FutureWarning, stacklevel=3)
+        if credential is not None:
+            raise TypeError(
+                "Pass either `credential` or legacy AWS access-key keyword arguments, not both."
+            )
+        return {
+            "credential_kind": 4,
+            "aws_access_key": aws_access_key_id,
+            "aws_secret_access_key": aws_secret_access_key,
+            "aws_session_token": aws_session_token,
+            "imds_endpoint": None,
+        }
+
+    if credential is None:
+        return {
+            "credential_kind": 0,
+            "aws_access_key": None,
+            "aws_secret_access_key": None,
+            "aws_session_token": None,
+            "imds_endpoint": None,
+        }
+
+    if isinstance(credential, AwsDefaultCredential):
+        return {
+            "credential_kind": 0,
+            "aws_access_key": None,
+            "aws_secret_access_key": None,
+            "aws_session_token": None,
+            "imds_endpoint": credential.imds_endpoint,
+        }
+    if isinstance(credential, AwsEnvironmentCredential):
+        return {
+            "credential_kind": 1,
+            "aws_access_key": None,
+            "aws_secret_access_key": None,
+            "aws_session_token": None,
+            "imds_endpoint": None,
+        }
+    if isinstance(credential, AwsStaticCredential):
+        return {
+            "credential_kind": 2,
+            "aws_access_key": credential.access_key_id,
+            "aws_secret_access_key": credential.secret_access_key,
+            "aws_session_token": credential.session_token,
+            "imds_endpoint": None,
+        }
+    if isinstance(credential, AwsIamRoleCredential):
+        return {
+            "credential_kind": 3,
+            "aws_access_key": None,
+            "aws_secret_access_key": None,
+            "aws_session_token": None,
+            "imds_endpoint": credential.imds_endpoint,
+        }
+
+    if isinstance(credential, AwsLegacyCredential):
+        return {
+            "credential_kind": 4,
+            "aws_access_key": credential.aws_access_key_id,
+            "aws_secret_access_key": credential.aws_secret_access_key,
+            "aws_session_token": credential.aws_session_token,
+            "imds_endpoint": None,
+        }
+
+    raise TypeError(f"Unsupported credential type: {type(credential)!r}")
 
 
 class RemoteEndpointType(enum.Enum):
@@ -25,9 +123,10 @@ class RemoteEndpointType(enum.Enum):
         Automatically detect the endpoint type from the URL. KvikIO will
         attempt to infer the appropriate protocol based on the URL format.
     S3 : int
-        AWS S3 endpoint using credentials-based authentication. Requires
-        AWS environment variables (such as AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
-        AWS_DEFAULT_REGION) to be set.
+        AWS S3 endpoint using credentials-based authentication. By default
+        KvikIO uses :class:`kvikio.aws_credentials.AwsDefaultCredential` semantics
+        (environment variables if set, otherwise IAM role credentials via the metadata
+        service / IMDSv2 when available). See :class:`kvikio.RemoteFile`.
     S3_PUBLIC : INT
         AWS S3 endpoint for publicly accessible objects. No credentials required as the
         objects have public read permissions enabled. Used for open datasets and public
@@ -124,27 +223,16 @@ class RemoteFile:
         cls,
         bucket_name: str,
         object_name: str,
+        *,
+        credential: Optional[AwsCredential] = None,
         nbytes: Optional[int] = None,
         aws_region_name: Optional[str] = None,
+        aws_endpoint_url: Optional[str] = None,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
-        aws_endpoint_url: Optional[str] = None,
         aws_session_token: Optional[str] = None,
     ) -> RemoteFile:
         """Open a AWS S3 file from a bucket name and object name.
-
-        AWS credentials can be provided as keyword arguments or through
-        environment variables:
-
-        - ``AWS_DEFAULT_REGION`` (or region_name parameter)
-        - ``AWS_ACCESS_KEY_ID`` (or access_key_id parameter)
-        - ``AWS_SECRET_ACCESS_KEY`` (or secret_access_key parameter)
-        - ``AWS_SESSION_TOKEN`` (or aws_session_token parameter, when using
-          temporary credentials)
-
-        Additionally, to overwrite the AWS endpoint, set `AWS_ENDPOINT_URL`
-        (or endpoint_url parameter).
-        See <https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html>
 
         Parameters
         ----------
@@ -152,38 +240,52 @@ class RemoteFile:
             The bucket name of the file.
         object_name
             The object name of the file.
+        credential
+            How to obtain AWS credentials. If ``None`` (default), uses
+            :class:`kvikio.aws_credentials.AwsDefaultCredential` (environment
+            variables if both ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``
+            are set and non-empty, otherwise IAM role credentials via the metadata service / IMDSv2).
         nbytes
             The size of the file. If None, KvikIO will ask the server
             for the file size.
-        aws_region
+        aws_region_name
             The AWS region, such as "us-east-1", to use. If None, the value of the
-            `AWS_DEFAULT_REGION` environment variable is used.
-        aws_access_key
-            The AWS access key to use. If None, the value of the
-            `AWS_ACCESS_KEY_ID` environment variable is used.
-        aws_secret_access_key
-            The AWS secret access key to use. If None, the value of the
-            `AWS_SECRET_ACCESS_KEY` environment variable is used.
+            ``AWS_DEFAULT_REGION`` environment variable is used.
         aws_endpoint_url
             Overwrite the endpoint url (including the protocol part) by using
-            the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If None,
-            the value of the `AWS_ENDPOINT_URL` environment variable is used. If
-            this is also not set, the regular AWS url scheme is used:
-            "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
+            the scheme: ``<aws_endpoint_url>/<bucket_name>/<object_name>``. If
+            None, the value of the ``AWS_ENDPOINT_URL`` environment variable is
+            used. If that is also not set, the regular AWS virtual-hosted-style
+            URL is used.
+        aws_access_key_id
+            Deprecated. Use ``credential=AwsStaticCredential(...)`` or set
+            environment variables with ``AwsDefaultCredential`` /
+            ``AwsEnvironmentCredential``.
+        aws_secret_access_key
+            Deprecated; see ``aws_access_key_id``.
         aws_session_token
-            The AWS session token to use. If None, the value of the
-            `AWS_SESSION_TOKEN` environment variable is used.
+            Deprecated; see ``aws_access_key_id``.
+
+        Notes
+        -----
+        Standard AWS environment variables are documented in the
+        `AWS CLI environment variable reference
+        <https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html>`_.
         """
+        cred_kw = _s3_credential_bridge_kwargs(
+            credential,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            aws_session_token=aws_session_token,
+        )
         return cls(
             _get_remote_module().RemoteFile.open_s3(
                 bucket_name,
                 object_name,
-                nbytes,
-                aws_region_name,
-                aws_access_key_id,
-                aws_secret_access_key,
-                aws_endpoint_url,
-                aws_session_token,
+                nbytes=nbytes,
+                aws_region_name=aws_region_name,
+                aws_endpoint_url=aws_endpoint_url,
+                **cred_kw,
             )
         )
 
@@ -191,11 +293,13 @@ class RemoteFile:
     def open_s3_url(
         cls,
         url: str,
+        *,
+        credential: Optional[AwsCredential] = None,
         nbytes: Optional[int] = None,
         aws_region_name: Optional[str] = None,
+        aws_endpoint_url: Optional[str] = None,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
-        aws_endpoint_url: Optional[str] = None,
         aws_session_token: Optional[str] = None,
     ) -> RemoteFile:
         """Open a AWS S3 file from an URL.
@@ -204,67 +308,51 @@ class RemoteFile:
           - A full http url such as "http://127.0.0.1/my/file", or
           - A S3 url such as "s3://<bucket>/<object>".
 
-        AWS credentials can be provided as keyword arguments or through
-        environment variables:
-
-        - ``AWS_DEFAULT_REGION`` (or region_name parameter)
-        - ``AWS_ACCESS_KEY_ID`` (or access_key_id parameter)
-        - ``AWS_SECRET_ACCESS_KEY`` (or secret_access_key parameter)
-        - ``AWS_SESSION_TOKEN`` (or aws_session_token parameter, when using
-          temporary credentials)
-
-        Additionally, if `url` is a S3 url, it is possible to overwrite the AWS endpoint
-        by setting `AWS_ENDPOINT_URL` (or endpoint_url parameter).
-        See <https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html>
-
         Parameters
         ----------
         url
             Either a http url or a S3 url.
+        credential
+            Same semantics as :meth:`open_s3`.
         nbytes
             The size of the file. If None, KvikIO will ask the server
             for the file size.
-        aws_region
-            The AWS region, such as "us-east-1", to use. If None, the value of the
-            `AWS_DEFAULT_REGION` environment variable is used.
-        aws_access_key
-            The AWS access key to use. If None, the value of the
-            `AWS_ACCESS_KEY_ID` environment variable is used.
-        aws_secret_access_key
-            The AWS secret access key to use. If None, the value of the
-            `AWS_SECRET_ACCESS_KEY` environment variable is used.
+        aws_region_name
+            Same as :meth:`open_s3`.
         aws_endpoint_url
-            Overwrite the endpoint url (including the protocol part) by using
-            the scheme: "<aws_endpoint_url>/<bucket_name>/<object_name>". If None,
-            the value of the `AWS_ENDPOINT_URL` environment variable is used. If
-            this is also not set, the regular AWS url scheme is used:
-            "https://<bucket_name>.s3.<region>.amazonaws.com/<object_name>".
+            Same as :meth:`open_s3` (only applies when ``url`` uses the ``s3://`` scheme).
+        aws_access_key_id
+            Deprecated; same as :meth:`open_s3`.
+        aws_secret_access_key
+            Deprecated; same as :meth:`open_s3`.
         aws_session_token
-            The AWS session token to use. If None, the value of the
-            `AWS_SESSION_TOKEN` environment variable is used.
+            Deprecated; same as :meth:`open_s3`.
         """
+        cred_kw = _s3_credential_bridge_kwargs(
+            credential,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            aws_session_token=aws_session_token,
+        )
         parsed_result = urllib.parse.urlparse(url.lower())
+        m = _get_remote_module().RemoteFile
         if parsed_result.scheme in ("http", "https"):
             return cls(
-                _get_remote_module().RemoteFile.open_s3_from_http_url(
+                m.open_s3_from_http_url(
                     url,
-                    nbytes,
-                    aws_region_name,
-                    aws_access_key_id,
-                    aws_secret_access_key,
-                    aws_session_token,
+                    nbytes=nbytes,
+                    aws_region_name=aws_region_name,
+                    **cred_kw,
                 )
             )
         if parsed_result.scheme == "s3":
             return cls(
-                _get_remote_module().RemoteFile.open_s3_from_s3_url(
+                m.open_s3_from_s3_url(
                     url,
-                    nbytes,
-                    aws_region_name,
-                    aws_access_key_id,
-                    aws_secret_access_key,
-                    aws_endpoint_url,
-                    aws_session_token,
+                    nbytes=nbytes,
+                    aws_region_name=aws_region_name,
+                    aws_endpoint_url=aws_endpoint_url,
+                    **cred_kw,
                 )
             )
         raise ValueError(f"Unsupported protocol: {url}")
