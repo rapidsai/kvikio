@@ -9,6 +9,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include <curl/curl.h>
@@ -67,7 +68,7 @@ MultiPollReactor::MultiPollReactor(MultiReactorPool* pool) : _pool{pool}
   KVIKIO_EXPECT(
     _pool != nullptr, "MultiPollReactor requires a non-null pool", std::invalid_argument);
   // Force LibCurl global init before we create the multi handle.
-  (void)LibCurl::instance();
+  std::ignore = LibCurl::instance();
   _curl_multi = curl_multi_init();
   KVIKIO_EXPECT(_curl_multi != nullptr, "curl_multi_init() failed", std::runtime_error);
   _io_thread = std::thread(&MultiPollReactor::io_thread_main, this);
@@ -82,7 +83,7 @@ MultiPollReactor::~MultiPollReactor() noexcept
   // `std::terminate()`.
 }
 
-void MultiPollReactor::wakeup() noexcept { (void)curl_multi_wakeup(_curl_multi); }
+void MultiPollReactor::wakeup() noexcept { std::ignore = curl_multi_wakeup(_curl_multi); }
 
 void MultiPollReactor::submit(std::unique_ptr<RemoteMultiTransfer> transfer)
 {
@@ -221,7 +222,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     // CurlHandle, which unconditionally returns the easy handle to the LibCurl free pool. A future
     // caller that pulls this handle would operate on a handle that libcurl still considers
     // attached, which is undefined behavior.
-    (void)curl_multi_remove_handle(_curl_multi, easy);
+    std::ignore = curl_multi_remove_handle(_curl_multi, easy);
     transfer->aggregate->on_subrange_failed(eptr);
   }
   _in_flight.clear();
@@ -230,7 +231,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dispatch()}
 {
   // Force LibCurl global init before any reactor opens a multi handle.
-  (void)LibCurl::instance();
+  std::ignore = LibCurl::instance();
 
   auto const n = defaults::remote_io_num_reactors();
   KVIKIO_EXPECT(n > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
