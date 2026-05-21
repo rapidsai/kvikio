@@ -1,0 +1,243 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#pragma once
+
+#include <atomic>
+#include <cstddef>
+#include <deque>
+#include <exception>
+#include <future>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+#include <curl/curl.h>
+
+#include <kvikio/detail/remote_callback.hpp>
+#include <kvikio/remote_handle.hpp>
+#include <kvikio/shim/libcurl.hpp>
+
+namespace kvikio::detail {
+
+class MultiReactorPool;  // Forward declaration, because reactors needs to hold a back-pointer to
+                         // the pool.
+
+/**
+ * @brief Collects results from N sub-range transfers and resolves one top-level future once all of
+ * them have either succeeded or one has failed.
+ *
+ * Every sub-range transfer belonging to a single `RemoteHandle::pread()` call holds a
+ * `std::shared_ptr<RemoteMultiAggregateContext>`. As completions arrive on the reactor threads
+ * (potentially in parallel when `KVIKIO_REMOTE_IO_NUM_REACTORS > 1`), each one calls
+ * `on_subrange_complete()` or `on_subrange_failed()`. The thread that decrements `_subranges_left`
+ * to zero fulfills `_promise`, with the accumulated byte total on success, or with the first
+ * captured exception on failure.
+ */
+class RemoteMultiAggregateContext {
+ public:
+  /**
+   * @brief Construct an aggregate that expects exactly `num_subranges` completion events.
+   *
+   * @param num_subranges Number of sub-range transfers the caller has split the read into.
+   */
+  explicit RemoteMultiAggregateContext(std::size_t num_subranges);
+
+  /**
+   * @brief Report that one sub-range transfer succeeded.
+   *
+   * @param bytes Number of bytes the sub-range delivered.
+   */
+  void on_subrange_complete(std::size_t bytes);
+
+  /**
+   * @brief Report that one sub-range transfer failed. The first exception captured wins.
+   *
+   * @param eptr The exception describing the failure.
+   */
+  void on_subrange_failed(std::exception_ptr eptr);
+
+  /**
+   * @brief Obtain the future the caller will observe. Must be called exactly once, before any
+   * sub-range is submitted to the pool.
+   */
+  std::future<std::size_t> get_future();
+
+ private:
+  std::atomic<std::size_t> _subranges_left;
+  std::atomic<std::size_t> _total_bytes{0};
+  std::mutex _exception_mutex;
+  std::exception_ptr _first_exception;
+  std::promise<std::size_t> _promise;
+};
+
+/**
+ * @brief Per-transfer state owned by a `MultiPollReactor` between submission and completion.
+ *
+ * One `RemoteMultiTransfer` corresponds to one libcurl easy handle, which corresponds to one HTTP
+ * range request. Sub-ranges of the same `pread()` share the same `aggregate`. The `curl` member is
+ * held by `std::unique_ptr` because `CurlHandle` is intentionally non-movable.
+ */
+struct RemoteMultiTransfer {
+  std::unique_ptr<CurlHandle> curl;
+  CallbackContext ctx;
+  std::shared_ptr<RemoteMultiAggregateContext> aggregate;
+};
+
+/**
+ * @brief One reactor has one `CURLM*`, one I/O thread, one submit queue, one in-flight map.
+ *
+ * `CURLM*` is not thread-safe; all multi-side calls (`curl_multi_add_handle`, `curl_multi_perform`,
+ * `curl_multi_info_read`, `curl_multi_remove_handle`, `curl_multi_poll`) happen on `_io_thread`.
+ * The only cross-thread libcurl call is `curl_multi_wakeup()`, used by `submit()` to nudge the
+ * reactor out of its poll.
+ *
+ * @note Instances are intentionally never destroyed. They are owned by the leaked
+ * `MultiReactorPool` singleton, so their dtor body is empty. Reactor threads run until the process
+ * exits.
+ */
+class MultiPollReactor {
+ public:
+  /**
+   * @brief Construct a reactor owned by the given pool.
+   *
+   * @param pool Non-owning back-pointer to the pool that owns this reactor. Used to observe and
+   * propagate pool-wide death state. The pool must outlive the reactor, which is guaranteed because
+   * the pool is a leaked singleton that owns this reactor by `unique_ptr`.
+   */
+  explicit MultiPollReactor(MultiReactorPool* pool);
+  ~MultiPollReactor() noexcept;
+  MultiPollReactor(MultiPollReactor const&)            = delete;
+  MultiPollReactor& operator=(MultiPollReactor const&) = delete;
+  MultiPollReactor(MultiPollReactor&&)                 = delete;
+  MultiPollReactor& operator=(MultiPollReactor&&)      = delete;
+
+  /**
+   * @brief Hand off a prepared transfer to this reactor. Thread-safe.
+   *
+   * The reactor picks the transfer up on its next loop iteration. The caller must have already
+   * obtained the aggregate future via `aggregate->get_future()` before calling this, because once
+   * the transfer is in the queue the reactor may complete it (and the promise) at any time. If the
+   * pool has already declared death, the transfer is failed immediately with the recorded death
+   * reason and never enters the inbox.
+   *
+   * @param transfer Per-transfer state, ownership transferred to the reactor.
+   */
+  void submit(std::unique_ptr<RemoteMultiTransfer> transfer);
+
+  /**
+   * @brief Wake up the reactor out of its `curl_multi_poll()` wait. Thread-safe.
+   *
+   * This method calls `curl_multi_wakeup()`. If it fails (which is rare) the reactor still wakes on
+   * its bounded poll timeout. Used by `MultiReactorPool::signal_death` to make every reactor notice
+   * pool death promptly rather than waiting for the timeout.
+   */
+  void wakeup() noexcept;
+
+ private:
+  void io_thread_main();
+
+  /**
+   * @brief Fail every transfer this reactor is responsible for and exit the loop.
+   *
+   * Called from the I/O thread on its way out, either because this reactor caught an exception or
+   * because another reactor signaled pool death. Drains the inbox, removes each in-flight easy
+   * handle from the multi handle, and resolves each transfer's aggregate with the given exception.
+   */
+  void fail_all_pending(std::exception_ptr eptr);
+
+  MultiReactorPool* _pool;
+  CURLM* _curl_multi{nullptr};
+  std::thread _io_thread;
+  std::mutex _submit_mutex;
+  std::deque<std::unique_ptr<RemoteMultiTransfer>> _inbox;
+  std::unordered_map<CURL*, std::unique_ptr<RemoteMultiTransfer>> _in_flight;
+};
+
+/**
+ * @brief Process-wide pool that owns N reactors and dispatches sub-range transfers to them.
+ *
+ * Accessed via the leaked-pointer singleton `instance()`. Both `num_reactors` and the dispatch
+ * mode are captured once at first use from `kvikio::defaults` and remain immutable for the process
+ * lifetime: switching either requires restarting with different `KVIKIO_REMOTE_IO_NUM_REACTORS` /
+ * `KVIKIO_REMOTE_IO_REACTOR_DISPATCH` env vars.
+ *
+ * Dispatch rules (with `N = _reactors.size()`):
+ *  - `PER_CHUNK` (default): each sub-range is routed independently via a round-robin atomic
+ *    counter. Maximizes load distribution; may cause sub-ranges of the same file to use distinct
+ *    TCP/TLS connections.
+ *  - `PER_PREAD`: all sub-ranges of one `submit_pread()` call land on the same reactor (round-robin
+ *    per call). Preserves per-`CURLM` connection-pool reuse.
+ */
+class MultiReactorPool {
+ public:
+  /**
+   * @brief Get the process-wide pool, creating it (and its reactor threads) on first use.
+   *
+   * @note The returned reference points to a heap-allocated singleton that is intentionally never
+   * destroyed, mirroring the leak convention used by `BounceBufferPool` and
+   * `StreamCachePerThreadAndContext`. This avoids static-destruction-order coupling between the
+   * pool, `LibCurl`, the reactor threads, and (future) CUDA teardown.
+   */
+  static MultiReactorPool& instance();
+
+  MultiReactorPool(MultiReactorPool const&)            = delete;
+  MultiReactorPool& operator=(MultiReactorPool const&) = delete;
+  MultiReactorPool(MultiReactorPool&&)                 = delete;
+  MultiReactorPool& operator=(MultiReactorPool&&)      = delete;
+
+  /**
+   * @brief Submit all sub-range transfers belonging to one `RemoteHandle::pread()` call.
+   *
+   * Routes each transfer to a reactor according to the captured dispatch policy. The caller must
+   * have already obtained the aggregate future from the shared `RemoteMultiAggregateContext`
+   * before invoking this, because as soon as the pool returns the reactors may have already
+   * started completing the transfers.
+   *
+   * @param transfers The sub-range transfers, ownership transferred to the pool.
+   */
+  void submit_pread(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers);
+
+  /**
+   * @brief Whether the pool has been marked dead by a reactor that has caught a fatal libcurl
+   * error.
+   *
+   * Once dead, the pool stays dead for the rest of the process lifetime. All in-flight and
+   * subsequently submitted transfers fail with the recorded death reason.
+   */
+  [[nodiscard]] bool is_dead() const noexcept;
+
+  /**
+   * @brief Get the exception that caused pool death, or a null `exception_ptr` if alive.
+   *
+   * Safe to call from any thread. Returns the same value once `is_dead()` returns `true`.
+   */
+  [[nodiscard]] std::exception_ptr death_reason() const noexcept;
+
+  /**
+   * @brief Mark the pool as dead with the given exception as the cause, then wake every reactor so
+   * each notices the death state promptly. Thread-safe. Only the first call wins. All subsequent
+   * calls are silently ignored.
+   *
+   * @param eptr The exception that causes pool death. Will be propagated to every in-flight and
+   * subsequently submitted transfer via `RemoteMultiAggregateContext::on_subrange_failed`.
+   */
+  void signal_death(std::exception_ptr eptr) noexcept;
+
+ private:
+  MultiReactorPool();
+  ~MultiReactorPool() noexcept;
+
+  std::vector<std::unique_ptr<MultiPollReactor>> _reactors;
+  RemoteReactorDispatch _dispatch;
+  // Round-robin counter. Incremented per pread (PER_PREAD) or per chunk (PER_CHUNK).
+  std::atomic<std::size_t> _next_reactor_counter{0};
+  std::atomic<bool> _dead{false};
+  std::mutex mutable _death_mutex;  // Protects writes to `_death_reason`.
+  std::exception_ptr _death_reason;
+};
+
+}  // namespace kvikio::detail

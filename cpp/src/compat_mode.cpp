@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
 #include <stdexcept>
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 
 namespace kvikio {
@@ -16,10 +16,7 @@ namespace detail {
 CompatMode parse_compat_mode_str(std::string_view compat_mode_str)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  // Convert to lowercase
-  std::string tmp{compat_mode_str};
-  std::transform(
-    tmp.begin(), tmp.end(), tmp.begin(), [](unsigned char c) { return std::tolower(c); });
+  auto const tmp = normalize_env_value(compat_mode_str);
 
   if (tmp == "on" || tmp == "true" || tmp == "yes" || tmp == "1") {
     return CompatMode::ON;
