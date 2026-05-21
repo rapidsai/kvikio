@@ -3,12 +3,31 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
+#include <sstream>
+#include <string>
+#include <string_view>
 
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 
 namespace kvikio::detail {
+
+std::string normalize_env_value(std::string_view s)
+{
+  std::string str{s};
+  std::transform(
+    str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
+  // `stringstream::operator>>` trims leading whitespace and stops at the next whitespace,
+  // giving us the trimmed-and-lowercased value of the first token.
+  std::stringstream trimmer;
+  trimmer << str;
+  str.clear();
+  trimmer >> str;
+  return str;
+}
 
 std::size_t align_up(std::size_t value, std::size_t alignment)
 {

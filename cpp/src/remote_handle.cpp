@@ -17,9 +17,10 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
+#include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
-#include <kvikio/detail/remote_handle.hpp>
+#include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
@@ -30,12 +31,12 @@
 
 namespace kvikio {
 
-namespace {
+namespace detail {
 
 /**
  * @brief Bounce buffer in pinned host memory.
  *
- * @note Is not thread-safe.
+ * @note Not thread-safe.
  */
 class BounceBufferH2D {
   CUstream _stream;                                 // The CUDA stream to use.
@@ -129,6 +130,10 @@ class BounceBufferH2D {
     }
   }
 };
+
+}  // namespace detail
+
+namespace {
 
 /**
  * @brief Get the file size, if using `HEAD` request to obtain the content-length header is
@@ -690,47 +695,10 @@ std::size_t RemoteHandle::nbytes() const noexcept { return _nbytes; }
 
 RemoteEndpoint const& RemoteHandle::endpoint() const noexcept { return *_endpoint; }
 
-namespace {
+namespace detail {
 
-/**
- * @brief Context used by the "CURLOPT_WRITEFUNCTION" callbacks.
- */
-struct CallbackContext {
-  char* buf;              // Output buffer to read into.
-  std::size_t size;       // Total number of bytes to read.
-  std::ptrdiff_t offset;  // Offset into `buf` to start reading.
-  bool overflow_error;    // Flag to indicate overflow.
-  CallbackContext(void* buf, std::size_t size)
-    : buf{static_cast<char*>(buf)}, size{size}, offset{0}, overflow_error{0}
-  {
-  }
-  BounceBufferH2D* bounce_buffer{nullptr};  // Only used by callback_device_memory
-};
-
-/**
- * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output host buffer.
- *
- * See <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>.
- *
- * @param data Data downloaded by libcurl that is ready for consumption.
- * @param size Size of each element in `nmemb`; size is always 1.
- * @param nmemb Size of the data in `nmemb`.
- * @param context A pointer to an instance of `CallbackContext`.
- */
-std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto ctx                 = reinterpret_cast<CallbackContext*>(context);
-  std::size_t const nbytes = size * nmemb;
-  if (ctx->size < ctx->offset + nbytes) {
-    ctx->overflow_error = true;
-    return CURL_WRITEFUNC_ERROR;
-  }
-  KVIKIO_NVTX_FUNC_RANGE(nbytes);
-  std::memcpy(ctx->buf + ctx->offset, data, nbytes);
-  ctx->offset += nbytes;
-  return nbytes;
-}
+// TODO: Move `callback_device_memory` to detail/remote_callback.cpp once device buffer is
+// supported for the multi-poll backend, which depends on the bounce buffer ring and event pool PRs.
 
 /**
  * @brief A "CURLOPT_WRITEFUNCTION" to copy downloaded data to the output device buffer.
@@ -757,7 +725,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
   ctx->offset += nbytes;
   return nbytes;
 }
-}  // namespace
+}  // namespace detail
 
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
@@ -775,11 +743,11 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   _endpoint->setup_range_request(curl, file_offset, size);
 
   if (is_host_mem) {
-    curl.setopt(CURLOPT_WRITEFUNCTION, callback_host_memory);
+    curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_host_memory);
   } else {
-    curl.setopt(CURLOPT_WRITEFUNCTION, callback_device_memory);
+    curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_device_memory);
   }
-  CallbackContext ctx{buf, size};
+  detail::CallbackContext ctx{buf, size};
   curl.setopt(CURLOPT_WRITEDATA, &ctx);
 
   try {
@@ -789,7 +757,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
       PushAndPopContext c(get_context_from_pointer(buf));
       // We use a bounce buffer to avoid many small memory copies to device. Libcurl has a
       // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
-      BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
+      detail::BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
       ctx.bounce_buffer = &bounce_buffer;
       curl.perform();
     }
@@ -810,23 +778,94 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                              std::size_t task_size,
                                              ThreadPool* thread_pool)
 {
-  KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size);
-  auto task = [this](void* devPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t devPtr_offset) -> std::size_t {
-    return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
-  };
-  return detail::parallel_io(
-    task,
-    buf,
-    size,
-    file_offset,
-    task_size,
-    0,
-    {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+
+  if (size == 0) { return make_ready_future(static_cast<std::size_t>(0)); }
+
+  auto const io_backend = defaults::remote_io_backend();
+
+  if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
+    KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+    auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+
+    auto task = [this](void* devPtr_base,
+                       std::size_t size,
+                       std::size_t file_offset,
+                       std::size_t devPtr_offset) -> std::size_t {
+      return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
+    };
+    return detail::parallel_io(
+      task,
+      buf,
+      size,
+      file_offset,
+      task_size,
+      0,
+      {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+  }
+
+  KVIKIO_EXPECT(
+    io_backend == RemoteIOBackend::MULTI_POLL, "Unknown RemoteIOBackend value", std::runtime_error);
+
+  // MULTI_POLL path. The lifecycle of one pread() call uses four cooperating pieces:
+  // - One `RemoteMultiAggregateContext` per pread(). It owns the std::promise that the
+  //   caller will observe and counts down as completions arrive.
+  // - N `RemoteMultiTransfer` objects, one per sub-range. Each owns its own `CurlHandle`
+  //   (a libcurl easy handle wrapper) plus a per-transfer `CallbackContext`, and holds a
+  //   shared_ptr back to the aggregate.
+  // - The `MultiReactorPool` routes the N transfers to one or more `MultiPollReactor`
+  //   threads per the captured dispatch policy. Each reactor drives its easy handles via
+  //   curl_multi_poll() and fires the aggregate's per-subrange callback on completion or
+  //   failure.
+  // - The aggregate fulfills the promise as soon as all sub-ranges have reported (or one
+  //   of them fails).
+  //
+  // Build all N transfers here, then hand them off in a single pool call.
+  KVIKIO_EXPECT(is_host_memory(buf),
+                "MULTI_POLL backend currently supports host memory only. "
+                "Use EASY_THREADPOOL (KVIKIO_REMOTE_IO_BACKEND=easy_threadpool) for "
+                "device-memory buffers.",
+                std::invalid_argument);
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
+  if (file_offset + size > _nbytes) {
+    std::stringstream ss;
+    ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
+       << " bytes file (" << _endpoint->str() << ")";
+    KVIKIO_FAIL(ss.str(), std::invalid_argument);
+  }
+
+  std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
+  auto aggregate = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
+  auto fut       = aggregate->get_future();
+
+  std::vector<std::unique_ptr<detail::RemoteMultiTransfer>> transfers;
+  transfers.reserve(num_subranges);
+
+  std::size_t remaining = size;
+  std::size_t cur_off   = file_offset;
+  auto cur_buf          = static_cast<char*>(buf);
+  for (std::size_t i = 0; i < num_subranges; ++i) {
+    std::size_t const subrange_size = std::min(task_size, remaining);
+    auto transfer                   = std::make_unique<detail::RemoteMultiTransfer>();
+    transfer->curl                  = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
+                                                  detail::fix_conda_file_path_hack(__FILE__),
+                                                  KVIKIO_STRINGIFY(__LINE__));
+    _endpoint->setopt(*transfer->curl);
+    _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);
+    transfer->ctx.buf  = cur_buf;
+    transfer->ctx.size = subrange_size;
+    transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
+    transfer->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&transfer->ctx));
+    transfer->aggregate = aggregate;
+    transfers.push_back(std::move(transfer));
+    cur_buf += subrange_size;
+    cur_off += subrange_size;
+    remaining -= subrange_size;
+  }
+
+  // One pool call per pread(). The pool consults the captured dispatch policy internally.
+  detail::MultiReactorPool::instance().submit_pread(std::move(transfers));
+  return fut;
 }
 
 }  // namespace kvikio

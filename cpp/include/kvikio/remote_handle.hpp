@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -43,6 +43,45 @@ enum class RemoteEndpointType : uint8_t {
             ///< accessing files stored in HDFS over HTTP/HTTPS.
   HTTP,  ///< Generic HTTP or HTTPS endpoint for accessing files from web servers. This is used for
          ///< standard web resources that do not fit the other specific categories.
+};
+
+/**
+ * @brief Selects the remote I/O backend.
+ *
+ * Naming scheme is `<libcurl-API-flavor>_<execution-method>`. Selection is controlled by the
+ * environment variable `KVIKIO_REMOTE_IO_BACKEND`.
+ */
+enum class RemoteIOBackend : uint8_t {
+  EASY_THREADPOOL =
+    0,  ///< Libcurl easy API running in the KvikIO thread pool. Each sub-range of a `pread()` is
+        ///< dispatched to a worker thread that blocks in `curl_easy_perform()` until its transfer
+        ///< completes. Concurrency is bounded by the thread pool size: one busy thread per
+        ///< in-flight transfer.
+  MULTI_POLL =
+    1,  ///< Libcurl multi API driven by N reactor threads, each of which blocks in
+        ///< `curl_multi_poll()`. A single reactor multiplexes many in-flight easy handles
+        ///< concurrently, so the number of simultaneous transfers is not bounded by the reactor
+        ///< count. See `KVIKIO_REMOTE_IO_NUM_REACTORS` and `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
+};
+
+/**
+ * @brief How sub-ranges of a single `pread()` are distributed across reactor threads when the
+ * `MULTI_POLL` backend is active.
+ *
+ * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`. When only one reactor is used, both modes are
+ * equivalent.
+ */
+enum class RemoteReactorDispatch : uint8_t {
+  PER_CHUNK =
+    0,  ///< Sub-ranges are routed to reactors round-robin, independently of which `pread()` they
+        ///< belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of
+        ///< the same file may land on different reactors, each with its own libcurl connection
+        ///< cache, so they may not share an established TCP/TLS connection.
+  PER_PREAD =
+    1,  ///< All sub-ranges of a single `pread()` are submitted to the same reactor (the reactor is
+        ///< itself chosen round-robin per `pread()` call). The sub-ranges then share that reactor's
+        ///< libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best
+        ///< for HTTPS, where the TLS handshake cost is non-trivial.
 };
 
 /**
@@ -444,23 +483,30 @@ class RemoteHandle {
   std::size_t read(void* buf, std::size_t size, std::size_t file_offset = 0);
 
   /**
-   * @brief Read from remote source into buffer (host or device memory) in parallel.
+   * @brief Read from a remote source into a buffer in parallel.
    *
-   * This API is a parallel async version of `.read()` that partitions the operation
-   * into tasks of size `task_size` for execution in the default thread pool.
+   * The parallel async counterpart of `read()`. The byte range is partitioned into sub-ranges of
+   * size `task_size` and dispatched to the active remote-IO backend.
+   *
+   *  - `EASY_THREADPOOL` (default): each sub-range runs on a worker of the supplied `thread_pool`,
+   *     blocking in `curl_easy_perform()`.
+   *  - `MULTI_POLL`: each sub-range is handed to a process-wide reactor pool that drives many
+   *    libcurl easy handles via `curl_multi_poll()`. The `thread_pool` argument is ignored. The
+   *    first failure surfaces via the returned future. See `KVIKIO_REMOTE_IO_NUM_REACTORS` and
+   *    `KVIKIO_REMOTE_IO_REACTOR_DISPATCH` for tuning knobs.
    *
    * @param buf Pointer to host or device memory.
    * @param size Number of bytes to read.
    * @param file_offset File offset in bytes.
-   * @param task_size Size of each task in bytes.
-   * @param thread_pool Thread pool to use for parallel execution. Defaults to the global default
-   * thread pool. The caller is responsible for ensuring that the thread pool remains valid until
-   * the returned future is consumed (i.e., until `get()` or `wait()` is called on it).
-   * @return Future that on completion returns the size of bytes read, which is always `size`.
+   * @param task_size Size of each sub-range in bytes.
+   * @param thread_pool Thread pool to use under EASY_THREADPOOL. Ignored under MULTI_POLL. Defaults
+   * to the global default thread pool. The caller is responsible for keeping the thread pool valid
+   * until the returned future is consumed.
+   * @return Future that on completion returns the number of bytes read, which is always `size`.
    *
-   * @note The returned `std::future` object must not outlive either the RemoteHandle or the thread
-   * pool. Calling `wait()` or `get()` on the future after the RemoteHandle or thread pool has been
-   * destroyed results in undefined behavior.
+   * @note The returned `std::future` must not outlive the `RemoteHandle` (both backends). Under
+   * EASY_THREADPOOL it must additionally not outlive the supplied `thread_pool`. Calling `wait()`
+   * or `get()` on the future after either has been destroyed results in undefined behavior.
    */
   std::future<std::size_t> pread(void* buf,
                                  std::size_t size,
