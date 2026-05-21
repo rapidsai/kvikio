@@ -59,12 +59,10 @@ TEST_F(BounceBufferTest, move_construction_and_move_assignment)
   {
     // Buffer reused
     auto buf1 = pool.get();
+    auto buf2 = pool.get();
 
-    // Manually create a new buffer outside the pool
-    kvikio::CudaPinnedAllocator allocator;
-    auto* buffer = allocator.allocate(pool.buffer_size());
-    kvikio::CudaPinnedBounceBufferPool::Buffer buf2(&pool, buffer, pool.buffer_size());
-    // Move assignment that adds the previous buffer to the pool and then transfers the ownership
+    // Move assignment that returns the previous buffer in buf2 to the pool and then transfers the
+    // ownership from buf1 to buf2
     buf2 = std::move(buf1);
   }
 

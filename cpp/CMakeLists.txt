@@ -169,6 +169,7 @@ set(SOURCES
     "src/logger.cpp"
     "src/mmap.cpp"
     "src/detail/env.cpp"
+    "src/detail/event.cpp"
     "src/detail/nvtx.cpp"
     "src/detail/posix_io.cpp"
     "src/detail/stream.cpp"
