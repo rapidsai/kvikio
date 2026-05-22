@@ -92,6 +92,8 @@ class cudaAPI {
 
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};
   decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};
+  decltype(cuCtxCreate)* CtxCreate{nullptr};
+  decltype(cuCtxDestroy)* CtxDestroy{nullptr};
   decltype(cuCtxPushCurrent)* CtxPushCurrent{nullptr};
   decltype(cuCtxPopCurrent)* CtxPopCurrent{nullptr};
   decltype(cuCtxGetCurrent)* CtxGetCurrent{nullptr};

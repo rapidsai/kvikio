@@ -20,11 +20,16 @@ namespace kvikio::detail {
  *
  * All events are created with `CU_EVENT_DISABLE_TIMING` for minimal overhead.
  *
- * Call `EventPool::instance().get()` to acquire an event that will be automatically returned to the
- * pool when it goes out of scope (RAII).
+ * Call `EventPool::instance().get()` to acquire an event that is bound to the CUDA context
+ * currently set on the calling thread. The event will be automatically returned to the pool when it
+ * goes out of scope (RAII).
  *
- * @note The destructor intentionally leaks events to avoid CUDA cleanup issues when static
- * destructors run after CUDA context destruction. @sa BounceBufferPool
+ * @note The destructor intentionally does NOT call `cuEventDestroy` on cached events.
+ * `EventPool::instance()` is a function-local static destructed after `main` returns, and
+ * making CUDA driver API calls from a static object's destructor at that point is undefined
+ * behavior per the CUDA programming guide:
+ * https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/intro-to-cuda-cpp.html#runtime-initialization
+ * The OS reclaims process memory at exit regardless.
  */
 class EventPool {
  public:
@@ -72,7 +77,7 @@ class EventPool {
     /**
      * @brief Get the CUDA context associated with this event
      *
-     * @return The CUcontext this event belongs to
+     * @return The CUcontext this event belongs to. Returns nullptr for a moved-from Event.
      */
     [[nodiscard]] CUcontext cuda_context() const noexcept;
 
@@ -82,8 +87,8 @@ class EventPool {
      * Records the event to capture the current state of the stream. The event will be signaled when
      * all preceding operations on the stream have completed.
      *
-     * @param stream The CUDA stream to record the event on (must belong to the same context as this
-     * event)
+     * @param stream The CUDA stream to record the event on. Must belong to the same context as this
+     * event. Otherwise CUDA returns an error.
      *
      * @exception kvikio::CUfileException if the record operation fails
      */
@@ -97,6 +102,19 @@ class EventPool {
      * @exception kvikio::CUfileException if the synchronize operation fails
      */
     void synchronize();
+
+    /**
+     * @brief Non-blocking query whether the event has been signaled
+     *
+     * Returns true if all work captured by a preceding record() call has completed, false if work
+     * is still pending. This is the non-blocking counterpart to synchronize().
+     *
+     * @return true if the event has been signaled, false if work is still in progress
+     *
+     * @exception kvikio::CUfileException if the underlying cuEventQuery returns an error other than
+     * CUDA_SUCCESS or CUDA_ERROR_NOT_READY
+     */
+    [[nodiscard]] bool query() const;
   };
 
  private:
@@ -106,8 +124,25 @@ class EventPool {
 
   EventPool() = default;
 
-  // Intentionally leak events during static destruction. @sa BounceBufferPool
+  // Intentionally `noexcept = default`. See the class-level @note above: issuing CUDA driver
+  // API calls (e.g., cuEventDestroy) from this destructor would be UB because the singleton is
+  // destructed after main returns. The defaulted destructor runs ~_pools, which tears down the
+  // std::vector<CUevent> entries without touching the handles.
   ~EventPool() noexcept = default;
+
+  /**
+   * @brief Return an event to the pool for reuse
+   *
+   * Called by Event's destructor (and move-assignment operator) via the friend declaration. Adds
+   * the event to the pool associated with its context for future reuse.
+   *
+   * @param event The CUDA event handle to return
+   * @param context The CUDA context associated with the event
+   *
+   * @note noexcept: any failure inside push_back (e.g., allocator failure) is caught and logged.
+   * The event is then destroyed instead of being cached.
+   */
+  void put(CUevent event, CUcontext context) noexcept;
 
  public:
   // Non-copyable, non-movable singleton
@@ -117,7 +152,7 @@ class EventPool {
   EventPool& operator=(EventPool&&)      = delete;
 
   /**
-   * @brief Acquire a CUDA event from the pool for the current CUDA context.
+   * @brief Acquire a CUDA event for the CUDA context currently set on the calling thread.
    *
    * Returns a cached event for the current CUDA context if available, otherwise creates a new one.
    * The returned Event object will automatically return the event to the pool when it goes out of
@@ -127,17 +162,6 @@ class EventPool {
    * @exception kvikio::CUfileException if no CUDA context is current or event creation fails
    */
   [[nodiscard]] Event get();
-
-  /**
-   * @brief Return an event to the pool for reuse
-   *
-   * Typically called automatically by Event's destructor. Adds the event to the pool associated
-   * with its context for future reuse.
-   *
-   * @param event The CUDA event handle to return
-   * @param context The CUDA context associated with the event
-   */
-  void put(CUevent event, CUcontext context) noexcept;
 
   /**
    * @brief Get the number of free events for a specific context
