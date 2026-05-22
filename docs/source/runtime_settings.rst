@@ -184,3 +184,50 @@ Each level includes all messages from less verbose levels.
 If not set or set to any other value, logging is disabled.
 
 By default, log output are written to the standard error stream. To write log output to a file, set the environment variable ``KVIKIO_LOG_FILE`` to a file path. The file is overwritten on each process start. If the file cannot be opened (e.g. the parent directory does not exist), KvikIO falls back to the standard error with a warning. ``KVIKIO_LOG_FILE`` has no effect when logging is disabled.
+
+Structured Read Logging ``KVIKIO_READ_LOG_FILE``, ``KVIKIO_READ_LOG_LEVEL``, ``KVIKIO_READ_LOG_REDACT_QUERY``
+---------------------------------------------------------------------------------------------------------------
+
+KvikIO can emit one structured record per read operation as newline-delimited JSON (NDJSON), suitable for post-hoc analysis.
+
+Structured read logging is disabled by default.
+
+To enable it, set ``KVIKIO_READ_LOG_FILE`` to an output file path:
+
+.. code-block:: bash
+
+   export KVIKIO_READ_LOG_FILE=/tmp/kvikio-read-log.jsonl
+
+Records are appended to this file (the file is not truncated on process start).
+
+Set ``KVIKIO_READ_LOG_FILE=-`` to emit structured records to standard output instead of a file.
+
+The environment variable ``KVIKIO_READ_LOG_LEVEL`` controls whether records are emitted:
+
+  * ``INFO`` (default when unset): emit read records
+  * ``OFF``: disable structured read logging
+
+The environment variable ``KVIKIO_READ_LOG_REDACT_QUERY`` controls source redaction:
+
+  * ``ON``/``TRUE``/``YES``/``1`` (default): remove query strings from the ``source`` field
+  * ``OFF``/``FALSE``/``NO``/``0``: keep the full source string
+
+Each emitted record has the following schema:
+
+  * ``source`` (string): file path or remote URL
+  * ``start`` (integer): read start timestamp (epoch nanoseconds)
+  * ``end`` (integer): read end timestamp (epoch nanoseconds)
+  * ``offset`` (integer): read offset in bytes
+  * ``size`` (integer): requested read size in bytes
+  * ``threadId`` (integer): per-thread identifier for the thread executing the read
+  * ``bytesRead`` (integer): number of bytes read
+  * ``backend`` (string): backend type (currently ``"local"`` or ``"remote"``)
+  * ``status`` (string): operation status (currently ``"ok"`` for successful reads)
+  * ``isDeviceBuffer`` (boolean): whether the destination buffer is device memory
+  * ``requestId`` (integer): logical read identifier shared across related physical reads
+
+Example record:
+
+.. code-block:: json
+
+   {"source":"s3://bucket/data.parquet","start":1747901139123456789,"end":1747901139127890123,"offset":4194304,"size":1048576,"threadId":17390204170953158183,"bytesRead":1048576,"backend":"remote","status":"ok","isDeviceBuffer":true,"requestId":42}

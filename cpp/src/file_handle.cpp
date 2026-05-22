@@ -8,9 +8,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <utility>
 
@@ -30,6 +33,29 @@
 namespace kvikio {
 
 namespace {
+
+std::int64_t epoch_nanos()
+{
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+           std::chrono::system_clock::now().time_since_epoch())
+    .count();
+}
+
+thread_local std::optional<std::size_t> current_request_id{};
+
+class scoped_request_id {
+ public:
+  explicit scoped_request_id(std::size_t request_id) : _prev{current_request_id}
+  {
+    current_request_id = request_id;
+  }
+  ~scoped_request_id() { current_request_id = _prev; }
+
+ private:
+  std::optional<std::size_t> _prev;
+};
+
+std::size_t active_request_id() { return current_request_id.value_or(0); }
 
 /**
  * @brief Get a thread pool specific to the block device hosting the given file.
@@ -96,7 +122,9 @@ FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
                        CompatMode compat_mode)
-  : _initialized{true}, _compat_mode_manager{file_path, flags, mode, compat_mode, this}
+  : _initialized{true},
+    _file_path{file_path},
+    _compat_mode_manager{file_path, flags, mode, compat_mode, this}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   _thread_pool = get_thread_pool_per_block_device(file_path);
@@ -107,6 +135,7 @@ FileHandle::FileHandle(FileHandle&& o) noexcept
     _file_direct_off{std::exchange(o._file_direct_off, {})},
     _initialized{std::exchange(o._initialized, false)},
     _nbytes{std::exchange(o._nbytes, 0)},
+    _file_path{std::move(o._file_path)},
     _cufile_handle{std::exchange(o._cufile_handle, {})},
     _compat_mode_manager{std::move(o._compat_mode_manager)},
     _thread_pool{std::exchange(o._thread_pool, {})}
@@ -121,6 +150,7 @@ FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
     _file_direct_off     = std::exchange(o._file_direct_off, {});
     _initialized         = std::exchange(o._initialized, false);
     _nbytes              = std::exchange(o._nbytes, 0);
+    _file_path           = std::move(o._file_path);
     _cufile_handle       = std::exchange(o._cufile_handle, {});
     _compat_mode_manager = std::move(o._compat_mode_manager);
     _thread_pool         = std::exchange(o._thread_pool, {});
@@ -180,9 +210,23 @@ std::size_t FileHandle::read(void* devPtr_base,
                              bool sync_default_stream)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
+  auto const start = epoch_nanos();
+  auto emit_log    = [&](std::size_t bytes_read) {
+    log_structured_read(_file_path,
+                        start,
+                        epoch_nanos(),
+                        file_offset,
+                        size,
+                        bytes_read,
+                        "local",
+                        "ok",
+                        true,
+                        active_request_id());
+    return bytes_read;
+  };
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    return detail::posix_device_read(
-      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
+    return emit_log(detail::posix_device_read(
+      _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd()));
   }
   if (sync_default_stream) {
     KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
@@ -194,7 +238,7 @@ std::size_t FileHandle::read(void* devPtr_base,
                                            convert_size2off(file_offset),
                                            convert_size2off(devPtr_offset));
   KVIKIO_CUFILE_CHECK_BYTES_DONE(ret);
-  return ret;
+  return emit_log(ret);
 }
 
 std::size_t FileHandle::write(void const* devPtr_base,
@@ -232,9 +276,11 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                            bool sync_default_stream,
                                            ThreadPool* thread_pool)
 {
+  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_LOG_DEBUG(
-    "FileHandle::pread(buf=%p, size=%zu, file_offset=%zu, task_size=%zu, gds_threshold=%zu, "
-    "sync_default_stream=%d)",
+    "FileHandle::pread(request_id=%zu, buf=%p, size=%zu, file_offset=%zu, task_size=%zu, "
+    "gds_threshold=%zu, sync_default_stream=%d)",
+    call_idx,
     buf,
     size,
     file_offset,
@@ -249,16 +295,28 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     (_thread_pool != nullptr && thread_pool == &defaults::thread_pool()) ? _thread_pool
                                                                          : thread_pool;
 
-  auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
   if (is_host_memory(buf)) {
-    auto op = [this](void* hostPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t hostPtr_offset) -> std::size_t {
+    auto op = [this, call_idx](void* hostPtr_base,
+                               std::size_t size,
+                               std::size_t file_offset,
+                               std::size_t hostPtr_offset) -> std::size_t {
+      scoped_request_id request_scope{call_idx};
+      auto const start = epoch_nanos();
       char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
-      return detail::posix_host_read<detail::PartialIO::NO>(
+      auto const bytes_read = detail::posix_host_read<detail::PartialIO::NO>(
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
+      log_structured_read(_file_path,
+                          start,
+                          epoch_nanos(),
+                          file_offset,
+                          size,
+                          bytes_read,
+                          "local",
+                          "ok",
+                          false,
+                          call_idx);
+      return bytes_read;
     };
 
     return detail::parallel_io(
@@ -275,9 +333,21 @@ std::future<std::size_t> FileHandle::pread(void* buf,
 
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
+    scoped_request_id request_scope{call_idx};
+    auto const start = epoch_nanos();
     PushAndPopContext c(ctx);
     auto bytes_read = detail::posix_device_read(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
+    log_structured_read(_file_path,
+                        start,
+                        epoch_nanos(),
+                        file_offset,
+                        size,
+                        bytes_read,
+                        "local",
+                        "ok",
+                        true,
+                        call_idx);
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_read);
@@ -290,10 +360,11 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
-  auto task = [this, ctx](void* devPtr_base,
-                          std::size_t size,
-                          std::size_t file_offset,
-                          std::size_t devPtr_offset) -> std::size_t {
+  auto task = [this, ctx, call_idx](void* devPtr_base,
+                                    std::size_t size,
+                                    std::size_t file_offset,
+                                    std::size_t devPtr_offset) -> std::size_t {
+    scoped_request_id request_scope{call_idx};
     PushAndPopContext c(ctx);
     return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
   };

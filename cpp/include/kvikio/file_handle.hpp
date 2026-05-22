@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <string>
 
 #include <kvikio/buffer.hpp>
 #include <kvikio/compat_mode.hpp>
@@ -37,6 +38,7 @@ class FileHandle {
   FileWrapper _file_direct_off{};
   bool _initialized{false};
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
+  std::string _file_path{};
   CUFileHandleWrapper _cufile_handle{};
   CompatModeManager _compat_mode_manager;
   friend class CompatModeManager;
