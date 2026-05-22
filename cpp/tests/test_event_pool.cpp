@@ -198,45 +198,73 @@ TEST_F(EventPoolTest, no_current_context_throws)
 
 TEST_F(EventPoolTest, multi_context_isolation)
 {
-  int device_count = 0;
-  KVIKIO_CHECK_CUDA(cudaGetDeviceCount(&device_count));
-  if (device_count < 2) { GTEST_SKIP() << "Requires at least 2 GPUs"; }
-
   auto& pool = kvikio::detail::EventPool::instance();
 
-  // Switch to device 0 (already done by SetUp).
-  KVIKIO_CHECK_CUDA(cudaSetDevice(0));
-  auto ctx0 = current_context();
+  // SetUp() already created and made current the primary context on device 0.
+  auto primary_ctx = current_context();
+  EXPECT_NE(primary_ctx, nullptr);
 
-  // Acquire and release one event on device 0, capturing its handle.
-  CUevent dev0_handle{};
+  // Acquire and release one event under the primary context, capturing its handle.
+  CUevent primary_handle{};
   {
-    auto e      = pool.get();
-    dev0_handle = e.get();
-    EXPECT_EQ(e.cuda_context(), ctx0);
+    auto e         = pool.get();
+    primary_handle = e.get();
+    EXPECT_EQ(e.cuda_context(), primary_ctx);
   }
 
-  // Switch to device 1.
-  KVIKIO_CHECK_CUDA(cudaSetDevice(1));
-  auto ctx1 = current_context();
-  EXPECT_NE(ctx1, ctx0);
+  // Create a second, non-primary context on the same device. cuCtxCreate pushes the new
+  // context onto the calling thread's stack and makes it current. The signature changed in
+  // CUDA 13: the v2 entry point took (CUcontext*, unsigned int, CUdevice), and v4 added a
+  // leading CUctxCreateParams* (passing nullptr selects regular-context behavior).
+  CUdevice dev{};
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxGetDevice(&dev));
+  CUcontext second_ctx{};
+#if CUDA_VERSION >= 13000
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxCreate(&second_ctx, nullptr, 0, dev));
+#else
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxCreate(&second_ctx, 0, dev));
+#endif
+  EXPECT_EQ(current_context(), second_ctx);
+  EXPECT_NE(second_ctx, primary_ctx);
 
-  // Acquire an event on device 1. It must NOT be the device-0 handle, since events are
-  // context-specific resources and the pool is keyed per-context.
+  // Acquire an event under the second context. It must NOT be the primary-context handle,
+  // since events are context-specific resources and the pool is keyed per-context.
+  CUevent second_handle{};
+  {
+    auto e        = pool.get();
+    second_handle = e.get();
+    EXPECT_NE(e.get(), primary_handle);
+    EXPECT_EQ(e.cuda_context(), second_ctx);
+  }
+
+  // Pop second_ctx. Primary becomes current again. Verify the primary-context event is still
+  // cached and reused (LIFO).
+  CUcontext popped{};
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxPopCurrent(&popped));
+  EXPECT_EQ(popped, second_ctx);
+  EXPECT_EQ(current_context(), primary_ctx);
   {
     auto e = pool.get();
-    EXPECT_NE(e.get(), dev0_handle);
-    EXPECT_EQ(e.cuda_context(), ctx1);
+    EXPECT_EQ(e.get(), primary_handle);
+    EXPECT_EQ(e.cuda_context(), primary_ctx);
   }
 
-  // Switch back to device 0 and verify the original event is still cached there (LIFO).
-  KVIKIO_CHECK_CUDA(cudaSetDevice(0));
-  EXPECT_EQ(current_context(), ctx0);
+  // Push second_ctx again and verify the second-context event is still cached there.
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxPushCurrent(second_ctx));
+  EXPECT_EQ(current_context(), second_ctx);
   {
     auto e = pool.get();
-    EXPECT_EQ(e.get(), dev0_handle);
-    EXPECT_EQ(e.cuda_context(), ctx0);
+    EXPECT_EQ(e.get(), second_handle);
+    EXPECT_EQ(e.cuda_context(), second_ctx);
   }
+
+  // Pop and destroy second_ctx, restoring the primary context for subsequent tests. The pool's
+  // sub-pool keyed by second_ctx still holds the second_handle entry. That handle is no longer
+  // valid after CtxDestroy, but the pool never touches it again.
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxPopCurrent(&popped));
+  EXPECT_EQ(popped, second_ctx);
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxDestroy(second_ctx));
+  EXPECT_EQ(current_context(), primary_ctx);
 }
 
 TEST_F(EventPoolTest, concurrent_get_and_release_is_thread_safe)
