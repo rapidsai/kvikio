@@ -3,15 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <stack>
+#include <utility>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
@@ -168,18 +171,28 @@ BounceBufferPool<Allocator>::Buffer BounceBufferPool<Allocator>::get()
 }
 
 template <typename Allocator>
-void BounceBufferPool<Allocator>::put(void* buffer, std::size_t size)
+void BounceBufferPool<Allocator>::put(void* buffer, std::size_t size) noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::lock_guard const lock(_mutex);
-  _ensure_buffer_size();
+  // noexcept boundary: Buffer::~Buffer calls this from a destructor (and from move-assignment
+  // when the target holds an existing buffer). Letting an exception escape would
+  // std::terminate. Catch any failure from the underlying push or deallocate and log it; the
+  // caller does not get a way to recover, but we never bring down the process.
+  try {
+    std::lock_guard const lock(_mutex);
+    _ensure_buffer_size();
 
-  // If the size of `buffer` matches the sizes of the retained allocations,
-  // it is added to the set of free allocation otherwise it is freed.
-  if (size == _buffer_size) {
-    _free_buffers.push(buffer);
-  } else {
-    _allocator.deallocate(buffer, size);
+    // If the size of `buffer` matches the sizes of the retained allocations,
+    // it is added to the set of free allocation otherwise it is freed.
+    if (size == _buffer_size) {
+      _free_buffers.push(buffer);
+    } else {
+      _allocator.deallocate(buffer, size);
+    }
+  } catch (std::exception const& e) {
+    KVIKIO_LOG_ERROR(std::string("BounceBufferPool::put failed: ") + e.what());
+  } catch (...) {
+    KVIKIO_LOG_ERROR("BounceBufferPool::put failed: unknown exception");
   }
 }
 
@@ -217,4 +230,151 @@ BounceBufferPool<Allocator>& BounceBufferPool<Allocator>::instance()
 template class BounceBufferPool<PageAlignedAllocator>;
 template class BounceBufferPool<CudaPinnedAllocator>;
 template class BounceBufferPool<CudaPageAlignedPinnedAllocator>;
+
+// ---------------------------------------------------------------------------------------------
+// BounceBufferCachePerThreadAndContext
+// ---------------------------------------------------------------------------------------------
+
+template <typename Allocator>
+BounceBufferCachePerThreadAndContext<Allocator>::BounceBufferCachePerThreadAndContext(
+  std::size_t cap)
+  : _cap{cap}
+{
+}
+
+template <typename Allocator>
+std::size_t BounceBufferCachePerThreadAndContext<Allocator>::cap() const noexcept
+{
+  return _cap;
+}
+
+template <typename Allocator>
+typename BounceBufferCachePerThreadAndContext<Allocator>::PerKey&
+BounceBufferCachePerThreadAndContext<Allocator>::get_per_key(CUcontext ctx)
+{
+  auto const key = std::make_pair(std::this_thread::get_id(), ctx);
+  std::lock_guard const lock(_map_mutex);
+  auto it = _per_key.find(key);
+  if (it == _per_key.end()) { it = _per_key.emplace(key, std::make_unique<PerKey>()).first; }
+  return *it->second;
+}
+
+template <typename Allocator>
+std::optional<typename BounceBufferCachePerThreadAndContext<Allocator>::Buffer>
+BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto& per_key = get_per_key(ctx);
+
+  std::lock_guard const lock(per_key.mutex);
+  if (!per_key.free.empty()) {
+    auto buf = std::move(per_key.free.back());
+    per_key.free.pop_back();
+    ++per_key.checked_out;
+    return buf;
+  }
+
+  // No buffer available on the free list. Allocate if under cap (or if cap is unlimited).
+  auto const total = per_key.free.size() + per_key.checked_out + per_key.in_flight;
+  if (_cap != 0 && total >= _cap) { return std::nullopt; }
+
+  auto buf = BounceBufferPool<Allocator>::instance().get();
+  ++per_key.checked_out;
+  return buf;
+}
+
+template <typename Allocator>
+void BounceBufferCachePerThreadAndContext<Allocator>::recycle_now(CUcontext ctx, Buffer&& buf)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto& per_key = get_per_key(ctx);
+  std::lock_guard const lock(per_key.mutex);
+  --per_key.checked_out;
+  per_key.free.push_back(std::move(buf));
+}
+
+template <typename Allocator>
+void BounceBufferCachePerThreadAndContext<Allocator>::recycle_after(CUcontext ctx,
+                                                                    Buffer&& buf,
+                                                                    CUstream stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto& per_key = get_per_key(ctx);
+
+  // Reserve a slot in `in_flight` and hand the buffer to a heap-allocated payload that the
+  // recycle callback will free. We move `buf` into the payload BEFORE calling
+  // `cuLaunchHostFunc` so that, if the call fails, we can recover the buffer from the payload.
+  auto data = std::make_unique<RecycleCallbackData>(RecycleCallbackData{&per_key, std::move(buf)});
+  {
+    std::lock_guard const lock(per_key.mutex);
+    --per_key.checked_out;
+    ++per_key.in_flight;
+  }
+
+  CUresult const result = cudaAPI::instance().LaunchHostFunc(stream, &recycle_callback, data.get());
+  if (result == CUDA_SUCCESS) {
+    // Ownership of the heap payload transfers to the callback path.
+    static_cast<void>(data.release());
+    return;
+  }
+
+  // Recovery path: callback was not scheduled. The buffer was just used by a `cuMemcpyAsync`
+  // on `stream`, so it is unsafe to recycle until the stream's prior work drains.
+  // Synchronize, then push the buffer to the free list and propagate the error.
+  try {
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
+  } catch (...) {
+    // Best effort: log and continue to undo the in_flight bump. Letting the buffer leak is
+    // strictly better than corrupting the cap accounting.
+    KVIKIO_LOG_ERROR(
+      "BounceBufferCachePerThreadAndContext::recycle_after: StreamSynchronize failed during "
+      "recovery after cuLaunchHostFunc failure");
+  }
+  {
+    std::lock_guard const lock(per_key.mutex);
+    --per_key.in_flight;
+    per_key.free.push_back(std::move(data->buffer));
+  }
+  KVIKIO_CUDA_DRIVER_TRY(result);
+}
+
+template <typename Allocator>
+void CUDA_CB BounceBufferCachePerThreadAndContext<Allocator>::recycle_callback(void* user_data)
+{
+  // Runs on a CUDA driver thread. Must not make CUDA API calls. Must be short.
+  std::unique_ptr<RecycleCallbackData> data(static_cast<RecycleCallbackData*>(user_data));
+  try {
+    std::lock_guard const lock(data->per_key->mutex);
+    data->per_key->free.push_back(std::move(data->buffer));
+    --data->per_key->in_flight;
+  } catch (std::exception const& e) {
+    // Vector push_back can throw on allocation failure. The buffer is moved-from on success;
+    // if push failed the buffer is still in `data->buffer` and will be destroyed by the
+    // unique_ptr deletion below (routing back to BounceBufferPool::put, which is noexcept).
+    KVIKIO_LOG_ERROR(std::string("BounceBufferCachePerThreadAndContext::recycle_callback: ") +
+                     e.what());
+  } catch (...) {
+    KVIKIO_LOG_ERROR("BounceBufferCachePerThreadAndContext::recycle_callback: unknown exception");
+  }
+}
+
+template <typename Allocator>
+BounceBufferCachePerThreadAndContext<Allocator>&
+BounceBufferCachePerThreadAndContext<Allocator>::instance()
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  // Heap-allocated and intentionally never deleted. The singleton's destructor never runs at
+  // static teardown, so PerKey / Buffer destructors never fire then either. Avoids the
+  // CUDA-API-in-static-destructor UB that would otherwise occur if a cached Buffer's destructor
+  // routed through BounceBufferPool::put's size-mismatch deallocate path (which calls
+  // cuMemFreeHost). See the class-level @note.
+  static auto* _instance =
+    new BounceBufferCachePerThreadAndContext(defaults::num_bounce_buffers_per_cache());
+  return *_instance;
+}
+
+// Explicit instantiations
+template class BounceBufferCachePerThreadAndContext<PageAlignedAllocator>;
+template class BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
+template class BounceBufferCachePerThreadAndContext<CudaPageAlignedPinnedAllocator>;
 }  // namespace kvikio

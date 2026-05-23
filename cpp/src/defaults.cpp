@@ -125,6 +125,15 @@ defaults::defaults()
       env > 0, "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer", std::invalid_argument);
     _bounce_buffer_size = env;
   }
+  // Determine the default value of `num_bounce_buffers_per_cache`. 0 means unlimited.
+  {
+    ssize_t const env = getenv_or("KVIKIO_NUM_BOUNCE_BUFFERS_PER_CACHE", 16);
+    KVIKIO_EXPECT(
+      env >= 0,
+      "KVIKIO_NUM_BOUNCE_BUFFERS_PER_CACHE has to be a non-negative integer (0 means unlimited)",
+      std::invalid_argument);
+    _num_bounce_buffers_per_cache = env;
+  }
   // Determine the default value of `http_max_attempts`
   {
     ssize_t const env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
@@ -238,6 +247,16 @@ void defaults::set_bounce_buffer_size(std::size_t nbytes)
   KVIKIO_EXPECT(
     nbytes > 0, "size of the bounce buffer must be a positive integer", std::invalid_argument);
   instance()->_bounce_buffer_size = nbytes;
+}
+
+std::size_t defaults::num_bounce_buffers_per_cache()
+{
+  return instance()->_num_bounce_buffers_per_cache;
+}
+
+void defaults::set_num_bounce_buffers_per_cache(std::size_t n)
+{
+  instance()->_num_bounce_buffers_per_cache = n;
 }
 
 std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }

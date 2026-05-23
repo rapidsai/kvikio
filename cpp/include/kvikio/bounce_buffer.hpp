@@ -4,9 +4,18 @@
  */
 #pragma once
 
+#include <cstddef>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
 #include <stack>
+#include <thread>
+#include <utility>
+#include <vector>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
 
@@ -199,8 +208,13 @@ class BounceBufferPool {
    *
    * @param buffer Pointer to memory to return
    * @param size Size of the buffer in bytes
+   *
+   * @note noexcept. Any failure during the underlying push or deallocation (e.g., allocator
+   * out-of-memory in `std::stack::push`, or a CUDA error in the deallocate path on size mismatch)
+   * is caught and logged. This guarantee is load-bearing for `Buffer::~Buffer`, which would
+   * otherwise `std::terminate` on a thrown exception.
    */
-  void put(void* buffer, std::size_t size);
+  void put(void* buffer, std::size_t size) noexcept;
 
   /**
    * @brief Free all retained allocations in the pool
@@ -268,4 +282,157 @@ using CudaPinnedBounceBufferPool = BounceBufferPool<CudaPinnedAllocator>;
  * Provides both page alignment (for Direct I/O) and CUDA registration (for efficient transfers)
  */
 using CudaPageAlignedPinnedBounceBufferPool = BounceBufferPool<CudaPageAlignedPinnedAllocator>;
+
+/**
+ * @brief Per-(thread, CUDA context) cache of bounce buffers with async recycling.
+ *
+ * Wraps `BounceBufferPool<Allocator>` with a fan-out free-list keyed by
+ * `(std::thread::id, CUcontext)`. Each key tracks three counts that together are capped at
+ * `cap`: a free list of recyclable `Buffer`s, a count of buffers currently checked out to
+ * callers (Phase A), and a count of pending CUDA-side recycle callbacks (Phase B).
+ *
+ * Typical lifecycle of a buffer:
+ *   1. Caller invokes `try_get(ctx)` to acquire a `Buffer` (Phase A begins). The buffer is
+ *      filled with host data.
+ *   2. Caller submits a `cuMemcpyAsync` to a `stream` and calls `recycle_after(ctx, buf,
+ *      stream)`. The cache schedules a `cuLaunchHostFunc` on the stream that will recycle the
+ *      buffer to the free list when the H2D completes (Phase A ends, Phase B begins).
+ *   3. The CUDA driver invokes the recycle callback on a driver thread. The callback moves the
+ *      Buffer from "in flight" to "free" (Phase B ends).
+ *
+ * Failure paths (no H2D submitted) use `recycle_now(ctx, buf)` which returns the buffer to the
+ * free list immediately.
+ *
+ * `try_get` is non-blocking: it returns `std::nullopt` when the cap is reached. Backpressure on
+ * the caller side decides whether to retry, defer, or block.
+ *
+ * @tparam Allocator The allocator policy used by the underlying `BounceBufferPool`. Common
+ * choices are `CudaPinnedAllocator` (for device I/O) and `CudaPageAlignedPinnedAllocator` (for
+ * Direct I/O with device memory).
+ *
+ * @note The class itself is decoupled from kvikio's defaults subsystem; callers pass an
+ * explicit `cap` to the constructor. The singleton accessor `instance()` is the bridge that
+ * reads `defaults::num_bounce_buffers_per_cache()` once and constructs the process-wide
+ * instance. Tests can construct local instances with arbitrary caps.
+ *
+ * @note Each in-flight `Buffer` must be checked out and returned by the same `(thread, ctx)`
+ * key. Mixing threads or contexts within one buffer's lifecycle breaks the per-key accounting.
+ */
+template <typename Allocator = CudaPinnedAllocator>
+class BounceBufferCachePerThreadAndContext {
+ public:
+  using Buffer = typename BounceBufferPool<Allocator>::Buffer;
+
+  /**
+   * @brief Construct a cache with the given per-(thread, ctx) buffer cap.
+   *
+   * @param cap Maximum number of buffers (free + checked-out + in-flight) per
+   * `(thread, CUcontext)` key. A value of 0 is a sentinel for "no cap": `try_get` never returns
+   * `nullopt`, the cache grows on demand, and backpressure becomes the caller's responsibility.
+   */
+  explicit BounceBufferCachePerThreadAndContext(std::size_t cap);
+
+  // Non-copyable, non-movable (holds a mutex; per-key state has pointer identity exposed to
+  // the recycle callback).
+  BounceBufferCachePerThreadAndContext(BounceBufferCachePerThreadAndContext const&) = delete;
+  BounceBufferCachePerThreadAndContext& operator=(BounceBufferCachePerThreadAndContext const&) =
+    delete;
+  BounceBufferCachePerThreadAndContext(BounceBufferCachePerThreadAndContext&&)            = delete;
+  BounceBufferCachePerThreadAndContext& operator=(BounceBufferCachePerThreadAndContext&&) = delete;
+
+  ~BounceBufferCachePerThreadAndContext() = default;
+
+  /**
+   * @brief Get the process-wide singleton instance.
+   *
+   * The instance is constructed lazily on first call with the cap from
+   * `defaults::num_bounce_buffers_per_cache()`. The singleton is intentionally heap-allocated
+   * and never deleted; its destructor never runs at process exit, which avoids the
+   * CUDA-driver-API-in-static-destructor undefined behavior that would otherwise occur when
+   * cached `Buffer`s destruct (and route through `BounceBufferPool::put`'s size-mismatch
+   * deallocation path, which can call `cuMemFreeHost`).
+   *
+   * Each template instantiation (different `Allocator`) has its own singleton.
+   *
+   * @return Reference to the singleton instance.
+   */
+  KVIKIO_EXPORT static BounceBufferCachePerThreadAndContext& instance();
+
+  /**
+   * @brief Get the per-(thread, ctx) buffer cap this instance was constructed with.
+   *
+   * @return The cap. A value of 0 means "no cap".
+   */
+  [[nodiscard]] std::size_t cap() const noexcept;
+
+  /**
+   * @brief Try to acquire a buffer for the given CUDA context (non-blocking).
+   *
+   * Pops from the per-(this thread, ctx) free list if non-empty. Otherwise allocates a fresh
+   * Buffer from the underlying `BounceBufferPool` if the per-key count
+   * (`free + checked_out + in_flight`) is below `cap()` (or `cap() == 0`). When the cap is
+   * reached, returns `std::nullopt`.
+   *
+   * @param ctx The CUDA context to associate the buffer with. The caller is expected to have
+   * `ctx` current on the calling thread before calling.
+   * @return A `Buffer` on success, `std::nullopt` if the cap is reached.
+   *
+   * @exception kvikio::CUfileException if the underlying allocation fails.
+   */
+  [[nodiscard]] std::optional<Buffer> try_get(CUcontext ctx);
+
+  /**
+   * @brief Schedule the buffer to be recycled when the stream's prior work completes.
+   *
+   * Records a `cuLaunchHostFunc` on `stream` so that, once `stream` has finished the
+   * `cuMemcpyAsync` (or whatever CUDA work) that consumes `buf`, the buffer is returned to the
+   * free list on a CUDA driver thread. Non-blocking on the calling thread.
+   *
+   * @param ctx The CUDA context the buffer was acquired under (must match the original
+   * `try_get` call).
+   * @param buf The buffer (ownership transferred into the cache).
+   * @param stream The CUDA stream whose completion signals that `buf` is safe to recycle.
+   *
+   * @exception kvikio::CUfileException if `cuLaunchHostFunc` fails. In that case the recovery
+   * path synchronizes `stream` to ensure the buffer is safe, returns it to the free list, then
+   * propagates the error.
+   */
+  void recycle_after(CUcontext ctx, Buffer&& buf, CUstream stream);
+
+  /**
+   * @brief Recycle the buffer immediately, without involving CUDA.
+   *
+   * Used on failure paths where no CUDA work was submitted with this buffer.
+   *
+   * @param ctx The CUDA context the buffer was acquired under.
+   * @param buf The buffer (ownership transferred into the cache).
+   */
+  void recycle_now(CUcontext ctx, Buffer&& buf);
+
+ private:
+  struct PerKey {
+    std::mutex mutex;
+    std::vector<Buffer> free;
+    std::size_t checked_out{0};
+    std::size_t in_flight{0};
+    // Invariant: cap == 0 || free.size() + checked_out + in_flight <= cap
+  };
+
+  // Heap-allocated payload passed to `cuLaunchHostFunc` as user data. The callback deletes it
+  // after moving the buffer into the free list.
+  struct RecycleCallbackData {
+    PerKey* per_key;
+    Buffer buffer;
+  };
+
+  static void CUDA_CB recycle_callback(void* user_data);
+
+  // Locate or lazily create the PerKey state for (this thread, ctx).
+  PerKey& get_per_key(CUcontext ctx);
+
+  std::size_t _cap;
+  std::mutex _map_mutex;  // first-touch insertion into _per_key
+  std::map<std::pair<std::thread::id, CUcontext>, std::unique_ptr<PerKey>> _per_key;
+};
+
 }  // namespace kvikio
