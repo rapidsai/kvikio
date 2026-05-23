@@ -14,6 +14,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/bounce_buffer_cache.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
 
@@ -50,7 +51,7 @@ class BounceBufferCacheTest : public testing::Test {
 
 TEST_F(BounceBufferCacheTest, try_get_returns_buffer_under_cap)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(4);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(4);
   EXPECT_EQ(cache.cap(), 4u);
 
   auto ctx = current_context();
@@ -62,7 +63,7 @@ TEST_F(BounceBufferCacheTest, try_get_returns_buffer_under_cap)
 
 TEST_F(BounceBufferCacheTest, try_get_returns_nullopt_at_cap)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
 
   auto ctx = current_context();
   auto b1  = cache.try_get(ctx);
@@ -77,7 +78,7 @@ TEST_F(BounceBufferCacheTest, try_get_returns_nullopt_at_cap)
 
 TEST_F(BounceBufferCacheTest, cap_zero_means_unlimited)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(0);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(0);
   EXPECT_EQ(cache.cap(), 0u);
 
   auto ctx = current_context();
@@ -92,7 +93,7 @@ TEST_F(BounceBufferCacheTest, cap_zero_means_unlimited)
 
 TEST_F(BounceBufferCacheTest, recycle_now_returns_buffer_to_free_list)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
   auto ctx = current_context();
 
   void* first_ptr = nullptr;
@@ -111,7 +112,7 @@ TEST_F(BounceBufferCacheTest, recycle_now_returns_buffer_to_free_list)
 
 TEST_F(BounceBufferCacheTest, recycle_after_round_trip)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
   auto ctx = current_context();
 
   CUstream stream{};
@@ -146,7 +147,7 @@ TEST_F(BounceBufferCacheTest, recycle_after_round_trip)
 
 TEST_F(BounceBufferCacheTest, recycle_after_releases_in_flight_slot)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
   auto ctx = current_context();
 
   CUstream stream{};
@@ -181,7 +182,7 @@ TEST_F(BounceBufferCacheTest, recycle_after_releases_in_flight_slot)
 
 TEST_F(BounceBufferCacheTest, multi_context_isolation)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
 
   auto primary_ctx = current_context();
   ASSERT_NE(primary_ctx, nullptr);
@@ -227,7 +228,7 @@ TEST_F(BounceBufferCacheTest, multi_context_isolation)
 
 TEST_F(BounceBufferCacheTest, per_thread_isolation)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(1);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(1);
   auto ctx = current_context();
 
   // Main thread occupies its key's single slot.
@@ -253,7 +254,8 @@ TEST_F(BounceBufferCacheTest, per_thread_isolation)
 
 TEST_F(BounceBufferCacheTest, concurrent_get_and_recycle_now)
 {
-  kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(0);  // unlimited
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(
+    0);  // unlimited
 
   constexpr int num_threads           = 8;
   constexpr int iterations_per_thread = 64;
@@ -287,7 +289,8 @@ TEST_F(BounceBufferCacheTest, concurrent_get_and_recycle_now)
 
 TEST_F(BounceBufferCacheTest, singleton_instance_has_default_cap)
 {
-  auto& s = kvikio::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator>::instance();
+  auto& s =
+    kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator>::instance();
   EXPECT_EQ(s.cap(), kvikio::defaults::num_bounce_buffers_per_cache());
 
   // try_get on the singleton works.
