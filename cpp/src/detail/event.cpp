@@ -60,7 +60,7 @@ void EventPool::Event::synchronize()
   KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().EventSynchronize(_event));
 }
 
-bool EventPool::Event::query() const
+bool EventPool::Event::is_done() const
 {
   auto const status = cudaAPI::instance().EventQuery(_event);
   if (status == CUDA_SUCCESS) { return true; }
