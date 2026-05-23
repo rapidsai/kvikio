@@ -104,17 +104,21 @@ class EventPool {
     void synchronize();
 
     /**
-     * @brief Non-blocking query whether the event has been signaled
+     * @brief Non-blocking check whether all work captured by the event has completed.
      *
-     * Returns true if all work captured by a preceding record() call has completed, false if work
-     * is still pending. This is the non-blocking counterpart to synchronize().
+     * Returns true if all work captured by a preceding `record()` call has completed, false if work
+     * is still pending. This is the non-blocking counterpart to `synchronize()`.
      *
-     * @return true if the event has been signaled, false if work is still in progress
+     * @note An event that has never been recorded reports `is_done() == true`, since CUDA's
+     * `cuEventQuery` returns `CUDA_SUCCESS` when there is no captured work.
      *
-     * @exception kvikio::CUfileException if the underlying cuEventQuery returns an error other than
-     * CUDA_SUCCESS or CUDA_ERROR_NOT_READY
+     * @return true if the event has completed (or has never been recorded), false if work is still
+     * in progress.
+     *
+     * @exception kvikio::CUfileException if the underlying `cuEventQuery` returns an error other
+     * than `CUDA_SUCCESS` or `CUDA_ERROR_NOT_READY`.
      */
-    [[nodiscard]] bool query() const;
+    [[nodiscard]] bool is_done() const;
   };
 
  private:

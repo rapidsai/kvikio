@@ -119,7 +119,7 @@ TEST_F(EventPoolTest, self_move_assignment_is_noop)
   EXPECT_EQ(e.cuda_context(), current_context());
 }
 
-TEST_F(EventPoolTest, record_synchronize_query_round_trip)
+TEST_F(EventPoolTest, record_synchronize_is_done_round_trip)
 {
   auto& pool = kvikio::detail::EventPool::instance();
 
@@ -129,18 +129,18 @@ TEST_F(EventPoolTest, record_synchronize_query_round_trip)
   auto e = pool.get();
   e.record(stream);
   e.synchronize();
-  // After synchronize, the event must report ready.
-  EXPECT_TRUE(e.query());
+  // After synchronize, the event must report done.
+  EXPECT_TRUE(e.is_done());
 
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }
 
-TEST_F(EventPoolTest, query_on_fresh_event_returns_true)
+TEST_F(EventPoolTest, is_done_on_fresh_event_returns_true)
 {
   // An event that has never been recorded is considered already complete by CUDA.
   auto& pool = kvikio::detail::EventPool::instance();
   auto e     = pool.get();
-  EXPECT_TRUE(e.query());
+  EXPECT_TRUE(e.is_done());
 }
 
 TEST_F(EventPoolTest, observability_counters_consistent)
