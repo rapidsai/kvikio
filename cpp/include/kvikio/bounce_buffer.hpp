@@ -199,8 +199,10 @@ class BounceBufferPool {
    *
    * @param buffer Pointer to memory to return
    * @param size Size of the buffer in bytes
+   *
+   * @note noexcept: any failure during the underlying push or deallocation is caught and logged.
    */
-  void put(void* buffer, std::size_t size);
+  void put(void* buffer, std::size_t size) noexcept;
 
   /**
    * @brief Free all retained allocations in the pool

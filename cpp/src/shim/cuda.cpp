@@ -26,6 +26,8 @@ cudaAPI::cudaAPI()
   get_symbol(MemcpyAsync, lib, KVIKIO_STRINGIFY(cuMemcpyAsync));
   get_symbol(PointerGetAttribute, lib, KVIKIO_STRINGIFY(cuPointerGetAttribute));
   get_symbol(PointerGetAttributes, lib, KVIKIO_STRINGIFY(cuPointerGetAttributes));
+  get_symbol(CtxCreate, lib, KVIKIO_STRINGIFY(cuCtxCreate));
+  get_symbol(CtxDestroy, lib, KVIKIO_STRINGIFY(cuCtxDestroy));
   get_symbol(CtxPushCurrent, lib, KVIKIO_STRINGIFY(cuCtxPushCurrent));
   get_symbol(CtxPopCurrent, lib, KVIKIO_STRINGIFY(cuCtxPopCurrent));
   get_symbol(CtxGetCurrent, lib, KVIKIO_STRINGIFY(cuCtxGetCurrent));
@@ -42,6 +44,12 @@ cudaAPI::cudaAPI()
   get_symbol(StreamCreate, lib, KVIKIO_STRINGIFY(cuStreamCreate));
   get_symbol(StreamDestroy, lib, KVIKIO_STRINGIFY(cuStreamDestroy));
   get_symbol(DriverGetVersion, lib, KVIKIO_STRINGIFY(cuDriverGetVersion));
+  get_symbol(EventSynchronize, lib, KVIKIO_STRINGIFY(cuEventSynchronize));
+  get_symbol(EventCreate, lib, KVIKIO_STRINGIFY(cuEventCreate));
+  get_symbol(EventDestroy, lib, KVIKIO_STRINGIFY(cuEventDestroy));
+  get_symbol(EventRecord, lib, KVIKIO_STRINGIFY(cuEventRecord));
+  get_symbol(EventQuery, lib, KVIKIO_STRINGIFY(cuEventQuery));
+  get_symbol(LaunchHostFunc, lib, KVIKIO_STRINGIFY(cuLaunchHostFunc));
 
   KVIKIO_CUDA_DRIVER_TRY(DriverGetVersion(&driver_version));
 

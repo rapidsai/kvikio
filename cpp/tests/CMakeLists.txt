@@ -66,11 +66,15 @@ kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp utils/env.cpp)
 
 kvikio_add_test(NAME BOUNCE_BUFFER_TEST SOURCES test_bounce_buffer.cpp)
 
+kvikio_add_test(NAME BOUNCE_BUFFER_CACHE_TEST SOURCES test_bounce_buffer_cache.cpp)
+
 kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp utils/env.cpp)
 
 kvikio_add_test(NAME DETAIL_UTILS_TEST SOURCES test_detail_utils.cpp)
 
 kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
+
+kvikio_add_test(NAME EVENT_POOL_TEST SOURCES test_event_pool.cpp)
 
 kvikio_add_test(NAME FILE_UTILS_TEST SOURCES test_file_utils.cpp)
 

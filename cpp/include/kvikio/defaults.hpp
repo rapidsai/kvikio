@@ -126,6 +126,7 @@ class defaults {
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
+  std::size_t _num_bounce_buffers_per_cache;
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
@@ -319,6 +320,27 @@ class defaults {
    * @param nbytes The bounce buffer size in bytes.
    */
   static void set_bounce_buffer_size(std::size_t nbytes);
+
+  /**
+   * @brief Get the per-(thread, CUDA context) cap on the number of bounce buffers held by
+   * `BounceBufferCachePerThreadAndContext`.
+   *
+   * Set the value using `kvikio::defaults::set_num_bounce_buffers_per_cache()` or by setting the
+   * `KVIKIO_NUM_BOUNCE_BUFFERS_PER_CACHE` environment variable. If not set, the value is 16.
+   *
+   * 0 means unlimited, where the cache grows on demand and backpressure becomes the caller's
+   * responsibility.
+   *
+   * @return The cap on bounce buffers per (thread, CUDA context) in the cache.
+   */
+  [[nodiscard]] static std::size_t num_bounce_buffers_per_cache();
+
+  /**
+   * @brief Set the per-(thread, CUDA context) cap on the bounce buffer cache.
+   *
+   * @param n The cap. 0 means unlimited.
+   */
+  static void set_num_bounce_buffers_per_cache(std::size_t n);
 
   /**
    * @brief Get the maximum number of attempts per remote IO read.
