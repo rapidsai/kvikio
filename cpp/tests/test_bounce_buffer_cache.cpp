@@ -4,7 +4,6 @@
  */
 
 #include <atomic>
-#include <chrono>
 #include <thread>
 #include <tuple>
 #include <vector>
@@ -29,19 +28,6 @@ CUcontext current_context()
   return ctx;
 }
 
-// Spin briefly waiting for `pred()` to become true, up to `timeout`. Used to give pending
-// cuLaunchHostFunc recycle callbacks time to fire on the CUDA driver thread before assertions.
-template <typename Pred>
-bool wait_for(Pred pred, std::chrono::milliseconds timeout = std::chrono::seconds(2))
-{
-  auto const deadline = std::chrono::steady_clock::now() + timeout;
-  while (!pred()) {
-    if (std::chrono::steady_clock::now() >= deadline) { return false; }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
-  return true;
-}
-
 }  // namespace
 
 class BounceBufferCacheTest : public testing::Test {
@@ -56,7 +42,7 @@ TEST_F(BounceBufferCacheTest, try_get_returns_buffer_under_cap)
 
   auto ctx = current_context();
   auto b   = cache.try_get(ctx);
-  ASSERT_TRUE(b.has_value());
+  EXPECT_TRUE(b.has_value());
   EXPECT_NE(b->get(), nullptr);
   EXPECT_EQ(b->size(), kvikio::defaults::bounce_buffer_size());
 }
@@ -68,8 +54,8 @@ TEST_F(BounceBufferCacheTest, try_get_returns_nullopt_at_cap)
   auto ctx = current_context();
   auto b1  = cache.try_get(ctx);
   auto b2  = cache.try_get(ctx);
-  ASSERT_TRUE(b1.has_value());
-  ASSERT_TRUE(b2.has_value());
+  EXPECT_TRUE(b1.has_value());
+  EXPECT_TRUE(b2.has_value());
 
   // Cap of 2 is reached: third try_get must fail.
   auto b3 = cache.try_get(ctx);
@@ -83,10 +69,9 @@ TEST_F(BounceBufferCacheTest, cap_zero_means_unlimited)
 
   auto ctx = current_context();
   std::vector<decltype(cache.try_get(ctx))> bufs;
-  // Acquire more than any reasonable cap; cap=0 means no cap.
   for (int i = 0; i < 32; ++i) {
     auto b = cache.try_get(ctx);
-    ASSERT_TRUE(b.has_value()) << "iteration " << i;
+    EXPECT_TRUE(b.has_value()) << "iteration " << i;
     bufs.push_back(std::move(b));
   }
 }
@@ -99,14 +84,14 @@ TEST_F(BounceBufferCacheTest, recycle_now_returns_buffer_to_free_list)
   void* first_ptr = nullptr;
   {
     auto b = cache.try_get(ctx);
-    ASSERT_TRUE(b.has_value());
+    EXPECT_TRUE(b.has_value());
     first_ptr = b->get();
     cache.recycle_now(ctx, std::move(*b));
   }
 
   // The recycled buffer should come back as the next try_get (LIFO via the free list).
   auto b2 = cache.try_get(ctx);
-  ASSERT_TRUE(b2.has_value());
+  EXPECT_TRUE(b2.has_value());
   EXPECT_EQ(b2->get(), first_ptr);
 }
 
@@ -121,26 +106,18 @@ TEST_F(BounceBufferCacheTest, recycle_after_round_trip)
   void* first_ptr = nullptr;
   {
     auto b = cache.try_get(ctx);
-    ASSERT_TRUE(b.has_value());
+    EXPECT_TRUE(b.has_value());
     first_ptr = b->get();
-    // No actual H2D needed for the recycle callback to fire; cuLaunchHostFunc is itself
-    // enough stream work to schedule on. Sync ensures the callback has been observed by us.
     cache.recycle_after(ctx, std::move(*b), stream);
   }
 
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamSynchronize(stream));
 
-  // After sync, the callback has fired. Give it a brief moment to land on the free list in
-  // case the CUDA driver thread that ran the callback is just behind us, then verify reuse.
-  ASSERT_TRUE(wait_for([&] {
-    auto b = cache.try_get(ctx);
-    if (b.has_value() && b->get() == first_ptr) {
-      cache.recycle_now(ctx, std::move(*b));
-      return true;
-    }
-    if (b.has_value()) { cache.recycle_now(ctx, std::move(*b)); }
-    return false;
-  }));
+  // After sync, the callback has run and the buffer is on the free list.
+  auto b2 = cache.try_get(ctx);
+  EXPECT_TRUE(b2.has_value());
+  EXPECT_EQ(b2->get(), first_ptr);
+  cache.recycle_now(ctx, std::move(*b2));
 
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }
@@ -158,8 +135,8 @@ TEST_F(BounceBufferCacheTest, recycle_after_releases_in_flight_slot)
   {
     auto b1 = cache.try_get(ctx);
     auto b2 = cache.try_get(ctx);
-    ASSERT_TRUE(b1.has_value());
-    ASSERT_TRUE(b2.has_value());
+    EXPECT_TRUE(b1.has_value());
+    EXPECT_TRUE(b2.has_value());
     EXPECT_FALSE(cache.try_get(ctx).has_value());  // at cap
     cache.recycle_after(ctx, std::move(*b1), stream);
     cache.recycle_after(ctx, std::move(*b2), stream);
@@ -167,15 +144,10 @@ TEST_F(BounceBufferCacheTest, recycle_after_releases_in_flight_slot)
 
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamSynchronize(stream));
 
-  // After both callbacks have fired, the cache is back to fully free.
-  ASSERT_TRUE(wait_for([&] {
-    auto b = cache.try_get(ctx);
-    if (b.has_value()) {
-      cache.recycle_now(ctx, std::move(*b));
-      return true;
-    }
-    return false;
-  }));
+  // After both callbacks have run, the cache is back to fully free.
+  auto b = cache.try_get(ctx);
+  EXPECT_TRUE(b.has_value());
+  cache.recycle_now(ctx, std::move(*b));
 
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }
@@ -185,17 +157,17 @@ TEST_F(BounceBufferCacheTest, multi_context_isolation)
   kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
 
   auto primary_ctx = current_context();
-  ASSERT_NE(primary_ctx, nullptr);
+  EXPECT_NE(primary_ctx, nullptr);
 
   // Fill the primary-context cap.
   auto b1 = cache.try_get(primary_ctx);
   auto b2 = cache.try_get(primary_ctx);
-  ASSERT_TRUE(b1.has_value());
-  ASSERT_TRUE(b2.has_value());
+  EXPECT_TRUE(b1.has_value());
+  EXPECT_TRUE(b2.has_value());
   EXPECT_FALSE(cache.try_get(primary_ctx).has_value());
 
-  // Create a second context on the same device. The per-key cap is per
-  // (thread, ctx), so the second context has its own independent budget.
+  // Create a second context on the same device. The per-key cap is per (thread, ctx), so the second
+  // context has its own independent budget.
   CUdevice dev{};
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxGetDevice(&dev));
   CUcontext second_ctx{};
@@ -204,12 +176,12 @@ TEST_F(BounceBufferCacheTest, multi_context_isolation)
 #else
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxCreate(&second_ctx, 0, dev));
 #endif
-  ASSERT_EQ(current_context(), second_ctx);
+  EXPECT_EQ(current_context(), second_ctx);
 
   auto s1 = cache.try_get(second_ctx);
   auto s2 = cache.try_get(second_ctx);
-  ASSERT_TRUE(s1.has_value());
-  ASSERT_TRUE(s2.has_value());
+  EXPECT_TRUE(s1.has_value());
+  EXPECT_TRUE(s2.has_value());
   EXPECT_FALSE(cache.try_get(second_ctx).has_value());
 
   cache.recycle_now(second_ctx, std::move(*s1));
@@ -218,9 +190,9 @@ TEST_F(BounceBufferCacheTest, multi_context_isolation)
   // Restore the primary context and clean up.
   CUcontext popped{};
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxPopCurrent(&popped));
-  ASSERT_EQ(popped, second_ctx);
+  EXPECT_EQ(popped, second_ctx);
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxDestroy(second_ctx));
-  ASSERT_EQ(current_context(), primary_ctx);
+  EXPECT_EQ(current_context(), primary_ctx);
 
   cache.recycle_now(primary_ctx, std::move(*b1));
   cache.recycle_now(primary_ctx, std::move(*b2));
@@ -233,7 +205,7 @@ TEST_F(BounceBufferCacheTest, per_thread_isolation)
 
   // Main thread occupies its key's single slot.
   auto b1 = cache.try_get(ctx);
-  ASSERT_TRUE(b1.has_value());
+  EXPECT_TRUE(b1.has_value());
   EXPECT_FALSE(cache.try_get(ctx).has_value());
 
   // A worker thread has an independent (thread, ctx) key and should not be blocked.
@@ -295,7 +267,7 @@ TEST_F(BounceBufferCacheTest, singleton_instance_has_default_cap)
 
   // try_get on the singleton works.
   auto b = s.try_get(current_context());
-  ASSERT_TRUE(b.has_value());
+  EXPECT_TRUE(b.has_value());
   EXPECT_NE(b->get(), nullptr);
   s.recycle_now(current_context(), std::move(*b));
 }
