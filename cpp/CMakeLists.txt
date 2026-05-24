@@ -171,6 +171,7 @@ set(SOURCES
     "src/detail/bounce_buffer_cache.cpp"
     "src/detail/env.cpp"
     "src/detail/event.cpp"
+    "src/detail/io_event_barrier.cpp"
     "src/detail/nvtx.cpp"
     "src/detail/posix_io.cpp"
     "src/detail/stream.cpp"

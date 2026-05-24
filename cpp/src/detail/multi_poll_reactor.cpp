@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -14,11 +15,16 @@
 
 #include <curl/curl.h>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/bounce_buffer_cache.hpp>
 #include <kvikio/detail/multi_poll_reactor.hpp>
+#include <kvikio/detail/stream.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/remote_handle.hpp>
+#include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/utils.hpp>
 
 namespace kvikio::detail {
 
@@ -107,34 +113,57 @@ void MultiPollReactor::submit(std::unique_ptr<RemoteMultiTransfer> transfer)
 
 void MultiPollReactor::io_thread_main()
 {
+  using DeviceCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
   try {
     while (!_pool->is_dead()) {
-      // (1) Drain submission queue. Attach each pending easy handle to the multi handle.
-      {
-        // Lock is needed since _inbox is shared between the I/O thread and the caller thread.
-        std::unique_lock<std::mutex> lock(_submit_mutex);
-        while (!_inbox.empty()) {
-          auto transfer = std::move(_inbox.front());
-          _inbox.pop_front();
-          lock.unlock();
+      // Set true if stage (1) defers at least one device transfer because the bounce-buffer cache
+      // was at cap. Stage (4) shortens the poll timeout when this is set so the cache is
+      // re-checked promptly after recycle callbacks fire.
+      bool has_deferred_device_transfer = false;
 
-          CURL* easy = transfer->curl->handle();
-          // The caller already set WRITEFUNCTION/WRITEDATA and the endpoint options for the easy
-          // handle. We just attach it to the multi handle.
+      // (1) Drain submission queue. Walk the inbox, attaching each ready handle to the multi
+      // handle. For device transfers, check out a pinned bounce buffer from the cache first; if
+      // the cache is at cap, leave the transfer in the inbox for a later iteration.
+      {
+        std::lock_guard<std::mutex> const lock(_submit_mutex);
+        for (auto it = _inbox.begin(); it != _inbox.end();) {
+          auto& transfer = *it;
+
+          if (transfer->is_device) {
+            std::optional<CudaPinnedBounceBufferPool::Buffer> maybe;
+            {
+              PushAndPopContext c(transfer->device_ctx);
+              maybe = DeviceCache::instance().try_get(transfer->device_ctx);
+            }
+            if (!maybe) {
+              has_deferred_device_transfer = true;
+              ++it;
+              continue;
+            }
+            transfer->buffer            = std::move(*maybe);
+            transfer->ctx.pinned_buffer = transfer->buffer.get();
+          }
+
+          CURL* easy    = transfer->curl->handle();
           auto const mc = curl_multi_add_handle(_curl_multi, easy);
           if (mc != CURLM_OK) {
             // This transfer is now in transit between _inbox and _in_flight. fail_all_pending (run
-            // on the catch path below) iterates only those two containers, so it cannot find this
-            // transfer. We must mark its aggregate as failed here to maintain the per-aggregate
-            // sub-range count invariant. Otherwise the aggregate's _promise would not be resolved,
-            // and the caller's future.get() would hang.
+            // on the catch path below) iterates only those two containers. We must fail this
+            // transfer's aggregate here to maintain the per-aggregate sub-range count invariant.
+            // Also recycle the just-checked-out device buffer if any.
+            if (transfer->is_device && transfer->buffer.get() != nullptr) {
+              PushAndPopContext c(transfer->device_ctx);
+              DeviceCache::instance().recycle_now(transfer->device_ctx,
+                                                  std::move(transfer->buffer));
+            }
             transfer->aggregate->on_subrange_failed(std::make_exception_ptr(std::runtime_error(
               std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc))));
+            _inbox.erase(it);
             KVIKIO_FAIL(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc),
                         std::runtime_error);
           }
           _in_flight.emplace(easy, std::move(transfer));
-          lock.lock();
+          it = _inbox.erase(it);
         }
       }
 
@@ -166,7 +195,38 @@ void MultiPollReactor::io_thread_main()
                       std::runtime_error);
 
         if (res == CURLE_OK && !transfer->ctx.overflow_error) {
-          transfer->aggregate->on_subrange_complete(transfer->ctx.size);
+          try {
+            if (transfer->is_device) {
+              // Phase 1 (network -> pinned) done. Now schedule Phase 2 (pinned -> device) on
+              // this (thread, ctx) stream and hand the buffer to a cuLaunchHostFunc recycle
+              // callback so the cache slot is returned when the H2D drains.
+              PushAndPopContext c(transfer->device_ctx);
+              CUstream stream = StreamCachePerThreadAndContext::get();
+              KVIKIO_CUDA_DRIVER_TRY(
+                cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(transfer->device_dst),
+                                                    transfer->buffer.get(),
+                                                    transfer->ctx.size,
+                                                    stream));
+              transfer->aggregate->io_event_barrier->record_event(stream);
+              DeviceCache::instance().recycle_after(
+                transfer->device_ctx, std::move(transfer->buffer), stream);
+            }
+            transfer->aggregate->on_subrange_complete(transfer->ctx.size);
+          } catch (...) {
+            // Stage (3) CUDA/H2D path failed. Recycle the buffer if it is still held (i.e.
+            // recycle_after did not run) and fail the aggregate so the caller's future is
+            // resolved instead of left broken at scope exit.
+            if (transfer->is_device && transfer->buffer.get() != nullptr) {
+              try {
+                PushAndPopContext c(transfer->device_ctx);
+                DeviceCache::instance().recycle_now(transfer->device_ctx,
+                                                    std::move(transfer->buffer));
+              } catch (...) {
+                // Best-effort recycle; if the context push fails the buffer leaks.
+              }
+            }
+            transfer->aggregate->on_subrange_failed(std::current_exception());
+          }
         } else {
           std::stringstream ss;
           ss << "curl_multi transfer failed (" << curl_easy_strerror(res) << ")";
@@ -174,17 +234,26 @@ void MultiPollReactor::io_thread_main()
             ss << " [server returned more bytes than requested; maybe range support "
                   "missing?]";
           }
+          // No H2D was submitted on the failure path. Recycle the buffer immediately.
+          if (transfer->is_device && transfer->buffer.get() != nullptr) {
+            PushAndPopContext c(transfer->device_ctx);
+            DeviceCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+          }
           transfer->aggregate->on_subrange_failed(
             std::make_exception_ptr(std::runtime_error(ss.str())));
         }
         // transfer (unique_ptr) drops here, returning easy to the LibCurl pool.
       }
 
-      // (4) Wait for activity, wakeup, or a bounded timeout.
-      auto const poll_mc = curl_multi_poll(_curl_multi,
-                                           nullptr,   // extra_fds
-                                           0,         // extra_nfds
-                                           1000,      // timeout_ms
+      // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout when at least
+      // one device transfer is deferred on the cache so the cache is re-checked promptly after
+      // recycle callbacks fire (otherwise we could sleep up to 1 s for a callback-driven event
+      // that does not raise libcurl socket activity).
+      int const poll_timeout_ms = has_deferred_device_transfer ? 10 : 1000;
+      auto const poll_mc        = curl_multi_poll(_curl_multi,
+                                           nullptr,  // extra_fds
+                                           0,        // extra_nfds
+                                           poll_timeout_ms,
                                            nullptr);  // numfds
       KVIKIO_EXPECT(poll_mc == CURLM_OK,
                     std::string("curl_multi_poll: ") + curl_multi_strerror(poll_mc),
@@ -203,6 +272,8 @@ void MultiPollReactor::io_thread_main()
 
 void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 {
+  using DeviceCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
+
   // Drain the inbox under the submit mutex. New submissions are blocked from accumulating by the
   // _pool->is_dead() check in submit(), which is already true by the time we get here.
   {
@@ -210,6 +281,13 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     while (!_inbox.empty()) {
       auto transfer = std::move(_inbox.front());
       _inbox.pop_front();
+      // Inbox transfers that already had a buffer checked out (stage (1) succeeded but stage (2)
+      // never ran) must return that buffer to the cache. A null `buffer.get()` covers both host
+      // transfers and not-yet-checked-out device transfers.
+      if (transfer->is_device && transfer->buffer.get() != nullptr) {
+        PushAndPopContext c(transfer->device_ctx);
+        DeviceCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+      }
       transfer->aggregate->on_subrange_failed(eptr);
     }
   }
@@ -223,6 +301,13 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     // caller that pulls this handle would operate on a handle that libcurl still considers
     // attached, which is undefined behavior.
     std::ignore = curl_multi_remove_handle(_curl_multi, easy);
+    // In-flight device transfers had their buffer checked out by stage (1) but no H2D submitted
+    // yet (stage (3) is where the H2D goes, and we never reached it for these). Return the buffer
+    // to the cache.
+    if (transfer->is_device && transfer->buffer.get() != nullptr) {
+      PushAndPopContext c(transfer->device_ctx);
+      DeviceCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+    }
     transfer->aggregate->on_subrange_failed(eptr);
   }
   _in_flight.clear();

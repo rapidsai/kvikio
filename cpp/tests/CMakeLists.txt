@@ -78,6 +78,8 @@ kvikio_add_test(NAME EVENT_POOL_TEST SOURCES test_event_pool.cpp)
 
 kvikio_add_test(NAME FILE_UTILS_TEST SOURCES test_file_utils.cpp)
 
+kvikio_add_test(NAME IO_EVENT_BARRIER_TEST SOURCES test_io_event_barrier.cpp)
+
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
 if(KvikIO_REMOTE_SUPPORT)

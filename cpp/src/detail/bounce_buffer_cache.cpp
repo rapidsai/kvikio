@@ -51,6 +51,15 @@ BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
   auto& shard = get_shard(ctx);
 
   std::lock_guard const lock(shard.mutex);
+
+  // Discard any free buffers whose size does not match the current bounce_buffer_size. Their
+  // destructors route through `BounceBufferPool::put`, which deallocates wrong-size buffers.
+  // Mirrors `BounceBufferPool::_ensure_buffer_size` for free-list-held buffers in the cache.
+  auto const current_size = defaults::bounce_buffer_size();
+  while (!shard.free.empty() && shard.free.back().size() != current_size) {
+    shard.free.pop_back();
+  }
+
   if (!shard.free.empty()) {
     auto buf = std::move(shard.free.back());
     shard.free.pop_back();
