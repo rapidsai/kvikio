@@ -24,7 +24,7 @@ namespace kvikio::detail {
  * Each key of `(std::thread::id, CUcontext)` tracks three counts that together are capped at `cap`:
  * - A free list of recyclable `Buffer`s
  * - A count of buffers currently checked out to callers (Phase A)
- * - a count of pending CUDA-side recycle callbacks (Phase B).
+ * - A count of pending CUDA-side recycle callbacks (Phase B).
  *
  * Typical lifecycle of a buffer:
  * - Caller invokes `try_get(ctx)` to acquire a `Buffer` (Phase A begins). The buffer is filled with
@@ -128,9 +128,7 @@ class BounceBufferCachePerThreadAndContext {
    * @param buf The buffer (ownership transferred into the cache).
    * @param stream The CUDA stream whose completion signals that `buf` is safe to recycle.
    *
-   * @exception kvikio::CUfileException if `cuLaunchHostFunc` fails. In that case the recovery path
-   * synchronizes `stream` to ensure the buffer is safe, returns it to the free list, then
-   * propagates the error.
+   * @exception kvikio::CUfileException if `cuLaunchHostFunc` fails.
    */
   void recycle_after(CUcontext ctx, Buffer&& buf, CUstream stream);
 
@@ -143,8 +141,8 @@ class BounceBufferCachePerThreadAndContext {
     // Invariant: cap == 0 || free.size() + checked_out + in_flight <= cap
   };
 
-  // Heap-allocated payload passed to `cuLaunchHostFunc` as user data. The callback deletes it
-  // after moving the buffer into the free list.
+  // Associates a buffer with the shard whose free list will receive it. Heap-allocated and passed
+  // as user data to `cuLaunchHostFunc`. The callback deletes this struct after moving the buffer.
   struct RecycleCallbackData {
     Shard* shard;
     Buffer buffer;
@@ -153,7 +151,9 @@ class BounceBufferCachePerThreadAndContext {
   static void CUDA_CB recycle_callback(void* user_data);
 
   /**
-   * @brief Locate or lazily create the Shard state for the given CUDA context.
+   * @brief Retrieve or create the Shard state for the calling thread and given CUDA context.
+   *
+   * @param ctx The CUDA context the buffer was acquired under.
    */
   Shard& get_shard(CUcontext ctx);
 

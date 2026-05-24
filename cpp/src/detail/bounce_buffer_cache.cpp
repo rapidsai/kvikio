@@ -84,42 +84,21 @@ void BounceBufferCachePerThreadAndContext<Allocator>::recycle_after(CUcontext ct
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto& shard = get_shard(ctx);
+  auto data   = std::make_unique<RecycleCallbackData>(RecycleCallbackData{&shard, std::move(buf)});
 
-  // Reserve a slot in `in_flight` and hand the buffer to a heap-allocated payload that the
-  // recycle callback will free. We move `buf` into the payload BEFORE calling
-  // `cuLaunchHostFunc` so that, if the call fails, we can recover the buffer from the payload.
-  auto data = std::make_unique<RecycleCallbackData>(RecycleCallbackData{&shard, std::move(buf)});
+  // Phase A (`checked_out`) ends and Phase B (`in_flight`) starts.
   {
     std::lock_guard const lock(shard.mutex);
     --shard.checked_out;
     ++shard.in_flight;
   }
 
-  CUresult const result = cudaAPI::instance().LaunchHostFunc(stream, &recycle_callback, data.get());
-  if (result == CUDA_SUCCESS) {
-    // Ownership of the heap payload transfers to the callback path.
-    std::ignore = data.release();
-    return;
-  }
-
-  // Recovery path: callback was not scheduled. The buffer was just used by a `cuMemcpyAsync`
-  // on `stream`, so it is unsafe to recycle until the stream's prior work drains.
-  // Synchronize, then push the buffer to the free list and propagate the error.
-  try {
-    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-  } catch (...) {
-    // Best effort: log and continue to undo the in_flight bump. Letting the buffer leak is
-    // strictly better than corrupting the cap accounting.
-    KVIKIO_LOG_ERROR(
-      "BounceBufferCachePerThreadAndContext::recycle_after: StreamSynchronize failed during "
-      "recovery after cuLaunchHostFunc failure");
-  }
-  {
-    std::lock_guard const lock(shard.mutex);
-    --shard.in_flight;
-    shard.free.push_back(std::move(data->buffer));
-  }
-  KVIKIO_CUDA_DRIVER_TRY(result);
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().LaunchHostFunc(stream, &recycle_callback, data.get()));
+  // Ownership of the heap payload transfers to the callback.
+  // It is okay if at this point, the callback has already be executed, and the heap payload
+  // destroyed, in which case, `release` here would simply return nullptr instead of a pointer to
+  // the managed object.
+  std::ignore = data.release();
 }
 
 template <typename Allocator>
