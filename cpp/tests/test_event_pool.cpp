@@ -28,7 +28,7 @@ CUcontext current_context()
 
 }  // namespace
 
-class EventPoolTest : public testing::Test {
+class CudaEventPoolTest : public testing::Test {
  protected:
   void SetUp() override
   {
@@ -37,18 +37,18 @@ class EventPoolTest : public testing::Test {
   }
 };
 
-TEST_F(EventPoolTest, get_returns_valid_event)
+TEST_F(CudaEventPoolTest, get_returns_valid_event)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   auto e = pool.get();
   EXPECT_NE(e.get(), nullptr);
   EXPECT_EQ(e.cuda_context(), current_context());
 }
 
-TEST_F(EventPoolTest, raii_drop_returns_event_for_lifo_reuse)
+TEST_F(CudaEventPoolTest, raii_drop_returns_event_for_lifo_reuse)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   CUevent first_handle{};
   {
@@ -61,9 +61,9 @@ TEST_F(EventPoolTest, raii_drop_returns_event_for_lifo_reuse)
   EXPECT_EQ(e2.get(), first_handle);
 }
 
-TEST_F(EventPoolTest, move_construction_transfers_ownership)
+TEST_F(CudaEventPoolTest, move_construction_transfers_ownership)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   CUevent moved_handle{};
   {
@@ -81,9 +81,9 @@ TEST_F(EventPoolTest, move_construction_transfers_ownership)
   EXPECT_EQ(e.get(), moved_handle);
 }
 
-TEST_F(EventPoolTest, move_assignment_returns_target_event)
+TEST_F(CudaEventPoolTest, move_assignment_returns_target_event)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   // Acquire two distinct events.
   auto src        = pool.get();
@@ -104,9 +104,9 @@ TEST_F(EventPoolTest, move_assignment_returns_target_event)
   EXPECT_EQ(e.get(), dst_handle);
 }
 
-TEST_F(EventPoolTest, self_move_assignment_is_noop)
+TEST_F(CudaEventPoolTest, self_move_assignment_is_noop)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   auto e      = pool.get();
   auto handle = e.get();
@@ -119,9 +119,9 @@ TEST_F(EventPoolTest, self_move_assignment_is_noop)
   EXPECT_EQ(e.cuda_context(), current_context());
 }
 
-TEST_F(EventPoolTest, record_synchronize_is_done_round_trip)
+TEST_F(CudaEventPoolTest, record_synchronize_is_done_round_trip)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   CUstream stream{};
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
@@ -135,17 +135,17 @@ TEST_F(EventPoolTest, record_synchronize_is_done_round_trip)
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }
 
-TEST_F(EventPoolTest, is_done_on_fresh_event_returns_true)
+TEST_F(CudaEventPoolTest, is_done_on_fresh_event_returns_true)
 {
   // An event that has never been recorded is considered already complete by CUDA.
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
   auto e     = pool.get();
   EXPECT_TRUE(e.is_done());
 }
 
-TEST_F(EventPoolTest, observability_counters_consistent)
+TEST_F(CudaEventPoolTest, observability_counters_consistent)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
   auto ctx   = current_context();
 
   // Snapshot.
@@ -175,9 +175,9 @@ TEST_F(EventPoolTest, observability_counters_consistent)
   EXPECT_NE(e2.get(), nullptr);
 }
 
-TEST_F(EventPoolTest, no_current_context_throws)
+TEST_F(CudaEventPoolTest, no_current_context_throws)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   // Save current context, then unset.
   auto saved_ctx = current_context();
@@ -196,9 +196,9 @@ TEST_F(EventPoolTest, no_current_context_throws)
   EXPECT_NO_THROW(std::ignore = pool.get());
 }
 
-TEST_F(EventPoolTest, multi_context_isolation)
+TEST_F(CudaEventPoolTest, multi_context_isolation)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   // SetUp() already created and made current the primary context on device 0.
   auto primary_ctx = current_context();
@@ -267,9 +267,9 @@ TEST_F(EventPoolTest, multi_context_isolation)
   EXPECT_EQ(current_context(), primary_ctx);
 }
 
-TEST_F(EventPoolTest, concurrent_get_and_release_is_thread_safe)
+TEST_F(CudaEventPoolTest, concurrent_get_and_release_is_thread_safe)
 {
-  auto& pool = kvikio::detail::EventPool::instance();
+  auto& pool = kvikio::detail::CudaEventPool::instance();
 
   constexpr int num_threads           = 8;
   constexpr int iterations_per_thread = 64;
