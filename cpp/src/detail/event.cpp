@@ -14,24 +14,26 @@
 
 namespace kvikio::detail {
 
-EventPool::Event::Event(EventPool* pool, CUevent event, CUcontext cuda_context) noexcept
+CudaEventPool::CudaEvent::CudaEvent(CudaEventPool* pool,
+                                    CUevent event,
+                                    CUcontext cuda_context) noexcept
   : _pool(pool), _event(event), _cuda_context(cuda_context)
 {
 }
 
-EventPool::Event::~Event() noexcept
+CudaEventPool::CudaEvent::~CudaEvent() noexcept
 {
   if (_event != nullptr) { _pool->put(_event, _cuda_context); }
 }
 
-EventPool::Event::Event(Event&& o) noexcept
+CudaEventPool::CudaEvent::CudaEvent(CudaEvent&& o) noexcept
   : _pool(std::exchange(o._pool, nullptr)),
     _event(std::exchange(o._event, nullptr)),
     _cuda_context(std::exchange(o._cuda_context, nullptr))
 {
 }
 
-EventPool::Event& EventPool::Event::operator=(Event&& o) noexcept
+CudaEventPool::CudaEvent& CudaEventPool::CudaEvent::operator=(CudaEvent&& o) noexcept
 {
   if (this != &o) {
     if (_event != nullptr) {
@@ -45,22 +47,22 @@ EventPool::Event& EventPool::Event::operator=(Event&& o) noexcept
   return *this;
 }
 
-CUevent EventPool::Event::get() const noexcept { return _event; }
+CUevent CudaEventPool::CudaEvent::get() const noexcept { return _event; }
 
-CUcontext EventPool::Event::cuda_context() const noexcept { return _cuda_context; }
+CUcontext CudaEventPool::CudaEvent::cuda_context() const noexcept { return _cuda_context; }
 
-void EventPool::Event::record(CUstream stream)
+void CudaEventPool::CudaEvent::record(CUstream stream)
 {
   KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().EventRecord(_event, stream));
 }
 
-void EventPool::Event::synchronize()
+void CudaEventPool::CudaEvent::synchronize()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().EventSynchronize(_event));
 }
 
-bool EventPool::Event::is_done() const
+bool CudaEventPool::CudaEvent::is_done() const
 {
   auto const status = cudaAPI::instance().EventQuery(_event);
   if (status == CUDA_SUCCESS) { return true; }
@@ -71,7 +73,7 @@ bool EventPool::Event::is_done() const
   return false;
 }
 
-EventPool::Event EventPool::get()
+CudaEventPool::CudaEvent CudaEventPool::get()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   CUcontext ctx{};
@@ -90,15 +92,15 @@ EventPool::Event EventPool::get()
 
   if (event == nullptr) {
     // Create an event outside the lock to improve performance. The pool is not updated here. The
-    // returned Event object will automatically return the event to the pool when it goes out of
-    // scope
+    // returned CudaEvent object will automatically return the event to the pool when it goes out
+    // of scope
     KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().EventCreate(&event, CU_EVENT_DISABLE_TIMING));
   }
 
-  return Event(this, event, ctx);
+  return CudaEvent(this, event, ctx);
 }
 
-void EventPool::put(CUevent event, CUcontext cuda_context) noexcept
+void CudaEventPool::put(CUevent event, CUcontext cuda_context) noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
   if (event == nullptr) { return; }
@@ -118,14 +120,14 @@ void EventPool::put(CUevent event, CUcontext cuda_context) noexcept
   }
 }
 
-std::size_t EventPool::num_free_events(CUcontext cuda_context) const
+std::size_t CudaEventPool::num_free_events(CUcontext cuda_context) const
 {
   std::lock_guard const lock(_mutex);
   auto it = _pools.find(cuda_context);
   return (it != _pools.end()) ? it->second.size() : 0;
 }
 
-std::size_t EventPool::total_free_events() const
+std::size_t CudaEventPool::total_free_events() const
 {
   std::lock_guard const lock(_mutex);
   std::size_t total{0};
@@ -135,9 +137,9 @@ std::size_t EventPool::total_free_events() const
   return total;
 }
 
-EventPool& EventPool::instance()
+CudaEventPool& CudaEventPool::instance()
 {
-  static EventPool pool;
+  static CudaEventPool pool;
   return pool;
 }
 
