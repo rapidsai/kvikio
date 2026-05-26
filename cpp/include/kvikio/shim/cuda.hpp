@@ -92,6 +92,8 @@ class cudaAPI {
 
   decltype(cuPointerGetAttribute)* PointerGetAttribute{nullptr};
   decltype(cuPointerGetAttributes)* PointerGetAttributes{nullptr};
+  decltype(cuCtxCreate)* CtxCreate{nullptr};
+  decltype(cuCtxDestroy)* CtxDestroy{nullptr};
   decltype(cuCtxPushCurrent)* CtxPushCurrent{nullptr};
   decltype(cuCtxPopCurrent)* CtxPopCurrent{nullptr};
   decltype(cuCtxGetCurrent)* CtxGetCurrent{nullptr};
@@ -108,6 +110,11 @@ class cudaAPI {
   decltype(cuStreamCreate)* StreamCreate{nullptr};
   decltype(cuStreamDestroy)* StreamDestroy{nullptr};
   decltype(cuDriverGetVersion)* DriverGetVersion{nullptr};
+  decltype(cuEventSynchronize)* EventSynchronize{nullptr};
+  decltype(cuEventCreate)* EventCreate{nullptr};
+  decltype(cuEventDestroy)* EventDestroy{nullptr};
+  decltype(cuEventRecord)* EventRecord{nullptr};
+  decltype(cuEventQuery)* EventQuery{nullptr};
 
  private:
   cudaAPI();

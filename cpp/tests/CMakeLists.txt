@@ -72,6 +72,8 @@ kvikio_add_test(NAME DETAIL_UTILS_TEST SOURCES test_detail_utils.cpp)
 
 kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
 
+kvikio_add_test(NAME EVENT_POOL_TEST SOURCES test_event_pool.cpp)
+
 kvikio_add_test(NAME FILE_UTILS_TEST SOURCES test_file_utils.cpp)
 
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
