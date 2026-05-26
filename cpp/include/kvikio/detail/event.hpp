@@ -109,8 +109,11 @@ class CudaEventPool {
      * Returns true if all work captured by a preceding `record()` call has completed, false if work
      * is still pending. This is the non-blocking counterpart to `synchronize()`.
      *
-     * @note An event that has never been recorded reports `is_done() == true`, since CUDA's
-     * `cuEventQuery` returns `CUDA_SUCCESS` when there is no captured work.
+     * @note An event that has never been recorded by `cudaAPI::instance().EventRecord()` reports
+     * `is_done() == true`, since CUDA's `cuEventQuery` returns `CUDA_SUCCESS` when there is no
+     * captured work. Users that rely on `is_done() == true` as a clean baseline signal should
+     * `synchronize()` before dropping the event so that the next pool acquirer
+     * `CudaEventPool::instance().get()` sees an idle state.
      *
      * @return true if the event has completed (or has never been recorded), false if work is still
      * in progress.
