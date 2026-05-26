@@ -28,7 +28,7 @@ namespace kvikio::detail {
  * same thread overwrite the slot's captured state via `cuEventRecord`, which is safe because each
  * reactor thread submits H2D sequentially for one pred.
  *
- * Events are pulled from `EventPool::instance()` at first-record time and so are bound to the
+ * Events are pulled from `CudaEventPool::instance()` at first-record time and so are bound to the
  * CUDA context that is current at first-record. The reactor is expected to `PushAndPopContext`
  * the destination context before calling `record_event`, matching the same wrapper used for the
  * `cuMemcpyAsync` itself. `sync_all_events()` is context-agnostic per the CUDA contract: events
@@ -61,7 +61,7 @@ class IoEventBarrier {
   /**
    * @brief Record an event on `stream` for the calling thread.
    *
-   * Creates the calling thread's slot on first call (pulling an event from `EventPool`).
+   * Creates the calling thread's slot on first call (pulling an event from `CudaEventPool`).
    * Subsequent calls on the same thread re-record on the same event handle, overwriting any prior
    * captured state.
    *
@@ -86,7 +86,7 @@ class IoEventBarrier {
  private:
   CUcontext _cuda_context;
   std::mutex _mutex;
-  std::unordered_map<std::thread::id, EventPool::Event> _thread_events;
+  std::unordered_map<std::thread::id, CudaEventPool::CudaEvent> _thread_events;
 };
 
 }  // namespace kvikio::detail

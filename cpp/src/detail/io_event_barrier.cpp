@@ -17,13 +17,13 @@ CUcontext IoEventBarrier::cuda_context() const noexcept { return _cuda_context; 
 
 void IoEventBarrier::record_event(CUstream stream)
 {
-  EventPool::Event* event_ptr{nullptr};
+  CudaEventPool::CudaEvent* event_ptr{nullptr};
   {
     std::lock_guard const lock(_mutex);
     auto const tid = std::this_thread::get_id();
     auto it        = _thread_events.find(tid);
     if (it == _thread_events.end()) {
-      it = _thread_events.emplace(tid, EventPool::instance().get()).first;
+      it = _thread_events.emplace(tid, CudaEventPool::instance().get()).first;
     }
     event_ptr = &it->second;
   }
