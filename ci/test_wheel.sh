@@ -9,8 +9,8 @@ source rapids-init-pip
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 # Download and install the libkvikio and kvikio wheels built in the previous step
-LIBKVIKIO_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libkvikio_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
-KVIKIO_WHEELHOUSE=$(rapids-download-from-github "$(rapids-package-name "wheel_python" kvikio --stable --cuda "$RAPIDS_CUDA_VERSION")")
+LIBKVIKIO_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_cpp libkvikio kvikio --cuda "$RAPIDS_CUDA_VERSION")")
+KVIKIO_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_python kvikio kvikio --stable --cuda "$RAPIDS_CUDA_VERSION")")
 
 # generate constraints (possibly pinning to oldest support versions of dependencies)
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
