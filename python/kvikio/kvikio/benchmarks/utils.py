@@ -20,7 +20,7 @@ has_cuda_core_system = False
 with contextlib.suppress(ImportError):
     from cuda.core import system
 
-    has_cuda_core_system = system.CUDA_BINDINGS_IS_NVML_COMPATIBLE
+    has_cuda_core_system = system.CUDA_BINDINGS_NVML_IS_COMPATIBLE
 
 
 def drop_vm_cache() -> None:
