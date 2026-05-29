@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
@@ -21,13 +21,14 @@ def command_server(conn: Connection) -> None:
         cmd, cwd, verbose = conn.recv()
         # Run command
         res: subprocess.CompletedProcess = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+            text=True,
         )  # type: ignore
-        if verbose:
-            print(f"{cwd}$ " + " ".join(res.args))
-            print(res.stdout.decode(), end="")
-        # Send return code back to client
-        conn.send(res.returncode)
+        # Send process result back to client.
+        conn.send((res.args, cwd, res.returncode, res.stdout, res.stderr))
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -49,7 +50,18 @@ def run_cmd():
 
     def run_cmd(cmd: Iterable[str], cwd, verbose=True):
         client_conn.send((cmd, cwd, verbose))
-        return client_conn.recv()
+        args, cwd, returncode, stdout, stderr = client_conn.recv()
+
+        if verbose or returncode != 0:
+            print(f"{cwd}$ " + " ".join(args))
+            if stdout:
+                print("--- stdout ---")
+                print(stdout, end="" if stdout.endswith("\n") else "\n")
+            if stderr:
+                print("--- stderr ---")
+                print(stderr, end="" if stderr.endswith("\n") else "\n")
+
+        return returncode
 
     yield run_cmd
 
