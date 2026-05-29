@@ -23,3 +23,6 @@ python/setup.py    @rapidsai/kvikio-cmake-codeowners @rapidsai/kvikio-python-cod
 dependencies.yaml        @rapidsai/packaging-codeowners
 /build.sh                @rapidsai/packaging-codeowners
 pyproject.toml           @rapidsai/packaging-codeowners
+
+# Ops code owners
+/SECURITY.md             @rapidsai/ops-codeowners
