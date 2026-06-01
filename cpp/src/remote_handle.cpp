@@ -672,7 +672,9 @@ RemoteHandle RemoteHandle::open(std::string url,
   }
 
   if (nbytes.has_value()) { return RemoteHandle(std::move(endpoint), nbytes.value()); }
-  if (probed_nbytes.has_value()) { return RemoteHandle(std::move(endpoint), probed_nbytes.value()); }
+  if (probed_nbytes.has_value()) {
+    return RemoteHandle(std::move(endpoint), probed_nbytes.value());
+  }
   return RemoteHandle(std::move(endpoint));
 }
 

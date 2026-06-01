@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -70,9 +70,9 @@ class RemoteHandleTest : public testing::Test {
           // kvikio::RemoteEndpointType::S3 in AUTO mode, this prevents querying the file size and
           // sending requests to the server, thus allowing us to use dummy URLs for testing.
           // For kvikio::RemoteEndpointType::S3 with AUTO, RemoteHandle::open sends a HEAD request
-          // as a connectivity check (and reuses that size when nbytes is not provided). It will fail
-          // on the syntactically valid dummy URL, and kvikio::RemoteEndpointType::S3_PUBLIC will
-          // then be used as the endpoint.
+          // as a connectivity check (and reuses that size when nbytes is not provided). It will
+          // fail on the syntactically valid dummy URL, and kvikio::RemoteEndpointType::S3_PUBLIC
+          // will then be used as the endpoint.
           auto remote_handle =
             kvikio::RemoteHandle::open(url, kvikio::RemoteEndpointType::AUTO, std::nullopt, 1);
           EXPECT_EQ(remote_handle.remote_endpoint_type(), expected_endpoint_type);
