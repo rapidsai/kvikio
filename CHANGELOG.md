@@ -1,3 +1,27 @@
+# kvikio 26.06.00 (3 Jun 2026)
+
+### 🚨 Breaking Changes
+* Improve KvikIO error macros by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/947
+* Clean up KvikIO error macros by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/949
+### 🛠️ Improvements
+* Optimize opportunistic Direct I/O for device reads by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/939
+* Add logging support to KvikIO using the rapids-logger library by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/943
+* chore: bump `codespell` version for Python 3.14+ compatibility by @gforsyth in https://github.com/rapidsai/kvikio/pull/948
+* Update to clang 20.1.8 by @bdice in https://github.com/rapidsai/kvikio/pull/953
+* Migrate from pynvml.py to cuda.core.system by @mdboom in https://github.com/rapidsai/kvikio/pull/955
+* fix(ci): resolve all zizmor findings and add zizmor pre-commit checks by @gforsyth in https://github.com/rapidsai/kvikio/pull/957
+* Use `token.rapids.nvidia.com` when issuing S3 bucket creds in devcontainers by @trxcllnt in https://github.com/rapidsai/kvikio/pull/956
+* Use CUDA batch memory copy API wherever possible by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/954
+* Build and test with CUDA 13.2.0 by @bdice in https://github.com/rapidsai/kvikio/pull/958
+* fix(ci): add explicit `actions: write` permission for `telemetry-summarize`
+ by @gforsyth in https://github.com/rapidsai/kvikio/pull/959
+* skip CuPy 14.1.0 by @jameslamb in https://github.com/rapidsai/kvikio/pull/970
+
+## New Contributors
+* @mdboom made their first contribution in https://github.com/rapidsai/kvikio/pull/955
+
+**Full Changelog**: https://github.com/rapidsai/kvikio/compare/v26.06.00a...release/26.06
+
 # kvikio 26.04.00 (8 Apr 2026)
 
 ### 🚨 Breaking Changes
