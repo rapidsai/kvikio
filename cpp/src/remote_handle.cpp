@@ -627,6 +627,7 @@ RemoteHandle RemoteHandle::open(std::string url,
   };
 
   std::unique_ptr<RemoteEndpoint> endpoint;
+  std::optional<std::size_t> probed_nbytes;
 
   if (remote_endpoint_type == RemoteEndpointType::AUTO) {
     // Try each allowed type in the order of allowlist
@@ -636,8 +637,8 @@ RemoteHandle RemoteHandle::open(std::string url,
         if (endpoint == nullptr) { continue; }
         if (type == RemoteEndpointType::S3) {
           // Check connectivity for the credential-based S3 endpoint, and throw an exception if
-          // failed
-          endpoint->get_file_size();
+          // failed. Reuse this size when constructing the handle to avoid a second HEAD request.
+          probed_nbytes = endpoint->get_file_size();
         }
       } catch (...) {
         // If the credential-based S3 endpoint cannot be used to access the URL, try using S3 public
@@ -645,7 +646,8 @@ RemoteHandle RemoteHandle::open(std::string url,
         if (type == RemoteEndpointType::S3 &&
             std::find(allow_list->begin(), allow_list->end(), RemoteEndpointType::S3_PUBLIC) !=
               allow_list->end()) {
-          endpoint = std::make_unique<S3PublicEndpoint>(url);
+          endpoint      = std::make_unique<S3PublicEndpoint>(url);
+          probed_nbytes = std::nullopt;
         } else {
           throw;
         }
@@ -671,8 +673,11 @@ RemoteHandle RemoteHandle::open(std::string url,
                   std::runtime_error);
   }
 
-  return nbytes.has_value() ? RemoteHandle(std::move(endpoint), nbytes.value())
-                            : RemoteHandle(std::move(endpoint));
+  if (nbytes.has_value()) { return RemoteHandle(std::move(endpoint), nbytes.value()); }
+  if (probed_nbytes.has_value()) {
+    return RemoteHandle(std::move(endpoint), probed_nbytes.value());
+  }
+  return RemoteHandle(std::move(endpoint));
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)

@@ -16,14 +16,11 @@ permissions: {}
 jobs:
   trigger-notifier:
     if: contains(github.event.pull_request.labels.*.name, 'breaking')
-    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
-      actions: read
       contents: read
-      id-token: write
-      packages: read
-      pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/breaking-change-alert.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/breaking-change-alert.yaml@cuda-13.3.0
+    secrets:
+      slack-webhook-url: ${{ secrets.NV_SLACK_BREAKING_CHANGE_NOTIFIER_APP }}
     with:
       sender_login: ${{ github.event.sender.login }}
       sender_avatar: ${{ github.event.sender.avatar_url }}
