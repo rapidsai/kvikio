@@ -108,8 +108,12 @@ class MultiPollReactor {
    * @param pool Non-owning back-pointer to the pool that owns this reactor. Used to observe and
    * propagate pool-wide death state. The pool must outlive the reactor, which is guaranteed because
    * the pool is a leaked singleton that owns this reactor by `unique_ptr`.
+   * @param max_concurrent_requests This reactor's private share of the total concurrent-request
+   * budget (the global cap divided across reactors). 0 means unlimited. Each reactor enforces its
+   * own share against its own inbox, so there is no shared admission gate to contend on or hand off
+   * across reactor threads.
    */
-  explicit MultiPollReactor(MultiReactorPool* pool);
+  MultiPollReactor(MultiReactorPool* pool, std::size_t max_concurrent_requests);
   ~MultiPollReactor() noexcept;
   MultiPollReactor(MultiPollReactor const&)            = delete;
   MultiPollReactor& operator=(MultiPollReactor const&) = delete;
@@ -151,6 +155,9 @@ class MultiPollReactor {
   void fail_all_pending(std::exception_ptr eptr);
 
   MultiReactorPool* _pool;
+  // This reactor's private share of the concurrent-request budget. Enforced against this reactor's
+  // own inbox only, so admission needs no cross-reactor coordination.
+  ConcurrentRequestLimiter _request_limiter;
   CURLM* _curl_multi{nullptr};
   std::thread _io_thread;
   std::mutex _submit_mutex;
@@ -228,28 +235,12 @@ class MultiReactorPool {
    */
   void signal_death(std::exception_ptr eptr) noexcept;
 
-  /**
-   * @brief The process-wide limiter bounding concurrent in-flight requests across all reactors.
-   *
-   * Reactors consult this in their submission stage: a request is admitted only after a successful
-   * `try_acquire()`, and the slot is released once the request leaves the in-flight set. Exposed as
-   * an accessor (rather than the reactor reaching a member directly) so a future device-buffer
-   * change can route to a per-`CUcontext` limiter via an overload without touching reactor code.
-   *
-   * @return Reference to the limiter.
-   */
-  [[nodiscard]] ConcurrentRequestLimiter& concurrent_request_limiter() noexcept
-  {
-    return _request_limiter;
-  }
-
  private:
   MultiReactorPool();
   ~MultiReactorPool() noexcept;
 
   std::vector<std::unique_ptr<MultiPollReactor>> _reactors;
   RemoteReactorDispatch _dispatch;
-  ConcurrentRequestLimiter _request_limiter;
   // Round-robin counter. Incremented per pread (PER_PREAD) or per chunk (PER_CHUNK).
   std::atomic<std::size_t> _next_reactor_counter{0};
   std::atomic<bool> _dead{false};
