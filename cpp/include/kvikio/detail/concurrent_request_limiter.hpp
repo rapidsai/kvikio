@@ -18,7 +18,7 @@ namespace kvikio::detail {
  * own limiter, sized to a private share of the global budget
  * (`KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS / num_reactors`).
  *
- * The limiter does not blocks. A caller that cannot acquire a slot is expected to defer its work
+ * The limiter does not block. A caller that cannot acquire a slot is expected to defer its work
  * and retry later, so the reactor thread is free to keep driving the requests it already admitted.
  * `try_acquire()` and `release()` are thread-safe, though in the current `MultiPollReactor`
  * implementation all call sites run on the same I/O thread. Callers are expected to pair a

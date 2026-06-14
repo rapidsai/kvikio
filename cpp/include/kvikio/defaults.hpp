@@ -499,10 +499,13 @@ class defaults {
    *
    * One `pread()` of a large file is split into many sub-range requests (one libcurl easy handle
    * each). This bounds how many of them are attached to the reactors' multi handles at once, summed
-   * across all reactor threads. The bound is what keeps the backend from fanning out thousands of
-   * simultaneous connections and collapsing throughput.
+   * across all reactor threads.
    *
-   * Controlled by `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`. Must be a non-negative integer; 0
+   * The budget is divided into an equal private share per reactor, so the effective total is
+   * approximate: it rounds down when the value is not a multiple of the reactor count, and up when
+   * it is smaller than the reactor count (each reactor is floored to at least 1).
+   *
+   * Controlled by `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`. Must be a non-negative integer. 0
    * means unlimited. Defaults to 256. Ignored when the active backend is not `MULTI_POLL`
    * (`EASY_THREADPOOL` is already bounded by `KVIKIO_NTHREADS`).
    *

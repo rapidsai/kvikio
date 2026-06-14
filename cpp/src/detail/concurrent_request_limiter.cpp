@@ -39,8 +39,8 @@ void ConcurrentRequestLimiter::release() noexcept
 {
   [[maybe_unused]] auto const prev = _count.fetch_sub(1, std::memory_order_relaxed);
 
-  // A release without a matching successful acquire may underflow the unsigned count and silently
-  // disables the cap
+  // A release without a matching successful acquire underflows the unsigned count to SIZE_MAX,
+  // corrupting the limiter. This guard only logs the programming error.
   try {
     KVIKIO_EXPECT(prev > 0,
                   "ConcurrentRequestLimiter::release() called more times than try_acquire()");

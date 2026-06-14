@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <cstddef>
 #include <exception>
 #include <memory>
@@ -261,6 +262,13 @@ MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dis
   auto const n = defaults::remote_io_num_reactors();
   KVIKIO_EXPECT(n > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
 
+  // Split the global budget into a private per-reactor share so each reactor enforces its own cap
+  // against its own inbox, with no cross-reactor synchronization. The effective total is only
+  // approximately `max_total`: integer division rounds down when `max_total` is not a multiple of
+  // `n`, and the `max(..., 1)` floor rounds up when `max_total < n` (a computed share of 0 would be
+  // a "limited" reactor that admits nothing, so we give it at least 1). This even split assumes
+  // sub-ranges are spread across reactors (PER_CHUNK). Under PER_PREAD a single large pread() lands
+  // entirely on one reactor and is therefore capped at this share while the others stay idle.
   auto const max_total = defaults::remote_io_max_concurrent_requests();
   std::size_t const per_reactor_max =
     (max_total == 0) ? 0 : std::max<std::size_t>(max_total / n, 1);
