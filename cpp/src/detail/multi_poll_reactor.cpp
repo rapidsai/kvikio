@@ -110,10 +110,9 @@ void MultiPollReactor::io_thread_main()
 {
   try {
     while (!_pool->is_dead()) {
-      // Set true if stage (1) leaves at least one request queued because the concurrency limiter
-      // is at capacity. Stage (4) then shortens the poll timeout so the inbox is re-checked
-      // promptly once a completing request frees a slot (a release on another reactor thread does
-      // not raise libcurl socket activity here).
+      // Set true if stage (1) leaves at least one request queued because the concurrency limiter is
+      // at capacity. Stage (4) then shortens the poll timeout so the inbox is re-checked promptly
+      // once a completing request frees a slot.
       bool has_deferred = false;
 
       // (1) Drain submission queue. Admit as many requests as the concurrency limiter allows and
@@ -124,9 +123,7 @@ void MultiPollReactor::io_thread_main()
         while (!_inbox.empty()) {
           // Bound this reactor's in-flight requests to its private share of the global budget. Once
           // its limiter is at capacity every remaining inbox entry would fail the same check, so
-          // stop the walk and leave the rest queued in FIFO order for a later iteration. Because the
-          // share is private, completions on this reactor free its own slots and it re-admits its
-          // own inbox with no cross-reactor hand-off.
+          // stop the walk and leave the rest queued in FIFO order for a later iteration.
           if (!_request_limiter.try_acquire()) {
             has_deferred = true;
             break;
@@ -197,15 +194,14 @@ void MultiPollReactor::io_thread_main()
           transfer->aggregate->on_subrange_failed(
             std::make_exception_ptr(std::runtime_error(ss.str())));
         }
-        // This request has left _in_flight (success or failure); return its concurrency slot so a
+        // This request has left _in_flight (success or failure). Return its concurrency slot so a
         // deferred request can be admitted.
         _request_limiter.release();
         // transfer (unique_ptr) drops here, returning easy to the LibCurl pool.
       }
 
-      // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout when at least one
-      // request is deferred on a full limiter, so the inbox is re-checked promptly after a
-      // completing request frees a slot (such a release does not raise libcurl socket activity).
+      // (4) Wait for activity, wakeup, or a bounded timeout. Use a shorter timeout when requests
+      // are deferred. Completions normally raise socket activity, but not if stage (3) drained all.
       int const poll_timeout_ms = has_deferred ? 10 : 1000;
       auto const poll_mc        = curl_multi_poll(_curl_multi,
                                            nullptr,          // extra_fds
@@ -250,8 +246,8 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     // attached, which is undefined behavior.
     std::ignore = curl_multi_remove_handle(_curl_multi, easy);
     transfer->aggregate->on_subrange_failed(eptr);
-    // Every _in_flight entry holds a concurrency slot (the inbox entries drained above never
-    // acquired one, so they are not released here).
+    // Every _in_flight entry holds a concurrency slot. The inbox entries drained above never
+    // acquired one, so they are not released here.
     _request_limiter.release();
   }
   _in_flight.clear();
@@ -265,15 +261,9 @@ MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dis
   auto const n = defaults::remote_io_num_reactors();
   KVIKIO_EXPECT(n > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
 
-  // Split the global concurrent-request budget into a private per-reactor share. Each reactor
-  // enforces its own share against its own inbox, which avoids a single shared admission gate (that
-  // gate caused reactor starvation and pipeline stalls under heavy re-admission churn). The shares
-  // sum to at most the global cap, so total in-flight stays bounded. 0 means unlimited. Floor the
-  // share at 1 so a cap smaller than the reactor count cannot starve a reactor into a hang (this
-  // can let the sum slightly exceed the cap only in that small-cap corner case).
   auto const max_total = defaults::remote_io_max_concurrent_requests();
-  std::size_t per_reactor_max = (max_total == 0) ? 0 : (max_total / n);
-  if (max_total != 0 && per_reactor_max == 0) { per_reactor_max = 1; }
+  std::size_t const per_reactor_max =
+    (max_total == 0) ? 0 : std::max<std::size_t>(max_total / n, 1);
 
   _reactors.reserve(n);
   for (unsigned int i = 0; i < n; ++i) {

@@ -110,8 +110,7 @@ class MultiPollReactor {
    * the pool is a leaked singleton that owns this reactor by `unique_ptr`.
    * @param max_concurrent_requests This reactor's private share of the total concurrent-request
    * budget (the global cap divided across reactors). 0 means unlimited. Each reactor enforces its
-   * own share against its own inbox, so there is no shared admission gate to contend on or hand off
-   * across reactor threads.
+   * own share against its own inbox.
    */
   MultiPollReactor(MultiReactorPool* pool, std::size_t max_concurrent_requests);
   ~MultiPollReactor() noexcept;
@@ -155,8 +154,6 @@ class MultiPollReactor {
   void fail_all_pending(std::exception_ptr eptr);
 
   MultiReactorPool* _pool;
-  // This reactor's private share of the concurrent-request budget. Enforced against this reactor's
-  // own inbox only, so admission needs no cross-reactor coordination.
   ConcurrentRequestLimiter _request_limiter;
   CURLM* _curl_multi{nullptr};
   std::thread _io_thread;

@@ -4,21 +4,23 @@
  */
 
 #include <atomic>
-#include <cassert>
 #include <cstddef>
 
 #include <kvikio/detail/concurrent_request_limiter.hpp>
+#include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 
 namespace kvikio::detail {
 
 ConcurrentRequestLimiter::ConcurrentRequestLimiter(std::size_t max_concurrent_requests) noexcept
-  : _max{max_concurrent_requests}
+  : _max_concurrent_requests{max_concurrent_requests}
 {
 }
 
 bool ConcurrentRequestLimiter::try_acquire() noexcept
 {
-  if (_max == 0) {
+  if (_max_concurrent_requests == 0) {
     _count.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
@@ -27,20 +29,26 @@ bool ConcurrentRequestLimiter::try_acquire() noexcept
   // over-count to concurrent acquirers.
   auto cur = _count.load(std::memory_order_relaxed);
   do {
-    if (cur >= _max) { return false; }
+    if (cur >= _max_concurrent_requests) { return false; }
   } while (!_count.compare_exchange_weak(
-    cur, cur + 1, std::memory_order_acquire, std::memory_order_relaxed));
+    cur, cur + 1, std::memory_order_relaxed, std::memory_order_relaxed));
   return true;
 }
 
 void ConcurrentRequestLimiter::release() noexcept
 {
-  [[maybe_unused]] auto const prev = _count.fetch_sub(1, std::memory_order_release);
-  // A release without a matching successful acquire underflows the unsigned count and silently
-  // disables the cap, so guard against it in debug builds.
-  assert(prev > 0 && "ConcurrentRequestLimiter::release() called more times than try_acquire()");
+  [[maybe_unused]] auto const prev = _count.fetch_sub(1, std::memory_order_relaxed);
+
+  // A release without a matching successful acquire may underflow the unsigned count and silently
+  // disables the cap
+  try {
+    KVIKIO_EXPECT(prev > 0,
+                  "ConcurrentRequestLimiter::release() called more times than try_acquire()");
+  } catch (std::exception const& e) {
+    KVIKIO_LOG_ERROR(e.what());
+  }
 }
 
-bool ConcurrentRequestLimiter::unlimited() const noexcept { return _max == 0; }
+bool ConcurrentRequestLimiter::unlimited() const noexcept { return _max_concurrent_requests == 0; }
 
 }  // namespace kvikio::detail
