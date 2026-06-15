@@ -11,6 +11,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -109,10 +110,10 @@ class MultiPollReactor {
    * propagate pool-wide death state. The pool must outlive the reactor, which is guaranteed because
    * the pool is a leaked singleton that owns this reactor by `unique_ptr`.
    * @param max_concurrent_requests This reactor's private share of the total concurrent-request
-   * budget (the global cap divided across reactors). 0 means unlimited. Each reactor enforces its
-   * own share against its own inbox.
+   * budget (the global cap divided across reactors). `std::nullopt` means unlimited. Each reactor
+   * enforces its own share against its own inbox.
    */
-  MultiPollReactor(MultiReactorPool* pool, std::size_t max_concurrent_requests);
+  MultiPollReactor(MultiReactorPool* pool, std::optional<std::size_t> max_concurrent_requests);
   ~MultiPollReactor() noexcept;
   MultiPollReactor(MultiPollReactor const&)            = delete;
   MultiPollReactor& operator=(MultiPollReactor const&) = delete;

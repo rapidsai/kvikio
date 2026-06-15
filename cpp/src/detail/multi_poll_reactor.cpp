@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -64,7 +65,8 @@ void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr eptr)
 
 std::future<std::size_t> RemoteMultiAggregateContext::get_future() { return _promise.get_future(); }
 
-MultiPollReactor::MultiPollReactor(MultiReactorPool* pool, std::size_t max_concurrent_requests)
+MultiPollReactor::MultiPollReactor(MultiReactorPool* pool,
+                                   std::optional<std::size_t> max_concurrent_requests)
   : _pool{pool}, _request_limiter{max_concurrent_requests}
 {
   KVIKIO_EXPECT(
@@ -263,8 +265,8 @@ MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dis
   KVIKIO_EXPECT(n > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
 
   auto const max_total = defaults::remote_io_max_concurrent_requests();
-  std::size_t const per_reactor_max =
-    (max_total == 0) ? 0 : std::max<std::size_t>(max_total / n, 1);
+  std::optional<std::size_t> const per_reactor_max =
+    (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
 
   _reactors.reserve(n);
   for (unsigned int i = 0; i < n; ++i) {

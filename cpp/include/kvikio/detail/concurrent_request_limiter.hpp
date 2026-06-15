@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <optional>
 
 namespace kvikio::detail {
 
@@ -24,17 +25,17 @@ namespace kvikio::detail {
  * implementation all call sites run on the same I/O thread. Callers are expected to pair a
  * successful `try_acquire()` with exactly one `release()`.
  *
- * A `_max_concurrent_requests` of 0 means unlimited.
+ * A `_max_concurrent_requests` of `std::nullopt` means unlimited.
  */
 class ConcurrentRequestLimiter {
  public:
   /**
    * @brief Construct a limiter with the given ceiling.
    *
-   * @param max_concurrent_requests Maximum number of slots that may be held at once. 0 means
-   * unlimited.
+   * @param max_concurrent_requests Maximum number of slots that may be held at once. `std::nullopt`
+   * means unlimited.
    */
-  explicit ConcurrentRequestLimiter(std::size_t max_concurrent_requests) noexcept;
+  explicit ConcurrentRequestLimiter(std::optional<std::size_t> max_concurrent_requests) noexcept;
 
   ConcurrentRequestLimiter(ConcurrentRequestLimiter const&)            = delete;
   ConcurrentRequestLimiter& operator=(ConcurrentRequestLimiter const&) = delete;
@@ -61,7 +62,7 @@ class ConcurrentRequestLimiter {
   [[nodiscard]] bool unlimited() const noexcept;
 
  private:
-  std::size_t const _max_concurrent_requests;  // 0 means unlimited.
+  std::optional<std::size_t> const _max_concurrent_requests;  // std::nullopt means unlimited.
   std::atomic<std::size_t> _count{0};
 };
 

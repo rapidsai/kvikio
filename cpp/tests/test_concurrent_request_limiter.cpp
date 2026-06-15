@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -39,7 +40,7 @@ TEST(ConcurrentRequestLimiter, ReleaseFreesSlot)
 
 TEST(ConcurrentRequestLimiter, UnlimitedAlwaysAcquires)
 {
-  ConcurrentRequestLimiter limiter{0};
+  ConcurrentRequestLimiter limiter{std::nullopt};
   EXPECT_TRUE(limiter.unlimited());
   for (int i = 0; i < 10000; ++i) {
     EXPECT_TRUE(limiter.try_acquire());
