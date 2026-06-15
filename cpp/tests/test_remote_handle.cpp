@@ -4,8 +4,10 @@
  */
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -18,6 +20,26 @@
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
+
+class CountingEndpoint : public kvikio::RemoteEndpoint {
+ public:
+  CountingEndpoint() : RemoteEndpoint{kvikio::RemoteEndpointType::HTTP} {}
+
+  void setopt(kvikio::CurlHandle&) override { ++setopt_calls; }
+
+  std::string str() const override { return "http://example.com/test"; }
+
+  std::size_t get_file_size() override { return file_size; }
+
+  void setup_range_request(kvikio::CurlHandle&, std::size_t, std::size_t) override
+  {
+    ++range_request_calls;
+  }
+
+  std::size_t file_size{100};
+  int setopt_calls{};
+  int range_request_calls{};
+};
 
 class RemoteHandleTest : public testing::Test {
  protected:
@@ -137,6 +159,18 @@ TEST_F(RemoteHandleTest, test_http_url)
       EXPECT_FALSE(kvikio::HttpEndpoint::is_url_valid(invalid_url));
     }
   }
+}
+
+TEST_F(RemoteHandleTest, read_zero_size_returns_without_range_request)
+{
+  auto endpoint      = std::make_unique<CountingEndpoint>();
+  auto* endpoint_ptr = endpoint.get();
+  kvikio::RemoteHandle remote_handle(std::move(endpoint), endpoint_ptr->file_size);
+
+  std::vector<char> output(1);
+  EXPECT_EQ(remote_handle.read(output.data(), 0, 0), 0);
+  EXPECT_EQ(endpoint_ptr->setopt_calls, 0);
+  EXPECT_EQ(endpoint_ptr->range_request_calls, 0);
 }
 
 TEST_F(RemoteHandleTest, test_s3_url)
