@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -81,6 +81,7 @@ class CurlHandle {
  private:
   char _errbuf[CURL_ERROR_SIZE];
   LibCurl::UniqueHandlePtr _handle;
+  std::function<void()> _before_perform_attempt;
 
  public:
   /**
@@ -107,6 +108,13 @@ class CurlHandle {
    * @brief Get the underlying curl easy handle pointer.
    */
   CURL* handle() noexcept;
+
+  /**
+   * @brief Set a callback that runs before every curl_easy_perform() attempt.
+   *
+   * This is useful when retrying a transfer whose write callback carries per-attempt byte state.
+   */
+  void set_before_perform_attempt(std::function<void()> callback);
 
   /**
    * @brief Set option for the curl handle.

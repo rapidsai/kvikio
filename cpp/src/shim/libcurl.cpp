@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -114,6 +114,11 @@ CurlHandle::~CurlHandle() noexcept { LibCurl::instance().retain_handle(std::move
 
 CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 
+void CurlHandle::set_before_perform_attempt(std::function<void()> callback)
+{
+  _before_perform_attempt = std::move(callback);
+}
+
 void CurlHandle::perform()
 {
   long http_code          = 0;
@@ -125,6 +130,7 @@ void CurlHandle::perform()
   CURLcode err;
 
   while (attempt_count++ < http_max_attempts) {
+    if (_before_perform_attempt) { _before_perform_attempt(); }
     err = curl_easy_perform(handle());
 
     if (err == CURLE_OK) {

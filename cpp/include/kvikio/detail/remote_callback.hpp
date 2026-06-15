@@ -35,6 +35,26 @@ struct CallbackContext {
 };
 
 /**
+ * @brief Reset per-attempt byte accounting before retrying a transfer.
+ */
+void reset_callback_context(CallbackContext& ctx) noexcept;
+
+/**
+ * @brief Whether a transfer delivered exactly the requested number of bytes.
+ */
+[[nodiscard]] bool callback_context_complete(CallbackContext const& ctx) noexcept;
+
+/**
+ * @brief Number of bytes delivered to the callback context.
+ */
+[[nodiscard]] std::size_t callback_context_received_bytes(CallbackContext const& ctx) noexcept;
+
+/**
+ * @brief Require a transfer to have delivered exactly the requested number of bytes.
+ */
+void expect_callback_context_complete(CallbackContext const& ctx);
+
+/**
  * @brief Callback for `CURLOPT_WRITEFUNCTION` that copies received bytes directly into a host
  * buffer.
  *
