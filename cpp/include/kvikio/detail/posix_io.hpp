@@ -81,6 +81,13 @@ ssize_t posix_host_io(
     }
     return nbytes;
   };
+  auto check_io_error = [](ssize_t nbytes_processed) {
+    if (nbytes_processed == -1) {
+      std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
+      KVIKIO_EXPECT(errno != EBADF, "POSIX error: Operation not permitted");
+      KVIKIO_FAIL("POSIX error on " + name + ": " + strerror(errno));
+    }
+  };
 
   std::size_t cur_offset      = offset;
   std::size_t bytes_remaining = count;
@@ -105,6 +112,7 @@ ssize_t posix_host_io(
       KVIKIO_NVTX_SCOPED_RANGE(op_name_bio, bytes_remaining, color_bio);
       // Direct I/O disabled: use buffered I/O for entire transfer
       nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
+      check_io_error(nbytes_processed);
     } else {
       // Direct I/O enabled: attempt to use it when alignment allows
       auto const is_cur_offset_aligned = is_aligned(cur_offset, page_size);
@@ -116,11 +124,13 @@ ssize_t posix_host_io(
         auto const bytes_requested    = std::min(aligned_cur_offset - cur_offset, bytes_remaining);
         KVIKIO_NVTX_SCOPED_RANGE(op_name_bio, bytes_requested, color_bio);
         nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_requested, cur_offset);
+        check_io_error(nbytes_processed);
       } else {
         if (bytes_remaining < page_size) {
           KVIKIO_NVTX_SCOPED_RANGE(op_name_bio, bytes_remaining, color_bio);
           // Handle unaligned suffix: remaining bytes are less than a page, use buffered I/O
           nbytes_processed = pread_or_write(fd_direct_off, buffer, bytes_remaining, cur_offset);
+          check_io_error(nbytes_processed);
         } else {
           // Offset is page-aligned. Now make transfer size page-aligned too by rounding down
           auto aligned_bytes_remaining = align_down(bytes_remaining, page_size);
@@ -144,26 +154,22 @@ ssize_t posix_host_io(
             // Perform Direct I/O using the bounce buffer
             nbytes_processed =
               pread_or_write(fd_direct_on, aligned_buf, bytes_requested, cur_offset);
+            check_io_error(nbytes_processed);
 
             if constexpr (Operation == IOOperationType::READ) {
               // Copy data from bounce buffer to user buffer after Direct I/O read
-              std::memcpy(buffer, aligned_buf, nbytes_processed);
+              std::memcpy(buffer, aligned_buf, static_cast<std::size_t>(nbytes_processed));
             }
           } else {
             KVIKIO_NVTX_SCOPED_RANGE(op_name_dio, bytes_requested, color_dio);
             // Buffer is page-aligned: perform Direct I/O directly with user buffer
             nbytes_processed = pread_or_write(fd_direct_on, buffer, bytes_requested, cur_offset);
+            check_io_error(nbytes_processed);
           }
         }
       }
     }
 
-    // Error handling
-    if (nbytes_processed == -1) {
-      std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
-      KVIKIO_EXPECT(errno != EBADF, "POSIX error: Operation not permitted");
-      KVIKIO_FAIL("POSIX error on " + name + ": " + strerror(errno));
-    }
     if constexpr (Operation == IOOperationType::READ) {
       KVIKIO_EXPECT(nbytes_processed != 0, "POSIX error on pread: EOF");
     }
