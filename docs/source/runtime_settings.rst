@@ -67,21 +67,37 @@ Set the environment variable ``KVIKIO_REMOTE_VERBOSE`` to ``true``, ``on``, ``ye
 
    This may show sensitive contents from headers and data.
 
-Remote I/O Backend ``KVIKIO_REMOTE_IO_BACKEND``, ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
--------------------------------------------------------------------------------------------------------------------------
+Remote I/O Backend ``KVIKIO_REMOTE_IO_BACKEND``
+-----------------------------------------------
 
 KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected at process startup via the environment variable ``KVIKIO_REMOTE_IO_BACKEND``. The accepted values (case-insensitive) are:
 
   * ``EASY_THREADPOOL`` (default): Libcurl easy API running in the KvikIO thread pool. Each sub-range of a :py:func:`kvikio.RemoteFile.pread` is dispatched to a worker thread that blocks in ``curl_easy_perform()`` until its transfer completes. Concurrency is bounded by the thread pool size: one busy thread per in-flight transfer.
-  * ``MULTI_POLL``: Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is not bounded by the reactor count. See ``KVIKIO_REMOTE_IO_NUM_REACTORS`` and ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``.
+  * ``MULTI_POLL``: Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is bounded by ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` rather than by the reactor count.
 
-When ``MULTI_POLL`` is selected, two additional settings are honored:
+The ``MULTI_POLL`` backend honors three additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``, and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``.
 
-  * ``KVIKIO_REMOTE_IO_NUM_REACTORS`` (default ``1``): number of reactor threads. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. Increase beyond ``1`` to spread the in-callback ``memcpy`` cost when one reactor's CPU is the bottleneck.
-  * ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``: how sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are distributed across reactor threads when ``MULTI_POLL`` is active. When only one reactor is used, both modes are equivalent. The accepted values (case-insensitive) are:
+Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
+----------------------------------------------------------
 
-    * ``PER_CHUNK`` (default): Sub-ranges are routed to reactors round-robin, independently of which :py:func:`kvikio.RemoteFile.pread` they belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of the same file may land on different reactors, each with its own libcurl connection cache, so they may not share an established TCP/TLS connection.
-    * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
+Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``1``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. Increase beyond ``1`` to spread the in-callback ``memcpy`` cost across cores when one reactor's CPU is the bottleneck. This setting has no effect under ``EASY_THREADPOOL``.
+
+Remote I/O Reactor Dispatch ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
+-----------------------------------------------------------------
+
+Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are distributed across reactor threads when ``MULTI_POLL`` is active. When only one reactor is used, both modes are equivalent. This setting has no effect under ``EASY_THREADPOOL``. The accepted values (case-insensitive) are:
+
+  * ``PER_CHUNK`` (default): Sub-ranges are routed to reactors round-robin, independently of which :py:func:`kvikio.RemoteFile.pread` they belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of the same file may land on different reactors, each with its own libcurl connection cache, so they may not share an established TCP/TLS connection.
+  * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
+
+Remote I/O Concurrency Cap ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``
+-----------------------------------------------------------------------
+
+Upper bound on the number of HTTP range requests the ``MULTI_POLL`` backend keeps in flight at once, summed across all reactor threads. The default value is ``256``. It must be a non-negative integer, and ``0`` means unlimited. The value is ignored when the active backend is not ``MULTI_POLL`` (``EASY_THREADPOOL`` is already bounded by ``KVIKIO_NTHREADS``).
+
+The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap against its own inbox with no cross-reactor synchronization. Integer division rounds the per-reactor share down when the budget is not a multiple of the reactor count, and a floor of 1 rounds it up when the budget is smaller than the reactor count (a computed share of 0 would be a reactor that can never admit a request). The effective total is therefore only approximate.
+
+The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
 
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------
@@ -140,6 +156,15 @@ Example:
    # Enable Direct I/O for reads, and disable it for writes
    kvikio.defaults.set({"auto_direct_io_read": True, "auto_direct_io_write": False})
 
+Over-read Alignment ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD``
+-----------------------------------------------------------
+
+When opportunistic Direct I/O is enabled for reads, unaligned prefix and suffix portions of each transfer fall back to buffered I/O. Setting ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1`` forces all disk reads to use Direct I/O by aligning offsets down and sizes up to page boundaries, discarding the extra bytes after the read. This only affects the device memory read path (disk to bounce buffer to GPU). Host memory reads are unaffected. Defaults to disabled.
+
+.. code-block:: bash
+
+   export KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1
+
 Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``
 -------------------------------------------------
 
@@ -159,12 +184,3 @@ Each level includes all messages from less verbose levels.
 If not set or set to any other value, logging is disabled.
 
 By default, log output are written to the standard error stream. To write log output to a file, set the environment variable ``KVIKIO_LOG_FILE`` to a file path. The file is overwritten on each process start. If the file cannot be opened (e.g. the parent directory does not exist), KvikIO falls back to the standard error with a warning. ``KVIKIO_LOG_FILE`` has no effect when logging is disabled.
-
-Over-read Alignment ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-When opportunistic Direct I/O is enabled for reads, unaligned prefix and suffix portions of each transfer fall back to buffered I/O. Setting ``KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1`` forces all disk reads to use Direct I/O by aligning offsets down and sizes up to page boundaries, discarding the extra bytes after the read. This only affects the device memory read path (disk to bounce buffer to GPU). Host memory reads are unaffected. Defaults to disabled.
-
-.. code-block:: bash
-
-   export KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1
