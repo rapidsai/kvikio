@@ -22,7 +22,7 @@ ConcurrentRequestLimiter::ConcurrentRequestLimiter(
 
 bool ConcurrentRequestLimiter::try_acquire() noexcept
 {
-  if (!_max_concurrent_requests) {
+  if (!_max_concurrent_requests.has_value()) {
     _count.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
@@ -31,7 +31,7 @@ bool ConcurrentRequestLimiter::try_acquire() noexcept
   // over-count to concurrent acquirers.
   auto cur = _count.load(std::memory_order_relaxed);
   do {
-    if (cur >= *_max_concurrent_requests) { return false; }
+    if (cur >= _max_concurrent_requests.value()) { return false; }
   } while (!_count.compare_exchange_weak(
     cur, cur + 1, std::memory_order_relaxed, std::memory_order_relaxed));
   return true;
