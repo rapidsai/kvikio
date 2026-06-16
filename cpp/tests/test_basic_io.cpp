@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <unordered_map>
 
 #include <kvikio/defaults.hpp>
@@ -236,7 +235,7 @@ TEST(PosixHostIOTest, pread_direct_bounce_reports_invalid_fd)
   kvikio::FileWrapper fd(filepath.string(), "r", false, kvikio::FileHandle::m644);
   auto* aligned_base = static_cast<char*>(std::aligned_alloc(page_size, 2 * page_size));
   ASSERT_NE(aligned_base, nullptr);
-  std::unique_ptr<char, decltype(&std::free)> aligned_base_guard(aligned_base, &std::free);
+  detail::ScopeExit guard([&] { std::free(aligned_base); });
   auto* unaligned_buffer = aligned_base + 1;
   ASSERT_FALSE(kvikio::detail::is_aligned(unaligned_buffer, page_size));
 
