@@ -13,7 +13,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
@@ -105,6 +104,15 @@ class BounceBufferH2D {
   }
 
  public:
+  /**
+   * @brief Discard buffered bytes and restart writes from the start of the device buffer.
+   */
+  void reset() noexcept
+  {
+    _dev_offset  = 0;
+    _host_offset = 0;
+  }
+
   /**
    * @brief Write host memory to the bounce buffer (also host memory).
    *
@@ -748,15 +756,36 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   _endpoint->setopt(curl);
   _endpoint->setup_range_request(curl, file_offset, size);
 
-  std::vector<char> staging_buffer(size);
-  curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_host_memory);
-  detail::CallbackContext ctx{staging_buffer.data(), size};
+  if (is_host_mem) {
+    curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_host_memory);
+  } else {
+    curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_device_memory);
+  }
+  detail::CallbackContext ctx{buf, size};
   curl.setopt(CURLOPT_WRITEDATA, &ctx);
-  curl.set_before_perform_attempt([&ctx] { detail::reset_callback_context(ctx); });
+  curl.set_after_successful_perform([&ctx] { detail::expect_callback_context_complete(ctx); });
 
   try {
-    curl.perform();
-    detail::expect_callback_context_complete(ctx);
+    if (is_host_mem) {
+      curl.set_before_perform_attempt([&ctx] { detail::reset_callback_context(ctx); });
+      curl.perform();
+    } else {
+      PushAndPopContext c(get_context_from_pointer(buf));
+      // We use a bounce buffer to avoid many small memory copies to device. Libcurl has a
+      // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
+      detail::BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
+      ctx.bounce_buffer = &bounce_buffer;
+      curl.set_before_perform_attempt([&ctx, &bounce_buffer] {
+        detail::reset_callback_context(ctx);
+        bounce_buffer.reset();
+      });
+      try {
+        curl.perform();
+      } catch (...) {
+        bounce_buffer.reset();
+        throw;
+      }
+    }
   } catch (std::runtime_error const& e) {
     if (ctx.overflow_error) {
       std::stringstream ss;
@@ -764,23 +793,6 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
       KVIKIO_FAIL(ss.str(), std::overflow_error);
     }
     throw;
-  }
-  if (is_host_mem) {
-    std::memcpy(buf, staging_buffer.data(), size);
-  } else {
-    PushAndPopContext c(get_context_from_pointer(buf));
-    auto stream        = detail::StreamCachePerThreadAndContext::get();
-    auto bounce_buffer = CudaPinnedBounceBufferPool::instance().get();
-    auto dev_ptr       = convert_void2deviceptr(buf);
-    std::size_t copied = 0;
-    while (copied < size) {
-      std::size_t const chunk_size = std::min(bounce_buffer.size(), size - copied);
-      std::memcpy(bounce_buffer.get(), staging_buffer.data() + copied, chunk_size);
-      KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_async(
-        dev_ptr + copied, convert_void2deviceptr(bounce_buffer.get()), chunk_size, stream));
-      KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(stream));
-      copied += chunk_size;
-    }
   }
   return size;
 }
