@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
@@ -329,6 +330,17 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
    */
   static bool is_url_valid(std::string const& url) noexcept;
 };
+
+/**
+ * @brief Infer remote endpoint type from URL.
+ *
+ * This function follows the same endpoint-selection order as `RemoteHandle::open()` in
+ * `RemoteEndpointType::AUTO` mode, but only infers the endpoint type and does not create a handle.
+ *
+ * @param url The URL of the remote file.
+ * @return The inferred endpoint type.
+ */
+RemoteEndpointType infer_remote_endpoint_type(std::string url);
 
 /**
  * @brief Handle of remote file.
