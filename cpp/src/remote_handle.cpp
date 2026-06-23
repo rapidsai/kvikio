@@ -659,13 +659,13 @@ bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
   }
 }
 
-RemoteEndpointType infer_remote_endpoint_type(std::string url)
+RemoteEndpointType infer_remote_endpoint_type(std::string const& url)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   return infer_endpoint_impl(url, get_default_allow_list(), false).remote_endpoint_type;
 }
 
-RemoteHandle RemoteHandle::open(std::string url,
+RemoteHandle RemoteHandle::open(std::string const& url,
                                 RemoteEndpointType remote_endpoint_type,
                                 std::optional<std::vector<RemoteEndpointType>> allow_list,
                                 std::optional<std::size_t> nbytes)

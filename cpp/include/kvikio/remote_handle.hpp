@@ -340,7 +340,7 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
  * @param url The URL of the remote file.
  * @return The inferred endpoint type.
  */
-RemoteEndpointType infer_remote_endpoint_type(std::string url);
+RemoteEndpointType infer_remote_endpoint_type(std::string const& url);
 
 /**
  * @brief Handle of remote file.
@@ -428,7 +428,7 @@ class RemoteHandle {
    *   );
    *   @endcode
    */
-  static RemoteHandle open(std::string url,
+  static RemoteHandle open(std::string const& url,
                            RemoteEndpointType remote_endpoint_type = RemoteEndpointType::AUTO,
                            std::optional<std::vector<RemoteEndpointType>> allow_list = std::nullopt,
                            std::optional<std::size_t> nbytes = std::nullopt);
