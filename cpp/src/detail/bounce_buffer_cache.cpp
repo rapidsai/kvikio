@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -51,6 +52,14 @@ BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
   auto& shard = get_shard(ctx);
 
   std::lock_guard const lock(shard.mutex);
+
+  // Discard free buffers whose size no longer matches the current bounce_buffer_size. Their
+  // destructors route through BounceBufferPool::put, which deallocates wrong-size buffers.
+  auto const current_size = defaults::bounce_buffer_size();
+  while (!shard.free.empty() && shard.free.back().size() != current_size) {
+    shard.free.pop_back();
+  }
+
   if (!shard.free.empty()) {
     auto buf = std::move(shard.free.back());
     shard.free.pop_back();
@@ -124,9 +133,11 @@ BounceBufferCachePerThreadAndContext<Allocator>::instance()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   static auto* _instance = []() {
-    auto const n = defaults::num_bounce_buffers_per_cache();
-    return new BounceBufferCachePerThreadAndContext(n == 0 ? std::nullopt
-                                                           : std::optional<std::size_t>{n});
+    auto const max_total = defaults::remote_io_max_concurrent_requests();
+    auto const n         = defaults::remote_io_num_reactors();
+    std::optional<std::size_t> const per_reactor_max =
+      (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
+    return new BounceBufferCachePerThreadAndContext(per_reactor_max);
   }();
   return *_instance;
 }

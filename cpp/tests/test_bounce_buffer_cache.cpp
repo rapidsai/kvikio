@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <atomic>
 #include <thread>
 #include <tuple>
@@ -264,7 +265,11 @@ TEST_F(BounceBufferCacheTest, singleton_instance_has_default_cap)
 {
   auto& s =
     kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator>::instance();
-  EXPECT_EQ(s.cap(), kvikio::defaults::num_bounce_buffers_per_cache());
+  auto const max_total = kvikio::defaults::remote_io_max_concurrent_requests();
+  auto const n         = kvikio::defaults::remote_io_num_reactors();
+  std::optional<std::size_t> const expected_cap =
+    (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
+  EXPECT_EQ(s.cap(), expected_cap);
 
   // try_get on the singleton works.
   auto b = s.try_get(current_context());
