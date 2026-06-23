@@ -182,6 +182,14 @@ defaults::defaults()
     _remote_io_reactor_dispatch =
       getenv_or("KVIKIO_REMOTE_IO_REACTOR_DISPATCH", RemoteReactorDispatch::PER_CHUNK);
   }
+  {
+    ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS", ssize_t{256});
+    KVIKIO_EXPECT(
+      env >= 0,
+      "KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS has to be a non-negative integer (0 = unlimited)",
+      std::invalid_argument);
+    _remote_io_max_concurrent_requests = static_cast<std::size_t>(env);
+  }
 }
 
 defaults* defaults::instance()
@@ -311,5 +319,10 @@ unsigned int defaults::remote_io_num_reactors() { return instance()->_remote_io_
 RemoteReactorDispatch defaults::remote_io_reactor_dispatch()
 {
   return instance()->_remote_io_reactor_dispatch;
+}
+
+std::size_t defaults::remote_io_max_concurrent_requests()
+{
+  return instance()->_remote_io_max_concurrent_requests;
 }
 }  // namespace kvikio
