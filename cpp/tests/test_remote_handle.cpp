@@ -4,6 +4,7 @@
  */
 
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -169,6 +170,21 @@ TEST_F(RemoteHandleTest, read_zero_size_returns_without_range_request)
 
   std::vector<char> output(1);
   EXPECT_EQ(remote_handle.read(output.data(), 0, 0), 0);
+  EXPECT_EQ(endpoint_ptr->setopt_calls, 0);
+  EXPECT_EQ(endpoint_ptr->range_request_calls, 0);
+}
+
+TEST_F(RemoteHandleTest, read_overflowing_range_throws_without_range_request)
+{
+  auto endpoint      = std::make_unique<CountingEndpoint>();
+  auto* endpoint_ptr = endpoint.get();
+  kvikio::RemoteHandle remote_handle(std::move(endpoint), endpoint_ptr->file_size);
+
+  std::vector<char> output(1);
+  auto constexpr file_offset = std::numeric_limits<std::size_t>::max() - 1;
+  auto constexpr size        = std::size_t{4};
+  EXPECT_THAT([&] { remote_handle.read(output.data(), size, file_offset); },
+              ThrowsMessage<std::invalid_argument>(HasSubstr("cannot read ")));
   EXPECT_EQ(endpoint_ptr->setopt_calls, 0);
   EXPECT_EQ(endpoint_ptr->range_request_calls, 0);
 }
