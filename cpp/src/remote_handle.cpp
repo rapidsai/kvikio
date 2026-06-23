@@ -233,13 +233,14 @@ std::string encode_special_chars_in_path(std::string const& url)
   return detail::UrlBuilder::build_manually(components);
 }
 
-std::vector<RemoteEndpointType> get_default_allow_list()
+std::vector<RemoteEndpointType> const& get_default_allow_list()
 {
-  return {RemoteEndpointType::S3,
-          RemoteEndpointType::S3_PUBLIC,
-          RemoteEndpointType::S3_PRESIGNED_URL,
-          RemoteEndpointType::WEBHDFS,
-          RemoteEndpointType::HTTP};
+  static std::vector const res{RemoteEndpointType::S3,
+                               RemoteEndpointType::S3_PUBLIC,
+                               RemoteEndpointType::S3_PRESIGNED_URL,
+                               RemoteEndpointType::WEBHDFS,
+                               RemoteEndpointType::HTTP};
+  return res;
 }
 
 std::unique_ptr<RemoteEndpoint> create_endpoint_from_type(std::string const& url,
