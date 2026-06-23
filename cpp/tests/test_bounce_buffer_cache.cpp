@@ -38,7 +38,7 @@ class BounceBufferCacheTest : public testing::Test {
 TEST_F(BounceBufferCacheTest, try_get_returns_buffer_under_cap)
 {
   kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(4);
-  EXPECT_EQ(cache.cap(), 4u);
+  EXPECT_EQ(cache.cap(), std::optional<std::size_t>{4});
 
   auto ctx = current_context();
   auto b   = cache.try_get(ctx);
@@ -62,10 +62,11 @@ TEST_F(BounceBufferCacheTest, try_get_returns_nullopt_at_cap)
   EXPECT_FALSE(b3.has_value());
 }
 
-TEST_F(BounceBufferCacheTest, cap_zero_means_unlimited)
+TEST_F(BounceBufferCacheTest, cap_nullopt_means_unlimited)
 {
-  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(0);
-  EXPECT_EQ(cache.cap(), 0u);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(
+    std::nullopt);
+  EXPECT_FALSE(cache.cap().has_value());
 
   auto ctx = current_context();
   std::vector<decltype(cache.try_get(ctx))> bufs;
@@ -227,7 +228,7 @@ TEST_F(BounceBufferCacheTest, per_thread_isolation)
 TEST_F(BounceBufferCacheTest, concurrent_get_and_recycle_now)
 {
   kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(
-    0);  // unlimited
+    std::nullopt);  // unlimited
 
   constexpr int num_threads           = 8;
   constexpr int iterations_per_thread = 64;

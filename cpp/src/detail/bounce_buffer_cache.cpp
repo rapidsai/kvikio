@@ -21,13 +21,13 @@ namespace kvikio::detail {
 
 template <typename Allocator>
 BounceBufferCachePerThreadAndContext<Allocator>::BounceBufferCachePerThreadAndContext(
-  std::size_t cap)
+  std::optional<std::size_t> cap)
   : _cap{cap}
 {
 }
 
 template <typename Allocator>
-std::size_t BounceBufferCachePerThreadAndContext<Allocator>::cap() const noexcept
+std::optional<std::size_t> BounceBufferCachePerThreadAndContext<Allocator>::cap() const noexcept
 {
   return _cap;
 }
@@ -60,7 +60,7 @@ BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
 
   // No buffer available on the free list. Allocate if under cap (or if cap is unlimited).
   auto const total = shard.free.size() + shard.checked_out + shard.in_flight;
-  if (_cap != 0 && total >= _cap) { return std::nullopt; }
+  if (_cap.has_value() && total >= _cap.value()) { return std::nullopt; }
 
   auto buf = BounceBufferPool<Allocator>::instance().get();
   ++shard.checked_out;
@@ -123,8 +123,11 @@ BounceBufferCachePerThreadAndContext<Allocator>&
 BounceBufferCachePerThreadAndContext<Allocator>::instance()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  static auto* _instance =
-    new BounceBufferCachePerThreadAndContext(defaults::num_bounce_buffers_per_cache());
+  static auto* _instance = []() {
+    auto const n = defaults::num_bounce_buffers_per_cache();
+    return new BounceBufferCachePerThreadAndContext(n == 0 ? std::nullopt
+                                                           : std::optional<std::size_t>{n});
+  }();
   return *_instance;
 }
 

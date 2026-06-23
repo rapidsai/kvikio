@@ -21,7 +21,8 @@ namespace kvikio::detail {
 /**
  * @brief Per-(thread, CUDA context) cache of bounce buffers with async recycling.
  *
- * Each key of `(std::thread::id, CUcontext)` tracks three counts that together are capped at `cap`:
+ * Each key of `(std::thread::id, CUcontext)` tracks three counts that together are capped at
+ * `*cap` (when `cap` has a value):
  * - A free list of recyclable `Buffer`s
  * - A count of buffers currently checked out to callers (Phase A)
  * - A count of pending CUDA-side recycle callbacks (Phase B).
@@ -59,10 +60,10 @@ class BounceBufferCachePerThreadAndContext {
    * @brief Construct a cache with the given per-(thread, CUDA context) buffer cap.
    *
    * @param cap Maximum number of buffers (free + checked-out + in-flight) per `(thread, CUDA
-   * context)` key. A value of 0 means unlimited, where `try_get` never returns `nullopt`, the cache
-   * grows on demand, and backpressure becomes the caller's responsibility.
+   * context)` key. `std::nullopt` means unlimited, where `try_get` never returns `nullopt`, the
+   * cache grows on demand, and backpressure becomes the caller's responsibility.
    */
-  explicit BounceBufferCachePerThreadAndContext(std::size_t cap);
+  explicit BounceBufferCachePerThreadAndContext(std::optional<std::size_t> cap);
 
   // Non-copyable, non-movable
   BounceBufferCachePerThreadAndContext(BounceBufferCachePerThreadAndContext const&) = delete;
@@ -87,16 +88,16 @@ class BounceBufferCachePerThreadAndContext {
   /**
    * @brief Get the per-(thread, CUDA context) buffer cap this instance was constructed with.
    *
-   * @return The cap. A value of 0 means unlimited.
+   * @return The cap. `std::nullopt` means unlimited.
    */
-  [[nodiscard]] std::size_t cap() const noexcept;
+  [[nodiscard]] std::optional<std::size_t> cap() const noexcept;
 
   /**
    * @brief Try to acquire a buffer for the given CUDA context (non-blocking).
    *
    * Pops from the per-(this thread, ctx) free list if non-empty. Otherwise allocates a fresh Buffer
    * from the underlying `BounceBufferPool` if the per-key count (`free + checked_out + in_flight`)
-   * is below `cap()` (or `cap() == 0`). When the cap is reached, returns `std::nullopt`.
+   * is below `*cap()` (or `cap()` has no value). When the cap is reached, returns `std::nullopt`.
    *
    * @param ctx The CUDA context to associate the buffer with. The caller is expected to have `ctx`
    * current on the calling thread before calling.
@@ -138,7 +139,7 @@ class BounceBufferCachePerThreadAndContext {
     std::vector<Buffer> free;
     std::size_t checked_out{0};
     std::size_t in_flight{0};
-    // Invariant: cap == 0 || free.size() + checked_out + in_flight <= cap
+    // Invariant: !cap.has_value() || free.size() + checked_out + in_flight <= *cap
   };
 
   // Associates a buffer with the shard whose free list will receive it. Heap-allocated and passed
@@ -157,7 +158,7 @@ class BounceBufferCachePerThreadAndContext {
    */
   Shard& get_shard(CUcontext ctx);
 
-  std::size_t _cap;
+  std::optional<std::size_t> _cap;
   std::mutex _map_mutex;
   std::map<std::pair<std::thread::id, CUcontext>, std::unique_ptr<Shard>> _shards;
 };
