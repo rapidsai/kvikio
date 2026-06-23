@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <regex>
 #include <sstream>
@@ -173,8 +174,11 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
 void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
   KVIKIO_EXPECT(size > 0, "cannot create a zero-size range request", std::invalid_argument);
-  std::string const byte_range =
-    std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
+  KVIKIO_EXPECT(size <= std::numeric_limits<std::size_t>::max() - file_offset,
+                "cannot create a range request with overflowing end offset",
+                std::invalid_argument);
+  auto const end_offset        = file_offset + size - 1;
+  std::string const byte_range = std::to_string(file_offset) + "-" + std::to_string(end_offset);
   curl.setopt(CURLOPT_RANGE, byte_range.c_str());
 }
 
