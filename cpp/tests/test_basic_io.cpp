@@ -240,10 +240,13 @@ TEST(PosixHostIOTest, pread_direct_bounce_reports_invalid_fd)
   ASSERT_FALSE(kvikio::detail::is_aligned(unaligned_buffer, page_size));
 
   auto constexpr invalid_direct_fd = -2;
-  EXPECT_THROW((void)kvikio::detail::posix_host_io<kvikio::detail::IOOperationType::READ,
-                                                   kvikio::detail::PartialIO::YES>(
-                 fd.fd(), unaligned_buffer, page_size, 0, invalid_direct_fd),
-               kvikio::CUfileException);
+  EXPECT_THROW(
+    {
+      (void)(kvikio::detail::posix_host_io<kvikio::detail::IOOperationType::READ,
+                                           kvikio::detail::PartialIO::YES>(
+        fd.fd(), unaligned_buffer, page_size, 0, invalid_direct_fd));
+    },
+    kvikio::CUfileException);
 }
 
 TEST_F(DirectIOTest, pwrite)
