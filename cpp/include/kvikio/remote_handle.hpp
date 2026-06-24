@@ -336,6 +336,9 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
  *
  * This function follows the same endpoint-selection order as `RemoteHandle::open()` in
  * `RemoteEndpointType::AUTO` mode, but only infers the endpoint type and does not create a handle.
+ * Note that this function will not return `RemoteEndpointType::S3_PUBLIC`, because disambiguating
+ * between a URL that's accessible only with authorization or only anonymously is not possible
+ * without making an HTTP request.
  *
  * @param url The URL of the remote file.
  * @return The inferred endpoint type.
