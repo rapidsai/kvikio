@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <atomic>
 #include <thread>
 #include <tuple>
@@ -38,7 +39,7 @@ class BounceBufferCacheTest : public testing::Test {
 TEST_F(BounceBufferCacheTest, try_get_returns_buffer_under_cap)
 {
   kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(4);
-  EXPECT_EQ(cache.cap(), 4u);
+  EXPECT_EQ(cache.cap(), std::optional<std::size_t>{4});
 
   auto ctx = current_context();
   auto b   = cache.try_get(ctx);
@@ -62,10 +63,11 @@ TEST_F(BounceBufferCacheTest, try_get_returns_nullopt_at_cap)
   EXPECT_FALSE(b3.has_value());
 }
 
-TEST_F(BounceBufferCacheTest, cap_zero_means_unlimited)
+TEST_F(BounceBufferCacheTest, cap_nullopt_means_unlimited)
 {
-  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(0);
-  EXPECT_EQ(cache.cap(), 0u);
+  kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(
+    std::nullopt);
+  EXPECT_FALSE(cache.cap().has_value());
 
   auto ctx = current_context();
   std::vector<decltype(cache.try_get(ctx))> bufs;
@@ -227,7 +229,7 @@ TEST_F(BounceBufferCacheTest, per_thread_isolation)
 TEST_F(BounceBufferCacheTest, concurrent_get_and_recycle_now)
 {
   kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(
-    0);  // unlimited
+    std::nullopt);  // unlimited
 
   constexpr int num_threads           = 8;
   constexpr int iterations_per_thread = 64;
@@ -263,7 +265,11 @@ TEST_F(BounceBufferCacheTest, singleton_instance_has_default_cap)
 {
   auto& s =
     kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator>::instance();
-  EXPECT_EQ(s.cap(), kvikio::defaults::num_bounce_buffers_per_cache());
+  auto const max_total = kvikio::defaults::remote_io_max_concurrent_requests();
+  auto const n         = kvikio::defaults::remote_io_num_reactors();
+  std::optional<std::size_t> const expected_cap =
+    (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
+  EXPECT_EQ(s.cap(), expected_cap);
 
   // try_get on the singleton works.
   auto b = s.try_get(current_context());

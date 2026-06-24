@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -21,13 +22,13 @@ namespace kvikio::detail {
 
 template <typename Allocator>
 BounceBufferCachePerThreadAndContext<Allocator>::BounceBufferCachePerThreadAndContext(
-  std::size_t cap)
+  std::optional<std::size_t> cap)
   : _cap{cap}
 {
 }
 
 template <typename Allocator>
-std::size_t BounceBufferCachePerThreadAndContext<Allocator>::cap() const noexcept
+std::optional<std::size_t> BounceBufferCachePerThreadAndContext<Allocator>::cap() const noexcept
 {
   return _cap;
 }
@@ -52,9 +53,8 @@ BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
 
   std::lock_guard const lock(shard.mutex);
 
-  // Discard any free buffers whose size does not match the current bounce_buffer_size. Their
-  // destructors route through `BounceBufferPool::put`, which deallocates wrong-size buffers.
-  // Mirrors `BounceBufferPool::_ensure_buffer_size` for free-list-held buffers in the cache.
+  // Discard free buffers whose size no longer matches the current bounce_buffer_size. Their
+  // destructors route through BounceBufferPool::put, which deallocates wrong-size buffers.
   auto const current_size = defaults::bounce_buffer_size();
   while (!shard.free.empty() && shard.free.back().size() != current_size) {
     shard.free.pop_back();
@@ -69,7 +69,7 @@ BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
 
   // No buffer available on the free list. Allocate if under cap (or if cap is unlimited).
   auto const total = shard.free.size() + shard.checked_out + shard.in_flight;
-  if (_cap != 0 && total >= _cap) { return std::nullopt; }
+  if (_cap.has_value() && total >= _cap.value()) { return std::nullopt; }
 
   auto buf = BounceBufferPool<Allocator>::instance().get();
   ++shard.checked_out;
@@ -132,8 +132,13 @@ BounceBufferCachePerThreadAndContext<Allocator>&
 BounceBufferCachePerThreadAndContext<Allocator>::instance()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  static auto* _instance =
-    new BounceBufferCachePerThreadAndContext(defaults::num_bounce_buffers_per_cache());
+  static auto* _instance = []() {
+    auto const max_total = defaults::remote_io_max_concurrent_requests();
+    auto const n         = defaults::remote_io_num_reactors();
+    std::optional<std::size_t> const per_reactor_max =
+      (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
+    return new BounceBufferCachePerThreadAndContext(per_reactor_max);
+  }();
   return *_instance;
 }
 

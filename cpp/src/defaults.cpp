@@ -125,15 +125,6 @@ defaults::defaults()
       env > 0, "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer", std::invalid_argument);
     _bounce_buffer_size = env;
   }
-  // Determine the default value of `num_bounce_buffers_per_cache`. 0 means unlimited.
-  {
-    ssize_t const env = getenv_or("KVIKIO_NUM_BOUNCE_BUFFERS_PER_CACHE", 16);
-    KVIKIO_EXPECT(
-      env >= 0,
-      "KVIKIO_NUM_BOUNCE_BUFFERS_PER_CACHE has to be a non-negative integer (0 means unlimited)",
-      std::invalid_argument);
-    _num_bounce_buffers_per_cache = env;
-  }
   // Determine the default value of `http_max_attempts`
   {
     ssize_t const env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
@@ -181,6 +172,14 @@ defaults::defaults()
   {
     _remote_io_reactor_dispatch =
       getenv_or("KVIKIO_REMOTE_IO_REACTOR_DISPATCH", RemoteReactorDispatch::PER_CHUNK);
+  }
+  {
+    ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS", ssize_t{256});
+    KVIKIO_EXPECT(
+      env >= 0,
+      "KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS has to be a non-negative integer (0 = unlimited)",
+      std::invalid_argument);
+    _remote_io_max_concurrent_requests = static_cast<std::size_t>(env);
   }
 }
 
@@ -249,16 +248,6 @@ void defaults::set_bounce_buffer_size(std::size_t nbytes)
   instance()->_bounce_buffer_size = nbytes;
 }
 
-std::size_t defaults::num_bounce_buffers_per_cache()
-{
-  return instance()->_num_bounce_buffers_per_cache;
-}
-
-void defaults::set_num_bounce_buffers_per_cache(std::size_t n)
-{
-  instance()->_num_bounce_buffers_per_cache = n;
-}
-
 std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }
 
 void defaults::set_http_max_attempts(std::size_t attempts)
@@ -311,5 +300,10 @@ unsigned int defaults::remote_io_num_reactors() { return instance()->_remote_io_
 RemoteReactorDispatch defaults::remote_io_reactor_dispatch()
 {
   return instance()->_remote_io_reactor_dispatch;
+}
+
+std::size_t defaults::remote_io_max_concurrent_requests()
+{
+  return instance()->_remote_io_max_concurrent_requests;
 }
 }  // namespace kvikio

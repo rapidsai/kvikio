@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <cstddef>
 #include <exception>
 #include <memory>
@@ -69,7 +70,9 @@ void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr eptr)
 
 std::future<std::size_t> RemoteMultiAggregateContext::get_future() { return _promise.get_future(); }
 
-MultiPollReactor::MultiPollReactor(MultiReactorPool* pool) : _pool{pool}
+MultiPollReactor::MultiPollReactor(MultiReactorPool* pool,
+                                   std::optional<std::size_t> max_concurrent_requests)
+  : _pool{pool}, _request_limiter{max_concurrent_requests}
 {
   KVIKIO_EXPECT(
     _pool != nullptr, "MultiPollReactor requires a non-null pool", std::invalid_argument);
@@ -121,13 +124,27 @@ void MultiPollReactor::io_thread_main()
       // re-checked promptly after recycle callbacks fire.
       bool has_deferred_device_transfer = false;
 
+      // Set true if stage (1) leaves at least one request queued because the concurrency limiter is
+      // at capacity. Stage (4) then shortens the poll timeout so the inbox is re-checked promptly
+      // once a completing request frees a slot.
+      bool has_deferred = false;
+
       // (1) Drain submission queue. Walk the inbox, attaching each ready handle to the multi
-      // handle. For device transfers, check out a pinned bounce buffer from the cache first; if
-      // the cache is at cap, leave the transfer in the inbox for a later iteration.
+      // handle. Admit a request only while the concurrency limiter has a free slot. For device
+      // transfers, also check out a pinned bounce buffer from the cache; if the cache is at cap,
+      // leave the transfer in the inbox for a later iteration.
       {
         std::lock_guard<std::mutex> const lock(_submit_mutex);
         for (auto it = _inbox.begin(); it != _inbox.end();) {
           auto& transfer = *it;
+
+          // Bound this reactor's in-flight requests to its private share of the global budget. Once
+          // the limiter is at capacity every remaining inbox entry would fail the same check, so
+          // stop the walk and leave the rest queued in FIFO order for a later iteration.
+          if (!_request_limiter.try_acquire()) {
+            has_deferred = true;
+            break;
+          }
 
           if (transfer->is_device) {
             std::optional<CudaPinnedBounceBufferPool::Buffer> maybe;
@@ -136,6 +153,9 @@ void MultiPollReactor::io_thread_main()
               maybe = DeviceCache::instance().try_get(transfer->device_ctx);
             }
             if (!maybe) {
+              // The slot acquired above goes unused because this transfer is left in the inbox.
+              // Release it so a different ready transfer can be admitted this iteration.
+              _request_limiter.release();
               has_deferred_device_transfer = true;
               ++it;
               continue;
@@ -147,6 +167,9 @@ void MultiPollReactor::io_thread_main()
           CURL* easy    = transfer->curl->handle();
           auto const mc = curl_multi_add_handle(_curl_multi, easy);
           if (mc != CURLM_OK) {
+            // The slot was acquired for a transfer that will never reach _in_flight, so release it
+            // now to avoid permanently shrinking capacity.
+            _request_limiter.release();
             // This transfer is now in transit between _inbox and _in_flight. fail_all_pending (run
             // on the catch path below) iterates only those two containers. We must fail this
             // transfer's aggregate here to maintain the per-aggregate sub-range count invariant.
@@ -242,19 +265,23 @@ void MultiPollReactor::io_thread_main()
           transfer->aggregate->on_subrange_failed(
             std::make_exception_ptr(std::runtime_error(ss.str())));
         }
+        // This request has left _in_flight (success or failure). Return its concurrency slot so a
+        // deferred request can be admitted.
+        _request_limiter.release();
         // transfer (unique_ptr) drops here, returning easy to the LibCurl pool.
       }
 
-      // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout when at least
-      // one device transfer is deferred on the cache so the cache is re-checked promptly after
-      // recycle callbacks fire (otherwise we could sleep up to 1 s for a callback-driven event
-      // that does not raise libcurl socket activity).
-      int const poll_timeout_ms = has_deferred_device_transfer ? 10 : 1000;
+      // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout when stage (1)
+      // deferred a device transfer on the cache or deferred a request on the concurrency limiter,
+      // so the inbox is re-checked promptly. Recycle callbacks that free a cache slot and
+      // completions that free a limiter slot do not necessarily raise libcurl socket activity, so
+      // without this we could sleep up to 1 s before retrying a deferred transfer.
+      int const poll_timeout_ms = (has_deferred_device_transfer || has_deferred) ? 10 : 1000;
       auto const poll_mc        = curl_multi_poll(_curl_multi,
-                                           nullptr,  // extra_fds
-                                           0,        // extra_nfds
-                                           poll_timeout_ms,
-                                           nullptr);  // numfds
+                                           nullptr,          // extra_fds
+                                           0,                // extra_nfds
+                                           poll_timeout_ms,  // timeout_ms
+                                           nullptr);         // numfds
       KVIKIO_EXPECT(poll_mc == CURLM_OK,
                     std::string("curl_multi_poll: ") + curl_multi_strerror(poll_mc),
                     std::runtime_error);
@@ -309,6 +336,9 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
       DeviceCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
     }
     transfer->aggregate->on_subrange_failed(eptr);
+    // Every _in_flight entry holds a concurrency slot. The inbox entries drained above never
+    // acquired one, so they are not released here.
+    _request_limiter.release();
   }
   _in_flight.clear();
 }
@@ -320,9 +350,14 @@ MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dis
 
   auto const n = defaults::remote_io_num_reactors();
   KVIKIO_EXPECT(n > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
+
+  auto const max_total = defaults::remote_io_max_concurrent_requests();
+  std::optional<std::size_t> const per_reactor_max =
+    (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
+
   _reactors.reserve(n);
   for (unsigned int i = 0; i < n; ++i) {
-    _reactors.emplace_back(std::make_unique<MultiPollReactor>(this));
+    _reactors.emplace_back(std::make_unique<MultiPollReactor>(this, per_reactor_max));
   }
 }
 

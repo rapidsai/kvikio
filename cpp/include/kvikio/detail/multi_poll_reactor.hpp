@@ -11,6 +11,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -18,6 +19,7 @@
 #include <curl/curl.h>
 
 #include <kvikio/bounce_buffer.hpp>
+#include <kvikio/detail/concurrent_request_limiter.hpp>
 #include <kvikio/detail/io_event_barrier.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/remote_handle.hpp>
@@ -132,8 +134,11 @@ class MultiPollReactor {
    * @param pool Non-owning back-pointer to the pool that owns this reactor. Used to observe and
    * propagate pool-wide death state. The pool must outlive the reactor, which is guaranteed because
    * the pool is a leaked singleton that owns this reactor by `unique_ptr`.
+   * @param max_concurrent_requests This reactor's private share of the total concurrent-request
+   * budget (the global cap divided across reactors). `std::nullopt` means unlimited. Each reactor
+   * enforces its own share against its own inbox.
    */
-  explicit MultiPollReactor(MultiReactorPool* pool);
+  MultiPollReactor(MultiReactorPool* pool, std::optional<std::size_t> max_concurrent_requests);
   ~MultiPollReactor() noexcept;
   MultiPollReactor(MultiPollReactor const&)            = delete;
   MultiPollReactor& operator=(MultiPollReactor const&) = delete;
@@ -175,6 +180,7 @@ class MultiPollReactor {
   void fail_all_pending(std::exception_ptr eptr);
 
   MultiReactorPool* _pool;
+  ConcurrentRequestLimiter _request_limiter;
   CURLM* _curl_multi{nullptr};
   std::thread _io_thread;
   std::mutex _submit_mutex;

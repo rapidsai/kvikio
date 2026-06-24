@@ -126,7 +126,6 @@ class defaults {
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
-  std::size_t _num_bounce_buffers_per_cache;
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
@@ -137,6 +136,7 @@ class defaults {
   RemoteIOBackend _remote_io_backend;
   unsigned int _remote_io_num_reactors;
   RemoteReactorDispatch _remote_io_reactor_dispatch;
+  std::size_t _remote_io_max_concurrent_requests;
 
   static unsigned int get_num_threads_from_env();
 
@@ -322,27 +322,6 @@ class defaults {
   static void set_bounce_buffer_size(std::size_t nbytes);
 
   /**
-   * @brief Get the per-(thread, CUDA context) cap on the number of bounce buffers held by
-   * `BounceBufferCachePerThreadAndContext`.
-   *
-   * Set the value using `kvikio::defaults::set_num_bounce_buffers_per_cache()` or by setting the
-   * `KVIKIO_NUM_BOUNCE_BUFFERS_PER_CACHE` environment variable. If not set, the value is 16.
-   *
-   * 0 means unlimited, where the cache grows on demand and backpressure becomes the caller's
-   * responsibility.
-   *
-   * @return The cap on bounce buffers per (thread, CUDA context) in the cache.
-   */
-  [[nodiscard]] static std::size_t num_bounce_buffers_per_cache();
-
-  /**
-   * @brief Set the per-(thread, CUDA context) cap on the bounce buffer cache.
-   *
-   * @param n The cap. 0 means unlimited.
-   */
-  static void set_num_bounce_buffers_per_cache(std::size_t n);
-
-  /**
    * @brief Get the maximum number of attempts per remote IO read.
    *
    * Set the value using `kvikio::default::set_http_max_attempts()` or by setting
@@ -513,6 +492,26 @@ class defaults {
    * @return The reactor dispatch policy.
    */
   [[nodiscard]] static RemoteReactorDispatch remote_io_reactor_dispatch();
+
+  /**
+   * @brief Maximum number of concurrent in-flight requests across all reactor threads under the
+   * `MULTI_POLL` remote I/O backend.
+   *
+   * One `pread()` of a large file is split into many sub-range requests (one libcurl easy handle
+   * each). This bounds how many of them are attached to the reactors' multi handles at once, summed
+   * across all reactor threads.
+   *
+   * The budget is divided into an equal private share per reactor, so the effective total is
+   * approximate: it rounds down when the value is not a multiple of the reactor count, and up when
+   * it is smaller than the reactor count (each reactor is floored to at least 1).
+   *
+   * Controlled by `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`. Must be a non-negative integer. 0
+   * means unlimited. Defaults to 256. Ignored when the active backend is not `MULTI_POLL`
+   * (`EASY_THREADPOOL` is already bounded by `KVIKIO_NTHREADS`).
+   *
+   * @return The configured concurrent-request ceiling, or 0 for unlimited.
+   */
+  [[nodiscard]] static std::size_t remote_io_max_concurrent_requests();
 };
 
 }  // namespace kvikio

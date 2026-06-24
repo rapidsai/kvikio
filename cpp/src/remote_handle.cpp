@@ -174,6 +174,7 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
  */
 void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
+  KVIKIO_EXPECT(size > 0, "cannot create a zero-size range request", std::invalid_argument);
   std::string const byte_range =
     std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
   curl.setopt(CURLOPT_RANGE, byte_range.c_str());
@@ -737,6 +738,8 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
+
+  if (size == 0) { return 0; }
 
   if (file_offset + size > _nbytes) {
     std::stringstream ss;
