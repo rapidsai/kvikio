@@ -658,7 +658,7 @@ bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
 RemoteEndpointType infer_remote_endpoint_type(std::string const& url)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::unique_ptr<RemoteEndpoint> endpoint;
+  auto [endpoint, _]              = infer_endpoint_impl(url, get_default_allow_list(), false);
   std::tie(endpoint, std::ignore) = infer_endpoint_impl(url, get_default_allow_list(), false);
   return endpoint->remote_endpoint_type();
 }
