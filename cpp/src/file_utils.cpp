@@ -48,7 +48,10 @@ FileWrapper::FileWrapper(FileWrapper&& o) noexcept : _fd(std::exchange(o._fd, -1
 
 FileWrapper& FileWrapper::operator=(FileWrapper&& o) noexcept
 {
-  _fd = std::exchange(o._fd, -1);
+  if (this != &o) {
+    close();
+    _fd = std::exchange(o._fd, -1);
+  }
   return *this;
 }
 
@@ -83,8 +86,11 @@ CUFileHandleWrapper::CUFileHandleWrapper(CUFileHandleWrapper&& o) noexcept
 
 CUFileHandleWrapper& CUFileHandleWrapper::operator=(CUFileHandleWrapper&& o) noexcept
 {
-  _handle     = std::exchange(o._handle, {});
-  _registered = std::exchange(o._registered, false);
+  if (this != &o) {
+    unregister_handle();
+    _handle     = std::exchange(o._handle, {});
+    _registered = std::exchange(o._registered, false);
+  }
   return *this;
 }
 
