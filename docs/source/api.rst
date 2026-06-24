@@ -63,6 +63,8 @@ RemoteFile
 ----------
 .. currentmodule:: kvikio.remote_file
 
+.. autofunction:: infer_remote_endpoint_type
+
 .. autoclass:: RemoteEndpointType
 
 .. autoclass:: RemoteFile
