@@ -252,7 +252,12 @@ void MultiPollReactor::io_thread_main()
           }
         } else {
           std::stringstream ss;
-          ss << "curl_multi transfer failed (" << curl_easy_strerror(res) << ")";
+          // Prefer the handle's recorded error buffer, which is usually more specific than
+          // curl_easy_strerror (for example "The requested URL returned error: 403"). Fall back to
+          // the generic strerror text when libcurl recorded no message.
+          auto const msg = transfer->curl->error_message();
+          ss << "curl_multi transfer failed ("
+             << (msg.empty() ? std::string{curl_easy_strerror(res)} : msg) << ")";
           if (transfer->ctx.overflow_error) {
             ss << " [server returned more bytes than requested; maybe range support "
                   "missing?]";

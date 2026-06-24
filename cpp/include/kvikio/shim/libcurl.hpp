@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -107,6 +107,17 @@ class CurlHandle {
    * @brief Get the underlying curl easy handle pointer.
    */
   CURL* handle() noexcept;
+
+  /**
+   * @brief Get the most recent error message libcurl recorded for this handle.
+   *
+   * The handle is created with `CURLOPT_ERRORBUFFER`, so after a failed transfer this holds a
+   * human-readable description that is usually more specific than `curl_easy_strerror`, for example
+   * "The requested URL returned error: 403". The buffer is empty when libcurl recorded no message.
+   *
+   * @return The recorded error message, or an empty string if none was recorded.
+   */
+  [[nodiscard]] std::string error_message() const;
 
   /**
    * @brief Set option for the curl handle.
