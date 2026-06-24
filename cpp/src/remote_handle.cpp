@@ -14,6 +14,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
@@ -276,15 +277,10 @@ std::unique_ptr<RemoteEndpoint> create_endpoint_from_type(std::string const& url
   }
 }
 
-struct InferredEndpoint {
-  RemoteEndpointType remote_endpoint_type{};
-  std::unique_ptr<RemoteEndpoint> endpoint;
-  std::optional<std::size_t> probed_nbytes;
-};
-
-InferredEndpoint infer_endpoint_impl(std::string const& url,
-                                     std::vector<RemoteEndpointType> const& allow_list,
-                                     bool probe_s3_connectivity)
+std::pair<std::unique_ptr<RemoteEndpoint>, std::optional<std::size_t>> infer_endpoint_impl(
+  std::string const& url,
+  std::vector<RemoteEndpointType> const& allow_list,
+  bool probe_s3_connectivity)
 {
   auto const scheme =
     detail::UrlParser::extract_component(url, CURLUPART_SCHEME, CURLU_NON_SUPPORT_SCHEME);
@@ -301,15 +297,14 @@ InferredEndpoint infer_endpoint_impl(std::string const& url,
         // RemoteHandle::open to avoid a second HEAD request.
         probed_nbytes = endpoint->get_file_size();
       }
-      return InferredEndpoint{type, std::move(endpoint), probed_nbytes};
+      return {std::move(endpoint), probed_nbytes};
     } catch (...) {
       // If the credential-based S3 endpoint cannot be used to access the URL, try using
       // S3 public endpoint instead when it is in the allowlist.
       if (type == RemoteEndpointType::S3 &&
           std::find(allow_list.begin(), allow_list.end(), RemoteEndpointType::S3_PUBLIC) !=
             allow_list.end()) {
-        return InferredEndpoint{
-          RemoteEndpointType::S3_PUBLIC, std::make_unique<S3PublicEndpoint>(url), std::nullopt};
+        return {std::make_unique<S3PublicEndpoint>(url), std::nullopt};
       }
       throw;
     }
@@ -663,7 +658,9 @@ bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
 RemoteEndpointType infer_remote_endpoint_type(std::string const& url)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return infer_endpoint_impl(url, get_default_allow_list(), false).remote_endpoint_type;
+  std::unique_ptr<RemoteEndpoint> endpoint;
+  std::tie(endpoint, std::ignore) = infer_endpoint_impl(url, get_default_allow_list(), false);
+  return endpoint->remote_endpoint_type();
 }
 
 RemoteHandle RemoteHandle::open(std::string const& url,
@@ -679,8 +676,8 @@ RemoteHandle RemoteHandle::open(std::string const& url,
 
   if (remote_endpoint_type == RemoteEndpointType::AUTO) {
     auto inferred = infer_endpoint_impl(url, allow_list.value(), true);
-    endpoint      = std::move(inferred.endpoint);
-    probed_nbytes = inferred.probed_nbytes;
+    endpoint      = std::move(inferred.first);
+    probed_nbytes = inferred.second;
   } else {
     // Validate it is in the allow list
     KVIKIO_EXPECT(
