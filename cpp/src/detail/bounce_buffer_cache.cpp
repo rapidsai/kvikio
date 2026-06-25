@@ -7,6 +7,7 @@
 #include <exception>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <tuple>
 #include <utility>
 
@@ -19,6 +20,12 @@
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio::detail {
+
+template <typename Allocator>
+BounceBufferCachePerThreadAndContext<Allocator>::Shard::Shard(std::optional<std::size_t> cap)
+{
+  if (cap.has_value()) { free.reserve(cap.value()); }
+}
 
 template <typename Allocator>
 BounceBufferCachePerThreadAndContext<Allocator>::BounceBufferCachePerThreadAndContext(
@@ -40,7 +47,7 @@ BounceBufferCachePerThreadAndContext<Allocator>::get_shard(CUcontext ctx)
   auto const key = std::pair{std::this_thread::get_id(), ctx};
   std::lock_guard const lock(_map_mutex);
   auto it = _shards.find(key);
-  if (it == _shards.end()) { it = _shards.emplace(key, std::make_unique<Shard>()).first; }
+  if (it == _shards.end()) { it = _shards.emplace(key, std::make_unique<Shard>(cap())).first; }
   return *it->second;
 }
 
@@ -50,7 +57,6 @@ BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto& shard = get_shard(ctx);
-
   std::lock_guard const lock(shard.mutex);
 
   // Discard free buffers whose size no longer matches the current bounce_buffer_size. Their
@@ -102,11 +108,21 @@ void BounceBufferCachePerThreadAndContext<Allocator>::recycle_after(CUcontext ct
     ++shard.in_flight;
   }
 
-  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().LaunchHostFunc(stream, &recycle_callback, data.get()));
-  // Ownership of the heap payload transfers to the callback.
-  // It is okay if at this point, the callback has already be executed, and the heap payload
-  // destroyed, in which case, `release` here would simply return nullptr instead of a pointer to
-  // the managed object.
+  try {
+    KVIKIO_CUDA_DRIVER_TRY(
+      cudaAPI::instance().LaunchHostFunc(stream, &recycle_callback, data.get()));
+  } catch (...) {
+    // LaunchHostFunc throws, and the callback is never enqueued. `data` still owns the payload, so
+    // its destructor returns the buffer to BounceBufferPool during unwinding. The buffer leaves the
+    // shard, so we only decrement in_flight and not restore checked_out.
+    std::lock_guard const lock(shard.mutex);
+    --shard.in_flight;
+    throw;
+  }
+
+  // The callback owns the heap payload. Here we disown it so this unique_ptr's destructor does
+  // not also delete it. If the callback has already run on another thread and freed the payload,
+  // `release()` returns a dangling pointer, which we ignore, so that is harmless.
   std::ignore = data.release();
 }
 
@@ -117,8 +133,8 @@ void CUDA_CB BounceBufferCachePerThreadAndContext<Allocator>::recycle_callback(v
   std::unique_ptr<RecycleCallbackData> data(static_cast<RecycleCallbackData*>(user_data));
   try {
     std::lock_guard const lock(data->shard->mutex);
-    data->shard->free.push_back(std::move(data->buffer));
     --data->shard->in_flight;
+    data->shard->free.push_back(std::move(data->buffer));
   } catch (std::exception const& e) {
     KVIKIO_LOG_ERROR(std::string("BounceBufferCachePerThreadAndContext::recycle_callback: ") +
                      e.what());

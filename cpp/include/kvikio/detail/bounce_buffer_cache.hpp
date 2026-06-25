@@ -88,7 +88,8 @@ class BounceBufferCachePerThreadAndContext {
   KVIKIO_EXPORT static BounceBufferCachePerThreadAndContext& instance();
 
   /**
-   * @brief Get the per-(thread, CUDA context) buffer cap this instance was constructed with.
+   * @brief Get the cap, i.e. the the maximum number of bounce buffers allowed per-(thread, CUDA
+   * context), with which this instance was constructed.
    *
    * @return The cap. `std::nullopt` means unlimited.
    */
@@ -126,6 +127,11 @@ class BounceBufferCachePerThreadAndContext {
    * `cuMemcpyAsync` (or whatever CUDA work) that consumes `buf`, the buffer is returned to the free
    * list on a CUDA driver controlled thread. Non-blocking on the calling thread.
    *
+   * @note Edge case: When the cap is unlimited (`std::nullopt`), the free list can reallocate
+   * inside the callback. If that reallocation fails (host OOM) AND the bounce buffer size is
+   * changed at runtime, the buffer's destructor may call `cuMemFreeHost` on a CUDA driver thread,
+   * which violates the `cuLaunchHostFunc` contract. This is currently an unhandled edge case.
+   *
    * @param ctx The CUDA context the buffer was acquired under (must match the original `try_get`
    * call).
    * @param buf The buffer (ownership transferred into the cache).
@@ -142,6 +148,8 @@ class BounceBufferCachePerThreadAndContext {
     std::size_t checked_out{0};
     std::size_t in_flight{0};
     // Invariant: !cap.has_value() || free.size() + checked_out + in_flight <= *cap
+
+    explicit Shard(std::optional<std::size_t> cap);
   };
 
   // Associates a buffer with the shard whose free list will receive it. Heap-allocated and passed
