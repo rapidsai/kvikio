@@ -127,13 +127,10 @@ class BounceBufferCachePerThreadAndContext {
    * `cuMemcpyAsync` (or whatever CUDA work) that consumes `buf`, the buffer is returned to the free
    * list on a CUDA driver controlled thread. Non-blocking on the calling thread.
    *
-   * @note When this cache has a finite cap (not unlimited), the per-shard free list is reserved to
-   * cap at construction, so the recycle callback's push to the free list never reallocates and the
-   * callback makes no CUDA API call.
-   * When the cap is unlimited (`std::nullopt`), the free list can reallocate inside the callback.
-   * If that reallocation fails (host OOM) AND the bounce buffer size is changed at runtime, the
-   * buffer's destructor may call `cuMemFreeHost` on a CUDA driver thread, which violates the
-   * `cuLaunchHostFunc` contract. This is currently an unhandled edge case.
+   * @note Edge case: When the cap is unlimited (`std::nullopt`), the free list can reallocate
+   * inside the callback. If that reallocation fails (host OOM) AND the bounce buffer size is
+   * changed at runtime, the buffer's destructor may call `cuMemFreeHost` on a CUDA driver thread,
+   * which violates the `cuLaunchHostFunc` contract. This is currently an unhandled edge case.
    *
    * @param ctx The CUDA context the buffer was acquired under (must match the original `try_get`
    * call).
