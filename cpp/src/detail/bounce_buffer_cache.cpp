@@ -108,14 +108,21 @@ void BounceBufferCachePerThreadAndContext<Allocator>::recycle_after(CUcontext ct
     ++shard.in_flight;
   }
 
-  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().LaunchHostFunc(stream, &recycle_callback, data.get()));
-  // The callback owns the heap payload. Here we disown it so this unique_ptr's destructor does not
-  // also delete it.
-  // If the callback has already run on another thread and freed the payload, `release()` returns a
-  // dangling pointer, which we ignore, so that is harmless.
-  // unique_ptr (rather than a raw allocation with `new`) ensures the payload is freed if
-  // LaunchHostFunc throws, in which case the callback is never enqueued and release() is never
-  // reached.
+  try {
+    KVIKIO_CUDA_DRIVER_TRY(
+      cudaAPI::instance().LaunchHostFunc(stream, &recycle_callback, data.get()));
+  } catch (...) {
+    // LaunchHostFunc throws, and the callback is never enqueued. `data` still owns the payload, so
+    // its destructor returns the buffer to BounceBufferPool during unwinding. The buffer leaves the
+    // shard, so we only decrement in_flight and not restore checked_out.
+    std::lock_guard const lock(shard.mutex);
+    --shard.in_flight;
+    throw;
+  }
+
+  // The callback owns the heap payload. Here we disown it so this unique_ptr's destructor does
+  // not also delete it. If the callback has already run on another thread and freed the payload,
+  // `release()` returns a dangling pointer, which we ignore, so that is harmless.
   std::ignore = data.release();
 }
 
