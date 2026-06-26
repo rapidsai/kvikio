@@ -7,10 +7,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <unordered_map>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
@@ -219,6 +219,35 @@ class DirectIOTest : public testing::Test {
   using AlignedAllocator   = kvikio::test::CustomHostAllocator<value_type, 4096>;
   using UnalignedAllocator = kvikio::test::CustomHostAllocator<value_type, 4096, 123>;
 };
+
+TEST(PosixHostIOTest, pread_direct_bounce_reports_invalid_fd)
+{
+  TempDir tmp_dir;
+  auto const filepath  = tmp_dir.path() / "test";
+  auto const page_size = kvikio::get_page_size();
+
+  std::vector<char> file_contents(page_size, 42);
+  auto write_fd = open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, kvikio::FileHandle::m644);
+  KVIKIO_SYSCALL_CHECK(write_fd, "File cannot be opened");
+  detail::ScopeExit write_fd_guard([&] { KVIKIO_SYSCALL_CHECK(close(write_fd)); });
+  KVIKIO_SYSCALL_CHECK(write(write_fd, file_contents.data(), file_contents.size()));
+
+  kvikio::FileWrapper fd(filepath.string(), "r", false, kvikio::FileHandle::m644);
+  auto* aligned_base = static_cast<char*>(std::aligned_alloc(page_size, 2 * page_size));
+  ASSERT_NE(aligned_base, nullptr);
+  detail::ScopeExit aligned_base_guard([&] { std::free(aligned_base); });
+  auto* unaligned_buffer = aligned_base + 1;
+  ASSERT_FALSE(kvikio::detail::is_aligned(unaligned_buffer, page_size));
+
+  auto constexpr invalid_direct_fd = -2;
+  EXPECT_THROW(
+    {
+      (void)(kvikio::detail::posix_host_io<kvikio::detail::IOOperationType::READ,
+                                           kvikio::detail::PartialIO::YES>(
+        fd.fd(), unaligned_buffer, page_size, 0, invalid_direct_fd));
+    },
+    kvikio::CUfileException);
+}
 
 TEST_F(DirectIOTest, pwrite)
 {
