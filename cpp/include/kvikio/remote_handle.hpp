@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
- * SPDX-License-Identifier: Apache-2.0
+ * reserved. reserved. reserved. reserved. reserved. reserved. SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
@@ -136,6 +136,35 @@ class RemoteEndpoint {
    * @return The type of the remote file.
    */
   [[nodiscard]] RemoteEndpointType remote_endpoint_type() const noexcept;
+
+  /**
+   * @brief Whether this endpoint can use the cuObject S3-over-RDMA data plane.
+   *
+   * Default is `false`. An endpoint returns `true` only when RDMA is both
+   * requested and usable (an RDMA-capable server plus a working cuObject
+   * runtime). When `true`, `RemoteHandle::read()` registers the destination
+   * buffer with cuObject and transfers the payload directly over RDMA instead
+   * of streaming the HTTP body.
+   *
+   * @return Boolean answer.
+   */
+  [[nodiscard]] virtual bool supports_rdma() const noexcept;
+
+  /**
+   * @brief Configure a curl handle for an RDMA range request.
+   *
+   * Sets the same connection options as `setopt()` plus the signed
+   * `x-amz-rdma-token` header carrying `rdma_token`. The token must be signed
+   * with the rest of the request (SigV4 signs `x-amz-*` headers), so it is
+   * added before signing.
+   *
+   * @param curl The curl handle.
+   * @param rdma_token The cuObject RDMA descriptor (formatted
+   * `<descriptor>:<hex addr>:<hex size>`).
+   * @return An owned `curl_slist` that the caller must free with
+   * `curl_slist_free_all()` after the transfer completes.
+   */
+  virtual curl_slist* setopt_rdma(CurlHandle& curl, std::string const& rdma_token);
 };
 
 /**
@@ -265,6 +294,15 @@ class S3Endpoint : public RemoteEndpoint {
   std::string str() const override;
   std::size_t get_file_size() override;
   void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether S3-over-RDMA is usable for this endpoint.
+   *
+   * Returns `true` when the `KVIKIO_REMOTE_RDMA` environment variable is set to
+   * a truthy value and the cuObject runtime is available (`is_cuobj_available()`).
+   */
+  [[nodiscard]] bool supports_rdma() const noexcept override;
+  curl_slist* setopt_rdma(CurlHandle& curl, std::string const& rdma_token) override;
 
   /**
    * @brief Whether the given URL is valid for S3 endpoints (excluding presigned URL).
