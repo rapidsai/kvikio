@@ -290,19 +290,36 @@ dependencies:
         packages:
           - &cupy_unsuffixed cupy>=14.0.1,!=14.1.0
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: requirements
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
+              - cupy-cuda12x>=14.0.1,!=14.1.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - cupy-cuda13x>=14.0.1,!=14.1.0
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "false"
+            packages:
+              - cupy-cuda12x>=14.0.1,!=14.1.0
           - matrix:
               cuda: "13.*"
+              use_cuda_wheels: "false"
             packages:
-              - &cupy_cu13 cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
+              - cupy-cuda13x>=14.0.1,!=14.1.0
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - *cupy_cu13
+              - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
   depends_on_libkvikio:
     common:
       - output_types: conda
