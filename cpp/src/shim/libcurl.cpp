@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -113,6 +113,13 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
 CurlHandle::~CurlHandle() noexcept { LibCurl::instance().retain_handle(std::move(_handle)); }
 
 CURL* CurlHandle::handle() noexcept { return _handle.get(); }
+
+std::string CurlHandle::error_message() const
+{
+  // Safe to construct from `_errbuf`: it is initialized empty in the constructor and libcurl always
+  // writes null-terminated strings into it.
+  return std::string{_errbuf};
+}
 
 void CurlHandle::perform()
 {
