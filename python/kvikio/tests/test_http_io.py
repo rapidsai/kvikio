@@ -1,8 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
 import http
+import os
+import subprocess
+import sys
 import time
 from http.server import SimpleHTTPRequestHandler
 from typing import Literal
@@ -91,6 +94,65 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
         return self._do_with_error_count("HEAD")
 
 
+class ShortRangeHandler(SimpleHTTPRequestHandler):
+    def _range_bounds(self) -> tuple[int, int]:
+        range_header = self.headers["Range"]
+        range_spec = range_header.removeprefix("bytes=")
+        start, end = range_spec.split("-")
+        return int(start), int(end)
+
+    def do_GET(self) -> None:
+        start, end = self._range_bounds()
+        with open(self.translate_path(self.path), "rb") as f:
+            data = f.read()
+        requested = data[start : end + 1]
+        body = requested[:-1]
+
+        self.send_response(http.HTTPStatus.PARTIAL_CONTENT)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class PartialTimeoutThenSuccessHandler(ShortRangeHandler):
+    def __init__(
+        self,
+        *args,
+        directory=None,
+        request_counter: RequestCounter = RequestCounter(),
+        partial_bytes: int = 7,
+        delay_duration: int = 2,
+        **kwargs,
+    ):
+        self.request_counter = request_counter
+        self.partial_bytes = partial_bytes
+        self.delay_duration = delay_duration
+        super().__init__(*args, directory=directory, **kwargs)
+
+    def do_GET(self) -> None:
+        start, end = self._range_bounds()
+        with open(self.translate_path(self.path), "rb") as f:
+            data = f.read()
+        body = data[start : end + 1]
+
+        self.send_response(http.HTTPStatus.PARTIAL_CONTENT)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+
+        if self.request_counter.delay_count == 0:
+            self.request_counter.delay_count += 1
+            self.wfile.write(body[: self.partial_bytes])
+            self.wfile.flush()
+            time.sleep(self.delay_duration)
+            return
+
+        self.wfile.write(body)
+
+
 @pytest.fixture
 def http_server(request, tmpdir):
     """Fixture to set up http server in separate process"""
@@ -172,6 +234,69 @@ def test_no_range_support(http_server, tmpdir, xp):
             OverflowError, match="maybe the server doesn't support file ranges?"
         ):
             f.read(b, size=10, file_offset=10)
+
+
+def test_short_successful_response_raises(tmpdir):
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+    b = np.empty_like(a)
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=ShortRangeHandler,
+    ) as server:
+        with kvikio.RemoteFile.open_http(f"{server.url}/a", nbytes=a.nbytes) as f:
+            with pytest.raises(
+                RuntimeError, match="Remote read returned fewer bytes than requested"
+            ):
+                f.read(b)
+
+
+def test_retry_after_partial_timeout_returns_exact_bytes(tmpdir):
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+    b = np.full_like(a, 255)
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=PartialTimeoutThenSuccessHandler,
+        handler_options={"request_counter": RequestCounter()},
+    ) as server:
+        with kvikio.defaults.set({"http_max_attempts": 2, "http_timeout": 1}):
+            with kvikio.RemoteFile.open_http(f"{server.url}/a", nbytes=a.nbytes) as f:
+                assert f.read(b) == a.nbytes
+
+    np.testing.assert_array_equal(a, b)
+
+
+def test_multi_poll_short_successful_response_raises(tmpdir):
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=ShortRangeHandler,
+    ) as server:
+        code = f"""
+import numpy as np
+import kvikio
+
+b = np.empty({a.size}, dtype=np.uint8)
+with kvikio.RemoteFile.open_http({f"{server.url}/a"!r}, nbytes={a.nbytes}) as f:
+    try:
+        f.pread(b, size={a.nbytes}, file_offset=0, task_size={a.nbytes}).get()
+    except RuntimeError as e:
+        if "fewer bytes than requested" not in str(e):
+            raise
+    else:
+        raise AssertionError("expected short remote read to fail")
+"""
+        env = os.environ.copy()
+        env["KVIKIO_REMOTE_IO_BACKEND"] = "multi_poll"
+        subprocess.run([sys.executable, "-c", code], check=True, env=env)
 
 
 def test_retry_http_503_ok(tmpdir, xp):
