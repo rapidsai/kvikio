@@ -185,14 +185,16 @@ void MultiPollReactor::io_thread_main()
                       std::string("curl_multi_remove_handle: ") + curl_multi_strerror(remove_mc),
                       std::runtime_error);
 
-        if (res == CURLE_OK && !transfer->ctx.overflow_error) {
-          transfer->aggregate->on_subrange_complete(transfer->ctx.size);
+        if (res == CURLE_OK && callback_context_complete(transfer->ctx)) {
+          transfer->aggregate->on_subrange_complete(callback_context_received_bytes(transfer->ctx));
         } else {
           std::stringstream ss;
           ss << "curl_multi transfer failed (" << curl_easy_strerror(res) << ")";
           if (transfer->ctx.overflow_error) {
             ss << " [server returned more bytes than requested; maybe range support "
                   "missing?]";
+          } else if (res == CURLE_OK) {
+            ss << " [server returned fewer bytes than requested]";
           }
           transfer->aggregate->on_subrange_failed(
             std::make_exception_ptr(std::runtime_error(ss.str())));
