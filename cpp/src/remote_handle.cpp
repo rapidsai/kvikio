@@ -179,6 +179,11 @@ void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::si
   curl.setopt(CURLOPT_RANGE, byte_range.c_str());
 }
 
+bool is_read_out_of_bounds(std::size_t file_offset, std::size_t size, std::size_t nbytes) noexcept
+{
+  return file_offset > nbytes || size > nbytes - file_offset;
+}
+
 /**
  * @brief Whether the given URL is compatible with the S3 endpoint (including the credential-based
  * access and presigned URL) which uses HTTP/HTTPS.
@@ -762,7 +767,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
 
   if (size == 0) { return 0; }
 
-  if (file_offset + size > _nbytes) {
+  if (is_read_out_of_bounds(file_offset, size, _nbytes)) {
     std::stringstream ss;
     ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
        << " bytes file (" << _endpoint->str() << ")";
@@ -858,7 +863,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                 "device-memory buffers.",
                 std::invalid_argument);
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
-  if (file_offset + size > _nbytes) {
+  if (is_read_out_of_bounds(file_offset, size, _nbytes)) {
     std::stringstream ss;
     ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
        << " bytes file (" << _endpoint->str() << ")";
