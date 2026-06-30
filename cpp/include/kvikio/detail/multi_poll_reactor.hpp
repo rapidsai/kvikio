@@ -18,9 +18,12 @@
 
 #include <curl/curl.h>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/concurrent_request_limiter.hpp>
+#include <kvikio/detail/io_event_barrier.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/remote_handle.hpp>
+#include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/libcurl.hpp>
 
 namespace kvikio::detail {
@@ -47,6 +50,16 @@ class RemoteMultiAggregateContext {
    * @param num_subranges Number of sub-range transfers the caller has split the read into.
    */
   explicit RemoteMultiAggregateContext(std::size_t num_subranges);
+
+  /**
+   * @brief Optional per-pread event watermark for the device-buffer path.
+   *
+   * Populated by `RemoteHandle::pread` when the destination is device memory and shared by all
+   * sub-range transfers belonging to this pred. The reactor records on it after each
+   * `cuMemcpyAsync`; the caller's deferred future waits on `sync_all_events()` before returning.
+   * Null for host transfers.
+   */
+  std::shared_ptr<IoEventBarrier> io_event_barrier;
 
   /**
    * @brief Report that one sub-range transfer succeeded.
@@ -82,11 +95,23 @@ class RemoteMultiAggregateContext {
  * One `RemoteMultiTransfer` corresponds to one libcurl easy handle, which corresponds to one HTTP
  * range request. Sub-ranges of the same `pread()` share the same `aggregate`. The `curl` member is
  * held by `std::unique_ptr` because `CurlHandle` is intentionally non-movable.
+ *
+ * Device-buffer fields (`is_device`, `device_ctx`, `device_dst`, `buffer`) are populated by the
+ * pred submitter when the destination is device memory and consumed by the reactor's stages (1)
+ * and (3). For host transfers, `is_device` is false and the other device fields are unused.
  */
 struct RemoteMultiTransfer {
   std::unique_ptr<CurlHandle> curl;
   CallbackContext ctx;
   std::shared_ptr<RemoteMultiAggregateContext> aggregate;
+
+  // Device-path fields. All zeroed/null for host transfers.
+  bool is_device{false};
+  CUcontext device_ctx{nullptr};
+  void* device_dst{nullptr};
+  // Pinned bounce buffer checked out from the cache in reactor stage (1). The reactor moves this
+  // into `cache.recycle_after` once the H2D is scheduled in stage (3).
+  CudaPinnedBounceBufferPool::Buffer buffer{nullptr, nullptr, 0};
 };
 
 /**

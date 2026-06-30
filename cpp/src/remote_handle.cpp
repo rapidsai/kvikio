@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <regex>
@@ -18,6 +19,7 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
+#include <kvikio/detail/io_event_barrier.hpp>
 #include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
@@ -852,11 +854,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   //   of them fails).
   //
   // Build all N transfers here, then hand them off in a single pool call.
-  KVIKIO_EXPECT(is_host_memory(buf),
-                "MULTI_POLL backend currently supports host memory only. "
-                "Use EASY_THREADPOOL (KVIKIO_REMOTE_IO_BACKEND=easy_threadpool) for "
-                "device-memory buffers.",
-                std::invalid_argument);
   KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   if (file_offset + size > _nbytes) {
     std::stringstream ss;
@@ -865,9 +862,24 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     KVIKIO_FAIL(ss.str(), std::invalid_argument);
   }
 
+  bool const is_host_mem = is_host_memory(buf);
+  if (!is_host_mem) {
+    KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
+                  "MULTI_POLL backend with a device buffer requires task_size <= "
+                  "KVIKIO_BOUNCE_BUFFER_SIZE. Lower KVIKIO_TASK_SIZE or raise "
+                  "KVIKIO_BOUNCE_BUFFER_SIZE.",
+                  std::invalid_argument);
+  }
+
   std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
   auto aggregate = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
   auto fut       = aggregate->get_future();
+
+  std::shared_ptr<detail::IoEventBarrier> io_event_barrier;
+  if (!is_host_mem) {
+    io_event_barrier = std::make_shared<detail::IoEventBarrier>(get_context_from_pointer(buf));
+    aggregate->io_event_barrier = io_event_barrier;
+  }
 
   std::vector<std::unique_ptr<detail::RemoteMultiTransfer>> transfers;
   transfers.reserve(num_subranges);
@@ -883,11 +895,20 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                                   KVIKIO_STRINGIFY(__LINE__));
     _endpoint->setopt(*transfer->curl);
     _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);
-    transfer->ctx.buf  = cur_buf;
-    transfer->ctx.size = subrange_size;
-    transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
-    transfer->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&transfer->ctx));
+    transfer->ctx.size  = subrange_size;
     transfer->aggregate = aggregate;
+    if (is_host_mem) {
+      transfer->ctx.buf = cur_buf;
+      transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
+    } else {
+      transfer->is_device  = true;
+      transfer->device_ctx = io_event_barrier->cuda_context();
+      transfer->device_dst = cur_buf;
+      // pinned_buffer is left null here; the reactor populates it in stage (1) once a buffer is
+      // checked out from the cache.
+      transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_pinned_buffer);
+    }
+    transfer->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&transfer->ctx));
     transfers.push_back(std::move(transfer));
     cur_buf += subrange_size;
     cur_off += subrange_size;
@@ -896,7 +917,18 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
 
   // One pool call per pread(). The pool consults the captured dispatch policy internally.
   detail::MultiReactorPool::instance().submit_pread(std::move(transfers));
-  return fut;
+
+  if (is_host_mem) { return fut; }
+
+  // Device path: wrap the libcurl-side future so that the caller's `future.get()` waits for the
+  // H2D to complete (on the caller's thread, not the reactor). The shared_ptr keeps the barrier
+  // alive until the deferred future runs.
+  return std::async(std::launch::deferred,
+                    [fut = std::move(fut), io_event_barrier]() mutable -> std::size_t {
+                      auto const n = fut.get();
+                      io_event_barrier->sync_all_events();
+                      return n;
+                    });
 }
 
 }  // namespace kvikio
