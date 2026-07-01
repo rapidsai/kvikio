@@ -229,13 +229,13 @@ TEST(PosixHostIOTest, pread_direct_bounce_reports_invalid_fd)
   std::vector<char> file_contents(page_size, 42);
   auto write_fd = open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, kvikio::FileHandle::m644);
   KVIKIO_SYSCALL_CHECK(write_fd, "File cannot be opened");
-  detail::ScopeExit write_fd_guard([&] { KVIKIO_SYSCALL_CHECK(close(write_fd)); });
+  kvikio::detail::ScopeExit write_fd_guard([&] { KVIKIO_SYSCALL_CHECK(close(write_fd)); });
   KVIKIO_SYSCALL_CHECK(write(write_fd, file_contents.data(), file_contents.size()));
 
   kvikio::FileWrapper fd(filepath.string(), "r", false, kvikio::FileHandle::m644);
   auto* aligned_base = static_cast<char*>(std::aligned_alloc(page_size, 2 * page_size));
   ASSERT_NE(aligned_base, nullptr);
-  detail::ScopeExit aligned_base_guard([&] { std::free(aligned_base); });
+  kvikio::detail::ScopeExit aligned_base_guard([&] { std::free(aligned_base); });
   auto* unaligned_buffer = aligned_base + 1;
   ASSERT_FALSE(kvikio::detail::is_aligned(unaligned_buffer, page_size));
 
