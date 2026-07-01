@@ -38,7 +38,7 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "boto3>=1.21.21",
-    "cuda-python>=13.0.1,<14.0",
+    "cuda-core>=0.5.0,<2",
     "moto[server]>=4.0.8",
     "pytest",
     "pytest-asyncio",
