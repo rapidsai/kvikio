@@ -13,7 +13,7 @@
 // from sysfs and converts them to rates. It is compiled directly into the plugin and its test; it
 // is not part of libkvikio and is not an installed public header.
 
-namespace kvikio::experimental {
+namespace kvikio::nsys_plugin {
 
 namespace constants {
 inline constexpr double bytes_per_mib  = 1024.0 * 1024.0;
@@ -84,4 +84,4 @@ struct NicRates {
                                      NicCounters const& cur,
                                      double dt_seconds) noexcept;
 
-}  // namespace kvikio::experimental
+}  // namespace kvikio::nsys_plugin

@@ -9,12 +9,12 @@
 
 #include "nic_monitor.hpp"
 
-using kvikio::experimental::compute_rates;
-using kvikio::experimental::default_interfaces;
-using kvikio::experimental::iface_is_up;
-using kvikio::experimental::NicCounters;
-using kvikio::experimental::read_nic_counters;
-using kvikio::experimental::constants::bytes_per_mib;
+using kvikio::nsys_plugin::compute_rates;
+using kvikio::nsys_plugin::default_interfaces;
+using kvikio::nsys_plugin::iface_is_up;
+using kvikio::nsys_plugin::NicCounters;
+using kvikio::nsys_plugin::read_nic_counters;
+using kvikio::nsys_plugin::constants::bytes_per_mib;
 
 TEST(NicMonitor, ReadCountersIncludesLoopback)
 {

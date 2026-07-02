@@ -17,7 +17,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-namespace kvikio::experimental {
+namespace kvikio::nsys_plugin {
 
 namespace {
 
@@ -129,4 +129,4 @@ NicRates compute_rates(NicCounters const& prev, NicCounters const& cur, double d
   return rates;
 }
 
-}  // namespace kvikio::experimental
+}  // namespace kvikio::nsys_plugin

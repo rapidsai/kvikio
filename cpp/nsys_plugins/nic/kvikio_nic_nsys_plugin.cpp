@@ -34,11 +34,11 @@
 
 #include "nic_monitor.hpp"
 
-using kvikio::experimental::compute_rates;
-using kvikio::experimental::default_interfaces;
-using kvikio::experimental::NicRates;
-using kvikio::experimental::read_nic_counters;
-namespace constants = kvikio::experimental::constants;
+using kvikio::nsys_plugin::compute_rates;
+using kvikio::nsys_plugin::default_interfaces;
+using kvikio::nsys_plugin::NicRates;
+using kvikio::nsys_plugin::read_nic_counters;
+namespace constants = kvikio::nsys_plugin::constants;
 
 namespace {
 
