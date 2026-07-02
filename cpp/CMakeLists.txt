@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -52,6 +52,13 @@ option(KvikIO_BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
+
+# The Nsight Systems NIC plugin reads /sys/class/net, so it is only meaningful on Linux.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  option(KvikIO_BUILD_NSYS_PLUGIN "Configure CMake to build the Nsight Systems NIC plugin" ON)
+else()
+  option(KvikIO_BUILD_NSYS_PLUGIN "Configure CMake to build the Nsight Systems NIC plugin" OFF)
+endif()
 
 # ##################################################################################################
 # * conda environment ------------------------------------------------------------------------------
@@ -168,7 +175,6 @@ set(SOURCES
     "src/file_utils.cpp"
     "src/logger.cpp"
     "src/mmap.cpp"
-    "src/experimental/nic_monitor.cpp"
     "src/detail/bounce_buffer_cache.cpp"
     "src/detail/concurrent_request_limiter.cpp"
     "src/detail/env.cpp"
@@ -263,6 +269,13 @@ endif()
 # optionally build examples
 if(KvikIO_BUILD_EXAMPLES)
   add_subdirectory(examples)
+endif()
+
+# ##################################################################################################
+# * add Nsight Systems plugin ----------------------------------------------------------------------
+
+if(KvikIO_BUILD_NSYS_PLUGIN)
+  add_subdirectory(nsys_plugins/nic)
 endif()
 
 if(KvikIO_BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)

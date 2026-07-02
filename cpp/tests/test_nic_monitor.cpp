@@ -1,55 +1,64 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <chrono>
-#include <stdexcept>
-#include <thread>
-#include <vector>
+#include <string>
 
 #include <gtest/gtest.h>
 
-#include <kvikio/experimental/nic_monitor.hpp>
+#include "nic_monitor.hpp"
 
-using kvikio::experimental::NicBandwidthMonitor;
+using kvikio::experimental::compute_rates;
+using kvikio::experimental::default_interfaces;
+using kvikio::experimental::iface_is_up;
+using kvikio::experimental::NicCounters;
 using kvikio::experimental::read_nic_counters;
+using kvikio::experimental::constants::bytes_per_mib;
 
 TEST(NicMonitor, ReadCountersIncludesLoopback)
 {
-  auto counters = read_nic_counters();
+  auto const counters = read_nic_counters();
   // The loopback interface is present on essentially every Linux host.
   ASSERT_TRUE(counters.find("lo") != counters.end());
 }
 
-TEST(NicMonitor, RejectsNonPositiveFrequency)
+TEST(NicMonitor, IfaceIsUpAcceptsLoopbackAndRejectsMissing)
 {
-  EXPECT_THROW(NicBandwidthMonitor(0.0), std::invalid_argument);
-  EXPECT_THROW(NicBandwidthMonitor(-1.0), std::invalid_argument);
+  // Loopback reports operstate "unknown", which the up/unknown policy accepts.
+  EXPECT_TRUE(iface_is_up("lo"));
+  // A name that cannot be read must be treated as not up rather than accepted.
+  EXPECT_FALSE(iface_is_up("kvikio_no_such_iface"));
 }
 
-TEST(NicMonitor, StartStopExplicitInterface)
+TEST(NicMonitor, DefaultInterfacesExcludeLoopback)
 {
-  NicBandwidthMonitor monitor{200.0, std::vector<std::string>{"lo"}};
-  EXPECT_FALSE(monitor.running());
-  monitor.start();
-  EXPECT_TRUE(monitor.running());
-  std::this_thread::sleep_for(std::chrono::milliseconds{100});
-  monitor.stop();
-  EXPECT_FALSE(monitor.running());
-  EXPECT_EQ(monitor.interfaces().size(), 1U);
-}
-
-TEST(NicMonitor, DefaultSelectsInterfacesAndStopIsIdempotent)
-{
-  NicBandwidthMonitor monitor{100.0};
-  monitor.start();
-  std::this_thread::sleep_for(std::chrono::milliseconds{50});
-  // `lo` is excluded from the default set; the monitor still runs cleanly.
-  for (auto const& name : monitor.interfaces()) {
+  for (auto const& name : default_interfaces()) {
     EXPECT_NE(name, "lo");
   }
-  monitor.stop();
-  monitor.stop();  // Safe to call more than once.
-  EXPECT_FALSE(monitor.running());
+}
+
+TEST(NicMonitor, ComputeRatesConvertsDeltasToMiBps)
+{
+  NicCounters const prev{0, 0};
+  NicCounters const cur{static_cast<std::uint64_t>(bytes_per_mib) * 2,
+                        static_cast<std::uint64_t>(bytes_per_mib) * 6};
+  auto const rates = compute_rates(prev, cur, 2.0);
+  // 2 MiB received over 2 s -> 1 MiB/s; 6 MiB transmitted over 2 s -> 3 MiB/s.
+  EXPECT_DOUBLE_EQ(rates.rx, 1.0);
+  EXPECT_DOUBLE_EQ(rates.tx, 3.0);
+}
+
+TEST(NicMonitor, ComputeRatesGuardsWrapAndNonPositiveInterval)
+{
+  NicCounters const high{1000, 1000};
+  NicCounters const low{10, 10};
+  // A counter that appears to go backwards (wrap or reset) yields zero for that direction.
+  auto const wrapped = compute_rates(high, low, 1.0);
+  EXPECT_DOUBLE_EQ(wrapped.rx, 0.0);
+  EXPECT_DOUBLE_EQ(wrapped.tx, 0.0);
+  // A non-positive elapsed time yields zero rather than dividing by zero.
+  auto const no_time = compute_rates(low, high, 0.0);
+  EXPECT_DOUBLE_EQ(no_time.rx, 0.0);
+  EXPECT_DOUBLE_EQ(no_time.tx, 0.0);
 }

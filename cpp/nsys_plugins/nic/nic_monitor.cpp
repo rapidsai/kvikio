@@ -2,53 +2,24 @@
  * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
-#pragma once
+
+#include "nic_monitor.hpp"
 
 #include <algorithm>
 #include <array>
 #include <charconv>
-#include <cstdint>
 #include <filesystem>
-#include <map>
 #include <optional>
 #include <span>
-#include <string>
 #include <string_view>
 #include <system_error>
-#include <vector>
 
 #include <fcntl.h>
 #include <unistd.h>
 
 namespace kvikio::experimental {
 
-namespace constants {
-inline constexpr double bytes_per_mib  = 1024.0 * 1024.0;
-inline constexpr char const* sysfs_net = "/sys/class/net";
-}  // namespace constants
-
-/**
- * @brief Cumulative byte counters for a single network interface.
- *
- * The values are the kernel's running totals since boot, as exposed by
- * `/sys/class/net/<iface>/statistics/{rx,tx}_bytes`.
- */
-struct NicCounters {
-  std::uint64_t rx_bytes;  ///< Total bytes received since boot.
-  std::uint64_t tx_bytes;  ///< Total bytes transmitted since boot.
-};
-
-/**
- * @brief One bandwidth sample for a single interface: the receive and transmit rates.
- *
- * The field names are deliberately unit-neutral. `compute_rates` produces the values in MiB/s, but
- * the unit is not baked into the type; a consumer attaches it separately (for example as NVTX
- * counter semantics), so switching units later does not ripple into these names.
- */
-struct NicRates {
-  double rx;  ///< Receive rate.
-  double tx;  ///< Transmit rate.
-};
+namespace {
 
 /**
  * @brief Read a sysfs pseudo-file in a single read().
@@ -59,8 +30,8 @@ struct NicRates {
  * @return A view of the bytes read (into @p buf), or std::nullopt if the file cannot be read. The
  * string view is not necessarily null terminated.
  */
-[[nodiscard]] inline std::optional<std::string_view> read_pseudo_file(char const* path,
-                                                                      std::span<char> buf) noexcept
+[[nodiscard]] std::optional<std::string_view> read_pseudo_file(char const* path,
+                                                               std::span<char> buf) noexcept
 {
   auto const fd = ::open(path, O_RDONLY | O_CLOEXEC);
   if (fd < 0) { return std::nullopt; }
@@ -76,7 +47,7 @@ struct NicRates {
  * @param path Path of the pseudo-file to read.
  * @return The parsed value, or std::nullopt if the file is unparseable.
  */
-[[nodiscard]] inline std::optional<std::uint64_t> read_u64_file(std::string const& path) noexcept
+[[nodiscard]] std::optional<std::uint64_t> read_u64_file(std::string const& path) noexcept
 {
   // A uint64 counter is at most 20 digits, so 32 bytes is ample (20 digits + newline)
   std::array<char, 32> buf;
@@ -91,14 +62,9 @@ struct NicRates {
   return value;
 }
 
-/**
- * @brief Check whether a network interface is up.
- *
- * @param name Interface name.
- * @return True only when operstate is "up" or "unknown". False for any other state or if it cannot
- * be read.
- */
-[[nodiscard]] inline bool iface_is_up(std::string const& name)
+}  // namespace
+
+bool iface_is_up(std::string const& name)
 {
   auto const path = std::string{constants::sysfs_net} + "/" + name + "/operstate";
   std::array<char, 16> buf;
@@ -114,12 +80,7 @@ struct NicRates {
   return state == "up" || state == "unknown";
 }
 
-/**
- * @brief Enumerate the default set of interfaces to monitor.
- *
- * @return All "up" non-loopback interfaces under `/sys/class/net`, sorted for a stable order.
- */
-[[nodiscard]] inline std::vector<std::string> default_interfaces()
+std::vector<std::string> default_interfaces()
 {
   std::vector<std::string> result;
   std::error_code ec;
@@ -135,16 +96,7 @@ struct NicRates {
   return result;
 }
 
-/**
- * @brief Read the current cumulative byte counters for every network interface.
- *
- * Reads `/sys/class/net/<iface>/statistics/{rx,tx}_bytes`. Interfaces whose counters cannot be read
- * are skipped rather than reported as an error.
- *
- * @return A map from interface name to its cumulative counters. Empty if `/sys/class/net` is
- * unavailable.
- */
-[[nodiscard]] inline std::map<std::string, NicCounters> read_nic_counters()
+std::map<std::string, NicCounters> read_nic_counters()
 {
   std::map<std::string, NicCounters> result;
   std::error_code ec;
@@ -162,19 +114,7 @@ struct NicRates {
   return result;
 }
 
-/**
- * @brief Convert a pair of cumulative counter samples into receive and transmit rates in MiB/s.
- *
- * @param prev The earlier counter sample.
- * @param cur The later counter sample.
- * @param dt_seconds Elapsed wall-clock seconds between the two samples.
- * @return Rates in MiB/s. A direction whose counter did not advance yields zero for that direction
- * (this guards the first sample as well as a counter wrap or reset). Both rates are zero when
- * @p dt_seconds is not positive.
- */
-[[nodiscard]] inline NicRates compute_rates(NicCounters const& prev,
-                                            NicCounters const& cur,
-                                            double dt_seconds) noexcept
+NicRates compute_rates(NicCounters const& prev, NicCounters const& cur, double dt_seconds) noexcept
 {
   NicRates rates{0.0, 0.0};
   if (dt_seconds <= 0.0) { return rates; }

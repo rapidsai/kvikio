@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -82,7 +82,30 @@ kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
 kvikio_add_test(NAME CONCURRENT_REQUEST_LIMITER_TEST SOURCES test_concurrent_request_limiter.cpp)
 
-kvikio_add_test(NAME NIC_MONITOR_TEST SOURCES test_nic_monitor.cpp)
+# The NIC monitor core lives with the Nsight Systems plugin (nsys_plugins/nic) and does not depend
+# on libkvikio. Its test compiles that core directly and links only GoogleTest, rather than going
+# through kvikio_add_test (which links kvikio and CUDA).
+add_executable(
+  NIC_MONITOR_TEST test_nic_monitor.cpp ${KvikIO_SOURCE_DIR}/nsys_plugins/nic/nic_monitor.cpp
+)
+set_target_properties(
+  NIC_MONITOR_TEST
+  PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${KvikIO_BINARY_DIR}/gtests>"
+             CXX_STANDARD 20
+             CXX_STANDARD_REQUIRED ON
+)
+target_include_directories(
+  NIC_MONITOR_TEST PRIVATE "$<BUILD_INTERFACE:${KvikIO_SOURCE_DIR}/nsys_plugins/nic>"
+)
+target_link_libraries(
+  NIC_MONITOR_TEST PRIVATE GTest::gmock GTest::gmock_main GTest::gtest GTest::gtest_main
+)
+rapids_test_add(
+  NAME NIC_MONITOR_TEST
+  COMMAND NIC_MONITOR_TEST
+  GPUS 1
+  INSTALL_COMPONENT_SET testing
+)
 
 if(KvikIO_REMOTE_SUPPORT)
   kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)

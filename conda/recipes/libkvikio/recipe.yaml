@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
@@ -151,3 +151,39 @@ outputs:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license }}
       summary: libkvikio tests
+
+  # The plugin is a standalone executable (NVTX header-only plus libdl); it links neither libkvikio
+  # nor CUDA. The requirements below mirror the libkvikio-tests output so the same validated build
+  # environment and libstdc++ runtime baseline apply; they can be slimmed once separately verified.
+  - package:
+      name: libkvikio-nsys-plugin
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      dynamic_linking:
+        overlinking_behavior: "error"
+      script:
+        content: |
+          cmake --install cpp/build --component nsys_plugin
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ${{ compiler("c") }}
+      host:
+        - ${{ pin_subpackage("libkvikio", exact=True) }}
+        - cuda-version =${{ cuda_version }}
+      run:
+        - if: cuda_version >= "13.0"
+          then:
+          - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+          else:
+          - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="12.2.0a0") }}
+      ignore_run_exports:
+        by_name:
+          - cuda-version
+          - libnuma
+          - libcufile
+    about:
+      homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license }}
+      summary: KvikIO Nsight Systems NIC bandwidth plugin
