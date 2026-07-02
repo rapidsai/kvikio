@@ -98,6 +98,16 @@ autodoc_default_options = {
 # a list of builtin themes.
 #
 html_theme = "nvidia_sphinx_theme"
+html_theme_options = {
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/rapidsai/kvikio",
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+    ],
+}
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -148,7 +158,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "kvikio.tex", "kvikio Documentation", "NVIDIA", "manual")
+    (master_doc, "kvikio.tex", f"{project} Documentation", author, "manual")
 ]
 
 
@@ -156,7 +166,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "kvikio", "kvikio Documentation", [author], 1)]
+man_pages = [(master_doc, "kvikio", f"{project} Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -168,7 +178,7 @@ texinfo_documents = [
     (
         master_doc,
         "kvikio",
-        "kvikio Documentation",
+        f"{project} Documentation",
         author,
         "kvikio",
         "One line description of project.",
