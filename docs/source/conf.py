@@ -17,15 +17,17 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+import datetime
+
 from packaging.version import Version
 
 import kvikio
 
 # -- Project information -----------------------------------------------------
 
-project = "kvikio"
-copyright = "2023, NVIDIA"
-author = "NVIDIA"
+project = "NVIDIA KvikIO"
+copyright = f"2023-{datetime.datetime.today().year}, NVIDIA Corporation"
+author = "NVIDIA Corporation"
 
 KVIKIO_VERSION = Version(kvikio.__version__)
 # The short X.Y version.
