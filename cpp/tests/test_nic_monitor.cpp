@@ -12,15 +12,25 @@
 using kvikio::nsys_plugin::compute_rates;
 using kvikio::nsys_plugin::default_interfaces;
 using kvikio::nsys_plugin::iface_is_up;
+using kvikio::nsys_plugin::NicCounterReader;
 using kvikio::nsys_plugin::NicCounters;
-using kvikio::nsys_plugin::read_nic_counters;
 using kvikio::nsys_plugin::constants::bytes_per_mib;
 
-TEST(NicMonitor, ReadCountersIncludesLoopback)
+TEST(NicMonitor, ReaderReadsLoopback)
 {
-  auto const counters = read_nic_counters();
+  NicCounterReader const reader{{"lo"}};
+  auto const counters = reader.read();
+  ASSERT_EQ(counters.size(), 1U);
   // The loopback interface is present on essentially every Linux host.
-  ASSERT_TRUE(counters.find("lo") != counters.end());
+  EXPECT_TRUE(counters[0].has_value());
+}
+
+TEST(NicMonitor, ReaderReportsMissingInterfaceWithoutValue)
+{
+  NicCounterReader const reader{{"kvikio_no_such_iface"}};
+  auto const counters = reader.read();
+  ASSERT_EQ(counters.size(), 1U);
+  EXPECT_FALSE(counters[0].has_value());
 }
 
 TEST(NicMonitor, IfaceIsUpAcceptsLoopbackAndRejectsMissing)

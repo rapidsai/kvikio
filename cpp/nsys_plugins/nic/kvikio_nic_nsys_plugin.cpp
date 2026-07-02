@@ -18,13 +18,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
-#include <map>
 #include <optional>
 #include <regex>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <nvtx3/nvToolsExtCounters.h>
@@ -36,8 +36,8 @@
 
 using kvikio::nsys_plugin::compute_rates;
 using kvikio::nsys_plugin::default_interfaces;
+using kvikio::nsys_plugin::NicCounterReader;
 using kvikio::nsys_plugin::NicRates;
-using kvikio::nsys_plugin::read_nic_counters;
 namespace constants = kvikio::nsys_plugin::constants;
 
 namespace {
@@ -290,7 +290,10 @@ int main(int argc, char** argv)
                static_cast<long long>(config.interval.count()));
 
   using clock = std::chrono::steady_clock;
-  auto prev   = read_nic_counters();
+  // The sysfs paths of the selected interfaces are precomputed once; each tick then reads only
+  // those counters, independent of how many other interfaces exist on the host.
+  NicCounterReader const reader{interfaces};
+  auto prev   = reader.read();
   auto prev_t = clock::now();
   auto next_t = prev_t;
 
@@ -301,16 +304,14 @@ int main(int argc, char** argv)
     std::this_thread::sleep_until(next_t);
 
     auto const now  = clock::now();
-    auto const cur  = read_nic_counters();
+    auto cur        = reader.read();
     double const dt = std::chrono::duration<double>{now - prev_t}.count();
 
     NicRates total{0.0, 0.0};
     for (std::size_t i = 0; i < interfaces.size(); ++i) {
       NicRates rates{0.0, 0.0};
-      auto const itc = cur.find(interfaces[i]);
-      auto const itp = prev.find(interfaces[i]);
-      if (itc != cur.end() && itp != prev.end()) {
-        rates = compute_rates(itp->second, itc->second, dt);
+      if (prev[i].has_value() && cur[i].has_value()) {
+        rates = compute_rates(prev[i].value(), cur[i].value(), dt);
       }
       total.rx += rates.rx;
       total.tx += rates.tx;
@@ -318,7 +319,7 @@ int main(int argc, char** argv)
     }
     nvtxCounterSample(domain, total_counter_id, &total, sizeof(total));
 
-    prev   = cur;
+    prev   = std::move(cur);
     prev_t = now;
   }
 

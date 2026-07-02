@@ -8,11 +8,13 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <span>
 #include <string_view>
 #include <system_error>
+#include <utility>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -96,22 +98,38 @@ std::vector<std::string> default_interfaces()
   return result;
 }
 
-std::map<std::string, NicCounters> read_nic_counters()
+NicCounterReader::NicCounterReader(std::vector<std::string> interfaces)
+  : _interfaces{std::move(interfaces)}
 {
-  std::map<std::string, NicCounters> result;
-  std::error_code ec;
-  std::filesystem::directory_iterator it{std::filesystem::path{constants::sysfs_net}, ec};
-  if (ec) { return result; }
-  for (auto const& entry : it) {
-    auto const name  = entry.path().filename().string();
-    auto const stats = entry.path() / "statistics";
-    auto const rx    = read_u64_file((stats / "rx_bytes").string());
-    auto const tx    = read_u64_file((stats / "tx_bytes").string());
-    // If an interface exposes no parseable byte counters, skip it.
-    if (!rx.has_value() || !tx.has_value()) { continue; }
-    result.emplace(name, NicCounters{rx.value(), tx.value()});
+  _rx_paths.reserve(_interfaces.size());
+  _tx_paths.reserve(_interfaces.size());
+  for (auto const& name : _interfaces) {
+    auto const stats = std::string{constants::sysfs_net} + "/" + name + "/statistics/";
+    _rx_paths.push_back(stats + "rx_bytes");
+    _tx_paths.push_back(stats + "tx_bytes");
+  }
+}
+
+std::vector<std::optional<NicCounters>> NicCounterReader::read() const
+{
+  std::vector<std::optional<NicCounters>> result;
+  result.reserve(_interfaces.size());
+  for (std::size_t i = 0; i < _interfaces.size(); ++i) {
+    auto const rx = read_u64_file(_rx_paths[i]);
+    auto const tx = read_u64_file(_tx_paths[i]);
+    if (rx.has_value() && tx.has_value()) {
+      result.emplace_back(NicCounters{rx.value(), tx.value()});
+    } else {
+      // Report an unreadable interface (for example one that was removed) as missing.
+      result.emplace_back(std::nullopt);
+    }
   }
   return result;
+}
+
+std::vector<std::string> const& NicCounterReader::interfaces() const noexcept
+{
+  return _interfaces;
 }
 
 NicRates compute_rates(NicCounters const& prev, NicCounters const& cur, double dt_seconds) noexcept
