@@ -60,6 +60,10 @@ namespace {
   // newline.
   [[maybe_unused]] auto const [_, ec] =
     std::from_chars(content->data(), content->data() + content->size(), value);
+  // Note: ec type is std::errc, which is an enum class and has no bool operator. In C++26, the
+  // return value of type `std::from_chars_result` will have bool operator.
+  // TODO: In C++26, remove structured binding and use the result's bool operator to check success
+  // directly.
   if (ec != std::errc{}) { return std::nullopt; }
   return value;
 }
@@ -69,16 +73,17 @@ namespace {
 bool iface_is_up(std::string const& name)
 {
   auto const path = std::string{constants::sysfs_net} + "/" + name + "/operstate";
+  // The longest operstate value is "lowerlayerdown" (14 chars + newline), so 16 bytes is ample.
   std::array<char, 16> buf;
   auto const content = read_pseudo_file(path.c_str(), buf);
   if (!content.has_value()) { return false; }
   std::string_view state = content.value();
+  // Remove any trailing newline or space character
   while (!state.empty() && (state.back() == '\n' || state.back() == ' ')) {
     state.remove_suffix(1);
   }
-  // Some working NICs report "unknown" (loopback or virtual NICs), so this state should be
-  // accepted. The other states (down, notpresent, lowerlayerdown, testing, dormant) should be
-  // excluded.
+  // Some working NICs report "unknown" (virtual NICs), so this state should be accepted. The other
+  // states (down, notpresent, lowerlayerdown, testing, dormant) should be excluded.
   return state == "up" || state == "unknown";
 }
 
@@ -90,6 +95,7 @@ std::vector<std::string> default_interfaces()
   if (ec) { return result; }
   for (auto const& entry : it) {
     auto name = entry.path().filename().string();
+    // Ignore loopback interface
     if (name == "lo") { continue; }
     if (!iface_is_up(name)) { continue; }
     result.push_back(std::move(name));
@@ -120,7 +126,8 @@ std::vector<std::optional<NicCounters>> NicCounterReader::read() const
     if (rx.has_value() && tx.has_value()) {
       result.emplace_back(NicCounters{rx.value(), tx.value()});
     } else {
-      // Report an unreadable interface (for example one that was removed) as missing.
+      // Report an unreadable interface (for example one that was removed or never existed) as
+      // missing.
       result.emplace_back(std::nullopt);
     }
   }

@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-// Internal support code for the KvikIO Nsight Systems NIC plugin. It reads network byte counters
-// from sysfs and converts them to rates. It is compiled directly into the plugin and its test. It
-// is not part of libkvikio and is not an installed public header.
+// Internal support code for the KvikIO Nsight Systems NIC plugin. Reads network byte counters from
+// sysfs and converts them to rates. Compiled directly into the plugin and its test. Not part of
+// libkvikio binary or public header.
 
 namespace kvikio::nsys_plugin {
 
@@ -34,9 +34,7 @@ struct NicCounters {
 /**
  * @brief One bandwidth sample for a single interface: the receive and transmit rates.
  *
- * The field names are deliberately unit-neutral. `compute_rates` produces the values in MiB/s, but
- * the unit is not baked into the type; a consumer attaches it separately (for example as NVTX
- * counter semantics), so switching units later does not ripple into these names.
+ * The field names are deliberately unit-neutral. `compute_rates` produces the values in MiB/s.
  */
 struct NicRates {
   double rx;  ///< Receive rate.
@@ -62,15 +60,14 @@ struct NicRates {
 /**
  * @brief Reads the byte counters of a fixed set of network interfaces.
  *
- * The two sysfs paths per interface are precomputed once at construction, so each `read()` performs
- * only the 2N pseudo-file reads, with no directory iteration and no path construction. This keeps
- * the per-tick footprint of the sampling loop minimal and independent of how many other interfaces
- * exist on the host.
+ * The two sysfs paths (rx and tx) per interface are precomputed once at construction.
  */
 class NicCounterReader {
  public:
   /**
    * @brief Construct a reader over the given interfaces.
+   *
+   * The names are taken as-is, without filtering or validation, so loopback ("lo") is allowed.
    *
    * @param interfaces Interface names to read, in the order `read()` reports them.
    */
@@ -80,7 +77,7 @@ class NicCounterReader {
    * @brief Read the current cumulative byte counters of every configured interface.
    *
    * @return One entry per interface, in constructor order. An entry is std::nullopt when either of
-   * its counters is unreadable (for example the interface was removed).
+   * its counters is unreadable (for example the interface was removed or never existed).
    */
   [[nodiscard]] std::vector<std::optional<NicCounters>> read() const;
 

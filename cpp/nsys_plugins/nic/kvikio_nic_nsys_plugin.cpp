@@ -4,11 +4,11 @@
  */
 
 // Nsight Systems plugin that samples per-interface network bandwidth and emits it as NVTX counter
-// groups, so the bandwidth curve lands on the same timeline as CUDA and KvikIO activity.
+// groups, so the bandwidth curve lands on the same timeline with the application activity.
 //
 // nsys spawns this executable as a collector for the duration of a profiling session, enabled with
-// `--enable=kvikio_nic[,args]` and discovered via `NSYS_PLUGIN_SEARCH_DIRS` (see nsys-plugin.yaml).
-// It links only NVTX (header-only) and libdl, so it is standalone and does not depend on libkvikio.
+// `--enable=kvikio_nic[,args]` and discovered via `NSYS_PLUGIN_SEARCH_DIRS`. It depends only on
+// NVTX headers and libdl, so it is standalone and does not depend on libkvikio.
 
 #include <algorithm>
 #include <charconv>
@@ -45,22 +45,20 @@ namespace {
 /**
  * @brief Tag type naming this plugin's NVTX domain.
  *
- * The domain is separate from libkvikio's own domain because the plugin runs as its own process; it
- * is created through the nvtx3 C++ registry (`nvtx3::domain::get`) rather than `nvtxDomainCreateA`.
+ * The domain is separate from libkvikio's own domain because the plugin runs its own process.
  */
 struct kvikio_nic_domain {
   static constexpr char const* name{"KvikIO NIC"};
 };
 
-// Set from a signal handler to request a clean shutdown. `volatile sig_atomic_t` is the only type
-// an async-signal-safe handler may touch.
+// Set from a signal handler for a clean shutdown.
 volatile std::sig_atomic_t g_stop = 0;
 
 /**
  * @brief Parsed command line configuration.
  */
 struct Config {
-  std::chrono::microseconds interval{50000};  ///< Sampling interval.
+  std::chrono::microseconds interval{20000};  ///< Sampling interval.
   std::optional<std::regex> device_filter;    ///< If set, monitor interfaces matching this regex.
 };
 
@@ -74,7 +72,7 @@ struct Config {
 {
   std::fprintf(stderr,
                "Usage: %s [options]\n"
-               "  -i | --interval  Sampling interval in microseconds (default 50000)\n"
+               "  -i | --interval  Sampling interval in microseconds (default 20000)\n"
                "  -d | --device    Interface name regex (default: up or unknown, non-loopback)\n"
                "  -h | --help      Print this help message\n",
                prog);
@@ -84,11 +82,19 @@ struct Config {
 /**
  * @brief Parse the command line into a Config, exiting on `--help` or a malformed argument.
  *
- * Accepts `-i N` / `--interval N` / `--interval=N` (and the `-iN` short form) plus the equivalent
- * `-d` / `--device` forms, matching how nsys forwards `--enable=kvikio_nic,-d,eth0,-i,50000`.
+ * Accepts arguments of these forms to be more consistent with nsys built-in sample:
+ * - `-i N`
+ * - `--interval N`
+ * - `--interval=N`
+ * - `-iN`
  *
- * @param argc Argument count.
- * @param argv Argument vector.
+ * Note that on the nsys command line the plugin arguments follow the plugin name as a comma
+ * separated list (commas only, no spaces). These are therefore equivalent:
+ * - `--enable=kvikio_nic,-d,eth0,-i,20000`
+ * - `--enable=kvikio_nic,--device=eth0,--interval=20000`
+ *
+ * @param argc Program argument count.
+ * @param argv Program argument vector.
  * @return The parsed configuration.
  */
 Config parse_args(int argc, char** argv)
@@ -101,14 +107,20 @@ Config parse_args(int argc, char** argv)
     if (arg.starts_with("--")) {
       auto const eq = arg.find('=');
       if (eq == std::string_view::npos) {
-        name = arg;
+        // Example: --interval 20000
+        name = arg;  // --interval
       } else {
-        name         = arg.substr(0, eq);
-        inline_value = arg.substr(eq + 1);
+        // Example: --interval=20000
+        name         = arg.substr(0, eq);   // --interval
+        inline_value = arg.substr(eq + 1);  // 20000
       }
     } else if (arg.size() >= 2 && arg.front() == '-') {
-      name = arg.substr(0, 2);
-      if (arg.size() > 2) { inline_value = arg.substr(2); }
+      // Example: -i 20000 or -i20000
+      name = arg.substr(0, 2);  // -i
+      if (arg.size() > 2) {
+        // Example: -i20000
+        inline_value = arg.substr(2);  // 20000
+      }
     } else {
       std::fprintf(stderr,
                    "kvikio_nic: unexpected argument '%.*s'\n",
@@ -164,8 +176,8 @@ Config parse_args(int argc, char** argv)
  * @brief Choose the interfaces to monitor.
  *
  * @param config Parsed configuration.
- * @return With no `--device` filter, all up (or unknown) non-loopback interfaces. With a filter,
- * all interfaces whose name matches the regex, bypassing the up check so an explicit request is
+ * @return With no `--device` filter, all up or unknown, non-loopback interfaces. With a filter, all
+ * interfaces whose name matches the regex, bypassing the up check so an explicit request is
  * honored. Sorted for a stable order.
  */
 std::vector<std::string> select_interfaces(Config const& config)
@@ -253,19 +265,102 @@ std::uint64_t register_counter(nvtxDomainHandle_t domain,
   return nvtxCounterRegister(domain, &attr);
 }
 
+/**
+ * @brief Samples NIC byte counters at a fixed interval and emits them as NVTX counter groups.
+ *
+ * Construction registers one `nic_bandwidth.<iface>` counter group per interface plus
+ * `nic_bandwidth.total`, so no sample can be emitted for an unregistered counter. `run()` then
+ * differences the counters each tick until the stop flag is raised by the signal handler.
+ */
+class BandwidthCollector {
+ public:
+  /**
+   * @brief Register the NVTX schema and counter groups for the given interfaces.
+   *
+   * @param interfaces Interfaces to monitor.
+   * @param interval Sampling interval.
+   */
+  BandwidthCollector(std::vector<std::string> interfaces, std::chrono::microseconds interval)
+    : _interval{interval},
+      _reader{std::move(interfaces)},
+      _domain{nvtx3::domain::get<kvikio_nic_domain>()}
+  {
+    auto const schema_id = register_rate_schema(_domain);
+    _counter_ids.reserve(_reader.interfaces().size());
+    for (auto const& name : _reader.interfaces()) {
+      _counter_ids.push_back(register_counter(_domain, "nic_bandwidth." + name, schema_id));
+    }
+    _total_counter_id = register_counter(_domain, "nic_bandwidth.total", schema_id);
+  }
+
+  /**
+   * @brief Run the sampling loop until @p stop becomes nonzero.
+   *
+   * @param stop Stop flag, set asynchronously by the signal handler.
+   */
+  void run(volatile std::sig_atomic_t const& stop) const
+  {
+    auto const& interfaces = _reader.interfaces();
+    std::fprintf(stderr,
+                 "kvikio_nic: sampling %zu interface(s) every %lld us\n",
+                 interfaces.size(),
+                 static_cast<long long>(_interval.count()));
+
+    using clock = std::chrono::steady_clock;
+    auto prev   = _reader.read();
+    auto prev_t = clock::now();
+    auto next_t = prev_t;
+
+    while (stop == 0) {
+      // Absolute deadlines keep the sampling frequency drift-free. A signal does not shorten the
+      // sleep (libstdc++ restarts it over EINTR), so the stop flag is observed at the next tick.
+      next_t += _interval;
+      std::this_thread::sleep_until(next_t);
+
+      auto const now = clock::now();
+      auto cur       = _reader.read();
+      auto const dt  = std::chrono::duration<double>{now - prev_t}.count();
+
+      NicRates total{0.0, 0.0};
+      for (std::size_t i = 0; i < interfaces.size(); ++i) {
+        NicRates rates{0.0, 0.0};
+        if (prev[i].has_value() && cur[i].has_value()) {
+          rates = compute_rates(prev[i].value(), cur[i].value(), dt);
+        }
+        total.rx += rates.rx;
+        total.tx += rates.tx;
+        nvtxCounterSample(_domain, _counter_ids[i], &rates, sizeof(rates));
+      }
+      nvtxCounterSample(_domain, _total_counter_id, &total, sizeof(total));
+
+      prev   = std::move(cur);
+      prev_t = now;
+    }
+  }
+
+ private:
+  std::chrono::microseconds _interval;
+  NicCounterReader _reader;
+  nvtxDomainHandle_t _domain;
+  std::vector<std::uint64_t> _counter_ids;
+  std::uint64_t _total_counter_id{0};
+};
+
 }  // namespace
 
+// C language linkage (extern) to be standard conformant.
+// Also internal linkage (static) as a good practice.
 extern "C" {
 // nsys stops the collector by sending SIGTERM (then SIGKILL after a grace period). Catch it so the
-// loop breaks and the process exits cleanly with code 0 instead of an abnormal termination; SIGINT
-// gives the same clean exit for standalone Ctrl-C runs.
+// loop breaks and the process exits cleanly with code 0 instead of an abnormal termination. Also
+// catch SIGINT to have the same clean exit for Ctrl-C.
 static void kvikio_nic_handle_signal(int /*signum*/) { g_stop = 1; }
 }
 
 int main(int argc, char** argv)
 {
-  auto const config     = parse_args(argc, argv);
-  auto const interfaces = select_interfaces(config);
+  auto const config = parse_args(argc, argv);
+  auto interfaces   = select_interfaces(config);
   if (interfaces.empty()) {
     std::fprintf(stderr, "kvikio_nic: no matching network interfaces to monitor.\n");
     return 1;
@@ -274,54 +369,7 @@ int main(int argc, char** argv)
   std::signal(SIGTERM, kvikio_nic_handle_signal);
   std::signal(SIGINT, kvikio_nic_handle_signal);
 
-  nvtxDomainHandle_t domain = nvtx3::domain::get<kvikio_nic_domain>();
-  auto const schema_id      = register_rate_schema(domain);
-
-  std::vector<std::uint64_t> counter_ids;
-  counter_ids.reserve(interfaces.size());
-  for (auto const& name : interfaces) {
-    counter_ids.push_back(register_counter(domain, "nic_bandwidth." + name, schema_id));
-  }
-  auto const total_counter_id = register_counter(domain, "nic_bandwidth.total", schema_id);
-
-  std::fprintf(stderr,
-               "kvikio_nic: sampling %zu interface(s) every %lld us\n",
-               interfaces.size(),
-               static_cast<long long>(config.interval.count()));
-
-  using clock = std::chrono::steady_clock;
-  // The sysfs paths of the selected interfaces are precomputed once; each tick then reads only
-  // those counters, independent of how many other interfaces exist on the host.
-  NicCounterReader const reader{interfaces};
-  auto prev   = reader.read();
-  auto prev_t = clock::now();
-  auto next_t = prev_t;
-
-  while (g_stop == 0) {
-    // Absolute deadlines keep the sampling frequency drift-free. A signal does not shorten the
-    // sleep (libstdc++ restarts it over EINTR), so g_stop is observed at the next tick.
-    next_t += config.interval;
-    std::this_thread::sleep_until(next_t);
-
-    auto const now  = clock::now();
-    auto cur        = reader.read();
-    double const dt = std::chrono::duration<double>{now - prev_t}.count();
-
-    NicRates total{0.0, 0.0};
-    for (std::size_t i = 0; i < interfaces.size(); ++i) {
-      NicRates rates{0.0, 0.0};
-      if (prev[i].has_value() && cur[i].has_value()) {
-        rates = compute_rates(prev[i].value(), cur[i].value(), dt);
-      }
-      total.rx += rates.rx;
-      total.tx += rates.tx;
-      nvtxCounterSample(domain, counter_ids[i], &rates, sizeof(rates));
-    }
-    nvtxCounterSample(domain, total_counter_id, &total, sizeof(total));
-
-    prev   = std::move(cur);
-    prev_t = now;
-  }
-
+  BandwidthCollector const collector{std::move(interfaces), config.interval};
+  collector.run(g_stop);
   return 0;
 }

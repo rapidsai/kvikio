@@ -27,7 +27,7 @@ TEST(NicMonitor, ReaderReadsLoopback)
 
 TEST(NicMonitor, ReaderReportsMissingInterfaceWithoutValue)
 {
-  NicCounterReader const reader{{"kvikio_no_such_iface"}};
+  NicCounterReader const reader{{"nonexistent_iface"}};
   auto const counters = reader.read();
   ASSERT_EQ(counters.size(), 1U);
   EXPECT_FALSE(counters[0].has_value());
@@ -38,7 +38,7 @@ TEST(NicMonitor, IfaceIsUpAcceptsLoopbackAndRejectsMissing)
   // Loopback reports operstate "unknown", which the up/unknown policy accepts.
   EXPECT_TRUE(iface_is_up("lo"));
   // A name that cannot be read must be treated as not up rather than accepted.
-  EXPECT_FALSE(iface_is_up("kvikio_no_such_iface"));
+  EXPECT_FALSE(iface_is_up("nonexistent_iface"));
 }
 
 TEST(NicMonitor, DefaultInterfacesExcludeLoopback)
@@ -54,7 +54,8 @@ TEST(NicMonitor, ComputeRatesConvertsDeltasToMiBps)
   NicCounters const cur{static_cast<std::uint64_t>(bytes_per_mib) * 2,
                         static_cast<std::uint64_t>(bytes_per_mib) * 6};
   auto const rates = compute_rates(prev, cur, 2.0);
-  // 2 MiB received over 2 s -> 1 MiB/s; 6 MiB transmitted over 2 s -> 3 MiB/s.
+  // 2 MiB received over 2 s -> 1 MiB/s
+  // 6 MiB transmitted over 2 s -> 3 MiB/s.
   EXPECT_DOUBLE_EQ(rates.rx, 1.0);
   EXPECT_DOUBLE_EQ(rates.tx, 3.0);
 }
@@ -63,11 +64,11 @@ TEST(NicMonitor, ComputeRatesGuardsWrapAndNonPositiveInterval)
 {
   NicCounters const high{1000, 1000};
   NicCounters const low{10, 10};
-  // A counter that appears to go backwards (wrap or reset) yields zero for that direction.
+  // A counter that appears to go backwards (wrap or reset) yields zero.
   auto const wrapped = compute_rates(high, low, 1.0);
   EXPECT_DOUBLE_EQ(wrapped.rx, 0.0);
   EXPECT_DOUBLE_EQ(wrapped.tx, 0.0);
-  // A non-positive elapsed time yields zero rather than dividing by zero.
+  // A non-positive elapsed time yields zero.
   auto const no_time = compute_rates(low, high, 0.0);
   EXPECT_DOUBLE_EQ(no_time.rx, 0.0);
   EXPECT_DOUBLE_EQ(no_time.tx, 0.0);
