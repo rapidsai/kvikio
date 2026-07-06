@@ -62,6 +62,73 @@ function(kvikio_add_test)
   )
 endfunction()
 
+#[=======================================================================[.rst:
+kvikio_add_nsys_plugin_test
+---------------------------
+
+Create a test for the support code of a KvikIO Nsight Systems plugin.
+
+Plugin support code (under ``cpp/nsys_plugins/<plugin dir>``) deliberately does not depend on
+libkvikio or CUDA, so this test links only GoogleTest and compiles the plugin sources directly,
+rather than going through ``kvikio_add_test``.
+
+.. code-block:: cmake
+
+   kvikio_add_nsys_plugin_test(NAME <name> SOURCES <sources> PLUGIN_SOURCES <sources>)
+
+   ``NAME``
+   Test name. Single-value argument.
+
+   ``SOURCES``
+   List of test source files, relative to ``cpp/tests``. Multi-value argument.
+
+   ``PLUGIN_SOURCES``
+   List of plugin source files, relative to ``cpp/nsys_plugins`` (for example
+   ``nic/nic_monitor.cpp``). The parent directory of each file is added as an include
+   directory. Multi-value argument.
+#]=======================================================================]
+function(kvikio_add_nsys_plugin_test)
+  cmake_parse_arguments(
+    _KVIKIO # prefix
+    "" # optional
+    "NAME" # single value
+    "SOURCES;PLUGIN_SOURCES" # multi-value
+    ${ARGN}
+  )
+
+  if(DEFINED _KVIKIO_UNPARSED_ARGUMENTS)
+    message(FATAL_ERROR "Unknown argument: ${_KVIKIO_UNPARSED_ARGUMENTS}")
+  endif()
+
+  set(_plugin_root "${KvikIO_SOURCE_DIR}/nsys_plugins")
+  set(_plugin_sources "")
+  set(_plugin_include_dirs "")
+  foreach(_src IN LISTS _KVIKIO_PLUGIN_SOURCES)
+    list(APPEND _plugin_sources "${_plugin_root}/${_src}")
+    cmake_path(GET _src PARENT_PATH _src_dir)
+    list(APPEND _plugin_include_dirs "$<BUILD_INTERFACE:${_plugin_root}/${_src_dir}>")
+  endforeach()
+  list(REMOVE_DUPLICATES _plugin_include_dirs)
+
+  add_executable(${_KVIKIO_NAME} ${_KVIKIO_SOURCES} ${_plugin_sources})
+  set_target_properties(
+    ${_KVIKIO_NAME}
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${KvikIO_BINARY_DIR}/gtests>"
+               CXX_STANDARD 20
+               CXX_STANDARD_REQUIRED ON
+  )
+  target_include_directories(${_KVIKIO_NAME} PRIVATE ${_plugin_include_dirs})
+  target_link_libraries(
+    ${_KVIKIO_NAME} PRIVATE GTest::gmock GTest::gmock_main GTest::gtest GTest::gtest_main
+  )
+
+  rapids_test_add(
+    NAME ${_KVIKIO_NAME}
+    COMMAND ${_KVIKIO_NAME}
+    INSTALL_COMPONENT_SET testing
+  )
+endfunction()
+
 kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp utils/env.cpp)
 
 kvikio_add_test(NAME BOUNCE_BUFFER_TEST SOURCES test_bounce_buffer.cpp)
@@ -82,29 +149,8 @@ kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
 kvikio_add_test(NAME CONCURRENT_REQUEST_LIMITER_TEST SOURCES test_concurrent_request_limiter.cpp)
 
-# The NIC monitor core lives with the Nsight Systems plugin (nsys_plugins/nic) and does not depend
-# on libkvikio. Its test compiles that core directly and links only GoogleTest, rather than going
-# through kvikio_add_test (which links kvikio and CUDA).
-add_executable(
-  NIC_MONITOR_TEST test_nic_monitor.cpp ${KvikIO_SOURCE_DIR}/nsys_plugins/nic/nic_monitor.cpp
-)
-set_target_properties(
-  NIC_MONITOR_TEST
-  PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${KvikIO_BINARY_DIR}/gtests>"
-             CXX_STANDARD 20
-             CXX_STANDARD_REQUIRED ON
-)
-target_include_directories(
-  NIC_MONITOR_TEST PRIVATE "$<BUILD_INTERFACE:${KvikIO_SOURCE_DIR}/nsys_plugins/nic>"
-)
-target_link_libraries(
-  NIC_MONITOR_TEST PRIVATE GTest::gmock GTest::gmock_main GTest::gtest GTest::gtest_main
-)
-rapids_test_add(
-  NAME NIC_MONITOR_TEST
-  COMMAND NIC_MONITOR_TEST
-  GPUS 1
-  INSTALL_COMPONENT_SET testing
+kvikio_add_nsys_plugin_test(
+  NAME NIC_MONITOR_TEST SOURCES test_nic_monitor.cpp PLUGIN_SOURCES nic/nic_monitor.cpp
 )
 
 if(KvikIO_REMOTE_SUPPORT)

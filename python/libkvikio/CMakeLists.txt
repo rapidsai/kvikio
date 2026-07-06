@@ -32,9 +32,7 @@ unset(kvikio_FOUND)
 set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
-# Build and ship the Nsight Systems NIC plugin in the libkvikio wheel. INSTALL_DEFAULT makes its
-# install rules part of the default install so scikit-build-core packages them without needing to
-# select a component (the base conda package keeps them excluded instead).
+# Build and ship the Nsight Systems NIC plugin in the libkvikio wheel.
 set(KvikIO_BUILD_NSYS_PLUGIN ON)
 set(KvikIO_NSYS_PLUGIN_INSTALL_DEFAULT ON)
 
