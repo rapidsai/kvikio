@@ -78,6 +78,7 @@ files:
       table: project
     includes:
       - depends_on_rapids_logger
+      - depends_on_cufile
   py_rapids_build_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
@@ -284,6 +285,18 @@ dependencies:
         packages:
           - libcufile-dev
           - libnuma
+  depends_on_cufile:
+    specific:
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - nvidia-cufile-cu12
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - nvidia-cufile-cu13
   depends_on_cupy:
     common:
       - output_types: conda
