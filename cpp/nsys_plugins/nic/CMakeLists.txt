@@ -31,26 +31,16 @@ endif()
 # Install the binary and its manifest side by side into a directory named after the plugin, matching
 # how nsys discovers plugins under NSYS_PLUGIN_SEARCH_DIRS.
 #
-# By default the install rules are EXCLUDE_FROM_ALL, so a plain `cmake --install` (the base conda
-# libkvikio package) skips them and the plugin ships only via `cmake --install --component
-# nsys_plugin` (the dedicated conda output). The libkvikio wheel sets
-# KvikIO_NSYS_PLUGIN_INSTALL_DEFAULT so the plugin is part of the default install and is packaged
-# without needing component selection in scikit-build-core.
-if(KvikIO_NSYS_PLUGIN_INSTALL_DEFAULT)
-  set(_kvikio_nsys_plugin_exclude "")
-else()
-  set(_kvikio_nsys_plugin_exclude "EXCLUDE_FROM_ALL")
-endif()
-
+# The plugin is a user-facing tool, so it is part of the default install: both the base conda
+# libkvikio package (plain `cmake --install`) and the libkvikio wheel ship it. The dedicated
+# component remains available for targeted `cmake --install --component nsys_plugin` layouts.
 install(
   TARGETS kvikio_nic_nsys_plugin
   COMPONENT nsys_plugin
   DESTINATION ${NSYS_PLUGIN_INSTALL_DIR}
-  ${_kvikio_nsys_plugin_exclude}
 )
 install(
   FILES nsys-plugin.yaml
   COMPONENT nsys_plugin
   DESTINATION ${NSYS_PLUGIN_INSTALL_DIR}
-  ${_kvikio_nsys_plugin_exclude}
 )

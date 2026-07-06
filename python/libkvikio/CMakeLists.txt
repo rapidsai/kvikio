@@ -32,8 +32,6 @@ unset(kvikio_FOUND)
 set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
-# Build and ship the Nsight Systems NIC plugin in the libkvikio wheel.
 set(KvikIO_BUILD_NSYS_PLUGIN ON)
-set(KvikIO_NSYS_PLUGIN_INSTALL_DEFAULT ON)
 
 add_subdirectory(../../cpp kvikio-cpp)
