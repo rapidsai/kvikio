@@ -9,12 +9,11 @@ ExtendedDescription: |
     -h | --help      Print this help message
 
   Plugin arguments follow the plugin name as a comma separated list (commas only, no
-  spaces); each comma separated token is passed verbatim as one argument. These are
+  spaces). Each comma separated token is passed verbatim as one argument. These are
   equivalent:
     --enable=kvikio_nic,-d,eth0,-i,20000
+    --enable=kvikio_nic,-deth0,-i20000
     --enable=kvikio_nic,--device=eth0,--interval=20000
-  A literal comma inside an argument (for example in a --device regex) must be escaped
-  as '\,'.
 
   With no --device filter, all up (or unknown) non-loopback interfaces are monitored.
   A --device regex selects interfaces by name and bypasses the up check, so an explicit
