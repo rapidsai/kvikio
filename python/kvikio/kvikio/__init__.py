@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # If libkvikio was installed as a wheel, we must request it to load the library symbols.
@@ -23,6 +23,7 @@ from kvikio.cufile import (
     get_page_cache_info,
 )
 from kvikio.mmap import Mmap
+from kvikio.nsys import nsys_plugin_search_dir
 from kvikio.remote_file import (
     RemoteEndpointType,
     RemoteFile,
@@ -44,6 +45,7 @@ __all__ = [
     "infer_remote_endpoint_type",
     "is_remote_file_available",
     "kvikio_deprecation_notice",
+    "nsys_plugin_search_dir",
     "RemoteEndpointType",
     "RemoteFile",
     "stream_register",
