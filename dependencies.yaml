@@ -430,6 +430,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - cuda-core>=0.5.1,<2
           - rapids-dask-dependency==26.8.*,>=0.0.0a0
           - pytest
           - pytest-asyncio
@@ -448,16 +449,11 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
-              cuda: "12.*"
+              dependencies: "oldest"
             packages:
-              - cuda-python>=12.9.2,<13.0
-          - matrix:
-              cuda: "13.*"
-            packages:
-              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0
+              - cuda-core==0.5.1
           - matrix:
             packages:
-              - *cuda_python_cu13
   test_java:
     common:
       - output_types: conda
