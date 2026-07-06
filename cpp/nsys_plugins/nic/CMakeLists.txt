@@ -28,12 +28,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   )
 endif()
 
-# Install the binary and its manifest side by side into a directory named after the plugin, matching
-# how nsys discovers plugins under NSYS_PLUGIN_SEARCH_DIRS.
-#
-# The plugin is a user-facing tool, so it is part of the default install: both the base conda
-# libkvikio package (plain `cmake --install`) and the libkvikio wheel ship it. The dedicated
-# component remains available for targeted `cmake --install --component nsys_plugin` layouts.
 install(
   TARGETS kvikio_nic_nsys_plugin
   COMPONENT nsys_plugin
