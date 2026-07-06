@@ -11,6 +11,7 @@
 // NVTX headers and libdl, so it is standalone and does not depend on libkvikio.
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <csignal>
@@ -38,7 +39,6 @@ using kvikio::nsys_plugin::compute_rates;
 using kvikio::nsys_plugin::default_interfaces;
 using kvikio::nsys_plugin::NicCounterReader;
 using kvikio::nsys_plugin::NicRates;
-namespace constants = kvikio::nsys_plugin::constants;
 
 namespace {
 
@@ -53,6 +53,13 @@ struct kvikio_nic_domain {
 
 // Set from a signal handler for a clean shutdown.
 volatile std::sig_atomic_t g_stop = 0;
+
+namespace constants {
+// Exit codes
+constexpr int exit_success       = 0;
+constexpr int exit_no_interfaces = 1;
+constexpr int exit_usage_error   = 2;
+}  // namespace constants
 
 /**
  * @brief Parsed command line configuration.
@@ -126,7 +133,7 @@ Config parse_args(int argc, char** argv)
                    "kvikio_nic: unexpected argument '%.*s'\n",
                    static_cast<int>(arg.size()),
                    arg.data());
-      print_help_and_exit(argv[0], 2);
+      print_help_and_exit(argv[0], constants::exit_usage_error);
     }
 
     // Take this option's value from the inline form (`--interval=N`, `-iN`) or the next argument.
@@ -137,11 +144,11 @@ Config parse_args(int argc, char** argv)
                    "kvikio_nic: option '%.*s' requires a value\n",
                    static_cast<int>(name.size()),
                    name.data());
-      print_help_and_exit(argv[0], 2);
+      print_help_and_exit(argv[0], constants::exit_usage_error);
     };
 
     if (name == "-h" || name == "--help") {
-      print_help_and_exit(argv[0], 0);
+      print_help_and_exit(argv[0], constants::exit_success);
     } else if (name == "-i" || name == "--interval") {
       auto const value        = take_value();
       long long parsed        = 0;
@@ -151,7 +158,7 @@ Config parse_args(int argc, char** argv)
         std::fprintf(stderr,
                      "kvikio_nic: invalid interval '%s' (expected a positive integer)\n",
                      value.c_str());
-        print_help_and_exit(argv[0], 2);
+        print_help_and_exit(argv[0], constants::exit_usage_error);
       }
       config.interval = std::chrono::microseconds{parsed};
     } else if (name == "-d" || name == "--device") {
@@ -161,12 +168,12 @@ Config parse_args(int argc, char** argv)
       } catch (std::regex_error const& e) {
         std::fprintf(
           stderr, "kvikio_nic: invalid device regex '%s' (%s)\n", value.c_str(), e.what());
-        print_help_and_exit(argv[0], 2);
+        print_help_and_exit(argv[0], constants::exit_usage_error);
       }
     } else {
       std::fprintf(
         stderr, "kvikio_nic: unknown option '%.*s'\n", static_cast<int>(name.size()), name.data());
-      print_help_and_exit(argv[0], 2);
+      print_help_and_exit(argv[0], constants::exit_usage_error);
     }
   }
   return config;
@@ -185,7 +192,8 @@ std::vector<std::string> select_interfaces(Config const& config)
   if (!config.device_filter.has_value()) { return default_interfaces(); }
   std::vector<std::string> result;
   std::error_code ec;
-  std::filesystem::directory_iterator it{std::filesystem::path{constants::sysfs_net}, ec};
+  std::filesystem::directory_iterator it{
+    std::filesystem::path{kvikio::nsys_plugin::constants::sysfs_net}, ec};
   if (ec) { return result; }
   for (auto const& entry : it) {
     auto name = entry.path().filename().string();
@@ -196,12 +204,9 @@ std::vector<std::string> select_interfaces(Config const& config)
 }
 
 /**
- * @brief Build the counter semantics that carry the rate unit for a whole counter group.
+ * @brief Build the counter semantics that specify the rate unit.
  *
- * Keeping the unit here (rather than in the schema field names) means the identifiers stay
- * unit-neutral and a future unit change touches only this value.
- *
- * @return A populated counter-semantics extension describing MiB/s values.
+ * @return A populated counter-semantics object that specifies the rate unit.
  */
 nvtxSemanticsCounter_t make_rate_semantics()
 {
@@ -219,24 +224,29 @@ nvtxSemanticsCounter_t make_rate_semantics()
 }
 
 /**
- * @brief Register the unit-neutral {rx, tx} payload schema shared by every counter group.
+ * @brief Register the {rx, tx} payload schema.
  *
  * @param domain NVTX domain handle.
  * @return The schema id to pass as nvtxCounterAttr_t::schemaId.
  */
 std::uint64_t register_rate_schema(nvtxDomainHandle_t domain)
 {
-  nvtxPayloadSchemaEntry_t const entries[] = {
-    {.type = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE, .name = "rx"},
-    {.type = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE, .name = "tx"},
+  std::array const entries = {
+    nvtxPayloadSchemaEntry_t{
+      .type = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE, .name = "rx", .description = "Receive rate"},
+    nvtxPayloadSchemaEntry_t{
+      .type = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE, .name = "tx", .description = "Transmit rate"},
   };
   nvtxPayloadSchemaAttr_t attr{};
-  attr.fieldMask = NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_TYPE | NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_ENTRIES |
+  attr.fieldMask = NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_NAME | NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_TYPE |
+                   NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_FLAGS | NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_ENTRIES |
                    NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_NUM_ENTRIES |
                    NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_STATIC_SIZE;
+  attr.name              = "NIC bandwidth";
   attr.type              = NVTX_PAYLOAD_SCHEMA_TYPE_STATIC;
-  attr.entries           = entries;
-  attr.numEntries        = 2;
+  attr.flags             = NVTX_PAYLOAD_SCHEMA_FLAG_COUNTER_GROUP;
+  attr.entries           = entries.data();
+  attr.numEntries        = entries.size();
   attr.payloadStaticSize = sizeof(NicRates);
   return nvtxPayloadSchemaRegister(domain, &attr);
 }
@@ -253,8 +263,7 @@ std::uint64_t register_counter(nvtxDomainHandle_t domain,
                                std::string const& name,
                                std::uint64_t schema_id)
 {
-  // The semantics apply to the whole group and must outlive this call, so keep them static.
-  static nvtxSemanticsCounter_t const rate_semantics = make_rate_semantics();
+  nvtxSemanticsCounter_t const rate_semantics = make_rate_semantics();
   nvtxCounterAttr_t attr{};
   attr.structSize = sizeof(nvtxCounterAttr_t);
   attr.schemaId   = schema_id;
@@ -269,8 +278,8 @@ std::uint64_t register_counter(nvtxDomainHandle_t domain,
  * @brief Samples NIC byte counters at a fixed interval and emits them as NVTX counter groups.
  *
  * Construction registers one `nic_bandwidth.<iface>` counter group per interface plus
- * `nic_bandwidth.total`, so no sample can be emitted for an unregistered counter. `run()` then
- * differences the counters each tick until the stop flag is raised by the signal handler.
+ * `nic_bandwidth.total`. `run()` then differences the counters each tick until the stop flag is
+ * raised by the signal handler.
  */
 class BandwidthCollector {
  public:
@@ -306,26 +315,26 @@ class BandwidthCollector {
                  interfaces.size(),
                  static_cast<long long>(_interval.count()));
 
-    using clock = std::chrono::steady_clock;
-    auto prev   = _reader.read();
-    auto prev_t = clock::now();
-    auto next_t = prev_t;
+    using clock        = std::chrono::steady_clock;
+    auto prev_counters = _reader.read();
+    auto prev_time     = clock::now();
+    auto next_deadline = prev_time;
 
     while (stop == 0) {
-      // Absolute deadlines keep the sampling frequency drift-free. A signal does not shorten the
-      // sleep (libstdc++ restarts it over EINTR), so the stop flag is observed at the next tick.
-      next_t += _interval;
-      std::this_thread::sleep_until(next_t);
+      // Use sleep_until (instead of sleep_for) to minimize sampling frequency drift.
+      // A signal does not interrupt the sleep.
+      next_deadline += _interval;
+      std::this_thread::sleep_until(next_deadline);
 
-      auto const now = clock::now();
-      auto cur       = _reader.read();
-      auto const dt  = std::chrono::duration<double>{now - prev_t}.count();
+      auto const now    = clock::now();
+      auto cur_counters = _reader.read();
+      auto const dt     = std::chrono::duration<double>{now - prev_time}.count();
 
       NicRates total{0.0, 0.0};
       for (std::size_t i = 0; i < interfaces.size(); ++i) {
         NicRates rates{0.0, 0.0};
-        if (prev[i].has_value() && cur[i].has_value()) {
-          rates = compute_rates(prev[i].value(), cur[i].value(), dt);
+        if (prev_counters[i].has_value() && cur_counters[i].has_value()) {
+          rates = compute_rates(prev_counters[i].value(), cur_counters[i].value(), dt);
         }
         total.rx += rates.rx;
         total.tx += rates.tx;
@@ -333,8 +342,8 @@ class BandwidthCollector {
       }
       nvtxCounterSample(_domain, _total_counter_id, &total, sizeof(total));
 
-      prev   = std::move(cur);
-      prev_t = now;
+      prev_counters = std::move(cur_counters);
+      prev_time     = now;
     }
   }
 
@@ -350,10 +359,10 @@ class BandwidthCollector {
 
 // C language linkage (extern) to be standard conformant.
 // Also internal linkage (static) as a good practice.
-extern "C" {
 // nsys stops the collector by sending SIGTERM (then SIGKILL after a grace period). Catch it so the
 // loop breaks and the process exits cleanly with code 0 instead of an abnormal termination. Also
 // catch SIGINT to have the same clean exit for Ctrl-C.
+extern "C" {
 static void kvikio_nic_handle_signal(int /*signum*/) { g_stop = 1; }
 }
 
@@ -363,7 +372,7 @@ int main(int argc, char** argv)
   auto interfaces   = select_interfaces(config);
   if (interfaces.empty()) {
     std::fprintf(stderr, "kvikio_nic: no matching network interfaces to monitor.\n");
-    return 1;
+    return constants::exit_no_interfaces;
   }
 
   std::signal(SIGTERM, kvikio_nic_handle_signal);
@@ -371,5 +380,5 @@ int main(int argc, char** argv)
 
   BandwidthCollector const collector{std::move(interfaces), config.interval};
   collector.run(g_stop);
-  return 0;
+  return constants::exit_success;
 }
