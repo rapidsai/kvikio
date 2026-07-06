@@ -15,6 +15,7 @@
 #include <charconv>
 #include <chrono>
 #include <csignal>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -25,6 +26,7 @@
 #include <string_view>
 #include <system_error>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -59,6 +61,18 @@ namespace constants {
 constexpr int exit_success       = 0;
 constexpr int exit_no_interfaces = 1;
 constexpr int exit_usage_error   = 2;
+
+constexpr nvtxSemanticsCounter_t rate_semantics{
+  .header               = {.structSize = sizeof(nvtxSemanticsCounter_t),
+                           .semanticId = NVTX_SEMANTIC_ID_COUNTERS_V1,
+                           .version    = NVTX_COUNTER_SEMANTIC_VERSION,
+                           .next       = nullptr},
+  .flags                = NVTX_COUNTER_FLAGS_NONE,
+  .unit                 = "MiB/s",
+  .unitScaleNumerator   = 1,
+  .unitScaleDenominator = 1,
+  .limitType            = NVTX_COUNTER_LIMIT_UNDEFINED,
+};
 }  // namespace constants
 
 /**
@@ -204,26 +218,6 @@ std::vector<std::string> select_interfaces(Config const& config)
 }
 
 /**
- * @brief Build the counter semantics that specify the rate unit.
- *
- * @return A populated counter-semantics object that specifies the rate unit.
- */
-nvtxSemanticsCounter_t make_rate_semantics()
-{
-  nvtxSemanticsCounter_t sem{};
-  sem.header.structSize    = sizeof(nvtxSemanticsCounter_t);
-  sem.header.semanticId    = NVTX_SEMANTIC_ID_COUNTERS_V1;
-  sem.header.version       = NVTX_COUNTER_SEMANTIC_VERSION;
-  sem.header.next          = nullptr;
-  sem.flags                = NVTX_COUNTER_FLAGS_NONE;
-  sem.unit                 = "MiB/s";
-  sem.unitScaleNumerator   = 1;
-  sem.unitScaleDenominator = 1;
-  sem.limitType            = NVTX_COUNTER_LIMIT_UNDEFINED;
-  return sem;
-}
-
-/**
  * @brief Register the {rx, tx} payload schema.
  *
  * @param domain NVTX domain handle.
@@ -231,11 +225,16 @@ nvtxSemanticsCounter_t make_rate_semantics()
  */
 std::uint64_t register_rate_schema(nvtxDomainHandle_t domain)
 {
+  static_assert(std::is_standard_layout_v<NicRates>);
   std::array const entries = {
-    nvtxPayloadSchemaEntry_t{
-      .type = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE, .name = "rx", .description = "Receive rate"},
-    nvtxPayloadSchemaEntry_t{
-      .type = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE, .name = "tx", .description = "Transmit rate"},
+    nvtxPayloadSchemaEntry_t{.type        = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE,
+                             .name        = "rx",
+                             .description = "Receive rate",
+                             .offset      = offsetof(NicRates, rx)},
+    nvtxPayloadSchemaEntry_t{.type        = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE,
+                             .name        = "tx",
+                             .description = "Transmit rate",
+                             .offset      = offsetof(NicRates, tx)},
   };
   nvtxPayloadSchemaAttr_t attr{};
   attr.fieldMask = NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_NAME | NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_TYPE |
@@ -263,13 +262,12 @@ std::uint64_t register_counter(nvtxDomainHandle_t domain,
                                std::string const& name,
                                std::uint64_t schema_id)
 {
-  nvtxSemanticsCounter_t const rate_semantics = make_rate_semantics();
   nvtxCounterAttr_t attr{};
   attr.structSize = sizeof(nvtxCounterAttr_t);
   attr.schemaId   = schema_id;
   attr.name       = name.c_str();
   attr.scopeId    = NVTX_SCOPE_CURRENT_VM;
-  attr.semantics  = &rate_semantics.header;
+  attr.semantics  = &constants::rate_semantics.header;
   attr.counterId  = NVTX_COUNTER_ID_NONE;
   return nvtxCounterRegister(domain, &attr);
 }
