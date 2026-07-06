@@ -152,9 +152,6 @@ outputs:
       license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license }}
       summary: libkvikio tests
 
-  # The plugin is a standalone executable (NVTX header-only plus libdl); it links neither libkvikio
-  # nor CUDA. The requirements below mirror the libkvikio-tests output so the same validated build
-  # environment and libstdc++ runtime baseline apply; they can be slimmed once separately verified.
   - package:
       name: libkvikio-nsys-plugin
       version: ${{ version }}
