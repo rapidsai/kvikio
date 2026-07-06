@@ -287,16 +287,26 @@ dependencies:
           - libnuma
   depends_on_cufile:
     specific:
-      - output_types: pyproject
+      - output_types: [requirements, pyproject]
         matrices:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
           - matrix:
               cuda: "12.*"
+              cuda_suffixed: "true"
+              use_cuda_wheels: "true"
             packages:
-              - nvidia-cufile-cu12
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+              - cuda-toolkit[cufile]==12.*
           - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+              use_cuda_wheels: "true"
             packages:
-              - nvidia-cufile-cu13
+              - cuda-toolkit[cufile]==13.*
+          - {matrix: null, packages: []}
   depends_on_cupy:
     common:
       - output_types: conda
