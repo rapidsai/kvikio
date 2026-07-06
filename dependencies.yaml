@@ -78,6 +78,7 @@ files:
       table: project
     includes:
       - depends_on_rapids_logger
+      - depends_on_cufile
   py_rapids_build_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
@@ -284,6 +285,28 @@ dependencies:
         packages:
           - libcufile-dev
           - libnuma
+  depends_on_cufile:
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit[cufile]==12.*
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit[cufile]==13.*
+          - {matrix: null, packages: []}
   depends_on_cupy:
     common:
       - output_types: conda
