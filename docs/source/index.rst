@@ -25,5 +25,6 @@ Contents
    zarr
    remote_file
    runtime_settings
+   profiling
    api
    genindex

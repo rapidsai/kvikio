@@ -30,23 +30,7 @@ def nsys_plugin_search_dir() -> str:
        |-- share/kvikio/nsys-plugins/ --> returned
            |-- kvikio_nic/{kvikio_nic_nsys_plugin, nsys-plugin.yaml}
 
-    Point Nsight Systems at the returned path. This requires nsys 2026.2.1 or newer,
-    which introduced ``NSYS_PLUGIN_SEARCH_DIRS``:
-
-    .. code-block:: bash
-
-       export NSYS_PLUGIN_SEARCH_DIRS="$(python -c 'import kvikio; print(kvikio.nsys_plugin_search_dir())')"
-       nsys profile --enable=kvikio_nic ...
-
-    Older nsys versions do not search external plugin directories. There the
-    ``kvikio_nic`` directory must be copied or symlinked into the nsys installation
-    itself, next to the bundled plugins (write access to the installation is needed,
-    typically root):
-
-    .. code-block:: bash
-
-       sudo ln -s "$(python -c 'import kvikio; print(kvikio.nsys_plugin_search_dir())')/kvikio_nic" \
-           /opt/nvidia/nsight-systems/<version>/target-linux-x64/plugins/
+    See :doc:`profiling </profiling>` for how to enable the plugin in Nsight Systems.
 
     Returns
     -------
