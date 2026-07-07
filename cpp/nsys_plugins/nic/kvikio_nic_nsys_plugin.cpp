@@ -254,7 +254,7 @@ std::uint64_t register_rate_schema(nvtxDomainHandle_t domain)
  * @brief Register an NVTX counter group in the given domain.
  *
  * @param domain NVTX domain handle.
- * @param name Counter group name (for example "nic_bandwidth.eth0").
+ * @param name Counter group name (for example "eth0").
  * @param schema_id Payload schema id from register_rate_schema.
  * @return The counter id to pass to nvtxCounterSample().
  */
@@ -275,9 +275,8 @@ std::uint64_t register_counter(nvtxDomainHandle_t domain,
 /**
  * @brief Samples NIC byte counters at a fixed interval and emits them as NVTX counter groups.
  *
- * Construction registers one `nic_bandwidth.<iface>` counter group per interface plus
- * `nic_bandwidth.total`. `run()` then differences the counters each tick until the stop flag is
- * raised by the signal handler.
+ * Construction registers one `<iface>` counter group per interface plus `total`. `run()` then
+ * differences the counters each tick until the stop flag is raised by the signal handler.
  */
 class BandwidthCollector {
  public:
@@ -295,9 +294,9 @@ class BandwidthCollector {
     auto const schema_id = register_rate_schema(_domain);
     _counter_ids.reserve(_reader.interfaces().size());
     for (auto const& name : _reader.interfaces()) {
-      _counter_ids.push_back(register_counter(_domain, "nic_bandwidth." + name, schema_id));
+      _counter_ids.push_back(register_counter(_domain, name, schema_id));
     }
-    _total_counter_id = register_counter(_domain, "nic_bandwidth.total", schema_id);
+    _total_counter_id = register_counter(_domain, "total", schema_id);
   }
 
   /**
