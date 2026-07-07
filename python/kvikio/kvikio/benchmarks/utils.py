@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ has_cuda_core_system = False
 with contextlib.suppress(ImportError):
     from cuda.core import system
 
-    has_cuda_core_system = system.CUDA_BINDINGS_NVML_IS_COMPATIBLE
+    has_cuda_core_system = getattr(system, "CUDA_BINDINGS_NVML_IS_COMPATIBLE", False)
 
 
 def drop_vm_cache() -> None:
