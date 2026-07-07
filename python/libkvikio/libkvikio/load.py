@@ -37,10 +37,17 @@ def load_library():
     try:
         # librapids_logger must be loaded before libkvikio because libkvikio
         # references it.
+        import ctypes
+
         import rapids_logger
         from cuda.pathfinder import load_nvidia_dynamic_lib
 
         rapids_logger.load_library()
+
+        # We manually load librt.so.1 here to workaround a bad dynamic link
+        # in nvidia_cufile-1.15.1.6-py3-none-manylinux_2_27_aarch64.whl
+        # https://nvbugspro.nvidia.com/bug/6425783
+        ctypes.CDLL("librt.so.1", mode=ctypes.RTLD_GLOBAL)
         load_nvidia_dynamic_lib("cufile")
     except ModuleNotFoundError:
         # libkvikio's runtime dependency on librapids_logger may be satisfied by a
