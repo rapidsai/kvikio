@@ -37,20 +37,17 @@ def load_library():
     try:
         # librapids_logger must be loaded before libkvikio because libkvikio
         # references it.
+        import ctypes
+
         import rapids_logger
         from cuda.pathfinder import load_nvidia_dynamic_lib
 
         rapids_logger.load_library()
-        try:
-            load_nvidia_dynamic_lib("cufile")
-        except RuntimeError as e:
-            # cufile wheels on arm64 on 13.0.3 are missing symbols (specifically `shm_open`)
-            # so we ignore loading errors related to that particular symbol.
-            # Any other RuntimeError gets raised to the user
-            if "undefined symbol: shm_open" in repr(e):
-                pass
-            else:
-                raise e
+
+        # We manually load librt.so.1 here to workaround a bad dynamic link
+        # in nvidia_cufile-1.15.1.6-py3-none-manylinux_2_27_aarch64.whl
+        ctypes.CDLL("librt.so.1", mode=ctypes.RTLD_GLOBAL)
+        load_nvidia_dynamic_lib("cufile")
     except ModuleNotFoundError:
         # libkvikio's runtime dependency on librapids_logger may be satisfied by a
         # natively installed library or a conda package, in which case the import will
