@@ -300,7 +300,7 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.2.*
-              - cuda-python
+              - cuda-core
               - nvidia-cufile-cu12
           - matrix:
               cuda: "12.5"
@@ -308,7 +308,7 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.5.*
-              - cuda-python
+              - cuda-core
               - nvidia-cufile-cu12
           - matrix:
               cuda: "12.8"
@@ -316,21 +316,21 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==12.8.*
-              - cuda-python
+              - cuda-core
           - matrix:
               cuda: "12.9"
               cuda_suffixed: "true"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==12.9.*
-              - &cuda_python_cu12 cuda-python>=12.9.2,<13.0
+              - cuda-core
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==13.*
-              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0
+              - cuda-core
           - {matrix: null, packages: []}
   depends_on_cupy:
     common:
@@ -478,6 +478,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - cuda-core>=0.5.1,<2
           - rapids-dask-dependency==26.8.*,>=0.0.0a0
           - pytest
           - pytest-asyncio
@@ -496,16 +497,11 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
-              cuda: "12.*"
+              dependencies: "oldest"
             packages:
-              - *cuda_python_cu12
-          - matrix:
-              cuda: "13.*"
-            packages:
-              - *cuda_python_cu13
+              - cuda-core==0.5.1
           - matrix:
             packages:
-              - *cuda_python_cu13
   test_java:
     common:
       - output_types: conda
