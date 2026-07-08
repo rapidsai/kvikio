@@ -37,8 +37,6 @@ def load_library():
     try:
         # librapids_logger must be loaded before libkvikio because libkvikio
         # references it.
-        import ctypes
-
         import rapids_logger
         from cuda.pathfinder import load_nvidia_dynamic_lib
 
