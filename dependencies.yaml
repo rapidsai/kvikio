@@ -189,6 +189,10 @@ dependencies:
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
   cuda_version:
+    common:
+      - output_types: requirements
+        packages:
+          - cuda-pathfinder
     specific:
       - output_types: conda
         matrices:
@@ -244,41 +248,43 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.2.*
+              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.5"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.5.*
+              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.8"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit==12.8.*
+              - cuda-toolkit[cufile]==12.8.*
           - matrix:
               cuda: "12.9"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit==12.9.*
+              - cuda-toolkit[cufile]==12.9.*
           - matrix:
               cuda: "13.0"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit==13.0.*
+              - cuda-toolkit[cufile]==13.0.*
           - matrix:
               cuda: "13.1"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit==13.1.*
+              - cuda-toolkit[cufile]==13.1.*
           - matrix:
               cuda: "13.2"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit==13.2.*
+              - cuda-toolkit[cufile]==13.2.*
           - matrix:
               cuda: "13.3"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit==13.3.*
+              - cuda-toolkit[cufile]==13.3.*
   cuda:
     common:
       - output_types: conda
@@ -295,36 +301,13 @@ dependencies:
               use_cuda_wheels: "false"
             packages:
           - matrix:
-              cuda: "12.2"
-              cuda_suffixed: "true"
+              cuda: "12.*"
               use_cuda_wheels: "true"
             packages:
-              - cuda-pathfinder
-              - nvidia-cufile-cu12
-          - matrix:
-              cuda: "12.5"
-              cuda_suffixed: "true"
-              use_cuda_wheels: "true"
-            packages:
-              - cuda-pathfinder
-              - nvidia-cufile-cu12
-          - matrix:
-              cuda: "12.8"
-              cuda_suffixed: "true"
-              use_cuda_wheels: "true"
-            packages:
-              - cuda-toolkit[cufile]
-              - cuda-pathfinder
-          - matrix:
-              cuda: "12.9"
-              cuda_suffixed: "true"
-              use_cuda_wheels: "true"
-            packages:
-              - cuda-toolkit[cufile]
+              - cuda-toolkit[cufile]==12.*
               - cuda-pathfinder
           - matrix:
               cuda: "13.*"
-              cuda_suffixed: "true"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==13.*
