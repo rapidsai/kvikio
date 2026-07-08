@@ -78,6 +78,7 @@ files:
       table: project
     includes:
       - depends_on_rapids_logger
+      - depends_on_cufile
   py_rapids_build_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
@@ -188,6 +189,10 @@ dependencies:
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
   cuda_version:
+    common:
+      - output_types: requirements
+        packages:
+          - cuda-pathfinder
     specific:
       - output_types: conda
         matrices:
@@ -238,16 +243,19 @@ dependencies:
               # some components (like nvidia-cublas-cu12 and nvidia-cuda-nvcc-cu12) didn't have
               # aarch64 wheels until CTK 12.3, so allow a slightly looser bound here
               - cuda-toolkit>=12.2,<12.4
+              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.2"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.2.*
+              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.5"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.5.*
+              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.8"
               use_cuda_wheels: "true"
@@ -284,6 +292,28 @@ dependencies:
         packages:
           - libcufile-dev
           - libnuma
+  depends_on_cufile:
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit[cufile]==12.*
+              - cuda-pathfinder
+          - matrix:
+              cuda: "13.*"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit[cufile]==13.*
+              - cuda-pathfinder
+          - {matrix: null, packages: []}
   depends_on_cupy:
     common:
       - output_types: conda
@@ -441,6 +471,7 @@ dependencies:
       - output_types: pyproject
         packages:
           - &moto_server moto[server]>=4.0.8
+          - cuda-toolkit[cufile]
       - output_types: conda
         packages:
           - moto>=4.0.8
