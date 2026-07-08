@@ -39,6 +39,7 @@ classifiers = [
 test = [
     "boto3>=1.21.21",
     "cuda-core>=0.5.1,<2",
+    "cuda-toolkit[cufile]",
     "moto[server]>=4.0.8",
     "pytest",
     "pytest-asyncio",
