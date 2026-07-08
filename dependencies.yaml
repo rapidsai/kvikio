@@ -299,7 +299,7 @@ dependencies:
               cuda_suffixed: "true"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit==12.2.*
+              - cuda-toolkit
               - cuda-pathfinder
               - nvidia-cufile-cu12
           - matrix:
@@ -307,7 +307,7 @@ dependencies:
               cuda_suffixed: "true"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit==12.5.*
+              - cuda-toolkit
               - cuda-pathfinder
               - nvidia-cufile-cu12
           - matrix:
@@ -315,7 +315,7 @@ dependencies:
               cuda_suffixed: "true"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cufile]==12.8.*
+              - cuda-toolkit[cufile]
               - cuda-pathfinder
           - matrix:
               cuda: "12.9"
