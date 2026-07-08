@@ -300,12 +300,14 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==12.*
+              - &cuda_python_cu12 cuda-python>=12.9.2,<13.0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==13.*
+              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0
           - {matrix: null, packages: []}
   depends_on_cupy:
     common:
@@ -473,11 +475,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.9.2,<13.0
+              - *cuda_python_cu12
           - matrix:
               cuda: "13.*"
             packages:
-              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0
+              - *cuda_python_cu13
           - matrix:
             packages:
               - *cuda_python_cu13
