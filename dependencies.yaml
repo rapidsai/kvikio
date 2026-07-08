@@ -295,11 +295,34 @@ dependencies:
               use_cuda_wheels: "false"
             packages:
           - matrix:
-              cuda: "12.*"
+              cuda: "12.2"
               cuda_suffixed: "true"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cufile]==12.*
+              - cuda-toolkit==12.2.*
+              - cuda-python
+              - nvidia-cufile-cu12
+          - matrix:
+              cuda: "12.5"
+              cuda_suffixed: "true"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit==12.5.*
+              - cuda-python
+              - nvidia-cufile-cu12
+          - matrix:
+              cuda: "12.8"
+              cuda_suffixed: "true"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit[cufile]==12.8.*
+              - cuda-python
+          - matrix:
+              cuda: "12.9"
+              cuda_suffixed: "true"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit[cufile]==12.9.*
               - &cuda_python_cu12 cuda-python>=12.9.2,<13.0
           - matrix:
               cuda: "13.*"
