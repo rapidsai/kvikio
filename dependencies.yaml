@@ -115,6 +115,7 @@ files:
       key: test
     includes:
       - test_python
+      - test_cufile
       - zarr
   test_java:
     output: none
@@ -189,10 +190,6 @@ dependencies:
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
   cuda_version:
-    common:
-      - output_types: requirements
-        packages:
-          - cuda-pathfinder
     specific:
       - output_types: conda
         matrices:
@@ -243,19 +240,16 @@ dependencies:
               # some components (like nvidia-cublas-cu12 and nvidia-cuda-nvcc-cu12) didn't have
               # aarch64 wheels until CTK 12.3, so allow a slightly looser bound here
               - cuda-toolkit>=12.2,<12.4
-              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.2"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.2.*
-              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.5"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.5.*
-              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.8"
               use_cuda_wheels: "true"
@@ -293,6 +287,10 @@ dependencies:
           - libcufile-dev
           - libnuma
   depends_on_cufile:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          - cuda-pathfinder
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -471,7 +469,6 @@ dependencies:
       - output_types: pyproject
         packages:
           - &moto_server moto[server]>=4.0.8
-          - cuda-toolkit[cufile]
       - output_types: conda
         packages:
           - moto>=4.0.8
@@ -483,6 +480,24 @@ dependencies:
               dependencies: "oldest"
             packages:
               - cuda-core==0.5.1
+          - matrix:
+            packages:
+  test_cufile:
+    common:
+      - output_types: pyproject
+        packages:
+          - cuda-toolkit[cufile]
+    specific:
+      # The `cufile` extra was added to the `cuda-toolkit` metapackage in 12.6.3
+      # Adding an explicit test dependency on the cufile package here for
+      # testing on versions before 12.6.3
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "true"
+            packages:
+              - nvidia-cufile-cu12
           - matrix:
             packages:
   test_java:
