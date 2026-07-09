@@ -189,10 +189,6 @@ dependencies:
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
   cuda_version:
-    common:
-      - output_types: requirements
-        packages:
-          - cuda-pathfinder
     specific:
       - output_types: conda
         matrices:
@@ -243,49 +239,46 @@ dependencies:
               # some components (like nvidia-cublas-cu12 and nvidia-cuda-nvcc-cu12) didn't have
               # aarch64 wheels until CTK 12.3, so allow a slightly looser bound here
               - cuda-toolkit>=12.2,<12.4
-              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.2"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.2.*
-              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.5"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.5.*
-              - nvidia-cufile-cu12
           - matrix:
               cuda: "12.8"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cufile]==12.8.*
+              - cuda-toolkit==12.8.*
           - matrix:
               cuda: "12.9"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cufile]==12.9.*
+              - cuda-toolkit==12.9.*
           - matrix:
               cuda: "13.0"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cufile]==13.0.*
+              - cuda-toolkit==13.0.*
           - matrix:
               cuda: "13.1"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cufile]==13.1.*
+              - cuda-toolkit==13.1.*
           - matrix:
               cuda: "13.2"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cufile]==13.2.*
+              - cuda-toolkit==13.2.*
           - matrix:
               cuda: "13.3"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cufile]==13.3.*
+              - cuda-toolkit==13.3.*
   cuda:
     common:
       - output_types: conda
