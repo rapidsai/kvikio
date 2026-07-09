@@ -115,6 +115,7 @@ files:
       key: test
     includes:
       - test_python
+      - test_cufile
       - zarr
   test_java:
     output: none
@@ -468,7 +469,6 @@ dependencies:
       - output_types: pyproject
         packages:
           - &moto_server moto[server]>=4.0.8
-          - cuda-toolkit[cufile]
       - output_types: conda
         packages:
           - moto>=4.0.8
@@ -482,18 +482,24 @@ dependencies:
               - cuda-core==0.5.1
           - matrix:
             packages:
-      - output_types: requirements
+  test_cufile:
+    common:
+      - output_types: pyproject
+        packages:
+          - cuda-toolkit[cufile]
+    specific:
+      # The `cufile` extra was added to the `cuda-toolkit` metapackage in 12.6.3
+      # Adding an explicit test dependency on the cufile package here for
+      # testing on versions before 12.6.3
+      - output_types: pyproject
         matrices:
           - matrix:
-              cuda: "12.2"
+              cuda: "12.*"
               use_cuda_wheels: "true"
             packages:
               - nvidia-cufile-cu12
           - matrix:
-              cuda: "12.5"
-              use_cuda_wheels: "true"
             packages:
-              - nvidia-cufile-cu12
   test_java:
     common:
       - output_types: conda
