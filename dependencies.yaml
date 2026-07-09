@@ -390,10 +390,14 @@ dependencies:
           - zarr>=3.0.0,<3.2.0,<4.0.0
           - sphinx
           - sphinx-click
-          - sphinx_rtd_theme
       - output_types: conda
         packages:
           - doxygen=1.9.1 # pre-commit hook needs a specific version.
+          - pip:
+              - nvidia-sphinx-theme
+      - output_types: requirements
+        packages:
+          - nvidia-sphinx-theme
   py_version:
     specific:
       - output_types: conda
