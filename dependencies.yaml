@@ -286,6 +286,10 @@ dependencies:
           - libcufile-dev
           - libnuma
   depends_on_cufile:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          - cuda-pathfinder
     specific:
       - output_types: [requirements, pyproject]
         matrices:
