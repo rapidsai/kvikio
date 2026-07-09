@@ -485,6 +485,18 @@ dependencies:
               - cuda-core==0.5.1
           - matrix:
             packages:
+      - output_types: requirements
+        matrices:
+          - matrix:
+              cuda: "12.2"
+              use_cuda_wheels: "true"
+            packages:
+              - nvidia-cufile-cu12
+          - matrix:
+              cuda: "12.5"
+              use_cuda_wheels: "true"
+            packages:
+              - nvidia-cufile-cu12
   test_java:
     common:
       - output_types: conda
