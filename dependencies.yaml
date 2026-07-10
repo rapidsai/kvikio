@@ -487,16 +487,25 @@ dependencies:
           - matrix:
             packages:
   test_cufile:
-    common:
-      - output_types: pyproject
-        packages:
-          - cuda-toolkit[cufile]
     specific:
+      - output_types: pyproject
+        matrices:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
+          - matrix:
+            packages:
+              - cuda-toolkit[cufile]
       # The `cufile` extra was added to the `cuda-toolkit` metapackage in 12.6.3
       # Adding an explicit test dependency on the cufile package here for
       # testing on versions before 12.6.3
       - output_types: pyproject
         matrices:
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
           - matrix:
               cuda: "12.*"
               use_cuda_wheels: "true"
