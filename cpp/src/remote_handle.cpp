@@ -920,9 +920,9 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
 
   if (is_host_mem) { return fut; }
 
-  // Device path: wrap the libcurl-side future so that the caller's `future.get()` waits for the
-  // H2D to complete (on the caller's thread, not the reactor). The shared_ptr keeps the barrier
-  // alive until the deferred future runs.
+  // Device path: Wrap the RemoteMultiAggregateContext's future so that the caller's `future.get()`
+  // waits for the H2D to complete, which will happen on the caller's thread, not the reactor's. The
+  // shared_ptr keeps the barrier alive until the deferred future runs.
   return std::async(std::launch::deferred,
                     [fut = std::move(fut), io_event_barrier]() mutable -> std::size_t {
                       auto const n = fut.get();

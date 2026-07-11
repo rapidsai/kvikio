@@ -27,9 +27,9 @@ void IoEventBarrier::record_event(CUstream stream)
     }
     event_ptr = &it->second;
   }
-  // Release the mutex before calling CUDA. The slot is per-thread, so no other thread touches it
-  // concurrently. unordered_map guarantees pointer stability for existing elements across
-  // insertions, so event_ptr remains valid.
+  // Note that for the node-based unordered_map, pointers (or references) to either key or data
+  // stored in the container can never be invalidated by insertion, even when the corresponding
+  // iterator is invalidated. So it is safe to move this function outside the mutex.
   event_ptr->record(stream);
 }
 

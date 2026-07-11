@@ -42,7 +42,8 @@ TEST_F(IoEventBarrierTest, cuda_context_stored)
 TEST_F(IoEventBarrierTest, sync_with_no_records_is_noop)
 {
   kvikio::detail::IoEventBarrier barrier(current_context());
-  barrier.sync_all_events();  // No slots, nothing to wait for.
+  // No slots, nothing to wait for.
+  EXPECT_NO_THROW(barrier.sync_all_events());
 }
 
 TEST_F(IoEventBarrierTest, single_thread_record_and_sync)
@@ -52,8 +53,10 @@ TEST_F(IoEventBarrierTest, single_thread_record_and_sync)
   CUstream stream{};
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
 
-  barrier.record_event(stream);
-  barrier.sync_all_events();
+  EXPECT_NO_THROW({
+    barrier.record_event(stream);
+    barrier.sync_all_events();
+  });
 
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }
@@ -65,12 +68,14 @@ TEST_F(IoEventBarrierTest, re_record_overwrites_same_slot)
   CUstream stream{};
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
 
-  // Multiple records on the same thread reuse the same slot. sync_all_events should still
-  // succeed after the final re-record.
-  barrier.record_event(stream);
-  barrier.record_event(stream);
-  barrier.record_event(stream);
-  barrier.sync_all_events();
+  // Multiple records on the same thread reuse the same slot. sync_all_events should still succeed
+  // after the final re-record.
+  EXPECT_NO_THROW({
+    barrier.record_event(stream);
+    barrier.record_event(stream);
+    barrier.record_event(stream);
+    barrier.sync_all_events();
+  });
 
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }
@@ -102,8 +107,7 @@ TEST_F(IoEventBarrierTest, multi_thread_record_then_sync_on_caller)
   }
   EXPECT_EQ(errors.load(), 0);
 
-  // Caller (main thread) waits for every worker thread's recorded event.
-  barrier.sync_all_events();
+  EXPECT_NO_THROW(barrier.sync_all_events());
 
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }

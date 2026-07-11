@@ -14,25 +14,25 @@
 namespace kvikio::detail {
 
 /**
- * @brief Per-pread event watermark used to gate H2D completion on the caller's thread.
+ * @brief Per-pread event barrier used to gate H2D completion on the caller's thread.
  *
  * One `IoEventBarrier` is constructed per `RemoteHandle::pread` call (device-buffer path) and
  * shared via `std::shared_ptr` with every sub-range transfer belonging to that pread. Each reactor
  * I/O thread that submits a `cuMemcpyAsync` for one of those sub-ranges calls
  * `record_event(stream)`, which re-records this thread's slot in the barrier. Once all sub-ranges
- * have reported completion (the libcurl-side future resolves), the caller calls
- * `sync_all_events()` to block until every reactor thread's last H2D has drained.
+ * have reported completion, the caller calls `sync_all_events()` to block until every reactor
+ * thread's last H2D has drained.
  *
  * The map is keyed by `std::this_thread::get_id()` so multiple reactor threads each get an
  * independent event slot. The slot is created lazily on first record. Subsequent records on the
  * same thread overwrite the slot's captured state via `cuEventRecord`, which is safe because each
- * reactor thread submits H2D sequentially for one pred.
+ * reactor thread submits H2D sequentially for one pread.
  *
  * Events are pulled from `CudaEventPool::instance()` at first-record time and so are bound to the
- * CUDA context that is current at first-record. The reactor is expected to `PushAndPopContext`
- * the destination context before calling `record_event`, matching the same wrapper used for the
- * `cuMemcpyAsync` itself. `sync_all_events()` is context-agnostic per the CUDA contract: events
- * remember their owning context internally.
+ * CUDA context that is current at first-record. The reactor is expected to `PushAndPopContext` the
+ * destination context before calling `record_event`, matching the same wrapper used for the
+ * `cuMemcpyAsync` itself. `sync_all_events()` is context-agnostic, i.e. events remember their
+ * owning context internally.
  */
 class IoEventBarrier {
  public:
