@@ -105,6 +105,11 @@ struct RemoteMultiTransfer {
   CallbackContext ctx;
   std::shared_ptr<RemoteMultiAggregateContext> aggregate;
 
+  // Concurrency slot held from stage (1) admission until this transfer is destroyed after
+  // completion or failure. Empty while the transfer waits in the inbox. Destroying the transfer
+  // returns the slot to the reactor's limiter.
+  ConcurrentRequestLimiter::Slot slot;
+
   // Device-path fields. All zeroed/null for host transfers.
   bool is_device{false};
   CUcontext device_ctx{nullptr};

@@ -137,7 +137,8 @@ void MultiPollReactor::io_thread_main()
           // Bound this reactor's in-flight requests to its private share of the global budget. Once
           // the limiter is at capacity every remaining inbox entry would fail the same check, so
           // stop the walk and leave the rest queued in FIFO order for a later iteration.
-          if (!_request_limiter.try_acquire()) {
+          auto slot = _request_limiter.try_acquire();
+          if (!slot) {
             has_deferred_transfer = true;
             break;
           }
@@ -149,9 +150,6 @@ void MultiPollReactor::io_thread_main()
               maybe = BounceBufferCache::instance().try_get(transfer->device_ctx);
             }
             if (!maybe) {
-              // The slot acquired above goes unused because this transfer is left in the inbox.
-              // Release it so a different ready transfer can be admitted this iteration.
-              _request_limiter.release();
               has_deferred_transfer = true;
               ++it;
               continue;
@@ -163,9 +161,6 @@ void MultiPollReactor::io_thread_main()
           CURL* easy    = transfer->curl->handle();
           auto const mc = curl_multi_add_handle(_curl_multi, easy);
           if (mc != CURLM_OK) {
-            // The slot was acquired for a transfer that will never reach _in_flight, so release it
-            // now to avoid permanently shrinking capacity.
-            _request_limiter.release();
             // This transfer is now in transit between _inbox and _in_flight. fail_all_pending (run
             // on the catch path below) iterates only those two containers. We must fail this
             // transfer's aggregate here to maintain the per-aggregate sub-range count invariant.
@@ -173,7 +168,7 @@ void MultiPollReactor::io_thread_main()
             if (transfer->is_device && transfer->buffer.get() != nullptr) {
               PushAndPopContext c(transfer->device_ctx);
               BounceBufferCache::instance().recycle_now(transfer->device_ctx,
-                                                  std::move(transfer->buffer));
+                                                        std::move(transfer->buffer));
             }
             transfer->aggregate->on_subrange_failed(std::make_exception_ptr(std::runtime_error(
               std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc))));
@@ -181,6 +176,9 @@ void MultiPollReactor::io_thread_main()
             KVIKIO_FAIL(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc),
                         std::runtime_error);
           }
+          // The transfer owns its slot from here on. The slot returns to the limiter when the
+          // transfer is destroyed.
+          transfer->slot = std::move(slot);
           _in_flight.emplace(easy, std::move(transfer));
           it = _inbox.erase(it);
         }
@@ -239,7 +237,7 @@ void MultiPollReactor::io_thread_main()
               try {
                 PushAndPopContext c(transfer->device_ctx);
                 BounceBufferCache::instance().recycle_now(transfer->device_ctx,
-                                                    std::move(transfer->buffer));
+                                                          std::move(transfer->buffer));
               } catch (...) {
                 // Best-effort recycle; if the context push fails the buffer leaks.
               }
@@ -261,15 +259,14 @@ void MultiPollReactor::io_thread_main()
           // No H2D was submitted on the failure path. Recycle the buffer immediately.
           if (transfer->is_device && transfer->buffer.get() != nullptr) {
             PushAndPopContext c(transfer->device_ctx);
-            BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+            BounceBufferCache::instance().recycle_now(transfer->device_ctx,
+                                                      std::move(transfer->buffer));
           }
           transfer->aggregate->on_subrange_failed(
             std::make_exception_ptr(std::runtime_error(ss.str())));
         }
-        // This request has left _in_flight (success or failure). Return its concurrency slot so a
-        // deferred request can be admitted.
-        _request_limiter.release();
-        // transfer (unique_ptr) drops here, returning easy to the LibCurl pool.
+        // transfer (unique_ptr) drops here, returning easy to the LibCurl pool and releasing the
+        // transfer's concurrency slot so a deferred request can be admitted.
       }
 
       // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout when stage (1)
@@ -314,7 +311,8 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
       // transfers and not-yet-checked-out device transfers.
       if (transfer->is_device && transfer->buffer.get() != nullptr) {
         PushAndPopContext c(transfer->device_ctx);
-        BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+        BounceBufferCache::instance().recycle_now(transfer->device_ctx,
+                                                  std::move(transfer->buffer));
       }
       transfer->aggregate->on_subrange_failed(eptr);
     }
@@ -337,9 +335,6 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
       BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
     }
     transfer->aggregate->on_subrange_failed(eptr);
-    // Every _in_flight entry holds a concurrency slot. The inbox entries drained above never
-    // acquired one, so they are not released here.
-    _request_limiter.release();
   }
   _in_flight.clear();
 }
