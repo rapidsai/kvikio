@@ -116,18 +116,14 @@ void MultiPollReactor::submit(std::unique_ptr<RemoteMultiTransfer> transfer)
 
 void MultiPollReactor::io_thread_main()
 {
-  using DeviceCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
+  using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
   try {
     while (!_pool->is_dead()) {
-      // Set true if stage (1) defers at least one device transfer because the bounce-buffer cache
-      // was at cap. Stage (4) shortens the poll timeout when this is set so the cache is
-      // re-checked promptly after recycle callbacks fire.
-      bool has_deferred_device_transfer = false;
-
-      // Set true if stage (1) leaves at least one request queued because the concurrency limiter is
-      // at capacity. Stage (4) then shortens the poll timeout so the inbox is re-checked promptly
-      // once a completing request frees a slot.
-      bool has_deferred = false;
+      // Set true if stage (1) leaves at least one transfer queued, either because the concurrency
+      // limiter is at capacity or because the bounce-buffer cache is at cap (device transfers).
+      // Stage (4) then shortens the poll timeout so the inbox is re-checked promptly once a
+      // completion frees a limiter slot or a recycle callback frees a cache slot.
+      bool has_deferred_transfer = false;
 
       // (1) Drain submission queue. Walk the inbox, attaching each ready handle to the multi
       // handle. Admit a request only while the concurrency limiter has a free slot. For device
@@ -142,7 +138,7 @@ void MultiPollReactor::io_thread_main()
           // the limiter is at capacity every remaining inbox entry would fail the same check, so
           // stop the walk and leave the rest queued in FIFO order for a later iteration.
           if (!_request_limiter.try_acquire()) {
-            has_deferred = true;
+            has_deferred_transfer = true;
             break;
           }
 
@@ -150,13 +146,13 @@ void MultiPollReactor::io_thread_main()
             std::optional<CudaPinnedBounceBufferPool::Buffer> maybe;
             {
               PushAndPopContext c(transfer->device_ctx);
-              maybe = DeviceCache::instance().try_get(transfer->device_ctx);
+              maybe = BounceBufferCache::instance().try_get(transfer->device_ctx);
             }
             if (!maybe) {
               // The slot acquired above goes unused because this transfer is left in the inbox.
               // Release it so a different ready transfer can be admitted this iteration.
               _request_limiter.release();
-              has_deferred_device_transfer = true;
+              has_deferred_transfer = true;
               ++it;
               continue;
             }
@@ -176,7 +172,7 @@ void MultiPollReactor::io_thread_main()
             // Also recycle the just-checked-out device buffer if any.
             if (transfer->is_device && transfer->buffer.get() != nullptr) {
               PushAndPopContext c(transfer->device_ctx);
-              DeviceCache::instance().recycle_now(transfer->device_ctx,
+              BounceBufferCache::instance().recycle_now(transfer->device_ctx,
                                                   std::move(transfer->buffer));
             }
             transfer->aggregate->on_subrange_failed(std::make_exception_ptr(std::runtime_error(
@@ -231,7 +227,7 @@ void MultiPollReactor::io_thread_main()
                                                     transfer->ctx.size,
                                                     stream));
               transfer->aggregate->io_event_barrier->record_event(stream);
-              DeviceCache::instance().recycle_after(
+              BounceBufferCache::instance().recycle_after(
                 transfer->device_ctx, std::move(transfer->buffer), stream);
             }
             transfer->aggregate->on_subrange_complete(transfer->ctx.size);
@@ -242,7 +238,7 @@ void MultiPollReactor::io_thread_main()
             if (transfer->is_device && transfer->buffer.get() != nullptr) {
               try {
                 PushAndPopContext c(transfer->device_ctx);
-                DeviceCache::instance().recycle_now(transfer->device_ctx,
+                BounceBufferCache::instance().recycle_now(transfer->device_ctx,
                                                     std::move(transfer->buffer));
               } catch (...) {
                 // Best-effort recycle; if the context push fails the buffer leaks.
@@ -265,7 +261,7 @@ void MultiPollReactor::io_thread_main()
           // No H2D was submitted on the failure path. Recycle the buffer immediately.
           if (transfer->is_device && transfer->buffer.get() != nullptr) {
             PushAndPopContext c(transfer->device_ctx);
-            DeviceCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+            BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
           }
           transfer->aggregate->on_subrange_failed(
             std::make_exception_ptr(std::runtime_error(ss.str())));
@@ -277,11 +273,11 @@ void MultiPollReactor::io_thread_main()
       }
 
       // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout when stage (1)
-      // deferred a device transfer on the cache or deferred a request on the concurrency limiter,
-      // so the inbox is re-checked promptly. Recycle callbacks that free a cache slot and
-      // completions that free a limiter slot do not necessarily raise libcurl socket activity, so
-      // without this we could sleep up to 1 s before retrying a deferred transfer.
-      int const poll_timeout_ms = (has_deferred_device_transfer || has_deferred) ? 10 : 1000;
+      // deferred a transfer, so the inbox is re-checked promptly. Recycle callbacks that free a
+      // cache slot and completions that free a limiter slot do not necessarily raise libcurl
+      // socket activity, so without this we could sleep up to 1 s before retrying a deferred
+      // transfer.
+      int const poll_timeout_ms = has_deferred_transfer ? 10 : 1000;
       auto const poll_mc        = curl_multi_poll(_curl_multi,
                                            nullptr,          // extra_fds
                                            0,                // extra_nfds
@@ -304,7 +300,7 @@ void MultiPollReactor::io_thread_main()
 
 void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 {
-  using DeviceCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
+  using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
 
   // Drain the inbox under the submit mutex. New submissions are blocked from accumulating by the
   // _pool->is_dead() check in submit(), which is already true by the time we get here.
@@ -318,7 +314,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
       // transfers and not-yet-checked-out device transfers.
       if (transfer->is_device && transfer->buffer.get() != nullptr) {
         PushAndPopContext c(transfer->device_ctx);
-        DeviceCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+        BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
       }
       transfer->aggregate->on_subrange_failed(eptr);
     }
@@ -338,7 +334,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     // to the cache.
     if (transfer->is_device && transfer->buffer.get() != nullptr) {
       PushAndPopContext c(transfer->device_ctx);
-      DeviceCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+      BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
     }
     transfer->aggregate->on_subrange_failed(eptr);
     // Every _in_flight entry holds a concurrency slot. The inbox entries drained above never
