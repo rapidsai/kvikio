@@ -151,17 +151,17 @@ class MultiPollReactor {
   MultiPollReactor& operator=(MultiPollReactor&&)      = delete;
 
   /**
-   * @brief Hand off a prepared transfer to this reactor. Thread-safe.
+   * @brief Hand off a batch of prepared transfers to this reactor. Thread-safe.
    *
-   * The reactor picks the transfer up on its next loop iteration. The caller must have already
+   * The reactor picks the transfers up on its next loop iteration. The caller must have already
    * obtained the aggregate future via `aggregate->get_future()` before calling this, because once
-   * the transfer is in the queue the reactor may complete it (and the promise) at any time. If the
-   * pool has already declared death, the transfer is failed immediately with the recorded death
-   * reason and never enters the inbox.
+   * the transfers are in the queue the reactor may complete them (and the promise) at any time. If
+   * the pool has already declared death, every transfer in the batch is failed immediately with
+   * the recorded death reason and never enters the inbox.
    *
-   * @param transfer Per-transfer state, ownership transferred to the reactor.
+   * @param transfers Per-transfer state, ownership transferred to the reactor.
    */
-  void submit(std::unique_ptr<RemoteMultiTransfer> transfer);
+  void submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers);
 
   /**
    * @brief Wake up the reactor out of its `curl_multi_poll()` wait. Thread-safe.
@@ -190,6 +190,7 @@ class MultiPollReactor {
   std::thread _io_thread;
   std::mutex _submit_mutex;
   std::deque<std::unique_ptr<RemoteMultiTransfer>> _inbox;
+  std::deque<std::unique_ptr<RemoteMultiTransfer>> _pending;
   std::unordered_map<CURL*, std::unique_ptr<RemoteMultiTransfer>> _in_flight;
 };
 

@@ -94,21 +94,26 @@ MultiPollReactor::~MultiPollReactor() noexcept
 
 void MultiPollReactor::wakeup() noexcept { std::ignore = curl_multi_wakeup(_curl_multi); }
 
-void MultiPollReactor::submit(std::unique_ptr<RemoteMultiTransfer> transfer)
+void MultiPollReactor::submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers)
 {
+  if (transfers.empty()) { return; }
   std::exception_ptr fail_reason;
   {
     std::lock_guard<std::mutex> const lock(_submit_mutex);
     if (_pool->is_dead()) {
-      // The pool is dead. Fail this transfer immediately rather than pushing into an inbox that
-      // will never be drained. Reading death_reason inside the lock is overkill but harmless.
+      // The pool is dead. Fail the batch immediately rather than pushing into an inbox that will
+      // never be drained. Reading death_reason inside the lock is overkill but harmless.
       fail_reason = _pool->death_reason();
     } else {
-      _inbox.push_back(std::move(transfer));
+      for (auto& transfer : transfers) {
+        _inbox.push_back(std::move(transfer));
+      }
     }
   }
   if (fail_reason) {
-    transfer->aggregate->on_subrange_failed(fail_reason);
+    for (auto& transfer : transfers) {
+      transfer->aggregate->on_subrange_failed(fail_reason);
+    }
     return;
   }
   wakeup();
@@ -119,27 +124,53 @@ void MultiPollReactor::io_thread_main()
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
   try {
     while (!_pool->is_dead()) {
-      // Set true if stage (1) leaves at least one transfer queued, either because the concurrency
-      // limiter is at capacity or because the bounce-buffer cache is at cap (device transfers).
-      // Stage (4) then shortens the poll timeout so the inbox is re-checked promptly once a
-      // completion frees a limiter slot or a recycle callback frees a cache slot.
-      bool has_deferred_transfer = false;
-
-      // (1) Drain submission queue. Walk the inbox, attaching each ready handle to the multi
-      // handle. Admit a request only while the concurrency limiter has a free slot. For device
-      // transfers, also check out a pinned bounce buffer from the cache; if the cache is at cap,
-      // leave the transfer in the inbox for a later iteration.
+      // (1) Splice newly submitted transfers out of the shared inbox. The mutexed section is
+      // pointer moves only, so submitters (by other threads) never wait on admission work (by the
+      // current IO reactor thread).
       {
         std::lock_guard<std::mutex> const lock(_submit_mutex);
-        for (auto it = _inbox.begin(); it != _inbox.end();) {
-          auto& transfer = *it;
+        if (_pending.empty()) {
+          std::swap(_pending, _inbox);
+        } else {
+          while (!_inbox.empty()) {
+            _pending.push_back(std::move(_inbox.front()));
+            _inbox.pop_front();
+          }
+        }
+      }
 
-          // Bound this reactor's in-flight requests to its private share of the global budget. Once
-          // the limiter is at capacity every remaining inbox entry would fail the same check, so
-          // stop the walk and leave the rest queued in FIFO order for a later iteration.
+      // Admission walk over the reactor-private pending queue, lock-free. Entries pop off the
+      // front and are either admitted to libcurl or moved to `deferred_transfers`; `_pending` is rebuilt at
+      // the end. This keeps the walk O(n) with no mid-deque erases and preserves FIFO order across
+      // iterations.
+      std::deque<std::unique_ptr<RemoteMultiTransfer>> deferred_transfers;
+      // Contexts whose bounce-buffer shard has already missed during this walk. Distinct contexts
+      // are few (typically one), so a flat vector with linear find beats a hash set.
+      std::vector<CUcontext> exhausted_ctxs;
+      while (!_pending.empty()) {
+        auto transfer = std::move(_pending.front());
+        _pending.pop_front();
+        try {
+          // A ctx that already missed the cache this walk cannot admit further device transfers
+          // now. Defer without acquiring a limiter slot or touching CUDA. A recycle callback may
+          // free a buffer mid-walk, making this pessimistic by one loop iteration at most.
+          if (transfer->is_device &&
+              std::find(exhausted_ctxs.begin(), exhausted_ctxs.end(), transfer->device_ctx) !=
+                exhausted_ctxs.end()) {
+            deferred_transfers.push_back(std::move(transfer));
+            continue;
+          }
+
+          // Bound this reactor's in-flight requests to its private share of the global budget.
+          // Once the limiter is at capacity every remaining entry would fail the same check, so
+          // defer them all wholesale in FIFO order.
           auto slot = _request_limiter.try_acquire();
           if (!slot) {
-            has_deferred_transfer = true;
+            deferred_transfers.push_back(std::move(transfer));
+            while (!_pending.empty()) {
+              deferred_transfers.push_back(std::move(_pending.front()));
+              _pending.pop_front();
+            }
             break;
           }
 
@@ -150,8 +181,10 @@ void MultiPollReactor::io_thread_main()
               maybe = BounceBufferCache::instance().try_get(transfer->device_ctx);
             }
             if (!maybe) {
-              has_deferred_transfer = true;
-              ++it;
+              // First miss for this ctx in this walk. `slot` auto-releases at end of scope, so a
+              // later host transfer or other-ctx device transfer can still be admitted.
+              exhausted_ctxs.push_back(transfer->device_ctx);
+              deferred_transfers.push_back(std::move(transfer));
               continue;
             }
             transfer->buffer            = std::move(*maybe);
@@ -161,10 +194,9 @@ void MultiPollReactor::io_thread_main()
           CURL* easy    = transfer->curl->handle();
           auto const mc = curl_multi_add_handle(_curl_multi, easy);
           if (mc != CURLM_OK) {
-            // This transfer is now in transit between _inbox and _in_flight. fail_all_pending (run
-            // on the catch path below) iterates only those two containers. We must fail this
-            // transfer's aggregate here to maintain the per-aggregate sub-range count invariant.
-            // Also recycle the just-checked-out device buffer if any.
+            // Fail this transfer's aggregate here to maintain the per-aggregate sub-range count
+            // invariant, then null the local pointer so the catch below does not requeue an
+            // already-notified transfer. Also recycle the just-checked-out device buffer if any.
             if (transfer->is_device && transfer->buffer.get() != nullptr) {
               PushAndPopContext c(transfer->device_ctx);
               BounceBufferCache::instance().recycle_now(transfer->device_ctx,
@@ -172,7 +204,7 @@ void MultiPollReactor::io_thread_main()
             }
             transfer->aggregate->on_subrange_failed(std::make_exception_ptr(std::runtime_error(
               std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc))));
-            _inbox.erase(it);
+            transfer.reset();
             KVIKIO_FAIL(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc),
                         std::runtime_error);
           }
@@ -180,9 +212,19 @@ void MultiPollReactor::io_thread_main()
           // transfer is destroyed.
           transfer->slot = std::move(slot);
           _in_flight.emplace(easy, std::move(transfer));
-          it = _inbox.erase(it);
+        } catch (...) {
+          // Requeue the in-hand transfer (unless already failed above) and the already-deferred
+          // entries, so fail_all_pending, which drains `_pending`, resolves their aggregates.
+          if (transfer) { _pending.push_front(std::move(transfer)); }
+          while (!deferred_transfers.empty()) {
+            _pending.push_front(std::move(deferred_transfers.back()));
+            deferred_transfers.pop_back();
+          }
+          throw;
         }
       }
+      // The walk drained `_pending`; the deferred entries become the new pending queue.
+      std::swap(_pending, deferred_transfers);
 
       // (2) Drive transfers in a non-blocking way.
       int running_handles   = 0;
@@ -269,12 +311,12 @@ void MultiPollReactor::io_thread_main()
         // transfer's concurrency slot so a deferred request can be admitted.
       }
 
-      // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout when stage (1)
-      // deferred a transfer, so the inbox is re-checked promptly. Recycle callbacks that free a
-      // cache slot and completions that free a limiter slot do not necessarily raise libcurl
-      // socket activity, so without this we could sleep up to 1 s before retrying a deferred
-      // transfer.
-      int const poll_timeout_ms = has_deferred_transfer ? 10 : 1000;
+      // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout while transfers
+      // remain deferred in `_pending`, so admission is retried promptly. Recycle callbacks that
+      // free a cache slot and completions that free a limiter slot do not necessarily raise
+      // libcurl socket activity, so without this we could sleep up to 1 s before retrying a
+      // deferred transfer.
+      int const poll_timeout_ms = _pending.empty() ? 1000 : 10;
       auto const poll_mc        = curl_multi_poll(_curl_multi,
                                            nullptr,          // extra_fds
                                            0,                // extra_nfds
@@ -300,22 +342,29 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
 
   // Drain the inbox under the submit mutex. New submissions are blocked from accumulating by the
-  // _pool->is_dead() check in submit(), which is already true by the time we get here.
+  // _pool->is_dead() check in submit(), which is already true by the time we get here. Inbox
+  // entries have not been through admission, so they hold no bounce buffer and no limiter slot.
   {
     std::lock_guard<std::mutex> const lock(_submit_mutex);
     while (!_inbox.empty()) {
       auto transfer = std::move(_inbox.front());
       _inbox.pop_front();
-      // Inbox transfers that already had a buffer checked out (stage (1) succeeded but stage (2)
-      // never ran) must return that buffer to the cache. A null `buffer.get()` covers both host
-      // transfers and not-yet-checked-out device transfers.
-      if (transfer->is_device && transfer->buffer.get() != nullptr) {
-        PushAndPopContext c(transfer->device_ctx);
-        BounceBufferCache::instance().recycle_now(transfer->device_ctx,
-                                                  std::move(transfer->buffer));
-      }
       transfer->aggregate->on_subrange_failed(eptr);
     }
+  }
+
+  // Drain the deferred queue. It is touched only by the I/O thread, which is us, so no lock
+  // needed. Entries requeued by the stage (1) exception path may carry a checked-out bounce
+  // buffer; return it to the cache. A null `buffer.get()` covers host transfers and
+  // not-yet-checked-out device transfers.
+  while (!_pending.empty()) {
+    auto transfer = std::move(_pending.front());
+    _pending.pop_front();
+    if (transfer->is_device && transfer->buffer.get() != nullptr) {
+      PushAndPopContext c(transfer->device_ctx);
+      BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+    }
+    transfer->aggregate->on_subrange_failed(eptr);
   }
 
   // In-flight is touched only by the I/O thread, which is us, so no lock needed.
@@ -376,18 +425,22 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
   auto const reactor_count = _reactors.size();
 
   // PER_PREAD: one reactor for the whole pread() call. Preserves per-CURLM connection-pool reuse.
+  // The whole batch is submitted in one call: one lock acquisition and one wakeup.
   if (_dispatch == RemoteReactorDispatch::PER_PREAD) {
     auto const idx = _next_reactor_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
-    for (auto& transfer : transfers) {
-      _reactors[idx]->submit(std::move(transfer));
-    }
+    _reactors[idx]->submit(std::move(transfers));
     return;
   }
 
-  // PER_CHUNK: round-robin sub-ranges across reactors.
+  // PER_CHUNK: round-robin sub-ranges across reactors, but submit per-reactor batches so each
+  // reactor pays one lock acquisition and one wakeup per pread instead of one per sub-range.
+  std::vector<std::vector<std::unique_ptr<RemoteMultiTransfer>>> buckets(reactor_count);
   for (auto& transfer : transfers) {
     auto const idx = _next_reactor_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
-    _reactors[idx]->submit(std::move(transfer));
+    buckets[idx].push_back(std::move(transfer));
+  }
+  for (std::size_t i = 0; i < reactor_count; ++i) {
+    if (!buckets[i].empty()) { _reactors[i]->submit(std::move(buckets[i])); }
   }
 }
 
