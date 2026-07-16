@@ -328,3 +328,27 @@ TEST_F(RemoteHandleTest, test_open)
     }
   }
 }
+
+TEST_F(RemoteHandleTest, test_infer_remote_endpoint_type)
+{
+  kvikio::test::EnvVarContext env_var_ctx{{"AWS_DEFAULT_REGION", "my_aws_default_region"},
+                                          {"AWS_ACCESS_KEY_ID", "my_aws_access_key_id"},
+                                          {"AWS_SECRET_ACCESS_KEY", "my_aws_secrete_access_key"}};
+
+  EXPECT_EQ(kvikio::infer_remote_endpoint_type("s3://bucket-name/object-key-name"),
+            kvikio::RemoteEndpointType::S3);
+  EXPECT_EQ(kvikio::infer_remote_endpoint_type("https://host:1234/webhdfs/v1/data.bin"),
+            kvikio::RemoteEndpointType::WEBHDFS);
+  EXPECT_EQ(kvikio::infer_remote_endpoint_type("https://example.com/path/file.bin"),
+            kvikio::RemoteEndpointType::HTTP);
+  EXPECT_EQ(kvikio::infer_remote_endpoint_type(
+              "https://bucket-name.s3.region-code.amazonaws.com/"
+              "object-key-name?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=sig&"
+              "X-Amz-Credential=cred&X-Amz-SignedHeaders=host"),
+            kvikio::RemoteEndpointType::S3_PRESIGNED_URL);
+
+  EXPECT_THAT([&] { kvikio::infer_remote_endpoint_type("unsupported://example.com/path"); },
+              ThrowsMessage<std::runtime_error>(HasSubstr("Unsupported endpoint URL")));
+  EXPECT_THAT([&] { kvikio::infer_remote_endpoint_type("example.com/path"); },
+              ThrowsMessage<std::runtime_error>(HasSubstr("Bad scheme")));
+}

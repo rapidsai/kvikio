@@ -115,13 +115,16 @@ FileHandle::FileHandle(FileHandle&& o) noexcept
 
 FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
 {
-  _file_direct_on      = std::exchange(o._file_direct_on, {});
-  _file_direct_off     = std::exchange(o._file_direct_off, {});
-  _initialized         = std::exchange(o._initialized, false);
-  _nbytes              = std::exchange(o._nbytes, 0);
-  _cufile_handle       = std::exchange(o._cufile_handle, {});
-  _compat_mode_manager = std::move(o._compat_mode_manager);
-  _thread_pool         = std::exchange(o._thread_pool, {});
+  if (this != &o) {
+    close();
+    _file_direct_on      = std::exchange(o._file_direct_on, {});
+    _file_direct_off     = std::exchange(o._file_direct_off, {});
+    _initialized         = std::exchange(o._initialized, false);
+    _nbytes              = std::exchange(o._nbytes, 0);
+    _cufile_handle       = std::exchange(o._cufile_handle, {});
+    _compat_mode_manager = std::move(o._compat_mode_manager);
+    _thread_pool         = std::exchange(o._thread_pool, {});
+  }
   return *this;
 }
 

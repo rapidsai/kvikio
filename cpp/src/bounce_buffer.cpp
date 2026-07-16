@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <stack>
@@ -12,6 +13,7 @@
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio {
@@ -168,18 +170,24 @@ BounceBufferPool<Allocator>::Buffer BounceBufferPool<Allocator>::get()
 }
 
 template <typename Allocator>
-void BounceBufferPool<Allocator>::put(void* buffer, std::size_t size)
+void BounceBufferPool<Allocator>::put(void* buffer, std::size_t size) noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::lock_guard const lock(_mutex);
-  _ensure_buffer_size();
+  try {
+    std::lock_guard const lock(_mutex);
+    _ensure_buffer_size();
 
-  // If the size of `buffer` matches the sizes of the retained allocations,
-  // it is added to the set of free allocation otherwise it is freed.
-  if (size == _buffer_size) {
-    _free_buffers.push(buffer);
-  } else {
-    _allocator.deallocate(buffer, size);
+    // If the size of `buffer` matches the sizes of the retained allocations,
+    // it is added to the set of free allocation otherwise it is freed.
+    if (size == _buffer_size) {
+      _free_buffers.push(buffer);
+    } else {
+      _allocator.deallocate(buffer, size);
+    }
+  } catch (std::exception const& e) {
+    KVIKIO_LOG_ERROR(std::string("BounceBufferPool::put failed: ") + e.what());
+  } catch (...) {
+    KVIKIO_LOG_ERROR("BounceBufferPool::put failed: unknown exception");
   }
 }
 
