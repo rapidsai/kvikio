@@ -90,6 +90,50 @@ class RemoteMultiAggregateContext {
 };
 
 /**
+ * @brief RAII guard that keeps one libcurl easy handle attached to a multi handle.
+ *
+ * Armed by the reactor immediately after a successful `curl_multi_add_handle`. Its destructor calls
+ * `curl_multi_remove_handle`, so the easy handle is detached exactly when the owning
+ * `RemoteMultiTransfer` is destroyed. Move-only; a default-constructed or moved-from guard is inert
+ * and its destructor is a no-op.
+ *
+ * @note Must be destroyed on the reactor I/O thread that armed it. `CURLM*` is not thread-safe, so
+ * every multi-side call, including this removal, must stay on that thread. This is the same
+ * thread-affinity constraint the bounce buffer has.
+ *
+ * @note Held as a `RemoteMultiTransfer` member declared after `curl`, so it destructs before `curl`
+ * does. That ordering guarantees the handle is removed from the multi handle before `CurlHandle`
+ * returns it to the LibCurl free pool.
+ */
+class CurlMultiAttachment {
+ public:
+  /**
+   * @brief Construct an inert guard that holds no attachment.
+   */
+  CurlMultiAttachment() noexcept = default;
+
+  /**
+   * @brief Arm a guard for an easy handle already attached to `multi`.
+   *
+   * @param multi The multi handle the easy handle was added to.
+   * @param easy The easy handle to remove on destruction.
+   */
+  CurlMultiAttachment(CURLM* multi, CURL* easy) noexcept;
+
+  ~CurlMultiAttachment();
+
+  // Move-only.
+  CurlMultiAttachment(CurlMultiAttachment&& o) noexcept;
+  CurlMultiAttachment& operator=(CurlMultiAttachment&& o) noexcept;
+  CurlMultiAttachment(CurlMultiAttachment const&)            = delete;
+  CurlMultiAttachment& operator=(CurlMultiAttachment const&) = delete;
+
+ private:
+  CURLM* _multi{nullptr};
+  CURL* _easy{nullptr};
+};
+
+/**
  * @brief Per-transfer state owned by a `MultiPollReactor` between submission and completion.
  *
  * One `RemoteMultiTransfer` corresponds to one libcurl easy handle, which corresponds to one HTTP
@@ -102,6 +146,13 @@ class RemoteMultiAggregateContext {
  */
 struct RemoteMultiTransfer {
   std::unique_ptr<CurlHandle> curl;
+
+  // Keeps `curl`'s easy handle attached to the reactor's multi handle. Declared right after `curl`
+  // so it destructs before `curl` returns the handle to the LibCurl pool: the handle is removed
+  // from the multi handle first. Armed in reactor stage (1) after a successful
+  // `curl_multi_add_handle`; inert until then.
+  CurlMultiAttachment attachment;
+
   CallbackContext ctx;
   std::shared_ptr<RemoteMultiAggregateContext> aggregate;
 
@@ -115,8 +166,14 @@ struct RemoteMultiTransfer {
   CUcontext device_ctx{nullptr};
   void* device_dst{nullptr};
   // Pinned bounce buffer checked out from the cache in reactor stage (1). The reactor moves this
-  // into `cache.recycle_after` once the H2D is scheduled in stage (3).
+  // into `cache.recycle_after` once the H2D is scheduled in stage (3). On the failure paths when
+  // the buffer was not moved, the destructor recycles it via recycle_now.
   CudaPinnedBounceBufferPool::Buffer buffer{nullptr, nullptr, 0};
+
+  // Recycles `buffer` to the bounce-buffer cache if it was not already moved out (failure paths).
+  // Must run on the reactor I/O thread that checked the buffer out; see the definition in
+  // multi_poll_reactor.cpp for the thread-affinity invariant.
+  ~RemoteMultiTransfer();
 };
 
 /**

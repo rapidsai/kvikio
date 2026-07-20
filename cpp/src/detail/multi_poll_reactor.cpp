@@ -8,7 +8,6 @@
 #include <exception>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -28,6 +27,63 @@
 #include <kvikio/utils.hpp>
 
 namespace kvikio::detail {
+
+CurlMultiAttachment::CurlMultiAttachment(CURLM* multi, CURL* easy) noexcept
+  : _multi{multi}, _easy{easy}
+{
+}
+
+CurlMultiAttachment::~CurlMultiAttachment()
+{
+  // Best-effort detach on the reactor I/O thread (CURLM is not thread-safe). If
+  // curl_multi_remove_handle fails (rare), the easy handle stays attached and the owning CurlHandle
+  // still returns it to the LibCurl pool, which libcurl treats as undefined behavior. A destructor
+  // has no better recovery; this matches the prior best-effort removal in fail_all_pending.
+  if (_multi != nullptr && _easy != nullptr) {
+    std::ignore = curl_multi_remove_handle(_multi, _easy);
+  }
+}
+
+CurlMultiAttachment::CurlMultiAttachment(CurlMultiAttachment&& o) noexcept
+  : _multi{std::exchange(o._multi, nullptr)}, _easy{std::exchange(o._easy, nullptr)}
+{
+}
+
+CurlMultiAttachment& CurlMultiAttachment::operator=(CurlMultiAttachment&& o) noexcept
+{
+  if (this != &o) {
+    // Detach whatever this guard currently holds before taking over o's handle.
+    if (_multi != nullptr && _easy != nullptr) {
+      std::ignore = curl_multi_remove_handle(_multi, _easy);
+    }
+    _multi = std::exchange(o._multi, nullptr);
+    _easy  = std::exchange(o._easy, nullptr);
+  }
+  return *this;
+}
+
+RemoteMultiTransfer::~RemoteMultiTransfer()
+{
+  using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
+  // A device transfer that still owns its bounce buffer reaches here only on a failure path; the
+  // success path moves the buffer into recycle_after, leaving buffer.get() == nullptr.
+  //
+  // Thread-affinity invariant: the cache is sharded by (this_thread::get_id(), ctx), so a transfer
+  // holding a buffer MUST be destroyed on the same reactor I/O thread that checked it out in stage
+  // (1). All buffer-holding destructions (in-flight drain, admission-walk reset(), completion drop)
+  // run on that thread. Destroying a buffer-holding transfer on any other thread would send
+  // recycle_now to the wrong shard and corrupt its accounting.
+  if (!is_device || buffer.get() == nullptr) { return; }
+  try {
+    PushAndPopContext c(device_ctx);
+    BounceBufferCache::instance().recycle_now(device_ctx, std::move(buffer));
+  } catch (...) {
+    // A destructor must not throw. If the context push fails (rare), the buffer's own destructor
+    // still returns it to the global BounceBufferPool, so there is no memory leak; the only cost is
+    // that the shard's checked_out count is not decremented, permanently losing one slot of that
+    // shard's capacity.
+  }
+}
 
 RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subranges)
   : _subranges_left{num_subranges}
@@ -193,20 +249,20 @@ void MultiPollReactor::io_thread_main()
           CURL* easy    = transfer->curl->handle();
           auto const mc = curl_multi_add_handle(_curl_multi, easy);
           if (mc != CURLM_OK) {
-            // Fail this transfer's aggregate here to maintain the per-aggregate sub-range count
-            // invariant, then null the local pointer so the catch below does not requeue an
-            // already-notified transfer. Also recycle the just-checked-out device buffer if any.
-            if (transfer->is_device && transfer->buffer.get() != nullptr) {
-              PushAndPopContext c(transfer->device_ctx);
-              BounceBufferCache::instance().recycle_now(transfer->device_ctx,
-                                                        std::move(transfer->buffer));
-            }
+            // The handle was not attached (add failed), so the attachment guard stays inert.
+            // Notify the aggregate to satisfy its sub-range count invariant. Null the local pointer
+            // so the catch below skips requeueing this already-failed transfer. The buffer
+            // auto-recycles via ~RemoteMultiTransfer() when reset() fires.
             transfer->aggregate->on_subrange_failed(std::make_exception_ptr(std::runtime_error(
               std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc))));
             transfer.reset();
             KVIKIO_FAIL(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc),
                         std::runtime_error);
           }
+          // The handle is attached now. Arm the RAII guard so it is removed from the multi handle
+          // when the transfer is destroyed, before its CurlHandle returns the easy handle to the
+          // pool. Arm before the _in_flight.emplace so an emplace failure still detaches on unwind.
+          transfer->attachment = CurlMultiAttachment{_curl_multi, easy};
           // The transfer owns its slot from here on. The slot returns to the limiter when the
           // transfer is destroyed.
           transfer->slot = std::move(slot);
@@ -234,10 +290,15 @@ void MultiPollReactor::io_thread_main()
 
       // (3) Drain completions.
       int msgs_left = 0;
+      // Set when at least one transfer completes this iteration. Each completed transfer releases
+      // its limiter slot when it drops at end of scope, so a completion may unblock a deferred
+      // transfer that was waiting on a slot.
+      bool completed_any = false;
       while (auto* msg = curl_multi_info_read(_curl_multi, &msgs_left)) {
         if (msg->msg != CURLMSG_DONE) { continue; }
-        auto* easy = msg->easy_handle;
-        auto res   = msg->data.result;
+        completed_any = true;
+        auto* easy    = msg->easy_handle;
+        auto res      = msg->data.result;
 
         auto it = _in_flight.find(easy);
         KVIKIO_EXPECT(it != _in_flight.end(),
@@ -245,13 +306,11 @@ void MultiPollReactor::io_thread_main()
                       std::runtime_error);
         auto transfer = std::move(it->second);
         _in_flight.erase(it);
-        // Critical ordering: remove from multi BEFORE the transfer (and its CurlHandle) is
-        // destroyed at end of scope. Otherwise libcurl undefined behavior.
-        auto const remove_mc = curl_multi_remove_handle(_curl_multi, easy);
-        KVIKIO_EXPECT(remove_mc == CURLM_OK,
-                      std::string("curl_multi_remove_handle: ") + curl_multi_strerror(remove_mc),
-                      std::runtime_error);
+        // The easy handle is detached when `transfer` drops at end of scope: transfer->attachment
+        // destructs before transfer->curl, so the remove happens before the CurlHandle returns the
+        // handle to the LibCurl pool. See CurlMultiAttachment.
 
+        std::exception_ptr transfer_err;
         if (res == CURLE_OK && !transfer->ctx.overflow_error) {
           try {
             if (transfer->is_device) {
@@ -266,44 +325,33 @@ void MultiPollReactor::io_thread_main()
                                                     transfer->ctx.size,
                                                     stream));
               transfer->aggregate->io_event_barrier->record_event(stream);
-              BounceBufferCache::instance().recycle_after(
-                transfer->device_ctx, std::move(transfer->buffer), stream);
+              BounceBufferCache::instance().recycle_after(transfer->device_ctx,
+                                                          std::move(transfer->buffer),
+                                                          stream,
+                                                          [curl_multi = _curl_multi]() noexcept {
+                                                            std::ignore =
+                                                              curl_multi_wakeup(curl_multi);
+                                                          });
             }
             transfer->aggregate->on_subrange_complete(transfer->ctx.size);
           } catch (...) {
-            if (transfer->is_device && transfer->buffer.get() != nullptr) {
-              try {
-                PushAndPopContext c(transfer->device_ctx);
-                BounceBufferCache::instance().recycle_now(transfer->device_ctx,
-                                                          std::move(transfer->buffer));
-              } catch (...) {
-                // Best-effort recycle. If the context push fails, the buffer leaks.
-              }
-            }
-            transfer->aggregate->on_subrange_failed(std::current_exception());
+            transfer_err = std::current_exception();
           }
         } else {
-          std::stringstream ss;
           // Prefer the handle's recorded error buffer. Fall back to the generic strerror text when
           // libcurl recorded no message.
-          auto const msg = transfer->curl->error_message();
-          ss << "curl_multi transfer failed ("
-             << (msg.empty() ? std::string{curl_easy_strerror(res)} : msg) << ")";
+          auto const errmsg = transfer->curl->error_message();
+          std::string desc  = std::string("curl_multi transfer failed (") +
+                             (errmsg.empty() ? std::string{curl_easy_strerror(res)} : errmsg) + ")";
           if (transfer->ctx.overflow_error) {
-            ss << " [server returned more bytes than requested; maybe range support "
-                  "missing?]";
+            desc += " [server returned more bytes than requested; maybe range support missing?]";
           }
-          // No H2D was submitted on the failure path. Recycle the buffer immediately.
-          if (transfer->is_device && transfer->buffer.get() != nullptr) {
-            PushAndPopContext c(transfer->device_ctx);
-            BounceBufferCache::instance().recycle_now(transfer->device_ctx,
-                                                      std::move(transfer->buffer));
-          }
-          transfer->aggregate->on_subrange_failed(
-            std::make_exception_ptr(std::runtime_error(ss.str())));
+          transfer_err = std::make_exception_ptr(std::runtime_error(std::move(desc)));
         }
+        if (transfer_err) { transfer->aggregate->on_subrange_failed(transfer_err); }
         // Transfer (unique_ptr) drops here, returning easy to the LibCurl pool and releasing the
-        // transfer's concurrency slot so a deferred request can be admitted.
+        // transfer's concurrency slot so a deferred request can be admitted. If the buffer was not
+        // moved into recycle_after, ~RemoteMultiTransfer() recycles it now.
       }
 
       // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout while transfers
@@ -311,8 +359,13 @@ void MultiPollReactor::io_thread_main()
       // free a cache slot and completions that free a limiter slot do not necessarily raise libcurl
       // socket activity, so without this we could sleep up to 1s before retrying a deferred
       // transfer.
-      int const poll_timeout_ms = _pending.empty() ? 1000 : 10;
-      auto const poll_mc        = curl_multi_poll(_curl_multi,
+      // When completions this iteration freed limiter slots and deferred transfers remain, poll
+      // without blocking so the next admission walk retries immediately instead of waiting out the
+      // 10ms floor. The next iteration reverts to the bounded timeout if it makes no progress, so
+      // this does not busy-spin.
+      int poll_timeout_ms = _pending.empty() ? 1000 : 10;
+      if (completed_any && !_pending.empty()) { poll_timeout_ms = 0; }
+      auto const poll_mc = curl_multi_poll(_curl_multi,
                                            nullptr,          // extra_fds
                                            0,                // extra_nfds
                                            poll_timeout_ms,  // timeout_ms
@@ -334,8 +387,6 @@ void MultiPollReactor::io_thread_main()
 
 void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 {
-  using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
-
   // Drain the inbox under the submit mutex. New submissions are blocked from accumulating by the
   // _pool->is_dead() check in submit(), which is already true by the time we get here. Inbox
   // entries have not been through admission, so they hold no bounce buffer and no limiter slot.
@@ -348,34 +399,23 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     }
   }
 
-  // Drain the deferred queue.
+  // Drain the deferred queue. Deferred transfers normally hold neither a checked-out buffer nor an
+  // armed attachment (they were deferred before or during buffer checkout, never after admission).
+  // The one exception is a transfer requeued after an _in_flight.emplace failure, which may carry
+  // both; destroying it here detaches the handle and recycles the buffer.
   while (!_pending.empty()) {
     auto transfer = std::move(_pending.front());
     _pending.pop_front();
-    if (transfer->is_device && transfer->buffer.get() != nullptr) {
-      PushAndPopContext c(transfer->device_ctx);
-      BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
-    }
     transfer->aggregate->on_subrange_failed(eptr);
   }
 
   // In-flight is touched only by the I/O thread, which is us, so no lock needed.
-  for (auto& [easy, transfer] : _in_flight) {
-    // Best-effort removal.
-    // TODO: Known issue: if curl_multi_remove_handle fails (rarely happens), the easy handle
-    // remains attached to the multi handle. _in_flight.clear() below then destroys the transfer's
-    // CurlHandle, which unconditionally returns the easy handle to the LibCurl free pool. A future
-    // caller that pulls this handle would operate on a handle that libcurl still considers
-    // attached, which is undefined behavior.
-    std::ignore = curl_multi_remove_handle(_curl_multi, easy);
-    // In-flight device transfers had their buffer checked out by stage (1) but no H2D submitted
-    // yet. Return the buffer to the cache.
-    if (transfer->is_device && transfer->buffer.get() != nullptr) {
-      PushAndPopContext c(transfer->device_ctx);
-      BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
-    }
-    transfer->aggregate->on_subrange_failed(eptr);
+  for (auto& in_flight_entry : _in_flight) {
+    in_flight_entry.second->aggregate->on_subrange_failed(eptr);
   }
+  // Destroying each transfer detaches its easy handle (transfer->attachment) before its CurlHandle
+  // returns the handle to the pool, and recycles its bounce buffer if one was checked out. The
+  // residual UB when curl_multi_remove_handle itself fails is documented in ~CurlMultiAttachment.
   _in_flight.clear();
 }
 
