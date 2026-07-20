@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
@@ -78,6 +78,7 @@ files:
       table: project
     includes:
       - depends_on_rapids_logger
+      - depends_on_cufile
   py_rapids_build_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
@@ -114,6 +115,7 @@ files:
       key: test
     includes:
       - test_python
+      - test_cufile
       - zarr
   test_java:
     output: none
@@ -160,7 +162,7 @@ dependencies:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==26.8.*,>=0.0.0a0
+          - libkvikio==26.10.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -168,12 +170,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==26.8.*,>=0.0.0a0
+              - libkvikio-cu12==26.10.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu13==26.8.*,>=0.0.0a0
+              - libkvikio-cu13==26.10.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
@@ -284,30 +286,73 @@ dependencies:
         packages:
           - libcufile-dev
           - libnuma
+  depends_on_cufile:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          - cuda-pathfinder
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit[cufile]==12.*
+              - cuda-pathfinder
+          - matrix:
+              cuda: "13.*"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit[cufile]==13.*
+              - cuda-pathfinder
+          - {matrix: null, packages: []}
   depends_on_cupy:
     common:
       - output_types: conda
         packages:
-          - &cupy_unsuffixed cupy>=13.6.0,!=14.0.0,!=14.1.0
+          - &cupy_unsuffixed cupy>=14.0.1,!=14.1.0
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: requirements
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x>=13.6.0,!=14.0.0,!=14.1.0
+              - &cupy_cu12 cupy-cuda12x>=14.0.1,!=14.1.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - &cupy_cu13 cupy-cuda13x>=14.0.1,!=14.1.0
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "false"
+            packages:
+              - *cupy_cu12
           - matrix:
               cuda: "13.*"
-            packages:
-              - &cupy_cu13 cupy-cuda13x>=13.6.0,!=14.0.0,!=14.1.0
-          - matrix:
+              use_cuda_wheels: "false"
             packages:
               - *cupy_cu13
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
   depends_on_libkvikio:
     common:
       - output_types: conda
         packages:
-          - &libkvikio_unsuffixed libkvikio==26.8.*,>=0.0.0a0
+          - &libkvikio_unsuffixed libkvikio==26.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -319,12 +364,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==26.8.*,>=0.0.0a0
+              - libkvikio-cu12==26.10.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu13==26.8.*,>=0.0.0a0
+              - libkvikio-cu13==26.10.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   depends_on_rapids_logger:
     common:
@@ -343,10 +388,14 @@ dependencies:
           - zarr>=3.0.0,<3.2.0,<4.0.0
           - sphinx
           - sphinx-click
-          - sphinx_rtd_theme
       - output_types: conda
         packages:
           - doxygen=1.9.1 # pre-commit hook needs a specific version.
+          - pip:
+              - nvidia-sphinx-theme
+      - output_types: requirements
+        packages:
+          - nvidia-sphinx-theme
   py_version:
     specific:
       - output_types: conda
@@ -385,7 +434,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.23,<3.0
+          - numpy>=2.0,<3.0
           - packaging
   zarr:
     common:
@@ -396,14 +445,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libkvikio==26.8.*,>=0.0.0a0
-          - libkvikio-tests==26.8.*,>=0.0.0a0
+          - libkvikio==26.10.*,>=0.0.0a0
+          - libkvikio-tests==26.10.*,>=0.0.0a0
   test_kvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==26.8.*,>=0.0.0a0
-          - kvikio==26.8.*,>=0.0.0a0
+          - libkvikio==26.10.*,>=0.0.0a0
+          - kvikio==26.10.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -413,7 +462,8 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-dask-dependency==26.8.*,>=0.0.0a0
+          - cuda-core>=0.5.1,<2
+          - rapids-dask-dependency==26.10.*,>=0.0.0a0
           - pytest
           - pytest-asyncio
           - pytest-cov
@@ -431,27 +481,38 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
-              cuda: "12.*"
+              dependencies: "oldest"
             packages:
-              - cuda-python>=12.9.2,<13.0
-          - matrix:
-              cuda: "13.*"
-            packages:
-              - &cuda_python_cu13 cuda-python>=13.0.1,<14.0
+              - cuda-core==0.5.1
           - matrix:
             packages:
-              - *cuda_python_cu13
-      # 'pip' constraints files cannot include extras like 'moto[server]'. This group
-      # ensures that dependencies ends up in 'kvikio[test]' ('dependencies' key not passed)
-      # but not in the output of 'rapids-generate-pip-constraints' in CI scripts ('dependencies' passed).
-      - output_types: requirements
+  test_cufile:
+    specific:
+      - output_types: pyproject
+        matrices:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
+          - matrix:
+            packages:
+              - cuda-toolkit[cufile]
+      # The `cufile` extra was added to the `cuda-toolkit` metapackage in 12.6.3
+      # Adding an explicit test dependency on the cufile package here for
+      # testing on versions before 12.6.3
+      - output_types: pyproject
         matrices:
           - matrix:
-              dependencies: "*"
+              use_cuda_wheels: "false"
             packages:
           - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "true"
             packages:
-              - *moto_server
+              - nvidia-cufile-cu12
+          - matrix:
+            packages:
   test_java:
     common:
       - output_types: conda

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -59,6 +59,10 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cdef cppclass cpp_S3EndpointWithPresignedUrl "kvikio::S3EndpointWithPresignedUrl" \
                                                  (cpp_RemoteEndpoint):
         cpp_S3EndpointWithPresignedUrl(string presigned_url) except +
+
+    RemoteEndpointType cpp_infer_remote_endpoint_type "kvikio::infer_remote_endpoint_type"(
+        string url
+    ) except +
 
     cdef cppclass cpp_RemoteHandle "kvikio::RemoteHandle":
         cpp_RemoteHandle(
@@ -442,3 +446,11 @@ cdef class RemoteFile:
             )
 
         return _wrap_io_future(fut)
+
+
+def infer_remote_endpoint_type(url: str) -> RemoteEndpointType:
+    cdef string cpp_url = _to_string(url)
+    cdef RemoteEndpointType result
+    with nogil:
+        result = cpp_infer_remote_endpoint_type(cpp_url)
+    return result

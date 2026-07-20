@@ -66,6 +66,8 @@ kvikio_add_test(NAME BASIC_IO_TEST SOURCES test_basic_io.cpp utils/env.cpp)
 
 kvikio_add_test(NAME BOUNCE_BUFFER_TEST SOURCES test_bounce_buffer.cpp)
 
+kvikio_add_test(NAME BOUNCE_BUFFER_CACHE_TEST SOURCES test_bounce_buffer_cache.cpp)
+
 kvikio_add_test(NAME DEFAULTS_TEST SOURCES test_defaults.cpp utils/env.cpp)
 
 kvikio_add_test(NAME DETAIL_UTILS_TEST SOURCES test_detail_utils.cpp)
@@ -77,6 +79,8 @@ kvikio_add_test(NAME EVENT_POOL_TEST SOURCES test_event_pool.cpp)
 kvikio_add_test(NAME FILE_UTILS_TEST SOURCES test_file_utils.cpp)
 
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
+
+kvikio_add_test(NAME CONCURRENT_REQUEST_LIMITER_TEST SOURCES test_concurrent_request_limiter.cpp)
 
 if(KvikIO_REMOTE_SUPPORT)
   kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)

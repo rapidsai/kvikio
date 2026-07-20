@@ -168,6 +168,8 @@ set(SOURCES
     "src/file_utils.cpp"
     "src/logger.cpp"
     "src/mmap.cpp"
+    "src/detail/bounce_buffer_cache.cpp"
+    "src/detail/concurrent_request_limiter.cpp"
     "src/detail/env.cpp"
     "src/detail/event.cpp"
     "src/detail/nvtx.cpp"

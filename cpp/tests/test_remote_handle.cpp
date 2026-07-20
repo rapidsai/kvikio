@@ -4,8 +4,10 @@
  */
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -18,6 +20,26 @@
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
+
+class CountingEndpoint : public kvikio::RemoteEndpoint {
+ public:
+  CountingEndpoint() : RemoteEndpoint{kvikio::RemoteEndpointType::HTTP} {}
+
+  void setopt(kvikio::CurlHandle&) override { ++setopt_calls; }
+
+  std::string str() const override { return "http://example.com/test"; }
+
+  std::size_t get_file_size() override { return file_size; }
+
+  void setup_range_request(kvikio::CurlHandle&, std::size_t, std::size_t) override
+  {
+    ++range_request_calls;
+  }
+
+  std::size_t file_size{100};
+  int setopt_calls{};
+  int range_request_calls{};
+};
 
 class RemoteHandleTest : public testing::Test {
  protected:
@@ -137,6 +159,18 @@ TEST_F(RemoteHandleTest, test_http_url)
       EXPECT_FALSE(kvikio::HttpEndpoint::is_url_valid(invalid_url));
     }
   }
+}
+
+TEST_F(RemoteHandleTest, read_zero_size_returns_without_range_request)
+{
+  auto endpoint      = std::make_unique<CountingEndpoint>();
+  auto* endpoint_ptr = endpoint.get();
+  kvikio::RemoteHandle remote_handle(std::move(endpoint), endpoint_ptr->file_size);
+
+  std::vector<char> output(1);
+  EXPECT_EQ(remote_handle.read(output.data(), 0, 0), 0);
+  EXPECT_EQ(endpoint_ptr->setopt_calls, 0);
+  EXPECT_EQ(endpoint_ptr->range_request_calls, 0);
 }
 
 TEST_F(RemoteHandleTest, test_s3_url)
@@ -277,4 +311,28 @@ TEST_F(RemoteHandleTest, test_open)
                   ThrowsMessage<std::runtime_error>(HasSubstr("Invalid URL")));
     }
   }
+}
+
+TEST_F(RemoteHandleTest, test_infer_remote_endpoint_type)
+{
+  kvikio::test::EnvVarContext env_var_ctx{{"AWS_DEFAULT_REGION", "my_aws_default_region"},
+                                          {"AWS_ACCESS_KEY_ID", "my_aws_access_key_id"},
+                                          {"AWS_SECRET_ACCESS_KEY", "my_aws_secrete_access_key"}};
+
+  EXPECT_EQ(kvikio::infer_remote_endpoint_type("s3://bucket-name/object-key-name"),
+            kvikio::RemoteEndpointType::S3);
+  EXPECT_EQ(kvikio::infer_remote_endpoint_type("https://host:1234/webhdfs/v1/data.bin"),
+            kvikio::RemoteEndpointType::WEBHDFS);
+  EXPECT_EQ(kvikio::infer_remote_endpoint_type("https://example.com/path/file.bin"),
+            kvikio::RemoteEndpointType::HTTP);
+  EXPECT_EQ(kvikio::infer_remote_endpoint_type(
+              "https://bucket-name.s3.region-code.amazonaws.com/"
+              "object-key-name?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=sig&"
+              "X-Amz-Credential=cred&X-Amz-SignedHeaders=host"),
+            kvikio::RemoteEndpointType::S3_PRESIGNED_URL);
+
+  EXPECT_THAT([&] { kvikio::infer_remote_endpoint_type("unsupported://example.com/path"); },
+              ThrowsMessage<std::runtime_error>(HasSubstr("Unsupported endpoint URL")));
+  EXPECT_THAT([&] { kvikio::infer_remote_endpoint_type("example.com/path"); },
+              ThrowsMessage<std::runtime_error>(HasSubstr("Bad scheme")));
 }

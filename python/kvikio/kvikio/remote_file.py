@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -82,6 +82,12 @@ def _get_remote_module():
     import kvikio._lib.remote_handle
 
     return kvikio._lib.remote_handle
+
+
+def infer_remote_endpoint_type(url: str) -> RemoteEndpointType:
+    """Infer endpoint type from URL using AUTO endpoint resolution rules."""
+    result = _get_remote_module().infer_remote_endpoint_type(url)
+    return RemoteEndpointType[result.name]
 
 
 class RemoteFile:

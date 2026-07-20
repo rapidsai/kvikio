@@ -3,18 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <fcntl.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <cerrno>
 #include <filesystem>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
 #include <kvikio/file_utils.hpp>
 #include <kvikio/utils.hpp>
+#include <utility>
 
 #include "utils/utils.hpp"
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
+
+namespace {
+void expect_fd_closed(int fd)
+{
+  errno             = 0;
+  auto const result = ::fcntl(fd, F_GETFD);
+  auto const err    = errno;
+  EXPECT_EQ(result, -1);
+  EXPECT_EQ(err, EBADF);
+}
+}  // namespace
 
 // Note: Dropping pages from the cache is precise, whereas warming pages usually overshoots by
 // bringing more pages to the cache due to kernel's readahead. Therefore in the tests below we
@@ -337,4 +351,47 @@ TEST(FileUtilsTest, get_block_device_info)
       kvikio::get_block_device_info(nonexistent_file_path);
     },
     ThrowsMessage<kvikio::GenericSystemError>(HasSubstr("No such file or directory")));
+}
+
+TEST(FileUtilsTest, file_wrapper_move_assignment_closes_existing_fd)
+{
+  kvikio::test::TempDir tmp_dir;
+  auto const dst_path = tmp_dir.path() / "dst";
+  auto const src_path = tmp_dir.path() / "src";
+
+  kvikio::FileWrapper dst(dst_path.string(), "w", false, kvikio::FileHandle::m644);
+  kvikio::FileWrapper src(src_path.string(), "w", false, kvikio::FileHandle::m644);
+  auto const dst_fd_before = dst.fd();
+  auto const src_fd_before = src.fd();
+  ASSERT_NE(dst_fd_before, -1);
+  ASSERT_NE(src_fd_before, -1);
+  ASSERT_NE(dst_fd_before, src_fd_before);
+
+  dst = std::move(src);
+
+  expect_fd_closed(dst_fd_before);
+  EXPECT_EQ(dst.fd(), src_fd_before);
+  EXPECT_EQ(src.fd(), -1);
+}
+
+TEST(FileUtilsTest, file_handle_move_assignment_closes_existing_fd)
+{
+  kvikio::test::TempDir tmp_dir;
+  auto const dst_path = tmp_dir.path() / "dst";
+  auto const src_path = tmp_dir.path() / "src";
+
+  kvikio::FileHandle dst(dst_path.string(), "w", kvikio::FileHandle::m644, kvikio::CompatMode::ON);
+  kvikio::FileHandle src(src_path.string(), "w", kvikio::FileHandle::m644, kvikio::CompatMode::ON);
+  auto const dst_fd_before = dst.fd();
+  auto const src_fd_before = src.fd();
+  ASSERT_NE(dst_fd_before, -1);
+  ASSERT_NE(src_fd_before, -1);
+  ASSERT_NE(dst_fd_before, src_fd_before);
+
+  dst = std::move(src);
+
+  expect_fd_closed(dst_fd_before);
+  EXPECT_FALSE(dst.closed());
+  EXPECT_EQ(dst.fd(), src_fd_before);
+  EXPECT_TRUE(src.closed());
 }
