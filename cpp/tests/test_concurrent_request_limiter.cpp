@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -87,7 +87,7 @@ TEST(ConcurrentRequestLimiter, SlotResetIsIdempotent)
   EXPECT_TRUE(static_cast<bool>(s));
   s.reset();
   EXPECT_FALSE(static_cast<bool>(s));
-  // A second reset is a no-op; the count must not underflow.
+  // A second reset is a no-op.
   s.reset();
   // Exactly one slot exists: acquire succeeds once, then the ceiling holds.
   auto s2 = limiter.try_acquire();

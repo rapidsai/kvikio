@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -22,7 +22,7 @@ class BounceBufferH2D;
  * - `callback_host_memory`: writes to `buf`.
  * - `callback_device_memory` (easy-path): writes to device memory via `bounce_buffer`.
  * - `callback_pinned_buffer` (multi-poll device-path): writes to `pinned_buffer`. The surrounding
- *   reactor later DMAs the pinned buffer to device.
+ *   reactor later copies the pinned buffer to device.
  */
 struct CallbackContext {
   char* buf{nullptr};          ///< Host output buffer (used by `callback_host_memory`).

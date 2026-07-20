@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import multiprocessing as mp
@@ -113,9 +113,8 @@ def test_read_access(s3_base):
 @pytest.mark.parametrize("tasksize", [99, 999])
 @pytest.mark.parametrize("buffer_size", [101, 1001])
 def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
-    # The MULTI_POLL backend requires `task_size <= bounce_buffer_size` for device buffers (one
-    # subrange = one bounce buffer slot, no mid-transfer rotation). Skip the combos that violate
-    # it under this configuration.
+    # The MULTI_POLL backend requires `task_size <= bounce_buffer_size` for device
+    # buffers. Skip the combos that violate it under this configuration.
     import os
 
     if (

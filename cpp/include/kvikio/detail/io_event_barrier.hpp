@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -24,15 +24,8 @@ namespace kvikio::detail {
  * thread's last H2D has drained.
  *
  * The map is keyed by `std::this_thread::get_id()` so multiple reactor threads each get an
- * independent event slot. The slot is created lazily on first record. Subsequent records on the
- * same thread overwrite the slot's captured state via `cuEventRecord`, which is safe because each
- * reactor thread submits H2D sequentially for one pread.
- *
- * Events are pulled from `CudaEventPool::instance()` at first-record time and so are bound to the
- * CUDA context that is current at first-record. The reactor is expected to `PushAndPopContext` the
- * destination context before calling `record_event`, matching the same wrapper used for the
- * `cuMemcpyAsync` itself. `sync_all_events()` is context-agnostic, i.e. events remember their
- * owning context internally.
+ * independent event slot. Subsequent records on the same thread overwrite the slot's captured state
+ * via `cuEventRecord`.
  */
 class IoEventBarrier {
  public:
@@ -61,9 +54,8 @@ class IoEventBarrier {
   /**
    * @brief Record an event on `stream` for the calling thread.
    *
-   * Creates the calling thread's slot on first call (pulling an event from `CudaEventPool`).
-   * Subsequent calls on the same thread re-record on the same event handle, overwriting any prior
-   * captured state.
+   * Creates the calling thread's slot on first call. Subsequent calls on the same thread re-record
+   * on the same event handle, overwriting any prior captured state.
    *
    * @param stream The CUDA stream to record on. Must belong to the same context as the event
    * (i.e. the context that was current at first-record).
@@ -75,9 +67,9 @@ class IoEventBarrier {
   /**
    * @brief Block the calling thread until every recorded event has signaled.
    *
-   * Iterates each thread slot and calls `synchronize()`. After this returns, all H2Ds captured
-   * by the last `record_event` call on each reactor thread have completed. Context-agnostic on
-   * the calling thread.
+   * Iterates each thread slot and calls `synchronize()`. After this returns, all H2Ds captured by
+   * the last `record_event` call on each reactor thread have completed. Context-agnostic on the
+   * calling thread.
    *
    * @exception kvikio::CUfileException if any underlying `cuEventSynchronize` fails.
    */

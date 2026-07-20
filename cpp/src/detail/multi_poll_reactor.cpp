@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -124,9 +124,8 @@ void MultiPollReactor::io_thread_main()
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
   try {
     while (!_pool->is_dead()) {
-      // (1) Splice newly submitted transfers out of the shared inbox. The mutexed section is
-      // pointer moves only, so submitters (by other threads) never wait on admission work (by the
-      // current IO reactor thread).
+      // (1) Splice newly submitted transfers out of the inbox (shared by the reactor thread and
+      // submission thread) to minimize the lock duration.
       {
         std::lock_guard<std::mutex> const lock(_submit_mutex);
         if (_pending.empty()) {
@@ -139,21 +138,20 @@ void MultiPollReactor::io_thread_main()
         }
       }
 
-      // Admission walk over the reactor-private pending queue, lock-free. Entries pop off the
-      // front and are either admitted to libcurl or moved to `deferred_transfers`; `_pending` is rebuilt at
-      // the end. This keeps the walk O(n) with no mid-deque erases and preserves FIFO order across
-      // iterations.
+      // Admission walk over the reactor-private, lock-free _pending. Entries pop off the front and
+      // are either admitted to libcurl or moved to `deferred_transfers`. `_pending` is rebuilt at
+      // the end from `deferred_transfers`.
       std::deque<std::unique_ptr<RemoteMultiTransfer>> deferred_transfers;
-      // Contexts whose bounce-buffer shard has already missed during this walk. Distinct contexts
-      // are few (typically one), so a flat vector with linear find beats a hash set.
+      // Contexts whose bounce-buffer shard has already missed during this walk. It is assumed that
+      // distinct contexts are few, so a flat vector with linear find suffices.
       std::vector<CUcontext> exhausted_ctxs;
       while (!_pending.empty()) {
         auto transfer = std::move(_pending.front());
         _pending.pop_front();
         try {
           // A ctx that already missed the cache this walk cannot admit further device transfers
-          // now. Defer without acquiring a limiter slot or touching CUDA. A recycle callback may
-          // free a buffer mid-walk, making this pessimistic by one loop iteration at most.
+          // now. Defer without acquiring a limiter slot. The minor cost is that a recycle callback
+          // may free a buffer mid-walk, making this pessimistic by one loop iteration at most.
           if (transfer->is_device &&
               std::find(exhausted_ctxs.begin(), exhausted_ctxs.end(), transfer->device_ctx) !=
                 exhausted_ctxs.end()) {
@@ -161,9 +159,8 @@ void MultiPollReactor::io_thread_main()
             continue;
           }
 
-          // Bound this reactor's in-flight requests to its private share of the global budget.
-          // Once the limiter is at capacity every remaining entry would fail the same check, so
-          // defer them all wholesale in FIFO order.
+          // Gate 1: This gates the network concurrency. Limit the number of HTTP range requests
+          // simultaneously attached to this reactor's multi handle for host and device combined.
           auto slot = _request_limiter.try_acquire();
           if (!slot) {
             deferred_transfers.push_back(std::move(transfer));
@@ -175,19 +172,21 @@ void MultiPollReactor::io_thread_main()
           }
 
           if (transfer->is_device) {
-            std::optional<CudaPinnedBounceBufferPool::Buffer> maybe;
+            // Gate 2: This gates the bounce buffer availability. Limit the number of bounce buffers
+            // held by this (reactor thread, CUDA context) pair across all pipeline phases. A slot
+            // released at libcurl completion does not free a bounce buffer. The buffer stays
+            // in-flight until the H2D drains and the cuLaunchHostFunc recycle callback fires.
+            std::optional<CudaPinnedBounceBufferPool::Buffer> bounce_buffer;
             {
               PushAndPopContext c(transfer->device_ctx);
-              maybe = BounceBufferCache::instance().try_get(transfer->device_ctx);
+              bounce_buffer = BounceBufferCache::instance().try_get(transfer->device_ctx);
             }
-            if (!maybe) {
-              // First miss for this ctx in this walk. `slot` auto-releases at end of scope, so a
-              // later host transfer or other-ctx device transfer can still be admitted.
+            if (!bounce_buffer) {
               exhausted_ctxs.push_back(transfer->device_ctx);
               deferred_transfers.push_back(std::move(transfer));
               continue;
             }
-            transfer->buffer            = std::move(*maybe);
+            transfer->buffer            = std::move(*bounce_buffer);
             transfer->ctx.pinned_buffer = transfer->buffer.get();
           }
 
@@ -223,7 +222,7 @@ void MultiPollReactor::io_thread_main()
           throw;
         }
       }
-      // The walk drained `_pending`; the deferred entries become the new pending queue.
+      // The walk drained `_pending`. The deferred entries become the new pending queue.
       std::swap(_pending, deferred_transfers);
 
       // (2) Drive transfers in a non-blocking way.
@@ -256,9 +255,9 @@ void MultiPollReactor::io_thread_main()
         if (res == CURLE_OK && !transfer->ctx.overflow_error) {
           try {
             if (transfer->is_device) {
-              // Phase 1 (network -> pinned) done. Now schedule Phase 2 (pinned -> device) on
-              // this (thread, ctx) stream and hand the buffer to a cuLaunchHostFunc recycle
-              // callback so the cache slot is returned when the H2D drains.
+              // Phase A (network -> pinned) done. Now schedule Phase B (pinned -> device) on this
+              // (thread, ctx) stream and hand the buffer to a cuLaunchHostFunc recycle callback so
+              // the cache slot is returned when the H2D drains.
               PushAndPopContext c(transfer->device_ctx);
               CUstream stream = StreamCachePerThreadAndContext::get();
               KVIKIO_CUDA_DRIVER_TRY(
@@ -272,25 +271,21 @@ void MultiPollReactor::io_thread_main()
             }
             transfer->aggregate->on_subrange_complete(transfer->ctx.size);
           } catch (...) {
-            // Stage (3) CUDA/H2D path failed. Recycle the buffer if it is still held (i.e.
-            // recycle_after did not run) and fail the aggregate so the caller's future is
-            // resolved instead of left broken at scope exit.
             if (transfer->is_device && transfer->buffer.get() != nullptr) {
               try {
                 PushAndPopContext c(transfer->device_ctx);
                 BounceBufferCache::instance().recycle_now(transfer->device_ctx,
                                                           std::move(transfer->buffer));
               } catch (...) {
-                // Best-effort recycle; if the context push fails the buffer leaks.
+                // Best-effort recycle. If the context push fails, the buffer leaks.
               }
             }
             transfer->aggregate->on_subrange_failed(std::current_exception());
           }
         } else {
           std::stringstream ss;
-          // Prefer the handle's recorded error buffer, which is usually more specific than
-          // curl_easy_strerror (for example "The requested URL returned error: 403"). Fall back to
-          // the generic strerror text when libcurl recorded no message.
+          // Prefer the handle's recorded error buffer. Fall back to the generic strerror text when
+          // libcurl recorded no message.
           auto const msg = transfer->curl->error_message();
           ss << "curl_multi transfer failed ("
              << (msg.empty() ? std::string{curl_easy_strerror(res)} : msg) << ")";
@@ -307,15 +302,15 @@ void MultiPollReactor::io_thread_main()
           transfer->aggregate->on_subrange_failed(
             std::make_exception_ptr(std::runtime_error(ss.str())));
         }
-        // transfer (unique_ptr) drops here, returning easy to the LibCurl pool and releasing the
+        // Transfer (unique_ptr) drops here, returning easy to the LibCurl pool and releasing the
         // transfer's concurrency slot so a deferred request can be admitted.
       }
 
       // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout while transfers
       // remain deferred in `_pending`, so admission is retried promptly. Recycle callbacks that
-      // free a cache slot and completions that free a limiter slot do not necessarily raise
-      // libcurl socket activity, so without this we could sleep up to 1 s before retrying a
-      // deferred transfer.
+      // free a cache slot and completions that free a limiter slot do not necessarily raise libcurl
+      // socket activity, so without this we could sleep up to 1s before retrying a deferred
+      // transfer.
       int const poll_timeout_ms = _pending.empty() ? 1000 : 10;
       auto const poll_mc        = curl_multi_poll(_curl_multi,
                                            nullptr,          // extra_fds
@@ -353,10 +348,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     }
   }
 
-  // Drain the deferred queue. It is touched only by the I/O thread, which is us, so no lock
-  // needed. Entries requeued by the stage (1) exception path may carry a checked-out bounce
-  // buffer; return it to the cache. A null `buffer.get()` covers host transfers and
-  // not-yet-checked-out device transfers.
+  // Drain the deferred queue.
   while (!_pending.empty()) {
     auto transfer = std::move(_pending.front());
     _pending.pop_front();
@@ -377,8 +369,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     // attached, which is undefined behavior.
     std::ignore = curl_multi_remove_handle(_curl_multi, easy);
     // In-flight device transfers had their buffer checked out by stage (1) but no H2D submitted
-    // yet (stage (3) is where the H2D goes, and we never reached it for these). Return the buffer
-    // to the cache.
+    // yet. Return the buffer to the cache.
     if (transfer->is_device && transfer->buffer.get() != nullptr) {
       PushAndPopContext c(transfer->device_ctx);
       BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
@@ -425,15 +416,13 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
   auto const reactor_count = _reactors.size();
 
   // PER_PREAD: one reactor for the whole pread() call. Preserves per-CURLM connection-pool reuse.
-  // The whole batch is submitted in one call: one lock acquisition and one wakeup.
   if (_dispatch == RemoteReactorDispatch::PER_PREAD) {
     auto const idx = _next_reactor_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
     _reactors[idx]->submit(std::move(transfers));
     return;
   }
 
-  // PER_CHUNK: round-robin sub-ranges across reactors, but submit per-reactor batches so each
-  // reactor pays one lock acquisition and one wakeup per pread instead of one per sub-range.
+  // PER_CHUNK: round-robin sub-ranges across reactors.
   std::vector<std::vector<std::unique_ptr<RemoteMultiTransfer>>> buckets(reactor_count);
   for (auto& transfer : transfers) {
     auto const idx = _next_reactor_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
