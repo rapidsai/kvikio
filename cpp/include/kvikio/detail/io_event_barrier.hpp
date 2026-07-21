@@ -14,18 +14,13 @@
 namespace kvikio::detail {
 
 /**
- * @brief Per-pread event barrier used to gate H2D completion on the caller's thread.
+ * @brief Per-pread barrier that lets the caller's thread wait for every reactor's H2D to finish.
  *
- * One `IoEventBarrier` is constructed per `RemoteHandle::pread` call (device-buffer path) and
- * shared via `std::shared_ptr` with every sub-range transfer belonging to that pread. Each reactor
- * I/O thread that submits a `cuMemcpyAsync` for one of those sub-ranges calls
- * `record_event(stream)`, which re-records this thread's slot in the barrier. Once all sub-ranges
- * have reported completion, the caller calls `sync_all_events()` to block until every reactor
- * thread's last H2D has drained.
- *
- * The map is keyed by `std::this_thread::get_id()` so multiple reactor threads each get an
- * independent event slot. Subsequent records on the same thread overwrite the slot's captured state
- * via `cuEventRecord`.
+ * Constructed once per device-path `RemoteHandle::pread` and shared via `std::shared_ptr` with all
+ * of that pread's sub-range transfers. Each reactor I/O thread records into its own slot (keyed by
+ * thread id) after every `cuMemcpyAsync`, re-recording the same event on later calls. Once all
+ * sub-ranges report completion, the caller calls `sync_all_events()` to block until each thread's
+ * last H2D has drained.
  */
 class IoEventBarrier {
  public:
@@ -52,14 +47,11 @@ class IoEventBarrier {
   [[nodiscard]] CUcontext cuda_context() const noexcept;
 
   /**
-   * @brief Record an event on `stream` for the calling thread.
+   * @brief Record an event on `stream` in the calling thread's slot, creating the slot on first
+   * use.
    *
-   * Creates the calling thread's slot on first call. Subsequent calls on the same thread re-record
-   * on the same event handle, overwriting any prior captured state.
-   *
-   * @param stream The CUDA stream to record on. Must belong to the same context as the event
-   * (i.e. the context that was current at first-record).
-   *
+   * @param stream The CUDA stream to record on. Must belong to the same context as the event, i.e.
+   * the context current at first record.
    * @exception kvikio::CUfileException if the underlying `cuEventRecord` fails.
    */
   void record_event(CUstream stream);
@@ -67,10 +59,8 @@ class IoEventBarrier {
   /**
    * @brief Block the calling thread until every recorded event has signaled.
    *
-   * Iterates each thread slot and calls `synchronize()`. After this returns, all H2Ds captured by
-   * the last `record_event` call on each reactor thread have completed. Context-agnostic on the
-   * calling thread.
-   *
+   * After this returns, the last H2D recorded on each reactor thread has completed.
+   * Context-agnostic on the calling thread.
    * @exception kvikio::CUfileException if any underlying `cuEventSynchronize` fails.
    */
   void sync_all_events();

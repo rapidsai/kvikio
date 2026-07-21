@@ -163,7 +163,7 @@ class BounceBufferCachePerThreadAndContext {
   struct RecycleCallbackData {
     Shard* shard;
     Buffer buffer;
-    // Called after the buffer is returned to the free list. Used to wake a waiting reactor.
+    // Called after the buffer is returned to the free list.
     std::function<void()> on_recycle;
   };
 

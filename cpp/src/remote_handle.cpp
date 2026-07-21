@@ -737,7 +737,7 @@ namespace detail {
  * See <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>.
  *
  * @param data Data downloaded by libcurl that is ready for consumption.
- * @param size Size of each element in `nmemb`; size is always 1.
+ * @param size Size of each element in `nmemb`. Size is always 1.
  * @param nmemb Size of the data in `nmemb`.
  * @param context A pointer to an instance of `CallbackContext`.
  */
@@ -904,7 +904,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
       transfer->is_device  = true;
       transfer->device_ctx = io_event_barrier->cuda_context();
       transfer->device_dst = cur_buf;
-      // pinned_buffer is left null here; the reactor populates it in stage (1) once a buffer is
+      // pinned_buffer is left null here. The reactor populates it in stage (1) once a buffer is
       // checked out from the cache.
       transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_pinned_buffer);
     }

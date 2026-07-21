@@ -35,10 +35,9 @@ CurlMultiAttachment::CurlMultiAttachment(CURLM* multi, CURL* easy) noexcept
 
 CurlMultiAttachment::~CurlMultiAttachment()
 {
-  // Best-effort detach on the reactor I/O thread (CURLM is not thread-safe). If
-  // curl_multi_remove_handle fails (rare), the easy handle stays attached and the owning CurlHandle
-  // still returns it to the LibCurl pool, which libcurl treats as undefined behavior. A destructor
-  // has no better recovery; this matches the prior best-effort removal in fail_all_pending.
+  // Best-effort detach on the reactor I/O thread. If curl_multi_remove_handle fails (rare), the
+  // handle stays attached and the owning CurlHandle still returns it to the LibCurl pool, which is
+  // undefined behavior in libcurl. A destructor has no better recovery.
   if (_multi != nullptr && _easy != nullptr) {
     std::ignore = curl_multi_remove_handle(_multi, _easy);
   }
@@ -65,23 +64,22 @@ CurlMultiAttachment& CurlMultiAttachment::operator=(CurlMultiAttachment&& o) noe
 RemoteMultiTransfer::~RemoteMultiTransfer()
 {
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
-  // A device transfer that still owns its bounce buffer reaches here only on a failure path; the
+  // A device transfer still holding its bounce buffer reaches here only on a failure path. The
   // success path moves the buffer into recycle_after, leaving buffer.get() == nullptr.
   //
-  // Thread-affinity invariant: the cache is sharded by (this_thread::get_id(), ctx), so a transfer
-  // holding a buffer MUST be destroyed on the same reactor I/O thread that checked it out in stage
-  // (1). All buffer-holding destructions (in-flight drain, admission-walk reset(), completion drop)
-  // run on that thread. Destroying a buffer-holding transfer on any other thread would send
-  // recycle_now to the wrong shard and corrupt its accounting.
+  // Thread-affinity invariant: the cache is sharded by (this_thread::get_id(), ctx), so a
+  // buffer-holding transfer MUST be destroyed on the reactor I/O thread that checked it out in
+  // stage (1). Every such destruction (in-flight drain, admission-walk reset(), completion drop)
+  // runs on that thread. Destroying it elsewhere would recycle into the wrong shard and corrupt
+  // that shard's accounting.
   if (!is_device || buffer.get() == nullptr) { return; }
   try {
     PushAndPopContext c(device_ctx);
     BounceBufferCache::instance().recycle_now(device_ctx, std::move(buffer));
   } catch (...) {
     // A destructor must not throw. If the context push fails (rare), the buffer's own destructor
-    // still returns it to the global BounceBufferPool, so there is no memory leak; the only cost is
-    // that the shard's checked_out count is not decremented, permanently losing one slot of that
-    // shard's capacity.
+    // still returns it to the global BounceBufferPool, so nothing leaks. The only cost is that the
+    // shard's checked_out count is not decremented, permanently losing one slot of shard capacity.
   }
 }
 
@@ -96,11 +94,10 @@ RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subrang
 void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
 {
   _total_bytes.fetch_add(bytes, std::memory_order_relaxed);
-  // Last thread to decrement to zero fulfills the promise.
-  // _subranges_left needs "release" in order to publish a thread's own relaxed _total_bytes. It
-  // also needs "acquire" in order to load other threads' relaxed _total_bytes to fulfill the
-  // _promise. No special handling is needed for _first_exception, because it is updated under a
-  // mutex, which provides the memory-ordering guarantee.
+  // The last thread to decrement _subranges_left to zero fulfills the promise. Its acq_rel
+  // decrement acquires every other thread's relaxed _total_bytes writes (each released by that
+  // thread's own decrement), so the sum is complete. _first_exception needs no ordering here, since
+  // it is written and read under _exception_mutex.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
     if (_first_exception) {
@@ -141,11 +138,9 @@ MultiPollReactor::MultiPollReactor(MultiReactorPool* pool,
 
 MultiPollReactor::~MultiPollReactor() noexcept
 {
-  // Intentionally empty body. `MultiReactorPool` is a leaked-pointer singleton, so its
-  // `_reactors` vector and the `std::unique_ptr<MultiPollReactor>` elements inside it
-  // are never destroyed. We declare this dtor so the type is complete and usable in
-  // `std::unique_ptr`. Running it would call dtor on an unjoined thread and call
-  // `std::terminate()`.
+  // Intentionally empty. Reactors are owned by the leaked `MultiReactorPool` singleton and never
+  // destroyed. This dtor exists only to complete the type for `std::unique_ptr`. Running it would
+  // destroy an unjoined `std::thread` and call `std::terminate()`.
 }
 
 void MultiPollReactor::wakeup() noexcept { std::ignore = curl_multi_wakeup(_curl_multi); }
@@ -157,8 +152,8 @@ void MultiPollReactor::submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> 
   {
     std::lock_guard<std::mutex> const lock(_submit_mutex);
     if (_pool->is_dead()) {
-      // The pool is dead. Fail the batch immediately rather than pushing into an inbox that will
-      // never be drained. Reading death_reason inside the lock is overkill but harmless.
+      // The pool is dead. Fail the batch immediately instead of pushing into an inbox that will
+      // never be drained.
       fail_reason = _pool->death_reason();
     } else {
       for (auto& transfer : transfers) {
@@ -194,9 +189,8 @@ void MultiPollReactor::io_thread_main()
         }
       }
 
-      // Admission walk over the reactor-private, lock-free _pending. Entries pop off the front and
-      // are either admitted to libcurl or moved to `deferred_transfers`. `_pending` is rebuilt at
-      // the end from `deferred_transfers`.
+      // Admission walk over the reactor-private _pending. Each entry is either admitted to libcurl
+      // or moved to `deferred_transfers`, which becomes the new `_pending` at the end.
       std::deque<std::unique_ptr<RemoteMultiTransfer>> deferred_transfers;
       // Contexts whose bounce-buffer shard has already missed during this walk. It is assumed that
       // distinct contexts are few, so a flat vector with linear find suffices.
@@ -205,9 +199,8 @@ void MultiPollReactor::io_thread_main()
         auto transfer = std::move(_pending.front());
         _pending.pop_front();
         try {
-          // A ctx that already missed the cache this walk cannot admit further device transfers
-          // now. Defer without acquiring a limiter slot. The minor cost is that a recycle callback
-          // may free a buffer mid-walk, making this pessimistic by one loop iteration at most.
+          // This ctx already missed the cache this walk, so defer without taking a limiter slot. At
+          // worst this is pessimistic by one iteration if a recycle frees a buffer mid-walk.
           if (transfer->is_device &&
               std::find(exhausted_ctxs.begin(), exhausted_ctxs.end(), transfer->device_ctx) !=
                 exhausted_ctxs.end()) {
@@ -215,8 +208,8 @@ void MultiPollReactor::io_thread_main()
             continue;
           }
 
-          // Gate 1: This gates the network concurrency. Limit the number of HTTP range requests
-          // simultaneously attached to this reactor's multi handle for host and device combined.
+          // Gate 1 caps network concurrency. Limit the HTTP range requests attached to this
+          // reactor's multi handle at once, host and device combined.
           auto slot = _request_limiter.try_acquire();
           if (!slot) {
             deferred_transfers.push_back(std::move(transfer));
@@ -228,10 +221,9 @@ void MultiPollReactor::io_thread_main()
           }
 
           if (transfer->is_device) {
-            // Gate 2: This gates the bounce buffer availability. Limit the number of bounce buffers
-            // held by this (reactor thread, CUDA context) pair across all pipeline phases. A slot
-            // released at libcurl completion does not free a bounce buffer. The buffer stays
-            // in-flight until the H2D drains and the cuLaunchHostFunc recycle callback fires.
+            // Gate 2 caps bounce-buffer use per (reactor thread, CUDA context) across all pipeline
+            // phases. A limiter slot freed at libcurl completion does not free the buffer, which
+            // stays in-flight until the H2D drains and the recycle callback fires.
             std::optional<CudaPinnedBounceBufferPool::Buffer> bounce_buffer;
             {
               PushAndPopContext c(transfer->device_ctx);
@@ -249,23 +241,18 @@ void MultiPollReactor::io_thread_main()
           CURL* easy    = transfer->curl->handle();
           auto const mc = curl_multi_add_handle(_curl_multi, easy);
           if (mc != CURLM_OK) {
-            // The handle was not attached (add failed), so the attachment guard stays inert.
             // Notify the aggregate to satisfy its sub-range count invariant. Null the local pointer
-            // so the catch below skips requeueing this already-failed transfer. The buffer
-            // auto-recycles via ~RemoteMultiTransfer() when reset() fires.
+            // so the catch below skips requeueing this already-failed transfer.
             transfer->aggregate->on_subrange_failed(std::make_exception_ptr(std::runtime_error(
               std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc))));
             transfer.reset();
             KVIKIO_FAIL(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc),
                         std::runtime_error);
           }
-          // The handle is attached now. Arm the RAII guard so it is removed from the multi handle
-          // when the transfer is destroyed, before its CurlHandle returns the easy handle to the
-          // pool. Arm before the _in_flight.emplace so an emplace failure still detaches on unwind.
+          // Set the guard before the _in_flight.emplace so an emplace failure still detaches the
+          // now-attached handle on unwind.
           transfer->attachment = CurlMultiAttachment{_curl_multi, easy};
-          // The transfer owns its slot from here on. The slot returns to the limiter when the
-          // transfer is destroyed.
-          transfer->slot = std::move(slot);
+          transfer->slot       = std::move(slot);
           _in_flight.emplace(easy, std::move(transfer));
         } catch (...) {
           // Requeue the in-hand transfer (unless already failed above) and the already-deferred
@@ -290,9 +277,8 @@ void MultiPollReactor::io_thread_main()
 
       // (3) Drain completions.
       int msgs_left = 0;
-      // Set when at least one transfer completes this iteration. Each completed transfer releases
-      // its limiter slot when it drops at end of scope, so a completion may unblock a deferred
-      // transfer that was waiting on a slot.
+      // A completion frees a limiter slot, which may unblock a deferred transfer waiting on one.
+      // Stage (4) uses this to shorten the poll timeout.
       bool completed_any = false;
       while (auto* msg = curl_multi_info_read(_curl_multi, &msgs_left)) {
         if (msg->msg != CURLMSG_DONE) { continue; }
@@ -306,9 +292,6 @@ void MultiPollReactor::io_thread_main()
                       std::runtime_error);
         auto transfer = std::move(it->second);
         _in_flight.erase(it);
-        // The easy handle is detached when `transfer` drops at end of scope: transfer->attachment
-        // destructs before transfer->curl, so the remove happens before the CurlHandle returns the
-        // handle to the LibCurl pool. See CurlMultiAttachment.
 
         std::exception_ptr transfer_err;
         if (res == CURLE_OK && !transfer->ctx.overflow_error) {
@@ -349,20 +332,13 @@ void MultiPollReactor::io_thread_main()
           transfer_err = std::make_exception_ptr(std::runtime_error(std::move(desc)));
         }
         if (transfer_err) { transfer->aggregate->on_subrange_failed(transfer_err); }
-        // Transfer (unique_ptr) drops here, returning easy to the LibCurl pool and releasing the
-        // transfer's concurrency slot so a deferred request can be admitted. If the buffer was not
-        // moved into recycle_after, ~RemoteMultiTransfer() recycles it now.
       }
 
-      // (4) Wait for activity, wakeup, or a bounded timeout. Shorten the timeout while transfers
-      // remain deferred in `_pending`, so admission is retried promptly. Recycle callbacks that
-      // free a cache slot and completions that free a limiter slot do not necessarily raise libcurl
-      // socket activity, so without this we could sleep up to 1s before retrying a deferred
-      // transfer.
-      // When completions this iteration freed limiter slots and deferred transfers remain, poll
-      // without blocking so the next admission walk retries immediately instead of waiting out the
-      // 10ms floor. The next iteration reverts to the bounded timeout if it makes no progress, so
-      // this does not busy-spin.
+      // (4) Wait for socket activity, a wakeup, or a timeout. Limiter-slot and bounce-buffer frees
+      // do not raise socket activity, so the timeout adapts. It is 1s when idle, 10ms while
+      // transfers stay deferred in `_pending`, and 0 when a completion this iteration freed a slot
+      // and work remains, so admission retries at once. That 0 case reverts to the bounded timeout
+      // on the next iteration if it makes no progress, so it does not busy-spin.
       int poll_timeout_ms = _pending.empty() ? 1000 : 10;
       if (completed_any && !_pending.empty()) { poll_timeout_ms = 0; }
       auto const poll_mc = curl_multi_poll(_curl_multi,
@@ -379,17 +355,16 @@ void MultiPollReactor::io_thread_main()
     // signal wins. Subsequent signals are silently ignored.
     _pool->signal_death(std::current_exception());
   }
-  // At this point, we have caught the exception above, or noticed that _pool->is_dead() at loop
-  // top. In either case, now drain our own state with the recorded reason to satisfy the
-  // aggregate's _promise, so that no call's future.get() hangs.
+  // Reached by catching the exception above or by noticing _pool->is_dead() at the loop top. Either
+  // way, drain our own state with the recorded reason so no caller's future.get() hangs.
   fail_all_pending(_pool->death_reason());
 }
 
 void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 {
-  // Drain the inbox under the submit mutex. New submissions are blocked from accumulating by the
-  // _pool->is_dead() check in submit(), which is already true by the time we get here. Inbox
-  // entries have not been through admission, so they hold no bounce buffer and no limiter slot.
+  // Drain the inbox under the submit mutex. submit()'s is_dead() check, already true here, stops
+  // new entries from accumulating. Inbox transfers never went through admission, so they hold no
+  // buffer and no limiter slot.
   {
     std::lock_guard<std::mutex> const lock(_submit_mutex);
     while (!_inbox.empty()) {
@@ -399,10 +374,9 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     }
   }
 
-  // Drain the deferred queue. Deferred transfers normally hold neither a checked-out buffer nor an
-  // armed attachment (they were deferred before or during buffer checkout, never after admission).
-  // The one exception is a transfer requeued after an _in_flight.emplace failure, which may carry
-  // both; destroying it here detaches the handle and recycles the buffer.
+  // Drain the deferred queue. These transfers normally hold no buffer and no attachment (deferred
+  // before or during checkout, never after admission). The exception is one requeued after an
+  // _in_flight.emplace failure, which may carry both.
   while (!_pending.empty()) {
     auto transfer = std::move(_pending.front());
     _pending.pop_front();
@@ -413,9 +387,6 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
   for (auto& in_flight_entry : _in_flight) {
     in_flight_entry.second->aggregate->on_subrange_failed(eptr);
   }
-  // Destroying each transfer detaches its easy handle (transfer->attachment) before its CurlHandle
-  // returns the handle to the pool, and recycles its bounce buffer if one was checked out. The
-  // residual UB when curl_multi_remove_handle itself fails is documented in ~CurlMultiAttachment.
   _in_flight.clear();
 }
 
@@ -439,8 +410,7 @@ MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dis
 
 MultiReactorPool::~MultiReactorPool() noexcept
 {
-  // Intentionally empty body. The pool is a leaked-pointer singleton so this destructor is never
-  // invoked.
+  // Intentionally empty. The pool is a leaked singleton, so this dtor is never invoked.
 }
 
 MultiReactorPool& MultiReactorPool::instance()
@@ -487,24 +457,19 @@ std::exception_ptr MultiReactorPool::death_reason() const noexcept
 
 void MultiReactorPool::signal_death(std::exception_ptr eptr) noexcept
 {
-  // - The lock is needed to avoid multiple threads updating _death_reason at the same time.
-  // - The store needs to stay inside the scope of lock. Otherwise, multiple threads may own the
-  // mutex at different point of time and the last thread writes to _death_reason, whereas here we
-  // want the first thread to win.
-  // - The store needs to use `release` to pair with the load's `acquire` in `is_dead()`.
-  // - The load can be relaxed. `acquire` or `seq_cst` will be an overkill.
+  // The lock serializes _death_reason writes and keeps the _dead store in its scope so the first
+  // writer wins, not the last. The store is `release`, pairing with the `acquire` in `is_dead()`.
+  // The guard load below can be relaxed.
   {
     std::lock_guard<std::mutex> const lock(_death_mutex);
-    // Only the first reactor I/O thread that reaches here updates _death_reason and performs the
-    // wakeup. Subsequent calls will early exit.
+    // Only the first thread here updates _death_reason and wakes reactors. Later calls early-exit.
     if (_dead.load(std::memory_order_relaxed)) { return; }
     _death_reason = eptr;
     _dead.store(true, std::memory_order_release);
   }
 
-  // Wake up every reactor out of its curl_multi_poll so they notice _dead promptly.
-  // At this point the caller's own reactor just exited the loop body to enter the catch. So
-  // including it here is harmless.
+  // Wake every reactor out of curl_multi_poll so they notice _dead promptly. Including the caller's
+  // own reactor is harmless, since it has already left its loop.
   for (auto const& r : _reactors) {
     r->wakeup();
   }

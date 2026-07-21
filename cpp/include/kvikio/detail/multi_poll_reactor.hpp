@@ -55,8 +55,8 @@ class RemoteMultiAggregateContext {
    * @brief Optional per-pread event watermark for the device-buffer path.
    *
    * Populated by `RemoteHandle::pread` when the destination is device memory and shared by all
-   * sub-range transfers belonging to this pred. The reactor records on it after each
-   * `cuMemcpyAsync`; the caller's deferred future waits on `sync_all_events()` before returning.
+   * sub-range transfers belonging to this pread. The reactor records on it after each
+   * `cuMemcpyAsync`. The caller's deferred future waits on `sync_all_events()` before returning.
    * Null for host transfers.
    */
   std::shared_ptr<IoEventBarrier> io_event_barrier;
@@ -92,28 +92,23 @@ class RemoteMultiAggregateContext {
 /**
  * @brief RAII guard that keeps one libcurl easy handle attached to a multi handle.
  *
- * Armed by the reactor immediately after a successful `curl_multi_add_handle`. Its destructor calls
- * `curl_multi_remove_handle`, so the easy handle is detached exactly when the owning
- * `RemoteMultiTransfer` is destroyed. Move-only; a default-constructed or moved-from guard is inert
- * and its destructor is a no-op.
+ * Set by the reactor right after a successful `curl_multi_add_handle`. Its destructor calls
+ * `curl_multi_remove_handle`, so the handle is detached when the owning `RemoteMultiTransfer` is
+ * destroyed. A default-constructed or moved-from guard is unset and does nothing on destruction.
  *
- * @note Must be destroyed on the reactor I/O thread that armed it. `CURLM*` is not thread-safe, so
- * every multi-side call, including this removal, must stay on that thread. This is the same
- * thread-affinity constraint the bounce buffer has.
- *
- * @note Held as a `RemoteMultiTransfer` member declared after `curl`, so it destructs before `curl`
- * does. That ordering guarantees the handle is removed from the multi handle before `CurlHandle`
- * returns it to the LibCurl free pool.
+ * @note Must be destroyed on the reactor I/O thread that set it, because `CURLM*` is not
+ * thread-safe. It is a `RemoteMultiTransfer` member declared after `curl`, so it detaches the
+ * handle before `CurlHandle` returns it to the LibCurl pool.
  */
 class CurlMultiAttachment {
  public:
   /**
-   * @brief Construct an inert guard that holds no attachment.
+   * @brief Construct an unset guard that holds no attachment.
    */
   CurlMultiAttachment() noexcept = default;
 
   /**
-   * @brief Arm a guard for an easy handle already attached to `multi`.
+   * @brief Set a guard for an easy handle already attached to `multi`.
    *
    * @param multi The multi handle the easy handle was added to.
    * @param easy The easy handle to remove on destruction.
@@ -141,16 +136,15 @@ class CurlMultiAttachment {
  * held by `std::unique_ptr` because `CurlHandle` is intentionally non-movable.
  *
  * Device-buffer fields (`is_device`, `device_ctx`, `device_dst`, `buffer`) are populated by the
- * pred submitter when the destination is device memory and consumed by the reactor's stages (1)
+ * pread submitter when the destination is device memory and consumed by the reactor's stages (1)
  * and (3). For host transfers, `is_device` is false and the other device fields are unused.
  */
 struct RemoteMultiTransfer {
   std::unique_ptr<CurlHandle> curl;
 
-  // Keeps `curl`'s easy handle attached to the reactor's multi handle. Declared right after `curl`
-  // so it destructs before `curl` returns the handle to the LibCurl pool: the handle is removed
-  // from the multi handle first. Armed in reactor stage (1) after a successful
-  // `curl_multi_add_handle`; inert until then.
+  // Detaches `curl`'s easy handle from the multi handle on destruction. Declared right after `curl`
+  // so it runs before `curl` returns the handle to the LibCurl pool. Set in reactor stage (1) after
+  // a successful `curl_multi_add_handle`, unset until then.
   CurlMultiAttachment attachment;
 
   CallbackContext ctx;
@@ -165,13 +159,13 @@ struct RemoteMultiTransfer {
   bool is_device{false};
   CUcontext device_ctx{nullptr};
   void* device_dst{nullptr};
-  // Pinned bounce buffer checked out from the cache in reactor stage (1). The reactor moves this
-  // into `cache.recycle_after` once the H2D is scheduled in stage (3). On the failure paths when
-  // the buffer was not moved, the destructor recycles it via recycle_now.
+  // Pinned bounce buffer checked out from the cache in reactor stage (1). The reactor moves it into
+  // `cache.recycle_after` when the H2D is scheduled in stage (3). On failure paths where it was not
+  // moved, ~RemoteMultiTransfer recycles it via recycle_now.
   CudaPinnedBounceBufferPool::Buffer buffer{nullptr, nullptr, 0};
 
   // Recycles `buffer` to the bounce-buffer cache if it was not already moved out (failure paths).
-  // Must run on the reactor I/O thread that checked the buffer out; see the definition in
+  // Must run on the reactor I/O thread that checked the buffer out. See the definition in
   // multi_poll_reactor.cpp for the thread-affinity invariant.
   ~RemoteMultiTransfer();
 };
@@ -179,7 +173,7 @@ struct RemoteMultiTransfer {
 /**
  * @brief One reactor has one `CURLM*`, one I/O thread, one submit queue, one in-flight map.
  *
- * `CURLM*` is not thread-safe; all multi-side calls (`curl_multi_add_handle`, `curl_multi_perform`,
+ * `CURLM*` is not thread-safe. All multi-side calls (`curl_multi_add_handle`, `curl_multi_perform`,
  * `curl_multi_info_read`, `curl_multi_remove_handle`, `curl_multi_poll`) happen on `_io_thread`.
  * The only cross-thread libcurl call is `curl_multi_wakeup()`, used by `submit()` to nudge the
  * reactor out of its poll.
@@ -261,7 +255,7 @@ class MultiPollReactor {
  *
  * Dispatch rules (with `N = _reactors.size()`):
  *  - `PER_CHUNK` (default): each sub-range is routed independently via a round-robin atomic
- *    counter. Maximizes load distribution; may cause sub-ranges of the same file to use distinct
+ *    counter. Maximizes load distribution. May cause sub-ranges of the same file to use distinct
  *    TCP/TLS connections.
  *  - `PER_PREAD`: all sub-ranges of one `submit_pread()` call land on the same reactor (round-robin
  *    per call). Preserves per-`CURLM` connection-pool reuse.
