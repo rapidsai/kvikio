@@ -21,12 +21,26 @@
 #include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/stream.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio::detail {
+
+namespace {
+void detach_from_multi(CURLM* multi, CURL* easy) noexcept
+{
+  if (multi == nullptr || easy == nullptr) { return; }
+  auto const mc = curl_multi_remove_handle(multi, easy);
+  if (mc != CURLM_OK) {
+    KVIKIO_LOG_ERROR(std::string("CurlMultiAttachment: curl_multi_remove_handle failed: ") +
+                     curl_multi_strerror(mc));
+  }
+}
+}  // namespace
 
 CurlMultiAttachment::CurlMultiAttachment(CURLM* multi, CURL* easy) noexcept
   : _multi{multi}, _easy{easy}
@@ -38,9 +52,7 @@ CurlMultiAttachment::~CurlMultiAttachment()
   // Best-effort detach on the reactor I/O thread. If curl_multi_remove_handle fails (rare), the
   // handle stays attached and the owning CurlHandle still returns it to the LibCurl pool, which is
   // undefined behavior in libcurl. A destructor has no better recovery.
-  if (_multi != nullptr && _easy != nullptr) {
-    std::ignore = curl_multi_remove_handle(_multi, _easy);
-  }
+  detach_from_multi(_multi, _easy);
 }
 
 CurlMultiAttachment::CurlMultiAttachment(CurlMultiAttachment&& o) noexcept
@@ -52,9 +64,7 @@ CurlMultiAttachment& CurlMultiAttachment::operator=(CurlMultiAttachment&& o) noe
 {
   if (this != &o) {
     // Detach whatever this guard currently holds before taking over o's handle.
-    if (_multi != nullptr && _easy != nullptr) {
-      std::ignore = curl_multi_remove_handle(_multi, _easy);
-    }
+    detach_from_multi(_multi, _easy);
     _multi = std::exchange(o._multi, nullptr);
     _easy  = std::exchange(o._easy, nullptr);
   }
@@ -76,10 +86,10 @@ RemoteMultiTransfer::~RemoteMultiTransfer()
   try {
     PushAndPopContext c(device_ctx);
     BounceBufferCache::instance().recycle_now(device_ctx, std::move(buffer));
+  } catch (std::exception const& e) {
+    KVIKIO_LOG_ERROR(std::string("RemoteMultiTransfer: buffer recycle failed: ") + e.what());
   } catch (...) {
-    // A destructor must not throw. If the context push fails (rare), the buffer's own destructor
-    // still returns it to the global BounceBufferPool, so nothing leaks. The only cost is that the
-    // shard's checked_out count is not decremented, permanently losing one slot of shard capacity.
+    KVIKIO_LOG_ERROR("RemoteMultiTransfer: buffer recycle failed: unknown exception");
   }
 }
 
@@ -353,6 +363,7 @@ void MultiPollReactor::io_thread_main()
   } catch (...) {
     // Any libcurl multi-API error caught above declares pool-wide death. The first reactor to
     // signal wins. Subsequent signals are silently ignored.
+    KVIKIO_LOG_ERROR("MultiPollReactor: fatal libcurl error, reactor pool declared dead");
     _pool->signal_death(std::current_exception());
   }
   // Reached by catching the exception above or by noticing _pool->is_dead() at the loop top. Either
