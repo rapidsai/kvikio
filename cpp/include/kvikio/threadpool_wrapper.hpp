@@ -13,9 +13,7 @@
 
 #include <BS_thread_pool.hpp>
 
-#if defined(__linux__) || defined(__APPLE__)
 #include <pthread.h>
-#endif
 
 namespace kvikio {
 
@@ -38,8 +36,6 @@ using ThreadPool = BS::thread_pool;
  * returned functor, so different pools can share the same prefix without
  * colliding.
  *
- * On platforms that do not provide `pthread_setname_np`, this is a no-op.
- *
  * Linux caps thread names at 15 characters plus NUL, so keep @p prefix
  * short (typically 10 characters or fewer).
  *
@@ -50,16 +46,10 @@ using ThreadPool = BS::thread_pool;
 {
   auto counter = std::make_shared<std::atomic<unsigned int>>(0);
   return [counter = std::move(counter), prefix = std::move(prefix)]() {
-#if defined(__linux__) || defined(__APPLE__)
     unsigned int const idx = counter->fetch_add(1, std::memory_order_relaxed);
     char name[16] = {};  // Linux comm limit is 15 chars + NUL.
     std::snprintf(name, sizeof(name), "%s-%u", prefix.c_str(), idx);
-#if defined(__linux__)
     pthread_setname_np(pthread_self(), name);
-#else  // __APPLE__: only names the calling thread and takes no pthread_t.
-    pthread_setname_np(name);
-#endif
-#endif
   };
 }
 
