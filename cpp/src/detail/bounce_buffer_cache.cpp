@@ -98,8 +98,7 @@ void BounceBufferCachePerThreadAndContext<Allocator>::recycle_after(
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto& shard = get_shard(ctx);
-  auto data   = std::make_unique<RecycleCallbackData>(
-    RecycleCallbackData{&shard, std::move(buf), std::move(on_recycle)});
+  auto data = std::make_unique<RecycleCallbackData>(&shard, std::move(buf), std::move(on_recycle));
 
   // Phase A (`checked_out`) ends and Phase B (`in_flight`) starts.
   {

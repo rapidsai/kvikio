@@ -904,8 +904,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
       transfer->is_device  = true;
       transfer->device_ctx = io_event_barrier->cuda_context();
       transfer->device_dst = cur_buf;
-      // pinned_buffer is left null here. The reactor populates it in stage (1) once a buffer is
-      // checked out from the cache.
       transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_pinned_buffer);
     }
     transfer->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&transfer->ctx));
@@ -920,9 +918,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
 
   if (is_host_mem) { return fut; }
 
-  // Device path: Wrap the RemoteMultiAggregateContext's future so that the caller's `future.get()`
-  // waits for the H2D to complete, which will happen on the caller's thread, not the reactor's. The
-  // shared_ptr keeps the barrier alive until the deferred future runs.
   return std::async(std::launch::deferred,
                     [fut = std::move(fut), io_event_barrier]() mutable -> std::size_t {
                       auto const n = fut.get();

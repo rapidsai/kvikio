@@ -52,12 +52,7 @@ class RemoteMultiAggregateContext {
   explicit RemoteMultiAggregateContext(std::size_t num_subranges);
 
   /**
-   * @brief Optional per-pread event watermark for the device-buffer path.
-   *
-   * Populated by `RemoteHandle::pread` when the destination is device memory and shared by all
-   * sub-range transfers belonging to this pread. The reactor records on it after each
-   * `cuMemcpyAsync`. The caller's deferred future waits on `sync_all_events()` before returning.
-   * Null for host transfers.
+   * @brief Per-pread event watermark for the device-buffer path.
    */
   std::shared_ptr<IoEventBarrier> io_event_barrier;
 
@@ -134,17 +129,11 @@ class CurlMultiAttachment {
  * One `RemoteMultiTransfer` corresponds to one libcurl easy handle, which corresponds to one HTTP
  * range request. Sub-ranges of the same `pread()` share the same `aggregate`. The `curl` member is
  * held by `std::unique_ptr` because `CurlHandle` is intentionally non-movable.
- *
- * Device-buffer fields (`is_device`, `device_ctx`, `device_dst`, `buffer`) are populated by the
- * pread submitter when the destination is device memory and consumed by the reactor's stages (1)
- * and (3). For host transfers, `is_device` is false and the other device fields are unused.
  */
 struct RemoteMultiTransfer {
   std::unique_ptr<CurlHandle> curl;
 
-  // Detaches `curl`'s easy handle from the multi handle on destruction. Declared right after `curl`
-  // so it runs before `curl` returns the handle to the LibCurl pool. Set in reactor stage (1) after
-  // a successful `curl_multi_add_handle`, unset until then.
+  // Detaches `curl`'s easy handle from the multi handle on destruction.
   CurlMultiAttachment attachment;
 
   CallbackContext ctx;
@@ -159,14 +148,12 @@ struct RemoteMultiTransfer {
   bool is_device{false};
   CUcontext device_ctx{nullptr};
   void* device_dst{nullptr};
-  // Pinned bounce buffer checked out from the cache in reactor stage (1). The reactor moves it into
-  // `cache.recycle_after` when the H2D is scheduled in stage (3). On failure paths where it was not
-  // moved, ~RemoteMultiTransfer recycles it via recycle_now.
   CudaPinnedBounceBufferPool::Buffer buffer{nullptr, nullptr, 0};
 
-  // Recycles `buffer` to the bounce-buffer cache if it was not already moved out (failure paths).
-  // Must run on the reactor I/O thread that checked the buffer out. See the definition in
-  // multi_poll_reactor.cpp for the thread-affinity invariant.
+  /**
+   * @brief Recycles `buffer` to the bounce-buffer cache if it was not already moved out (due to
+   * failure paths).
+   **/
   ~RemoteMultiTransfer();
 };
 

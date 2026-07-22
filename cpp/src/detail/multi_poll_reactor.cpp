@@ -185,8 +185,8 @@ void MultiPollReactor::io_thread_main()
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
   try {
     while (!_pool->is_dead()) {
-      // (1) Splice newly submitted transfers out of the inbox (shared by the reactor thread and
-      // submission thread) to minimize the lock duration.
+      // Stage (1): Splice newly submitted transfers out of the inbox (shared by the reactor thread
+      // and submission thread) to minimize the lock duration.
       {
         std::lock_guard<std::mutex> const lock(_submit_mutex);
         if (_pending.empty()) {
@@ -239,28 +239,24 @@ void MultiPollReactor::io_thread_main()
               PushAndPopContext c(transfer->device_ctx);
               bounce_buffer = BounceBufferCache::instance().try_get(transfer->device_ctx);
             }
-            if (!bounce_buffer) {
+            if (!bounce_buffer.has_value()) {
               exhausted_ctxs.push_back(transfer->device_ctx);
               deferred_transfers.push_back(std::move(transfer));
               continue;
             }
-            transfer->buffer            = std::move(*bounce_buffer);
+            transfer->buffer            = std::move(bounce_buffer.value());
             transfer->ctx.pinned_buffer = transfer->buffer.get();
           }
 
           CURL* easy    = transfer->curl->handle();
           auto const mc = curl_multi_add_handle(_curl_multi, easy);
           if (mc != CURLM_OK) {
-            // Notify the aggregate to satisfy its sub-range count invariant. Null the local pointer
-            // so the catch below skips requeueing this already-failed transfer.
             transfer->aggregate->on_subrange_failed(std::make_exception_ptr(std::runtime_error(
               std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc))));
             transfer.reset();
             KVIKIO_FAIL(std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc),
                         std::runtime_error);
           }
-          // Set the guard before the _in_flight.emplace so an emplace failure still detaches the
-          // now-attached handle on unwind.
           transfer->attachment = CurlMultiAttachment{_curl_multi, easy};
           transfer->slot       = std::move(slot);
           _in_flight.emplace(easy, std::move(transfer));
@@ -278,14 +274,14 @@ void MultiPollReactor::io_thread_main()
       // The walk drained `_pending`. The deferred entries become the new pending queue.
       std::swap(_pending, deferred_transfers);
 
-      // (2) Drive transfers in a non-blocking way.
+      // Stage (2): Drive transfers in a non-blocking way.
       int running_handles   = 0;
       auto const perform_mc = curl_multi_perform(_curl_multi, &running_handles);
       KVIKIO_EXPECT(perform_mc == CURLM_OK,
                     std::string("curl_multi_perform: ") + curl_multi_strerror(perform_mc),
                     std::runtime_error);
 
-      // (3) Drain completions.
+      // Stage (3): Drain completions.
       int msgs_left = 0;
       // A completion frees a limiter slot, which may unblock a deferred transfer waiting on one.
       // Stage (4) uses this to shorten the poll timeout.
@@ -344,11 +340,10 @@ void MultiPollReactor::io_thread_main()
         if (transfer_err) { transfer->aggregate->on_subrange_failed(transfer_err); }
       }
 
-      // (4) Wait for socket activity, a wakeup, or a timeout. Limiter-slot and bounce-buffer frees
-      // do not raise socket activity, so the timeout adapts. It is 1s when idle, 10ms while
+      // Stage (4): Wait for socket activity, a wakeup, or a timeout. Limiter-slot and bounce-buffer
+      // frees do not raise socket activity, so the timeout adapts. It is 1s when idle, 10ms while
       // transfers stay deferred in `_pending`, and 0 when a completion this iteration freed a slot
-      // and work remains, so admission retries at once. That 0 case reverts to the bounded timeout
-      // on the next iteration if it makes no progress, so it does not busy-spin.
+      // and work remains, so admission retries at once.
       int poll_timeout_ms = _pending.empty() ? 1000 : 10;
       if (completed_any && !_pending.empty()) { poll_timeout_ms = 0; }
       auto const poll_mc = curl_multi_poll(_curl_multi,
@@ -373,9 +368,7 @@ void MultiPollReactor::io_thread_main()
 
 void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 {
-  // Drain the inbox under the submit mutex. submit()'s is_dead() check, already true here, stops
-  // new entries from accumulating. Inbox transfers never went through admission, so they hold no
-  // buffer and no limiter slot.
+  // Drain the inbox under the submit mutex.
   {
     std::lock_guard<std::mutex> const lock(_submit_mutex);
     while (!_inbox.empty()) {
@@ -385,9 +378,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
     }
   }
 
-  // Drain the deferred queue. These transfers normally hold no buffer and no attachment (deferred
-  // before or during checkout, never after admission). The exception is one requeued after an
-  // _in_flight.emplace failure, which may carry both.
+  // Drain the deferred queue.
   while (!_pending.empty()) {
     auto transfer = std::move(_pending.front());
     _pending.pop_front();
