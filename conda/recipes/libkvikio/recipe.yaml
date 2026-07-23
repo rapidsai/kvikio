@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
@@ -112,6 +112,8 @@ outputs:
     tests:
       - script:
           - test -f $PREFIX/include/kvikio/file_handle.hpp
+          - test -x $PREFIX/share/kvikio/nsys-plugins/kvikio_nic/kvikio_nic_nsys_plugin
+          - test -f $PREFIX/share/kvikio/nsys-plugins/kvikio_nic/nsys-plugin.yaml
     about:
       homepage: ${{ load_from_file("python/libkvikio/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libkvikio/pyproject.toml").project.license }}
