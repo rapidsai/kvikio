@@ -15,6 +15,12 @@ KVIKIO_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_py
 # generate constraints (possibly pinning to oldest support versions of dependencies)
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
 
+python -m venv /tmp/libkvikio-wheel-test
+/tmp/libkvikio-wheel-test/bin/pip install \
+  --constraint "${PIP_CONSTRAINT}" \
+  "$(echo "${LIBKVIKIO_WHEELHOUSE}"/libkvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)"
+/tmp/libkvikio-wheel-test/bin/python -c "import libkvikio; libkvikio.load_library()"
+
 # notes:
 #
 #   * echo to expand wildcard before adding `[test]` requires for pip
@@ -27,7 +33,5 @@ rapids-pip-retry install \
   --constraint "${PIP_CONSTRAINT}" \
   "$(echo "${LIBKVIKIO_WHEELHOUSE}"/libkvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)" \
   "$(echo "${KVIKIO_WHEELHOUSE}"/kvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
-
-python -c "import libkvikio; libkvikio.load_library()"
 
 python -m pytest --cache-clear --verbose ./python/kvikio/tests
