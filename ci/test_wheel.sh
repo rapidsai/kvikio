@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -eou pipefail
@@ -14,6 +14,20 @@ KVIKIO_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_py
 
 # generate constraints (possibly pinning to oldest support versions of dependencies)
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
+
+python -m venv libkvikio-env
+. libkvikio-env/bin/activate
+
+rapids-pip-retry install \
+  -v \
+  --prefer-binary \
+  --constraint "${PIP_CONSTRAINT}" \
+  "$(echo "${LIBKVIKIO_WHEELHOUSE}"/libkvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)"
+python -c "import libkvikio; libkvikio.load_library()"
+deactivate
+
+python -m venv kvikio-env
+. kvikio-env/bin/activate
 
 # notes:
 #
