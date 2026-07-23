@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <cstdio>
 #include <functional>
@@ -47,9 +48,10 @@ using ThreadPool = BS::thread_pool;
   auto counter = std::make_shared<std::atomic<unsigned int>>(0);
   return [counter = std::move(counter), prefix = std::move(prefix)]() {
     unsigned int const idx = counter->fetch_add(1, std::memory_order_relaxed);
-    char name[16] = {};  // Linux comm limit is 15 chars + NUL.
-    std::snprintf(name, sizeof(name), "%s-%u", prefix.c_str(), idx);
-    pthread_setname_np(pthread_self(), name);
+    // Linux comm limit is 15 chars + NUL.
+    std::array<char, 16> name{};
+    std::snprintf(name.data(), name.size(), "%s-%u", prefix.c_str(), idx);
+    pthread_setname_np(pthread_self(), name.data());
   };
 }
 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -80,8 +80,8 @@ ThreadPool* get_thread_pool_per_block_device(std::string const& file_path)
     }
 
     // First file on this block device: create a new dedicated thread pool
-    auto thread_pool = std::make_shared<ThreadPool>(
-      defaults::num_threads(), make_thread_pool_init_task("kvikio-dev"));
+    auto thread_pool = std::make_shared<ThreadPool>(defaults::num_threads(),
+                                                    make_thread_pool_init_task("kvikio-dev"));
     dev_id_to_thread_pool_map.emplace(block_dev_info.id, thread_pool);
     file_path_to_thread_pool_map.emplace(file_path, thread_pool);
     return thread_pool.get();
