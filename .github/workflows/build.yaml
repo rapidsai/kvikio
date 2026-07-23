@@ -144,6 +144,84 @@ jobs:
       package-type: python
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+  release-build-output:
+    # One entry represents one existing GitHub Actions artifact bundle. The
+    # shared companion derives the built package version and creates an
+    # artifact-identity SBOM/provenance envelope when the bundle has not yet
+    # supplied richer evidence.
+    needs: [cpp-build, python-build, wheel-build-cpp, wheel-build-python]
+    permissions:
+      actions: read
+      contents: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    strategy:
+      matrix:
+        include:
+          - &conda_cpp_x86_64_cu12
+            artifact-name: kvikio_conda_cpp_libkvikio_x86_64_cu12
+            release-unit: conda:kvikio
+            release-package: '{"ecosystem":"conda","name":"libkvikio"}'
+            release-artifacts: '[{"path":"linux-64/libkvikio-*.conda"}]'
+          - <<: *conda_cpp_x86_64_cu12
+            artifact-name: kvikio_conda_cpp_libkvikio_x86_64_cu13
+          - &conda_cpp_aarch64_cu12
+            <<: *conda_cpp_x86_64_cu12
+            artifact-name: kvikio_conda_cpp_libkvikio_aarch64_cu12
+            release-artifacts: '[{"path":"linux-aarch64/libkvikio-*.conda"}]'
+          - <<: *conda_cpp_aarch64_cu12
+            artifact-name: kvikio_conda_cpp_libkvikio_aarch64_cu13
+          - &conda_python_x86_64_cu12
+            artifact-name: kvikio_conda_python_kvikio_x86_64_abi3_cu12
+            release-unit: conda:kvikio
+            release-package: '{"ecosystem":"conda","name":"kvikio"}'
+            release-artifacts: '[{"path":"linux-64/kvikio-*.conda"}]'
+          - <<: *conda_python_x86_64_cu12
+            artifact-name: kvikio_conda_python_kvikio_x86_64_abi3_cu13
+          - &conda_python_aarch64_cu12
+            <<: *conda_python_x86_64_cu12
+            artifact-name: kvikio_conda_python_kvikio_aarch64_abi3_cu12
+            release-artifacts: '[{"path":"linux-aarch64/kvikio-*.conda"}]'
+          - <<: *conda_python_aarch64_cu12
+            artifact-name: kvikio_conda_python_kvikio_aarch64_abi3_cu13
+          - &wheel_cpp_x86_64_cu12
+            artifact-name: kvikio_wheel_cpp_libkvikio_x86_64_cu12
+            release-unit: wheel:kvikio
+            release-package: '{"ecosystem":"wheel","name":"libkvikio-cu12"}'
+            release-artifacts: '[{"path":"libkvikio_cu12-*.whl"}]'
+          - <<: *wheel_cpp_x86_64_cu12
+            artifact-name: kvikio_wheel_cpp_libkvikio_x86_64_cu13
+            release-package: '{"ecosystem":"wheel","name":"libkvikio-cu13"}'
+            release-artifacts: '[{"path":"libkvikio_cu13-*.whl"}]'
+          - &wheel_cpp_aarch64_cu12
+            <<: *wheel_cpp_x86_64_cu12
+            artifact-name: kvikio_wheel_cpp_libkvikio_aarch64_cu12
+          - <<: *wheel_cpp_aarch64_cu12
+            artifact-name: kvikio_wheel_cpp_libkvikio_aarch64_cu13
+            release-package: '{"ecosystem":"wheel","name":"libkvikio-cu13"}'
+            release-artifacts: '[{"path":"libkvikio_cu13-*.whl"}]'
+          - &wheel_python_x86_64_cu12
+            artifact-name: kvikio_wheel_python_kvikio_x86_64_abi3_cu12
+            release-unit: wheel:kvikio
+            release-package: '{"ecosystem":"wheel","name":"kvikio-cu12"}'
+            release-artifacts: '[{"path":"kvikio_cu12-*.whl"}]'
+          - <<: *wheel_python_x86_64_cu12
+            artifact-name: kvikio_wheel_python_kvikio_x86_64_abi3_cu13
+            release-package: '{"ecosystem":"wheel","name":"kvikio-cu13"}'
+            release-artifacts: '[{"path":"kvikio_cu13-*.whl"}]'
+          - &wheel_python_aarch64_cu12
+            <<: *wheel_python_x86_64_cu12
+            artifact-name: kvikio_wheel_python_kvikio_aarch64_abi3_cu12
+          - <<: *wheel_python_aarch64_cu12
+            artifact-name: kvikio_wheel_python_kvikio_aarch64_abi3_cu13
+            release-package: '{"ecosystem":"wheel","name":"kvikio-cu13"}'
+            release-artifacts: '[{"path":"kvikio_cu13-*.whl"}]'
+    uses: rapidsai/shared-workflows/.github/workflows/release-build-output.yaml@main
+    with:
+      artifact-name: ${{ matrix.artifact-name }}
+      release-unit: ${{ matrix.release-unit }}
+      release-package: ${{ matrix.release-package }}
+      release-artifacts: ${{ matrix.release-artifacts }}
+      source-sha: ${{ inputs.sha || github.sha }}
   wheel-publish-cpp:
     needs: wheel-build-cpp
     secrets: inherit # zizmor: ignore[secrets-inherit]
