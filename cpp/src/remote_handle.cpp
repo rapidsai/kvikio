@@ -106,6 +106,15 @@ class BounceBufferH2D {
 
  public:
   /**
+   * @brief Discard buffered bytes and restart writes from the start of the device buffer.
+   */
+  void reset() noexcept
+  {
+    _dev_offset  = 0;
+    _host_offset = 0;
+  }
+
+  /**
    * @brief Write host memory to the bounce buffer (also host memory).
    *
    * Only when the bounce buffer has been filled up is data copied to the output device buffer.
@@ -780,9 +789,11 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   }
   detail::CallbackContext ctx{buf, size};
   curl.setopt(CURLOPT_WRITEDATA, &ctx);
+  curl.set_after_successful_perform([&ctx] { detail::expect_callback_context_complete(ctx); });
 
   try {
     if (is_host_mem) {
+      curl.set_before_perform_attempt([&ctx] { detail::reset_callback_context(ctx); });
       curl.perform();
     } else {
       PushAndPopContext c(get_context_from_pointer(buf));
@@ -790,7 +801,16 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
       // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
       detail::BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
       ctx.bounce_buffer = &bounce_buffer;
-      curl.perform();
+      curl.set_before_perform_attempt([&ctx, &bounce_buffer] {
+        detail::reset_callback_context(ctx);
+        bounce_buffer.reset();
+      });
+      try {
+        curl.perform();
+      } catch (...) {
+        bounce_buffer.reset();
+        throw;
+      }
     }
   } catch (std::runtime_error const& e) {
     if (ctx.overflow_error) {
