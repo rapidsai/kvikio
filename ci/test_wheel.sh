@@ -15,6 +15,7 @@ KVIKIO_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_py
 # generate constraints (possibly pinning to oldest support versions of dependencies)
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
 
+# Verify libkvikio's runtime dependencies before KvikIO's test extra can install them.
 python -m venv /tmp/libkvikio-wheel-test
 /tmp/libkvikio-wheel-test/bin/pip install \
   --constraint "${PIP_CONSTRAINT}" \
