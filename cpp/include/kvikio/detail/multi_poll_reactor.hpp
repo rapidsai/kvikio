@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -18,9 +18,12 @@
 
 #include <curl/curl.h>
 
+#include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/concurrent_request_limiter.hpp>
+#include <kvikio/detail/io_event_barrier.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/remote_handle.hpp>
+#include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/libcurl.hpp>
 
 namespace kvikio::detail {
@@ -47,6 +50,11 @@ class RemoteMultiAggregateContext {
    * @param num_subranges Number of sub-range transfers the caller has split the read into.
    */
   explicit RemoteMultiAggregateContext(std::size_t num_subranges);
+
+  /**
+   * @brief Per-pread event watermark for the device-buffer path.
+   */
+  std::shared_ptr<IoEventBarrier> io_event_barrier;
 
   /**
    * @brief Report that one sub-range transfer succeeded.
@@ -77,6 +85,45 @@ class RemoteMultiAggregateContext {
 };
 
 /**
+ * @brief RAII guard that keeps one libcurl easy handle attached to a multi handle.
+ *
+ * Set by the reactor right after a successful `curl_multi_add_handle`. Its destructor calls
+ * `curl_multi_remove_handle`, so the handle is detached when the owning `RemoteMultiTransfer` is
+ * destroyed. A default-constructed or moved-from guard is unset and does nothing on destruction.
+ *
+ * @note Must be destroyed on the reactor I/O thread that set it, because `CURLM*` is not
+ * thread-safe. It is a `RemoteMultiTransfer` member declared after `curl`, so it detaches the
+ * handle before `CurlHandle` returns it to the LibCurl pool.
+ */
+class CurlMultiAttachment {
+ public:
+  /**
+   * @brief Construct an unset guard that holds no attachment.
+   */
+  CurlMultiAttachment() noexcept = default;
+
+  /**
+   * @brief Set a guard for an easy handle already attached to `multi`.
+   *
+   * @param multi The multi handle the easy handle was added to.
+   * @param easy The easy handle to remove on destruction.
+   */
+  CurlMultiAttachment(CURLM* multi, CURL* easy) noexcept;
+
+  ~CurlMultiAttachment();
+
+  // Move-only.
+  CurlMultiAttachment(CurlMultiAttachment&& o) noexcept;
+  CurlMultiAttachment& operator=(CurlMultiAttachment&& o) noexcept;
+  CurlMultiAttachment(CurlMultiAttachment const&)            = delete;
+  CurlMultiAttachment& operator=(CurlMultiAttachment const&) = delete;
+
+ private:
+  CURLM* _multi{nullptr};
+  CURL* _easy{nullptr};
+};
+
+/**
  * @brief Per-transfer state owned by a `MultiPollReactor` between submission and completion.
  *
  * One `RemoteMultiTransfer` corresponds to one libcurl easy handle, which corresponds to one HTTP
@@ -85,14 +132,35 @@ class RemoteMultiAggregateContext {
  */
 struct RemoteMultiTransfer {
   std::unique_ptr<CurlHandle> curl;
+
+  // Detaches `curl`'s easy handle from the multi handle on destruction.
+  CurlMultiAttachment attachment;
+
   CallbackContext ctx;
   std::shared_ptr<RemoteMultiAggregateContext> aggregate;
+
+  // Concurrency slot held from stage (1) admission until this transfer is destroyed after
+  // completion or failure. Empty while the transfer waits in the inbox. Destroying the transfer
+  // returns the slot to the reactor's limiter.
+  ConcurrentRequestLimiter::Slot slot;
+
+  // Device-path fields. All zeroed/null for host transfers.
+  bool is_device{false};
+  CUcontext device_ctx{nullptr};
+  void* device_dst{nullptr};
+  CudaPinnedBounceBufferPool::Buffer buffer{nullptr, nullptr, 0};
+
+  /**
+   * @brief Recycles `buffer` to the bounce-buffer cache if it was not already moved out (due to
+   * failure paths).
+   **/
+  ~RemoteMultiTransfer();
 };
 
 /**
  * @brief One reactor has one `CURLM*`, one I/O thread, one submit queue, one in-flight map.
  *
- * `CURLM*` is not thread-safe; all multi-side calls (`curl_multi_add_handle`, `curl_multi_perform`,
+ * `CURLM*` is not thread-safe. All multi-side calls (`curl_multi_add_handle`, `curl_multi_perform`,
  * `curl_multi_info_read`, `curl_multi_remove_handle`, `curl_multi_poll`) happen on `_io_thread`.
  * The only cross-thread libcurl call is `curl_multi_wakeup()`, used by `submit()` to nudge the
  * reactor out of its poll.
@@ -121,17 +189,17 @@ class MultiPollReactor {
   MultiPollReactor& operator=(MultiPollReactor&&)      = delete;
 
   /**
-   * @brief Hand off a prepared transfer to this reactor. Thread-safe.
+   * @brief Hand off a batch of prepared transfers to this reactor. Thread-safe.
    *
-   * The reactor picks the transfer up on its next loop iteration. The caller must have already
+   * The reactor picks the transfers up on its next loop iteration. The caller must have already
    * obtained the aggregate future via `aggregate->get_future()` before calling this, because once
-   * the transfer is in the queue the reactor may complete it (and the promise) at any time. If the
-   * pool has already declared death, the transfer is failed immediately with the recorded death
-   * reason and never enters the inbox.
+   * the transfers are in the queue the reactor may complete them (and the promise) at any time. If
+   * the pool has already declared death, every transfer in the batch is failed immediately with
+   * the recorded death reason and never enters the inbox.
    *
-   * @param transfer Per-transfer state, ownership transferred to the reactor.
+   * @param transfers Per-transfer state, ownership transferred to the reactor.
    */
-  void submit(std::unique_ptr<RemoteMultiTransfer> transfer);
+  void submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers);
 
   /**
    * @brief Wake up the reactor out of its `curl_multi_poll()` wait. Thread-safe.
@@ -160,6 +228,7 @@ class MultiPollReactor {
   std::thread _io_thread;
   std::mutex _submit_mutex;
   std::deque<std::unique_ptr<RemoteMultiTransfer>> _inbox;
+  std::deque<std::unique_ptr<RemoteMultiTransfer>> _pending;
   std::unordered_map<CURL*, std::unique_ptr<RemoteMultiTransfer>> _in_flight;
 };
 
@@ -173,7 +242,7 @@ class MultiPollReactor {
  *
  * Dispatch rules (with `N = _reactors.size()`):
  *  - `PER_CHUNK` (default): each sub-range is routed independently via a round-robin atomic
- *    counter. Maximizes load distribution; may cause sub-ranges of the same file to use distinct
+ *    counter. Maximizes load distribution. May cause sub-ranges of the same file to use distinct
  *    TCP/TLS connections.
  *  - `PER_PREAD`: all sub-ranges of one `submit_pread()` call land on the same reactor (round-robin
  *    per call). Preserves per-`CURLM` connection-pool reuse.

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -21,14 +21,61 @@ namespace kvikio::detail {
  *
  * The limiter does not block. A caller that cannot acquire a slot is expected to defer its work
  * and retry later, so the reactor thread is free to keep driving the requests it already admitted.
- * `try_acquire()` and `release()` are thread-safe, though in the current `MultiPollReactor`
- * implementation all call sites run on the same I/O thread. Callers are expected to pair a
- * successful `try_acquire()` with exactly one `release()`.
+ * `try_acquire()` is thread-safe, though in the current `MultiPollReactor` implementation all call
+ * sites run on the same I/O thread.
+ *
+ * A reservation is represented by a move-only RAII `Slot`. The reservation returns to the limiter
+ * when the `Slot` is destroyed.
  *
  * A `_max_concurrent_requests` of `std::nullopt` means unlimited.
  */
 class ConcurrentRequestLimiter {
  public:
+  /**
+   * @brief Move-only RAII handle for one reserved limiter slot.
+   *
+   * An engaged `Slot` returns its reservation to the issuing limiter when destroyed, or earlier via
+   * `reset()`. A default-constructed or moved-from `Slot` is empty and destroying it is a no-op.
+   *
+   */
+  class Slot {
+    friend class ConcurrentRequestLimiter;
+
+   private:
+    ConcurrentRequestLimiter* _limiter{nullptr};
+
+    /**
+     * @brief Construct an engaged slot bound to `limiter`.
+     *
+     * @param limiter The limiter the reservation was made on.
+     */
+    explicit Slot(ConcurrentRequestLimiter* limiter) noexcept;
+
+   public:
+    /**
+     * @brief Construct an empty slot that holds no reservation.
+     */
+    Slot() noexcept = default;
+
+    ~Slot() noexcept;
+
+    // Move-only
+    Slot(Slot const&)            = delete;
+    Slot& operator=(Slot const&) = delete;
+    Slot(Slot&& o) noexcept;
+    Slot& operator=(Slot&& o) noexcept;
+
+    /**
+     * @brief Whether this object currently holds a reservation.
+     */
+    [[nodiscard]] explicit operator bool() const noexcept;
+
+    /**
+     * @brief Return the reservation to the limiter now instead of at destruction.
+     */
+    void reset() noexcept;
+  };
+
   /**
    * @brief Construct a limiter with the given ceiling.
    *
@@ -45,16 +92,10 @@ class ConcurrentRequestLimiter {
   /**
    * @brief Try to reserve one slot without blocking.
    *
-   * @return `true` if a slot was reserved, and the caller must later call `release()` exactly once,
-   * or `false` if the limiter is already at its ceiling. Always returns `true` when unlimited.
+   * @return An engaged `Slot` holding the reservation, or an empty `Slot` if the limiter is already
+   * at its ceiling. Always engaged when unlimited.
    */
-  [[nodiscard]] bool try_acquire() noexcept;
-
-  /**
-   * @brief Return one previously reserved slot. Must be paired one-to-one with a successful
-   * `try_acquire()`.
-   */
-  void release() noexcept;
+  [[nodiscard]] Slot try_acquire() noexcept;
 
   /**
    * @brief Whether this limiter imposes no ceiling.
@@ -62,6 +103,12 @@ class ConcurrentRequestLimiter {
   [[nodiscard]] bool unlimited() const noexcept;
 
  private:
+  /**
+   * @brief Return one previously reserved slot. Called by `Slot` only, which guarantees the
+   * one-to-one pairing with a successful `try_acquire()`.
+   */
+  void release() noexcept;
+
   std::optional<std::size_t> const _max_concurrent_requests;  // std::nullopt means unlimited.
   std::atomic<std::size_t> _count{0};
 };
