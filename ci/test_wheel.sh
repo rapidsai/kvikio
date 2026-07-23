@@ -17,6 +17,8 @@ rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
 
 # Verify libkvikio's runtime dependencies before KvikIO's test extra can install them.
 rapids-pip-retry install \
+  -v \
+  --prefer-binary \
   --constraint "${PIP_CONSTRAINT}" \
   "$(echo "${LIBKVIKIO_WHEELHOUSE}"/libkvikio_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)"
 python -c "import libkvikio; libkvikio.load_library()"
