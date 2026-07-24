@@ -55,6 +55,21 @@ jobs:
       date: ${{ inputs.date }}
       script: ci/test_python.sh
       sha: ${{ inputs.sha }}
+  wheel-tests:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    with:
+      build_type: ${{ inputs.build_type }}
+      branch: ${{ inputs.branch }}
+      date: ${{ inputs.date }}
+      sha: ${{ inputs.sha }}
+      script: ci/test_wheel.sh
   conda-java-tests:
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -71,5 +86,5 @@ jobs:
       sha: ${{ inputs.sha }}
       node_type: "gpu-l4-latest-1"
       arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.08-latest"
+      container_image: "rapidsai/ci-conda:26.10-latest"
       script: "ci/test_java.sh"

@@ -1,7 +1,7 @@
-Welcome to KvikIO's Python documentation!
-=========================================
+NVIDIA KvikIO Documentation
+===========================
 
-KvikIO is a Python and C++ library for high performance file IO. It provides C++ and Python
+NVIDIA KvikIO is a Python and C++ library for high performance file IO. It provides C++ and Python
 bindings to `cuFile <https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html>`_,
 which enables `GPUDirect Storage <https://developer.nvidia.com/blog/gpudirect-storage/>`_ (GDS).
 KvikIO also works efficiently when GDS isn't available and can read/write both host and device data seamlessly.
