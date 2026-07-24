@@ -76,12 +76,6 @@ RemoteMultiTransfer::~RemoteMultiTransfer()
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
   // A device transfer still holding its bounce buffer reaches here only on a failure path. The
   // success path moves the buffer into recycle_after, leaving buffer.get() == nullptr.
-  //
-  // Thread-affinity invariant: the cache is sharded by (this_thread::get_id(), ctx), so a
-  // buffer-holding transfer MUST be destroyed on the reactor I/O thread that checked it out in
-  // stage (1). Every such destruction (in-flight drain, admission-walk reset(), completion drop)
-  // runs on that thread. Destroying it elsewhere would recycle into the wrong shard and corrupt
-  // that shard's accounting.
   if (!is_device || buffer.get() == nullptr) { return; }
   try {
     PushAndPopContext c(device_ctx);
