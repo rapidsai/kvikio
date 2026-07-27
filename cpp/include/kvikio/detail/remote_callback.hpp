@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -42,7 +42,7 @@ void reset_callback_context(CallbackContext& ctx) noexcept;
 /**
  * @brief Whether a transfer delivered exactly the requested number of bytes.
  */
-[[nodiscard]] bool callback_context_complete(CallbackContext const& ctx) noexcept;
+[[nodiscard]] bool is_callback_context_complete(CallbackContext const& ctx) noexcept;
 
 /**
  * @brief Number of bytes delivered to the callback context.

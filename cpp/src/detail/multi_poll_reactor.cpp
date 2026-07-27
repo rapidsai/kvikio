@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -185,7 +185,7 @@ void MultiPollReactor::io_thread_main()
                       std::string("curl_multi_remove_handle: ") + curl_multi_strerror(remove_mc),
                       std::runtime_error);
 
-        if (res == CURLE_OK && callback_context_complete(transfer->ctx)) {
+        if (res == CURLE_OK && is_callback_context_complete(transfer->ctx)) {
           transfer->aggregate->on_subrange_complete(callback_context_received_bytes(transfer->ctx));
         } else {
           std::stringstream ss;
