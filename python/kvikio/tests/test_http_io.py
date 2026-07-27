@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -287,7 +287,7 @@ import kvikio
 b = np.empty({a.size}, dtype=np.uint8)
 with kvikio.RemoteFile.open_http({f"{server.url}/a"!r}, nbytes={a.nbytes}) as f:
     try:
-        f.pread(b, size={a.nbytes}, file_offset=0, task_size={a.nbytes}).get()
+        f.pread(b, size={a.nbytes}, file_offset=0).get()
     except RuntimeError as e:
         if "fewer bytes than requested" not in str(e):
             raise
