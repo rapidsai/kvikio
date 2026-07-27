@@ -55,18 +55,18 @@ CurlMultiAttachment::~CurlMultiAttachment()
   detach_from_multi(_multi, _easy);
 }
 
-CurlMultiAttachment::CurlMultiAttachment(CurlMultiAttachment&& o) noexcept
-  : _multi{std::exchange(o._multi, nullptr)}, _easy{std::exchange(o._easy, nullptr)}
+CurlMultiAttachment::CurlMultiAttachment(CurlMultiAttachment&& other) noexcept
+  : _multi{std::exchange(other._multi, nullptr)}, _easy{std::exchange(other._easy, nullptr)}
 {
 }
 
-CurlMultiAttachment& CurlMultiAttachment::operator=(CurlMultiAttachment&& o) noexcept
+CurlMultiAttachment& CurlMultiAttachment::operator=(CurlMultiAttachment&& other) noexcept
 {
-  if (this != &o) {
+  if (this != &other) {
     // Detach whatever this guard currently holds before taking over o's handle.
     detach_from_multi(_multi, _easy);
-    _multi = std::exchange(o._multi, nullptr);
-    _easy  = std::exchange(o._easy, nullptr);
+    _multi = std::exchange(other._multi, nullptr);
+    _easy  = std::exchange(other._easy, nullptr);
   }
   return *this;
 }
@@ -193,8 +193,8 @@ void MultiPollReactor::io_thread_main()
         }
       }
 
-      // Admission walk over the reactor-private _pending. Each entry is either admitted to libcurl
-      // or moved to `deferred_transfers`, which becomes the new `_pending` at the end.
+      // Iterate the per-reactor _pending: Each entry is either admitted to libcurl or moved to
+      // `deferred_transfers`, which becomes the new `_pending` at the end.
       std::deque<std::unique_ptr<RemoteMultiTransfer>> deferred_transfers;
       // Contexts whose bounce-buffer shard has already missed during this walk. It is assumed that
       // distinct contexts are few, so a flat vector with linear find suffices.

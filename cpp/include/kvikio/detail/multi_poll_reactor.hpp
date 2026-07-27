@@ -52,7 +52,7 @@ class RemoteMultiAggregateContext {
   explicit RemoteMultiAggregateContext(std::size_t num_subranges);
 
   /**
-   * @brief Per-pread event watermark for the device-buffer path.
+   * @brief Per-pread event barrier for the device-buffer path.
    */
   std::shared_ptr<IoEventBarrier> io_event_barrier;
 

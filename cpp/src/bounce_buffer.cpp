@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -84,25 +84,25 @@ BounceBufferPool<Allocator>::Buffer::~Buffer() noexcept
 }
 
 template <typename Allocator>
-BounceBufferPool<Allocator>::Buffer::Buffer(Buffer&& o) noexcept
-  : _pool(std::exchange(o._pool, nullptr)),
-    _buffer(std::exchange(o._buffer, nullptr)),
-    _size(std::exchange(o._size, 0))
+BounceBufferPool<Allocator>::Buffer::Buffer(Buffer&& other) noexcept
+  : _pool(std::exchange(other._pool, nullptr)),
+    _buffer(std::exchange(other._buffer, nullptr)),
+    _size(std::exchange(other._size, 0))
 {
 }
 
 template <typename Allocator>
 BounceBufferPool<Allocator>::Buffer& BounceBufferPool<Allocator>::Buffer::operator=(
-  Buffer&& o) noexcept
+  Buffer&& other) noexcept
 {
-  if (this != std::addressof(o)) {
+  if (this != std::addressof(other)) {
     if (_buffer != nullptr) {
       // Return current buffer to the pool
       _pool->put(_buffer, _size);
     }
-    _pool   = std::exchange(o._pool, nullptr);
-    _buffer = std::exchange(o._buffer, nullptr);
-    _size   = std::exchange(o._size, 0);
+    _pool   = std::exchange(other._pool, nullptr);
+    _buffer = std::exchange(other._buffer, nullptr);
+    _size   = std::exchange(other._size, 0);
   }
 
   return *this;

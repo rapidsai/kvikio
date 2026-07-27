@@ -20,16 +20,16 @@ ConcurrentRequestLimiter::Slot::Slot(ConcurrentRequestLimiter* limiter) noexcept
 
 ConcurrentRequestLimiter::Slot::~Slot() noexcept { reset(); }
 
-ConcurrentRequestLimiter::Slot::Slot(Slot&& o) noexcept
-  : _limiter{std::exchange(o._limiter, nullptr)}
+ConcurrentRequestLimiter::Slot::Slot(Slot&& other) noexcept
+  : _limiter{std::exchange(other._limiter, nullptr)}
 {
 }
 
-ConcurrentRequestLimiter::Slot& ConcurrentRequestLimiter::Slot::operator=(Slot&& o) noexcept
+ConcurrentRequestLimiter::Slot& ConcurrentRequestLimiter::Slot::operator=(Slot&& other) noexcept
 {
-  if (this != &o) {
+  if (this != &other) {
     reset();
-    _limiter = std::exchange(o._limiter, nullptr);
+    _limiter = std::exchange(other._limiter, nullptr);
   }
   return *this;
 }

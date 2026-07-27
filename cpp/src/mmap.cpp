@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <sys/mman.h>
@@ -292,35 +292,35 @@ MmapHandle::MmapHandle(std::string const& file_path,
   _buf = detail::pointer_add(_map_addr, offset_delta);
 }
 
-MmapHandle::MmapHandle(MmapHandle&& o) noexcept
-  : _buf{std::exchange(o._buf, {})},
-    _initial_map_size{std::exchange(o._initial_map_size, {})},
-    _initial_map_offset{std::exchange(o._initial_map_offset, {})},
-    _file_size{std::exchange(o._file_size, {})},
-    _map_offset{std::exchange(o._map_offset, {})},
-    _map_size{std::exchange(o._map_size, {})},
-    _map_addr{std::exchange(o._map_addr, {})},
-    _initialized{std::exchange(o._initialized, {})},
-    _map_protection{std::exchange(o._map_protection, {})},
-    _map_flags{std::exchange(o._map_flags, {})},
-    _file_wrapper{std::exchange(o._file_wrapper, {})}
+MmapHandle::MmapHandle(MmapHandle&& other) noexcept
+  : _buf{std::exchange(other._buf, {})},
+    _initial_map_size{std::exchange(other._initial_map_size, {})},
+    _initial_map_offset{std::exchange(other._initial_map_offset, {})},
+    _file_size{std::exchange(other._file_size, {})},
+    _map_offset{std::exchange(other._map_offset, {})},
+    _map_size{std::exchange(other._map_size, {})},
+    _map_addr{std::exchange(other._map_addr, {})},
+    _initialized{std::exchange(other._initialized, {})},
+    _map_protection{std::exchange(other._map_protection, {})},
+    _map_flags{std::exchange(other._map_flags, {})},
+    _file_wrapper{std::exchange(other._file_wrapper, {})}
 {
 }
 
-MmapHandle& MmapHandle::operator=(MmapHandle&& o) noexcept
+MmapHandle& MmapHandle::operator=(MmapHandle&& other) noexcept
 {
   close();
-  _buf                = std::exchange(o._buf, {});
-  _initial_map_size   = std::exchange(o._initial_map_size, {});
-  _initial_map_offset = std::exchange(o._initial_map_offset, {});
-  _file_size          = std::exchange(o._file_size, {});
-  _map_offset         = std::exchange(o._map_offset, {});
-  _map_size           = std::exchange(o._map_size, {});
-  _map_addr           = std::exchange(o._map_addr, {});
-  _initialized        = std::exchange(o._initialized, {});
-  _map_protection     = std::exchange(o._map_protection, {});
-  _map_flags          = std::exchange(o._map_flags, {});
-  _file_wrapper       = std::exchange(o._file_wrapper, {});
+  _buf                = std::exchange(other._buf, {});
+  _initial_map_size   = std::exchange(other._initial_map_size, {});
+  _initial_map_offset = std::exchange(other._initial_map_offset, {});
+  _file_size          = std::exchange(other._file_size, {});
+  _map_offset         = std::exchange(other._map_offset, {});
+  _map_size           = std::exchange(other._map_size, {});
+  _map_addr           = std::exchange(other._map_addr, {});
+  _initialized        = std::exchange(other._initialized, {});
+  _map_protection     = std::exchange(other._map_protection, {});
+  _map_flags          = std::exchange(other._map_flags, {});
+  _file_wrapper       = std::exchange(other._file_wrapper, {});
   return *this;
 }
 

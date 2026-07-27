@@ -27,7 +27,7 @@ class IoEventBarrier {
   /**
    * @brief Construct a barrier carrying `cuda_context` as metadata.
    *
-   * @param cuda_context The CUDA context that pred's H2Ds will land in. Stored only for callers
+   * @param cuda_context The CUDA context that pread's H2Ds will land in. Stored only for callers
    * to look up. The barrier itself does not push or use this context.
    */
   explicit IoEventBarrier(CUcontext cuda_context) noexcept;

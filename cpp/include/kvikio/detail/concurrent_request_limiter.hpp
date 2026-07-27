@@ -62,8 +62,8 @@ class ConcurrentRequestLimiter {
     // Move-only
     Slot(Slot const&)            = delete;
     Slot& operator=(Slot const&) = delete;
-    Slot(Slot&& o) noexcept;
-    Slot& operator=(Slot&& o) noexcept;
+    Slot(Slot&& other) noexcept;
+    Slot& operator=(Slot&& other) noexcept;
 
     /**
      * @brief Whether this object currently holds a reservation.
