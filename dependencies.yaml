@@ -240,16 +240,22 @@ dependencies:
               # some components (like nvidia-cublas-cu12 and nvidia-cuda-nvcc-cu12) didn't have
               # aarch64 wheels until CTK 12.3, so allow a slightly looser bound here
               - cuda-toolkit>=12.2,<12.4
+              # Pin the oldest available cuFile wheel, released with CUDA Toolkit 12.6.3.
+              - nvidia-cufile-cu12==1.11.1.6.*
           - matrix:
               cuda: "12.2"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.2.*
+              # Pin the oldest available cuFile wheel, released with CUDA Toolkit 12.6.3.
+              - nvidia-cufile-cu12==1.11.1.6.*
           - matrix:
               cuda: "12.5"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==12.5.*
+              # Pin the oldest available cuFile wheel, released with CUDA Toolkit 12.6.3.
+              - nvidia-cufile-cu12==1.11.1.6.*
           - matrix:
               cuda: "12.8"
               use_cuda_wheels: "true"
@@ -304,6 +310,8 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==12.*
+              # cuda-toolkit before 12.6.3 does not have the `cufile` extra.
+              - nvidia-cufile-cu12
               - cuda-pathfinder
           - matrix:
               cuda: "13.*"
