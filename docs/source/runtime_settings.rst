@@ -165,8 +165,8 @@ When opportunistic Direct I/O is enabled for reads, unaligned prefix and suffix 
 
    export KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1
 
-Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``
--------------------------------------------------
+Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``, ``KVIKIO_LOG_FORMAT``
+------------------------------------------------------------------------
 
 By default, logging is disabled and no output is produced.
 
@@ -185,34 +185,27 @@ If not set or set to any other value, logging is disabled.
 
 By default, log output are written to the standard error stream. To write log output to a file, set the environment variable ``KVIKIO_LOG_FILE`` to a file path. The file is overwritten on each process start. If the file cannot be opened (e.g. the parent directory does not exist), KvikIO falls back to the standard error with a warning. ``KVIKIO_LOG_FILE`` has no effect when logging is disabled.
 
-Structured Read Logging ``KVIKIO_READ_LOG_FILE``, ``KVIKIO_READ_LOG_LEVEL``, ``KVIKIO_READ_LOG_REDACT_QUERY``
----------------------------------------------------------------------------------------------------------------
+Set ``KVIKIO_LOG_LEVEL=DEBUG`` to log logical I/O operations. Set ``KVIKIO_LOG_LEVEL=TRACE`` to additionally log each physical read performed for those operations.
 
-KvikIO can emit one structured record per read operation as newline-delimited JSON (NDJSON), suitable for post-hoc analysis.
+The environment variable ``KVIKIO_LOG_FORMAT`` controls the output format:
 
-Structured read logging is disabled by default.
+  * ``TEXT`` (default): emit the customary human-readable log prefix and message
+  * ``JSON``: emit one JSON object per line (NDJSON), suitable for post-hoc analysis
 
-To enable it, set ``KVIKIO_READ_LOG_FILE`` to an output file path:
+For example, to capture logical operations and physical reads as JSON:
 
 .. code-block:: bash
 
-   export KVIKIO_READ_LOG_FILE=/tmp/kvikio-read-log.jsonl
+   export KVIKIO_LOG_LEVEL=TRACE
+   export KVIKIO_LOG_FORMAT=JSON
+   export KVIKIO_LOG_FILE=/tmp/kvikio.jsonl
 
-Records are appended to this file (the file is not truncated on process start).
-
-Set ``KVIKIO_READ_LOG_FILE=-`` to emit structured records to standard output instead of a file.
-
-The environment variable ``KVIKIO_READ_LOG_LEVEL`` controls whether records are emitted:
-
-  * ``INFO`` (default when unset): emit read records
-  * ``OFF``: disable structured read logging
-
-The environment variable ``KVIKIO_READ_LOG_REDACT_QUERY`` controls source redaction:
+The environment variable ``KVIKIO_LOG_REDACT_QUERY`` controls source redaction for physical-read records:
 
   * ``ON``/``TRUE``/``YES``/``1`` (default): remove query strings from the ``source`` field
   * ``OFF``/``FALSE``/``NO``/``0``: keep the full source string
 
-Each emitted record has the following schema:
+Physical-read JSON objects have ``"event":"read"`` and the following additional fields:
 
   * ``source`` (string): file path or remote URL
   * ``start`` (integer): read start timestamp (epoch nanoseconds)
@@ -230,4 +223,6 @@ Example record:
 
 .. code-block:: json
 
-   {"source":"s3://bucket/data.parquet","start":1747901139123456789,"end":1747901139127890123,"offset":4194304,"size":1048576,"threadId":17390204170953158183,"bytesRead":1048576,"backend":"remote","status":"ok","isDeviceBuffer":true,"requestId":42}
+   {"event":"read","level":"trace","source":"s3://bucket/data.parquet","start":1747901139123456789,"end":1747901139127890123,"offset":4194304,"size":1048576,"threadId":17390204170953158183,"bytesRead":1048576,"backend":"remote","status":"ok","isDeviceBuffer":true,"requestId":42}
+
+Other JSON log objects have ``"event":"log"`` together with ``timestamp``, ``threadId``, ``level``, and ``message`` fields.

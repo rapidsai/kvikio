@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -786,7 +786,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
-  auto const start = epoch_nanos();
+  auto const start = detail::epoch_nanos();
 
   if (size == 0) { return 0; }
 
@@ -828,16 +828,16 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
     }
     throw;
   }
-  log_structured_read(_endpoint->str(),
-                      start,
-                      epoch_nanos(),
-                      file_offset,
-                      size,
-                      size,
-                      "remote",
-                      "ok",
-                      !is_host_mem,
-                      active_request_id());
+  log_physical_read(_endpoint->str(),
+                    start,
+                    detail::epoch_nanos(),
+                    file_offset,
+                    size,
+                    size,
+                    "remote",
+                    "ok",
+                    !is_host_mem,
+                    detail::active_request_id());
   return size;
 }
 
@@ -861,7 +861,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                  std::size_t size,
                                  std::size_t file_offset,
                                  std::size_t devPtr_offset) -> std::size_t {
-      scoped_request_id request_scope{call_idx};
+      detail::scoped_request_id request_scope{call_idx};
       return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
     };
     return detail::parallel_io(

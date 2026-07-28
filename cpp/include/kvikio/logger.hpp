@@ -1,11 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <cstdint>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include <kvikio/logger_macros.hpp>
 #include <kvikio/shim/utils.hpp>
@@ -24,39 +29,66 @@ namespace KVIKIO_EXPORT kvikio {
  * - `KVIKIO_LOG_FILE`: If set, log output is written to this file path (overwritten on each process
  * start). If the file cannot be opened, falls back to stderr with a warning. Has no effect when
  * logging is disabled.
+ * - `KVIKIO_LOG_FORMAT`: Sets the output format to `TEXT` (the default) or `JSON`.
  *
  * @return Reference to the global KvikIO logger
  */
 rapids_logger::logger& default_logger();
 
 /**
- * @brief Returns the global structured-read logger instance for KvikIO.
- *
- * The logger is configured once on first access using the following environment variables:
- *
- * - `KVIKIO_READ_LOG_FILE`: If set, structured read records are written to this file path in
- *   append mode.
- * - `KVIKIO_READ_LOG_LEVEL`: Optional log level (`INFO` by default). Use `OFF` to disable
- *   structured read logging while keeping `KVIKIO_READ_LOG_FILE` set.
- * - `KVIKIO_READ_LOG_REDACT_QUERY`: Optional boolean (`ON` by default). When enabled, URL query
- *   strings are removed from the `source` field.
- *
- * @return Reference to the global structured-read logger.
+ * @brief Log a preformatted message using the configured output format.
  */
-rapids_logger::logger& read_logger();
+void log_message(rapids_logger::level_enum level, std::string const& message);
 
 /**
- * @brief Whether structured read logging is enabled.
+ * @brief Logger facade that applies KvikIO's configured output format.
  */
-bool is_read_logging_enabled();
+class Logger {
+ public:
+  template <typename... Args>
+  void log(rapids_logger::level_enum level, std::string const& format, Args&&... args)
+  {
+    if (!default_logger().should_log(level)) { return; }
+
+    auto convert_to_c_string = [](auto&& arg) -> decltype(auto) {
+      using ArgType = std::decay_t<decltype(arg)>;
+      if constexpr (std::is_same_v<ArgType, std::string>) {
+        return arg.c_str();
+      } else {
+        return std::forward<decltype(arg)>(arg);
+      }
+    };
+
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
+    auto const formatted_size =
+      std::snprintf(nullptr, 0, format.c_str(), convert_to_c_string(std::forward<Args>(args))...);
+    if (formatted_size < 0) { throw std::runtime_error("Error during formatting."); }
+    if (formatted_size == 0) {
+      log_message(level, {});
+      return;
+    }
+    auto const size = static_cast<std::size_t>(formatted_size) + 1;
+    // NOLINTNEXTLINE(modernize-avoid-c-arrays, cppcoreguidelines-avoid-c-arrays)
+    auto buffer = std::make_unique<char[]>(size);
+    std::snprintf(
+      buffer.get(), size, format.c_str(), convert_to_c_string(std::forward<Args>(args))...);
+    // NOLINTEND(cppcoreguidelines-pro-type-vararg)
+    log_message(level, {buffer.get(), buffer.get() + formatted_size});
+  }
+};
 
 /**
- * @brief Return a URL string sanitized for structured read logging.
+ * @brief Returns the global output-formatting logger facade.
+ */
+Logger& formatted_logger();
+
+/**
+ * @brief Return a URL string sanitized for read logging.
  */
 std::string sanitize_read_log_url(std::string const& url);
 
 /**
- * @brief Emit one structured read record as NDJSON.
+ * @brief Emit one physical-read record at TRACE level.
  *
  * Record schema:
  * - `source: str`
@@ -71,14 +103,14 @@ std::string sanitize_read_log_url(std::string const& url);
  * - `isDeviceBuffer: bool`
  * - `requestId: int`
  */
-void log_structured_read(std::string const& source,
-                         std::int64_t start,
-                         std::int64_t end,
-                         std::size_t offset,
-                         std::size_t size,
-                         std::size_t bytes_read,
-                         char const* backend,
-                         char const* status,
-                         bool is_device_buffer,
-                         std::size_t request_id);
+void log_physical_read(std::string const& source,
+                       std::int64_t start,
+                       std::int64_t end,
+                       std::size_t offset,
+                       std::size_t size,
+                       std::size_t bytes_read,
+                       char const* backend,
+                       char const* status,
+                       bool is_device_buffer,
+                       std::size_t request_id);
 }  // namespace KVIKIO_EXPORT kvikio

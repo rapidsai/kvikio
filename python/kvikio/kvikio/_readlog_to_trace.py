@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Convert KvikIO structured read logs into Chrome/Perfetto trace JSON."""
+"""Convert KvikIO JSON physical-read logs into Chrome/Perfetto trace JSON."""
 
 from __future__ import annotations
 
@@ -29,7 +29,9 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _to_trace_event(record: dict[str, Any], tid_map: dict[int, int], pid: int) -> dict[str, Any]:
+def _to_trace_event(
+    record: dict[str, Any], tid_map: dict[int, int], pid: int
+) -> dict[str, Any]:
     start_ns = int(record["start"])
     end_ns = int(record["end"])
     duration_ns = max(0, end_ns - start_ns)
@@ -89,6 +91,11 @@ def convert(input_path: Path, output_path: Path, pid: int) -> None:
                 record = json.loads(text)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"Invalid JSON on line {line_no}: {exc}") from exc
+
+            # A JSON-formatted KvikIO log can contain ordinary messages as well
+            # as physical-read events. Only reads map to duration events.
+            if record.get("event", "read") != "read":
+                continue
 
             missing = [field for field in ("start", "end") if field not in record]
             if missing:

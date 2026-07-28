@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -212,16 +212,16 @@ std::size_t FileHandle::read(void* devPtr_base,
   KVIKIO_NVTX_FUNC_RANGE(size);
   auto const start = epoch_nanos();
   auto emit_log    = [&](std::size_t bytes_read) {
-    log_structured_read(_file_path,
-                        start,
-                        epoch_nanos(),
-                        file_offset,
-                        size,
-                        bytes_read,
-                        "local",
-                        "ok",
-                        true,
-                        active_request_id());
+    log_physical_read(_file_path,
+                      start,
+                      epoch_nanos(),
+                      file_offset,
+                      size,
+                      bytes_read,
+                      "local",
+                      "ok",
+                      true,
+                      active_request_id());
     return bytes_read;
   };
   if (get_compat_mode_manager().is_compat_mode_preferred()) {
@@ -302,20 +302,20 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                                std::size_t file_offset,
                                std::size_t hostPtr_offset) -> std::size_t {
       scoped_request_id request_scope{call_idx};
-      auto const start = epoch_nanos();
-      char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
+      auto const start      = epoch_nanos();
+      char* buf             = static_cast<char*>(hostPtr_base) + hostPtr_offset;
       auto const bytes_read = detail::posix_host_read<detail::PartialIO::NO>(
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
-      log_structured_read(_file_path,
-                          start,
-                          epoch_nanos(),
-                          file_offset,
-                          size,
-                          bytes_read,
-                          "local",
-                          "ok",
-                          false,
-                          call_idx);
+      log_physical_read(_file_path,
+                        start,
+                        epoch_nanos(),
+                        file_offset,
+                        size,
+                        bytes_read,
+                        "local",
+                        "ok",
+                        false,
+                        call_idx);
       return bytes_read;
     };
 
@@ -338,16 +338,16 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     PushAndPopContext c(ctx);
     auto bytes_read = detail::posix_device_read(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
-    log_structured_read(_file_path,
-                        start,
-                        epoch_nanos(),
-                        file_offset,
-                        size,
-                        bytes_read,
-                        "local",
-                        "ok",
-                        true,
-                        call_idx);
+    log_physical_read(_file_path,
+                      start,
+                      epoch_nanos(),
+                      file_offset,
+                      size,
+                      bytes_read,
+                      "local",
+                      "ok",
+                      true,
+                      call_idx);
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_read);
