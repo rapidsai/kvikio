@@ -92,9 +92,11 @@ def convert(input_path: Path, output_path: Path, pid: int) -> None:
             except json.JSONDecodeError as exc:
                 raise ValueError(f"Invalid JSON on line {line_no}: {exc}") from exc
 
-            # A JSON-formatted KvikIO log can contain ordinary messages as well
-            # as physical-read events. Only reads map to duration events.
-            if record.get("event", "read") != "read":
+            # A JSON-formatted KvikIO log can contain ordinary messages,
+            # HTTP metadata probes, and physical-read events. Map both
+            # duration-bearing events into the trace.
+            event = record.get("event", "read")
+            if event not in ("read", "http"):
                 continue
 
             missing = [field for field in ("start", "end") if field not in record]
@@ -103,7 +105,30 @@ def convert(input_path: Path, output_path: Path, pid: int) -> None:
                     f"Missing required field(s) {missing!r} on line {line_no}: {text}"
                 )
 
-            trace_events.append(_to_trace_event(record, tid_map, pid))
+            if event == "http":
+                start_ns = int(record["start"])
+                end_ns = int(record["end"])
+                duration_ns = max(0, end_ns - start_ns)
+                raw_thread_id = int(record.get("threadId", 0))
+                if raw_thread_id not in tid_map:
+                    tid_map[raw_thread_id] = len(tid_map) + 1
+                tid = tid_map[raw_thread_id]
+                method = record.get("method", "HTTP")
+                purpose = record.get("purpose", "metadata")
+                trace_events.append(
+                    {
+                        "name": f"http:{method}:{purpose}",
+                        "cat": "kvikio.http",
+                        "ph": "X",
+                        "pid": pid,
+                        "tid": tid,
+                        "ts": start_ns / 1000.0,
+                        "dur": duration_ns / 1000.0,
+                        "args": record,
+                    }
+                )
+            else:
+                trace_events.append(_to_trace_event(record, tid_map, pid))
 
     # Add thread metadata entries so normalized tids are easier to interpret.
     for original_tid, trace_tid in tid_map.items():

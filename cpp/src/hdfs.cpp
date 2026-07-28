@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <chrono>
 #include <regex>
 
 #include <kvikio/detail/env.hpp>
@@ -10,6 +11,7 @@
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
+#include <kvikio/logger.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 
@@ -82,6 +84,9 @@ std::size_t WebHdfsEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
 
+  auto const start = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
   std::stringstream ss;
   ss << _url << "?";
   if (_username.has_value()) { ss << "user.name=" << _username.value() << "&"; }
@@ -111,6 +116,10 @@ std::size_t WebHdfsEndpoint::get_file_size()
   bool found = std::regex_search(response, match_results, pattern);
   KVIKIO_EXPECT(
     found, "Regular expression search failed. Cannot extract file length from the JSON response.");
+  auto const end = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                     std::chrono::system_clock::now().time_since_epoch())
+                     .count();
+  log_http_request(_url, start, end, "GET", "ok", "metadata");
   return std::stoull(match_results[1].str());
 }
 

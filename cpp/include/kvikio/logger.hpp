@@ -102,6 +102,7 @@ std::string sanitize_read_log_url(std::string const& url);
  * - `status: str`
  * - `isDeviceBuffer: bool`
  * - `requestId: int`
+ * - `method: str` (optional; HTTP method such as `"GET"` for remote reads)
  */
 void log_physical_read(std::string const& source,
                        std::int64_t start,
@@ -112,5 +113,29 @@ void log_physical_read(std::string const& source,
                        char const* backend,
                        char const* status,
                        bool is_device_buffer,
-                       std::size_t request_id);
+                       std::size_t request_id,
+                       char const* method = nullptr);
+
+/**
+ * @brief Emit one HTTP metadata / probe request record at TRACE level.
+ *
+ * Used for size discovery and similar non-data-read HTTP operations (for example HEAD
+ * during `RemoteFile` open, or a one-byte GET used when HEAD is unavailable).
+ *
+ * Record schema:
+ * - `event: "http"`
+ * - `source: str`
+ * - `start: int` (epoch nanoseconds)
+ * - `end: int` (epoch nanoseconds)
+ * - `threadId: int`
+ * - `method: str` (for example `"HEAD"` or `"GET"`)
+ * - `status: str`
+ * - `purpose: str` (for example `"metadata"`)
+ */
+void log_http_request(std::string const& source,
+                      std::int64_t start,
+                      std::int64_t end,
+                      char const* method,
+                      char const* status,
+                      char const* purpose = "metadata");
 }  // namespace KVIKIO_EXPORT kvikio

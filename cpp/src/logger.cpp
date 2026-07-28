@@ -205,32 +205,53 @@ void log_physical_read(std::string const& source,
                        char const* backend,
                        char const* status,
                        bool is_device_buffer,
-                       std::size_t request_id)
+                       std::size_t request_id,
+                       char const* method)
 {
   if (!default_logger().should_log(rapids_logger::level_enum::trace)) { return; }
   auto const sanitized         = sanitize_read_log_url(source);
   auto const current_thread_id = thread_id();
   if (log_format() == LogFormat::TEXT) {
-    default_logger().log(
-      rapids_logger::level_enum::trace,
-      "read(source=%s, start=%lld, end=%lld, offset=%zu, size=%zu, thread_id=%zu, "
-      "bytes_read=%zu, backend=%s, status=%s, is_device_buffer=%s, request_id=%zu)",
-      sanitized,
-      static_cast<long long>(start),
-      static_cast<long long>(end),
-      offset,
-      size,
-      current_thread_id,
-      bytes_read,
-      backend,
-      status,
-      is_device_buffer ? "true" : "false",
-      request_id);
+    if (method == nullptr) {
+      default_logger().log(
+        rapids_logger::level_enum::trace,
+        "read(source=%s, start=%lld, end=%lld, offset=%zu, size=%zu, thread_id=%zu, "
+        "bytes_read=%zu, backend=%s, status=%s, is_device_buffer=%s, request_id=%zu)",
+        sanitized,
+        static_cast<long long>(start),
+        static_cast<long long>(end),
+        offset,
+        size,
+        current_thread_id,
+        bytes_read,
+        backend,
+        status,
+        is_device_buffer ? "true" : "false",
+        request_id);
+    } else {
+      default_logger().log(
+        rapids_logger::level_enum::trace,
+        "read(source=%s, start=%lld, end=%lld, offset=%zu, size=%zu, thread_id=%zu, "
+        "bytes_read=%zu, backend=%s, status=%s, is_device_buffer=%s, request_id=%zu, "
+        "method=%s)",
+        sanitized,
+        static_cast<long long>(start),
+        static_cast<long long>(end),
+        offset,
+        size,
+        current_thread_id,
+        bytes_read,
+        backend,
+        status,
+        is_device_buffer ? "true" : "false",
+        request_id,
+        method);
+    }
     return;
   }
 
   auto json = std::string{};
-  json.reserve(sanitized.size() + 256);
+  json.reserve(sanitized.size() + 280);
   json += "{\"event\":\"read\",\"level\":\"trace\",\"source\":\"";
   json += escape_json(sanitized);
   json += "\",\"start\":";
@@ -253,7 +274,56 @@ void log_physical_read(std::string const& source,
   json += is_device_buffer ? "true" : "false";
   json += ",\"requestId\":";
   json += std::to_string(request_id);
+  if (method != nullptr) {
+    json += ",\"method\":\"";
+    json += escape_json(method);
+    json += "\"";
+  }
   json += "}";
+  default_logger().log(rapids_logger::level_enum::trace, json);
+}
+
+void log_http_request(std::string const& source,
+                      std::int64_t start,
+                      std::int64_t end,
+                      char const* method,
+                      char const* status,
+                      char const* purpose)
+{
+  if (!default_logger().should_log(rapids_logger::level_enum::trace)) { return; }
+  auto const sanitized         = sanitize_read_log_url(source);
+  auto const current_thread_id = thread_id();
+  if (log_format() == LogFormat::TEXT) {
+    default_logger().log(
+      rapids_logger::level_enum::trace,
+      "http(source=%s, start=%lld, end=%lld, thread_id=%zu, method=%s, status=%s, purpose=%s)",
+      sanitized,
+      static_cast<long long>(start),
+      static_cast<long long>(end),
+      current_thread_id,
+      method,
+      status,
+      purpose);
+    return;
+  }
+
+  auto json = std::string{};
+  json.reserve(sanitized.size() + 192);
+  json += "{\"event\":\"http\",\"level\":\"trace\",\"source\":\"";
+  json += escape_json(sanitized);
+  json += "\",\"start\":";
+  json += std::to_string(start);
+  json += ",\"end\":";
+  json += std::to_string(end);
+  json += ",\"threadId\":";
+  json += std::to_string(current_thread_id);
+  json += ",\"method\":\"";
+  json += escape_json(method);
+  json += "\",\"status\":\"";
+  json += escape_json(status);
+  json += "\",\"purpose\":\"";
+  json += escape_json(purpose);
+  json += "\"}";
   default_logger().log(rapids_logger::level_enum::trace, json);
 }
 }  // namespace KVIKIO_EXPORT kvikio

@@ -176,7 +176,8 @@ namespace {
  */
 std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string const& url)
 {
-  auto curl = create_curl_handle();
+  auto const start = detail::epoch_nanos();
+  auto curl        = create_curl_handle();
 
   endpoint.setopt(curl);
   curl.setopt(CURLOPT_NOBODY, 1L);
@@ -188,6 +189,7 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
     cl >= 0,
     "cannot get size of " + endpoint.str() + ", content-length not provided by the server",
     std::runtime_error);
+  log_http_request(endpoint.str(), start, detail::epoch_nanos(), "HEAD", "ok", "metadata");
   return static_cast<std::size_t>(cl);
 }
 
@@ -642,7 +644,8 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
 
   KVIKIO_NVTX_FUNC_RANGE();
 
-  auto curl = create_curl_handle();
+  auto const start = detail::epoch_nanos();
+  auto curl        = create_curl_handle();
   curl.setopt(CURLOPT_URL, _url.c_str());
 
   // 1-byte range, specified in the format "<start-byte>-<end-byte>""
@@ -654,6 +657,7 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
   curl.setopt(CURLOPT_HEADERFUNCTION, callback_header);
 
   curl.perform();
+  log_http_request(_url, start, detail::epoch_nanos(), "GET", "ok", "metadata");
   return file_size;
 }
 
@@ -837,7 +841,8 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
                     "remote",
                     "ok",
                     !is_host_mem,
-                    detail::active_request_id());
+                    detail::active_request_id(),
+                    "GET");
   return size;
 }
 
