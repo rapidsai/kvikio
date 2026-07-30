@@ -1,13 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <unistd.h>
 
+#include <cerrno>
 #include <cstddef>
 #include <cstdlib>
+#include <cstring>
+#include <string>
 #include <type_traits>
 
 #include <kvikio/bounce_buffer.hpp>
@@ -79,6 +82,14 @@ ssize_t posix_host_io(
     } else {
       nbytes = ::pwrite(fd, buf, count, convert_size2off(offset));
     }
+
+    if (nbytes == -1) {
+      auto const err         = errno;
+      std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
+      KVIKIO_EXPECT(err != EBADF, "POSIX error: Operation not permitted");
+      KVIKIO_FAIL("POSIX error on " + name + ": " + std::strerror(err));
+    }
+
     return nbytes;
   };
 
@@ -147,7 +158,7 @@ ssize_t posix_host_io(
 
             if constexpr (Operation == IOOperationType::READ) {
               // Copy data from bounce buffer to user buffer after Direct I/O read
-              std::memcpy(buffer, aligned_buf, nbytes_processed);
+              std::memcpy(buffer, aligned_buf, static_cast<std::size_t>(nbytes_processed));
             }
           } else {
             KVIKIO_NVTX_SCOPED_RANGE(op_name_dio, bytes_requested, color_dio);
@@ -158,12 +169,6 @@ ssize_t posix_host_io(
       }
     }
 
-    // Error handling
-    if (nbytes_processed == -1) {
-      std::string const name = (Operation == IOOperationType::READ) ? "pread" : "pwrite";
-      KVIKIO_EXPECT(errno != EBADF, "POSIX error: Operation not permitted");
-      KVIKIO_FAIL("POSIX error on " + name + ": " + strerror(errno));
-    }
     if constexpr (Operation == IOOperationType::READ) {
       KVIKIO_EXPECT(nbytes_processed != 0, "POSIX error on pread: EOF");
     }
