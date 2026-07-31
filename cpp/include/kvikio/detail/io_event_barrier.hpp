@@ -59,8 +59,9 @@ class IoEventBarrier {
   /**
    * @brief Block the calling thread until every recorded event has signaled.
    *
-   * After this returns, the last H2D recorded on each reactor thread has completed.
-   * Context-agnostic on the calling thread.
+   * After this returns, the last H2D recorded on each reactor thread has completed. This method is
+   * context-agnostic in that the CUDA context current on the calling thread may differ from the
+   * contexts the events belong to.
    * @exception kvikio::CUfileException if any underlying `cuEventSynchronize` fails.
    */
   void sync_all_events();

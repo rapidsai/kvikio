@@ -80,6 +80,48 @@ TEST_F(IoEventBarrierTest, re_record_overwrites_same_slot)
   KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
 }
 
+TEST_F(IoEventBarrierTest, sync_is_context_agnostic)
+{
+  auto ctx = current_context();
+  ASSERT_NE(ctx, nullptr);
+
+  CUdevice dev{};
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxGetDevice(&dev));
+
+  kvikio::detail::IoEventBarrier barrier(ctx);
+
+  CUstream stream{};
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
+  barrier.record_event(stream);
+
+  // Case 1: no context current on the calling thread.
+  CUcontext popped{};
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxPopCurrent(&popped));
+  ASSERT_EQ(popped, ctx);
+  ASSERT_EQ(current_context(), nullptr);
+  EXPECT_NO_THROW(barrier.sync_all_events());
+
+  // Case 2: a different context current on the calling thread.
+  CUcontext other_ctx{};
+#if CUDA_VERSION >= 13000
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxCreate(&other_ctx, nullptr, 0, dev));
+#else
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxCreate(&other_ctx, 0, dev));
+#endif
+  ASSERT_NE(other_ctx, ctx);
+  ASSERT_EQ(current_context(), other_ctx);
+  EXPECT_NO_THROW(barrier.sync_all_events());
+
+  // Restore the primary context.
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxPopCurrent(&popped));
+  ASSERT_EQ(popped, other_ctx);
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxDestroy(other_ctx));
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().CtxPushCurrent(ctx));
+  ASSERT_EQ(current_context(), ctx);
+
+  KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().StreamDestroy(stream));
+}
+
 TEST_F(IoEventBarrierTest, multi_thread_record_then_sync_on_caller)
 {
   kvikio::detail::IoEventBarrier barrier(current_context());
