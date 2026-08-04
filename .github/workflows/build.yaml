@@ -46,7 +46,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@codex/release-build-output-manifests
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -54,6 +54,8 @@ jobs:
       node_type: cpu8
       date: ${{ inputs.date }}
       script: ci/build_cpp.sh
+      release-build-output: true
+      release-unit: conda:kvikio-cpp
       sha: ${{ inputs.sha }}
   python-build:
     needs: [build-details, cpp-build]
@@ -64,13 +66,15 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@codex/release-build-output-manifests
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       script: ci/build_python.sh
+      release-build-output: true
+      release-unit: conda:kvikio-python
       sha: ${{ inputs.sha }}
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
@@ -139,7 +143,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@codex/release-build-output-manifests
     with:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: ${{ inputs.build_type || 'branch' }}
@@ -151,6 +155,8 @@ jobs:
       script: ci/build_wheel_cpp.sh
       package-name: libkvikio
       package-type: cpp
+      release-build-output: true
+      release-unit: wheel:libkvikio
   wheel-build-python:
     needs: [build-details, wheel-build-cpp]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -160,7 +166,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@codex/release-build-output-manifests
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -171,6 +177,8 @@ jobs:
       script: ci/build_wheel_python.sh
       package-name: kvikio
       package-type: python
+      release-build-output: true
+      release-unit: wheel:kvikio
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-cpp:
