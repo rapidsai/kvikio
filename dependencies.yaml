@@ -324,7 +324,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &cupy_unsuffixed cupy>=14.0.1,!=14.1.0
+          - cupy>=14.0.1,!=14.1.0
     specific:
       - output_types: requirements
         matrices:
@@ -480,7 +480,7 @@ dependencies:
           - boto3>=1.21.21
       - output_types: pyproject
         packages:
-          - &moto_server moto[server]>=4.0.8
+          - moto[server]>=4.0.8
       - output_types: conda
         packages:
           - moto>=4.0.8
