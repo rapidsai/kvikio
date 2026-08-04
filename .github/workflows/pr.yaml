@@ -203,11 +203,13 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@codex/release-build-output-manifests
     with:
       build_type: pull-request
       node_type: cpu8
       script: ci/build_cpp.sh
+      release-build-output: true
+      release-unit: conda:kvikio-cpp
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -247,10 +249,12 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@codex/release-build-output-manifests
     with:
       build_type: pull-request
       script: ci/build_python.sh
+      release-build-output: true
+      release-unit: conda:kvikio-python
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   conda-python-tests:
@@ -315,7 +319,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@codex/release-build-output-manifests
     with:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: pull-request
@@ -323,6 +327,8 @@ jobs:
       script: ci/build_wheel_cpp.sh
       package-name: libkvikio
       package-type: cpp
+      release-build-output: true
+      release-unit: wheel:libkvikio
   wheel-python-build:
     needs: wheel-cpp-build
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -332,13 +338,15 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@codex/release-build-output-manifests
     with:
       build_type: pull-request
       node_type: cpu8
       script: ci/build_wheel_python.sh
       package-name: kvikio
       package-type: python
+      release-build-output: true
+      release-unit: wheel:kvikio
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-python-tests:
