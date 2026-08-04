@@ -8,10 +8,9 @@ concurrency:
   cancel-in-progress: true
 permissions: {}
 jobs:
-  build-details:
-    uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@main
   pr-builder:
     needs:
+      - build-details
       - check-nightly-ci
       - changed-files
       - checks
@@ -37,6 +36,8 @@ jobs:
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
+  build-details:
+    uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@main
   check-nightly-ci:
     runs-on: ubuntu-latest
     permissions:
@@ -77,6 +78,8 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
@@ -96,6 +99,8 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
@@ -125,6 +130,8 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
@@ -152,6 +159,8 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
@@ -197,7 +206,7 @@ jobs:
     with:
       ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
-    needs: checks
+    needs: [build-details, checks]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -208,6 +217,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_cpp.sh
   conda-cpp-tests:
@@ -241,7 +251,7 @@ jobs:
       container_image: "rapidsai/ci-conda:26.10-latest"
       script: "ci/test_java.sh"
   conda-python-build:
-    needs: conda-cpp-build
+    needs: [build-details, conda-cpp-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -252,6 +262,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
     with:
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       script: ci/build_python.sh
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
@@ -310,6 +321,7 @@ jobs:
         python -c "import kvikio; print(kvikio.__version__)";
         sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt;
   wheel-cpp-build:
+    needs: [build-details]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -321,12 +333,13 @@ jobs:
     with:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_wheel_cpp.sh
       package-name: libkvikio
       package-type: cpp
   wheel-python-build:
-    needs: wheel-cpp-build
+    needs: [build-details, wheel-cpp-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -337,6 +350,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_wheel_python.sh
       package-name: kvikio
