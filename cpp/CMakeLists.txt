@@ -148,6 +148,22 @@ else()
   message(STATUS "Found cuFile Version API: ${cuFile_VERSION_API_FOUND}")
 endif()
 
+# cuObject (libcuobjclient) powers the optional S3-over-RDMA data plane. The header and library ship
+# with the CUDA Toolkit. KvikIO never links them directly; instead a small C-ABI shim
+# (libkvikio_cuobj_shim.so) is built when they are present and loaded at runtime via dlopen, keeping
+# cuObject an optional runtime dependency (same model as cuFile).
+find_path(
+  cuObj_INCLUDE_DIR cuobjclient.h HINTS ${CUDAToolkit_INCLUDE_DIRS} ${CUDAToolkit_TARGET_DIR}/include
+)
+find_library(cuObj_LIBRARY cuobjclient HINTS ${CUDAToolkit_LIBRARY_DIR} ${CUDAToolkit_TARGET_DIR}/lib64)
+if(cuObj_INCLUDE_DIR AND cuObj_LIBRARY)
+  set(cuObj_FOUND 1)
+  message(STATUS "Found cuObject: ${cuObj_LIBRARY}")
+else()
+  set(cuObj_FOUND 0)
+  message(STATUS "Cannot find cuObject - KvikIO will build without S3-over-RDMA support")
+endif()
+
 include(cmake/thirdparty/get_thread_pool.cmake)
 
 # ##################################################################################################
@@ -193,6 +209,7 @@ if(KvikIO_REMOTE_SUPPORT)
     "src/detail/remote_callback.cpp"
     "src/detail/tls.cpp"
     "src/detail/url.cpp"
+    "src/shim/cuobj.cpp"
     "src/shim/libcurl.cpp"
   )
 endif()
@@ -289,6 +306,25 @@ install(
   DESTINATION ${lib_dir}
   EXPORT kvikio-exports
 )
+
+# Optional C-ABI shim wrapping cuObject's C++ client. Built only when cuObject is available and
+# loaded at runtime via dlopen (see src/shim/cuobj.cpp); KvikIO itself never links cuObject.
+if(KvikIO_REMOTE_SUPPORT AND cuObj_FOUND)
+  add_library(kvikio_cuobj_shim SHARED "cuobj_shim/cuobj_shim.cpp")
+  target_include_directories(
+    kvikio_cuobj_shim PRIVATE ${cuObj_INCLUDE_DIR} ${CUDAToolkit_INCLUDE_DIRS}
+  )
+  target_link_libraries(kvikio_cuobj_shim PRIVATE ${cuObj_LIBRARY})
+  set_target_properties(
+    kvikio_cuobj_shim
+    PROPERTIES BUILD_RPATH "\$ORIGIN"
+               INSTALL_RPATH "\$ORIGIN"
+               CXX_STANDARD 20
+               CXX_STANDARD_REQUIRED ON
+               POSITION_INDEPENDENT_CODE ON
+  )
+  install(TARGETS kvikio_cuobj_shim DESTINATION ${lib_dir})
+endif()
 
 install(DIRECTORY include/kvikio/ DESTINATION include/kvikio)
 install(FILES ${KvikIO_BINARY_DIR}/include/kvikio/version_config.hpp DESTINATION include/kvikio)

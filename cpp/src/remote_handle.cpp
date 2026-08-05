@@ -1,13 +1,17 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
- * SPDX-License-Identifier: Apache-2.0
+ * reserved. reserved. reserved. reserved. reserved. reserved. SPDX-License-Identifier: Apache-2.0
  */
 
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cctype>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <regex>
@@ -27,6 +31,7 @@
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
 #include <kvikio/remote_handle.hpp>
+#include <kvikio/shim/cuobj.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
@@ -322,6 +327,14 @@ RemoteEndpointType RemoteEndpoint::remote_endpoint_type() const noexcept
   return _remote_endpoint_type;
 }
 
+bool RemoteEndpoint::supports_rdma() const noexcept { return false; }
+
+curl_slist* RemoteEndpoint::setopt_rdma(CurlHandle& /*curl*/, std::string const& /*rdma_token*/)
+{
+  KVIKIO_FAIL("This remote endpoint does not support RDMA", std::runtime_error);
+  return nullptr;
+}
+
 HttpEndpoint::HttpEndpoint(std::string url)
   : RemoteEndpoint{RemoteEndpointType::HTTP}, _url{std::move(url)}
 {
@@ -363,6 +376,36 @@ void S3Endpoint::setopt(CurlHandle& curl)
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
   if (_curl_header_list) { curl.setopt(CURLOPT_HTTPHEADER, _curl_header_list); }
+}
+
+bool S3Endpoint::supports_rdma() const noexcept
+{
+  char const* env = std::getenv("KVIKIO_REMOTE_RDMA");
+  if (env == nullptr) { return false; }
+  std::string value{env};
+  std::transform(
+    value.begin(), value.end(), value.begin(), [](unsigned char c) { return std::tolower(c); });
+  bool const enabled = (value == "1" || value == "on" || value == "true" || value == "yes");
+  return enabled && is_cuobj_available();
+}
+
+curl_slist* S3Endpoint::setopt_rdma(CurlHandle& curl, std::string const& rdma_token)
+{
+  // Reuse the standard connection options (URL, SigV4, userpwd, base headers),
+  // then replace the header list with a fresh copy that also carries the signed
+  // RDMA token. A per-call list keeps this thread-safe: a single endpoint is
+  // shared across the worker threads of a parallel `pread()`.
+  setopt(curl);
+
+  curl_slist* list = nullptr;
+  for (curl_slist* node = _curl_header_list; node != nullptr; node = node->next) {
+    list = curl_slist_append(list, node->data);
+  }
+  std::string const header = "x-amz-rdma-token: " + rdma_token;
+  list                     = curl_slist_append(list, header.c_str());
+  KVIKIO_EXPECT(list != nullptr, "Failed to build curl header for RDMA token", std::runtime_error);
+  curl.setopt(CURLOPT_HTTPHEADER, list);
+  return list;
 }
 
 std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
@@ -754,6 +797,99 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
   ctx->offset += nbytes;
   return nbytes;
 }
+
+// In the cuObject RDMA data plane the payload is delivered out of band straight
+// into the registered buffer; only an error body (e.g. an S3 XML error) should
+// ever reach this write callback, so it is discarded.
+std::size_t callback_rdma_discard(char* /*data*/, std::size_t size, std::size_t nmemb, void*)
+{
+  return size * nmemb;
+}
+
+// Captures the `x-amz-rdma-reply` response header so the caller can confirm the
+// endpoint honored the RDMA request.
+struct RdmaReplyContext {
+  std::string reply;
+};
+
+std::size_t callback_rdma_reply(char* buffer, std::size_t size, std::size_t nitems, void* userdata)
+{
+  std::size_t const nbytes = size * nitems;
+  auto* ctx                = reinterpret_cast<RdmaReplyContext*>(userdata);
+  std::string line{buffer, nbytes};
+  auto const colon = line.find(':');
+  if (colon != std::string::npos) {
+    std::string name = line.substr(0, colon);
+    std::transform(
+      name.begin(), name.end(), name.begin(), [](unsigned char c) { return std::tolower(c); });
+    if (name == "x-amz-rdma-reply") {
+      std::string value = line.substr(colon + 1);
+      auto const begin  = value.find_first_not_of(" \t");
+      auto const end    = value.find_last_not_of(" \t\r\n");
+      ctx->reply        = (begin == std::string::npos) ? "" : value.substr(begin, end - begin + 1);
+    }
+  }
+  return nbytes;
+}
+
+// Single-shot RDMA read: register `buf` with cuObject, mint a descriptor for
+// `[0, size)`, issue a body-less range GET carrying the signed
+// `x-amz-rdma-token`, and let the endpoint RDMA-write the payload directly into
+// `buf`. Works for both host and device buffers (cuObject accepts either).
+std::size_t read_rdma(
+  RemoteEndpoint& endpoint, void* buf, std::size_t size, std::size_t file_offset, bool is_host_mem)
+{
+  KVIKIO_NVTX_FUNC_RANGE(size);
+  auto& api = cuObjAPI::instance();
+
+  KVIKIO_EXPECT(api.RegisterBuffer(buf, size) == 0,
+                "cuObject failed to register the destination buffer for RDMA",
+                std::runtime_error);
+
+  char const* descriptor  = nullptr;
+  curl_slist* header_list = nullptr;
+  try {
+    descriptor = api.GetRDMAToken(buf, size, 0, /*is_put=*/0);
+    KVIKIO_EXPECT(
+      descriptor != nullptr, "cuObject failed to mint an RDMA token", std::runtime_error);
+
+    auto const addr = reinterpret_cast<std::uintptr_t>(buf);
+    std::stringstream token;
+    token << descriptor << ":" << std::hex << std::setw(16) << std::setfill('0') << addr << ":"
+          << std::setw(16) << std::setfill('0') << size;
+
+    auto curl   = create_curl_handle();
+    header_list = endpoint.setopt_rdma(curl, token.str());
+    endpoint.setup_range_request(curl, file_offset, size);
+
+    RdmaReplyContext reply{};
+    curl.setopt(CURLOPT_WRITEFUNCTION, callback_rdma_discard);
+    curl.setopt(CURLOPT_HEADERFUNCTION, callback_rdma_reply);
+    curl.setopt(CURLOPT_HEADERDATA, &reply);
+
+    if (is_host_mem) {
+      curl.perform();
+    } else {
+      PushAndPopContext c(get_context_from_pointer(buf));
+      curl.perform();
+    }
+
+    KVIKIO_EXPECT(!reply.reply.empty() && reply.reply != "501",
+                  "S3 endpoint declined RDMA (x-amz-rdma-reply='" + reply.reply +
+                    "'); the endpoint is not RDMA-capable. Unset KVIKIO_REMOTE_RDMA to use the "
+                    "standard data plane.",
+                  std::runtime_error);
+  } catch (...) {
+    if (descriptor != nullptr) { api.PutRDMAToken(descriptor); }
+    if (header_list != nullptr) { curl_slist_free_all(header_list); }
+    api.DeregisterBuffer(buf);
+    throw;
+  }
+  api.PutRDMAToken(descriptor);
+  curl_slist_free_all(header_list);
+  api.DeregisterBuffer(buf);
+  return size;
+}
 }  // namespace detail
 
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
@@ -769,7 +905,12 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
     KVIKIO_FAIL(ss.str(), std::invalid_argument);
   }
   bool const is_host_mem = is_host_memory(buf);
-  auto curl              = create_curl_handle();
+
+  if (_endpoint->supports_rdma()) {
+    return detail::read_rdma(*_endpoint, buf, size, file_offset, is_host_mem);
+  }
+
+  auto curl = create_curl_handle();
   _endpoint->setopt(curl);
   _endpoint->setup_range_request(curl, file_offset, size);
 
