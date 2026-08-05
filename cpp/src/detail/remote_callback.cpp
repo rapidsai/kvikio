@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,8 +11,32 @@
 
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/remote_callback.hpp>
+#include <kvikio/error.hpp>
 
 namespace kvikio::detail {
+
+void reset_callback_context(CallbackContext& ctx) noexcept
+{
+  ctx.offset         = 0;
+  ctx.overflow_error = false;
+}
+
+bool is_callback_context_complete(CallbackContext const& ctx) noexcept
+{
+  return !ctx.overflow_error && ctx.offset >= 0 && static_cast<std::size_t>(ctx.offset) == ctx.size;
+}
+
+std::size_t callback_context_received_bytes(CallbackContext const& ctx) noexcept
+{
+  return ctx.offset < 0 ? 0 : static_cast<std::size_t>(ctx.offset);
+}
+
+void expect_callback_context_complete(CallbackContext const& ctx)
+{
+  KVIKIO_EXPECT(is_callback_context_complete(ctx),
+                "Remote read returned fewer bytes than requested",
+                std::runtime_error);
+}
 
 std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
 {

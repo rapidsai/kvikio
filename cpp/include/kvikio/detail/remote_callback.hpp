@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -33,6 +33,26 @@ struct CallbackContext {
   // Convenience constructor used by the easy-path read() in remote_handle.cpp.
   CallbackContext(void* buf, std::size_t size) : buf{static_cast<char*>(buf)}, size{size} {}
 };
+
+/**
+ * @brief Reset per-attempt byte accounting before retrying a transfer.
+ */
+void reset_callback_context(CallbackContext& ctx) noexcept;
+
+/**
+ * @brief Whether a transfer delivered exactly the requested number of bytes.
+ */
+[[nodiscard]] bool is_callback_context_complete(CallbackContext const& ctx) noexcept;
+
+/**
+ * @brief Number of bytes delivered to the callback context.
+ */
+[[nodiscard]] std::size_t callback_context_received_bytes(CallbackContext const& ctx) noexcept;
+
+/**
+ * @brief Require a transfer to have delivered exactly the requested number of bytes.
+ */
+void expect_callback_context_complete(CallbackContext const& ctx);
 
 /**
  * @brief Callback for `CURLOPT_WRITEFUNCTION` that copies received bytes directly into a host
