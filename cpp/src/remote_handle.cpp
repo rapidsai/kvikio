@@ -1,15 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -26,6 +29,7 @@
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
+#include <kvikio/logger.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
@@ -33,6 +37,29 @@
 namespace kvikio {
 
 namespace detail {
+
+std::int64_t epoch_nanos()
+{
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+           std::chrono::system_clock::now().time_since_epoch())
+    .count();
+}
+
+thread_local std::optional<std::size_t> current_request_id{};
+
+class scoped_request_id {
+ public:
+  explicit scoped_request_id(std::size_t request_id) : _prev{current_request_id}
+  {
+    current_request_id = request_id;
+  }
+  ~scoped_request_id() { current_request_id = _prev; }
+
+ private:
+  std::optional<std::size_t> _prev;
+};
+
+std::size_t active_request_id() { return current_request_id.value_or(0); }
 
 /**
  * @brief Bounce buffer in pinned host memory.
@@ -149,7 +176,8 @@ namespace {
  */
 std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string const& url)
 {
-  auto curl = create_curl_handle();
+  auto const start = detail::epoch_nanos();
+  auto curl        = create_curl_handle();
 
   endpoint.setopt(curl);
   curl.setopt(CURLOPT_NOBODY, 1L);
@@ -161,6 +189,7 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
     cl >= 0,
     "cannot get size of " + endpoint.str() + ", content-length not provided by the server",
     std::runtime_error);
+  log_http_request(endpoint.str(), start, detail::epoch_nanos(), "HEAD", "ok", "metadata");
   return static_cast<std::size_t>(cl);
 }
 
@@ -615,7 +644,8 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
 
   KVIKIO_NVTX_FUNC_RANGE();
 
-  auto curl = create_curl_handle();
+  auto const start = detail::epoch_nanos();
+  auto curl        = create_curl_handle();
   curl.setopt(CURLOPT_URL, _url.c_str());
 
   // 1-byte range, specified in the format "<start-byte>-<end-byte>""
@@ -627,6 +657,7 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
   curl.setopt(CURLOPT_HEADERFUNCTION, callback_header);
 
   curl.perform();
+  log_http_request(_url, start, detail::epoch_nanos(), "GET", "ok", "metadata");
   return file_size;
 }
 
@@ -759,6 +790,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
+  auto const start = detail::epoch_nanos();
 
   if (size == 0) { return 0; }
 
@@ -800,6 +832,17 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
     }
     throw;
   }
+  log_physical_read(_endpoint->str(),
+                    start,
+                    detail::epoch_nanos(),
+                    file_offset,
+                    size,
+                    size,
+                    "remote",
+                    "ok",
+                    !is_host_mem,
+                    detail::active_request_id(),
+                    "GET");
   return size;
 }
 
@@ -819,10 +862,11 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
     auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
 
-    auto task = [this](void* devPtr_base,
-                       std::size_t size,
-                       std::size_t file_offset,
-                       std::size_t devPtr_offset) -> std::size_t {
+    auto task = [this, call_idx](void* devPtr_base,
+                                 std::size_t size,
+                                 std::size_t file_offset,
+                                 std::size_t devPtr_offset) -> std::size_t {
+      detail::scoped_request_id request_scope{call_idx};
       return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
     };
     return detail::parallel_io(

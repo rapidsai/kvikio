@@ -165,8 +165,8 @@ When opportunistic Direct I/O is enabled for reads, unaligned prefix and suffix 
 
    export KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1
 
-Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``
--------------------------------------------------
+Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``, ``KVIKIO_LOG_FORMAT``
+------------------------------------------------------------------------
 
 By default, logging is disabled and no output is produced.
 
@@ -184,3 +184,61 @@ Each level includes all messages from less verbose levels.
 If not set or set to any other value, logging is disabled.
 
 By default, log output are written to the standard error stream. To write log output to a file, set the environment variable ``KVIKIO_LOG_FILE`` to a file path. The file is overwritten on each process start. If the file cannot be opened (e.g. the parent directory does not exist), KvikIO falls back to the standard error with a warning. ``KVIKIO_LOG_FILE`` has no effect when logging is disabled.
+
+Set ``KVIKIO_LOG_LEVEL=DEBUG`` to log logical I/O operations. Set ``KVIKIO_LOG_LEVEL=TRACE`` to additionally log each physical read performed for those operations, as well as HTTP metadata probes such as the ``HEAD`` request used to discover remote file size during open.
+
+The environment variable ``KVIKIO_LOG_FORMAT`` controls the output format:
+
+  * ``TEXT`` (default): emit the customary human-readable log prefix and message
+  * ``JSON``: emit one JSON object per line (NDJSON), suitable for post-hoc analysis
+
+For example, to capture logical operations and physical reads as JSON:
+
+.. code-block:: bash
+
+   export KVIKIO_LOG_LEVEL=TRACE
+   export KVIKIO_LOG_FORMAT=JSON
+   export KVIKIO_LOG_FILE=/tmp/kvikio.jsonl
+
+The environment variable ``KVIKIO_LOG_REDACT_QUERY`` controls source redaction for physical-read and HTTP records:
+
+  * ``ON``/``TRUE``/``YES``/``1`` (default): remove query strings from the ``source`` field
+  * ``OFF``/``FALSE``/``NO``/``0``: keep the full source string
+
+Physical-read JSON objects have ``"event":"read"`` and the following additional fields:
+
+  * ``source`` (string): file path or remote URL
+  * ``start`` (integer): read start timestamp (epoch nanoseconds)
+  * ``end`` (integer): read end timestamp (epoch nanoseconds)
+  * ``offset`` (integer): read offset in bytes
+  * ``size`` (integer): requested read size in bytes
+  * ``threadId`` (integer): per-thread identifier for the thread executing the read
+  * ``bytesRead`` (integer): number of bytes read
+  * ``backend`` (string): backend type (currently ``"local"`` or ``"remote"``)
+  * ``status`` (string): operation status (currently ``"ok"`` for successful reads)
+  * ``isDeviceBuffer`` (boolean): whether the destination buffer is device memory
+  * ``requestId`` (integer): logical read identifier shared across related physical reads
+  * ``method`` (string, remote only): HTTP method used for the transfer (currently ``"GET"``)
+
+Example record:
+
+.. code-block:: json
+
+   {"event":"read","level":"trace","source":"s3://bucket/data.parquet","start":1747901139123456789,"end":1747901139127890123,"offset":4194304,"size":1048576,"threadId":17390204170953158183,"bytesRead":1048576,"backend":"remote","status":"ok","isDeviceBuffer":true,"requestId":42,"method":"GET"}
+
+HTTP metadata JSON objects have ``"event":"http"`` and the following fields:
+
+  * ``source`` (string): remote URL
+  * ``start`` / ``end`` (integer): request timestamps (epoch nanoseconds)
+  * ``threadId`` (integer): per-thread identifier
+  * ``method`` (string): HTTP method (``"HEAD"`` or ``"GET"``)
+  * ``status`` (string): operation status (currently ``"ok"``)
+  * ``purpose`` (string): why the request was issued (currently ``"metadata"`` for size discovery)
+
+Example metadata record:
+
+.. code-block:: json
+
+   {"event":"http","level":"trace","source":"s3://bucket/data.parquet","start":1747901139000000000,"end":1747901139000500000,"threadId":17390204170953158183,"method":"HEAD","status":"ok","purpose":"metadata"}
+
+Other JSON log objects have ``"event":"log"`` together with ``timestamp``, ``threadId``, ``level``, and ``message`` fields.

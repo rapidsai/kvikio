@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -64,7 +64,7 @@ rapids_cpm_init()
 
 include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
 rapids_cpm_rapids_logger(BUILD_EXPORT_SET kvikio-exports INSTALL_EXPORT_SET kvikio-exports)
-create_logger_macros(KVIKIO "kvikio::default_logger()" include/kvikio)
+create_logger_macros(KVIKIO "kvikio::formatted_logger()" include/kvikio)
 
 rapids_find_package(
   Threads REQUIRED
