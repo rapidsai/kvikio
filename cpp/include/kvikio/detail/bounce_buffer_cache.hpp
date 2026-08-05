@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -136,10 +137,15 @@ class BounceBufferCachePerThreadAndContext {
    * call).
    * @param buf The buffer (ownership transferred into the cache).
    * @param stream The CUDA stream whose completion signals that `buf` is safe to recycle.
+   * @param on_recycle Optional callable invoked on the CUDA driver thread immediately after the
+   * buffer is returned to the free list.
    *
    * @exception kvikio::CUfileException if `cuLaunchHostFunc` fails.
    */
-  void recycle_after(CUcontext ctx, Buffer&& buf, CUstream stream);
+  void recycle_after(CUcontext ctx,
+                     Buffer&& buf,
+                     CUstream stream,
+                     std::function<void()> on_recycle = {});
 
  private:
   struct Shard {
@@ -157,6 +163,8 @@ class BounceBufferCachePerThreadAndContext {
   struct RecycleCallbackData {
     Shard* shard;
     Buffer buffer;
+    // Called after the buffer is returned to the free list.
+    std::function<void()> on_recycle;
   };
 
   static void CUDA_CB recycle_callback(void* user_data);

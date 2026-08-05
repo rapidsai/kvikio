@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -77,6 +77,8 @@ kvikio_add_test(NAME ERROR_TEST SOURCES test_error.cpp)
 kvikio_add_test(NAME EVENT_POOL_TEST SOURCES test_event_pool.cpp)
 
 kvikio_add_test(NAME FILE_UTILS_TEST SOURCES test_file_utils.cpp)
+
+kvikio_add_test(NAME IO_EVENT_BARRIER_TEST SOURCES test_io_event_barrier.cpp)
 
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 

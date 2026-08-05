@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -93,13 +93,12 @@ void BounceBufferCachePerThreadAndContext<Allocator>::recycle_now(CUcontext ctx,
 }
 
 template <typename Allocator>
-void BounceBufferCachePerThreadAndContext<Allocator>::recycle_after(CUcontext ctx,
-                                                                    Buffer&& buf,
-                                                                    CUstream stream)
+void BounceBufferCachePerThreadAndContext<Allocator>::recycle_after(
+  CUcontext ctx, Buffer&& buf, CUstream stream, std::function<void()> on_recycle)
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto& shard = get_shard(ctx);
-  auto data   = std::make_unique<RecycleCallbackData>(RecycleCallbackData{&shard, std::move(buf)});
+  auto data = std::make_unique<RecycleCallbackData>(&shard, std::move(buf), std::move(on_recycle));
 
   // Phase A (`checked_out`) ends and Phase B (`in_flight`) starts.
   {
@@ -132,9 +131,12 @@ void CUDA_CB BounceBufferCachePerThreadAndContext<Allocator>::recycle_callback(v
   // Runs on a CUDA driver controlled thread. Must not make CUDA API calls. Must be short.
   std::unique_ptr<RecycleCallbackData> data(static_cast<RecycleCallbackData*>(user_data));
   try {
-    std::lock_guard const lock(data->shard->mutex);
-    --data->shard->in_flight;
-    data->shard->free.push_back(std::move(data->buffer));
+    {
+      std::lock_guard const lock(data->shard->mutex);
+      --data->shard->in_flight;
+      data->shard->free.push_back(std::move(data->buffer));
+    }
+    if (data->on_recycle) { data->on_recycle(); }
   } catch (std::exception const& e) {
     KVIKIO_LOG_ERROR(std::string("BounceBufferCachePerThreadAndContext::recycle_callback: ") +
                      e.what());
