@@ -54,8 +54,6 @@ jobs:
       node_type: cpu8
       date: ${{ inputs.date }}
       script: ci/build_cpp.sh
-      release-build-output: true
-      release-unit: conda:kvikio-cpp
       sha: ${{ inputs.sha }}
   python-build:
     needs: [build-details, cpp-build]
@@ -73,8 +71,6 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       script: ci/build_python.sh
-      release-build-output: true
-      release-unit: conda:kvikio-python
       sha: ${{ inputs.sha }}
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
@@ -155,8 +151,6 @@ jobs:
       script: ci/build_wheel_cpp.sh
       package-name: libkvikio
       package-type: cpp
-      release-build-output: true
-      release-unit: wheel:libkvikio
   wheel-build-python:
     needs: [build-details, wheel-build-cpp]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -177,8 +171,6 @@ jobs:
       script: ci/build_wheel_python.sh
       package-name: kvikio
       package-type: python
-      release-build-output: true
-      release-unit: wheel:kvikio
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-cpp:
