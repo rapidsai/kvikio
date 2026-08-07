@@ -190,6 +190,7 @@ if(KvikIO_REMOTE_SUPPORT)
     SOURCES
     "src/hdfs.cpp"
     "src/remote_handle.cpp"
+    "src/detail/http_retry.cpp"
     "src/detail/multi_poll_reactor.cpp"
     "src/detail/remote_callback.cpp"
     "src/detail/tls.cpp"

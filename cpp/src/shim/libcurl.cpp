@@ -3,13 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstring>
 #include <functional>
 #include <iostream>
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -18,6 +17,7 @@
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/tls.hpp>
@@ -127,73 +127,28 @@ void CurlHandle::perform() { perform({}); }
 
 void CurlHandle::perform(std::function<void()> const& on_retry)
 {
-  long http_code          = 0;
-  auto attempt_count      = 0;
-  auto base_delay         = 500;   // milliseconds
-  auto max_delay          = 4000;  // milliseconds
-  auto http_max_attempts  = kvikio::defaults::http_max_attempts();
-  auto& http_status_codes = kvikio::defaults::http_status_codes();
-  CURLcode err;
+  // Snapshot the retry settings, so every attempt of this transfer follows the same policy.
+  detail::HttpRetryPolicy const policy;
 
-  while (attempt_count++ < http_max_attempts) {
+  for (std::size_t attempt = 1;; ++attempt) {
     clear_error_message();
-    err = curl_easy_perform(handle());
+    auto const curl_code = curl_easy_perform(handle());
 
-    if (err == CURLE_OK) {
-      // We set CURLE_HTTP_RETURNED_ERROR, so >= 400 status codes are considered
-      // errors, so anything less than this is considered a success and we're
-      // done.
-      return;
-    }
+    long http_code = 0;
     // We had an error. Is it retryable?
-    curl_easy_getinfo(handle(), CURLINFO_RESPONSE_CODE, &http_code);
-    auto const is_retryable_response =
-      (std::find(http_status_codes.begin(), http_status_codes.end(), http_code) !=
-       http_status_codes.end());
+    if (curl_code != CURLE_OK) { getinfo(CURLINFO_RESPONSE_CODE, &http_code); }
 
-    if ((err == CURLE_OPERATION_TIMEDOUT) || is_retryable_response) {
-      // backoff and retry again. With a base value of 500ms, we retry after
-      // 500ms, 1s, 2s, 4s, ...
-      auto const backoff_delay = base_delay * (1 << std::min(attempt_count - 1, 4));
-      // up to a maximum of `max_delay` seconds.
-      auto const delay = std::min(max_delay, backoff_delay);
-
-      // Only print this message out and sleep if we're actually going to retry again.
-      if (attempt_count < http_max_attempts) {
-        if (err == CURLE_OPERATION_TIMEDOUT) {
-          std::cout << "KvikIO: Timeout error. Retrying after " << delay << "ms (attempt "
-                    << attempt_count << " of " << http_max_attempts << ")." << std::endl;
-        } else {
-          std::cout << "KvikIO: Got HTTP code " << http_code << ". Retrying after " << delay
-                    << "ms (attempt " << attempt_count << " of " << http_max_attempts << ")."
-                    << std::endl;
-        }
+    auto const outcome =
+      policy.evaluate(curl_code, http_code, attempt, error_message(), "curl_easy_perform() error");
+    switch (outcome.decision) {
+      case detail::RetryDecision::SUCCESS: return;
+      case detail::RetryDecision::RETRY:
+        std::cout << outcome.message << std::endl;
         if (on_retry) { on_retry(); }
-        std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-      }
-    } else {
-      // We had some kind of fatal error, or we got some status code we don't retry.
-      // We want to exit immediately.
-      std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
-      std::stringstream ss;
-      ss << "curl_easy_perform() error ";
-      if (msg.empty()) {
-        ss << "(" << curl_easy_strerror(err) << ")";
-      } else {
-        ss << "(" << msg << ")";
-      }
-      KVIKIO_FAIL(ss.str(), std::runtime_error);
+        std::this_thread::sleep_for(outcome.delay_ms);
+        break;
+      default: KVIKIO_FAIL(outcome.message, std::runtime_error);
     }
   }
-
-  std::stringstream ss;
-  ss << "KvikIO: HTTP request reached maximum number of attempts (" << http_max_attempts
-     << "). Reason: ";
-  if (err == CURLE_OPERATION_TIMEDOUT) {
-    ss << "Operation timed out.";
-  } else {
-    ss << "Got HTTP code " << http_code << ".";
-  }
-  KVIKIO_FAIL(ss.str(), std::runtime_error);
 }
 }  // namespace kvikio
