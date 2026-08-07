@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -172,6 +172,19 @@ def test_no_range_support(http_server, tmpdir, xp):
             OverflowError, match="maybe the server doesn't support file ranges?"
         ):
             f.read(b, size=10, file_offset=10)
+
+
+@pytest.mark.parametrize("http_server", [{"range_support": False}], indirect=True)
+@pytest.mark.parametrize("file_offset", [0, 100])
+def test_zero_size_read_returns_without_range_request(http_server, tmpdir, file_offset):
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+    b = np.full(10, 42, dtype="uint8")
+
+    with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+        assert f.read(b, size=0, file_offset=file_offset) == 0
+
+    np.testing.assert_array_equal(b, np.full_like(b, 42))
 
 
 def test_retry_http_503_ok(tmpdir, xp):
