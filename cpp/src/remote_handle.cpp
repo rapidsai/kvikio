@@ -132,7 +132,18 @@ class BounceBufferH2D {
       _host_offset += size;
     }
   }
+
+  /**
+   * @brief Reset the internal counters for retry.
+   */
+  void reset_for_retry() noexcept;
 };
+
+void BounceBufferH2D::reset_for_retry() noexcept
+{
+  _dev_offset  = 0;
+  _host_offset = 0;
+}
 
 }  // namespace detail
 
@@ -785,14 +796,17 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
 
   try {
     if (is_host_mem) {
-      curl.perform();
+      curl.perform([&ctx] { ctx.reset_for_retry(); });
     } else {
       PushAndPopContext c(get_context_from_pointer(buf));
       // We use a bounce buffer to avoid many small memory copies to device. Libcurl has a
       // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
       detail::BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
       ctx.bounce_buffer = &bounce_buffer;
-      curl.perform();
+      curl.perform([&ctx, &bounce_buffer] {
+        ctx.reset_for_retry();
+        bounce_buffer.reset_for_retry();
+      });
     }
   } catch (std::runtime_error const& e) {
     if (ctx.overflow_error) {
