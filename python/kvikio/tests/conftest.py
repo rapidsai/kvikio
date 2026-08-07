@@ -1,15 +1,19 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
 import multiprocessing as mp
+import os
 import subprocess
 from multiprocessing.connection import Connection
 from typing import Iterable
 
 import pytest
 
-import kvikio.defaults
+os.environ["KVIKIO_LOG_LEVEL"] = "WARN"
+os.environ.pop("KVIKIO_LOG_FILE", None)
+
+import kvikio.defaults  # noqa: E402
 
 mp = mp.get_context("spawn")  # type: ignore
 

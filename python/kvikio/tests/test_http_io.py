@@ -3,6 +3,7 @@
 
 
 import http
+import re
 import time
 from http.server import SimpleHTTPRequestHandler
 from typing import Literal
@@ -263,12 +264,11 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         assert m.match(r"KvikIO: HTTP request reached maximum number of attempts \(2\)")
         assert m.match("Got HTTP code 503")
         captured = capfd.readouterr()
-
-        records = captured.out.strip().split("\n")
-        assert len(records) == 1
-        assert records[0] == (
-            "KvikIO: Got HTTP code 503. Retrying after 500ms (attempt 1 of 2)."
+        notices = re.findall(
+            r"KvikIO: Got HTTP code 503\. Retrying after 500ms \(attempt 1 of 2\)\.",
+            captured.err,
         )
+        assert len(notices) == 1, captured.err
 
 
 def test_no_retries_ok(tmpdir):
@@ -374,6 +374,8 @@ def test_timeout_raises(tmpdir, capfd):
             assert m.match("Operation timed out.")
 
     captured = capfd.readouterr()
-    records = captured.out.strip().split("\n")
-    assert len(records) == 1
-    assert records[0] == "KvikIO: Timeout error. Retrying after 500ms (attempt 1 of 2)."
+    notices = re.findall(
+        r"KvikIO: Timeout error\. Retrying after 500ms \(attempt 1 of 2\)\.",
+        captured.err,
+    )
+    assert len(notices) == 1, captured.err
