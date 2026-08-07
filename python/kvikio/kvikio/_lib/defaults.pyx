@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -46,6 +46,16 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     bool cpp_auto_direct_io_write "kvikio::defaults::auto_direct_io_write"() except +
     void cpp_set_auto_direct_io_write \
         "kvikio::defaults::set_auto_direct_io_write"(size_t flag) except +
+    RemoteIOBackend cpp_remote_io_backend \
+        "kvikio::defaults::remote_io_backend"() except +
+    void cpp_set_remote_io_backend \
+        "kvikio::defaults::set_remote_io_backend"(RemoteIOBackend backend) except +
+
+
+cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
+    cpdef enum class RemoteIOBackend(uint8_t):
+        EASY_THREADPOOL = 0
+        MULTI_POLL = 1
 
 
 def is_compat_mode_preferred() -> bool:
@@ -179,3 +189,15 @@ def set_auto_direct_io_write(flag: bool) -> None:
     cdef bool cpp_flag = flag
     with nogil:
         cpp_set_auto_direct_io_write(cpp_flag)
+
+
+def remote_io_backend() -> RemoteIOBackend:
+    cdef RemoteIOBackend result
+    with nogil:
+        result = cpp_remote_io_backend()
+    return result
+
+
+def set_remote_io_backend(backend: RemoteIOBackend) -> None:
+    with nogil:
+        cpp_set_remote_io_backend(backend)

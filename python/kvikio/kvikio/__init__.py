@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # If libkvikio was installed as a wheel, we must request it to load the library symbols.
@@ -12,7 +12,7 @@ else:
     del libkvikio
 
 
-from kvikio._lib.defaults import CompatMode  # noqa: F401
+from kvikio._lib.defaults import CompatMode, RemoteIOBackend  # noqa: F401
 from kvikio._version import __git_commit__, __version__
 from kvikio.buffer import bounce_buffer_free, memory_deregister, memory_register
 from kvikio.cufile import (

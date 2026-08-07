@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -159,7 +159,7 @@ defaults::defaults()
     _thread_pool_per_block_device = getenv_or("KVIKIO_THREAD_POOL_PER_BLOCK_DEVICE", false);
   }
 
-  // Determine the remote-IO backend selectors.
+  // Determine and configure the remote-IO backend.
   {
     _remote_io_backend = getenv_or("KVIKIO_REMOTE_IO_BACKEND", RemoteIOBackend::EASY_THREADPOOL);
   }
@@ -294,6 +294,11 @@ void defaults::set_thread_pool_per_block_device(bool flag)
 }
 
 RemoteIOBackend defaults::remote_io_backend() { return instance()->_remote_io_backend; }
+
+void defaults::set_remote_io_backend(RemoteIOBackend backend)
+{
+  instance()->_remote_io_backend = backend;
+}
 
 unsigned int defaults::remote_io_num_reactors() { return instance()->_remote_io_num_reactors; }
 
