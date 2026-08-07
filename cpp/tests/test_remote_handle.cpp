@@ -4,6 +4,7 @@
  */
 
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -15,6 +16,7 @@
 #include <gtest/gtest.h>
 #include <kvikio/hdfs.hpp>
 #include <kvikio/remote_handle.hpp>
+#include <kvikio/shim/libcurl.hpp>
 
 #include "utils/env.hpp"
 
@@ -171,6 +173,17 @@ TEST_F(RemoteHandleTest, read_zero_size_returns_without_range_request)
   EXPECT_EQ(remote_handle.read(output.data(), 0, 0), 0);
   EXPECT_EQ(endpoint_ptr->setopt_calls, 0);
   EXPECT_EQ(endpoint_ptr->range_request_calls, 0);
+}
+
+TEST_F(RemoteHandleTest, range_request_rejects_overflowing_end_offset)
+{
+  kvikio::HttpEndpoint endpoint{"http://example.com/test"};
+  auto curl = create_curl_handle();
+
+  auto constexpr file_offset = std::numeric_limits<std::size_t>::max() - 1;
+  auto constexpr size        = std::size_t{4};
+  EXPECT_THAT([&] { endpoint.setup_range_request(curl, file_offset, size); },
+              ThrowsMessage<std::invalid_argument>(HasSubstr("overflowing end offset")));
 }
 
 TEST_F(RemoteHandleTest, test_s3_url)
