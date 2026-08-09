@@ -158,8 +158,8 @@ class CurlHandle {
   void perform();
 
   /**
-   * @brief Perform a blocking network transfer and execute an on_retry callback to roll back to
-   * pre-transfer state.
+   * @brief Perform a blocking network transfer, and if the transfer fails, execute an on_retry
+   * callback to roll back to pre-transfer state.
    *
    * @param on_retry Invoked before each retried attempt, to roll back to the pre-transfer state.
    *
