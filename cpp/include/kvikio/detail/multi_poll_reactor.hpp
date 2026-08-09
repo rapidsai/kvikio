@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <deque>
 #include <exception>
@@ -20,6 +21,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/concurrent_request_limiter.hpp>
+#include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/io_event_barrier.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/remote_handle.hpp>
@@ -112,6 +114,11 @@ class CurlMultiAttachment {
 
   ~CurlMultiAttachment();
 
+  /**
+   * @brief Explicitly detach the easy handle now instead of at destruction.
+   */
+  void reset() noexcept;
+
   // Move-only.
   CurlMultiAttachment(CurlMultiAttachment&& o) noexcept;
   CurlMultiAttachment& operator=(CurlMultiAttachment&& o) noexcept;
@@ -149,6 +156,16 @@ struct RemoteMultiTransfer {
   CUcontext device_ctx{nullptr};
   void* device_dst{nullptr};
   CudaPinnedBounceBufferPool::Buffer buffer{nullptr, nullptr, 0};
+
+  // Retry bookkeeping. Number of attempts that have finished.
+  std::size_t attempt{0};
+
+  // Earliest time this transfer may be admitted. Used to space out retries.
+  // The default is the clock epoch, which is always in the past, so a freshly submitted transfer is
+  // admitted immediately.
+  std::chrono::steady_clock::time_point ready_at{};
+
+  std::shared_ptr<HttpRetryPolicy const> retry_policy;
 
   /**
    * @brief Recycles `buffer` to the bounce-buffer cache if it was not already moved out (due to
@@ -221,6 +238,16 @@ class MultiPollReactor {
    * handle from the multi handle, and resolves each transfer's aggregate with the given exception.
    */
   void fail_all_pending(std::exception_ptr eptr);
+
+  /**
+   * @brief Requeue a failed transfer in `_pending` so it can be attempted again.
+   *
+   * @param transfer The transfer to requeue. Ownership moves into `_pending`.
+   * @param ready_at Earliest time the transfer may be admitted again. The caller computes it so it
+   * can also fold the deadline into the one the poll timeout is derived from.
+   */
+  void requeue_for_retry(std::unique_ptr<RemoteMultiTransfer> transfer,
+                         std::chrono::steady_clock::time_point ready_at) noexcept;
 
   MultiReactorPool* _pool;
   ConcurrentRequestLimiter _request_limiter;

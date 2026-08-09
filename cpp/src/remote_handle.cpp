@@ -19,6 +19,7 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
+#include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/io_event_barrier.hpp>
 #include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/nvtx.hpp>
@@ -895,6 +896,8 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     aggregate->io_event_barrier = io_event_barrier;
   }
 
+  auto const retry_policy = std::make_shared<detail::HttpRetryPolicy const>();
+
   std::vector<std::unique_ptr<detail::RemoteMultiTransfer>> transfers;
   transfers.reserve(num_subranges);
 
@@ -909,8 +912,9 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                                   KVIKIO_STRINGIFY(__LINE__));
     _endpoint->setopt(*transfer->curl);
     _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);
-    transfer->ctx.size  = subrange_size;
-    transfer->aggregate = aggregate;
+    transfer->ctx.size     = subrange_size;
+    transfer->aggregate    = aggregate;
+    transfer->retry_policy = retry_policy;
     if (is_host_mem) {
       transfer->ctx.buf = cur_buf;
       transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
