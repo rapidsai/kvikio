@@ -1,6 +1,6 @@
 
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -28,7 +28,7 @@ CUstream StreamCachePerThreadAndContext::get()
   // Create a new stream if the (context, thread) pair doesn't have one.
   if (auto search = _instance._streams.find(key); search == _instance._streams.end()) {
     CUstream stream{};
-    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_NON_BLOCKING));
     _instance._streams[key] = stream;
     return stream;
   } else {
