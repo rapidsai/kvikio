@@ -40,7 +40,7 @@ using ThreadPool = BS::thread_pool;
  * Linux caps thread names at 15 characters plus NUL, so keep @p prefix
  * short (typically 10 characters or fewer).
  *
- * @param prefix Name prefix, e.g. `"kvikio"` or `"kvikio-dev"`.
+ * @param prefix Name prefix, e.g. `"kvikio"` or `"kvikio-bdev"`.
  * @return An init task suitable for `BS::thread_pool`.
  */
 [[nodiscard]] inline std::function<void()> make_thread_pool_init_task(std::string prefix)
