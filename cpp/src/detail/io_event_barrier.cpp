@@ -5,10 +5,12 @@
 
 #include <mutex>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <kvikio/detail/event.hpp>
 #include <kvikio/detail/io_event_barrier.hpp>
+#include <kvikio/error.hpp>
 
 namespace kvikio::detail {
 
@@ -19,15 +21,22 @@ CUcontext IoEventBarrier::cuda_context() const noexcept { return _cuda_context; 
 void IoEventBarrier::record_event(CUstream stream)
 {
   CudaEventPool::CudaEvent* event_ptr{nullptr};
+  auto const tid = std::this_thread::get_id();
   {
     std::lock_guard const lock(_mutex);
-    auto const tid = std::this_thread::get_id();
-    auto it        = _thread_events.find(tid);
-    if (it == _thread_events.end()) {
-      it = _thread_events.emplace(tid, CudaEventPool::instance().get()).first;
-    }
-    event_ptr = &it->second;
+    if (auto it = _thread_events.find(tid); it != _thread_events.end()) { event_ptr = &it->second; }
   }
+
+  if (event_ptr == nullptr) {
+    auto event = CudaEventPool::instance().get();
+    {
+      std::lock_guard const lock(_mutex);
+      auto [it, inserted] = _thread_events.emplace(tid, std::move(event));
+      KVIKIO_EXPECT(inserted, "New event insertion failed unexpectedly.");
+      event_ptr = &it->second;
+    }
+  }
+
   // Note that for the node-based unordered_map, pointers (or references) to either key or data
   // stored in the container can never be invalidated by insertion, even when the corresponding
   // iterator is invalidated. So it is safe to move this function outside the mutex.

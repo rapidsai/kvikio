@@ -5,9 +5,11 @@
  */
 
 #include <mutex>
+#include <utility>
 
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/stream.hpp>
+#include <kvikio/error.hpp>
 
 namespace kvikio::detail {
 
@@ -25,8 +27,8 @@ CUstream StreamCachePerThreadAndContext::get()
 
   {
     std::lock_guard const lock(_instance._mutex);
-    if (auto search = _instance._streams.find(key); search != _instance._streams.end()) {
-      return search->second;
+    if (auto it = _instance._streams.find(key); it != _instance._streams.end()) {
+      return it->second;
     }
   }
 
@@ -34,11 +36,10 @@ CUstream StreamCachePerThreadAndContext::get()
   CUstream stream{};
   KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_NON_BLOCKING));
 
-  std::lock_guard const lock(_instance._mutex);
-  auto const [it, inserted] = _instance._streams.emplace(key, stream);
-  if (!inserted) {
-    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamDestroy(stream));
-    return it->second;
+  {
+    std::lock_guard const lock(_instance._mutex);
+    auto const [it, inserted] = _instance._streams.emplace(key, stream);
+    KVIKIO_EXPECT(inserted, "New stream insertion failed unexpectedly.");
   }
   return stream;
 }
