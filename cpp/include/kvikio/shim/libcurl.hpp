@@ -120,6 +120,11 @@ class CurlHandle {
   [[nodiscard]] std::string error_message() const;
 
   /**
+   * @brief Discard the recorded error message.
+   */
+  void clear_error_message() noexcept;
+
+  /**
    * @brief Set option for the curl handle.
    *
    * See <https://curl.se/libcurl/c/curl_easy_setopt.html> for available options.
@@ -142,9 +147,26 @@ class CurlHandle {
   /**
    * @brief Perform a blocking network transfer using previously set options.
    *
+   * Transient failures are retried with exponential backoff, as configured by
+   * `defaults::http_max_attempts()` and `defaults::http_status_codes()`.
+   *
    * See <https://curl.se/libcurl/c/curl_easy_perform.html>.
+   *
+   * @exception std::runtime_error if the transfer fails with a non-retryable error, or if it
+   * exhausts its attempt budget.
    */
   void perform();
+
+  /**
+   * @brief Perform a blocking network transfer, and if the transfer fails, execute an on_retry
+   * callback to roll back to pre-transfer state.
+   *
+   * @param on_retry Invoked before each retried attempt, to roll back to the pre-transfer state.
+   *
+   * @exception std::runtime_error if the transfer fails with a non-retryable error, or if it
+   * exhausts its attempt budget.
+   */
+  void perform(std::function<void()> const& on_retry);
 
   /**
    * @brief Extract information from a curl handle.

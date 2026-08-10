@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -22,7 +22,7 @@ namespace {
  * @brief Helper struct that wraps a buffer view and tracks how many data have been processed via an
  * offset value.
  */
-struct tracked_buffer_t {
+struct TrackedBuffer {
   std::span<std::byte> buffer;
   std::size_t offset;
 };
@@ -33,13 +33,13 @@ struct tracked_buffer_t {
  * @param data
  * @param size Curl internal implementation always sets this parameter to 1
  * @param num_bytes_max The maximum number of bytes that can be uploaded
- * @param userdata Must be cast from `tracked_buffer_t*`
+ * @param userdata Must be cast from `TrackedBuffer*`
  * @return The number of bytes that have been copied to the transfer buffer.
  */
 std::size_t callback_upload(char* data, std::size_t size, std::size_t num_bytes_max, void* userdata)
 {
   auto new_data_size_max = size * num_bytes_max;
-  auto* tracked_buffer   = reinterpret_cast<tracked_buffer_t*>(userdata);
+  auto* tracked_buffer   = reinterpret_cast<TrackedBuffer*>(userdata);
 
   // All data have been uploaded. Nothing more to do.
   if (tracked_buffer->offset >= tracked_buffer->buffer.size()) { return 0; }
@@ -77,7 +77,7 @@ bool WebHdfsTestHelper::can_connect() noexcept
     curl.setopt(CURLOPT_WRITEDATA, &response);
     curl.setopt(CURLOPT_WRITEFUNCTION, kvikio::detail::callback_get_string_response);
     curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-    curl.perform();
+    curl.perform([&response] { response.clear(); });
     return true;
   } catch (std::exception const& e) {
     std::cout << e.what() << "\n";
@@ -110,7 +110,7 @@ bool WebHdfsTestHelper::upload_data(std::span<std::byte> buffer,
       curl.setopt(CURLOPT_HEADERDATA, &response);
       curl.setopt(CURLOPT_HEADERFUNCTION, kvikio::detail::callback_get_string_response);
 
-      curl.perform();
+      curl.perform([&response] { response.clear(); });
 
       long http_status_code{};
       curl.getinfo(CURLINFO_RESPONSE_CODE, &http_status_code);
@@ -132,12 +132,12 @@ bool WebHdfsTestHelper::upload_data(std::span<std::byte> buffer,
       curl.setopt(CURLOPT_URL, redirect_url.c_str());
       curl.setopt(CURLOPT_UPLOAD, 1L);
 
-      tracked_buffer_t tracked_buffer{.buffer = buffer, .offset = 0};
+      TrackedBuffer tracked_buffer{.buffer = buffer, .offset = 0};
       curl.setopt(CURLOPT_READDATA, &tracked_buffer);
       curl.setopt(CURLOPT_READFUNCTION, callback_upload);
       curl.setopt(CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(buffer.size()));
 
-      curl.perform();
+      curl.perform([&tracked_buffer] { tracked_buffer.offset = 0; });
 
       long http_status_code{};
       curl.getinfo(CURLINFO_RESPONSE_CODE, &http_status_code);
@@ -171,7 +171,7 @@ bool WebHdfsTestHelper::delete_data(std::string const& remote_file_path) noexcep
     curl.setopt(CURLOPT_HEADERDATA, &response);
     curl.setopt(CURLOPT_HEADERFUNCTION, kvikio::detail::callback_get_string_response);
 
-    curl.perform();
+    curl.perform([&response] { response.clear(); });
 
     long http_status_code{};
     curl.getinfo(CURLINFO_RESPONSE_CODE, &http_status_code);

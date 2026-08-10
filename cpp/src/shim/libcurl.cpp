@@ -121,7 +121,11 @@ std::string CurlHandle::error_message() const
   return std::string{_errbuf};
 }
 
-void CurlHandle::perform()
+void CurlHandle::clear_error_message() noexcept { _errbuf[0] = 0; }
+
+void CurlHandle::perform() { perform({}); }
+
+void CurlHandle::perform(std::function<void()> const& on_retry)
 {
   long http_code          = 0;
   auto attempt_count      = 0;
@@ -132,6 +136,7 @@ void CurlHandle::perform()
   CURLcode err;
 
   while (attempt_count++ < http_max_attempts) {
+    clear_error_message();
     err = curl_easy_perform(handle());
 
     if (err == CURLE_OK) {
@@ -163,6 +168,7 @@ void CurlHandle::perform()
                     << "ms (attempt " << attempt_count << " of " << http_max_attempts << ")."
                     << std::endl;
         }
+        if (on_retry) { on_retry(); }
         std::this_thread::sleep_for(std::chrono::milliseconds(delay));
       }
     } else {

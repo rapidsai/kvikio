@@ -14,6 +14,12 @@
 
 namespace kvikio::detail {
 
+void CallbackContext::reset_for_retry() noexcept
+{
+  offset         = 0;
+  overflow_error = false;
+}
+
 std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb, void* context)
 {
   KVIKIO_NVTX_FUNC_RANGE();

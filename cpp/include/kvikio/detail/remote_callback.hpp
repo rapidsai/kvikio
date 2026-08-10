@@ -38,6 +38,11 @@ struct CallbackContext {
 
   // Convenience constructor used by the easy-path read() in remote_handle.cpp.
   CallbackContext(void* buf, std::size_t size) : buf{static_cast<char*>(buf)}, size{size} {}
+
+  /**
+   * @brief Reset the internal counters for retry.
+   */
+  void reset_for_retry() noexcept;
 };
 
 /**
