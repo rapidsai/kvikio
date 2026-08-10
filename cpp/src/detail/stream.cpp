@@ -34,7 +34,7 @@ CUstream StreamCachePerThreadAndContext::get()
 
   // Create a new stream if the (context, thread) pair doesn't have one.
   CUstream stream{};
-  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_NON_BLOCKING));
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamCreate(&stream, CU_STREAM_DEFAULT));
 
   {
     std::lock_guard const lock(_instance._mutex);
