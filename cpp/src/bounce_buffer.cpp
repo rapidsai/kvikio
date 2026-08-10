@@ -155,18 +155,22 @@ template <typename Allocator>
 BounceBufferPool<Allocator>::Buffer BounceBufferPool<Allocator>::get()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::lock_guard const lock(_mutex);
-  _ensure_buffer_size();
+  std::size_t buffer_size{};
+  {
+    std::lock_guard const lock(_mutex);
+    _ensure_buffer_size();
 
-  // Check if we have an allocation available
-  if (!_free_buffers.empty()) {
-    void* ret = _free_buffers.top();
-    _free_buffers.pop();
-    return Buffer(this, ret, _buffer_size);
+    // Check if we have an allocation available
+    if (!_free_buffers.empty()) {
+      void* ret = _free_buffers.top();
+      _free_buffers.pop();
+      return Buffer(this, ret, _buffer_size);
+    }
+    buffer_size = _buffer_size;
   }
 
-  auto* buffer = _allocator.allocate(_buffer_size);
-  return Buffer(this, buffer, _buffer_size);
+  auto* buffer = _allocator.allocate(buffer_size);
+  return Buffer(this, buffer, buffer_size);
 }
 
 template <typename Allocator>
@@ -174,16 +178,20 @@ void BounceBufferPool<Allocator>::put(void* buffer, std::size_t size) noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
   try {
-    std::lock_guard const lock(_mutex);
-    _ensure_buffer_size();
+    bool is_stale{false};
+    {
+      std::lock_guard const lock(_mutex);
+      _ensure_buffer_size();
 
-    // If the size of `buffer` matches the sizes of the retained allocations,
-    // it is added to the set of free allocation otherwise it is freed.
-    if (size == _buffer_size) {
-      _free_buffers.push(buffer);
-    } else {
-      _allocator.deallocate(buffer, size);
+      // If the size of `buffer` matches the sizes of the retained allocations,
+      // it is added to the set of free allocation otherwise it is freed.
+      if (size == _buffer_size) {
+        _free_buffers.push(buffer);
+      } else {
+        is_stale = true;
+      }
     }
+    if (is_stale) { _allocator.deallocate(buffer, size); }
   } catch (std::exception const& e) {
     KVIKIO_LOG_ERROR(std::string("BounceBufferPool::put failed: ") + e.what());
   } catch (...) {
