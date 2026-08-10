@@ -5,6 +5,7 @@
 
 #include <mutex>
 #include <thread>
+#include <vector>
 
 #include <kvikio/detail/event.hpp>
 #include <kvikio/detail/io_event_barrier.hpp>
@@ -35,9 +36,16 @@ void IoEventBarrier::record_event(CUstream stream)
 
 void IoEventBarrier::sync_all_events()
 {
-  std::lock_guard const lock(_mutex);
-  for (auto& [tid, event] : _thread_events) {
-    event.synchronize();
+  std::vector<CudaEventPool::CudaEvent*> events;
+  {
+    std::lock_guard const lock(_mutex);
+    events.reserve(_thread_events.size());
+    for (auto& [tid, event] : _thread_events) {
+      events.push_back(&event);
+    }
+  }
+  for (auto* event : events) {
+    event->synchronize();
   }
 }
 
