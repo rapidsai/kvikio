@@ -103,28 +103,28 @@ FileHandle::FileHandle(std::string const& file_path,
   _thread_pool = get_thread_pool_per_block_device(file_path);
 }
 
-FileHandle::FileHandle(FileHandle&& o) noexcept
-  : _file_direct_on{std::exchange(o._file_direct_on, {})},
-    _file_direct_off{std::exchange(o._file_direct_off, {})},
-    _initialized{std::exchange(o._initialized, false)},
-    _nbytes{std::exchange(o._nbytes, 0)},
-    _cufile_handle{std::exchange(o._cufile_handle, {})},
-    _compat_mode_manager{std::move(o._compat_mode_manager)},
-    _thread_pool{std::exchange(o._thread_pool, {})}
+FileHandle::FileHandle(FileHandle&& other) noexcept
+  : _file_direct_on{std::exchange(other._file_direct_on, {})},
+    _file_direct_off{std::exchange(other._file_direct_off, {})},
+    _initialized{std::exchange(other._initialized, false)},
+    _nbytes{std::exchange(other._nbytes, 0)},
+    _cufile_handle{std::exchange(other._cufile_handle, {})},
+    _compat_mode_manager{std::move(other._compat_mode_manager)},
+    _thread_pool{std::exchange(other._thread_pool, {})}
 {
 }
 
-FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
+FileHandle& FileHandle::operator=(FileHandle&& other) noexcept
 {
-  if (this != &o) {
+  if (this != &other) {
     close();
-    _file_direct_on      = std::exchange(o._file_direct_on, {});
-    _file_direct_off     = std::exchange(o._file_direct_off, {});
-    _initialized         = std::exchange(o._initialized, false);
-    _nbytes              = std::exchange(o._nbytes, 0);
-    _cufile_handle       = std::exchange(o._cufile_handle, {});
-    _compat_mode_manager = std::move(o._compat_mode_manager);
-    _thread_pool         = std::exchange(o._thread_pool, {});
+    _file_direct_on      = std::exchange(other._file_direct_on, {});
+    _file_direct_off     = std::exchange(other._file_direct_off, {});
+    _initialized         = std::exchange(other._initialized, false);
+    _nbytes              = std::exchange(other._nbytes, 0);
+    _cufile_handle       = std::exchange(other._cufile_handle, {});
+    _compat_mode_manager = std::move(other._compat_mode_manager);
+    _thread_pool         = std::exchange(other._thread_pool, {});
   }
   return *this;
 }

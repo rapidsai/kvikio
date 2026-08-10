@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -26,23 +26,23 @@ CudaEventPool::CudaEvent::~CudaEvent() noexcept
   if (_event != nullptr) { _pool->put(_event, _cuda_context); }
 }
 
-CudaEventPool::CudaEvent::CudaEvent(CudaEvent&& o) noexcept
-  : _pool(std::exchange(o._pool, nullptr)),
-    _event(std::exchange(o._event, nullptr)),
-    _cuda_context(std::exchange(o._cuda_context, nullptr))
+CudaEventPool::CudaEvent::CudaEvent(CudaEvent&& other) noexcept
+  : _pool(std::exchange(other._pool, nullptr)),
+    _event(std::exchange(other._event, nullptr)),
+    _cuda_context(std::exchange(other._cuda_context, nullptr))
 {
 }
 
-CudaEventPool::CudaEvent& CudaEventPool::CudaEvent::operator=(CudaEvent&& o) noexcept
+CudaEventPool::CudaEvent& CudaEventPool::CudaEvent::operator=(CudaEvent&& other) noexcept
 {
-  if (this != &o) {
+  if (this != &other) {
     if (_event != nullptr) {
       // Return this event to the pool
       _pool->put(_event, _cuda_context);
     }
-    _pool         = std::exchange(o._pool, nullptr);
-    _event        = std::exchange(o._event, nullptr);
-    _cuda_context = std::exchange(o._cuda_context, nullptr);
+    _pool         = std::exchange(other._pool, nullptr);
+    _event        = std::exchange(other._event, nullptr);
+    _cuda_context = std::exchange(other._cuda_context, nullptr);
   }
   return *this;
 }

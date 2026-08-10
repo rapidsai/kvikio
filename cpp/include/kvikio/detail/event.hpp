@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -64,8 +64,8 @@ class CudaEventPool {
     // Move-only
     CudaEvent(CudaEvent const&)            = delete;
     CudaEvent& operator=(CudaEvent const&) = delete;
-    CudaEvent(CudaEvent&& o) noexcept;
-    CudaEvent& operator=(CudaEvent&& o) noexcept;
+    CudaEvent(CudaEvent&& other) noexcept;
+    CudaEvent& operator=(CudaEvent&& other) noexcept;
 
     /**
      * @brief Get the underlying CUDA event handle

@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -172,6 +172,7 @@ set(SOURCES
     "src/detail/concurrent_request_limiter.cpp"
     "src/detail/env.cpp"
     "src/detail/event.cpp"
+    "src/detail/io_event_barrier.cpp"
     "src/detail/nvtx.cpp"
     "src/detail/posix_io.cpp"
     "src/detail/stream.cpp"
