@@ -58,6 +58,9 @@ BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
   KVIKIO_NVTX_FUNC_RANGE();
   auto& shard = get_shard(ctx);
 
+  std::vector<Buffer> stale_buffers;
+  std::optional<Buffer> reused_buffer;
+  bool cap_reached{false};
   {
     std::lock_guard const lock(shard.mutex);
 
@@ -65,22 +68,29 @@ BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
     // destructors route through BounceBufferPool::put, which deallocates wrong-size buffers.
     auto const current_size = defaults::bounce_buffer_size();
     while (!shard.free.empty() && shard.free.back().size() != current_size) {
+      stale_buffers.push_back(std::move(shard.free.back()));
       shard.free.pop_back();
     }
 
     if (!shard.free.empty()) {
-      auto buf = std::move(shard.free.back());
+      reused_buffer = std::move(shard.free.back());
       shard.free.pop_back();
       ++shard.checked_out;
-      return buf;
+    } else {
+      // No buffer available on the free list. Allocate if under cap (or if cap is unlimited).
+      auto const total = shard.free.size() + shard.checked_out + shard.in_flight;
+      if (_cap.has_value() && total >= _cap.value()) {
+        cap_reached = true;
+      } else {
+        // reused_buffer does not contain a value (std::nullopt)
+        ++shard.checked_out;
+      }
     }
-
-    // No buffer available on the free list. Allocate if under cap (or if cap is unlimited).
-    auto const total = shard.free.size() + shard.checked_out + shard.in_flight;
-    if (_cap.has_value() && total >= _cap.value()) { return std::nullopt; }
-
-    ++shard.checked_out;
   }
+
+  stale_buffers.clear();
+
+  if (reused_buffer.has_value() || cap_reached) { return reused_buffer; }
 
   try {
     return BounceBufferPool<Allocator>::instance().get();
