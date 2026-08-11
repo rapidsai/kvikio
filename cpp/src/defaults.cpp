@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,6 +18,7 @@
 #include <kvikio/http_status_codes.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cufile.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #include <string_view>
 
 namespace kvikio {
@@ -220,7 +221,7 @@ void defaults::set_thread_pool_nthreads(unsigned int nthreads)
 {
   KVIKIO_EXPECT(
     nthreads > 0, "number of threads must be a positive integer", std::invalid_argument);
-  thread_pool().reset(nthreads);
+  thread_pool().reset(nthreads, make_thread_pool_init_task("kvikio"));
 }
 
 unsigned int defaults::num_threads() { return thread_pool_nthreads(); }
