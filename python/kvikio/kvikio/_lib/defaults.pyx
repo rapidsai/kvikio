@@ -11,9 +11,9 @@ from libcpp.vector cimport vector
 
 cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     cpdef enum class CompatMode(uint8_t):
-        OFF = 0
-        ON = 1
-        AUTO = 2
+        OFF
+        ON
+        AUTO
     bool cpp_is_compat_mode_preferred \
         "kvikio::defaults::is_compat_mode_preferred"() except +
     CompatMode cpp_compat_mode "kvikio::defaults::compat_mode"() except +
@@ -54,8 +54,8 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
 
 cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cpdef enum class RemoteIOBackend(uint8_t):
-        EASY_THREADPOOL = 0
-        MULTI_POLL = 1
+        EASY_THREADPOOL
+        MULTI_POLL
 
 
 def is_compat_mode_preferred() -> bool:
