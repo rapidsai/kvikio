@@ -121,7 +121,7 @@ std::tuple<std::string_view, T, bool> getenv_or(
  */
 class defaults {
  private:
-  ThreadPool _thread_pool{get_num_threads_from_env()};
+  ThreadPool _thread_pool{get_num_threads_from_env(), make_thread_pool_init_task("kvikio")};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
