@@ -7,7 +7,6 @@
 #include <cstddef>
 #include <cstring>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -22,6 +21,8 @@
 #include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/tls.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <kvikio/utils.hpp>
 
@@ -143,7 +144,7 @@ void CurlHandle::perform(std::function<void()> const& on_retry)
     switch (outcome.decision) {
       case detail::RetryDecision::SUCCESS: return;
       case detail::RetryDecision::RETRY:
-        std::cout << outcome.message << std::endl;
+        KVIKIO_LOG_WARN(outcome.message);
         if (on_retry) { on_retry(); }
         std::this_thread::sleep_for(outcome.delay_ms);
         break;

@@ -56,6 +56,8 @@ The maximum number of attempts to make before throwing an exception is controlle
 
 The maximum duration of each HTTP request is controlled by ``KVIKIO_HTTP_TIMEOUT``. The default value is 60, which is the duration in seconds to allow. This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``http_timeout``.
 
+Each retry emits a notice through the KvikIO logger at the ``WARN`` level, i.e. ``KVIKIO_LOG_LEVEL=WARN``. Sustained retries indicate that the server is throttling the requests, which degrades read throughput.
+
 HTTP Verbose ``KVIKIO_REMOTE_VERBOSE``
 --------------------------------------
 
