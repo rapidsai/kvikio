@@ -81,8 +81,7 @@ TEST(HttpRetryTest, success_needs_no_retry)
 
 TEST(HttpRetryTest, backoff_doubles_then_saturates)
 {
-  // Golden schedule. Attempts 5 and beyond exercise the clamp, since the undamped value would be
-  // 8000ms and above.
+  // Attempts 5 and beyond exercise the clamp.
   std::vector<std::chrono::milliseconds> const expected{std::chrono::milliseconds{500},
                                                         std::chrono::milliseconds{1000},
                                                         std::chrono::milliseconds{2000},
