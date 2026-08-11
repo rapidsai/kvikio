@@ -7,6 +7,8 @@
 #include <memory>
 #include <mutex>
 #include <stack>
+#include <tuple>
+#include <utility>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
@@ -129,44 +131,61 @@ std::size_t BounceBufferPool<Allocator>::Buffer::size() const noexcept
 }
 
 template <typename Allocator>
-std::size_t BounceBufferPool<Allocator>::_clear()
+void BounceBufferPool<Allocator>::_deallocate_buffers(std::stack<void*>& buffers,
+                                                      std::size_t buffer_size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::size_t ret = _free_buffers.size() * _buffer_size;
-  while (!_free_buffers.empty()) {
-    _allocator.deallocate(_free_buffers.top(), _buffer_size);
-    _free_buffers.pop();
+  while (!buffers.empty()) {
+    _allocator.deallocate(buffers.top(), buffer_size);
+    buffers.pop();
   }
-  return ret;
 }
 
 template <typename Allocator>
-void BounceBufferPool<Allocator>::_ensure_buffer_size()
+std::pair<std::stack<void*>, std::size_t> BounceBufferPool<Allocator>::_detach_free_buffers()
+{
+  auto stale_size    = _buffer_size;
+  auto stale_buffers = std::exchange(_free_buffers, {});
+  return {std::move(stale_buffers), stale_size};
+}
+
+template <typename Allocator>
+std::pair<std::stack<void*>, std::size_t> BounceBufferPool<Allocator>::_ensure_buffer_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto const bounce_buffer_size = defaults::bounce_buffer_size();
-  if (_buffer_size != bounce_buffer_size) {
-    _clear();
-    _buffer_size = bounce_buffer_size;
-  }
+  if (_buffer_size == bounce_buffer_size) { return {}; }
+
+  auto stale_buffers = _detach_free_buffers();
+  _buffer_size       = bounce_buffer_size;
+  return stale_buffers;
 }
 
 template <typename Allocator>
 BounceBufferPool<Allocator>::Buffer BounceBufferPool<Allocator>::get()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::lock_guard const lock(_mutex);
-  _ensure_buffer_size();
+  void* reused_buffer{nullptr};
+  std::size_t buffer_size{};
+  std::stack<void*> stale_buffers{};
+  std::size_t stale_size{};
+  {
+    std::lock_guard const lock(_mutex);
+    std::tie(stale_buffers, stale_size) = _ensure_buffer_size();
+    buffer_size                         = _buffer_size;
 
-  // Check if we have an allocation available
-  if (!_free_buffers.empty()) {
-    void* ret = _free_buffers.top();
-    _free_buffers.pop();
-    return Buffer(this, ret, _buffer_size);
+    // Check if we have an allocation available
+    if (!_free_buffers.empty()) {
+      reused_buffer = _free_buffers.top();
+      _free_buffers.pop();
+    }
   }
 
-  auto* buffer = _allocator.allocate(_buffer_size);
-  return Buffer(this, buffer, _buffer_size);
+  _deallocate_buffers(stale_buffers, stale_size);
+
+  if (reused_buffer != nullptr) { return Buffer(this, reused_buffer, buffer_size); }
+  auto* buffer = _allocator.allocate(buffer_size);
+  return Buffer(this, buffer, buffer_size);
 }
 
 template <typename Allocator>
@@ -174,16 +193,24 @@ void BounceBufferPool<Allocator>::put(void* buffer, std::size_t size) noexcept
 {
   KVIKIO_NVTX_FUNC_RANGE();
   try {
-    std::lock_guard const lock(_mutex);
-    _ensure_buffer_size();
+    bool is_incoming_stale{false};
+    std::stack<void*> stale_buffers{};
+    std::size_t stale_size{};
+    {
+      std::lock_guard const lock(_mutex);
+      std::tie(stale_buffers, stale_size) = _ensure_buffer_size();
 
-    // If the size of `buffer` matches the sizes of the retained allocations,
-    // it is added to the set of free allocation otherwise it is freed.
-    if (size == _buffer_size) {
-      _free_buffers.push(buffer);
-    } else {
-      _allocator.deallocate(buffer, size);
+      // If the size of `buffer` matches the sizes of the retained allocations,
+      // it is added to the set of free allocation otherwise it is freed.
+      if (size == _buffer_size) {
+        _free_buffers.push(buffer);
+      } else {
+        is_incoming_stale = true;
+      }
     }
+
+    _deallocate_buffers(stale_buffers, stale_size);
+    if (is_incoming_stale) { _allocator.deallocate(buffer, size); }
   } catch (std::exception const& e) {
     KVIKIO_LOG_ERROR(std::string("BounceBufferPool::put failed: ") + e.what());
   } catch (...) {
@@ -195,8 +222,16 @@ template <typename Allocator>
 std::size_t BounceBufferPool<Allocator>::clear()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  std::lock_guard const lock(_mutex);
-  return _clear();
+  std::stack<void*> stale_buffers{};
+  std::size_t stale_size{};
+  std::size_t total_stale_size{};
+  {
+    std::lock_guard const lock(_mutex);
+    std::tie(stale_buffers, stale_size) = _detach_free_buffers();
+    total_stale_size                    = stale_buffers.size() * stale_size;
+  }
+  _deallocate_buffers(stale_buffers, stale_size);
+  return total_stale_size;
 }
 
 template <typename Allocator>
