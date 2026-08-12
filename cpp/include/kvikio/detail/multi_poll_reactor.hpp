@@ -243,8 +243,7 @@ class MultiPollReactor {
    * @brief Requeue a failed transfer in `_pending` so it can be attempted again.
    *
    * @param transfer The transfer to requeue. Ownership moves into `_pending`.
-   * @param ready_at Earliest time the transfer may be admitted again. The caller computes it so it
-   * can also fold the deadline into the one the poll timeout is derived from.
+   * @param ready_at Earliest time the transfer may be admitted again.
    */
   void requeue_for_retry(std::unique_ptr<RemoteMultiTransfer> transfer,
                          std::chrono::steady_clock::time_point ready_at) noexcept;

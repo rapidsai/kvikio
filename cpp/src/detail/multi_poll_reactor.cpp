@@ -382,7 +382,7 @@ void MultiPollReactor::io_thread_main()
         // Nothing queued
         poll_timeout_ms = idle_timeout_ms;
       } else if (!deferred_for_resource && earliest_ready_at.has_value()) {
-        // Not wait for a limiter slot or bounce buffer resource, but the earliest elapsed backoff.
+        // Wait for the earliest elapsed backoff, not a limiter slot or bounce buffer resource
         auto const wait_ms = std::chrono::ceil<std::chrono::milliseconds>(
                                earliest_ready_at.value() - std::chrono::steady_clock::now())
                                .count();
@@ -394,7 +394,7 @@ void MultiPollReactor::io_thread_main()
           poll_timeout_ms = static_cast<int>(wait_ms);
         }
       } else if (completed_any) {
-        // A transfer completion frees the resource a queued transfer needs, so readmit at once.
+        // A transfer completion frees the resource a queued transfer needs, so re-admit at once.
         poll_timeout_ms = 0;
       } else {
         // Wait for a limiter slot or bounce buffer resource
