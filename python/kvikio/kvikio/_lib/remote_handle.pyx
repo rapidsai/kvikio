@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -21,12 +21,12 @@ from kvikio._lib.future cimport IOFuture, _wrap_io_future, future
 
 cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cpdef enum class RemoteEndpointType(uint8_t):
-        AUTO = 0
-        S3 = 1
-        S3_PUBLIC = 2
-        S3_PRESIGNED_URL = 3
-        WEBHDFS = 4
-        HTTP = 5
+        AUTO
+        S3
+        S3_PUBLIC
+        S3_PRESIGNED_URL
+        WEBHDFS
+        HTTP
     cdef cppclass cpp_RemoteEndpoint "kvikio::RemoteEndpoint":
         string str() except +
 
