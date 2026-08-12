@@ -471,6 +471,13 @@ class defaults {
   [[nodiscard]] static RemoteIOBackend remote_io_backend();
 
   /**
+   * @brief Set the remote I/O backend.
+   *
+   * @param backend The backend to use.
+   */
+  static void set_remote_io_backend(RemoteIOBackend backend);
+
+  /**
    * @brief Number of reactor threads used by the `MULTI_POLL` remote I/O backend.
    *
    * Controlled by `KVIKIO_REMOTE_IO_NUM_REACTORS`. Must be a positive integer. Defaults to 1.

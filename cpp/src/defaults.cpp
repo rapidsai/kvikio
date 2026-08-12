@@ -296,6 +296,11 @@ void defaults::set_thread_pool_per_block_device(bool flag)
 
 RemoteIOBackend defaults::remote_io_backend() { return instance()->_remote_io_backend; }
 
+void defaults::set_remote_io_backend(RemoteIOBackend backend)
+{
+  instance()->_remote_io_backend = backend;
+}
+
 unsigned int defaults::remote_io_num_reactors() { return instance()->_remote_io_num_reactors; }
 
 RemoteReactorDispatch defaults::remote_io_reactor_dispatch()
