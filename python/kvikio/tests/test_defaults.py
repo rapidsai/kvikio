@@ -1,10 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
 import pytest
 
 import kvikio.defaults
+from kvikio._lib.defaults import RemoteIOBackend
 
 
 def test_property_accessor():
@@ -170,3 +171,16 @@ def test_http_timeout():
     with kvikio.defaults.set("http_timeout", 1):
         assert kvikio.defaults.get("http_timeout") == 1
     assert kvikio.defaults.get("http_timeout") == before
+
+
+def test_remote_io_backend():
+    """Test changing `remote_io_backend`"""
+
+    before = kvikio.defaults.get("remote_io_backend")
+    with kvikio.defaults.set("remote_io_backend", RemoteIOBackend.MULTI_POLL):
+        assert kvikio.defaults.get("remote_io_backend") == RemoteIOBackend.MULTI_POLL
+        kvikio.defaults.set("remote_io_backend", RemoteIOBackend.EASY_THREADPOOL)
+        assert (
+            kvikio.defaults.get("remote_io_backend") == RemoteIOBackend.EASY_THREADPOOL
+        )
+    assert kvikio.defaults.get("remote_io_backend") == before
