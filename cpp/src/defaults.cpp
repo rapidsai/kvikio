@@ -221,6 +221,7 @@ void defaults::set_thread_pool_nthreads(unsigned int nthreads)
 {
   KVIKIO_EXPECT(
     nthreads > 0, "number of threads must be a positive integer", std::invalid_argument);
+  if (nthreads == thread_pool().get_thread_count()) { return; }
   thread_pool().reset(nthreads, make_thread_pool_init_task("kvikio"));
 }
 
