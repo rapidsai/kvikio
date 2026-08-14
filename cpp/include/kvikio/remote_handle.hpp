@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -528,6 +528,20 @@ class RemoteHandle {
                                  std::size_t file_offset = 0,
                                  std::size_t task_size   = defaults::task_size(),
                                  ThreadPool* thread_pool = &defaults::thread_pool());
+
+ private:
+  /**
+   * @brief Throw if `[file_offset, file_offset + size)` reaches past the end of the remote object.
+   *
+   * @param size Number of bytes to read.
+   * @param file_offset File offset in bytes.
+   *
+   * @exception std::invalid_argument if the range is out of bounds.
+   */
+  void expect_read_in_bounds(std::size_t size, std::size_t file_offset) const;
+
+  /// The read itself, without what the public `read()` wraps around it.
+  std::size_t read_impl(void* buf, std::size_t size, std::size_t file_offset, bool is_host_mem);
 };
 
 }  // namespace kvikio

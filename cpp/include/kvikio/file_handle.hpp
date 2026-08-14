@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -40,6 +40,20 @@ class FileHandle {
   CUFileHandleWrapper _cufile_handle{};
   CompatModeManager _compat_mode_manager;
   friend class CompatModeManager;
+
+  /// The read itself, without what the public `read()` wraps around it.
+  std::size_t read_impl(void* devPtr_base,
+                        std::size_t size,
+                        std::size_t file_offset,
+                        std::size_t devPtr_offset,
+                        bool sync_default_stream);
+
+  /// The write itself, without what the public `write()` wraps around it.
+  std::size_t write_impl(void const* devPtr_base,
+                         std::size_t size,
+                         std::size_t file_offset,
+                         std::size_t devPtr_offset,
+                         bool sync_default_stream);
   ThreadPool* _thread_pool{};
 
  public:

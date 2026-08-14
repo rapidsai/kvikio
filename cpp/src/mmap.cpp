@@ -15,6 +15,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/utils.hpp>
@@ -370,16 +371,24 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
 {
   KVIKIO_NVTX_FUNC_RANGE();
 
+  detail::expect_not_in_monitor();
   auto actual_size = validate_and_adjust_read_args(size, offset);
   if (actual_size == 0) { return actual_size; }
 
   auto const is_dst_buf_host_mem = is_host_memory(buf);
+  detail::LogicalObservationRecorder recorder{
+    IoBackend::Mmap,
+    TransferDirection::Read,
+    is_dst_buf_host_mem ? MemoryKind::Host : MemoryKind::Device,
+    offset,
+    actual_size};
   CUcontext ctx{};
   if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
   // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
   auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
   detail::read_impl(buf, src_mapped_buf, actual_size, 0, is_dst_buf_host_mem, ctx);
+  recorder.finish(actual_size);
   return actual_size;
 }
 
@@ -392,6 +401,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than task size.");
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  detail::expect_not_in_monitor();
   auto actual_size = validate_and_adjust_read_args(size, offset);
   if (actual_size == 0) { return make_ready_future(actual_size); }
 
@@ -415,14 +425,24 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
     return size;
   };
 
-  return detail::parallel_io(
-    op,
-    buf,
-    actual_size,
-    offset,
-    task_size,
-    0,  // dst buffer offset initial value
-    {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+  auto recorder = detail::monitoring_enabled()
+                    ? std::make_shared<detail::LogicalObservationRecorder>(
+                        IoBackend::Mmap,
+                        TransferDirection::Read,
+                        is_host_memory(buf) ? MemoryKind::Host : MemoryKind::Device,
+                        offset,
+                        actual_size)
+                    : nullptr;
+  return detail::parallel_io(op,
+                             buf,
+                             actual_size,
+                             offset,
+                             task_size,
+                             0,  // dst buffer offset initial value
+                             {.thread_pool = thread_pool,
+                              .call_idx    = call_idx,
+                              .nvtx_color  = nvtx_color,
+                              .recorder    = recorder});
 }
 
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,
