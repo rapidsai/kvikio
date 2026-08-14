@@ -107,14 +107,14 @@ TEST(RemoteReactorDispatchParse, bad_value_throws)
 
 TEST(ConnectionCacheSize, leaves_headroom_over_the_ceiling)
 {
-  EXPECT_EQ(kvikio::detail::connection_cache_size(std::optional<std::size_t>{8}).value(), 16L);
-  EXPECT_EQ(kvikio::detail::connection_cache_size(std::optional<std::size_t>{128}).value(), 256L);
+  EXPECT_EQ(kvikio::detail::connection_cache_size(std::optional<std::size_t>{8}).value(), 32L);
+  EXPECT_EQ(kvikio::detail::connection_cache_size(std::optional<std::size_t>{128}).value(), 512L);
 }
 
 TEST(ConnectionCacheSize, tiny_ceilings_stay_usable)
 {
-  EXPECT_EQ(kvikio::detail::connection_cache_size(std::optional<std::size_t>{1}).value(), 2L);
-  EXPECT_EQ(kvikio::detail::connection_cache_size(std::optional<std::size_t>{0}).value(), 2L);
+  EXPECT_EQ(kvikio::detail::connection_cache_size(std::optional<std::size_t>{1}).value(), 4L);
+  EXPECT_EQ(kvikio::detail::connection_cache_size(std::optional<std::size_t>{0}).value(), 4L);
 }
 
 TEST(ConnectionCacheSize, unlimited_concurrency_leaves_the_default_alone)

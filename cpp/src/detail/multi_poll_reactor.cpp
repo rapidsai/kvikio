@@ -153,7 +153,7 @@ std::optional<long> connection_cache_size(
   constexpr std::size_t max_settable = std::min(uint_max, long_max);
 
   // min(max_concurrent_requests * headroom_scale, max_settable), with int overflow avoidance
-  constexpr std::size_t headroom_scale = 2;
+  constexpr std::size_t headroom_scale = 4;
   auto const max_req_adjusted          = std::max<std::size_t>(max_concurrent_requests.value(), 1);
   auto const tmp = std::min<std::size_t>(max_req_adjusted, max_settable / headroom_scale);
   return static_cast<long>(tmp * headroom_scale);
