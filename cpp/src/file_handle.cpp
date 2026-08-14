@@ -356,9 +356,11 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                      std::size_t size,
                      std::size_t file_offset,
                      std::size_t hostPtr_offset) -> std::size_t {
-      char const* buf = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
-      return detail::posix_host_write<detail::PartialIO::NO>(
+      char const* buf         = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
+      auto const bytes_written = detail::posix_host_write<detail::PartialIO::NO>(
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
+      _nbytes = 0;  // The write may have extended the file.
+      return bytes_written;
     };
 
     return detail::parallel_io(
@@ -378,6 +380,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     PushAndPopContext c(ctx);
     auto bytes_write = detail::posix_device_write(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
+    _nbytes = 0;  // The write may have extended the file.
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_write);
