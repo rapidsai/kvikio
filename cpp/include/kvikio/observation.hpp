@@ -101,9 +101,6 @@ enum class ObservationKind : std::uint8_t {
  * `[start, end)` covers the operation from issue to completion.
  */
 struct Observation {
-  /// What layer this describes. Always `ObservationKind::Logical` today.
-  ObservationKind kind{ObservationKind::Logical};
-
   /// When the operation started.
   TimePoint start{};
   /// When the operation finished.
@@ -115,7 +112,14 @@ struct Observation {
   /// Number of bytes actually transferred. Differs from `size` on a short read, and is zero for an
   /// operation that failed.
   std::size_t bytes_transferred{};
+  /// Identifies this operation, uniquely within the process.
+  std::uint64_t id{};
 
+  /// HTTP method, e.g. `"GET"`. Null for local I/O.
+  char const* http_method{nullptr};
+
+  /// What layer this describes. Always `ObservationKind::Logical` today.
+  ObservationKind kind{ObservationKind::Logical};
   /// The backend that carried out the operation.
   IoBackend backend{IoBackend::Posix};
   /// The direction of the operation.
@@ -124,11 +128,6 @@ struct Observation {
   MemoryKind memory_kind{MemoryKind::Host};
   /// False if the operation failed.
   bool ok{true};
-  /// Identifies this operation, uniquely within the process.
-  std::uint64_t id{};
-
-  /// HTTP method, e.g. `"GET"`. Null for local I/O.
-  char const* http_method{nullptr};
 
   /**
    * @brief How long the operation took.

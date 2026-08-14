@@ -249,8 +249,9 @@ void LogicalObservationRecorder::begin(IoBackend backend,
 void LogicalObservationRecorder::emit() noexcept
 {
   _observation.end = now();
-  // A monitor registered after this operation began never saw its start and ignores the finish,
-  // which is why no flag is latched here.
+  // Delivered to whoever is registered now, which need not be who was registered when the
+  // operation began. A monitor that missed the start ignores this, as `Monitor::on_finish()`
+  // documents, so the recorder does not have to remember which monitors it told.
   notify_finished(_observation);
 }
 

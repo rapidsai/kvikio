@@ -338,9 +338,9 @@ TEST_F(ObservationTest, a_monitor_can_correlate_a_start_with_its_completion)
     void on_start(Observation const& o) noexcept override
     {
       std::lock_guard const lock{_mutex};
-      _open[o.id] = o.size;
-      // What is known at submission is set. What is not, is not.
-      if (o.size == 0 || o.id == 0 || o.start == kvikio::TimePoint{}) { ++_malformed; }
+      _open[o.id] = o;
+      // What is known at submission is set. What `on_start()` documents as not yet set, is not.
+      if (o.size == 0 || o.id == 0) { ++_malformed; }
       if (o.end != kvikio::TimePoint{} || o.bytes_transferred != 0) { ++_malformed; }
     }
 
@@ -352,12 +352,15 @@ TEST_F(ObservationTest, a_monitor_can_correlate_a_start_with_its_completion)
         ++_unmatched;
         return;
       }
-      if (it->second == o.size && o.end > o.start) { ++_matched; }
+      // The completion carries the same operation, now with an end.
+      if (it->second.size == o.size && it->second.start == o.start && o.end > o.start) {
+        ++_matched;
+      }
       _open.erase(it);
     }
 
     std::mutex _mutex;
-    std::unordered_map<std::uint64_t, std::size_t> _open;
+    std::unordered_map<std::uint64_t, Observation> _open;
     int _matched{0};
     int _unmatched{0};
     int _malformed{0};

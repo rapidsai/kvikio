@@ -796,7 +796,6 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   expect_read_in_bounds(size, file_offset);
 
   detail::expect_not_in_monitor();
-  // Classified once here and passed down, since the query is a CUDA driver call.
   bool const is_host_mem = is_host_memory(buf);
   detail::LogicalObservationRecorder recorder{remote_io_backend_of(*_endpoint),
                                               TransferDirection::Read,
