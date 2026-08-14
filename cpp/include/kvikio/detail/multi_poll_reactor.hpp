@@ -243,6 +243,11 @@ class MultiPollReactor {
   /**
    * @brief Set this reactor's libcurl connection cache (`CURLMOPT_MAXCONNECTS`).
    *
+   * By default libcurl sets `CURLMOPT_MAXCONNECTS` to 4 x the number of easy handles attached to a
+   * multi handle. This is recomputed on every transition, and a transient dip in concurrency will
+   * cause libcurl to evict warm, reusable connections, and cause unnecessary TCP/TLS handshake.
+   * Here we pin `CURLMOPT_MAXCONNECTS` to a fixed size.
+   *
    * @param max_concurrent_requests This reactor's private share of the total concurrent-request
    * budget (the global cap divided across reactors). `std::nullopt` means unlimited.
    *
