@@ -377,9 +377,9 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
 
   auto const is_dst_buf_host_mem = is_host_memory(buf);
   detail::LogicalObservationRecorder recorder{
-    IoBackend::Mmap,
-    TransferDirection::Read,
-    is_dst_buf_host_mem ? MemoryKind::Host : MemoryKind::Device,
+    IoBackend::MMAP,
+    TransferDirection::READ,
+    is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
     offset,
     actual_size};
   CUcontext ctx{};
@@ -427,9 +427,9 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
 
   auto recorder = detail::monitoring_enabled()
                     ? std::make_shared<detail::LogicalObservationRecorder>(
-                        IoBackend::Mmap,
-                        TransferDirection::Read,
-                        is_host_memory(buf) ? MemoryKind::Host : MemoryKind::Device,
+                        IoBackend::MMAP,
+                        TransferDirection::READ,
+                        is_host_memory(buf) ? MemoryKind::HOST : MemoryKind::DEVICE,
                         offset,
                         actual_size)
                     : nullptr;

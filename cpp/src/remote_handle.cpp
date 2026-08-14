@@ -781,8 +781,8 @@ namespace {
 /// WebHDFS is its own backend; everything else this handle speaks is HTTP(S), S3 included.
 [[nodiscard]] IoBackend remote_io_backend_of(RemoteEndpoint const& endpoint) noexcept
 {
-  return endpoint.remote_endpoint_type() == RemoteEndpointType::WEBHDFS ? IoBackend::RemoteHdfs
-                                                                        : IoBackend::RemoteHttp;
+  return endpoint.remote_endpoint_type() == RemoteEndpointType::WEBHDFS ? IoBackend::REMOTE_HDFS
+                                                                        : IoBackend::REMOTE_HTTP;
 }
 
 }  // namespace
@@ -798,8 +798,8 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   detail::expect_not_in_monitor();
   bool const is_host_mem = is_host_memory(buf);
   detail::LogicalObservationRecorder recorder{remote_io_backend_of(*_endpoint),
-                                              TransferDirection::Read,
-                                              is_host_mem ? MemoryKind::Host : MemoryKind::Device,
+                                              TransferDirection::READ,
+                                              is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
                                               file_offset,
                                               size,
                                               "GET"};
@@ -881,8 +881,8 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   auto recorder = detail::monitoring_enabled()
                     ? std::make_shared<detail::LogicalObservationRecorder>(
                         remote_io_backend_of(*_endpoint),
-                        TransferDirection::Read,
-                        is_host_mem ? MemoryKind::Host : MemoryKind::Device,
+                        TransferDirection::READ,
+                        is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
                         file_offset,
                         size,
                         "GET")

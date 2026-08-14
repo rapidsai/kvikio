@@ -33,41 +33,41 @@ using Duration = std::chrono::nanoseconds;
  * @brief The I/O backend that carried out an operation.
  */
 enum class IoBackend : std::uint8_t {
-  Posix = 0,   ///< POSIX `pread`/`pwrite`, including the compatibility-mode path.
-  Gds,         ///< cuFile / GPUDirect Storage.
-  Mmap,        ///< Memory-mapped file access.
-  RemoteHttp,  ///< Remote I/O over HTTP(S), including S3.
-  RemoteHdfs   ///< Remote I/O over WebHDFS.
+  POSIX = 0,    ///< POSIX `pread`/`pwrite`, including the compatibility-mode path.
+  GDS,          ///< cuFile / GPUDirect Storage.
+  MMAP,         ///< Memory-mapped file access.
+  REMOTE_HTTP,  ///< Remote I/O over HTTP(S), including S3.
+  REMOTE_HDFS   ///< Remote I/O over WebHDFS.
 };
 
 /**
  * @brief The direction of an I/O operation.
  */
 enum class TransferDirection : std::uint8_t {
-  Read = 0,  ///< Data moves from the file or endpoint into the buffer.
-  Write      ///< Data moves from the buffer into the file or endpoint.
+  READ = 0,  ///< Data moves from the file or endpoint into the buffer.
+  WRITE      ///< Data moves from the buffer into the file or endpoint.
 };
 
 /**
  * @brief The kind of memory the caller's buffer lives in.
  */
 enum class MemoryKind : std::uint8_t {
-  Host = 0,  ///< Host (CPU) memory.
-  Device     ///< Device (GPU) memory.
+  HOST = 0,  ///< Host (CPU) memory.
+  DEVICE     ///< Device (GPU) memory.
 };
 
 /**
  * @brief What layer an observation describes.
  */
 enum class ObservationKind : std::uint8_t {
-  Logical = 0  ///< One user-facing call, such as one `FileHandle::pread()`.
+  LOGICAL = 0  ///< One user-facing call, such as one `FileHandle::pread()`.
 };
 
 /**
  * @brief Human-readable name of an I/O backend.
  *
  * @param backend The backend.
- * @return A static string such as `"Posix"`.
+ * @return A static string such as `"POSIX"`.
  */
 [[nodiscard]] std::string_view to_string(IoBackend backend) noexcept;
 
@@ -75,7 +75,7 @@ enum class ObservationKind : std::uint8_t {
  * @brief Human-readable name of a transfer direction.
  *
  * @param direction The direction.
- * @return A static string such as `"Read"`.
+ * @return A static string such as `"READ"`.
  */
 [[nodiscard]] std::string_view to_string(TransferDirection direction) noexcept;
 
@@ -83,7 +83,7 @@ enum class ObservationKind : std::uint8_t {
  * @brief Human-readable name of a memory kind.
  *
  * @param memory_kind The memory kind.
- * @return A static string such as `"Device"`.
+ * @return A static string such as `"DEVICE"`.
  */
 [[nodiscard]] std::string_view to_string(MemoryKind memory_kind) noexcept;
 
@@ -91,7 +91,7 @@ enum class ObservationKind : std::uint8_t {
  * @brief Human-readable name of an observation kind.
  *
  * @param kind The kind.
- * @return A static string such as `"Logical"`.
+ * @return A static string such as `"LOGICAL"`.
  */
 [[nodiscard]] std::string_view to_string(ObservationKind kind) noexcept;
 
@@ -118,14 +118,14 @@ struct Observation {
   /// HTTP method, e.g. `"GET"`. Null for local I/O.
   char const* http_method{nullptr};
 
-  /// What layer this describes. Always `ObservationKind::Logical` today.
-  ObservationKind kind{ObservationKind::Logical};
+  /// What layer this describes. Always `ObservationKind::LOGICAL` today.
+  ObservationKind kind{ObservationKind::LOGICAL};
   /// The backend that carried out the operation.
-  IoBackend backend{IoBackend::Posix};
+  IoBackend backend{IoBackend::POSIX};
   /// The direction of the operation.
-  TransferDirection direction{TransferDirection::Read};
+  TransferDirection direction{TransferDirection::READ};
   /// The kind of memory the caller's buffer lives in.
-  MemoryKind memory_kind{MemoryKind::Host};
+  MemoryKind memory_kind{MemoryKind::HOST};
   /// False if the operation failed.
   bool ok{true};
 
@@ -246,7 +246,7 @@ class Monitor {
  * @exception std::runtime_error if called from inside a monitor callback.
  */
 [[nodiscard]] std::uint64_t register_monitor(Monitor* monitor,
-                                             ObservationKind kind = ObservationKind::Logical);
+                                             ObservationKind kind = ObservationKind::LOGICAL);
 
 /**
  * @brief Unregister a monitor.

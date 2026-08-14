@@ -157,7 +157,7 @@ class Registry {
   /// One registered monitor. Not owned, and must outlive its registration.
   struct Entry {
     std::uint64_t id{0};
-    ObservationKind kind{ObservationKind::Logical};
+    ObservationKind kind{ObservationKind::LOGICAL};
     Monitor* monitor{nullptr};
   };
 
@@ -176,11 +176,11 @@ bool monitoring_enabled() noexcept { return monitor_count.load(std::memory_order
 std::string_view to_string(IoBackend backend) noexcept
 {
   switch (backend) {
-    case IoBackend::Posix: return "Posix";
-    case IoBackend::Gds: return "Gds";
-    case IoBackend::Mmap: return "Mmap";
-    case IoBackend::RemoteHttp: return "RemoteHttp";
-    case IoBackend::RemoteHdfs: return "RemoteHdfs";
+    case IoBackend::POSIX: return "POSIX";
+    case IoBackend::GDS: return "GDS";
+    case IoBackend::MMAP: return "MMAP";
+    case IoBackend::REMOTE_HTTP: return "REMOTE_HTTP";
+    case IoBackend::REMOTE_HDFS: return "REMOTE_HDFS";
     default: return "Unknown";
   }
 }
@@ -188,8 +188,8 @@ std::string_view to_string(IoBackend backend) noexcept
 std::string_view to_string(TransferDirection direction) noexcept
 {
   switch (direction) {
-    case TransferDirection::Read: return "Read";
-    case TransferDirection::Write: return "Write";
+    case TransferDirection::READ: return "READ";
+    case TransferDirection::WRITE: return "WRITE";
     default: return "Unknown";
   }
 }
@@ -197,8 +197,8 @@ std::string_view to_string(TransferDirection direction) noexcept
 std::string_view to_string(MemoryKind memory_kind) noexcept
 {
   switch (memory_kind) {
-    case MemoryKind::Host: return "Host";
-    case MemoryKind::Device: return "Device";
+    case MemoryKind::HOST: return "HOST";
+    case MemoryKind::DEVICE: return "DEVICE";
     default: return "Unknown";
   }
 }
@@ -206,7 +206,7 @@ std::string_view to_string(MemoryKind memory_kind) noexcept
 std::string_view to_string(ObservationKind kind) noexcept
 {
   switch (kind) {
-    case ObservationKind::Logical: return "Logical";
+    case ObservationKind::LOGICAL: return "LOGICAL";
     default: return "Unknown";
   }
 }

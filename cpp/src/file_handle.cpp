@@ -184,9 +184,9 @@ std::size_t FileHandle::read(void* devPtr_base,
   KVIKIO_NVTX_FUNC_RANGE(size);
   detail::expect_not_in_monitor();
   auto const compat = get_compat_mode_manager().is_compat_mode_preferred();
-  detail::LogicalObservationRecorder recorder{compat ? IoBackend::Posix : IoBackend::Gds,
-                                              TransferDirection::Read,
-                                              MemoryKind::Device,
+  detail::LogicalObservationRecorder recorder{compat ? IoBackend::POSIX : IoBackend::GDS,
+                                              TransferDirection::READ,
+                                              MemoryKind::DEVICE,
                                               file_offset,
                                               size};
   auto const nbytes = read_impl(devPtr_base, size, file_offset, devPtr_offset, sync_default_stream);
@@ -229,9 +229,9 @@ std::size_t FileHandle::write(void const* devPtr_base,
   KVIKIO_NVTX_FUNC_RANGE(size);
   detail::expect_not_in_monitor();
   auto const compat = get_compat_mode_manager().is_compat_mode_preferred();
-  detail::LogicalObservationRecorder recorder{compat ? IoBackend::Posix : IoBackend::Gds,
-                                              TransferDirection::Write,
-                                              MemoryKind::Device,
+  detail::LogicalObservationRecorder recorder{compat ? IoBackend::POSIX : IoBackend::GDS,
+                                              TransferDirection::WRITE,
+                                              MemoryKind::DEVICE,
                                               file_offset,
                                               size};
   _nbytes = 0;  // Invalidate the computed file size.
@@ -306,9 +306,9 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   // function returned.
   auto recorder = detail::monitoring_enabled()
                     ? std::make_shared<detail::LogicalObservationRecorder>(
-                        uses_posix ? IoBackend::Posix : IoBackend::Gds,
-                        TransferDirection::Read,
-                        is_host ? MemoryKind::Host : MemoryKind::Device,
+                        uses_posix ? IoBackend::POSIX : IoBackend::GDS,
+                        TransferDirection::READ,
+                        is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
                         file_offset,
                         size)
                     : nullptr;
@@ -427,9 +427,9 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   // function returned.
   auto recorder = detail::monitoring_enabled()
                     ? std::make_shared<detail::LogicalObservationRecorder>(
-                        uses_posix ? IoBackend::Posix : IoBackend::Gds,
-                        TransferDirection::Write,
-                        is_host ? MemoryKind::Host : MemoryKind::Device,
+                        uses_posix ? IoBackend::POSIX : IoBackend::GDS,
+                        TransferDirection::WRITE,
+                        is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
                         file_offset,
                         size)
                     : nullptr;

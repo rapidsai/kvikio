@@ -141,11 +141,11 @@ class ObservationTest : public testing::Test {
 
 TEST(ObservationBasics, enum_names)
 {
-  EXPECT_EQ(to_string(IoBackend::Posix), "Posix");
-  EXPECT_EQ(to_string(IoBackend::Mmap), "Mmap");
-  EXPECT_EQ(to_string(TransferDirection::Write), "Write");
-  EXPECT_EQ(to_string(MemoryKind::Device), "Device");
-  EXPECT_EQ(to_string(ObservationKind::Logical), "Logical");
+  EXPECT_EQ(to_string(IoBackend::POSIX), "POSIX");
+  EXPECT_EQ(to_string(IoBackend::MMAP), "MMAP");
+  EXPECT_EQ(to_string(TransferDirection::WRITE), "WRITE");
+  EXPECT_EQ(to_string(MemoryKind::DEVICE), "DEVICE");
+  EXPECT_EQ(to_string(ObservationKind::LOGICAL), "LOGICAL");
 }
 
 TEST(ObservationBasics, derived_quantities)
@@ -185,12 +185,12 @@ TEST_F(ObservationTest, one_call_is_one_observation)
   // However many reads KvikIO issued underneath, the caller made one call.
   ASSERT_EQ(events.size(), 1);
   auto const& o = events.front();
-  EXPECT_EQ(o.kind, ObservationKind::Logical);
-  EXPECT_EQ(o.direction, TransferDirection::Read);
-  EXPECT_EQ(o.memory_kind, MemoryKind::Host);
+  EXPECT_EQ(o.kind, ObservationKind::LOGICAL);
+  EXPECT_EQ(o.direction, TransferDirection::READ);
+  EXPECT_EQ(o.memory_kind, MemoryKind::HOST);
   // A host buffer goes through `posix_host_read` whatever the handle is capable of, so the label
   // must not follow the handle's compatibility mode.
-  EXPECT_EQ(o.backend, IoBackend::Posix);
+  EXPECT_EQ(o.backend, IoBackend::POSIX);
   EXPECT_EQ(o.offset, 0);
   EXPECT_EQ(o.size, nbytes());
   EXPECT_EQ(o.bytes_transferred, nbytes());
@@ -243,7 +243,7 @@ TEST_F(ObservationTest, a_write_is_described_as_a_write)
   }
   auto const events = Recorder::instance().observations();
   ASSERT_EQ(events.size(), 1);
-  EXPECT_EQ(events.front().direction, TransferDirection::Write);
+  EXPECT_EQ(events.front().direction, TransferDirection::WRITE);
   EXPECT_EQ(events.front().bytes_transferred, nbytes());
 }
 
@@ -257,7 +257,7 @@ TEST_F(ObservationTest, an_mmap_read_is_tagged_mmap)
   }
   auto const events = Recorder::instance().observations();
   ASSERT_EQ(events.size(), 1);
-  EXPECT_EQ(events.front().backend, IoBackend::Mmap);
+  EXPECT_EQ(events.front().backend, IoBackend::MMAP);
   EXPECT_EQ(events.front().bytes_transferred, sizeof(value));
 }
 
@@ -432,8 +432,8 @@ TEST_F(ObservationTest, a_sub_threshold_device_call_is_observed_as_posix)
 
   ASSERT_EQ(events.size(), 1);
   auto const& o = events.front();
-  EXPECT_EQ(o.backend, IoBackend::Posix);
-  EXPECT_EQ(o.memory_kind, MemoryKind::Device);
+  EXPECT_EQ(o.backend, IoBackend::POSIX);
+  EXPECT_EQ(o.memory_kind, MemoryKind::DEVICE);
   EXPECT_EQ(o.size, nbytes());
   EXPECT_EQ(o.bytes_transferred, nbytes()) << "the inline path reported no bytes";
   EXPECT_TRUE(o.ok);
@@ -454,8 +454,8 @@ TEST_F(ObservationTest, a_device_call_is_one_observation_too)
 
   ASSERT_EQ(events.size(), 1);
   auto const& o = events.front();
-  EXPECT_EQ(o.memory_kind, MemoryKind::Device);
-  EXPECT_EQ(o.direction, TransferDirection::Read);
+  EXPECT_EQ(o.memory_kind, MemoryKind::DEVICE);
+  EXPECT_EQ(o.direction, TransferDirection::READ);
   EXPECT_EQ(o.size, nbytes());
   EXPECT_EQ(o.bytes_transferred, nbytes());
   EXPECT_TRUE(o.ok);
@@ -490,7 +490,7 @@ TEST_F(ObservationTest, a_device_write_is_one_observation_too)
   auto const events = Recorder::instance().observations();
 
   ASSERT_EQ(events.size(), 1);
-  EXPECT_EQ(events.front().memory_kind, MemoryKind::Device);
-  EXPECT_EQ(events.front().direction, TransferDirection::Write);
+  EXPECT_EQ(events.front().memory_kind, MemoryKind::DEVICE);
+  EXPECT_EQ(events.front().direction, TransferDirection::WRITE);
   EXPECT_EQ(events.front().bytes_transferred, nbytes());
 }
