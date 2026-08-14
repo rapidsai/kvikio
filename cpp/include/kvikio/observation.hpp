@@ -41,6 +41,11 @@ enum class IoBackend : std::uint8_t {
 };
 
 /**
+ * @brief Number of `IoBackend` values.
+ */
+constexpr std::size_t num_io_backends = static_cast<std::size_t>(IoBackend::REMOTE_HDFS) + 1;
+
+/**
  * @brief The direction of an I/O operation.
  */
 enum class TransferDirection : std::uint8_t {
