@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <memory>
@@ -110,7 +111,7 @@ FileHandle::FileHandle(FileHandle&& other) noexcept
   : _file_direct_on{std::exchange(other._file_direct_on, {})},
     _file_direct_off{std::exchange(other._file_direct_off, {})},
     _initialized{std::exchange(other._initialized, false)},
-    _nbytes{std::exchange(other._nbytes, 0)},
+    _nbytes{other._nbytes.exchange(0, std::memory_order_relaxed)},
     _cufile_handle{std::exchange(other._cufile_handle, {})},
     _compat_mode_manager{std::move(other._compat_mode_manager)},
     _file_path{std::exchange(other._file_path, {})},
@@ -122,10 +123,10 @@ FileHandle& FileHandle::operator=(FileHandle&& other) noexcept
 {
   if (this != &other) {
     close();
-    _file_direct_on      = std::exchange(other._file_direct_on, {});
-    _file_direct_off     = std::exchange(other._file_direct_off, {});
-    _initialized         = std::exchange(other._initialized, false);
-    _nbytes              = std::exchange(other._nbytes, 0);
+    _file_direct_on  = std::exchange(other._file_direct_on, {});
+    _file_direct_off = std::exchange(other._file_direct_off, {});
+    _initialized     = std::exchange(other._initialized, false);
+    _nbytes.store(other._nbytes.exchange(0, std::memory_order_relaxed), std::memory_order_relaxed);
     _cufile_handle       = std::exchange(other._cufile_handle, {});
     _compat_mode_manager = std::move(other._compat_mode_manager);
     _file_path           = std::exchange(other._file_path, {});
@@ -150,7 +151,7 @@ void FileHandle::close() noexcept
     _cufile_handle.unregister_handle();
     _file_direct_off.close();
     _file_direct_on.close();
-    _nbytes      = 0;
+    _nbytes.store(0, std::memory_order_relaxed);
     _initialized = false;
     _thread_pool = nullptr;
   } catch (...) {
@@ -175,8 +176,12 @@ int FileHandle::fd_open_flags(bool o_direct) const { return open_flags(fd(o_dire
 std::size_t FileHandle::nbytes() const
 {
   if (closed()) { return 0; }
-  if (_nbytes == 0) { _nbytes = get_file_size(_file_direct_off.fd()); }
-  return _nbytes;
+  auto cached = _nbytes.load(std::memory_order_relaxed);
+  if (cached == 0) {
+    cached = get_file_size(_file_direct_off.fd());
+    _nbytes.store(cached, std::memory_order_relaxed);
+  }
+  return cached;
 }
 
 std::size_t FileHandle::read(void* devPtr_base,
@@ -240,7 +245,7 @@ std::size_t FileHandle::write(void const* devPtr_base,
                                               file_offset,
                                               size,
                                               _file_path};
-  _nbytes = 0;  // Invalidate the computed file size.
+  _nbytes.store(0, std::memory_order_relaxed);  // Invalidate the computed file size.
   auto const nbytes =
     write_impl(devPtr_base, size, file_offset, devPtr_offset, sync_default_stream);
   recorder.finish(nbytes);
@@ -449,7 +454,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
       char const* buf          = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
       auto const bytes_written = detail::posix_host_write<detail::PartialIO::NO>(
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
-      _nbytes = 0;  // The write may have extended the file.
+      _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
       return bytes_written;
     };
 
@@ -472,7 +477,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     PushAndPopContext c(ctx);
     auto bytes_write = detail::posix_device_write(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
-    _nbytes = 0;  // The write may have extended the file.
+    _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
     // This shortcut bypasses `parallel_io`, so it closes the observation itself.
     if (recorder) { recorder->finish(bytes_write); }
     // Maintain API consistency while making this trivial case synchronous.
@@ -494,7 +499,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     PushAndPopContext c(ctx);
     auto const bytes_written =
       write_impl(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
-    _nbytes = 0;  // The write may have extended the file.
+    _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
     return bytes_written;
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);

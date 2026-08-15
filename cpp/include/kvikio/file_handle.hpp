@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 
@@ -36,7 +37,8 @@ class FileHandle {
   FileWrapper _file_direct_on{};
   FileWrapper _file_direct_off{};
   bool _initialized{false};
-  mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
+  // The size of the underlying file, zero meaning unknown.
+  mutable std::atomic<std::size_t> _nbytes{0};
   CUFileHandleWrapper _cufile_handle{};
   CompatModeManager _compat_mode_manager;
   std::string _file_path;  // Reported to the monitors, see `Observation::source`.
