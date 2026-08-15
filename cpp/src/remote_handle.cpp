@@ -873,8 +873,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (size == 0) { return make_ready_future(static_cast<std::size_t>(0)); }
-  // Before the buffer is classified and before any monitor is told, as in `read()`. Both backends
-  // reject an out-of-range call here rather than one of them surfacing it through the future.
   expect_read_in_bounds(size, file_offset);
 
   detail::expect_not_in_monitor();
