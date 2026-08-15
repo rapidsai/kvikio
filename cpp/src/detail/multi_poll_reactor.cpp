@@ -103,11 +103,12 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
   // it is written and read under _exception_mutex.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
+    // Finish the observation before fulfilling the promise below. The other order would let the
+    // caller return from `future.get()` before the observation had been delivered.
     if (recorder) {
       if (_first_exception) {
         recorder->finish_with_failure();
       } else {
-        // Before the promise, so the observation has landed by the time the caller resumes.
         recorder->finish(_total_bytes.load(std::memory_order_relaxed));
       }
     }
