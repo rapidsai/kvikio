@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
@@ -172,6 +173,14 @@ namespace detail {
 
 bool monitoring_enabled() noexcept { return monitor_count.load(std::memory_order_acquire) != 0; }
 }  // namespace detail
+
+ClockAnchor ClockAnchor::now() noexcept
+{
+  ClockAnchor anchor{};
+  anchor.steady = Clock::now();
+  anchor.wall   = std::chrono::system_clock::now();
+  return anchor;
+}
 
 std::string_view to_string(IoBackend backend) noexcept
 {

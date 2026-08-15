@@ -30,6 +30,45 @@ using TimePoint = Clock::time_point;
 using Duration = std::chrono::nanoseconds;
 
 /**
+ * @brief A reading of `Clock` and of the wall clock, taken together.
+ *
+ * `Clock` cannot be compared with anything outside this process, so an anchor is what relates an
+ * observation to a log line, to another process, or to a profiler trace.
+ */
+struct ClockAnchor {
+  /// The reading of `Clock`.
+  TimePoint steady{};
+  /// The reading of the wall clock, taken at the same moment.
+  std::chrono::system_clock::time_point wall{};
+
+  /**
+   * @brief Read both clocks, one immediately after the other.
+   *
+   * @warning The readings are tens of nanoseconds apart, since the two clocks cannot be read at
+   * once, so the anchor's offset is out by that much. Well below what a wall clock is worth
+   * anyway, NTP agreeing between machines to microseconds at best.
+   *
+   * @return The pair of readings.
+   */
+  [[nodiscard]] static ClockAnchor now() noexcept;
+
+  /**
+   * @brief Convert a point on `Clock` to wall-clock time.
+   *
+   * @warning The wall clock can be stepped or slewed by NTP or an operator, so an
+   * old anchor may no longer be valid. Take an anchor at each end of a long run
+   * and compare them to detect an in-flight adjustment to the system time.
+   *
+   * @param time The point to convert.
+   * @return The corresponding wall-clock time.
+   */
+  [[nodiscard]] std::chrono::system_clock::time_point to_wall_clock(TimePoint time) const noexcept
+  {
+    return wall + std::chrono::duration_cast<std::chrono::system_clock::duration>(time - steady);
+  }
+};
+
+/**
  * @brief The I/O backend that carried out an operation.
  */
 enum class IoBackend : std::uint8_t {

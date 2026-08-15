@@ -162,6 +162,25 @@ TEST(ObservationBasics, derived_quantities)
   EXPECT_EQ(empty.bytes_per_sec(), 0.0);
 }
 
+TEST(ObservationBasics, an_anchor_maps_the_clock_onto_the_wall_clock)
+{
+  // The two clocks are read as close together as the platform allows, so the anchor's own reading
+  // maps back onto itself.
+  auto const anchor = kvikio::ClockAnchor::now();
+  EXPECT_EQ(anchor.to_wall_clock(anchor.steady), anchor.wall);
+
+  // An offset on one clock is the same offset on the other.
+  auto const later = anchor.steady + std::chrono::seconds{5};
+  EXPECT_EQ(anchor.to_wall_clock(later) - anchor.wall, std::chrono::seconds{5});
+  auto const earlier = anchor.steady - std::chrono::milliseconds{250};
+  EXPECT_EQ(anchor.wall - anchor.to_wall_clock(earlier), std::chrono::milliseconds{250});
+
+  // An observation's timestamps land near the wall-clock time of the run, within the second it
+  // took to get here.
+  auto const now = std::chrono::system_clock::now();
+  EXPECT_LT(anchor.to_wall_clock(kvikio::detail::now()) - now, std::chrono::seconds{1});
+}
+
 TEST(ObservationBasics, a_null_monitor_is_rejected)
 {
   EXPECT_THROW(std::ignore = kvikio::register_monitor(nullptr), std::invalid_argument);
