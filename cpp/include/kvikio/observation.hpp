@@ -162,6 +162,10 @@ struct Observation {
   /// HTTP method, e.g. `"GET"`. Null for local I/O.
   char const* http_method{nullptr};
 
+  /// The file path or URL the operation went to. Owned by the handle, and valid only for the
+  /// duration of the callback. Copy what is needed later.
+  std::string_view source{};
+
   /// What layer this describes. Always `ObservationKind::LOGICAL` today.
   ObservationKind kind{ObservationKind::LOGICAL};
   /// The backend that carried out the operation.

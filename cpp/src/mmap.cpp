@@ -255,6 +255,7 @@ MmapHandle::MmapHandle(std::string const& file_path,
     }
   }
 
+  _file_path    = file_path;
   _file_wrapper = FileWrapper(file_path, flags, false /* o_direct */, mode);
   _file_size    = get_file_size(_file_wrapper.fd());
   if (_file_size == 0) { return; }
@@ -304,7 +305,8 @@ MmapHandle::MmapHandle(MmapHandle&& other) noexcept
     _initialized{std::exchange(other._initialized, {})},
     _map_protection{std::exchange(other._map_protection, {})},
     _map_flags{std::exchange(other._map_flags, {})},
-    _file_wrapper{std::exchange(other._file_wrapper, {})}
+    _file_wrapper{std::exchange(other._file_wrapper, {})},
+    _file_path{std::exchange(other._file_path, {})}
 {
 }
 
@@ -322,6 +324,7 @@ MmapHandle& MmapHandle::operator=(MmapHandle&& other) noexcept
   _map_protection     = std::exchange(other._map_protection, {});
   _map_flags          = std::exchange(other._map_flags, {});
   _file_wrapper       = std::exchange(other._file_wrapper, {});
+  _file_path          = std::exchange(other._file_path, {});
   return *this;
 }
 
@@ -381,7 +384,8 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
     TransferDirection::READ,
     is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
     offset,
-    actual_size};
+    actual_size,
+    _file_path};
   CUcontext ctx{};
   if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
@@ -431,7 +435,8 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
                         TransferDirection::READ,
                         is_host_memory(buf) ? MemoryKind::HOST : MemoryKind::DEVICE,
                         offset,
-                        actual_size)
+                        actual_size,
+                        _file_path)
                     : nullptr;
   return detail::parallel_io(op,
                              buf,

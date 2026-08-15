@@ -723,7 +723,7 @@ RemoteHandle RemoteHandle::open(std::string const& url,
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
-  : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
+  : _endpoint{std::move(endpoint)}, _nbytes{nbytes}, _source{_endpoint->str()}
 {
   KVIKIO_NVTX_FUNC_RANGE();
 }
@@ -733,6 +733,7 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   KVIKIO_NVTX_FUNC_RANGE();
   _nbytes   = endpoint->get_file_size();
   _endpoint = std::move(endpoint);
+  _source   = _endpoint->str();
 }
 
 RemoteEndpointType RemoteHandle::remote_endpoint_type() const noexcept
@@ -802,6 +803,7 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
                                               is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
                                               file_offset,
                                               size,
+                                              _source,
                                               "GET"};
   auto const nbytes = read_impl(buf, size, file_offset, is_host_mem);
   recorder.finish(nbytes);
@@ -885,6 +887,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                         is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
                         file_offset,
                         size,
+                        _source,
                         "GET")
                     : nullptr;
 

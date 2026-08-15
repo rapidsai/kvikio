@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 #include <kvikio/observation.hpp>
 
@@ -88,8 +89,9 @@ class LogicalObservationRecorder {
    * @param memory_kind The kind of memory the caller's buffer lives in.
    * @param offset Byte offset into the file or remote object.
    * @param size Number of bytes requested.
-   * @param http_method HTTP method for a remote call, e.g. `"GET"`. A constructor parameter rather
-   * than a setter because the monitors are told the operation has started before this constructor
+   * @param source The file path or URL, which must outlive the operation.
+   * @param http_method HTTP method for a remote call, e.g. `"GET"`. Constructor parameters rather
+   * than setters because the monitors are told the operation has started before this constructor
    * returns, and the record they are shown must be as complete as it can be.
    */
   LogicalObservationRecorder(IoBackend backend,
@@ -97,10 +99,11 @@ class LogicalObservationRecorder {
                              MemoryKind memory_kind,
                              std::size_t offset,
                              std::size_t size,
+                             std::string_view source = {},
                              char const* http_method = nullptr) noexcept
     : _active{monitoring_enabled()}
   {
-    if (_active) { begin(backend, direction, memory_kind, offset, size, http_method); }
+    if (_active) { begin(backend, direction, memory_kind, offset, size, source, http_method); }
   }
 
   /**
@@ -153,6 +156,7 @@ class LogicalObservationRecorder {
              MemoryKind memory_kind,
              std::size_t offset,
              std::size_t size,
+             std::string_view source,
              char const* http_method) noexcept;
 
   /// Stamp the end and notify. Called once, from `finish()` or `finish_with_failure()`.

@@ -98,7 +98,9 @@ FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
                        CompatMode compat_mode)
-  : _initialized{true}, _compat_mode_manager{file_path, flags, mode, compat_mode, this}
+  : _initialized{true},
+    _compat_mode_manager{file_path, flags, mode, compat_mode, this},
+    _file_path{file_path}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   _thread_pool = get_thread_pool_per_block_device(file_path);
@@ -111,6 +113,7 @@ FileHandle::FileHandle(FileHandle&& other) noexcept
     _nbytes{std::exchange(other._nbytes, 0)},
     _cufile_handle{std::exchange(other._cufile_handle, {})},
     _compat_mode_manager{std::move(other._compat_mode_manager)},
+    _file_path{std::exchange(other._file_path, {})},
     _thread_pool{std::exchange(other._thread_pool, {})}
 {
 }
@@ -125,6 +128,7 @@ FileHandle& FileHandle::operator=(FileHandle&& other) noexcept
     _nbytes              = std::exchange(other._nbytes, 0);
     _cufile_handle       = std::exchange(other._cufile_handle, {});
     _compat_mode_manager = std::move(other._compat_mode_manager);
+    _file_path           = std::exchange(other._file_path, {});
     _thread_pool         = std::exchange(other._thread_pool, {});
   }
   return *this;
@@ -188,7 +192,8 @@ std::size_t FileHandle::read(void* devPtr_base,
                                               TransferDirection::READ,
                                               MemoryKind::DEVICE,
                                               file_offset,
-                                              size};
+                                              size,
+                                              _file_path};
   auto const nbytes = read_impl(devPtr_base, size, file_offset, devPtr_offset, sync_default_stream);
   recorder.finish(nbytes);
   return nbytes;
@@ -233,7 +238,8 @@ std::size_t FileHandle::write(void const* devPtr_base,
                                               TransferDirection::WRITE,
                                               MemoryKind::DEVICE,
                                               file_offset,
-                                              size};
+                                              size,
+                                              _file_path};
   _nbytes = 0;  // Invalidate the computed file size.
   auto const nbytes =
     write_impl(devPtr_base, size, file_offset, devPtr_offset, sync_default_stream);
@@ -310,7 +316,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                         TransferDirection::READ,
                         is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
                         file_offset,
-                        size)
+                        size,
+                        _file_path)
                     : nullptr;
   if (is_host) {
     auto op = [this](void* hostPtr_base,
@@ -431,7 +438,8 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                         TransferDirection::WRITE,
                         is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
                         file_offset,
-                        size)
+                        size,
+                        _file_path)
                     : nullptr;
   if (is_host) {
     auto op = [this](void const* hostPtr_base,

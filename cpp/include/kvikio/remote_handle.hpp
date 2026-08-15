@@ -352,6 +352,7 @@ class RemoteHandle {
  private:
   std::unique_ptr<RemoteEndpoint> _endpoint;
   std::size_t _nbytes;
+  std::string _source;  // Reported to the monitors, see `Observation::source`.
 
  public:
   /**

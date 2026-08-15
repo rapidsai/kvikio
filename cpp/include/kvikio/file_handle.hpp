@@ -39,6 +39,7 @@ class FileHandle {
   mutable std::size_t _nbytes{0};  // The size of the underlying file, zero means unknown.
   CUFileHandleWrapper _cufile_handle{};
   CompatModeManager _compat_mode_manager;
+  std::string _file_path;  // Reported to the monitors, see `Observation::source`.
   friend class CompatModeManager;
 
   /// The read itself, without what the public `read()` wraps around it.

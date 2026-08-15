@@ -218,6 +218,34 @@ TEST_F(ObservationTest, one_call_is_one_observation)
   EXPECT_GT(o.end, o.start);
 }
 
+TEST_F(ObservationTest, an_observation_names_what_it_read)
+{
+  Recorder::Capture const capture;
+  std::vector<std::uint64_t> buffer(_data.size());
+  kvikio::FileHandle f{_filepath, "r"};
+  f.pread(buffer.data(), nbytes(), 0).get();
+
+  // Read while the handle is alive, since the handle owns the string the view points at.
+  auto const events = Recorder::instance().observations();
+  ASSERT_EQ(events.size(), 1);
+  // Without this a program reading many files cannot tell their operations apart.
+  EXPECT_EQ(events.front().source, _filepath);
+}
+
+TEST_F(ObservationTest, a_moved_handle_still_names_what_it_reads)
+{
+  Recorder::Capture const capture;
+  std::vector<std::uint64_t> buffer(_data.size());
+
+  kvikio::MmapHandle moved_from{_filepath, "r"};
+  kvikio::MmapHandle mapped{std::move(moved_from)};
+  mapped.read(buffer.data(), nbytes(), 0);
+
+  auto const events = Recorder::instance().observations();
+  ASSERT_EQ(events.size(), 1);
+  EXPECT_EQ(events.front().source, _filepath) << "the path did not survive the move";
+}
+
 TEST_F(ObservationTest, the_span_covers_the_work_not_the_call)
 {
   // `pread()` returns as soon as the parts are submitted, so a naive recorder would stop the clock

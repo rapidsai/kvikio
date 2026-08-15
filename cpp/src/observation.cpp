@@ -240,6 +240,7 @@ void LogicalObservationRecorder::begin(IoBackend backend,
                                        MemoryKind memory_kind,
                                        std::size_t offset,
                                        std::size_t size,
+                                       std::string_view source,
                                        char const* http_method) noexcept
 {
   // From 1, so that a default-constructed `Observation` (id 0) is never mistaken for a real one.
@@ -250,6 +251,7 @@ void LogicalObservationRecorder::begin(IoBackend backend,
   _observation.offset      = offset;
   _observation.size        = size;
   _observation.http_method = http_method;
+  _observation.source      = source;
   _observation.id          = id_counter.fetch_add(1, std::memory_order_relaxed);
   _observation.start       = now();
   if (monitor_count.load(std::memory_order_acquire) != 0) { notify_started(_observation); }
