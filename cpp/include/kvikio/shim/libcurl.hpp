@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -109,6 +109,22 @@ class CurlHandle {
   CURL* handle() noexcept;
 
   /**
+   * @brief Get the most recent error message libcurl recorded for this handle.
+   *
+   * The handle is created with `CURLOPT_ERRORBUFFER`, so after a failed transfer this holds a
+   * human-readable description that is usually more specific than `curl_easy_strerror`, for example
+   * "The requested URL returned error: 403". The buffer is empty when libcurl recorded no message.
+   *
+   * @return The recorded error message, or an empty string if none was recorded.
+   */
+  [[nodiscard]] std::string error_message() const;
+
+  /**
+   * @brief Discard the recorded error message.
+   */
+  void clear_error_message() noexcept;
+
+  /**
    * @brief Set option for the curl handle.
    *
    * See <https://curl.se/libcurl/c/curl_easy_setopt.html> for available options.
@@ -131,9 +147,26 @@ class CurlHandle {
   /**
    * @brief Perform a blocking network transfer using previously set options.
    *
+   * Transient failures are retried with exponential backoff, as configured by
+   * `defaults::http_max_attempts()` and `defaults::http_status_codes()`.
+   *
    * See <https://curl.se/libcurl/c/curl_easy_perform.html>.
+   *
+   * @exception std::runtime_error if the transfer fails with a non-retryable error, or if it
+   * exhausts its attempt budget.
    */
   void perform();
+
+  /**
+   * @brief Perform a blocking network transfer, and if the transfer fails, execute an on_retry
+   * callback to roll back to pre-transfer state.
+   *
+   * @param on_retry Invoked before each retried attempt, to roll back to the pre-transfer state.
+   *
+   * @exception std::runtime_error if the transfer fails with a non-retryable error, or if it
+   * exhausts its attempt budget.
+   */
+  void perform(std::function<void()> const& on_retry);
 
   /**
    * @brief Extract information from a curl handle.

@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <stack>
+#include <utility>
 
 #include <kvikio/defaults.hpp>
 
@@ -161,23 +162,40 @@ class BounceBufferPool {
 
  private:
   /**
-   * @brief Free all retained allocations
+   * @brief Deallocate a batch of buffers previously detached from the pool
+   *
+   * NB: Must be called without holding `_mutex`. Deallocation makes CUDA calls.
+   *
+   * @param buffers Buffers to deallocate. The stack is emptied.
+   * @param buffer_size Size in bytes of every buffer in `buffers`
+   */
+  void _deallocate_buffers(std::stack<void*>& buffers, std::size_t buffer_size);
+
+  /**
+   * @brief Detach all retained allocations from the pool without deallocating them
+   *
+   * The caller takes ownership of the returned buffers and must hand them to `_deallocate_buffers`
+   * after releasing `_mutex`.
    *
    * NB: The `_mutex` must be taken prior to calling this function.
    *
-   * @return The number of bytes cleared
+   * @return The detached buffers and the size in bytes of each of them
    */
-  std::size_t _clear();
+  [[nodiscard]] std::pair<std::stack<void*>, std::size_t> _detach_free_buffers();
 
   /**
    * @brief Ensure the sizes of the retained allocations match `defaults::bounce_buffer_size()`
    *
-   * If the configured bounce buffer size has changed, clears all cached buffers so new allocations
-   * will use the updated size.
+   * If the configured bounce buffer size has changed, detaches all cached buffers so new
+   * allocations will use the updated size. The caller takes ownership of the returned buffers and
+   * must free them outside `_mutex`.
    *
    * NB: `_mutex` must be taken prior to calling this function.
+   *
+   * @return The detached buffers and the size in bytes of each of them. The stack is empty when
+   * the configured size is unchanged.
    */
-  void _ensure_buffer_size();
+  [[nodiscard]] std::pair<std::stack<void*>, std::size_t> _ensure_buffer_size();
 
  public:
   /**

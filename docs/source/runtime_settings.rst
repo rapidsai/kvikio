@@ -56,6 +56,8 @@ The maximum number of attempts to make before throwing an exception is controlle
 
 The maximum duration of each HTTP request is controlled by ``KVIKIO_HTTP_TIMEOUT``. The default value is 60, which is the duration in seconds to allow. This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``http_timeout``.
 
+Each retry emits a notice through the KvikIO logger at the ``WARN`` level, i.e. ``KVIKIO_LOG_LEVEL=WARN``. Sustained retries indicate that the server is throttling the requests, which degrades read throughput.
+
 HTTP Verbose ``KVIKIO_REMOTE_VERBOSE``
 --------------------------------------
 
@@ -70,12 +72,14 @@ Set the environment variable ``KVIKIO_REMOTE_VERBOSE`` to ``true``, ``on``, ``ye
 Remote I/O Backend ``KVIKIO_REMOTE_IO_BACKEND``
 -----------------------------------------------
 
-KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected at process startup via the environment variable ``KVIKIO_REMOTE_IO_BACKEND``. The accepted values (case-insensitive) are:
+KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected via the environment variable ``KVIKIO_REMOTE_IO_BACKEND``. The accepted values (case-insensitive) are:
 
   * ``EASY_THREADPOOL`` (default): Libcurl easy API running in the KvikIO thread pool. Each sub-range of a :py:func:`kvikio.RemoteFile.pread` is dispatched to a worker thread that blocks in ``curl_easy_perform()`` until its transfer completes. Concurrency is bounded by the thread pool size: one busy thread per in-flight transfer.
   * ``MULTI_POLL``: Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is bounded by ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` rather than by the reactor count.
 
-The ``MULTI_POLL`` backend honors three additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``, and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``.
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_backend``. :py:func:`kvikio.RemoteFile.pread` reads the setting on every call, so a change applies to subsequent reads while reads already in flight finish on the backend they started on.
+
+The ``MULTI_POLL`` backend honors three additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``, and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``. These settings are captured once when the reactor pool is first used, so switching to ``MULTI_POLL`` at runtime picks up the values they had at process startup.
 
 Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
 ----------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -44,13 +44,13 @@ FileWrapper::~FileWrapper() noexcept
   close();
 }
 
-FileWrapper::FileWrapper(FileWrapper&& o) noexcept : _fd(std::exchange(o._fd, -1)) {}
+FileWrapper::FileWrapper(FileWrapper&& other) noexcept : _fd(std::exchange(other._fd, -1)) {}
 
-FileWrapper& FileWrapper::operator=(FileWrapper&& o) noexcept
+FileWrapper& FileWrapper::operator=(FileWrapper&& other) noexcept
 {
-  if (this != &o) {
+  if (this != &other) {
     close();
-    _fd = std::exchange(o._fd, -1);
+    _fd = std::exchange(other._fd, -1);
   }
   return *this;
 }
@@ -79,17 +79,17 @@ int FileWrapper::fd() const noexcept { return _fd; }
 
 CUFileHandleWrapper::~CUFileHandleWrapper() noexcept { unregister_handle(); }
 
-CUFileHandleWrapper::CUFileHandleWrapper(CUFileHandleWrapper&& o) noexcept
-  : _handle{std::exchange(o._handle, {})}, _registered{std::exchange(o._registered, false)}
+CUFileHandleWrapper::CUFileHandleWrapper(CUFileHandleWrapper&& other) noexcept
+  : _handle{std::exchange(other._handle, {})}, _registered{std::exchange(other._registered, false)}
 {
 }
 
-CUFileHandleWrapper& CUFileHandleWrapper::operator=(CUFileHandleWrapper&& o) noexcept
+CUFileHandleWrapper& CUFileHandleWrapper::operator=(CUFileHandleWrapper&& other) noexcept
 {
-  if (this != &o) {
+  if (this != &other) {
     unregister_handle();
-    _handle     = std::exchange(o._handle, {});
-    _registered = std::exchange(o._registered, false);
+    _handle     = std::exchange(other._handle, {});
+    _registered = std::exchange(other._registered, false);
   }
   return *this;
 }

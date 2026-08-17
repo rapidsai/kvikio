@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -95,7 +95,7 @@ std::size_t WebHdfsEndpoint::get_file_size()
   curl.setopt(CURLOPT_WRITEDATA, static_cast<void*>(&response));
   curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_get_string_response);
 
-  curl.perform();
+  curl.perform([&response] { response.clear(); });
 
   long http_status_code{};
   curl.getinfo(CURLINFO_RESPONSE_CODE, &http_status_code);

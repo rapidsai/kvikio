@@ -173,6 +173,7 @@ set(SOURCES
     "src/detail/concurrent_request_limiter.cpp"
     "src/detail/env.cpp"
     "src/detail/event.cpp"
+    "src/detail/io_event_barrier.cpp"
     "src/detail/nvtx.cpp"
     "src/detail/posix_io.cpp"
     "src/detail/stream.cpp"
@@ -190,6 +191,7 @@ if(KvikIO_REMOTE_SUPPORT)
     SOURCES
     "src/hdfs.cpp"
     "src/remote_handle.cpp"
+    "src/detail/http_retry.cpp"
     "src/detail/multi_poll_reactor.cpp"
     "src/detail/remote_callback.cpp"
     "src/detail/tls.cpp"

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -121,7 +121,7 @@ std::tuple<std::string_view, T, bool> getenv_or(
  */
 class defaults {
  private:
-  ThreadPool _thread_pool{get_num_threads_from_env()};
+  ThreadPool _thread_pool{get_num_threads_from_env(), make_thread_pool_init_task("kvikio")};
   CompatMode _compat_mode;
   std::size_t _task_size;
   std::size_t _gds_threshold;
@@ -469,6 +469,13 @@ class defaults {
    * @return The remote I/O backend.
    */
   [[nodiscard]] static RemoteIOBackend remote_io_backend();
+
+  /**
+   * @brief Select the remote I/O backend at runtime, overriding `KVIKIO_REMOTE_IO_BACKEND`.
+   *
+   * @param backend The remote I/O backend.
+   */
+  static void set_remote_io_backend(RemoteIOBackend backend);
 
   /**
    * @brief Number of reactor threads used by the `MULTI_POLL` remote I/O backend.

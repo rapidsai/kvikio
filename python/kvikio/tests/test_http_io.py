@@ -1,8 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
 import http
+import re
 import time
 from http.server import SimpleHTTPRequestHandler
 from typing import Literal
@@ -29,6 +30,7 @@ class RequestCounter:
     def __init__(self):
         self.error_count = 0
         self.delay_count = 0
+        self.stall_count = 0
 
 
 class HTTP503Handler(SimpleHTTPRequestHandler):
@@ -89,6 +91,55 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
 
     def do_HEAD(self) -> None:
         return self._do_with_error_count("HEAD")
+
+
+class PartialBodyHandler(SimpleHTTPRequestHandler):
+    """
+    An HTTP handler that delivers part of the body and then stalls.
+
+    The client times out with bytes already written into its destination buffer, and
+    then performs retries on the whole byte range. Only GET requests stall.
+
+    Parameters
+    ----------
+    request_counter : RequestCounter
+        A class with mutable values to track how many responses have been stalled.
+    max_stall_count : int
+        The number of GET requests to stall before responding normally.
+    stall_duration : int
+        The duration, in seconds, to sleep after sending half the body. Must exceed the
+        client's ``http_timeout``.
+    """
+
+    def __init__(
+        self,
+        *args,
+        directory=None,
+        request_counter: RequestCounter = RequestCounter(),
+        max_stall_count: int = 1,
+        stall_duration: int = 5,
+        **kwargs,
+    ):
+        self.request_counter = request_counter
+        self.max_stall_count = max_stall_count
+        self.stall_duration = stall_duration
+        super().__init__(*args, directory=directory, **kwargs)
+
+    def copyfile(self, source, outputfile) -> None:
+        # The base class's `copyfile` copies data from `source` to `outputfile`.
+        # See: https://github.com/python/cpython/blob/3.15/Lib/http/server.py
+        # This method changes the server's `do_GET` behavior such that the client only
+        # receives half of the data for the first request, and then the full data for
+        # the subsequent retries.
+        if self.request_counter.stall_count >= self.max_stall_count:
+            return super().copyfile(source, outputfile)
+
+        self.request_counter.stall_count += 1
+        data = source.read()
+        # Send half of the data and then deliberately stall
+        outputfile.write(data[: len(data) // 2])
+        outputfile.flush()
+        time.sleep(self.stall_duration)
 
 
 @pytest.fixture
@@ -213,12 +264,11 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         assert m.match(r"KvikIO: HTTP request reached maximum number of attempts \(2\)")
         assert m.match("Got HTTP code 503")
         captured = capfd.readouterr()
-
-        records = captured.out.strip().split("\n")
-        assert len(records) == 1
-        assert records[0] == (
-            "KvikIO: Got HTTP code 503. Retrying after 500ms (attempt 1 of 2)."
+        notices = re.findall(
+            r"KvikIO: Got HTTP code 503\. Retrying after 500ms \(attempt 1 of 2\)\.",
+            captured.err,
         )
+        assert len(notices) == 1, captured.err
 
 
 def test_no_retries_ok(tmpdir):
@@ -258,6 +308,24 @@ def test_retry_timeout_ok(tmpdir):
                 assert f.nbytes() == a.nbytes
                 assert f"{http_server}/a" in str(f)
                 f.read(b)
+
+
+def test_retry_after_partial_body(tmpdir, xp):
+    a = xp.arange(10000, dtype="int64")
+    a.tofile(tmpdir / "a")
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=PartialBodyHandler,
+        handler_options={"request_counter": RequestCounter()},
+    ) as server:
+        b = xp.empty_like(a)
+        with kvikio.defaults.set({"http_timeout": 1}):
+            with kvikio.RemoteFile.open_http(f"{server.url}/a") as f:
+                assert f.nbytes() == a.nbytes
+                assert f.read(b) == a.nbytes
+        xp.testing.assert_array_equal(a, b)
 
 
 def test_set_http_status_code(tmpdir):
@@ -306,6 +374,8 @@ def test_timeout_raises(tmpdir, capfd):
             assert m.match("Operation timed out.")
 
     captured = capfd.readouterr()
-    records = captured.out.strip().split("\n")
-    assert len(records) == 1
-    assert records[0] == "KvikIO: Timeout error. Retrying after 500ms (attempt 1 of 2)."
+    notices = re.findall(
+        r"KvikIO: Timeout error\. Retrying after 500ms \(attempt 1 of 2\)\.",
+        captured.err,
+    )
+    assert len(notices) == 1, captured.err

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -80,7 +80,8 @@ ThreadPool* get_thread_pool_per_block_device(std::string const& file_path)
     }
 
     // First file on this block device: create a new dedicated thread pool
-    auto thread_pool = std::make_shared<ThreadPool>(defaults::num_threads());
+    auto thread_pool = std::make_shared<ThreadPool>(defaults::num_threads(),
+                                                    make_thread_pool_init_task("kvikio-blk"));
     dev_id_to_thread_pool_map.emplace(block_dev_info.id, thread_pool);
     file_path_to_thread_pool_map.emplace(file_path, thread_pool);
     return thread_pool.get();
@@ -102,28 +103,28 @@ FileHandle::FileHandle(std::string const& file_path,
   _thread_pool = get_thread_pool_per_block_device(file_path);
 }
 
-FileHandle::FileHandle(FileHandle&& o) noexcept
-  : _file_direct_on{std::exchange(o._file_direct_on, {})},
-    _file_direct_off{std::exchange(o._file_direct_off, {})},
-    _initialized{std::exchange(o._initialized, false)},
-    _nbytes{std::exchange(o._nbytes, 0)},
-    _cufile_handle{std::exchange(o._cufile_handle, {})},
-    _compat_mode_manager{std::move(o._compat_mode_manager)},
-    _thread_pool{std::exchange(o._thread_pool, {})}
+FileHandle::FileHandle(FileHandle&& other) noexcept
+  : _file_direct_on{std::exchange(other._file_direct_on, {})},
+    _file_direct_off{std::exchange(other._file_direct_off, {})},
+    _initialized{std::exchange(other._initialized, false)},
+    _nbytes{std::exchange(other._nbytes, 0)},
+    _cufile_handle{std::exchange(other._cufile_handle, {})},
+    _compat_mode_manager{std::move(other._compat_mode_manager)},
+    _thread_pool{std::exchange(other._thread_pool, {})}
 {
 }
 
-FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
+FileHandle& FileHandle::operator=(FileHandle&& other) noexcept
 {
-  if (this != &o) {
+  if (this != &other) {
     close();
-    _file_direct_on      = std::exchange(o._file_direct_on, {});
-    _file_direct_off     = std::exchange(o._file_direct_off, {});
-    _initialized         = std::exchange(o._initialized, false);
-    _nbytes              = std::exchange(o._nbytes, 0);
-    _cufile_handle       = std::exchange(o._cufile_handle, {});
-    _compat_mode_manager = std::move(o._compat_mode_manager);
-    _thread_pool         = std::exchange(o._thread_pool, {});
+    _file_direct_on      = std::exchange(other._file_direct_on, {});
+    _file_direct_off     = std::exchange(other._file_direct_off, {});
+    _initialized         = std::exchange(other._initialized, false);
+    _nbytes              = std::exchange(other._nbytes, 0);
+    _cufile_handle       = std::exchange(other._cufile_handle, {});
+    _compat_mode_manager = std::move(other._compat_mode_manager);
+    _thread_pool         = std::exchange(other._thread_pool, {});
   }
   return *this;
 }
