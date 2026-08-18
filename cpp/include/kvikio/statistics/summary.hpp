@@ -15,6 +15,7 @@
 
 #include <kvikio/observation.hpp>
 #include <kvikio/shim/utils.hpp>
+#include <kvikio/statistics/counters.hpp>
 
 /**
  * @brief KvikIO namespace.
@@ -76,6 +77,14 @@ struct Summary {
   /// What each backend carried, indexed by `IoBackend`. Compatibility mode decides per call
   /// whether a read reaches cuFile or falls back to POSIX, so this is where that shows.
   std::array<BackendTotals, num_io_backends> by_backend{};
+
+  /**
+   * @brief The work in the span that belongs to no single operation.
+   *
+   * The counters run for the life of the process, and this is the part of them that falls inside
+   * the span.
+   */
+  Counters counters{};
 
   /// The operations' durations added up, every operation counted.
   Duration total_duration{};
@@ -188,9 +197,11 @@ struct Summary {
    *   ...
    * @endcode
    *
+   * @param rows Which rows to print. Under `ReportRows::USED` a backend the run never reached and a
+   * counter group it never touched are left out.
    * @return The report, one field per line, newline-terminated.
    */
-  [[nodiscard]] std::string report() const;
+  [[nodiscard]] std::string report(ReportRows rows = ReportRows::USED) const;
 };
 
 /**
@@ -354,6 +365,11 @@ class SummaryMonitor final : private kvikio::Monitor {
   /// Serializes `stop()`, which cannot use `_mutex`, since `unregister_monitor()` waits for
   /// notifications that take it.
   std::mutex _stopping;
+
+  /// The internal counters as they stood when the span began, so the reading is a difference,
+  /// and as they stood when it ended, so a stopped summary does not keep growing.
+  Counters _counters_at_start{};
+  Counters _counters_at_stop{};
 
   /**
    * @brief What every reading is a copy of.

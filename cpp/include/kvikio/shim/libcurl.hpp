@@ -211,6 +211,23 @@ __attribute__((noinline)) inline std::string fix_conda_file_path_hack(std::strin
 }
 }  // namespace detail
 
+namespace detail {
+
+/**
+ * @brief Record what opening a connection cost a finished transfer.
+ *
+ * What resolving, connecting and shaking hands took, which a transfer that reused a connection
+ * paid nothing for.
+ *
+ * libcurl measures this whether or not anybody asks, and reports the phases cumulatively from the
+ * start of the transfer, so they are differenced here.
+ *
+ * @param easy The handle the transfer ran on, after it completed.
+ */
+void count_http_connection_of(CURL* easy) noexcept;
+
+}  // namespace detail
+
 /**
  * @brief Create a new curl handle.
  *
