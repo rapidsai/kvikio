@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <type_traits>
 
 #include <kvikio/shim/utils.hpp>
 
@@ -64,6 +65,11 @@ struct ClockAnchor {
    */
   [[nodiscard]] std::chrono::system_clock::time_point to_wall_clock(TimePoint time) const noexcept
   {
+    // Chrono is not noexcept because a duration's representation may have throwing arithmetic, and
+    // duration_cast is specified in terms of the same operations. Ours are integers, so nothing
+    // here can throw.
+    static_assert(std::is_integral_v<TimePoint::rep>);
+    static_assert(std::is_integral_v<std::chrono::system_clock::rep>);
     return wall + std::chrono::duration_cast<std::chrono::system_clock::duration>(time - steady);
   }
 };
