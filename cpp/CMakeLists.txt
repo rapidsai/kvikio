@@ -175,6 +175,7 @@ set(SOURCES
     "src/detail/event.cpp"
     "src/detail/io_event_barrier.cpp"
     "src/detail/nvtx.cpp"
+    "src/detail/observation_recorder.cpp"
     "src/detail/posix_io.cpp"
     "src/detail/stream.cpp"
     "src/detail/utils.cpp"

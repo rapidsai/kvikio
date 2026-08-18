@@ -6,9 +6,7 @@
 #pragma once
 
 #include <atomic>
-#include <chrono>
 #include <cstddef>
-#include <cstdint>
 #include <string_view>
 
 #include <kvikio/observation.hpp>
@@ -27,7 +25,7 @@ void expect_not_in_monitor();
  *
  * @return Now, on `kvikio::Clock`.
  */
-[[nodiscard]] inline TimePoint now() noexcept { return Clock::now(); }
+[[nodiscard]] TimePoint now() noexcept;
 
 /**
  * @brief Tell every monitor subscribed to its kind that an operation started.
@@ -75,9 +73,9 @@ void notify_finished(Observation const& observation) noexcept;
  * depends on the caller ever waiting. A failing part calls `finish_with_failure()`, so one failed
  * part is one failed logical operation rather than a lost one.
  *
- * `finish()` is idempotent, so the destructor is a safe backstop under either use. When nobody is
- * subscribed the whole object collapses to a single relaxed atomic load. A shared user should still
- * test `monitoring_enabled()` first, to skip the allocation.
+ * `finish()` is idempotent, so the destructor is a safe backstop under either use. With nobody
+ * subscribed the object does nothing beyond reading the monitor count, and fills in no record. A
+ * shared user should still test `monitoring_enabled()` first, to skip the allocation.
  */
 class LogicalObservationRecorder {
  public:
@@ -100,11 +98,7 @@ class LogicalObservationRecorder {
                              std::size_t offset,
                              std::size_t size,
                              std::string_view source = {},
-                             char const* http_method = nullptr) noexcept
-    : _active{monitoring_enabled()}
-  {
-    if (_active) { begin(backend, direction, memory_kind, offset, size, source, http_method); }
-  }
+                             char const* http_method = nullptr) noexcept;
 
   /**
    * @brief Backstop. An operation that was never finished did not complete, so it is recorded as
@@ -114,7 +108,7 @@ class LogicalObservationRecorder {
    * does nothing. Reaching here un-emitted means the call threw on its way to the work, or was
    * abandoned.
    */
-  ~LogicalObservationRecorder() { finish_with_failure(); }
+  ~LogicalObservationRecorder();
 
   LogicalObservationRecorder(LogicalObservationRecorder const&)            = delete;
   LogicalObservationRecorder& operator=(LogicalObservationRecorder const&) = delete;
@@ -126,13 +120,7 @@ class LogicalObservationRecorder {
    *
    * @param bytes_transferred Number of bytes the call actually moved.
    */
-  void finish(std::size_t bytes_transferred) noexcept
-  {
-    if (!_active) { return; }
-    if (_emitted.exchange(true, std::memory_order_relaxed)) { return; }
-    _observation.bytes_transferred = bytes_transferred;
-    emit();
-  }
+  void finish(std::size_t bytes_transferred) noexcept;
 
   /**
    * @brief The call failed. Emit it as an error that moved nothing. Idempotent.
@@ -140,14 +128,7 @@ class LogicalObservationRecorder {
    * One failing part fails the whole logical operation, so this is what a fan-out calls when any
    * of its parts failed.
    */
-  void finish_with_failure() noexcept
-  {
-    if (!_active) { return; }
-    if (_emitted.exchange(true, std::memory_order_relaxed)) { return; }
-    _observation.ok                = false;
-    _observation.bytes_transferred = 0;
-    emit();
-  }
+  void finish_with_failure() noexcept;
 
  private:
   /// Fill in the record and tell the monitors. Out of line, see the constructor.

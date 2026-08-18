@@ -235,34 +235,6 @@ void expect_not_in_monitor()
     !Registry::in_monitor(), "a monitor must not call back into KvikIO", std::runtime_error);
 }
 
-void LogicalObservationRecorder::begin(IoBackend backend,
-                                       TransferDirection direction,
-                                       MemoryKind memory_kind,
-                                       std::size_t offset,
-                                       std::size_t size,
-                                       std::string_view source,
-                                       char const* http_method) noexcept
-{
-  // From 1, so that a default-constructed `Observation` (id 0) is never mistaken for a real one.
-  static std::atomic<std::uint64_t> id_counter{1};
-  _observation.backend     = backend;
-  _observation.direction   = direction;
-  _observation.memory_kind = memory_kind;
-  _observation.offset      = offset;
-  _observation.size        = size;
-  _observation.http_method = http_method;
-  _observation.source      = source;
-  _observation.id          = id_counter.fetch_add(1, std::memory_order_relaxed);
-  _observation.start       = now();
-  if (monitor_count.load(std::memory_order_acquire) != 0) { notify_started(_observation); }
-}
-
-void LogicalObservationRecorder::emit() noexcept
-{
-  _observation.end = now();
-  notify_finished(_observation);
-}
-
 void notify_started(Observation const& observation) noexcept
 {
   Registry::instance().started(observation);
