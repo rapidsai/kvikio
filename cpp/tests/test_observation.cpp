@@ -218,6 +218,19 @@ TEST_F(ObservationTest, one_call_is_one_observation)
   EXPECT_GT(o.end, o.start);
 }
 
+TEST_F(ObservationTest, a_rejected_call_is_not_an_observation)
+{
+  std::vector<std::uint64_t> buffer(_data.size());
+  Recorder::Capture const capture;
+  kvikio::FileHandle f{_filepath, "r"};
+
+  // Rejected on its arguments, so it never reaches the file. An operation that did nothing is not
+  // one the monitors should be told about, in either direction.
+  EXPECT_THROW(f.pread(buffer.data(), nbytes(), 0, 0).get(), std::invalid_argument);
+  EXPECT_THROW(f.pwrite(buffer.data(), nbytes(), 0, 0).get(), std::invalid_argument);
+  EXPECT_TRUE(Recorder::instance().observations().empty());
+}
+
 TEST_F(ObservationTest, an_observation_names_what_it_read)
 {
   Recorder::Capture const capture;
@@ -522,6 +535,9 @@ TEST_F(ObservationTest, a_remote_read_rejected_on_its_arguments_is_not_observed)
   EXPECT_THROW(handle.read(&sink, 1024, 0), std::invalid_argument);
   // `pread()` rejects it at the call too, on either backend, rather than through the future.
   EXPECT_THROW(std::ignore = handle.pread(&sink, 1024, 0), std::invalid_argument);
+  // In bounds, but rejected on the task size, which is checked on both backends before anything
+  // is submitted.
+  EXPECT_THROW(std::ignore = handle.pread(&sink, 8, 0, 0), std::invalid_argument);
   EXPECT_TRUE(Recorder::instance().observations().empty());
 }
 #endif

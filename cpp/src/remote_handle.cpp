@@ -877,6 +877,25 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
 
   detail::expect_not_in_monitor();
   bool const is_host_mem = is_host_memory(buf);
+  auto const io_backend  = defaults::remote_io_backend();
+
+  // Everything that can reject the call is checked before the recorder exists, so a call that never
+  // reaches the I/O is not observed. The bounds check above does the same.
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
+  if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
+    KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  } else {
+    KVIKIO_EXPECT(io_backend == RemoteIOBackend::MULTI_POLL,
+                  "Unknown RemoteIOBackend value",
+                  std::runtime_error);
+    if (!is_host_mem) {
+      KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
+                    "MULTI_POLL backend with a device buffer requires task_size <= "
+                    "KVIKIO_BOUNCE_BUFFER_SIZE. Lower KVIKIO_TASK_SIZE or raise "
+                    "KVIKIO_BOUNCE_BUFFER_SIZE.",
+                    std::invalid_argument);
+    }
+  }
 
   auto recorder = detail::monitoring_enabled()
                     ? std::make_shared<detail::LogicalObservationRecorder>(
@@ -889,10 +908,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                         "GET")
                     : nullptr;
 
-  auto const io_backend = defaults::remote_io_backend();
-
   if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
-    KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
     auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
 
     auto task = [this, is_host_mem](void* devPtr_base,
@@ -914,9 +930,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                 .recorder    = recorder});
   }
 
-  KVIKIO_EXPECT(
-    io_backend == RemoteIOBackend::MULTI_POLL, "Unknown RemoteIOBackend value", std::runtime_error);
-
   // MULTI_POLL path. The lifecycle of one pread() call uses four cooperating pieces:
   // - One `RemoteMultiAggregateContext` per pread(). It owns the std::promise that the
   //   caller will observe and counts down as completions arrive.
@@ -931,16 +944,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   //   of them fails).
   //
   // Build all N transfers here, then hand them off in a single pool call.
-  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
-
-  if (!is_host_mem) {
-    KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
-                  "MULTI_POLL backend with a device buffer requires task_size <= "
-                  "KVIKIO_BOUNCE_BUFFER_SIZE. Lower KVIKIO_TASK_SIZE or raise "
-                  "KVIKIO_BOUNCE_BUFFER_SIZE.",
-                  std::invalid_argument);
-  }
-
   std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
   auto aggregate      = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
   aggregate->recorder = recorder;

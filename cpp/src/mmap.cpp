@@ -405,6 +405,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than task size.");
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   detail::expect_not_in_monitor();
   auto actual_size = validate_and_adjust_read_args(size, offset);
   if (actual_size == 0) { return make_ready_future(actual_size); }

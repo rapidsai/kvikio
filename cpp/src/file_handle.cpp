@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <memory>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 
@@ -298,6 +299,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     gds_threshold,
     sync_default_stream);
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
 
   // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
   // custom pool
@@ -420,6 +422,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     gds_threshold,
     sync_default_stream);
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
 
   // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
   // custom pool
@@ -446,6 +449,9 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                         size,
                         _file_path)
                     : nullptr;
+  // Invalidated before the write as well as after each part completes.
+  _nbytes.store(0, std::memory_order_relaxed);
+
   if (is_host) {
     auto op = [this](void const* hostPtr_base,
                      std::size_t size,
