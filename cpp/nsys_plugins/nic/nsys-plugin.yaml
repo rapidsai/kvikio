@@ -5,7 +5,8 @@ Description: Per-interface RX/TX network bandwidth from /sys/class/net, as NVTX 
 ExtendedDescription: |
   Command line options:
     -i | --interval  Sampling interval in microseconds (default 20000)
-    -d | --device    Interface name regex (default: up or unknown, non-loopback)
+    -d | --device    Interface name regex, matched against the whole name
+                     (default: all up or unknown, non-loopback interfaces)
     -h | --help      Print this help message
 
   Plugin arguments follow the plugin name as a comma separated list (commas only, no
@@ -17,8 +18,12 @@ ExtendedDescription: |
 
   With no --device filter, all up (or unknown) non-loopback interfaces are monitored.
   A --device regex selects interfaces by name and bypasses the up check, so an explicit
-  request is always honored.
+  request is always honored. The regex is matched against the whole interface name rather
+  than searched for inside it. For example --device=eth0 selects eth0 alone,
+  --device=eth.* selects eth0 and eth10, --device=eth[0-9] selects eth0 but not eth10,
+  and plain --device=eth selects nothing.
 ExtendedDescriptionForGui: |
   Options:
     -i | --interval  Sampling interval in microseconds (default 20000)
-    -d | --device    Interface name regex (default: up or unknown, non-loopback)
+    -d | --device    Interface name regex, matched against the whole name
+                     (default: all up or unknown, non-loopback interfaces)

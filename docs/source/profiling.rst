@@ -16,6 +16,13 @@ Command line options
   * ``-i | --interval``: Sampling interval in microseconds (default 20000, i.e. 50 Hz).
   * ``-d | --device``: Interface name regex. If not given, all up (or unknown) non-loopback interfaces are monitored. An explicit regex selects interfaces by name and bypasses the up check, so an explicit request is always honored.
 
+The ``--device`` regex is matched against the whole interface name rather than searched for inside it. A literal interface name therefore works as expected, but a bare prefix selects nothing. Examples:
+
+  * ``eth0`` selects ``eth0`` alone. This is the common case.
+  * ``eth.*`` selects ``eth0``, ``eth1``, ``eth10``, etc.
+  * ``eth[0-9]`` selects ``eth0`` and ``eth1``, but not ``eth10``, because the character class matches a single digit. Use ``eth[0-9]+`` or ``eth.*`` on hosts with 10 or more interfaces.
+  * ``eth`` selects nothing, since no interface is named exactly ``eth``.
+
 On the nsys command line, plugin arguments follow the plugin name as a comma separated list. These are equivalent:
 
 .. code-block:: bash

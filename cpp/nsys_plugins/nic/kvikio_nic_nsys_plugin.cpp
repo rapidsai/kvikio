@@ -77,11 +77,19 @@ constexpr nvtxSemanticsCounter_t rate_semantics{
 }  // namespace constants
 
 /**
+ * @brief Compiled `--device` filter and the pattern.
+ */
+struct DeviceFilter {
+  std::regex regex;     ///< Matched against the whole interface name.
+  std::string pattern;  ///< The regex source text.
+};
+
+/**
  * @brief Parsed command line configuration.
  */
 struct Config {
   std::chrono::microseconds interval{20000};  ///< Sampling interval.
-  std::optional<std::regex> device_filter;    ///< If set, monitor interfaces matching this regex.
+  std::optional<DeviceFilter> device_filter;  ///< If set, monitor interfaces matching this regex.
 };
 
 /**
@@ -95,8 +103,13 @@ struct Config {
   std::fprintf(stderr,
                "Usage: %s [options]\n"
                "  -i | --interval  Sampling interval in microseconds (default 20000)\n"
-               "  -d | --device    Interface name regex (default: up or unknown, non-loopback)\n"
-               "  -h | --help      Print this help message\n",
+               "  -d | --device    Interface name regex, matched against the whole name\n"
+               "                   (default: all up or unknown, non-loopback interfaces)\n"
+               "  -h | --help      Print this help message\n"
+               "\n"
+               "The --device regex must match the whole interface name. For example 'eth0'\n"
+               "selects eth0 alone, 'eth.*' selects eth0 and eth10, 'eth[0-9]' selects eth0\n"
+               "but not eth10, and plain 'eth' selects nothing.\n",
                prog);
   std::exit(code);
 }
@@ -179,7 +192,7 @@ Config parse_args(int argc, char** argv)
     } else if (name == "-d" || name == "--device") {
       auto const value = take_value();
       try {
-        config.device_filter = std::regex{value};
+        config.device_filter = DeviceFilter{std::regex{value}, value};
       } catch (std::regex_error const& e) {
         std::fprintf(
           stderr, "kvikio_nic: invalid device regex '%s' (%s)\n", value.c_str(), e.what());
@@ -195,26 +208,41 @@ Config parse_args(int argc, char** argv)
 }
 
 /**
- * @brief Choose the interfaces to monitor.
+ * @brief List every interface under `/sys/class/net`.
  *
- * @param config Parsed configuration.
- * @return With no `--device` filter, all up or unknown, non-loopback interfaces. With a filter, all
- * interfaces whose name matches the regex, bypassing the up check so an explicit request is
- * honored. Sorted for a stable order.
+ * @return All interface names, sorted for a stable order. Empty if the directory is unreadable.
  */
-std::vector<std::string> select_interfaces(Config const& config)
+std::vector<std::string> all_interface_names()
 {
-  if (!config.device_filter.has_value()) { return default_interfaces(); }
   std::vector<std::string> result;
   std::error_code ec;
   std::filesystem::directory_iterator it{
     std::filesystem::path{kvikio::nsys_plugin::constants::sysfs_net}, ec};
   if (ec) { return result; }
   for (auto const& entry : it) {
-    auto name = entry.path().filename().string();
-    if (std::regex_match(name, config.device_filter.value())) { result.push_back(std::move(name)); }
+    result.push_back(entry.path().filename().string());
   }
   std::sort(result.begin(), result.end());
+  return result;
+}
+
+/**
+ * @brief Choose the interfaces to monitor.
+ *
+ * @param config Parsed configuration.
+ * @return With no `--device` filter, all up or unknown, non-loopback interfaces. With a filter, all
+ * interfaces whose whole name matches the regex (`std::regex_match`, not a substring search),
+ * bypassing the up check so an explicit request is honored. Sorted for a stable order.
+ */
+std::vector<std::string> select_interfaces(Config const& config)
+{
+  if (!config.device_filter.has_value()) { return default_interfaces(); }
+  std::vector<std::string> result;
+  for (auto& name : all_interface_names()) {
+    if (std::regex_match(name, config.device_filter.value().regex)) {
+      result.push_back(std::move(name));
+    }
+  }
   return result;
 }
 
@@ -368,7 +396,22 @@ int main(int argc, char** argv)
   auto const config = parse_args(argc, argv);
   auto interfaces   = select_interfaces(config);
   if (interfaces.empty()) {
-    std::fprintf(stderr, "kvikio_nic: no matching network interfaces to monitor.\n");
+    if (config.device_filter.has_value()) {
+      std::string available;
+      for (auto const& name : all_interface_names()) {
+        if (!available.empty()) { available += ", "; }
+        available += name;
+      }
+      if (available.empty()) { available = "none"; }
+      std::fprintf(stderr,
+                   "kvikio_nic: no interface name fully matches regex '%s'. The regex must match "
+                   "the whole name, so use 'eth.*' rather than 'eth'. Available interfaces are "
+                   "%s.\n",
+                   config.device_filter.value().pattern.c_str(),
+                   available.c_str());
+    } else {
+      std::fprintf(stderr, "kvikio_nic: no up, non-loopback network interfaces to monitor.\n");
+    }
     return constants::exit_no_interfaces;
   }
 
