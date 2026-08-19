@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <charconv>
 #include <chrono>
 #include <csignal>
@@ -54,7 +55,7 @@ struct kvikio_nic_domain {
 };
 
 // Set from a signal handler for a clean shutdown.
-volatile std::sig_atomic_t g_stop = 0;
+std::atomic_flag g_stop;  // Lock-free. Default constructed to false.
 
 namespace constants {
 // Exit codes
@@ -300,11 +301,9 @@ class BandwidthCollector {
   }
 
   /**
-   * @brief Run the sampling loop until @p stop becomes nonzero.
-   *
-   * @param stop Stop flag, set asynchronously by the signal handler.
+   * @brief Run the sampling loop until `g_stop` becomes true.
    */
-  void run(volatile std::sig_atomic_t const& stop) const
+  void run() const
   {
     auto const& interfaces = _reader.interfaces();
     std::fprintf(stderr,
@@ -317,7 +316,7 @@ class BandwidthCollector {
     auto prev_time     = clock::now();
     auto next_deadline = prev_time;
 
-    while (stop == 0) {
+    while (!g_stop.test(std::memory_order_relaxed)) {
       // Use sleep_until (instead of sleep_for) to minimize sampling frequency drift.
       // A signal does not interrupt the sleep.
       next_deadline += _interval;
@@ -354,13 +353,14 @@ class BandwidthCollector {
 
 }  // namespace
 
-// C language linkage (extern) to be standard conformant.
-// Also internal linkage (static) as a good practice.
 // nsys stops the collector by sending SIGTERM (then SIGKILL after a grace period). Catch it so the
 // loop breaks and the process exits cleanly with code 0 instead of an abnormal termination. Also
 // catch SIGINT to have the same clean exit for Ctrl-C.
 extern "C" {
-static void kvikio_nic_handle_signal(int /*signum*/) { g_stop = 1; }
+static void kvikio_nic_handle_signal(int /*signum*/)
+{
+  g_stop.test_and_set(std::memory_order_relaxed);
+}
 }
 
 int main(int argc, char** argv)
@@ -376,6 +376,6 @@ int main(int argc, char** argv)
   std::signal(SIGINT, kvikio_nic_handle_signal);
 
   BandwidthCollector const collector{std::move(interfaces), config.interval};
-  collector.run(g_stop);
+  collector.run();
   return constants::exit_success;
 }
