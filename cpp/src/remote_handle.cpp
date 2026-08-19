@@ -23,6 +23,7 @@
 #include <kvikio/detail/io_event_barrier.hpp>
 #include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/detail/stream.hpp>
@@ -722,7 +723,7 @@ RemoteHandle RemoteHandle::open(std::string const& url,
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
-  : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
+  : _endpoint{std::move(endpoint)}, _nbytes{nbytes}, _source{_endpoint->str()}
 {
   KVIKIO_NVTX_FUNC_RANGE();
 }
@@ -732,6 +733,7 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   KVIKIO_NVTX_FUNC_RANGE();
   _nbytes   = endpoint->get_file_size();
   _endpoint = std::move(endpoint);
+  _source   = _endpoint->str();
 }
 
 RemoteEndpointType RemoteHandle::remote_endpoint_type() const noexcept
@@ -775,20 +777,57 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 }
 }  // namespace detail
 
+namespace {
+
+/// WebHDFS is its own backend; everything else this handle speaks is HTTP(S), S3 included.
+[[nodiscard]] IoBackend remote_io_backend_of(RemoteEndpoint const& endpoint) noexcept
+{
+  return endpoint.remote_endpoint_type() == RemoteEndpointType::WEBHDFS ? IoBackend::REMOTE_HDFS
+                                                                        : IoBackend::REMOTE_HTTP;
+}
+
+}  // namespace
+
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
+  if (size == 0) { return 0; }
+  // Before the buffer is classified and before any monitor is told: a call rejected on its
+  // arguments never became an I/O operation.
+  expect_read_in_bounds(size, file_offset);
 
+  detail::expect_not_in_monitor();
+  bool const is_host_mem = is_host_memory(buf);
+  detail::LogicalObservationRecorder recorder{remote_io_backend_of(*_endpoint),
+                                              TransferDirection::READ,
+                                              is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+                                              file_offset,
+                                              size,
+                                              _source,
+                                              "GET"};
+  auto const nbytes = read_impl(buf, size, file_offset, is_host_mem);
+  recorder.finish(nbytes);
+  return nbytes;
+}
+
+void RemoteHandle::expect_read_in_bounds(std::size_t size, std::size_t file_offset) const
+{
+  if (!is_read_out_of_bounds(file_offset, size, _nbytes)) { return; }
+  std::stringstream ss;
+  ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
+     << " bytes file (" << _endpoint->str() << ")";
+  KVIKIO_FAIL(ss.str(), std::invalid_argument);
+}
+
+std::size_t RemoteHandle::read_impl(void* buf,
+                                    std::size_t size,
+                                    std::size_t file_offset,
+                                    bool is_host_mem)
+{
   if (size == 0) { return 0; }
 
-  if (is_read_out_of_bounds(file_offset, size, _nbytes)) {
-    std::stringstream ss;
-    ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
-       << " bytes file (" << _endpoint->str() << ")";
-    KVIKIO_FAIL(ss.str(), std::invalid_argument);
-  }
-  bool const is_host_mem = is_host_memory(buf);
-  auto curl              = create_curl_handle();
+  expect_read_in_bounds(size, file_offset);
+  auto curl = create_curl_handle();
   _endpoint->setopt(curl);
   _endpoint->setup_range_request(curl, file_offset, size);
 
@@ -834,31 +873,62 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (size == 0) { return make_ready_future(static_cast<std::size_t>(0)); }
+  expect_read_in_bounds(size, file_offset);
 
-  auto const io_backend = defaults::remote_io_backend();
+  detail::expect_not_in_monitor();
+  bool const is_host_mem = is_host_memory(buf);
+  auto const io_backend  = defaults::remote_io_backend();
 
+  // Everything that can reject the call is checked before the recorder exists, so a call that never
+  // reaches the I/O is not observed. The bounds check above does the same.
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
     KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
-    auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-
-    auto task = [this](void* devPtr_base,
-                       std::size_t size,
-                       std::size_t file_offset,
-                       std::size_t devPtr_offset) -> std::size_t {
-      return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
-    };
-    return detail::parallel_io(
-      task,
-      buf,
-      size,
-      file_offset,
-      task_size,
-      0,
-      {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+  } else {
+    KVIKIO_EXPECT(io_backend == RemoteIOBackend::MULTI_POLL,
+                  "Unknown RemoteIOBackend value",
+                  std::runtime_error);
+    if (!is_host_mem) {
+      KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
+                    "MULTI_POLL backend with a device buffer requires task_size <= "
+                    "KVIKIO_BOUNCE_BUFFER_SIZE. Lower KVIKIO_TASK_SIZE or raise "
+                    "KVIKIO_BOUNCE_BUFFER_SIZE.",
+                    std::invalid_argument);
+    }
   }
 
-  KVIKIO_EXPECT(
-    io_backend == RemoteIOBackend::MULTI_POLL, "Unknown RemoteIOBackend value", std::runtime_error);
+  auto recorder = detail::monitoring_enabled()
+                    ? std::make_shared<detail::LogicalObservationRecorder>(
+                        remote_io_backend_of(*_endpoint),
+                        TransferDirection::READ,
+                        is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+                        file_offset,
+                        size,
+                        _source,
+                        "GET")
+                    : nullptr;
+
+  if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
+    auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+
+    auto task = [this, is_host_mem](void* devPtr_base,
+                                    std::size_t size,
+                                    std::size_t file_offset,
+                                    std::size_t devPtr_offset) -> std::size_t {
+      return read_impl(
+        static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset, is_host_mem);
+    };
+    return detail::parallel_io(task,
+                               buf,
+                               size,
+                               file_offset,
+                               task_size,
+                               0,
+                               {.thread_pool = thread_pool,
+                                .call_idx    = call_idx,
+                                .nvtx_color  = nvtx_color,
+                                .recorder    = recorder});
+  }
 
   // MULTI_POLL path. The lifecycle of one pread() call uses four cooperating pieces:
   // - One `RemoteMultiAggregateContext` per pread(). It owns the std::promise that the
@@ -874,26 +944,10 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   //   of them fails).
   //
   // Build all N transfers here, then hand them off in a single pool call.
-  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
-  if (is_read_out_of_bounds(file_offset, size, _nbytes)) {
-    std::stringstream ss;
-    ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
-       << " bytes file (" << _endpoint->str() << ")";
-    KVIKIO_FAIL(ss.str(), std::invalid_argument);
-  }
-
-  bool const is_host_mem = is_host_memory(buf);
-  if (!is_host_mem) {
-    KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
-                  "MULTI_POLL backend with a device buffer requires task_size <= "
-                  "KVIKIO_BOUNCE_BUFFER_SIZE. Lower KVIKIO_TASK_SIZE or raise "
-                  "KVIKIO_BOUNCE_BUFFER_SIZE.",
-                  std::invalid_argument);
-  }
-
   std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
-  auto aggregate = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
-  auto fut       = aggregate->get_future();
+  auto aggregate      = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
+  aggregate->recorder = recorder;
+  auto fut            = aggregate->get_future();
 
   std::shared_ptr<detail::IoEventBarrier> io_event_barrier;
   if (!is_host_mem) {
