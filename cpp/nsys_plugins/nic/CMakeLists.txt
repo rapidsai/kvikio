@@ -5,12 +5,9 @@
 # cmake-format: on
 # =============================================================================
 
-# The plugin is a standalone Nsight Systems collector. It reads NVTX headers only (header-only) and
-# libdl, so it deliberately does not link libkvikio and is fully relocatable.
+# The plugin is a standalone executable, and does not link libkvikio.
 set(NSYS_PLUGIN_INSTALL_DIR share/kvikio/nsys-plugins/kvikio_nic)
 
-# The NIC-reading core (nic_monitor.cpp) is compiled directly into the plugin so it links no shared
-# library beyond NVTX (header-only) and libdl.
 add_executable(kvikio_nic_nsys_plugin kvikio_nic_nsys_plugin.cpp nic_monitor.cpp)
 
 set_target_properties(
