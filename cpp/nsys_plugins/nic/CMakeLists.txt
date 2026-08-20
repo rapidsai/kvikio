@@ -17,7 +17,9 @@ set_target_properties(
              INSTALL_RPATH ""
 )
 
-target_link_libraries(kvikio_nic_nsys_plugin PRIVATE nvtx3::nvtx3-cpp ${CMAKE_DL_LIBS})
+target_link_libraries(
+  kvikio_nic_nsys_plugin PRIVATE nvtx3::nvtx3-cpp Threads::Threads ${CMAKE_DL_LIBS}
+)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_compile_options(
