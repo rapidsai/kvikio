@@ -14,7 +14,7 @@ KvikIO is a part of the `RAPIDS <https://rapids.ai/>`_ suite of open-source soft
 
 
 Contents
---------
+========
 
 .. toctree::
    :maxdepth: 1
@@ -27,4 +27,10 @@ Contents
    statistics
    runtime_settings
    api
-   genindex
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
