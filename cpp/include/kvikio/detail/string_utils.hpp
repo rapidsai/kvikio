@@ -24,9 +24,6 @@ enum class TrimZeroFraction : std::uint8_t {
  * Converts a byte count into a scaled string representation using binary (base-1024) units such
  * as KiB, MiB and GiB.
  *
- * Negative values are supported and are formatted with a leading minus sign, which is useful when
- * representing signed byte deltas.
- *
  * Examples:
  *   - 1024 bytes with 2 decimals gives `"1 KiB"`, or `"1.00 KiB"` when the fraction is kept.
  *   - 1536 bytes with 2 decimals gives `"1.50 KiB"`.

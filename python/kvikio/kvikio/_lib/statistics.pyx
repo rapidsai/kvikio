@@ -38,8 +38,8 @@ cdef extern from "<chrono>" nogil:
     )
 
 
-# In the order of `kvikio::IoBackend`, which is what the arrays above are indexed by.
-_BACKEND_NAMES = ("POSIX", "GDS", "MMAP", "REMOTE_HTTP", "REMOTE_HDFS")
+cdef extern from "<kvikio/observation.hpp>" namespace "kvikio" nogil:
+    const size_t num_io_backends
 
 
 cdef extern from "<kvikio/statistics/summary.hpp>" nogil:
@@ -87,9 +87,18 @@ cdef extern from *:
     #include <string>
     #include <vector>
 
+    #include <kvikio/observation.hpp>
     #include <kvikio/statistics/summary.hpp>
 
+    // `by_backend` below is declared with a literal length.
+    static_assert(kvikio::num_io_backends == 5, "update `by_backend` in statistics.pyx");
+
     namespace {
+    std::string kvikio_backend_name(std::size_t index)
+    {
+      return std::string{kvikio::to_string(static_cast<kvikio::IoBackend>(index))};
+    }
+
     std::string kvikio_summary_to_bytes(kvikio::statistics::Summary const& summary)
     {
       auto const bytes = summary.serialize();
@@ -104,8 +113,14 @@ cdef extern from *:
     }
     }  // namespace
     """
+    string kvikio_backend_name(size_t index) except +
     string kvikio_summary_to_bytes(const cpp_Summary& summary) except +
     cpp_Summary kvikio_summary_from_bytes(const string& bytes) except +
+
+
+# The names the C++ report prints, in the order of `kvikio::IoBackend`, which is what
+# `by_backend` is indexed by.
+_BACKEND_NAMES = tuple(kvikio_backend_name(i).decode() for i in range(num_io_backends))
 
 
 cdef class Summary:
