@@ -237,7 +237,8 @@ struct Summary {
  * `kvikio::Monitor` for what is left out. A program doing all its I/O that way reports zero
  * operations.
  *
- * Thread-safe: `get()` and `reset()` may be called while I/O is in flight.
+ * Thread-safe: `get()`, `reset()` and `stop()` may be called from any thread while I/O is in
+ * flight.
  *
  * ### Overhead
  *
@@ -336,6 +337,8 @@ class SummaryMonitor final : private kvikio::Monitor {
   /**
    * @brief Stop counting. Idempotent, and one-way, there is no resuming.
    *
+   * Safe to call from more than one thread, where the totals are final once any of them returns.
+   *
    * The totals are final once this returns, and `get()` keeps returning them. The measured span
    * ends here too, so `wall()` and `busy_fraction()` describe the interval that was measured and
    * do not drift as the process goes on to do other things.
@@ -348,6 +351,10 @@ class SummaryMonitor final : private kvikio::Monitor {
   void on_finish(Observation const& observation) noexcept override;
 
   mutable std::mutex _mutex;
+
+  /// Serializes `stop()`, which cannot use `_mutex`, since `unregister_monitor()` waits for
+  /// notifications that take it.
+  std::mutex _stopping;
 
   /**
    * @brief What every reading is a copy of.
@@ -370,7 +377,7 @@ class SummaryMonitor final : private kvikio::Monitor {
   /// span.
   TimePoint _stopped_end{};
 
-  /// Registration with the observation facility, or 0 once stopped.
+  /// Registration with the observation facility, or 0 once stopped. Guarded by `_stopping`.
   std::uint64_t _registration{0};
 
   /// Handed the final totals by the destructor, or empty.

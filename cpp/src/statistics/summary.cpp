@@ -419,6 +419,7 @@ void SummaryMonitor::reset()
 
 void SummaryMonitor::stop()
 {
+  std::lock_guard const stopping{_stopping};
   if (_registration == 0) { return; }
   // Waits for a notification in progress, so once this returns no thread is inside this object.
   unregister_monitor(_registration);

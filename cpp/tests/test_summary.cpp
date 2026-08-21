@@ -570,6 +570,32 @@ TEST_F(SummaryTest, stop_freezes_the_totals_and_the_span)
   EXPECT_EQ(monitor.since(first).end, first.end);
 }
 
+TEST_F(SummaryTest, stopping_from_several_threads_at_once_is_safe)
+{
+  // A monitor shared between threads can be stopped by any of them, and the totals are final once
+  // any one of the calls returns.
+  std::vector<std::uint64_t> buffer(_data.size());
+  SummaryMonitor monitor;
+  {
+    kvikio::FileHandle f{_filepath, "r"};
+    f.pread(buffer.data(), nbytes(), 0).get();
+  }
+
+  std::vector<std::thread> threads;
+  threads.reserve(8);
+  for (int i = 0; i < 8; ++i) {
+    threads.emplace_back([&monitor] { monitor.stop(); });
+  }
+  for (auto& thread : threads) {
+    thread.join();
+  }
+
+  auto const s = monitor.get();
+  EXPECT_EQ(s.num_ops, 1);
+  EXPECT_EQ(s.bytes_transferred, nbytes());
+  EXPECT_LE(s.busy, s.wall());
+}
+
 TEST_F(SummaryTest, a_monitor_reports_itself_on_destruction)
 {
   std::vector<std::uint64_t> buffer(_data.size());
