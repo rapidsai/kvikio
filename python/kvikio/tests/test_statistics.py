@@ -48,6 +48,22 @@ def test_counts_the_calls_it_spans(a_file, tmp_path):
     assert summary.bytes_read + summary.bytes_written == summary.bytes_transferred
 
 
+def test_a_failed_call_is_counted_as_an_error(a_file):
+    path, nbytes = a_file
+    buffer = np.empty(nbytes // 8, dtype="u8")
+
+    monitor = kvikio.SummaryMonitor()
+    with pytest.raises(RuntimeError):
+        with kvikio.CuFile(path, "r") as f:
+            f.write(buffer)
+    summary = monitor.get()
+
+    assert summary.num_ops == 1
+    assert summary.num_errors == 1
+    assert summary.bytes_transferred == 0, "a failed call moved nothing"
+    assert sum(b["num_errors"] for b in summary.by_backend.values()) == 1
+
+
 def test_monitors_are_independent(a_file):
     path, nbytes = a_file
     buffer = np.empty(nbytes // 8, dtype="u8")
@@ -61,8 +77,13 @@ def test_monitors_are_independent(a_file):
     assert outer.get().num_ops == 2
     assert inner.get().num_ops == 1, "the read before the monitor was counted"
 
+    before_reset = outer.get()
     outer.reset()
-    assert outer.get().num_ops == 0
+    after_reset = outer.get()
+    assert after_reset.num_ops == 0
+    assert after_reset.start_unix_ns > before_reset.start_unix_ns, (
+        "the span did not restart"
+    )
     assert inner.get().num_ops == 1, "resetting one must not touch the other"
 
 
@@ -79,6 +100,8 @@ def test_context_manager_stops_on_exit(a_file):
     with kvikio.CuFile(path, "r") as f:
         f.read(buffer)
     assert monitor.get().num_ops == 1, "counting continued after the block"
+    monitor.stop()  # Idempotent, and the block already stopped it.
+    assert monitor.get().num_ops == 1
     # The span ended with the block, so a later reading describes the same interval.
     assert monitor.get().end_unix_ns == counted.end_unix_ns
     assert monitor.get().wall_ns == counted.wall_ns
@@ -169,6 +192,8 @@ def test_report_formats(a_file):
     assert parsed["bytes_transferred"] == nbytes
     assert parsed["bytes_read"] == nbytes
     assert parsed["total_duration_ns"] > 0
+    assert set(parsed["by_backend"]) == set(summary.by_backend)
+    assert len(summary.by_backend) == 5
 
     assert "num_ops=1" in repr(summary)
 

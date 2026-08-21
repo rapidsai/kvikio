@@ -258,7 +258,7 @@ class SummaryMonitor:
     resetting one has no effect on the others.
     """
 
-    __slots__ = "_handle"
+    __slots__ = ("_handle",)
 
     def __init__(self):
         """Create a monitor and begin counting"""
@@ -292,6 +292,12 @@ class SummaryMonitor:
         -------
         Summary
             The interval's totals, spanning ``[previous.end_unix_ns, now)``.
+
+        Raises
+        ------
+        ValueError
+            If ``previous`` is not an earlier reading of this monitor's current span.
+            See :meth:`Summary.since`.
         """
         return Summary._from_handle(self._handle.since(previous._handle))
 

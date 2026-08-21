@@ -190,17 +190,25 @@ cdef class SummaryMonitor:
 
     cdef unique_ptr[cpp_SummaryMonitor] _handle
 
-    def __init__(self):
+    def __cinit__(self):
         self._handle = make_unique[cpp_SummaryMonitor]()
 
     def get(self) -> Summary:
-        return Summary._from_cpp(self._handle.get().get())
+        cdef cpp_Summary summary
+        with nogil:
+            summary = self._handle.get().get()
+        return Summary._from_cpp(summary)
 
     def reset(self) -> None:
-        self._handle.get().reset()
+        with nogil:
+            self._handle.get().reset()
 
     def since(self, Summary previous not None) -> Summary:
-        return Summary._from_cpp(self._handle.get().since(previous._handle))
+        cdef cpp_Summary summary
+        with nogil:
+            summary = self._handle.get().since(previous._handle)
+        return Summary._from_cpp(summary)
 
     def stop(self) -> None:
-        self._handle.get().stop()
+        with nogil:
+            self._handle.get().stop()

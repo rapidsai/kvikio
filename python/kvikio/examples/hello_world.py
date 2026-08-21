@@ -38,7 +38,7 @@ def main(path):
     assert all(a == d)
 
     # Five calls, one write and four reads, however many reads KvikIO issued underneath.
-    # the two `pread()`s above are one operation each, not one per thread-pool task.
+    # The two `pread()`s above are one operation each, not one per thread-pool task.
     summary = monitor.get()
     assert summary.num_ops == 5
     print(summary)
