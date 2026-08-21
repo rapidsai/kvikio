@@ -12,6 +12,15 @@ import pytest
 import kvikio
 
 
+def written_buffer(nbytes):
+    """A buffer for a test that writes it out.
+
+    Zeroed rather than `np.empty()`, or valgrind reports the uninitialised bytes reaching
+    `pwrite()`, which they do.
+    """
+    return np.zeros(nbytes // 8, dtype="u8")
+
+
 @pytest.fixture
 def a_file(tmp_path):
     """A file with 1 MiB of data in it, and the number of bytes."""
@@ -24,7 +33,7 @@ def a_file(tmp_path):
 
 def test_counts_the_calls_it_spans(a_file, tmp_path):
     path, nbytes = a_file
-    buffer = np.empty(nbytes // 8, dtype="u8")
+    buffer = written_buffer(nbytes)
 
     monitor = kvikio.SummaryMonitor()
     with kvikio.CuFile(tmp_path / "written", "w") as f:
@@ -50,7 +59,7 @@ def test_counts_the_calls_it_spans(a_file, tmp_path):
 
 def test_a_failed_call_is_counted_as_an_error(a_file):
     path, nbytes = a_file
-    buffer = np.empty(nbytes // 8, dtype="u8")
+    buffer = written_buffer(nbytes)
 
     monitor = kvikio.SummaryMonitor()
     with pytest.raises(RuntimeError):
