@@ -116,6 +116,25 @@ def test_context_manager_stops_on_exit(a_file):
     assert monitor.get().wall_ns == counted.wall_ns
 
 
+def test_a_summary_is_hashable(a_file):
+    path, nbytes = a_file
+    buffer = np.empty(nbytes // 8, dtype="u8")
+
+    monitor = kvikio.SummaryMonitor()
+    with kvikio.CuFile(path, "r") as f:
+        f.read(buffer)
+    summary = monitor.get()
+    monitor.stop()
+
+    # `by_backend` is a dict, so it is excluded from the hash. Equal summaries
+    # must still hash equal, which is the part that matters.
+    same = kvikio.Summary.deserialize(summary.serialize())
+    assert summary == same
+    assert hash(summary) == hash(same)
+    assert len({summary, same}) == 1
+    assert {summary: "value"}[same] == "value"
+
+
 def test_a_summary_survives_a_round_trip_through_bytes(a_file):
     path, nbytes = a_file
     buffer = np.empty(nbytes // 8, dtype="u8")

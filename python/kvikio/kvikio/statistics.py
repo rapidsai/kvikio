@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, TypedDict
 
 from kvikio._lib import statistics as _statistics  # type: ignore
@@ -84,12 +84,16 @@ class Summary:
     contribute.
     """
 
-    by_backend: dict[str, BackendTotals]
+    by_backend: dict[str, BackendTotals] = field(hash=False)
     """What each backend carried, keyed by the backend's name
 
     The totals partition the summary's own, every operation belonging to exactly one
     backend. There is no per-backend busy time, that being a union over wall time which
     two backends running at once would both claim.
+
+    Excluded from :func:`hash` as the only unhashable field, and only from that. It
+    still takes part in ``==``, so two summaries that differ here are unequal, they
+    merely share a hash bucket.
     """
 
     wall_ns: int
