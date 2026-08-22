@@ -156,7 +156,7 @@ std::optional<long> connection_cache_size(
 {
   if (!max_concurrent_requests.has_value()) { return std::nullopt; }
 
-  // libcurl documents this option as taking a `long`, and the value is internally store as an
+  // libcurl documents this option as taking a `long`, and the value is internally stored as an
   // `unsigned int`. So we cap at whichever of UINT_MAX and LONG_MAX is smaller.
   constexpr auto uint_max = static_cast<std::size_t>(std::numeric_limits<unsigned>::max());
   constexpr auto long_max = static_cast<std::size_t>(std::numeric_limits<long>::max());
