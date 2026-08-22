@@ -130,7 +130,7 @@ TEST(ConnectionCacheSize, never_exceeds_what_libcurl_accepts)
                           std::numeric_limits<std::size_t>::max() / 2,
                           static_cast<std::size_t>(limit),
                           static_cast<std::size_t>(limit) / 2 + 1};
-  for (const auto ceiling : ceilings) {
+  for (auto const ceiling : ceilings) {
     auto const size = kvikio::detail::connection_cache_size(std::optional<std::size_t>{ceiling});
     ASSERT_TRUE(size.has_value()) << "ceiling: " << ceiling;
     EXPECT_LE(size.value(), limit) << "ceiling: " << ceiling;
