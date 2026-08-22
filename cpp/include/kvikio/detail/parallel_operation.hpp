@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -15,6 +15,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
@@ -94,7 +95,7 @@ std::future<std::size_t> submit_task(F op,
                                       decltype(size),
                                       decltype(file_offset),
                                       decltype(devPtr_offset)>);
-
+  expect_not_in_monitor();
   return opts.thread_pool->submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", opts.nvtx_payload, opts.nvtx_color);
     return op(buf, size, file_offset, devPtr_offset);
@@ -112,6 +113,7 @@ template <typename F>
 std::future<std::size_t> submit_move_only_task(F op_move_only, TaskOptions opts = {})
 {
   static_assert(std::is_invocable_r_v<std::size_t, F>);
+  expect_not_in_monitor();
   auto op_copyable = make_copyable_lambda(std::move(op_move_only));
   return opts.thread_pool->submit_task([=] {
     KVIKIO_NVTX_SCOPED_RANGE("task", opts.nvtx_payload, opts.nvtx_color);
@@ -134,6 +136,9 @@ struct ParallelIoOptions {
   /// Size of the first task in bytes. If set, the first task uses this size instead of `task_size`,
   /// allowing callers to align subsequent tasks to page boundaries.
   std::optional<std::size_t> first_task_size = std::nullopt;
+  /// Records the logical operation these tasks make up. Null when nobody is observing. The task
+  /// that completes the work finishes it, so the observation lands before the caller's future.
+  std::shared_ptr<LogicalObservationRecorder> recorder = nullptr;
 
   TaskOptions to_task_options() const noexcept
   {
@@ -176,7 +181,22 @@ std::future<std::size_t> parallel_io(F op,
 
   // Single-task guard
   if (task_size >= size || get_page_size() >= size) {
-    return detail::submit_task(op, buf, size, file_offset, devPtr_offset, opts.to_task_options());
+    if (!opts.recorder) {
+      return detail::submit_task(op, buf, size, file_offset, devPtr_offset, opts.to_task_options());
+    }
+    auto single_task = [op, rec = opts.recorder](
+                         T b, std::size_t s, std::size_t fo, std::size_t dpo) -> std::size_t {
+      try {
+        auto const nbytes = op(b, s, fo, dpo);
+        rec->finish(nbytes);
+        return nbytes;
+      } catch (...) {
+        rec->finish_with_failure();
+        throw;
+      }
+    };
+    return detail::submit_task(
+      single_task, buf, size, file_offset, devPtr_offset, opts.to_task_options());
   }
 
   std::vector<std::future<std::size_t>> tasks;
@@ -202,12 +222,30 @@ std::future<std::size_t> parallel_io(F op,
 
   // 3) Submit the last task, which consists of performing the last I/O and waiting the previous
   // tasks.
-  auto last_task = [=, tasks = std::move(tasks)]() mutable -> std::size_t {
-    auto ret = op(buf, size, file_offset, devPtr_offset);
-    for (auto& task : tasks) {
-      ret += task.get();
+  auto last_task = [=, tasks = std::move(tasks), rec = opts.recorder]() mutable -> std::size_t {
+    // This task both performs the final part and waits for the others, so it is where the logical
+    // operation actually completes, and therefore where its observation is emitted.
+    try {
+      auto ret = op(buf, size, file_offset, devPtr_offset);
+      for (auto& task : tasks) {
+        ret += task.get();
+      }
+      if (rec) { rec->finish(ret); }
+      return ret;
+    } catch (...) {
+      // The other tasks may still be running. Wait for them, so the operation really is over both
+      // when the exception reaches the caller and when the failure is reported.
+      for (auto& task : tasks) {
+        if (!task.valid()) { continue; }
+        try {
+          task.get();
+        } catch (...) {  // NOLINT(bugprone-empty-catch)
+          // The first failure is the one that is propagated.
+        }
+      }
+      if (rec) { rec->finish_with_failure(); }
+      throw;
     }
-    return ret;
   };
   return detail::submit_move_only_task(std::move(last_task), opts.to_task_options());
 }

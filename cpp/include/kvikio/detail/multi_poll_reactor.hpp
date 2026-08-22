@@ -23,6 +23,7 @@
 #include <kvikio/detail/concurrent_request_limiter.hpp>
 #include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/io_event_barrier.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cuda.hpp>
@@ -69,6 +70,11 @@ class RemoteMultiAggregateContext {
    * @brief Per-pread event barrier for the device-buffer path.
    */
   std::shared_ptr<IoEventBarrier> io_event_barrier;
+
+  /**
+   * @brief Records the logical operation these sub-ranges make up. Null when nobody is observing.
+   */
+  std::shared_ptr<LogicalObservationRecorder> recorder;
 
   /**
    * @brief Report that one sub-range transfer succeeded.
