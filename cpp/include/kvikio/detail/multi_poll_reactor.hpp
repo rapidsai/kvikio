@@ -35,6 +35,18 @@ class MultiReactorPool;  // Forward declaration, because reactors needs to hold 
                          // the pool.
 
 /**
+ * @brief Given the max concurrent request cap for a reactor, derive the size of the libcurl
+ * connection cache (`CURLMOPT_MAXCONNECTS`).
+ *
+ * @param max_concurrent_requests This reactor's private share of the total concurrent-request
+ * budget (the global cap divided across reactors). `std::nullopt` means unlimited.
+ * @return The value to pass to `CURLMOPT_MAXCONNECTS`. `std::nullopt` if @p max_concurrent_requests
+ * is `std::nullopt` (unlimited concurrency).
+ */
+[[nodiscard]] std::optional<long> connection_cache_size(
+  std::optional<std::size_t> max_concurrent_requests) noexcept;
+
+/**
  * @brief Collects results from N sub-range transfers and resolves one top-level future once all of
  * them have either succeeded or one has failed.
  *
@@ -234,6 +246,21 @@ class MultiPollReactor {
   void wakeup() noexcept;
 
  private:
+  /**
+   * @brief Set this reactor's libcurl connection cache (`CURLMOPT_MAXCONNECTS`).
+   *
+   * By default libcurl sets `CURLMOPT_MAXCONNECTS` to 4 x the number of easy handles attached to a
+   * multi handle. This is recomputed on every transition, and a transient dip in concurrency will
+   * cause libcurl to evict warm, reusable connections, and cause unnecessary TCP/TLS handshake.
+   * Here we pin `CURLMOPT_MAXCONNECTS` to a fixed size.
+   *
+   * @param max_concurrent_requests This reactor's private share of the total concurrent-request
+   * budget (the global cap divided across reactors). `std::nullopt` means unlimited.
+   *
+   * @exception std::runtime_error if `curl_multi_setopt` fails.
+   */
+  void set_connection_cache_size(std::optional<std::size_t> max_concurrent_requests) const;
+
   void io_thread_main();
 
   /**
