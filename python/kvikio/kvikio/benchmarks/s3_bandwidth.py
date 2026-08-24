@@ -5,11 +5,11 @@ r"""
 S3 read bandwidth benchmark for EC2.
 
 Usage:
-    python s3_bandwidth.py --backend easy_threadpool --no-gpu --submitters 48 \
+    python s3_bandwidth.py --backend easy_threadpool --no-gpu --submitters 32 \
         --window-seconds 60 --nthreads 480 \
         --url-file <(printf 's3://my-bucket/my-prefix/part.%d.parquet\n' {0..179})
 
-    python s3_bandwidth.py --backend multi_poll --no-gpu --submitters 48 \
+    python s3_bandwidth.py --backend multi_poll --no-gpu --submitters 32 \
         --window-seconds 60 --num-reactors 48 --max-concurrent-requests 480 \
         --reactor-dispatch per_chunk \
         --url-file <(printf 's3://my-bucket/my-prefix/part.%d.parquet\n' {0..179})
