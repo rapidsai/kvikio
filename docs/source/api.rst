@@ -89,3 +89,9 @@ Defaults
 .. autofunction:: set
 
 .. autofunction:: get
+
+Nsight Systems plugin
+---------------------
+.. currentmodule:: kvikio.nsys
+
+.. autofunction:: nsys_plugin_search_dir

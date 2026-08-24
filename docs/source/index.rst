@@ -26,6 +26,7 @@ Contents
    remote_file
    statistics
    runtime_settings
+   profiling
    api
 
 Indices and tables

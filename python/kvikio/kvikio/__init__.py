@@ -23,6 +23,7 @@ from kvikio.cufile import (
     get_page_cache_info,
 )
 from kvikio.mmap import Mmap
+from kvikio.nsys import nsys_plugin_search_dir
 from kvikio.remote_file import (
     RemoteEndpointType,
     RemoteFile,
@@ -45,6 +46,7 @@ __all__ = [
     "infer_remote_endpoint_type",
     "is_remote_file_available",
     "kvikio_deprecation_notice",
+    "nsys_plugin_search_dir",
     "RemoteEndpointType",
     "RemoteFile",
     "Summary",
