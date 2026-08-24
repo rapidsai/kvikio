@@ -24,6 +24,7 @@ Contents
    quickstart
    zarr
    remote_file
+   statistics
    runtime_settings
    api
 

@@ -70,6 +70,16 @@ RemoteFile
 .. autoclass:: RemoteFile
     :members:
 
+Statistics
+----------
+.. currentmodule:: kvikio.statistics
+
+.. autoclass:: SummaryMonitor
+    :members:
+
+.. autoclass:: Summary
+    :members:
+
 Defaults
 --------
 .. currentmodule:: kvikio.defaults
