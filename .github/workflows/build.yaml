@@ -227,6 +227,7 @@ jobs:
       publish-wheel-search-key: kvikio_wheel_python_kvikio
   devcontainers:
     name: Build devcontainers
+    if: ${{ inputs.build_type != 'release-candidate' }}
     secrets: inherit  # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/build-devcontainers.yaml@main
     permissions:
