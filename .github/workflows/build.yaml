@@ -111,18 +111,23 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@agent/shared-workflows-release-build-output-dispatch
     with:
       arch: "amd64"
       branch: ${{ inputs.branch }}
       build_type: ${{ inputs.build_type || 'branch' }}
+      candidate-docs: ${{ inputs.build_type == 'release-candidate' }}
+      candidate-cuda-version: "12.9.2"
+      candidate-python-version: "3.11"
+      candidate-train-sha256: ${{ inputs.candidate_train_sha256 }}
+      release-candidate-tag: ${{ inputs.candidate_release_tag }}
       container_image: "rapidsai/ci-conda:26.10-latest"
       date: ${{ inputs.date }}
       node_type: "gpu-l4-latest-1"
       script: "ci/build_docs.sh"
       sha: ${{ inputs.sha }}
   publish-api-docs:
-    if: github.ref_type == 'branch'
+    if: github.ref_type == 'branch' && inputs.build_type != 'release-candidate'
     needs: [docs-build]
     permissions:
       contents: read
