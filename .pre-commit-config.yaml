@@ -22,7 +22,7 @@ repos:
         args: ["--fix"]
       - id: ruff-format
   - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.15.0
+    rev: v0.21.1
     hooks:
       - id: cython-lint
   - repo: https://github.com/pre-commit/mirrors-mypy
