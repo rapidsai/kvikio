@@ -304,13 +304,30 @@ void defaults::set_remote_io_backend(RemoteIOBackend backend)
 
 unsigned int defaults::remote_io_num_reactors() { return instance()->_remote_io_num_reactors; }
 
+void defaults::set_remote_io_num_reactors(unsigned int num_reactors)
+{
+  KVIKIO_EXPECT(
+    num_reactors > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
+  instance()->_remote_io_num_reactors = num_reactors;
+}
+
 RemoteReactorDispatch defaults::remote_io_reactor_dispatch()
 {
   return instance()->_remote_io_reactor_dispatch;
 }
 
+void defaults::set_remote_io_reactor_dispatch(RemoteReactorDispatch dispatch)
+{
+  instance()->_remote_io_reactor_dispatch = dispatch;
+}
+
 std::size_t defaults::remote_io_max_concurrent_requests()
 {
   return instance()->_remote_io_max_concurrent_requests;
+}
+
+void defaults::set_remote_io_max_concurrent_requests(std::size_t max_requests)
+{
+  instance()->_remote_io_max_concurrent_requests = max_requests;
 }
 }  // namespace kvikio

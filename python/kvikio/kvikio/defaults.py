@@ -59,6 +59,9 @@ class ConfigContextManager:
             "auto_direct_io_read",
             "auto_direct_io_write",
             "remote_io_backend",
+            "remote_io_num_reactors",
+            "remote_io_reactor_dispatch",
+            "remote_io_max_concurrent_requests",
         ]
 
         property_getters = {}
@@ -129,6 +132,9 @@ def set(*config) -> ConfigContextManager:
         - ``"auto_direct_io_read"``
         - ``"auto_direct_io_write"``
         - ``"remote_io_backend"``
+        - ``"remote_io_num_reactors"``
+        - ``"remote_io_reactor_dispatch"``
+        - ``"remote_io_max_concurrent_requests"``
 
     Returns
     -------
@@ -175,6 +181,9 @@ def get(config_name: str) -> Any:
         - ``"auto_direct_io_read"``
         - ``"auto_direct_io_write"``
         - ``"remote_io_backend"``
+        - ``"remote_io_num_reactors"``
+        - ``"remote_io_reactor_dispatch"``
+        - ``"remote_io_max_concurrent_requests"``
 
     Returns
     -------

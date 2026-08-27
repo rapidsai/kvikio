@@ -184,3 +184,37 @@ def test_remote_io_backend():
             kvikio.RemoteIOBackend.EASY_THREADPOOL
         )
     assert kvikio.defaults.get("remote_io_backend") == before
+
+
+def test_remote_io_num_reactors():
+    before = kvikio.defaults.get("remote_io_num_reactors")
+
+    with kvikio.defaults.set("remote_io_num_reactors", 24):
+        assert kvikio.defaults.get("remote_io_num_reactors") == 24
+    assert kvikio.defaults.get("remote_io_num_reactors") == before
+
+
+def test_remote_io_reactor_dispatch():
+    before = kvikio.defaults.get("remote_io_reactor_dispatch")
+
+    with kvikio.defaults.set(
+        "remote_io_reactor_dispatch", kvikio.RemoteReactorDispatch.PER_PREAD
+    ):
+        assert kvikio.defaults.get("remote_io_reactor_dispatch") == (
+            kvikio.RemoteReactorDispatch.PER_PREAD
+        )
+        kvikio.defaults.set(
+            "remote_io_reactor_dispatch", kvikio.RemoteReactorDispatch.PER_CHUNK
+        )
+        assert kvikio.defaults.get("remote_io_reactor_dispatch") == (
+            kvikio.RemoteReactorDispatch.PER_CHUNK
+        )
+    assert kvikio.defaults.get("remote_io_reactor_dispatch") == before
+
+
+def test_remote_io_max_concurrent_requests():
+    before = kvikio.defaults.get("remote_io_max_concurrent_requests")
+
+    with kvikio.defaults.set("remote_io_max_concurrent_requests", 128):
+        assert kvikio.defaults.get("remote_io_max_concurrent_requests") == 128
+    assert kvikio.defaults.get("remote_io_max_concurrent_requests") == before
