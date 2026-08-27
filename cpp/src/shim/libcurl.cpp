@@ -16,6 +16,7 @@
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_share.hpp>
 #include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
@@ -103,6 +104,10 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
 
   // Make requests time out after `value` seconds.
   setopt(CURLOPT_TIMEOUT, kvikio::defaults::http_timeout());
+
+  // Resolve a hostname once per process rather than once per worker.
+  static bool const share_dns_cache = getenv_or("KVIKIO_REMOTE_SHARE_DNS_CACHE", true);
+  if (share_dns_cache) { setopt(CURLOPT_SHARE, detail::CurlShare::instance().handle()); }
 
   // Optionally enable verbose output if it's configured.
   auto const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
