@@ -491,7 +491,7 @@ class defaults {
    * @brief Set the number of reactor threads used by the `MULTI_POLL` remote I/O backend at
    * runtime, overriding `KVIKIO_REMOTE_IO_NUM_REACTORS`.
    *
-   * The pool, like the default thread pool, is created lazily on first use and is never rebuilt.
+   * The pool is created lazily on first use and is never rebuilt or resized.
    *
    * @param num_reactors The number of reactor threads. Must be a positive integer.
    *
@@ -516,7 +516,7 @@ class defaults {
    * @brief Set the reactor dispatch policy used by the `MULTI_POLL` remote I/O backend at
    * runtime, overriding `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
    *
-   * The pool, like the default thread pool, is created lazily on first use and is never rebuilt.
+   * The pool is created lazily on first use and is never rebuilt or resized.
    *
    * @param dispatch The reactor dispatch policy.
    *
@@ -549,7 +549,7 @@ class defaults {
    * under the `MULTI_POLL` remote I/O backend at runtime, overriding
    * `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`.
    *
-   * The pool, like the default thread pool, is created lazily on first use and is never rebuilt.
+   * The pool is created lazily on first use and is never rebuilt or resized.
    *
    * @param max_requests The concurrent-request ceiling. 0 means unlimited.
    *
