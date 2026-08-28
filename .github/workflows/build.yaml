@@ -31,10 +31,14 @@ on:
         description: "Canonical SHA-256 of the release train; required for release-candidate builds."
         type: string
         default: ""
-      candidate_release_tag:
-        description: "Final source tag created locally for a release-candidate build."
+      candidate_release_version:
+        description: "Exact YY.MM.PP package version for a release-candidate build."
         type: string
-        default: "v26.10.00"
+        default: ""
+      candidate_gha_tools_ref:
+        description: "Frozen gha-tools revision containing release-candidate version support."
+        type: string
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.build_type || 'branch' }}
@@ -64,7 +68,8 @@ jobs:
       script: ci/build_cpp.sh
       sha: ${{ inputs.sha }}
       candidate-train-sha256: ${{ inputs.candidate_train_sha256 }}
-      release-candidate-tag: ${{ inputs.candidate_release_tag }}
+      release-candidate-version: ${{ inputs.candidate_release_version }}
+      gha-tools-ref: ${{ inputs.candidate_gha_tools_ref }}
   python-build:
     needs: [build-details, cpp-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -85,7 +90,8 @@ jobs:
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
       candidate-train-sha256: ${{ inputs.candidate_train_sha256 }}
-      release-candidate-tag: ${{ inputs.candidate_release_tag }}
+      release-candidate-version: ${{ inputs.candidate_release_version }}
+      gha-tools-ref: ${{ inputs.candidate_gha_tools_ref }}
   upload-conda:
     needs: [cpp-build, python-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -120,7 +126,8 @@ jobs:
       candidate-cuda-version: "12.9.2"
       candidate-python-version: "3.11"
       candidate-train-sha256: ${{ inputs.candidate_train_sha256 }}
-      release-candidate-tag: ${{ inputs.candidate_release_tag }}
+      release-candidate-version: ${{ inputs.candidate_release_version }}
+      gha-tools-ref: ${{ inputs.candidate_gha_tools_ref }}
       container_image: "rapidsai/ci-conda:26.10-latest"
       date: ${{ inputs.date }}
       node_type: "gpu-l4-latest-1"
@@ -169,7 +176,8 @@ jobs:
       package-name: libkvikio
       package-type: cpp
       candidate-train-sha256: ${{ inputs.candidate_train_sha256 }}
-      release-candidate-tag: ${{ inputs.candidate_release_tag }}
+      release-candidate-version: ${{ inputs.candidate_release_version }}
+      gha-tools-ref: ${{ inputs.candidate_gha_tools_ref }}
   wheel-build-python:
     needs: [build-details, wheel-build-cpp]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -193,7 +201,8 @@ jobs:
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
       candidate-train-sha256: ${{ inputs.candidate_train_sha256 }}
-      release-candidate-tag: ${{ inputs.candidate_release_tag }}
+      release-candidate-version: ${{ inputs.candidate_release_version }}
+      gha-tools-ref: ${{ inputs.candidate_gha_tools_ref }}
   wheel-publish-cpp:
     needs: wheel-build-cpp
     secrets: inherit # zizmor: ignore[secrets-inherit]
