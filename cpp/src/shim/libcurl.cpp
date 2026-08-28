@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -24,6 +25,7 @@
 #include <kvikio/logger.hpp>
 #include <kvikio/logger_macros.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -122,6 +124,39 @@ std::string CurlHandle::error_message() const
   return std::string{_errbuf};
 }
 
+namespace detail {
+namespace {
+/// A libcurl timing in microseconds, or zero if it could not be read. libcurl fills the value in
+/// only when the call succeeds, so a failed one leaves the phase uncounted rather than garbage.
+[[nodiscard]] curl_off_t timing_of(CURL* easy, CURLINFO info) noexcept
+{
+  curl_off_t value{0};
+  if (curl_easy_getinfo(easy, info, &value) != CURLE_OK) { return 0; }
+  return value;
+}
+}  // namespace
+
+void count_http_connection_of(CURL* easy) noexcept
+{
+  using std::chrono::microseconds;
+
+  long connections{0};
+  if (curl_easy_getinfo(easy, CURLINFO_NUM_CONNECTS, &connections) != CURLE_OK) { return; }
+  // Zero means the connection was reused, so nothing was paid here.
+  if (connections <= 0) { return; }
+
+  auto const namelookup = timing_of(easy, CURLINFO_NAMELOOKUP_TIME_T);
+  auto const connect    = timing_of(easy, CURLINFO_CONNECT_TIME_T);
+  auto const appconnect = timing_of(easy, CURLINFO_APPCONNECT_TIME_T);
+
+  auto const tcp = connect > namelookup ? microseconds{connect - namelookup} : Duration::zero();
+  auto const tls = appconnect > connect ? microseconds{appconnect - connect} : Duration::zero();
+  count_http_connection(
+    static_cast<std::uint64_t>(connections), microseconds{namelookup}, tcp, tls);
+}
+
+}  // namespace detail
+
 void CurlHandle::clear_error_message() noexcept { _errbuf[0] = 0; }
 
 void CurlHandle::perform() { perform({}); }
@@ -134,6 +169,7 @@ void CurlHandle::perform(std::function<void()> const& on_retry)
   for (std::size_t attempt = 1;; ++attempt) {
     clear_error_message();
     auto const curl_code = curl_easy_perform(handle());
+    detail::count_http_connection_of(handle());
 
     long http_code = 0;
     // We had an error. Is it retryable?
@@ -145,6 +181,7 @@ void CurlHandle::perform(std::function<void()> const& on_retry)
       case detail::RetryDecision::SUCCESS: return;
       case detail::RetryDecision::RETRY:
         KVIKIO_LOG_WARN(outcome.message);
+        detail::count_http_retry(outcome.delay_ms);
         if (on_retry) { on_retry(); }
         std::this_thread::sleep_for(outcome.delay_ms);
         break;

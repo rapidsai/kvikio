@@ -153,6 +153,8 @@ kvikio_add_test(NAME SUMMARY_TEST SOURCES test_summary.cpp)
 
 kvikio_add_test(NAME STRING_UTILS_TEST SOURCES test_string_utils.cpp)
 
+kvikio_add_test(NAME COUNTERS_TEST SOURCES test_counters.cpp)
+
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
 kvikio_add_test(NAME CONCURRENT_REQUEST_LIMITER_TEST SOURCES test_concurrent_request_limiter.cpp)

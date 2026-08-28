@@ -27,10 +27,11 @@ by a person:
       bytes                3.12 KiB of 3.12 KiB requested (2.34 KiB read, 800 B written)
       errors               0
       backend POSIX        3.12 KiB in 5 ops, 5.66 ms, 565.50 kB/s
-      backend GDS          unused
-      backend MMAP         unused
-      backend REMOTE_HTTP  unused
-      backend REMOTE_HDFS  unused
+
+A report holds what the run used, so a backend it never reached and a subsystem it never
+touched are left out. To print every row whatever the run did::
+
+    print(summary.report(all_rows=True))
 
 Busy time and bandwidth
 -----------------------
