@@ -32,6 +32,7 @@
 #include <kvikio/hdfs.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -169,7 +170,10 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
   endpoint.setopt(curl);
   curl.setopt(CURLOPT_NOBODY, 1L);
   curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-  curl.perform();
+  {
+    detail::ScopedTimer const probe{detail::count_remote_size_probe};
+    curl.perform();
+  }
   curl_off_t cl;
   curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
   KVIKIO_EXPECT(
@@ -646,7 +650,10 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
   curl.setopt(CURLOPT_HEADERDATA, static_cast<void*>(&file_size));
   curl.setopt(CURLOPT_HEADERFUNCTION, callback_header);
 
-  curl.perform();
+  {
+    detail::ScopedTimer const probe{detail::count_remote_size_probe};
+    curl.perform();
+  }
   return file_size;
 }
 

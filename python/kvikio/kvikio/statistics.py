@@ -99,9 +99,18 @@ class Summary:
     backend. There is no per-backend busy time, that being a union over wall time which
     two backends running at once would both claim.
 
-    Excluded from :func:`hash` as the only unhashable field, and only from that. It
-    still takes part in ``==``, so two summaries that differ here are unequal, they
-    merely share a hash bucket.
+    Excluded from :func:`hash`, as an unhashable field, and only from that. It still
+    takes part in ``==``, so two summaries that differ here are unequal, they merely
+    share a hash bucket.
+    """
+
+    counters: dict[str, int] = field(hash=False)
+    """The work in the span that belongs to no single operation
+
+    The counters run for the life of the process, and this is the part of them that falls
+    inside the span.
+
+    Excluded from :func:`hash` for the same reason as :attr:`by_backend`.
     """
 
     wall_ns: int
@@ -223,17 +232,23 @@ class Summary:
         # The C++ handle cannot be pickled, so a summary travels as its bytes.
         return (Summary.deserialize, (self.serialize(),))
 
-    def report(self) -> str:
+    def report(self, all_rows: bool = False) -> str:
         """Format a human-readable report of every field
 
         Byte counts, durations and rates are scaled to readable units. Use
         :meth:`to_json` instead when the output is going to be parsed.
 
+        Parameters
+        ----------
+        all_rows
+            Print every row, including the backends the run never reached and the
+            subsystems it never touched.
+
         Returns
         -------
         The report, one field per line, newline-terminated.
         """
-        return self._handle.report()
+        return self._handle.report(all_rows)
 
     def __str__(self) -> str:
         return self.report()
@@ -305,7 +320,7 @@ class SummaryMonitor:
 
         Parameters
         ----------
-        previous : Summary
+        previous
             An earlier reading from this monitor.
 
         Returns

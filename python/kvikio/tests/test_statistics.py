@@ -283,3 +283,27 @@ def test_derived_values(a_file):
     assert summary.busy_bytes_per_sec * summary.busy_fraction == pytest.approx(
         whole_span, rel=0.01
     )
+
+
+def test_counters_are_those_of_the_span(a_file):
+    path, nbytes = a_file
+    buffer = np.empty(nbytes // 8, dtype="u8")
+
+    monitor = kvikio.SummaryMonitor()
+    with kvikio.CuFile(path, "r") as f:
+        f.read(buffer)
+
+    # Everything counted is remote, so a local read owes none of it.
+    spent = monitor.get().counters
+    assert "http_connections" in spent
+    assert all(value == 0 for value in spent.values())
+
+    # The report leaves them out, and the JSON keeps its shape either way.
+    report = str(monitor.get())
+    assert report.startswith("KvikIO I/O summary")
+    assert "size probes" not in report
+    assert json.loads(monitor.get().to_json())["counters"]["http_retries"] == 0
+    assert "size probes" in monitor.get().report(all_rows=True)
+
+    monitor.reset()
+    assert all(value == 0 for value in monitor.get().counters.values())

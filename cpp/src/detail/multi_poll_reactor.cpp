@@ -28,6 +28,7 @@
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio::detail {
@@ -357,6 +358,7 @@ void MultiPollReactor::io_thread_main()
                       std::runtime_error);
         auto transfer = std::move(it->second);
         _in_flight.erase(it);
+        count_http_connection_of(easy);
 
         std::exception_ptr transfer_err;
         try {
@@ -403,6 +405,7 @@ void MultiPollReactor::io_thread_main()
 
             if (outcome.decision == RetryDecision::RETRY) {
               KVIKIO_LOG_WARN(outcome.message);
+              count_http_retry(outcome.delay_ms);
               auto const ready_at = std::chrono::steady_clock::now() + outcome.delay_ms;
               // If a shorter backoff appears
               if (earliest_ready_at.has_value()) {

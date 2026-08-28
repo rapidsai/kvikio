@@ -170,6 +170,7 @@ set(SOURCES
     "src/logger.cpp"
     "src/mmap.cpp"
     "src/observation.cpp"
+    "src/statistics/counters.cpp"
     "src/statistics/summary.cpp"
     "src/detail/bounce_buffer_cache.cpp"
     "src/detail/concurrent_request_limiter.cpp"
