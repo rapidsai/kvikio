@@ -83,6 +83,12 @@ and how long each took as it experienced them. Use the transfers for how well th
 or the link was kept busy, and for bandwidth over time, since a call's bytes would
 otherwise be charged to the moment it returned rather than to the moments they moved.
 
+Running one of each, as above, gives two summaries over the same span, and the counters
+are the same in both. They belong to the process rather than to either kind of
+observation, so the bytes and the operations of the two summaries describe different
+things and the counters describe the same thing twice. Add the summaries and the
+connection costs are counted twice over.
+
 Two things to know. A physical monitor pays its per-observation cost once per task rather
 than once per call, so watching a run of large split reads costs proportionally more.
 And the two remote backends describe a retried request differently. ``MULTI_POLL``
