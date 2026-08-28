@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <deque>
 #include <exception>
@@ -20,7 +21,9 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/concurrent_request_limiter.hpp>
+#include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/io_event_barrier.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cuda.hpp>
@@ -30,6 +33,18 @@ namespace kvikio::detail {
 
 class MultiReactorPool;  // Forward declaration, because reactors needs to hold a back-pointer to
                          // the pool.
+
+/**
+ * @brief Given the max concurrent request cap for a reactor, derive the size of the libcurl
+ * connection cache (`CURLMOPT_MAXCONNECTS`).
+ *
+ * @param max_concurrent_requests This reactor's private share of the total concurrent-request
+ * budget (the global cap divided across reactors). `std::nullopt` means unlimited.
+ * @return The value to pass to `CURLMOPT_MAXCONNECTS`. `std::nullopt` if @p max_concurrent_requests
+ * is `std::nullopt` (unlimited concurrency).
+ */
+[[nodiscard]] std::optional<long> connection_cache_size(
+  std::optional<std::size_t> max_concurrent_requests) noexcept;
 
 /**
  * @brief Collects results from N sub-range transfers and resolves one top-level future once all of
@@ -55,6 +70,11 @@ class RemoteMultiAggregateContext {
    * @brief Per-pread event barrier for the device-buffer path.
    */
   std::shared_ptr<IoEventBarrier> io_event_barrier;
+
+  /**
+   * @brief Records the logical operation these sub-ranges make up. Null when nobody is observing.
+   */
+  std::shared_ptr<LogicalObservationRecorder> recorder;
 
   /**
    * @brief Report that one sub-range transfer succeeded.
@@ -112,6 +132,11 @@ class CurlMultiAttachment {
 
   ~CurlMultiAttachment();
 
+  /**
+   * @brief Explicitly detach the easy handle now instead of at destruction.
+   */
+  void reset() noexcept;
+
   // Move-only.
   CurlMultiAttachment(CurlMultiAttachment&& o) noexcept;
   CurlMultiAttachment& operator=(CurlMultiAttachment&& o) noexcept;
@@ -149,6 +174,16 @@ struct RemoteMultiTransfer {
   CUcontext device_ctx{nullptr};
   void* device_dst{nullptr};
   CudaPinnedBounceBufferPool::Buffer buffer{nullptr, nullptr, 0};
+
+  // Retry bookkeeping. Number of attempts that have finished.
+  std::size_t attempt{0};
+
+  // Earliest time this transfer may be admitted. Used to space out retries.
+  // The default is the clock epoch, which is always in the past, so a freshly submitted transfer is
+  // admitted immediately.
+  std::chrono::steady_clock::time_point ready_at{};
+
+  std::shared_ptr<HttpRetryPolicy const> retry_policy;
 
   /**
    * @brief Recycles `buffer` to the bounce-buffer cache if it was not already moved out (due to
@@ -211,6 +246,21 @@ class MultiPollReactor {
   void wakeup() noexcept;
 
  private:
+  /**
+   * @brief Set this reactor's libcurl connection cache (`CURLMOPT_MAXCONNECTS`).
+   *
+   * By default libcurl sets `CURLMOPT_MAXCONNECTS` to 4 x the number of easy handles attached to a
+   * multi handle. This is recomputed on every transition, and a transient dip in concurrency will
+   * cause libcurl to evict warm, reusable connections, and cause unnecessary TCP/TLS handshake.
+   * Here we pin `CURLMOPT_MAXCONNECTS` to a fixed size.
+   *
+   * @param max_concurrent_requests This reactor's private share of the total concurrent-request
+   * budget (the global cap divided across reactors). `std::nullopt` means unlimited.
+   *
+   * @exception std::runtime_error if `curl_multi_setopt` fails.
+   */
+  void set_connection_cache_size(std::optional<std::size_t> max_concurrent_requests) const;
+
   void io_thread_main();
 
   /**
@@ -221,6 +271,15 @@ class MultiPollReactor {
    * handle from the multi handle, and resolves each transfer's aggregate with the given exception.
    */
   void fail_all_pending(std::exception_ptr eptr);
+
+  /**
+   * @brief Requeue a failed transfer in `_pending` so it can be attempted again.
+   *
+   * @param transfer The transfer to requeue. Ownership moves into `_pending`.
+   * @param ready_at Earliest time the transfer may be admitted again.
+   */
+  void requeue_for_retry(std::unique_ptr<RemoteMultiTransfer> transfer,
+                         std::chrono::steady_clock::time_point ready_at) noexcept;
 
   MultiReactorPool* _pool;
   ConcurrentRequestLimiter _request_limiter;

@@ -4,8 +4,10 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <exception>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -30,30 +32,28 @@
 
 namespace kvikio::detail {
 
-namespace {
-void detach_from_multi(CURLM* multi, CURL* easy) noexcept
-{
-  if (multi == nullptr || easy == nullptr) { return; }
-  auto const mc = curl_multi_remove_handle(multi, easy);
-  if (mc != CURLM_OK) {
-    KVIKIO_LOG_ERROR(std::string("CurlMultiAttachment: curl_multi_remove_handle failed: ") +
-                     curl_multi_strerror(mc));
-  }
-}
-}  // namespace
-
 CurlMultiAttachment::CurlMultiAttachment(CURLM* multi, CURL* easy) noexcept
   : _multi{multi}, _easy{easy}
 {
 }
 
-CurlMultiAttachment::~CurlMultiAttachment()
+void CurlMultiAttachment::reset() noexcept
 {
-  // Best-effort detach on the reactor I/O thread. If curl_multi_remove_handle fails (rare), the
-  // handle stays attached and the owning CurlHandle still returns it to the LibCurl pool, which is
-  // undefined behavior in libcurl. A destructor has no better recovery.
-  detach_from_multi(_multi, _easy);
+  if (_multi != nullptr && _easy != nullptr) {
+    // Best-effort detach on the reactor I/O thread. If curl_multi_remove_handle fails (rare), the
+    // handle stays attached and the owning CurlHandle still returns it to the LibCurl pool, which
+    // is undefined behavior in libcurl. There is no better recovery available here.
+    auto const mc = curl_multi_remove_handle(_multi, _easy);
+    if (mc != CURLM_OK) {
+      KVIKIO_LOG_ERROR(std::string("CurlMultiAttachment: curl_multi_remove_handle failed: ") +
+                       curl_multi_strerror(mc));
+    }
+  }
+  _multi = nullptr;
+  _easy  = nullptr;
 }
+
+CurlMultiAttachment::~CurlMultiAttachment() { reset(); }
 
 CurlMultiAttachment::CurlMultiAttachment(CurlMultiAttachment&& other) noexcept
   : _multi{std::exchange(other._multi, nullptr)}, _easy{std::exchange(other._easy, nullptr)}
@@ -64,7 +64,7 @@ CurlMultiAttachment& CurlMultiAttachment::operator=(CurlMultiAttachment&& other)
 {
   if (this != &other) {
     // Detach whatever this guard currently holds before taking over o's handle.
-    detach_from_multi(_multi, _easy);
+    reset();
     _multi = std::exchange(other._multi, nullptr);
     _easy  = std::exchange(other._easy, nullptr);
   }
@@ -104,6 +104,15 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
   // it is written and read under _exception_mutex.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
+    // Finish the observation before fulfilling the promise below. The other order would let the
+    // caller return from `future.get()` before the observation had been delivered.
+    if (recorder) {
+      if (_first_exception) {
+        recorder->finish_with_failure();
+      } else {
+        recorder->finish(_total_bytes.load(std::memory_order_relaxed));
+      }
+    }
     if (_first_exception) {
       _promise.set_exception(_first_exception);
     } else {
@@ -121,6 +130,7 @@ void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr eptr)
   // Last thread to decrement to zero fulfills the promise.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
+    if (recorder) { recorder->finish_with_failure(); }
     _promise.set_exception(_first_exception);
   }
 }
@@ -137,7 +147,38 @@ MultiPollReactor::MultiPollReactor(MultiReactorPool* pool,
   std::ignore = LibCurl::instance();
   _curl_multi = curl_multi_init();
   KVIKIO_EXPECT(_curl_multi != nullptr, "curl_multi_init() failed", std::runtime_error);
+  set_connection_cache_size(max_concurrent_requests);
   _io_thread = std::thread(&MultiPollReactor::io_thread_main, this);
+}
+
+std::optional<long> connection_cache_size(
+  std::optional<std::size_t> max_concurrent_requests) noexcept
+{
+  if (!max_concurrent_requests.has_value()) { return std::nullopt; }
+
+  // libcurl documents this option as taking a `long`, and the value is internally stored as an
+  // `unsigned int`. So we cap at whichever of UINT_MAX and LONG_MAX is smaller.
+  constexpr auto uint_max = static_cast<std::size_t>(std::numeric_limits<unsigned>::max());
+  constexpr auto long_max = static_cast<std::size_t>(std::numeric_limits<long>::max());
+  constexpr std::size_t max_settable = std::min(uint_max, long_max);
+
+  // min(max_concurrent_requests * headroom_scale, max_settable), with int overflow avoidance
+  constexpr std::size_t headroom_scale = 4;
+  auto const max_req_adjusted          = std::max<std::size_t>(max_concurrent_requests.value(), 1);
+  auto const tmp = std::min<std::size_t>(max_req_adjusted, max_settable / headroom_scale);
+  return static_cast<long>(tmp * headroom_scale);
+}
+
+void MultiPollReactor::set_connection_cache_size(
+  std::optional<std::size_t> max_concurrent_requests) const
+{
+  auto const cache_size = connection_cache_size(max_concurrent_requests);
+  if (!cache_size.has_value()) { return; }
+
+  auto const mc = curl_multi_setopt(_curl_multi, CURLMOPT_MAXCONNECTS, cache_size.value());
+  KVIKIO_EXPECT(mc == CURLM_OK,
+                std::string("curl_multi_setopt(CURLMOPT_MAXCONNECTS): ") + curl_multi_strerror(mc),
+                std::runtime_error);
 }
 
 MultiPollReactor::~MultiPollReactor() noexcept
@@ -199,15 +240,33 @@ void MultiPollReactor::io_thread_main()
       // Contexts whose bounce-buffer shard has already missed during this walk. It is assumed that
       // distinct contexts are few, so a flat vector with linear find suffices.
       std::vector<CUcontext> exhausted_ctxs;
+      // Earliest backoff deadline among the retried transfers.
+      std::optional<std::chrono::steady_clock::time_point> earliest_ready_at;
+      // Whether anything is deferred because a limiter slot or bounce buffer is unavailable, rather
+      // than because its backoff has not elapsed for retry.
+      bool deferred_for_resource = false;
+      auto const walk_start      = std::chrono::steady_clock::now();
       while (!_pending.empty()) {
         auto transfer = std::move(_pending.front());
         _pending.pop_front();
         try {
+          // Defer a transfer if it is still serving its backoff for retry.
+          if (transfer->ready_at > walk_start) {
+            if (earliest_ready_at.has_value()) {
+              earliest_ready_at = std::min(earliest_ready_at.value(), transfer->ready_at);
+            } else {
+              earliest_ready_at = transfer->ready_at;
+            }
+            deferred_transfers.push_back(std::move(transfer));
+            continue;
+          }
+
           // This ctx already missed the cache this walk, so defer without taking a limiter slot. At
           // worst this is pessimistic by one iteration if a recycle frees a buffer mid-walk.
           if (transfer->is_device &&
               std::find(exhausted_ctxs.begin(), exhausted_ctxs.end(), transfer->device_ctx) !=
                 exhausted_ctxs.end()) {
+            deferred_for_resource = true;
             deferred_transfers.push_back(std::move(transfer));
             continue;
           }
@@ -216,6 +275,7 @@ void MultiPollReactor::io_thread_main()
           // reactor's multi handle at once, host and device combined.
           auto slot = _request_limiter.try_acquire();
           if (!slot) {
+            deferred_for_resource = true;
             deferred_transfers.push_back(std::move(transfer));
             while (!_pending.empty()) {
               deferred_transfers.push_back(std::move(_pending.front()));
@@ -234,6 +294,7 @@ void MultiPollReactor::io_thread_main()
               bounce_buffer = BounceBufferCache::instance().try_get(transfer->device_ctx);
             }
             if (!bounce_buffer.has_value()) {
+              deferred_for_resource = true;
               exhausted_ctxs.push_back(transfer->device_ctx);
               deferred_transfers.push_back(std::move(transfer));
               continue;
@@ -294,8 +355,8 @@ void MultiPollReactor::io_thread_main()
         _in_flight.erase(it);
 
         std::exception_ptr transfer_err;
-        if (res == CURLE_OK && !transfer->ctx.overflow_error) {
-          try {
+        try {
+          if (res == CURLE_OK && !transfer->ctx.overflow_error) {
             if (transfer->is_device) {
               // Phase A (network -> pinned) done. Now schedule Phase B (pinned -> device) on this
               // (thread, ctx) stream and hand the buffer to a cuLaunchHostFunc recycle callback so
@@ -317,29 +378,70 @@ void MultiPollReactor::io_thread_main()
                                                           });
             }
             transfer->aggregate->on_subrange_complete(transfer->ctx.size);
-          } catch (...) {
-            transfer_err = std::current_exception();
+          } else if (transfer->ctx.overflow_error) {
+            // Prefer the handle's recorded error buffer. Fall back to the generic strerror text
+            // when libcurl recorded no message.
+            auto const errmsg = transfer->curl->error_message();
+            std::string desc  = std::string("curl_multi transfer failed (") +
+                               (errmsg.empty() ? std::string{curl_easy_strerror(res)} : errmsg) +
+                               ") [server returned more bytes than requested; maybe range support "
+                               "missing?]";
+            transfer_err = std::make_exception_ptr(std::runtime_error(std::move(desc)));
+          } else {
+            long http_code = 0;
+            transfer->curl->getinfo(CURLINFO_RESPONSE_CODE, &http_code);
+            ++transfer->attempt;
+            auto const errmsg  = transfer->curl->error_message();
+            auto const outcome = transfer->retry_policy->evaluate(
+              res, http_code, transfer->attempt, errmsg, "curl_multi transfer failed");
+
+            if (outcome.decision == RetryDecision::RETRY) {
+              KVIKIO_LOG_WARN(outcome.message);
+              auto const ready_at = std::chrono::steady_clock::now() + outcome.delay_ms;
+              // If a shorter backoff appears
+              if (earliest_ready_at.has_value()) {
+                earliest_ready_at = std::min(earliest_ready_at.value(), ready_at);
+              } else {
+                earliest_ready_at = ready_at;
+              }
+              requeue_for_retry(std::move(transfer), ready_at);
+              continue;
+            }
+
+            transfer_err = std::make_exception_ptr(std::runtime_error(outcome.message));
           }
-        } else {
-          // Prefer the handle's recorded error buffer. Fall back to the generic strerror text when
-          // libcurl recorded no message.
-          auto const errmsg = transfer->curl->error_message();
-          std::string desc  = std::string("curl_multi transfer failed (") +
-                             (errmsg.empty() ? std::string{curl_easy_strerror(res)} : errmsg) + ")";
-          if (transfer->ctx.overflow_error) {
-            desc += " [server returned more bytes than requested; maybe range support missing?]";
-          }
-          transfer_err = std::make_exception_ptr(std::runtime_error(std::move(desc)));
+        } catch (...) {
+          transfer_err = std::current_exception();
         }
         if (transfer_err) { transfer->aggregate->on_subrange_failed(transfer_err); }
       }
 
-      // Stage (4): Wait for socket activity, a wakeup, or a timeout. Limiter-slot and bounce-buffer
-      // frees do not raise socket activity, so the timeout adapts. It is 1s when idle, 10ms while
-      // transfers stay deferred in `_pending`, and 0 when a completion this iteration freed a slot
-      // and work remains, so admission retries at once.
-      int poll_timeout_ms = _pending.empty() ? 1000 : 10;
-      if (completed_any && !_pending.empty()) { poll_timeout_ms = 0; }
+      // Stage (4): Wait for socket activity, a wakeup, a timeout, or elapsed backoff for retry.
+      constexpr int idle_timeout_ms = 1000;
+      constexpr int busy_timeout_ms = 10;
+      int poll_timeout_ms{};
+      if (_pending.empty()) {
+        // Nothing queued
+        poll_timeout_ms = idle_timeout_ms;
+      } else if (!deferred_for_resource && earliest_ready_at.has_value()) {
+        // Wait for the earliest elapsed backoff, not a limiter slot or bounce buffer resource
+        auto const wait_ms = std::chrono::ceil<std::chrono::milliseconds>(
+                               earliest_ready_at.value() - std::chrono::steady_clock::now())
+                               .count();
+        if (wait_ms <= 0) {
+          poll_timeout_ms = 0;
+        } else if (wait_ms >= idle_timeout_ms) {
+          poll_timeout_ms = idle_timeout_ms;
+        } else {
+          poll_timeout_ms = static_cast<int>(wait_ms);
+        }
+      } else if (completed_any) {
+        // A transfer completion frees the resource a queued transfer needs, so re-admit at once.
+        poll_timeout_ms = 0;
+      } else {
+        // Wait for a limiter slot or bounce buffer resource
+        poll_timeout_ms = busy_timeout_ms;
+      }
       auto const poll_mc = curl_multi_poll(_curl_multi,
                                            nullptr,          // extra_fds
                                            0,                // extra_nfds
@@ -358,6 +460,33 @@ void MultiPollReactor::io_thread_main()
   // Reached by catching the exception above or by noticing _pool->is_dead() at the loop top. Either
   // way, drain our own state with the recorded reason so no caller's future.get() hangs.
   fail_all_pending(_pool->death_reason());
+}
+
+void MultiPollReactor::requeue_for_retry(std::unique_ptr<RemoteMultiTransfer> transfer,
+                                         std::chrono::steady_clock::time_point ready_at) noexcept
+{
+  using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
+
+  // Extend the lifetime of aggregate (a shared pointer).
+  auto aggregate = transfer->aggregate;
+
+  try {
+    transfer->attachment.reset();
+    transfer->slot.reset();
+
+    if (transfer->is_device && transfer->buffer.get() != nullptr) {
+      PushAndPopContext c(transfer->device_ctx);
+      BounceBufferCache::instance().recycle_now(transfer->device_ctx, std::move(transfer->buffer));
+      transfer->ctx.pinned_buffer = nullptr;
+    }
+
+    transfer->ctx.reset_for_retry();
+    transfer->curl->clear_error_message();
+    transfer->ready_at = ready_at;
+    _pending.push_back(std::move(transfer));
+  } catch (...) {
+    aggregate->on_subrange_failed(std::current_exception());
+  }
 }
 
 void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)

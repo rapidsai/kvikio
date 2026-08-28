@@ -70,6 +70,16 @@ RemoteFile
 .. autoclass:: RemoteFile
     :members:
 
+Statistics
+----------
+.. currentmodule:: kvikio.statistics
+
+.. autoclass:: SummaryMonitor
+    :members:
+
+.. autoclass:: Summary
+    :members:
+
 Defaults
 --------
 .. currentmodule:: kvikio.defaults
@@ -79,3 +89,9 @@ Defaults
 .. autofunction:: set
 
 .. autofunction:: get
+
+Nsight Systems plugin
+---------------------
+.. currentmodule:: kvikio.nsys
+
+.. autofunction:: nsys_plugin_search_dir
