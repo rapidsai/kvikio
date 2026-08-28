@@ -55,7 +55,7 @@ constexpr std::array<std::byte, 4> serial_magic{
 
 /// Bumped whenever a field is added, removed or reordered. The size below catches most of that on
 /// its own, but not two fields of the same width swapping places.
-constexpr std::uint32_t serial_version = 1;
+constexpr std::uint32_t serial_version = 2;
 
 /// Written in the writer's byte order rather than in the header's, so that a reader whose order
 /// differs sees it scrambled and refuses the payload instead of reinterpreting it.
@@ -151,10 +151,10 @@ std::string Summary::to_json() const
              anchor.to_wall_clock(time).time_since_epoch())
       .count();
   };
-  os << "{\"start_unix_ns\": " << wall_ns(start) << ", \"end_unix_ns\": " << wall_ns(end)
-     << ", \"wall_ns\": " << wall().count() << ", \"num_ops\": " << num_ops
-     << ", \"num_reads\": " << num_reads << ", \"num_writes\": " << num_writes
-     << ", \"bytes_requested\": " << bytes_requested
+  os << "{\"kind\": \"" << to_string(kind) << "\", \"start_unix_ns\": " << wall_ns(start)
+     << ", \"end_unix_ns\": " << wall_ns(end) << ", \"wall_ns\": " << wall().count()
+     << ", \"num_ops\": " << num_ops << ", \"num_reads\": " << num_reads
+     << ", \"num_writes\": " << num_writes << ", \"bytes_requested\": " << bytes_requested
      << ", \"bytes_transferred\": " << bytes_transferred << ", \"bytes_read\": " << bytes_read
      << ", \"bytes_written\": " << bytes_written << ", \"num_errors\": " << num_errors
      << ", \"busy_ns\": " << busy.count() << ", \"total_duration_ns\": " << total_duration.count()
@@ -184,7 +184,7 @@ std::string Summary::report() const
     os << "  " << std::left << std::setw(21) << label << value.str() << "\n";
   };
 
-  os << "KvikIO I/O summary\n";
+  os << "KvikIO I/O summary (" << to_string(kind) << ")\n";
   row("wall time", detail::format_duration(wall()));
   // The share of the wall time is what makes the duration meaningful.
   row("busy time",
@@ -235,18 +235,20 @@ std::string Summary::report() const
   return os.str();
 }
 
-SummaryMonitor::SummaryMonitor() : SummaryMonitor{Callback{}} {}
+SummaryMonitor::SummaryMonitor(ObservationKind kind) : SummaryMonitor{Callback{}, kind} {}
 
-SummaryMonitor::SummaryMonitor(Callback on_destruction) : _on_destruction{std::move(on_destruction)}
+SummaryMonitor::SummaryMonitor(Callback on_destruction, ObservationKind kind)
+  : _on_destruction{std::move(on_destruction)}
 {
   // Registration comes first, and the span is stamped after it, under the lock. `_registered`
   // starts at its maximum, so an operation that starts in between is refused by both callbacks
   // rather than by only one of them, which would leave the tracker's in-flight count unbalanced.
-  _registration = register_monitor(this);
+  _registration = register_monitor(this, kind);
   std::lock_guard const lock{_mutex};
   auto const t   = detail::now();
   _totals.start  = t;
   _totals.anchor = ClockAnchor::now();
+  _totals.kind   = kind;
   _registered    = t;
   _busy.reset(t);
 }
@@ -399,7 +401,8 @@ Summary Summary::since(Summary const& previous) const
                  .num_errors        = subtract(num_errors, previous.num_errors),
                  .by_backend        = backends,
                  .total_duration    = subtract(total_duration, previous.total_duration),
-                 .busy              = subtract(busy, previous.busy)};
+                 .busy              = subtract(busy, previous.busy),
+                 .kind              = kind};
 }
 
 Summary SummaryMonitor::since(Summary const& previous) const { return get().since(previous); }
@@ -409,9 +412,11 @@ void SummaryMonitor::reset()
   std::lock_guard const lock{_mutex};
   auto const t      = detail::now();
   auto const anchor = _totals.anchor;
+  auto const kind   = _totals.kind;
   _totals           = Summary{};
   _totals.start     = t;
   _totals.anchor    = anchor;
+  _totals.kind      = kind;
   // Keeps `busy <= wall()` across the reset: an operation already in flight contributes only the
   // part of its span that follows it.
   _busy.reset(t);

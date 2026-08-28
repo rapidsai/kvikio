@@ -153,6 +153,36 @@ def http_server(request, tmpdir):
         yield server.url
 
 
+@pytest.mark.parametrize(
+    "backend",
+    [kvikio.RemoteIOBackend.MULTI_POLL, kvikio.RemoteIOBackend.EASY_THREADPOOL],
+)
+def test_physical_observations_account_for_every_byte(http_server, tmpdir, backend):
+    """A remote read is one call and several requests, on either backend."""
+    a = np.arange(1_000_000)
+    a.tofile(tmpdir / "a")
+
+    logical = kvikio.SummaryMonitor(kvikio.ObservationKind.LOGICAL)
+    physical = kvikio.SummaryMonitor(kvikio.ObservationKind.PHYSICAL)
+    with kvikio.defaults.set(
+        {"remote_io_backend": backend, "task_size": a.nbytes // 4, "num_threads": 4}
+    ):
+        with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+            b = np.empty_like(a)
+            assert f.read(b) == a.nbytes
+    logical_summary = logical.get()
+    physical_summary = physical.get()
+    logical.stop()
+    physical.stop()
+
+    assert logical_summary.num_ops == 1
+    assert physical_summary.num_ops == 4, "one observation per range request"
+    assert physical_summary.bytes_transferred == logical_summary.bytes_transferred
+    assert physical_summary.num_errors == 0
+
+    assert physical_summary.by_backend["REMOTE_HTTP"]["bytes_transferred"] == a.nbytes
+
+
 def test_file_size(http_server, tmpdir):
     a = np.arange(100)
     a.tofile(tmpdir / "a")
@@ -241,6 +271,33 @@ def test_retry_http_503_ok(tmpdir, xp):
             assert f.nbytes() == a.nbytes
             assert f"{http_server}/a" in str(f)
             f.read(b)
+
+
+def test_a_retried_request_is_one_observation_per_attempt(tmpdir):
+    """A backoff is a gap between two observations, not one long transfer."""
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=HTTP503Handler,
+        handler_options={"request_counter": RequestCounter()},
+    ) as server:
+        physical = kvikio.SummaryMonitor(kvikio.ObservationKind.PHYSICAL)
+        with kvikio.defaults.set(
+            {"remote_io_backend": kvikio.RemoteIOBackend.MULTI_POLL}
+        ):
+            # The size is given, so the first request the server sees is the GET.
+            with kvikio.RemoteFile.open_http(f"{server.url}/a", a.nbytes) as f:
+                assert f.read(np.empty_like(a)) == a.nbytes
+        summary = physical.get()
+        physical.stop()
+
+    # The 503 is one attempt that moved nothing, the retry is another that moved everything.
+    assert summary.num_ops == 2
+    assert summary.num_errors == 1
+    assert summary.bytes_transferred == a.nbytes
 
 
 def test_retry_http_503_fails(tmpdir, xp, capfd):

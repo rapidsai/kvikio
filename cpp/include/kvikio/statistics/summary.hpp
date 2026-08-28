@@ -95,6 +95,13 @@ struct Summary {
    */
   Duration busy{};
 
+  /// Which observations these totals are over. `LOGICAL` counts one operation per user-facing
+  /// call, `PHYSICAL` one per transfer.
+  ObservationKind kind{ObservationKind::LOGICAL};
+
+  /// Named rather than implicit padding, so that `serialize()` never copies an indeterminate byte.
+  std::array<std::byte, 7> _reserved{};
+
   /**
    * @brief Wall-clock span this summary covers.
    *
@@ -222,6 +229,18 @@ struct Summary {
  * }};
  * @endcode
  *
+ * By default a monitor counts one row per user-facing call. Pass `ObservationKind::PHYSICAL` to
+ * count one row per transfer instead, so a call split across the thread pool contributes one row
+ * per task and `total_duration` covers the transfers rather than the calls waiting for a thread.
+ * The bytes are the same either way. Registering one of each gives both views of the same run:
+ *
+ * @code
+ * kvikio::statistics::SummaryMonitor const calls;
+ * kvikio::statistics::SummaryMonitor const transfers{kvikio::ObservationKind::PHYSICAL};
+ * ...
+ * auto const queue_wait = calls.get().total_duration - transfers.get().total_duration;
+ * @endcode
+ *
  * Monitors are independent. Any number can exist at once, nested or overlapping, and resetting
  * one has no effect on the others. An operation already in flight when the monitor is created is
  * ignored entirely, neither counted nor timed.
@@ -241,9 +260,11 @@ struct Summary {
  *
  * ### Overhead
  *
- * Monitoring adds roughly 80 ns per logical operation, regardless of its size, so the relative
- * cost falls as the call grows: about 2 % of a 4 KiB `pread()` and 0.25 % of a 1 MiB one. With no
- * monitor registered it is about 5 ns per call.
+ * Monitoring adds roughly 80 ns per observation, regardless of its size, so the relative cost
+ * falls as the call grows: about 2 % of a 4 KiB `pread()` and 0.25 % of a 1 MiB one. A physical
+ * monitor pays that per task rather than per call, so a call split into sixteen tasks costs
+ * sixteen times as much to watch. With no monitor registered it is about 5 ns per call, plus
+ * 3.4 ns per task.
  */
 class SummaryMonitor final : private kvikio::Monitor {
  public:
@@ -252,16 +273,21 @@ class SummaryMonitor final : private kvikio::Monitor {
 
   /**
    * @brief Create a monitor and begin counting.
+   *
+   * @param kind Which observations to count. `LOGICAL` totals one row per user-facing call.
+   * `PHYSICAL` totals one row per transfer, so `busy` covers the transfers themselves rather than
+   * the calls that were waiting for a thread.
    */
-  SummaryMonitor();
+  explicit SummaryMonitor(ObservationKind kind = ObservationKind::LOGICAL);
 
   /**
    * @brief Create a monitor that reports itself when it goes out of scope.
    *
    * @param on_destruction Invoked with the totals from the destructor. Exceptions it throws are
    * caught and logged, since a destructor cannot propagate them.
+   * @param kind Which observations to count.
    */
-  explicit SummaryMonitor(Callback on_destruction);
+  explicit SummaryMonitor(Callback on_destruction, ObservationKind kind = ObservationKind::LOGICAL);
 
   /**
    * @brief Stop counting, invoke the callback if there is one, and release the registration.

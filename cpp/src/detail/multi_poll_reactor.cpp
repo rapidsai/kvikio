@@ -314,6 +314,10 @@ void MultiPollReactor::io_thread_main()
           }
           transfer->attachment = CurlMultiAttachment{_curl_multi, easy};
           transfer->slot       = std::move(slot);
+          // The request is on the wire from here, so this is where the transfer's own span starts.
+          // Everything before it was queueing, in the inbox or behind the limiter.
+          transfer->physical_recorder.emplace(
+            transfer->physical, transfer->file_offset, transfer->ctx.size);
           _in_flight.emplace(easy, std::move(transfer));
         } catch (...) {
           // Requeue the in-hand transfer (unless already failed above) and the already-deferred
@@ -377,6 +381,8 @@ void MultiPollReactor::io_thread_main()
                                                               curl_multi_wakeup(curl_multi);
                                                           });
             }
+            // Before the aggregate, which may make the caller's future ready.
+            transfer->physical_recorder->finish(transfer->ctx.size);
             transfer->aggregate->on_subrange_complete(transfer->ctx.size);
           } else if (transfer->ctx.overflow_error) {
             // Prefer the handle's recorded error buffer. Fall back to the generic strerror text
@@ -404,6 +410,9 @@ void MultiPollReactor::io_thread_main()
               } else {
                 earliest_ready_at = ready_at;
               }
+              // Ends the failed attempt. The next admission starts a new observation, so the
+              // backoff shows as a gap rather than as one long transfer.
+              transfer->physical_recorder.reset();
               requeue_for_retry(std::move(transfer), ready_at);
               continue;
             }
@@ -413,7 +422,10 @@ void MultiPollReactor::io_thread_main()
         } catch (...) {
           transfer_err = std::current_exception();
         }
-        if (transfer_err) { transfer->aggregate->on_subrange_failed(transfer_err); }
+        if (transfer_err) {
+          transfer->physical_recorder.reset();
+          transfer->aggregate->on_subrange_failed(transfer_err);
+        }
       }
 
       // Stage (4): Wait for socket activity, a wakeup, a timeout, or elapsed backoff for retry.
@@ -510,6 +522,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 
   // In-flight is touched only by the I/O thread, which is us, so no lock needed.
   for (auto& in_flight_entry : _in_flight) {
+    in_flight_entry.second->physical_recorder.reset();
     in_flight_entry.second->aggregate->on_subrange_failed(eptr);
   }
   _in_flight.clear();

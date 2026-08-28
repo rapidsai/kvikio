@@ -4,6 +4,7 @@
  */
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -25,8 +26,8 @@ namespace kvikio {
 
 namespace {
 
-/// Number of registered monitors. The gate `monitoring_enabled()` reads.
-std::atomic<std::uint32_t> monitor_count{0};
+/// Number of registered monitors, per kind. The gate `monitoring_enabled()` reads.
+std::array<std::atomic<std::uint32_t>, num_observation_kinds> monitor_counts{};
 
 /**
  * @brief The registered monitors, the lock over them, and the notification path.
@@ -109,8 +110,8 @@ class Registry {
 
   void notify(Observation const& observation, Phase phase) noexcept
   {
-    // Fast path: with nobody registered we never reach the mutex.
-    if (!detail::monitoring_enabled()) { return; }
+    // Fast path: with nobody subscribed to this kind we never reach the mutex.
+    if (!detail::monitoring_enabled(observation.kind)) { return; }
     // Belt and braces: a monitor is forbidden from calling into KvikIO, but should one manage it
     // through a path that does not check, do not deliver the observation back into the monitors,
     // which would recurse and re-enter the shared lock.
@@ -130,10 +131,15 @@ class Registry {
     }
   }
 
-  /// Republish the count. Must be called with `_mutex` held exclusively.
+  /// Republish the counts. Must be called with `_mutex` held exclusively.
   void publish_count() const noexcept
   {
-    monitor_count.store(static_cast<std::uint32_t>(_monitors.size()), std::memory_order_release);
+    for (std::size_t kind = 0; kind < num_observation_kinds; ++kind) {
+      auto const count = std::count_if(_monitors.begin(), _monitors.end(), [kind](auto const& e) {
+        return static_cast<std::size_t>(e.kind) == kind;
+      });
+      monitor_counts[kind].store(static_cast<std::uint32_t>(count), std::memory_order_release);
+    }
   }
 
   /**
@@ -171,7 +177,10 @@ class Registry {
 
 namespace detail {
 
-bool monitoring_enabled() noexcept { return monitor_count.load(std::memory_order_acquire) != 0; }
+bool monitoring_enabled(ObservationKind kind) noexcept
+{
+  return monitor_counts[static_cast<std::size_t>(kind)].load(std::memory_order_acquire) != 0;
+}
 }  // namespace detail
 
 ClockAnchor ClockAnchor::now() noexcept
@@ -216,6 +225,7 @@ std::string_view to_string(ObservationKind kind) noexcept
 {
   switch (kind) {
     case ObservationKind::LOGICAL: return "LOGICAL";
+    case ObservationKind::PHYSICAL: return "PHYSICAL";
     default: return "Unknown";
   }
 }
