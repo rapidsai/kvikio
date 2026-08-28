@@ -125,26 +125,34 @@ std::string CurlHandle::error_message() const
 }
 
 namespace detail {
+namespace {
+/// A libcurl timing in microseconds, or zero if it could not be read. libcurl fills the value in
+/// only when the call succeeds, so a failed one leaves the phase uncounted rather than garbage.
+[[nodiscard]] curl_off_t timing_of(CURL* easy, CURLINFO info) noexcept
+{
+  curl_off_t value{0};
+  if (curl_easy_getinfo(easy, info, &value) != CURLE_OK) { return 0; }
+  return value;
+}
+}  // namespace
 
 void count_http_connection_of(CURL* easy) noexcept
 {
-  auto const micros = [](curl_off_t us) { return std::chrono::microseconds{us}; };
+  using std::chrono::microseconds;
 
   long connections{0};
   if (curl_easy_getinfo(easy, CURLINFO_NUM_CONNECTS, &connections) != CURLE_OK) { return; }
   // Zero means the connection was reused, so nothing was paid here.
   if (connections <= 0) { return; }
 
-  curl_off_t namelookup{0};
-  curl_off_t connect{0};
-  curl_off_t appconnect{0};
-  curl_easy_getinfo(easy, CURLINFO_NAMELOOKUP_TIME_T, &namelookup);
-  curl_easy_getinfo(easy, CURLINFO_CONNECT_TIME_T, &connect);
-  curl_easy_getinfo(easy, CURLINFO_APPCONNECT_TIME_T, &appconnect);
+  auto const namelookup = timing_of(easy, CURLINFO_NAMELOOKUP_TIME_T);
+  auto const connect    = timing_of(easy, CURLINFO_CONNECT_TIME_T);
+  auto const appconnect = timing_of(easy, CURLINFO_APPCONNECT_TIME_T);
 
-  auto const tcp = connect > namelookup ? micros(connect - namelookup) : Duration::zero();
-  auto const tls = appconnect > connect ? micros(appconnect - connect) : Duration::zero();
-  count_http_connection(static_cast<std::uint64_t>(connections), micros(namelookup), tcp, tls);
+  auto const tcp = connect > namelookup ? microseconds{connect - namelookup} : Duration::zero();
+  auto const tls = appconnect > connect ? microseconds{appconnect - connect} : Duration::zero();
+  count_http_connection(
+    static_cast<std::uint64_t>(connections), microseconds{namelookup}, tcp, tls);
 }
 
 }  // namespace detail

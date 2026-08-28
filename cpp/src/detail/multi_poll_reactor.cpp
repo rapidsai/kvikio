@@ -354,7 +354,7 @@ void MultiPollReactor::io_thread_main()
                       std::runtime_error);
         auto transfer = std::move(it->second);
         _in_flight.erase(it);
-        detail::count_http_connection_of(easy);
+        count_http_connection_of(easy);
 
         std::exception_ptr transfer_err;
         try {

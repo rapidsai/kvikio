@@ -132,7 +132,10 @@ Counters Counters::since(Counters const& previous) const noexcept
 
 bool Counters::empty() const noexcept
 {
-  return remote_size_probes == 0 && http_connections == 0 && http_retries == 0;
+  return remote_size_probes == 0 && remote_size_probing == Duration::zero() &&
+         http_connections == 0 && http_dns == Duration::zero() && http_tcp == Duration::zero() &&
+         http_tls == Duration::zero() && http_retries == 0 &&
+         http_retry_backoff == Duration::zero();
 }
 
 std::string Counters::to_json() const
