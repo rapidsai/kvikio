@@ -491,10 +491,11 @@ class defaults {
    * @brief Set the number of reactor threads used by the `MULTI_POLL` remote I/O backend at
    * runtime, overriding `KVIKIO_REMOTE_IO_NUM_REACTORS`.
    *
-   * Takes effect only if set before the `MULTI_POLL` reactor pool is first used (the pool, like
-   * the default thread pool, is created lazily on first use and is never rebuilt).
+   * The pool, like the default thread pool, is created lazily on first use and is never rebuilt.
    *
    * @param num_reactors The number of reactor threads. Must be a positive integer.
+   *
+   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
    */
   static void set_remote_io_num_reactors(unsigned int num_reactors);
 
@@ -515,10 +516,11 @@ class defaults {
    * @brief Set the reactor dispatch policy used by the `MULTI_POLL` remote I/O backend at
    * runtime, overriding `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
    *
-   * Takes effect only if set before the `MULTI_POLL` reactor pool is first used (the pool, like
-   * the default thread pool, is created lazily on first use and is never rebuilt).
+   * The pool, like the default thread pool, is created lazily on first use and is never rebuilt.
    *
    * @param dispatch The reactor dispatch policy.
+   *
+   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
    */
   static void set_remote_io_reactor_dispatch(RemoteReactorDispatch dispatch);
 
@@ -547,10 +549,11 @@ class defaults {
    * under the `MULTI_POLL` remote I/O backend at runtime, overriding
    * `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`.
    *
-   * Takes effect only if set before the `MULTI_POLL` reactor pool is first used (the pool, like
-   * the default thread pool, is created lazily on first use and is never rebuilt).
+   * The pool, like the default thread pool, is created lazily on first use and is never rebuilt.
    *
    * @param max_requests The concurrent-request ceiling. 0 means unlimited.
+   *
+   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
    */
   static void set_remote_io_max_concurrent_requests(std::size_t max_requests);
 };

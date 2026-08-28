@@ -318,6 +318,15 @@ class MultiReactorPool {
    */
   static MultiReactorPool& instance();
 
+  /**
+   * @brief Whether the pool singleton has already been constructed.
+   *
+   * `num_reactors`, the dispatch mode, and the concurrency cap are all captured once in the
+   * pool's constructor, so changing them after this returns `true` would silently have no effect.
+   * Used by `kvikio::defaults` to reject such changes with an exception instead.
+   */
+  [[nodiscard]] static bool is_instantiated() noexcept;
+
   MultiReactorPool(MultiReactorPool const&)            = delete;
   MultiReactorPool& operator=(MultiReactorPool const&) = delete;
   MultiReactorPool(MultiReactorPool&&)                 = delete;

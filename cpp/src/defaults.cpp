@@ -12,6 +12,7 @@
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
@@ -308,6 +309,10 @@ void defaults::set_remote_io_num_reactors(unsigned int num_reactors)
 {
   KVIKIO_EXPECT(
     num_reactors > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
+  KVIKIO_EXPECT(!detail::MultiReactorPool::is_instantiated(),
+                "remote_io_num_reactors cannot be changed after the MULTI_POLL reactor pool has "
+                "already started",
+                std::runtime_error);
   instance()->_remote_io_num_reactors = num_reactors;
 }
 
@@ -318,6 +323,10 @@ RemoteReactorDispatch defaults::remote_io_reactor_dispatch()
 
 void defaults::set_remote_io_reactor_dispatch(RemoteReactorDispatch dispatch)
 {
+  KVIKIO_EXPECT(!detail::MultiReactorPool::is_instantiated(),
+                "remote_io_reactor_dispatch cannot be changed after the MULTI_POLL reactor pool "
+                "has already started",
+                std::runtime_error);
   instance()->_remote_io_reactor_dispatch = dispatch;
 }
 
@@ -328,6 +337,10 @@ std::size_t defaults::remote_io_max_concurrent_requests()
 
 void defaults::set_remote_io_max_concurrent_requests(std::size_t max_requests)
 {
+  KVIKIO_EXPECT(!detail::MultiReactorPool::is_instantiated(),
+                "remote_io_max_concurrent_requests cannot be changed after the MULTI_POLL "
+                "reactor pool has already started",
+                std::runtime_error);
   instance()->_remote_io_max_concurrent_requests = max_requests;
 }
 }  // namespace kvikio
