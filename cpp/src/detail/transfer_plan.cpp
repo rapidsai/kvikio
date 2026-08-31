@@ -40,109 +40,137 @@ struct GroupKeyHash {
   }
 };
 
-// A request's position in the sweep. Sorting these pairs rather than the requests themselves is
-// what lets the input span stay const and keeps the caller's indices meaningful.
-struct GroupEntry {
-  std::size_t file_offset;
-  std::size_t request_index;
+/**
+ * @brief Emit the one transfer that serves a run of two or more merged requests.
+ *
+ * Such a run never needs splitting, because `task_size` is the merge cap, so this emits exactly one
+ * transfer and every request sits whole inside its span. That is why nothing here clips.
+ *
+ * @param requests The caller's requests.
+ * @param run_indices Indices of the run's requests, ascending by file offset and non-overlapping.
+ * @param plan The plan to append to.
+ */
+void emit_merged_run(std::span<TransferPlanRequest const> requests,
+                     std::span<std::size_t const> run_indices,
+                     TransferPlan& plan)
+{
+  // The run is sorted and its requests do not overlap, so the last one ends the span.
+  auto const& first     = requests[run_indices.front()];
+  auto const& last      = requests[run_indices.back()];
+  auto const span_begin = first.file_offset;
+  auto const span_end   = last.file_offset + last.size;
 
-  bool operator<(GroupEntry const& other) const noexcept
-  {
-    if (file_offset != other.file_offset) { return file_offset < other.file_offset; }
-    return request_index < other.request_index;
+  auto const segment_begin = plan.segments.size();
+  std::size_t wanted_bytes = 0;
+
+  for (auto const request_index : run_indices) {
+    auto const& request = requests[request_index];
+    plan.segments.push_back({.span_offset   = request.file_offset - span_begin,
+                             .length        = request.size,
+                             .dst           = request.dst,
+                             .request_index = request_index});
+    wanted_bytes += request.size;
+    ++plan.transfers_per_request[request_index];
   }
-};
+
+  plan.transfers.push_back({.handle        = first.handle,
+                            .cuda_context  = first.cuda_context,
+                            .file_offset   = span_begin,
+                            .size          = span_end - span_begin,
+                            .segment_begin = segment_begin,
+                            .segment_end   = plan.segments.size()});
+
+  // Whatever the span covers beyond the requests themselves is gap.
+  plan.overread_bytes += (span_end - span_begin) - wanted_bytes;
+}
 
 /**
- * @brief Emit the transfers for one run of requests, splitting the span at `task_size`.
+ * @brief Emit one transfer per `task_size` chunk of a single request.
  *
- * A run wider than `task_size` holds exactly one request, since merging stops at that cap. So
- * either the run has one request or it produces one transfer, and the nested loop below is linear
- * in the run size despite its shape.
+ * The only path that splits, and the only one a lone request takes. A request that already fits
+ * yields one transfer, which is what every read looks like with coalescing off. There are no gaps
+ * here, so this never adds overread, and each chunk is filled entirely by one segment.
+ *
+ * @param requests The caller's requests.
+ * @param request_index Index of the lone request.
+ * @param task_size Maximum transfer span.
+ * @param plan The plan to append to.
  */
-void emit_run(std::span<TransferPlanRequest const> requests,
-              std::span<GroupEntry const> run,
-              std::size_t run_offset,
-              std::size_t run_end,
-              std::size_t task_size,
-              TransferPlan& plan)
+void emit_split_request(std::span<TransferPlanRequest const> requests,
+                        std::size_t request_index,
+                        std::size_t task_size,
+                        TransferPlan& plan)
 {
-  // Every request of a run shares the group key, so the first one speaks for all of them.
-  auto const& run_head = requests[run.front().request_index];
+  auto const& request = requests[request_index];
+  auto const file_end = request.file_offset + request.size;
 
-  for (auto chunk_offset = run_offset; chunk_offset < run_end;) {
-    auto const chunk_end     = std::min(chunk_offset + task_size, run_end);
+  for (auto chunk_begin = request.file_offset; chunk_begin < file_end;) {
+    auto const chunk_end     = std::min(chunk_begin + task_size, file_end);
     auto const segment_begin = plan.segments.size();
-    std::size_t wanted_bytes = 0;
+    auto const into_request  = chunk_begin - request.file_offset;
 
-    for (auto const& entry : run) {
-      auto const& req        = requests[entry.request_index];
-      auto const piece_begin = std::max(req.file_offset, chunk_offset);
-      auto const piece_end   = std::min(req.file_offset + req.size, chunk_end);
-      if (piece_begin >= piece_end) { continue; }
-      plan.segments.push_back({.span_offset = piece_begin - chunk_offset,
-                               .length      = piece_end - piece_begin,
-                               .dst = static_cast<char*>(req.dst) + (piece_begin - req.file_offset),
-                               .request_index = entry.request_index});
-      wanted_bytes += piece_end - piece_begin;
-      ++plan.transfers_per_request[entry.request_index];
-    }
-
-    // A run starts and ends on a request boundary, and a chunk boundary can only fall inside a
-    // single-request run, so no chunk is ever empty or starts inside a gap.
-    assert(plan.segments.size() > segment_begin);
-    assert(plan.segments[segment_begin].span_offset == 0);
-
-    plan.transfers.push_back({.handle        = run_head.handle,
-                              .cuda_context  = run_head.cuda_context,
-                              .file_offset   = chunk_offset,
-                              .size          = chunk_end - chunk_offset,
+    plan.segments.push_back({.span_offset   = 0,
+                             .length        = chunk_end - chunk_begin,
+                             .dst           = static_cast<char*>(request.dst) + into_request,
+                             .request_index = request_index});
+    plan.transfers.push_back({.handle        = request.handle,
+                              .cuda_context  = request.cuda_context,
+                              .file_offset   = chunk_begin,
+                              .size          = chunk_end - chunk_begin,
                               .segment_begin = segment_begin,
                               .segment_end   = plan.segments.size()});
-    plan.overread_bytes += (chunk_end - chunk_offset) - wanted_bytes;
-    chunk_offset = chunk_end;
+    ++plan.transfers_per_request[request_index];
+    chunk_begin = chunk_end;
   }
 }
 
 /**
- * @brief Sweep one group's sorted entries, growing runs greedily and emitting each as it closes.
+ * @brief Sweep one group's sorted requests, growing runs greedily and emitting each as it closes.
+ *
+ * @param requests The caller's requests.
+ * @param opts Planning options.
+ * @param group_indices Indices of this group's requests, sorted by file offset.
+ * @param plan The plan to append to.
  */
 void plan_group(std::span<TransferPlanRequest const> requests,
                 TransferPlanOptions const& opts,
-                std::span<GroupEntry const> entries,
+                std::span<std::size_t const> group_indices,
                 TransferPlan& plan)
 {
   std::size_t i = 0;
-  while (i < entries.size()) {
-    auto const first_entry = i;
-    auto const& run_head   = requests[entries[i].request_index];
-    auto const run_offset  = run_head.file_offset;
-    auto run_end           = run_head.file_offset + run_head.size;
+  while (i < group_indices.size()) {
+    auto const run_begin  = i;
+    auto const& run_head  = requests[group_indices[i]];
+    auto const span_begin = run_head.file_offset;
+    auto span_end         = run_head.file_offset + run_head.size;
     ++i;
 
-    while (opts.coalesce_max_gap.has_value() && i < entries.size()) {
-      auto const& candidate = requests[entries[i].request_index];
+    while (opts.coalesce_max_gap.has_value() && i < group_indices.size()) {
+      auto const& candidate = requests[group_indices[i]];
 
       // Overlapping and duplicate ranges keep their own transfer. Redundant on the wire, but a
       // merged span cannot deliver the same byte to two destinations.
-      if (candidate.file_offset < run_end) { break; }
+      if (candidate.file_offset < span_end) { break; }
 
-      if (candidate.file_offset - run_end > *opts.coalesce_max_gap) { break; }
+      if (candidate.file_offset - span_end > *opts.coalesce_max_gap) { break; }
 
       // `task_size` doubles as the merge cap. Merging past it cannot bring the transfer count
       // below what splitting already achieves, and it would only add overread.
-      if (candidate.file_offset + candidate.size - run_offset > opts.task_size) { break; }
+      if (candidate.file_offset + candidate.size - span_begin > opts.task_size) { break; }
 
-      run_end = candidate.file_offset + candidate.size;
+      span_end = candidate.file_offset + candidate.size;
       ++i;
     }
 
-    emit_run(requests,
-             entries.subspan(first_entry, i - first_entry),
-             run_offset,
-             run_end,
-             opts.task_size,
-             plan);
+    // Only a lone request can exceed `task_size`, since the cap above bounds every longer run. So
+    // merging and splitting never meet, and each case gets the simpler of the two emitters.
+    auto const run_indices = group_indices.subspan(run_begin, i - run_begin);
+    if (run_indices.size() > 1) {
+      assert(span_end - span_begin <= opts.task_size);
+      emit_merged_run(requests, run_indices, plan);
+    } else {
+      emit_split_request(requests, run_indices.front(), opts.task_size, plan);
+    }
   }
 }
 
@@ -157,27 +185,39 @@ TransferPlan build_transfer_plan(std::span<TransferPlanRequest const> requests,
   plan.transfers_per_request.assign(requests.size(), 0);
   if (requests.empty()) { return plan; }
 
+  // Each group holds the indices of its requests. Indices rather than copies of the requests is
+  // what lets the caller's span stay const while we sort, which is what keeps every index in the
+  // returned plan meaningful to the caller.
+  //
   // Groups are kept in order of first appearance. Iterating the map instead would make the emitted
   // plan depend on where the allocator happened to place a handle.
-  std::vector<std::vector<GroupEntry>> groups;
+  std::vector<std::vector<std::size_t>> groups;
   std::unordered_map<GroupKey, std::size_t, GroupKeyHash> group_index;
   for (std::size_t i = 0; i < requests.size(); ++i) {
-    auto const& req = requests[i];
+    auto const& request = requests[i];
     // Excluded rather than rejected, matching `pread()`, which returns a ready future for these.
-    if (req.size == 0) { continue; }
+    if (request.size == 0) { continue; }
     auto const [it, inserted] =
-      group_index.try_emplace(GroupKey{req.handle, req.cuda_context}, groups.size());
+      group_index.try_emplace(GroupKey{request.handle, request.cuda_context}, groups.size());
     if (inserted) { groups.emplace_back(); }
-    groups[it->second].push_back({.file_offset = req.file_offset, .request_index = i});
+    groups[it->second].push_back(i);
   }
 
-  for (auto& entries : groups) {
+  // Ties are broken by index so that duplicate offsets keep the caller's order.
+  auto const by_file_offset = [requests](std::size_t a, std::size_t b) {
+    if (requests[a].file_offset != requests[b].file_offset) {
+      return requests[a].file_offset < requests[b].file_offset;
+    }
+    return a < b;
+  };
+
+  for (auto& group : groups) {
     // Callers such as columnar readers usually hand over ascending ranges, and checking for that
     // is cheaper than sorting. No caller promise is needed, and none would save this pass.
-    if (!std::is_sorted(entries.begin(), entries.end())) {
-      std::sort(entries.begin(), entries.end());
+    if (!std::is_sorted(group.begin(), group.end(), by_file_offset)) {
+      std::sort(group.begin(), group.end(), by_file_offset);
     }
-    plan_group(requests, opts, entries, plan);
+    plan_group(requests, opts, group, plan);
   }
 
   // Overread is invisible otherwise, and without it there is no way to tune `coalesce_max_gap`.
