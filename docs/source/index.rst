@@ -9,10 +9,6 @@ KvikIO also works efficiently when GDS isn't available and can read/write both h
 KvikIO is a part of the `RAPIDS <https://rapids.ai/>`_ suite of open-source software libraries for GPU-accelerated data science.
 
 
-.. note::
-   This is the documentation for the Python library. For the C++ documentation, see under `libkvikio <https://docs.rapids.ai/api/libkvikio/nightly/>`_.
-
-
 Contents
 --------
 
@@ -26,4 +22,5 @@ Contents
    remote_file
    runtime_settings
    api
+   cpp/index
    genindex

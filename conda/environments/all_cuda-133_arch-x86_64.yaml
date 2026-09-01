@@ -6,6 +6,7 @@ channels:
 - conda-forge
 dependencies:
 - boto3>=1.21.21
+- breathe
 - c-compiler
 - cmake>=4.0
 - cuda-core>=0.5.1,<2
