@@ -4,7 +4,6 @@
  */
 
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <functional>
 #include <span>
@@ -99,22 +98,22 @@ void emit_split_request(std::span<TransferPlanRequest const> requests,
   auto const file_end = request.file_offset + request.size;
 
   for (auto chunk_begin = request.file_offset; chunk_begin < file_end;) {
-    auto const chunk_end     = std::min(chunk_begin + task_size, file_end);
+    auto const chunk_size    = std::min(file_end - chunk_begin, task_size);
     auto const segment_begin = plan.segments.size();
     auto const into_request  = chunk_begin - request.file_offset;
 
     plan.segments.push_back({.span_offset   = 0,
-                             .length        = chunk_end - chunk_begin,
+                             .length        = chunk_size,
                              .dst           = static_cast<std::byte*>(request.dst) + into_request,
                              .request_index = request_index});
     plan.transfers.push_back({.handle        = request.handle,
                               .cuda_context  = request.cuda_context,
                               .file_offset   = chunk_begin,
-                              .size          = chunk_end - chunk_begin,
+                              .size          = chunk_size,
                               .segment_begin = segment_begin,
                               .segment_end   = plan.segments.size()});
     ++plan.transfers_per_request[request_index];
-    chunk_begin = chunk_end;
+    chunk_begin += chunk_size;
   }
 }
 

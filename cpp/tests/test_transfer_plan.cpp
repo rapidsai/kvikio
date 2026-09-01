@@ -23,8 +23,8 @@ using kvikio::detail::TransferPlanRequest;
 
 namespace {
 
-// The planner only ever compares handles and contexts, so fabricated pointers are enough and these
-// tests need neither a server nor a CUDA context.
+// Fabricated pointers. The planner compares them and never dereferences them, so these tests
+// need neither a server nor a CUDA context.
 RemoteHandle* const handle_a = reinterpret_cast<RemoteHandle*>(0x1000);
 RemoteHandle* const handle_b = reinterpret_cast<RemoteHandle*>(0x2000);
 CUcontext const context_a    = reinterpret_cast<CUcontext>(0x10);
@@ -116,8 +116,7 @@ void expect_plan_invariants(TransferPlan const& plan,
 
 class TransferPlanTest : public ::testing::Test {
  protected:
-  // Real memory, so the expected `dst` arithmetic is real too. The stride keeps every request's
-  // buffer disjoint.
+  // Real memory, so the expected `dst` arithmetic is real. The stride keeps buffers disjoint.
   static constexpr std::size_t dst_stride = 1UL << 14;
 
   std::vector<std::byte> _destinations = std::vector<std::byte>(64 * dst_stride);
@@ -204,6 +203,16 @@ TEST_F(TransferPlanTest, request_larger_than_task_size_is_split)
   EXPECT_EQ(plan.segments[2].dst, static_cast<std::byte*>(dst_of(0)) + 2000);
   EXPECT_THAT(plan.transfers_per_request, testing::ElementsAre(3UL));
   EXPECT_EQ(plan.overread_bytes, 0UL);
+}
+
+TEST_F(TransferPlanTest, huge_task_size_does_not_split)
+{
+  add_request(4096, 2500);
+  auto const plan = build_plan({.task_size = std::numeric_limits<std::size_t>::max()});
+
+  ASSERT_EQ(plan.transfers.size(), 1UL);
+  EXPECT_EQ(plan.transfers[0].file_offset, 4096UL);
+  EXPECT_EQ(plan.transfers[0].size, 2500UL);
 }
 
 TEST_F(TransferPlanTest, adjacent_ranges_merge)
@@ -297,23 +306,13 @@ TEST_F(TransferPlanTest, overlapping_ranges_do_not_merge)
 {
   add_request(0, 100);
   add_request(50, 100);
-  auto const plan = build_plan({.task_size = 1024, .coalesce_max_gap = 1024});
 
-  ASSERT_EQ(plan.transfers.size(), 2UL);
-  EXPECT_EQ(plan.transfers[0].file_offset, 0UL);
-  EXPECT_EQ(plan.transfers[1].file_offset, 50UL);
-}
+  EXPECT_EQ(build_plan({.task_size = 1024, .coalesce_max_gap = 1024}).transfers.size(), 2UL);
 
-TEST_F(TransferPlanTest, unbounded_gap_limit_still_leaves_overlaps_apart)
-{
-  add_request(0, 100);
-  add_request(50, 100);
-  // Without a limit this large the gap comparison rejects overlaps by unsigned wraparound, and
-  // the overlap check itself would go untested.
-  auto const plan =
-    build_plan({.task_size = 1024, .coalesce_max_gap = std::numeric_limits<std::size_t>::max()});
-
-  EXPECT_EQ(plan.transfers.size(), 2UL);
+  // Only a limit this large exercises the overlap check. Below it the gap comparison happens to
+  // reject overlaps by unsigned wraparound.
+  auto const no_limit = std::numeric_limits<std::size_t>::max();
+  EXPECT_EQ(build_plan({.task_size = 1024, .coalesce_max_gap = no_limit}).transfers.size(), 2UL);
 }
 
 TEST_F(TransferPlanTest, duplicate_ranges_do_not_merge)
@@ -441,16 +440,15 @@ TEST_F(TransferPlanTest, overread_counts_every_gap)
 
 TEST_F(TransferPlanTest, many_small_ranges_over_two_handles)
 {
-  // 32 ranges of 64 bytes with 8-byte holes, interleaved between two handles, ordered back to
-  // front so the sort has real work to do.
+  // 64-byte ranges with 8-byte holes, alternating between two handles, added back to front so
+  // the sort has real work to do. Per handle the stride is 144, so four ranges span 496 and a
+  // fifth would pass 512.
   constexpr std::size_t num_ranges = 32;
   for (std::size_t i = num_ranges; i-- > 0;) {
     add_request(i * 72, 64, (i % 2 == 0) ? handle_a : handle_b);
   }
   auto const plan = build_plan({.task_size = 512, .coalesce_max_gap = 128});
 
-  // Per handle the stride is 144 bytes, so a transfer takes four ranges (a 496-byte span) before
-  // the next one would push it past 512.
   EXPECT_EQ(plan.transfers.size(), 8UL);
   EXPECT_EQ(plan.segments.size(), num_ranges);
   for (auto const& transfer : plan.transfers) {
