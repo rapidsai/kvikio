@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 #include <span>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -31,9 +33,9 @@ CUcontext const context_b    = reinterpret_cast<CUcontext>(0x20);
 /**
  * @brief Check the invariants that must hold for every plan, whatever the input.
  *
- * The strongest of these is coverage: the segments referencing a request must tile its byte range
- * exactly once, in order, and point at the matching destination address. That is what catches a
- * mistake in the gap arithmetic, the `task_size` slicing or the per-transfer rebasing.
+ * Coverage is the strongest one. A request's segments must tile its byte range exactly once, in
+ * order, at the matching destination address, which catches any slip in the gap arithmetic, the
+ * splitting or the per-transfer rebasing.
  */
 void expect_plan_invariants(TransferPlan const& plan,
                             std::span<TransferPlanRequest const> requests,
@@ -72,7 +74,7 @@ void expect_plan_invariants(TransferPlan const& plan,
       auto const done = covered[segment.request_index];
       EXPECT_EQ(transfer.file_offset + segment.span_offset, request.file_offset + done)
         << "request " << segment.request_index << " is covered out of order or with a hole";
-      EXPECT_EQ(segment.dst, static_cast<char*>(request.dst) + done);
+      EXPECT_EQ(segment.dst, static_cast<std::byte*>(request.dst) + done);
       EXPECT_EQ(transfer.handle, request.handle);
       EXPECT_EQ(transfer.cuda_context, request.cuda_context);
 
@@ -88,6 +90,22 @@ void expect_plan_invariants(TransferPlan const& plan,
 
   EXPECT_EQ(total_segments, plan.segments.size())
     << "every segment belongs to exactly one transfer";
+
+  // Transfers of one group are contiguous and never go backwards, so a caller can route one
+  // reactor per group with a single scan.
+  std::vector<std::pair<RemoteHandle*, CUcontext>> group_order;
+  for (std::size_t i = 0; i < plan.transfers.size(); ++i) {
+    auto const& transfer = plan.transfers[i];
+    std::pair const key{transfer.handle, transfer.cuda_context};
+    if (!group_order.empty() && group_order.back() == key) {
+      EXPECT_GE(transfer.file_offset, plan.transfers[i - 1].file_offset)
+        << "transfer " << i << " goes backwards within its group";
+      continue;
+    }
+    EXPECT_EQ(std::find(group_order.begin(), group_order.end(), key), group_order.end())
+      << "group of transfer " << i << " is not contiguous";
+    group_order.push_back(key);
+  }
   EXPECT_EQ(overread, plan.overread_bytes);
 
   for (std::size_t i = 0; i < requests.size(); ++i) {
@@ -98,11 +116,11 @@ void expect_plan_invariants(TransferPlan const& plan,
 
 class TransferPlanTest : public ::testing::Test {
  protected:
-  // Destinations are real memory so that the expected `dst` arithmetic is real too. The stride
-  // keeps every request's buffer disjoint.
+  // Real memory, so the expected `dst` arithmetic is real too. The stride keeps every request's
+  // buffer disjoint.
   static constexpr std::size_t dst_stride = 1UL << 14;
 
-  std::vector<char> _destinations = std::vector<char>(64 * dst_stride);
+  std::vector<std::byte> _destinations = std::vector<std::byte>(64 * dst_stride);
   std::vector<TransferPlanRequest> _requests;
 
   std::size_t add_request(std::size_t file_offset,
@@ -182,8 +200,8 @@ TEST_F(TransferPlanTest, request_larger_than_task_size_is_split)
   // Each piece restarts at span offset 0 and continues into the same destination buffer.
   ASSERT_EQ(plan.segments.size(), 3UL);
   EXPECT_EQ(plan.segments[1].span_offset, 0UL);
-  EXPECT_EQ(plan.segments[1].dst, static_cast<char*>(dst_of(0)) + 1000);
-  EXPECT_EQ(plan.segments[2].dst, static_cast<char*>(dst_of(0)) + 2000);
+  EXPECT_EQ(plan.segments[1].dst, static_cast<std::byte*>(dst_of(0)) + 1000);
+  EXPECT_EQ(plan.segments[2].dst, static_cast<std::byte*>(dst_of(0)) + 2000);
   EXPECT_THAT(plan.transfers_per_request, testing::ElementsAre(3UL));
   EXPECT_EQ(plan.overread_bytes, 0UL);
 }
@@ -290,8 +308,8 @@ TEST_F(TransferPlanTest, unbounded_gap_limit_still_leaves_overlaps_apart)
 {
   add_request(0, 100);
   add_request(50, 100);
-  // The overlap test must stand on its own rather than lean on the gap comparison, which rejects
-  // an overlap only by unsigned wraparound and stops doing so once the limit is this large.
+  // Without a limit this large the gap comparison rejects overlaps by unsigned wraparound, and
+  // the overlap check itself would go untested.
   auto const plan =
     build_plan({.task_size = 1024, .coalesce_max_gap = std::numeric_limits<std::size_t>::max()});
 

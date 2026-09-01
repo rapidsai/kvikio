@@ -20,18 +20,16 @@ namespace kvikio::detail {
 
 namespace {
 
-// Requests sharing a handle and a CUDA context may merge, nothing else may. One transfer has one
-// pinned buffer, one stream and one context, so a span mixing a host destination with a device one,
-// or two device contexts, would produce a transfer that cannot complete. A null context marks a
-// host destination, so the pair also encodes the memory kind with no invalid state.
+// Only requests sharing a handle and a CUDA context may merge. A null context means host.
 struct GroupKey {
   RemoteHandle* handle;
   CUcontext cuda_context;
-
   bool operator==(GroupKey const& other) const noexcept = default;
 };
 
 struct GroupKeyHash {
+  // Boost-style combine. The constant is the golden ratio, which scatters the low bits that two
+  // heap pointers tend to share.
   std::size_t operator()(GroupKey const& key) const noexcept
   {
     auto const h1 = std::hash<void const*>{}(key.handle);
@@ -41,20 +39,20 @@ struct GroupKeyHash {
 };
 
 /**
- * @brief Emit the one transfer that serves a run of two or more merged requests.
+ * @brief Emit one transfer serving a run of two or more merged requests.
  *
- * Such a run never needs splitting, because `task_size` is the merge cap, so this emits exactly one
- * transfer and every request sits whole inside its span. That is why nothing here clips.
+ * `task_size` caps such a run, so it always fits one span and every request sits whole inside it.
+ * No request needs trimming here.
  *
  * @param requests The caller's requests.
- * @param run_indices Indices of the run's requests, ascending by file offset and non-overlapping.
+ * @param run_indices The run's requests, ascending by file offset and non-overlapping.
  * @param plan The plan to append to.
  */
 void emit_merged_run(std::span<TransferPlanRequest const> requests,
                      std::span<std::size_t const> run_indices,
                      TransferPlan& plan)
 {
-  // The run is sorted and its requests do not overlap, so the last one ends the span.
+  // The run is sorted and its requests do not overlap.
   auto const& first     = requests[run_indices.front()];
   auto const& last      = requests[run_indices.back()];
   auto const span_begin = first.file_offset;
@@ -80,19 +78,15 @@ void emit_merged_run(std::span<TransferPlanRequest const> requests,
                             .segment_begin = segment_begin,
                             .segment_end   = plan.segments.size()});
 
-  // Whatever the span covers beyond the requests themselves is gap.
+  // Everything the span covers beyond the requests is gap.
   plan.overread_bytes += (span_end - span_begin) - wanted_bytes;
 }
 
 /**
- * @brief Emit one transfer per `task_size` chunk of a single request.
- *
- * The only path that splits, and the only one a lone request takes. A request that already fits
- * yields one transfer, which is what every read looks like with coalescing off. There are no gaps
- * here, so this never adds overread, and each chunk is filled entirely by one segment.
+ * @brief Emit one transfer per `task_size` chunk of a single request. No overread in this case.
  *
  * @param requests The caller's requests.
- * @param request_index Index of the lone request.
+ * @param request_index Index of the single request.
  * @param task_size Maximum transfer span.
  * @param plan The plan to append to.
  */
@@ -111,7 +105,7 @@ void emit_split_request(std::span<TransferPlanRequest const> requests,
 
     plan.segments.push_back({.span_offset   = 0,
                              .length        = chunk_end - chunk_begin,
-                             .dst           = static_cast<char*>(request.dst) + into_request,
+                             .dst           = static_cast<std::byte*>(request.dst) + into_request,
                              .request_index = request_index});
     plan.transfers.push_back({.handle        = request.handle,
                               .cuda_context  = request.cuda_context,
@@ -125,7 +119,7 @@ void emit_split_request(std::span<TransferPlanRequest const> requests,
 }
 
 /**
- * @brief Sweep one group's sorted requests, growing runs greedily and emitting each as it closes.
+ * @brief Walk one group's sorted requests and append results to the plan.
  *
  * @param requests The caller's requests.
  * @param opts Planning options.
@@ -148,25 +142,22 @@ void plan_group(std::span<TransferPlanRequest const> requests,
     while (opts.coalesce_max_gap.has_value() && i < group_indices.size()) {
       auto const& candidate = requests[group_indices[i]];
 
-      // Overlapping and duplicate ranges keep their own transfer. Redundant on the wire, but a
-      // merged span cannot deliver the same byte to two destinations.
+      // No merge if candidate is an overlapping or duplicate range.
       if (candidate.file_offset < span_end) { break; }
 
-      if (candidate.file_offset - span_end > *opts.coalesce_max_gap) { break; }
+      // No merge if the gap is too large.
+      if (candidate.file_offset - span_end > opts.coalesce_max_gap.value()) { break; }
 
-      // `task_size` doubles as the merge cap. Merging past it cannot bring the transfer count
-      // below what splitting already achieves, and it would only add overread.
+      // No merge if inclusion of candidate causes the size to exceed `task_size`.
       if (candidate.file_offset + candidate.size - span_begin > opts.task_size) { break; }
 
+      // Now we can merge
       span_end = candidate.file_offset + candidate.size;
       ++i;
     }
 
-    // Only a lone request can exceed `task_size`, since the cap above bounds every longer run. So
-    // merging and splitting never meet, and each case gets the simpler of the two emitters.
     auto const run_indices = group_indices.subspan(run_begin, i - run_begin);
     if (run_indices.size() > 1) {
-      assert(span_end - span_begin <= opts.task_size);
       emit_merged_run(requests, run_indices, plan);
     } else {
       emit_split_request(requests, run_indices.front(), opts.task_size, plan);
@@ -185,25 +176,27 @@ TransferPlan build_transfer_plan(std::span<TransferPlanRequest const> requests,
   plan.transfers_per_request.assign(requests.size(), 0);
   if (requests.empty()) { return plan; }
 
-  // Each group holds the indices of its requests. Indices rather than copies of the requests is
-  // what lets the caller's span stay const while we sort, which is what keeps every index in the
-  // returned plan meaningful to the caller.
+  // Example:
+  // requests    R0(A,host)  R1(B,host)  R2(A,host)  R3(A,ctx1)  R4(B,host)  R5(A,host)
   //
-  // Groups are kept in order of first appearance. Iterating the map instead would make the emitted
-  // plan depend on where the allocator happened to place a handle.
+  // group_slot        groups
+  // (A, host) -> 0    groups[0] = { 0, 2, 5 }
+  // (B, host) -> 1    groups[1] = { 1, 4 }
+  // (A, ctx1) -> 2    groups[2] = { 3 }
+
+  // Hash table iteration order depends on hashed pointers and varies per run. To make it stable,
+  // here we iterate in insertion order.
   std::vector<std::vector<std::size_t>> groups;
-  std::unordered_map<GroupKey, std::size_t, GroupKeyHash> group_index;
-  for (std::size_t i = 0; i < requests.size(); ++i) {
-    auto const& request = requests[i];
-    // Excluded rather than rejected, matching `pread()`, which returns a ready future for these.
+  std::unordered_map<GroupKey, std::size_t, GroupKeyHash> group_slot;
+  for (std::size_t request_index = 0; request_index < requests.size(); ++request_index) {
+    auto const& request = requests[request_index];
     if (request.size == 0) { continue; }
     auto const [it, inserted] =
-      group_index.try_emplace(GroupKey{request.handle, request.cuda_context}, groups.size());
+      group_slot.try_emplace(GroupKey{request.handle, request.cuda_context}, groups.size());
     if (inserted) { groups.emplace_back(); }
-    groups[it->second].push_back(i);
+    groups[it->second].push_back(request_index);
   }
 
-  // Ties are broken by index so that duplicate offsets keep the caller's order.
   auto const by_file_offset = [requests](std::size_t a, std::size_t b) {
     if (requests[a].file_offset != requests[b].file_offset) {
       return requests[a].file_offset < requests[b].file_offset;
@@ -211,16 +204,13 @@ TransferPlan build_transfer_plan(std::span<TransferPlanRequest const> requests,
     return a < b;
   };
 
-  for (auto& group : groups) {
-    // Callers such as columnar readers usually hand over ascending ranges, and checking for that
-    // is cheaper than sorting. No caller promise is needed, and none would save this pass.
-    if (!std::is_sorted(group.begin(), group.end(), by_file_offset)) {
-      std::sort(group.begin(), group.end(), by_file_offset);
+  for (auto& group_indices : groups) {
+    if (!std::is_sorted(group_indices.begin(), group_indices.end(), by_file_offset)) {
+      std::sort(group_indices.begin(), group_indices.end(), by_file_offset);
     }
-    plan_group(requests, opts, group, plan);
+    plan_group(requests, opts, group_indices, plan);
   }
 
-  // Overread is invisible otherwise, and without it there is no way to tune `coalesce_max_gap`.
   KVIKIO_LOG_DEBUG("build_transfer_plan(): %zu request(s) -> %zu transfer(s), %zu overread byte(s)",
                    requests.size(),
                    plan.transfers.size(),
