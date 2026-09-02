@@ -50,11 +50,15 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.autosummary",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
     "sphinx.ext.extlinks",
     "numpydoc",
     "sphinx_click",
 ]
+
+# Disambiguate section anchors across documents
+autosectionlabel_prefix_document = True
 
 numpydoc_show_class_members = False
 
