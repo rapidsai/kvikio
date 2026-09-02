@@ -30,7 +30,7 @@ from kvikio.remote_file import (
     infer_remote_endpoint_type,
     is_remote_file_available,
 )
-from kvikio.statistics import Summary, SummaryMonitor
+from kvikio.statistics import ObservationKind, Summary, SummaryMonitor
 from kvikio.stream import stream_deregister, stream_register
 from kvikio.utils import kvikio_deprecation_notice
 
@@ -50,6 +50,7 @@ __all__ = [
     "RemoteEndpointType",
     "RemoteFile",
     "Summary",
+    "ObservationKind",
     "SummaryMonitor",
     "stream_register",
     "stream_deregister",
