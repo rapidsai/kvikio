@@ -110,7 +110,7 @@ Let the easy handles in ``EASY_THREADPOOL`` share DNS caches to reduce lookups.
 
 Sharing is enabled by default. Set ``KVIKIO_REMOTE_SHARE_DNS_CACHE`` to ``false``, ``off``, ``no``, or ``0`` (case-insensitive) to disable sharing.
 
-``KVIKIO_REMOTE_NUM_DNS_CACHES`` determines how many DNS caches are used. The default value is ``16``. The count also determines how many server addresses the process connects to, since a cache holds one address list and libcurl always connects to its first entry.
+``KVIKIO_REMOTE_NUM_DNS_CACHES`` sets how many DNS caches the process creates. The default value is ``16``, and a value below ``1`` is clamped to ``1``. Each worker thread is assigned one cache round-robin on first use, which means roughly ``KVIKIO_NTHREADS`` divided by this count threads share a cache.
 
 Both variables are read only from the environment, and only when the caches are first used. Neither has any effect under ``MULTI_POLL``.
 
