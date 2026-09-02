@@ -41,7 +41,7 @@ CurlShareHandle::CurlShareHandle()
 
   // Only DNS is shared.
   // libcurl does not support sharing connections, cookies or HSTS state across concurrent threads.
-  // TLS sessions are excluded here for a different reason. A resumption ticket is consumed by
+  // TLS sessions are excluded here for a different reason: A resumption ticket is consumed by
   // whoever takes it, and libcurl caps every cache at 2 tickets per remote endpoint. Merging the N
   // per-worker caches into one would therefore drop the tickets available for a given endpoint
   // from 2N to 2.
