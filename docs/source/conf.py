@@ -18,6 +18,7 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 import datetime
+import os
 
 from packaging.version import Version
 
@@ -49,11 +50,15 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.autosummary",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
     "sphinx.ext.extlinks",
     "numpydoc",
     "sphinx_click",
 ]
+
+# Disambiguate section anchors across documents
+autosectionlabel_prefix_document = True
 
 numpydoc_show_class_members = False
 
@@ -99,6 +104,7 @@ autodoc_default_options = {
 #
 html_theme = "nvidia_sphinx_theme"
 html_theme_options = {
+    "public_docs_features": os.environ.get("CI") == "true",
     "icon_links": [
         {
             "name": "GitHub",
