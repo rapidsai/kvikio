@@ -42,6 +42,24 @@ cdef extern from "<kvikio/observation.hpp>" namespace "kvikio" nogil:
     const size_t num_io_backends
 
 
+cdef extern from "<kvikio/statistics/counters.hpp>" nogil:
+    cdef cppclass cpp_Counters "kvikio::statistics::Counters":
+        uint64_t remote_size_probes
+        cpp_Duration remote_size_probing
+        uint64_t http_connections
+        cpp_Duration http_dns
+        cpp_Duration http_tcp
+        cpp_Duration http_tls
+        uint64_t http_retries
+        cpp_Duration http_retry_backoff
+
+
+cdef extern from "<kvikio/statistics/counters.hpp>" namespace "kvikio::statistics" nogil:
+    cdef enum cpp_ReportRows "kvikio::statistics::ReportRows":
+        USED "kvikio::statistics::ReportRows::USED"
+        ALL "kvikio::statistics::ReportRows::ALL"
+
+
 cdef extern from "<kvikio/statistics/summary.hpp>" nogil:
     cdef cppclass cpp_BackendTotals "kvikio::statistics::Summary::BackendTotals":
         uint64_t num_ops
@@ -64,13 +82,14 @@ cdef extern from "<kvikio/statistics/summary.hpp>" nogil:
         cpp_Duration busy
         cpp_Duration total_duration
         cpp_BackendTotals[5] by_backend
+        cpp_Counters counters
         cpp_Duration wall() except +
         double busy_bytes_per_sec() except +
         double busy_fraction() except +
         cpp_Duration mean_duration() except +
         cpp_Summary since(const cpp_Summary& previous) except +
         string to_json() except +
-        string report() except +
+        string report(cpp_ReportRows rows) except +
 
     cdef cppclass cpp_SummaryMonitor "kvikio::statistics::SummaryMonitor":
         cpp_SummaryMonitor() except +
@@ -162,6 +181,16 @@ cdef class Summary:
                 }
                 for i, name in enumerate(_BACKEND_NAMES)
             },
+            "counters": {
+                "remote_size_probes": self._handle.counters.remote_size_probes,
+                "remote_size_probing_ns": self._handle.counters.remote_size_probing.count(),
+                "http_connections": self._handle.counters.http_connections,
+                "http_dns_ns": self._handle.counters.http_dns.count(),
+                "http_tcp_ns": self._handle.counters.http_tcp.count(),
+                "http_tls_ns": self._handle.counters.http_tls.count(),
+                "http_retries": self._handle.counters.http_retries,
+                "http_retry_backoff_ns": self._handle.counters.http_retry_backoff.count(),
+            },
             "wall_ns": self._handle.wall().count(),
             "busy_bytes_per_sec": self._handle.busy_bytes_per_sec(),
             "busy_fraction": self._handle.busy_fraction(),
@@ -174,8 +203,9 @@ cdef class Summary:
     def to_json(self) -> str:
         return self._handle.to_json().decode()
 
-    def report(self) -> str:
-        return self._handle.report().decode()
+    def report(self, all_rows: bool = False) -> str:
+        cdef cpp_ReportRows rows = ALL if all_rows else USED
+        return self._handle.report(rows).decode()
 
     def serialize(self) -> bytes:
         return kvikio_summary_to_bytes(self._handle)
