@@ -7,6 +7,19 @@ from typing import Any, overload
 import kvikio._lib.defaults
 from kvikio.utils import call_once
 
+# Once the MULTI_POLL reactor pool has started (i.e. the first remote I/O has been
+# issued), these properties are fixed for the remaining process lifetime and cannot be
+# changed back. Using them as a context manager would silently promise a revert on
+# `__exit__` that can no longer be honored, so `ConfigContextManager` refuses to be
+# entered as a `with` block when one of these is among the properties being set.
+_PROCESS_LIFETIME_PROPERTIES = frozenset(
+    {
+        "remote_io_num_reactors",
+        "remote_io_reactor_dispatch",
+        "remote_io_max_concurrent_requests",
+    }
+)
+
 
 class ConfigContextManager:
     """Context manager allowing the KvikIO configurations to be set upon entering a
@@ -25,6 +38,17 @@ class ConfigContextManager:
             self._set_property(key, value)
 
     def __enter__(self):
+        process_lifetime_keys = _PROCESS_LIFETIME_PROPERTIES.intersection(
+            self._old_properties
+        )
+        if process_lifetime_keys:
+            raise ValueError(
+                f"{sorted(process_lifetime_keys)} cannot be set with a `with` block. "
+                "Once the MULTI_POLL reactor pool has started (i.e. the first remote "
+                "I/O has been issued), these properties are fixed for the remaining "
+                "process lifetime and cannot be reverted. Use "
+                "kvikio.defaults.set(...) without a `with` block instead."
+            )
         return None
 
     def __exit__(self, type_unused, value, traceback_unused):

@@ -189,17 +189,25 @@ def test_remote_io_backend():
 def test_remote_io_num_reactors():
     before = kvikio.defaults.get("remote_io_num_reactors")
 
-    with kvikio.defaults.set("remote_io_num_reactors", 24):
+    try:
+        kvikio.defaults.set("remote_io_num_reactors", 24)
         assert kvikio.defaults.get("remote_io_num_reactors") == 24
+    finally:
+        kvikio.defaults.set("remote_io_num_reactors", before)
     assert kvikio.defaults.get("remote_io_num_reactors") == before
+
+    with pytest.raises(ValueError, match="cannot be set with a `with` block"):
+        with kvikio.defaults.set("remote_io_num_reactors", 24):
+            pass
 
 
 def test_remote_io_reactor_dispatch():
     before = kvikio.defaults.get("remote_io_reactor_dispatch")
 
-    with kvikio.defaults.set(
-        "remote_io_reactor_dispatch", kvikio.RemoteReactorDispatch.PER_PREAD
-    ):
+    try:
+        kvikio.defaults.set(
+            "remote_io_reactor_dispatch", kvikio.RemoteReactorDispatch.PER_PREAD
+        )
         assert kvikio.defaults.get("remote_io_reactor_dispatch") == (
             kvikio.RemoteReactorDispatch.PER_PREAD
         )
@@ -209,12 +217,27 @@ def test_remote_io_reactor_dispatch():
         assert kvikio.defaults.get("remote_io_reactor_dispatch") == (
             kvikio.RemoteReactorDispatch.PER_CHUNK
         )
+    finally:
+        kvikio.defaults.set("remote_io_reactor_dispatch", before)
     assert kvikio.defaults.get("remote_io_reactor_dispatch") == before
+
+    with pytest.raises(ValueError, match="cannot be set with a `with` block"):
+        with kvikio.defaults.set(
+            "remote_io_reactor_dispatch", kvikio.RemoteReactorDispatch.PER_PREAD
+        ):
+            pass
 
 
 def test_remote_io_max_concurrent_requests():
     before = kvikio.defaults.get("remote_io_max_concurrent_requests")
 
-    with kvikio.defaults.set("remote_io_max_concurrent_requests", 128):
+    try:
+        kvikio.defaults.set("remote_io_max_concurrent_requests", 128)
         assert kvikio.defaults.get("remote_io_max_concurrent_requests") == 128
+    finally:
+        kvikio.defaults.set("remote_io_max_concurrent_requests", before)
     assert kvikio.defaults.get("remote_io_max_concurrent_requests") == before
+
+    with pytest.raises(ValueError, match="cannot be set with a `with` block"):
+        with kvikio.defaults.set("remote_io_max_concurrent_requests", 128):
+            pass
