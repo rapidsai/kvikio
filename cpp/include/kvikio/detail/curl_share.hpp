@@ -12,35 +12,36 @@
 namespace kvikio::detail {
 
 /**
- * @brief Process-wide libcurl share holding a single DNS cache for all curl handles.
+ * @brief A libcurl share handle holding a DNS cache for a group of curl easy handles.
  *
- * An attached share overrides the multi handle's cache. `curl_multi_add_handle()` installs its own
- * only when the easy handle has none, so `CURLOPT_SHARE` has to be set first. Setting it in the
- * `CurlHandle` constructor guarantees that order.
+ * An attached share handle overrides the multi handle's cache. `curl_multi_add_handle()` installs
+ * its own only when the easy handle has none, so `CURLOPT_SHARE` has to be set first. Setting it in
+ * the `CurlHandle` constructor guarantees that order.
  *
  * Setting the environment variable `KVIKIO_REMOTE_SHARE_DNS_CACHE` to a false value to disable
  * cache sharing and prevent this class from construction.
  */
-class CurlShare {
+class CurlShareHandle {
  public:
   /**
-   * @brief Get the process-wide share, creating it on first use.
+   * @brief Get the share handle serving the calling thread, creating the share handles on first
+   * use.
    */
-  static CurlShare& instance();
+  static CurlShareHandle& share_handle_for_current_thread();
 
-  CurlShare(CurlShare const&)            = delete;
-  CurlShare& operator=(CurlShare const&) = delete;
-  CurlShare(CurlShare&&)                 = delete;
-  CurlShare& operator=(CurlShare&&)      = delete;
+  CurlShareHandle(CurlShareHandle const&)            = delete;
+  CurlShareHandle& operator=(CurlShareHandle const&) = delete;
+  CurlShareHandle(CurlShareHandle&&)                 = delete;
+  CurlShareHandle& operator=(CurlShareHandle&&)      = delete;
 
   /**
-   * @brief The underlying share handle, for `curl_easy_setopt(CURLOPT_SHARE, ...)`.
+   * @brief The underlying libcurl share handle, for `curl_easy_setopt(CURLOPT_SHARE, ...)`.
    */
-  [[nodiscard]] CURLSH* handle() const noexcept { return _share; }
+  [[nodiscard]] CURLSH* handle() const noexcept { return _share_handle; }
 
  private:
-  CurlShare();
-  ~CurlShare() = default;
+  CurlShareHandle();
+  ~CurlShareHandle() = default;
 
   /**
    * @brief `CURLSHOPT_LOCKFUNC` callback. Takes the mutex guarding @p data.
@@ -52,7 +53,7 @@ class CurlShare {
    * @param data Which shared cache is about to be accessed.
    * @param access Whether libcurl wants shared or exclusive access. Unused, since the DNS cache is
    * locked exclusively.
-   * @param userptr The `CurlShare*` registered via `CURLSHOPT_USERDATA`.
+   * @param userptr The `CurlShareHandle*` registered via `CURLSHOPT_USERDATA`.
    */
   static void lock_callback(CURL* handle,
                             curl_lock_data data,
@@ -64,11 +65,11 @@ class CurlShare {
    *
    * @param handle The easy handle libcurl is serving. Unused.
    * @param data Which shared cache was accessed.
-   * @param userptr The `CurlShare*` registered via `CURLSHOPT_USERDATA`.
+   * @param userptr The `CurlShareHandle*` registered via `CURLSHOPT_USERDATA`.
    */
   static void unlock_callback(CURL* handle, curl_lock_data data, void* userptr);
 
-  CURLSH* _share{nullptr};
+  CURLSH* _share_handle{nullptr};
   // One mutex per shareable data kind in libcurl
   std::array<std::mutex, CURL_LOCK_DATA_LAST> _mutexes;
 };

@@ -3,35 +3,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include <curl/curl.h>
 
+#include <kvikio/defaults.hpp>
 #include <kvikio/detail/curl_share.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/shim/libcurl.hpp>
 
 namespace kvikio::detail {
 
-CurlShare::CurlShare()
+CurlShareHandle::CurlShareHandle()
 {
   // Force LibCurl global init before we create the share handle.
   std::ignore = LibCurl::instance();
 
-  _share = curl_share_init();
-  KVIKIO_EXPECT(_share != nullptr, "curl_share_init() failed", std::runtime_error);
+  _share_handle = curl_share_init();
+  KVIKIO_EXPECT(_share_handle != nullptr, "curl_share_init() failed", std::runtime_error);
 
   auto set_option = [this](CURLSHoption option, auto value) {
-    auto const sc = curl_share_setopt(_share, option, value);
+    auto const sc = curl_share_setopt(_share_handle, option, value);
     KVIKIO_EXPECT(sc == CURLSHE_OK,
                   std::string("curl_share_setopt: ") + curl_share_strerror(sc),
                   std::runtime_error);
   };
-  set_option(CURLSHOPT_LOCKFUNC, &CurlShare::lock_callback);
-  set_option(CURLSHOPT_UNLOCKFUNC, &CurlShare::unlock_callback);
+  set_option(CURLSHOPT_LOCKFUNC, &CurlShareHandle::lock_callback);
+  set_option(CURLSHOPT_UNLOCKFUNC, &CurlShareHandle::unlock_callback);
   set_option(CURLSHOPT_USERDATA, this);
   set_option(CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
 
@@ -43,26 +47,42 @@ CurlShare::CurlShare()
   // from 2N to 2.
 }
 
-CurlShare& CurlShare::instance()
+CurlShareHandle& CurlShareHandle::share_handle_for_current_thread()
 {
+  static std::size_t const num_dns_caches = []() {
+    auto const result = getenv_or<std::size_t>("KVIKIO_REMOTE_NUM_DNS_CACHES", 16);
+    return std::max<std::size_t>(result, 1);
+  }();
+
   // Leaked on purpose.
-  static CurlShare* inst = new CurlShare();
-  return *inst;
+  static std::vector<CurlShareHandle*> const share_handles = [&]() {
+    std::vector<CurlShareHandle*> result;
+    result.reserve(num_dns_caches);
+    for (std::size_t i = 0; i < num_dns_caches; ++i) {
+      result.push_back(new CurlShareHandle());
+    }
+    return result;
+  }();
+
+  // Threads take the caches round-robin.
+  static std::atomic<std::size_t> counter{0};
+  thread_local std::size_t const assigned_index = counter.fetch_add(1) % num_dns_caches;
+  return *share_handles[assigned_index];
 }
 
-void CurlShare::lock_callback(CURL* /*handle*/,
-                              curl_lock_data data,
-                              curl_lock_access /*access*/,
-                              void* userptr)
+void CurlShareHandle::lock_callback(CURL* /*handle*/,
+                                    curl_lock_data data,
+                                    curl_lock_access /*access*/,
+                                    void* userptr)
 {
-  auto* share = static_cast<CurlShare*>(userptr);
-  share->_mutexes[static_cast<std::size_t>(data)].lock();
+  auto* share_handle = static_cast<CurlShareHandle*>(userptr);
+  share_handle->_mutexes[static_cast<std::size_t>(data)].lock();
 }
 
-void CurlShare::unlock_callback(CURL* /*handle*/, curl_lock_data data, void* userptr)
+void CurlShareHandle::unlock_callback(CURL* /*handle*/, curl_lock_data data, void* userptr)
 {
-  auto* share = static_cast<CurlShare*>(userptr);
-  share->_mutexes[static_cast<std::size_t>(data)].unlock();
+  auto* share_handle = static_cast<CurlShareHandle*>(userptr);
+  share_handle->_mutexes[static_cast<std::size_t>(data)].unlock();
 }
 
 }  // namespace kvikio::detail

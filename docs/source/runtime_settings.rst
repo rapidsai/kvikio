@@ -103,6 +103,18 @@ The global budget is divided into an equal private share per reactor (``KVIKIO_R
 
 The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
 
+Shared DNS Caches ``KVIKIO_REMOTE_SHARE_DNS_CACHE``, ``KVIKIO_REMOTE_NUM_DNS_CACHES``
+--------------------------------------------------------------------------------------
+
+Let the easy handles in ``EASY_THREADPOOL`` share DNS caches to reduce lookups.
+
+Sharing is enabled by default. Set ``KVIKIO_REMOTE_SHARE_DNS_CACHE`` to ``false``, ``off``, ``no``, or ``0`` (case-insensitive) to disable sharing.
+
+``KVIKIO_REMOTE_NUM_DNS_CACHES`` determines how many DNS caches are used. The default value is ``16``. The count also determines how many server addresses the process connects to, since a cache holds one address list and libcurl always connects to its first entry.
+
+Both variables are read only from the environment, and only when the caches are first used. Neither has any effect under ``MULTI_POLL``.
+
+
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------
 
