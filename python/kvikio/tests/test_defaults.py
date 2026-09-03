@@ -188,56 +188,68 @@ def test_remote_io_backend():
 
 def test_remote_io_num_reactors():
     before = kvikio.defaults.get("remote_io_num_reactors")
+    after = before + 1
 
     try:
-        kvikio.defaults.set("remote_io_num_reactors", 24)
-        assert kvikio.defaults.get("remote_io_num_reactors") == 24
+        result = kvikio.defaults.set("remote_io_num_reactors", after)
+        assert result is None
+        assert kvikio.defaults.get("remote_io_num_reactors") == after
     finally:
         kvikio.defaults.set("remote_io_num_reactors", before)
     assert kvikio.defaults.get("remote_io_num_reactors") == before
 
-    with pytest.raises(ValueError, match="cannot be set with a `with` block"):
-        with kvikio.defaults.set("remote_io_num_reactors", 24):
+    with pytest.raises(TypeError, match="context manager protocol"):
+        with kvikio.defaults.set("remote_io_num_reactors", after):
             pass
+    kvikio.defaults.set("remote_io_num_reactors", before)
+
+    with pytest.raises(ValueError, match="must be set individually"):
+        kvikio.defaults.set(
+            {
+                "remote_io_num_reactors": after,
+                "task_size": kvikio.defaults.get("task_size"),
+            }
+        )
+    with pytest.raises(ValueError, match="must be set individually"):
+        kvikio.defaults.set({"remote_io_num_reactors": after})
 
 
 def test_remote_io_reactor_dispatch():
     before = kvikio.defaults.get("remote_io_reactor_dispatch")
+    after = (
+        kvikio.RemoteReactorDispatch.PER_CHUNK
+        if before == kvikio.RemoteReactorDispatch.PER_PREAD
+        else kvikio.RemoteReactorDispatch.PER_PREAD
+    )
+    assert after != before
 
     try:
-        kvikio.defaults.set(
-            "remote_io_reactor_dispatch", kvikio.RemoteReactorDispatch.PER_PREAD
-        )
-        assert kvikio.defaults.get("remote_io_reactor_dispatch") == (
-            kvikio.RemoteReactorDispatch.PER_PREAD
-        )
-        kvikio.defaults.set(
-            "remote_io_reactor_dispatch", kvikio.RemoteReactorDispatch.PER_CHUNK
-        )
-        assert kvikio.defaults.get("remote_io_reactor_dispatch") == (
-            kvikio.RemoteReactorDispatch.PER_CHUNK
-        )
+        result = kvikio.defaults.set("remote_io_reactor_dispatch", after)
+        assert result is None
+        assert kvikio.defaults.get("remote_io_reactor_dispatch") == after
     finally:
         kvikio.defaults.set("remote_io_reactor_dispatch", before)
     assert kvikio.defaults.get("remote_io_reactor_dispatch") == before
 
-    with pytest.raises(ValueError, match="cannot be set with a `with` block"):
-        with kvikio.defaults.set(
-            "remote_io_reactor_dispatch", kvikio.RemoteReactorDispatch.PER_PREAD
-        ):
+    with pytest.raises(TypeError, match="context manager protocol"):
+        with kvikio.defaults.set("remote_io_reactor_dispatch", after):
             pass
+    kvikio.defaults.set("remote_io_reactor_dispatch", before)
 
 
 def test_remote_io_max_concurrent_requests():
     before = kvikio.defaults.get("remote_io_max_concurrent_requests")
+    after = before + 1
 
     try:
-        kvikio.defaults.set("remote_io_max_concurrent_requests", 128)
-        assert kvikio.defaults.get("remote_io_max_concurrent_requests") == 128
+        result = kvikio.defaults.set("remote_io_max_concurrent_requests", after)
+        assert result is None
+        assert kvikio.defaults.get("remote_io_max_concurrent_requests") == after
     finally:
         kvikio.defaults.set("remote_io_max_concurrent_requests", before)
     assert kvikio.defaults.get("remote_io_max_concurrent_requests") == before
 
-    with pytest.raises(ValueError, match="cannot be set with a `with` block"):
-        with kvikio.defaults.set("remote_io_max_concurrent_requests", 128):
+    with pytest.raises(TypeError, match="context manager protocol"):
+        with kvikio.defaults.set("remote_io_max_concurrent_requests", after):
             pass
+    kvikio.defaults.set("remote_io_max_concurrent_requests", before)

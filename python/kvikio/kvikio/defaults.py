@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from typing import Any, overload
+from typing import Any, Literal, overload
 
 import kvikio._lib.defaults
 from kvikio.utils import call_once
 
 # Once the MULTI_POLL reactor pool has started (i.e. the first remote I/O has been
-# issued), these properties are fixed for the remaining process lifetime and cannot be
-# changed back. Using them as a context manager would silently promise a revert on
-# `__exit__` that can no longer be honored, so `ConfigContextManager` refuses to be
-# entered as a `with` block when one of these is among the properties being set.
+# issued), these properties are fixed for the remaining process lifetime: there is no
+# value they can be reverted to, since even a plain (non-context-manager) `set()` call
+# would fail at that point too. They are therefore not among the properties
+# `ConfigContextManager` knows how to get/set, and cannot be used with `with`.
 _PROCESS_LIFETIME_PROPERTIES = frozenset(
     {
         "remote_io_num_reactors",
@@ -38,17 +38,6 @@ class ConfigContextManager:
             self._set_property(key, value)
 
     def __enter__(self):
-        process_lifetime_keys = _PROCESS_LIFETIME_PROPERTIES.intersection(
-            self._old_properties
-        )
-        if process_lifetime_keys:
-            raise ValueError(
-                f"{sorted(process_lifetime_keys)} cannot be set with a `with` block. "
-                "Once the MULTI_POLL reactor pool has started (i.e. the first remote "
-                "I/O has been issued), these properties are fixed for the remaining "
-                "process lifetime and cannot be reverted. Use "
-                "kvikio.defaults.set(...) without a `with` block instead."
-            )
         return None
 
     def __exit__(self, type_unused, value, traceback_unused):
@@ -83,9 +72,6 @@ class ConfigContextManager:
             "auto_direct_io_read",
             "auto_direct_io_write",
             "remote_io_backend",
-            "remote_io_num_reactors",
-            "remote_io_reactor_dispatch",
-            "remote_io_max_concurrent_requests",
         ]
 
         property_getters = {}
@@ -102,10 +88,22 @@ def set(config: dict[str, Any], /) -> ConfigContextManager: ...
 
 
 @overload
+def set(
+    key: Literal[
+        "remote_io_num_reactors",
+        "remote_io_reactor_dispatch",
+        "remote_io_max_concurrent_requests",
+    ],
+    value: Any,
+    /,
+) -> None: ...
+
+
+@overload
 def set(key: str, value: Any, /) -> ConfigContextManager: ...
 
 
-def set(*config) -> ConfigContextManager:
+def set(*config) -> ConfigContextManager | None:
     """Set KvikIO configurations.
 
     Examples:
@@ -156,15 +154,23 @@ def set(*config) -> ConfigContextManager:
         - ``"auto_direct_io_read"``
         - ``"auto_direct_io_write"``
         - ``"remote_io_backend"``
+
+        The following are fixed for the remaining process lifetime once the first
+        remote I/O has been issued, so they must be set with
+        ``kvikio.defaults.set(key, value)`` (not the dict form) and cannot be used
+        with a `with` block:
+
         - ``"remote_io_num_reactors"``
         - ``"remote_io_reactor_dispatch"``
         - ``"remote_io_max_concurrent_requests"``
 
     Returns
     -------
-    ConfigContextManager
+    ConfigContextManager or None
        A context manager. If used in a `with` statement, the configuration will revert
-       to its old value upon leaving the block.
+       to its old value upon leaving the block. `None` when setting one of the
+       process-lifetime configurations listed above, which cannot be reverted and thus
+       must be set with the two-argument form, not the dict form.
     """
 
     err_msg = (
@@ -175,11 +181,24 @@ def set(*config) -> ConfigContextManager:
     if len(config) == 1:
         if not isinstance(config[0], dict):
             raise ValueError(err_msg)
-        return ConfigContextManager(config[0])
+        config_dict = config[0]
+        process_lifetime_keys = _PROCESS_LIFETIME_PROPERTIES.intersection(config_dict)
+        if process_lifetime_keys:
+            raise ValueError(
+                f"{sorted(process_lifetime_keys)} are fixed for the process's "
+                "remaining lifetime once the first remote I/O has been issued, so "
+                "they cannot be reverted and must be set individually with "
+                "kvikio.defaults.set(key, value), not as part of a dict."
+            )
+        return ConfigContextManager(config_dict)
     elif len(config) == 2:
         if not isinstance(config[0], str):
             raise ValueError(err_msg)
-        return ConfigContextManager({config[0]: config[1]})
+        key, value = config
+        if key in _PROCESS_LIFETIME_PROPERTIES:
+            getattr(kvikio._lib.defaults, "set_" + key)(value)
+            return None
+        return ConfigContextManager({key: value})
     else:
         raise ValueError(err_msg)
 
@@ -214,6 +233,8 @@ def get(config_name: str) -> Any:
     Any
         The value of the configuration.
     """
+    if config_name in _PROCESS_LIFETIME_PROPERTIES:
+        return getattr(kvikio._lib.defaults, config_name)()
     context_manager = ConfigContextManager({})
     return context_manager._get_property(config_name)
 
