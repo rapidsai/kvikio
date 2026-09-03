@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -15,6 +16,7 @@
 #include <vector>
 
 #include <curl/curl.h>
+#include <openssl/ssl.h>
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/curl_share.hpp>
@@ -88,6 +90,21 @@ void LibCurl::retain_handle(UniqueHandlePtr handle)
   _free_curl_handles.push_back(std::move(handle));
 }
 
+namespace {
+/**
+ * @brief Ask OpenSSL to offload TLS to the kernel. Called before the initialization of an SSL
+ * connection, once all other SSL options are processed.
+ *
+ * @param ssl_ctx The `SSL_CTX` of the pending connection.
+ * @return Always `CURLE_OK`. Requesting kTLS never fails. It is silently ignored when unavailable.
+ */
+CURLcode enable_ktls_callback(CURL*, void* ssl_ctx, void*)
+{
+  SSL_CTX_set_options(static_cast<SSL_CTX*>(ssl_ctx), SSL_OP_ENABLE_KTLS);
+  return CURLE_OK;
+}
+}  // namespace
+
 CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
                        std::string source_file,
                        std::string source_line,
@@ -117,8 +134,37 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   }
 
   // Optionally enable verbose output if it's configured.
-  auto const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
+  static bool const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
   if (verbose) { setopt(CURLOPT_VERBOSE, 1L); }
+
+  // Bind every connection to one interface. Otherwise the kernel routes them all out the
+  // lowest-metric NIC when several sit on one subnet. Passed to libcurl verbatim. A bare `<ip>`
+  // binds the source address and leaves the egress NIC to policy routing, while `if!<name>`
+  // binds the device with SO_BINDTODEVICE. A bad value fails at connection time with
+  // CURLE_INTERFACE_FAILED, not here.
+  static std::string const interface_opt = [] {
+    auto const* env = std::getenv("KVIKIO_REMOTE_INTERFACE");
+    return std::string{env == nullptr ? "" : env};
+  }();
+  if (!interface_opt.empty()) { setopt(CURLOPT_INTERFACE, interface_opt.c_str()); }
+
+  // Shuffle the resolved addresses to spread connections over S3 front-ends. Addresses are not
+  // reshuffled if name resolution is completed using the DNS cache. Therefore the spread is only as
+  // wide as the number of caches (KVIKIO_REMOTE_NUM_DNS_CACHES).
+  static bool const shuffle_dns = getenv_or("KVIKIO_REMOTE_DNS_SHUFFLE", false);
+  if (shuffle_dns) { setopt(CURLOPT_DNS_SHUFFLE_ADDRESSES, 1L); }
+
+  // How long resolved addresses stay cached, or -1 to keep them forever.
+  static long const dns_cache_timeout = getenv_or<long>("KVIKIO_REMOTE_DNS_CACHE_TIMEOUT", 60);
+  setopt(CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
+
+  // Kernel TLS: decrypt in the kernel so the payload is touched once instead of twice (copied out
+  // to OpenSSL, then decrypted). Enables both directions, though only receive matters here.
+  // Off by default because it needs the `tls` kernel module and an OpenSSL built with
+  // `enable-ktls`. It silently stays in userspace when either is missing, or when the negotiated
+  // cipher is unsupported. Confirm it engaged via /proc/net/tls_stat, not this flag.
+  static bool const enable_ktls = getenv_or("KVIKIO_REMOTE_KTLS", false);
+  if (enable_ktls) { setopt(CURLOPT_SSL_CTX_FUNCTION, enable_ktls_callback); }
 
   detail::set_up_ca_paths(*this);
 }

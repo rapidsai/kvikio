@@ -114,6 +114,33 @@ Sharing is enabled by default. Set ``KVIKIO_REMOTE_SHARE_DNS_CACHE`` to ``false`
 
 Both variables are read only from the environment, and only when the caches are first used. Neither has any effect under ``MULTI_POLL``.
 
+DNS Address Shuffling ``KVIKIO_REMOTE_DNS_SHUFFLE``
+----------------------------------------------------
+
+Shuffle the resolved addresses to spread connections over S3 front-ends. Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default.
+
+Addresses are not reshuffled if name resolution is completed using the DNS cache. The shuffle therefore happens once per cache entry rather than once per connection, and the spread is only as wide as the number of caches (``KVIKIO_REMOTE_NUM_DNS_CACHES``). Enabling this with a single cache moves the whole process to one randomly chosen front-end instead of spreading it.
+
+DNS Cache Lifetime ``KVIKIO_REMOTE_DNS_CACHE_TIMEOUT``
+-------------------------------------------------------
+
+How long resolved addresses stay cached, in seconds, or ``-1`` to keep them forever. The default value is ``60``, which matches the libcurl default.
+
+An entry that goes stale is re-resolved on the next lookup, which also reshuffle the addresses if ``KVIKIO_REMOTE_DNS_SHUFFLE`` is enabled.
+
+Network Interface Binding ``KVIKIO_REMOTE_INTERFACE``
+------------------------------------------------------
+
+Bind every connection to one interface. Otherwise the kernel routes them all out the lowest-metric NIC when several sit on one subnet. Unset by default.
+
+The value is passed to libcurl verbatim, in any of the forms it accepts:
+
+  * ``<ip>``: binds the source address and leaves the egress NIC to policy routing.
+  * ``if!<name>``: binds the device itself with ``SO_BINDTODEVICE``.
+  * ``ifhost!<name>!<ip>``: binds both.
+
+A bad value fails at connection time with ``CURLE_INTERFACE_FAILED``, not when the option is set. The binding is process-wide.
+
 
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------
@@ -124,6 +151,13 @@ The Certificate Authority (CA) paths required for TLS/SSL verification in ``libc
   * ``SSL_CERT_DIR`` (also used in OpenSSL): Specifies the CA certificate directory.
 
 When neither is specified, KvikIO searches several standard system locations for the CA file and directory, and if the search fails falls back to the libcurl compile-time defaults.
+
+Kernel TLS ``KVIKIO_REMOTE_KTLS``
+----------------------------------
+
+Decrypt in the kernel so the payload is touched once instead of twice (copied out to OpenSSL, then decrypted). Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default.
+
+Enabling it turns on kernel TLS in both directions, though only receive matters for reads. It requires the ``tls`` kernel module and an OpenSSL built with ``enable-ktls``. It silently stays in userspace when either is missing, or when the negotiated cipher is unsupported, so confirm it engaged via ``/proc/net/tls_stat`` rather than by the fact that this setting is enabled.
 
 Opportunistic POSIX Direct I/O operations ``KVIKIO_AUTO_DIRECT_IO_READ``, ``KVIKIO_AUTO_DIRECT_IO_WRITE``
 ---------------------------------------------------------------------------------------------------------
@@ -190,6 +224,15 @@ Intended for benchmarking the network path in isolation. It applies to both remo
 
 .. warning::
    Reads leave the destination buffer untouched and return garbage, with no error raised. Do not enable outside a benchmark.
+
+Non-temporal Host Copy ``KVIKIO_REMOTE_NONTEMPORAL_COPY``
+----------------------------------------------------------
+
+Use non-temporal (streaming) stores for the copy of downloaded bytes into the caller's host buffer. Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default. It applies only to reads whose destination is host memory.
+
+Each libcurl write callback delivers at most ``CURL_MAX_WRITE_SIZE`` (16 KiB), below the threshold at which glibc's ``memcpy`` switches to non-temporal stores on its own. Every callback copy therefore uses ordinary stores, which first fetch the destination cache line before writing it, costing two DRAM accesses per byte instead of one. Non-temporal stores skip that fetch.
+
+They only pay off when the destination is much larger than last-level cache and is not read again soon, since the write bypasses the cache entirely. On a destination that is promptly re-read, this setting is a pessimization. The non-temporal path additionally requires x86-64 with AVX2, which is detected at runtime. Elsewhere the setting is accepted and an ordinary ``memcpy`` is used.
 
 S3 Over HTTP ``KVIKIO_REMOTE_S3_USE_HTTP``
 -------------------------------------------
