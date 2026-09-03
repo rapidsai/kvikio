@@ -153,6 +153,18 @@ void BounceBufferH2D::reset_for_retry() noexcept
 namespace {
 
 /**
+ * @brief Whether `s3://` URLs are translated to `http://` instead of `https://`, controlled by the
+ * environment variable `KVIKIO_REMOTE_S3_USE_HTTP`. Benchmark only.
+ *
+ * @return True when plain HTTP is used.
+ */
+bool s3_use_http()
+{
+  static bool const value = getenv_or("KVIKIO_REMOTE_S3_USE_HTTP", false);
+  return value;
+}
+
+/**
  * @brief Get the file size, if using `HEAD` request to obtain the content-length header is
  * permitted.
  *
@@ -405,7 +417,8 @@ std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
     // "s3" is a non-standard URI scheme used by AWS CLI and AWS SDK, and cannot be identified by
     // libcurl. A valid HTTP/HTTPS URL needs to be constructed for use in libcurl. Here the AWS
     // virtual host style is used.
-    ss << "https://" << bucket_name << ".s3." << region.value() << ".amazonaws.com/" << object_name;
+    ss << (s3_use_http() ? "http://" : "https://") << bucket_name << ".s3." << region.value()
+       << ".amazonaws.com/" << object_name;
   } else {
     ss << endpoint_url.value() << "/" << bucket_name << "/" << object_name;
   }

@@ -9,10 +9,26 @@
 
 #include <curl/curl.h>
 
+#include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 
 namespace kvikio::detail {
+
+namespace {
+/**
+ * @brief Whether the remote-to-host copy is skipped, controlled by the environment variable
+ * `KVIKIO_REMOTE_NO_HOST_COPY`. Benchmark only. The destination buffer is left untouched. Applies
+ * to both backends, and host destinations only.
+ *
+ * @return True when the copy is skipped.
+ */
+bool no_host_copy()
+{
+  static bool const value = getenv_or("KVIKIO_REMOTE_NO_HOST_COPY", false);
+  return value;
+}
+}  // namespace
 
 void CallbackContext::reset_for_retry() noexcept
 {
@@ -30,7 +46,7 @@ std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb
     return CURL_WRITEFUNC_ERROR;
   }
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
-  std::memcpy(ctx->buf + ctx->offset, data, nbytes);
+  if (!no_host_copy()) { std::memcpy(ctx->buf + ctx->offset, data, nbytes); }
   ctx->offset += nbytes;
   return nbytes;
 }

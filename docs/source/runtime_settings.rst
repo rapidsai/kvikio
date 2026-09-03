@@ -181,6 +181,26 @@ When opportunistic Direct I/O is enabled for reads, unaligned prefix and suffix 
 
    export KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1
 
+No Host Copy ``KVIKIO_REMOTE_NO_HOST_COPY``
+-------------------------------------------
+
+Skip the copy of downloaded bytes into the caller's host buffer. Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default.
+
+Intended for benchmarking the network path in isolation. It applies to both remote I/O backends, and only to reads whose destination is host memory.
+
+.. warning::
+   Reads leave the destination buffer untouched and return garbage, with no error raised. Do not enable outside a benchmark.
+
+S3 Over HTTP ``KVIKIO_REMOTE_S3_USE_HTTP``
+-------------------------------------------
+
+Translate ``s3://`` URLs to ``http://`` instead of ``https://``. Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default.
+
+Intended for benchmarking, where TLS can be the bottleneck. It only affects URLs built from the ``s3://`` scheme. A URL passed explicitly as ``http://`` or ``https://`` is used as given, and ``AWS_ENDPOINT_URL`` takes precedence over both.
+
+.. warning::
+   The connection is unencrypted and unauthenticated. Object data is readable by anyone on the network path, and there is no way to detect a peer impersonating S3 or altering the response. The SigV4 headers are also in cleartext, though the secret key is never transmitted and the signature is bound to the method, path and signed headers, so a captured request can only be replayed verbatim. Do not enable outside a benchmark.
+
 Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``
 -------------------------------------------------
 
