@@ -23,7 +23,7 @@ Contents
    statistics
    runtime_settings
    profiling
-   api
+   python/index
    cpp/index
 
 Indices and tables
