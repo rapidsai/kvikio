@@ -200,6 +200,7 @@ if(KvikIO_REMOTE_SUPPORT)
     "src/detail/multi_poll_reactor.cpp"
     "src/detail/remote_callback.cpp"
     "src/detail/tls.cpp"
+    "src/detail/transfer_plan.cpp"
     "src/detail/url.cpp"
     "src/shim/libcurl.cpp"
   )

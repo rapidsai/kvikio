@@ -157,6 +157,8 @@ kvikio_add_test(NAME COUNTERS_TEST SOURCES test_counters.cpp)
 
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
+kvikio_add_test(NAME SHIM_CUDA_TEST SOURCES test_shim_cuda.cpp)
+
 kvikio_add_test(NAME CONCURRENT_REQUEST_LIMITER_TEST SOURCES test_concurrent_request_limiter.cpp)
 
 kvikio_add_nsys_plugin_test(
@@ -170,6 +172,7 @@ if(KvikIO_REMOTE_SUPPORT)
   kvikio_add_test(NAME TLS_TEST SOURCES test_tls.cpp utils/env.cpp)
   kvikio_add_test(NAME URL_TEST SOURCES test_url.cpp)
   kvikio_add_test(NAME MULTI_POLL_REACTOR_TEST SOURCES test_multi_poll_reactor.cpp utils/env.cpp)
+  kvikio_add_test(NAME TRANSFER_PLAN_TEST SOURCES test_transfer_plan.cpp)
 endif()
 
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/tests/libkvikio)
