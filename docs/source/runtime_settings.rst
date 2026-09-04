@@ -79,12 +79,14 @@ KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected via th
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_backend``. :py:func:`kvikio.RemoteFile.pread` reads the setting on every call, so a change applies to subsequent reads while reads already in flight finish on the backend they started on.
 
-The ``MULTI_POLL`` backend honors three additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``, and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``. These settings are captured once when the reactor pool is first used, so switching to ``MULTI_POLL`` at runtime picks up the values they had at process startup.
+The ``MULTI_POLL`` backend honors three additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``, and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``. These settings are captured once when the reactor pool is first used (i.e. the first ``MULTI_POLL`` remote I/O), and become immutable for the rest of the process lifetime; attempting to change any of them afterwards raises an exception.
 
 Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
 ----------------------------------------------------------
 
 Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``1``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. Increase beyond ``1`` to spread the in-callback ``memcpy`` cost across cores when one reactor's CPU is the bottleneck. This setting has no effect under ``EASY_THREADPOOL``.
+
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_num_reactors``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
 Remote I/O Reactor Dispatch ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
 -----------------------------------------------------------------
@@ -94,6 +96,8 @@ Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are d
   * ``PER_CHUNK`` (default): Sub-ranges are routed to reactors round-robin, independently of which :py:func:`kvikio.RemoteFile.pread` they belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of the same file may land on different reactors, each with its own libcurl connection cache, so they may not share an established TCP/TLS connection.
   * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
 
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_reactor_dispatch``, as long as the ``MULTI_POLL`` reactor pool has not already started.
+
 Remote I/O Concurrency Cap ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``
 -----------------------------------------------------------------------
 
@@ -102,6 +106,8 @@ Upper bound on the number of HTTP range requests the ``MULTI_POLL`` backend keep
 The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap against its own inbox with no cross-reactor synchronization. Integer division rounds the per-reactor share down when the budget is not a multiple of the reactor count, and a floor of 1 rounds it up when the budget is smaller than the reactor count (a computed share of 0 would be a reactor that can never admit a request). The effective total is therefore only approximate.
 
 The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
+
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_max_concurrent_requests``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------

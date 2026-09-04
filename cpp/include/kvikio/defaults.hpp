@@ -488,6 +488,18 @@ class defaults {
   [[nodiscard]] static unsigned int remote_io_num_reactors();
 
   /**
+   * @brief Set the number of reactor threads used by the `MULTI_POLL` remote I/O backend at
+   * runtime, overriding `KVIKIO_REMOTE_IO_NUM_REACTORS`.
+   *
+   * The pool is created lazily on first use and is never rebuilt or resized.
+   *
+   * @param num_reactors The number of reactor threads. Must be a positive integer.
+   *
+   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
+   */
+  static void set_remote_io_num_reactors(unsigned int num_reactors);
+
+  /**
    * @brief How sub-ranges of one `pread()` are distributed across reactor threads under the
    * `MULTI_POLL` remote I/O backend.
    *
@@ -499,6 +511,18 @@ class defaults {
    * @return The reactor dispatch policy.
    */
   [[nodiscard]] static RemoteReactorDispatch remote_io_reactor_dispatch();
+
+  /**
+   * @brief Set the reactor dispatch policy used by the `MULTI_POLL` remote I/O backend at
+   * runtime, overriding `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
+   *
+   * The pool is created lazily on first use and is never rebuilt or resized.
+   *
+   * @param dispatch The reactor dispatch policy.
+   *
+   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
+   */
+  static void set_remote_io_reactor_dispatch(RemoteReactorDispatch dispatch);
 
   /**
    * @brief Maximum number of concurrent in-flight requests across all reactor threads under the
@@ -519,6 +543,19 @@ class defaults {
    * @return The configured concurrent-request ceiling, or 0 for unlimited.
    */
   [[nodiscard]] static std::size_t remote_io_max_concurrent_requests();
+
+  /**
+   * @brief Set the maximum number of concurrent in-flight requests across all reactor threads
+   * under the `MULTI_POLL` remote I/O backend at runtime, overriding
+   * `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`.
+   *
+   * The pool is created lazily on first use and is never rebuilt or resized.
+   *
+   * @param max_requests The concurrent-request ceiling. 0 means unlimited.
+   *
+   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
+   */
+  static void set_remote_io_max_concurrent_requests(std::size_t max_requests);
 };
 
 }  // namespace kvikio
