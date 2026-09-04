@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstddef>
 #include <exception>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -27,6 +28,7 @@
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cuda.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio::detail {
@@ -103,6 +105,15 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
   // it is written and read under _exception_mutex.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
+    // Finish the observation before fulfilling the promise below. The other order would let the
+    // caller return from `future.get()` before the observation had been delivered.
+    if (recorder) {
+      if (_first_exception) {
+        recorder->finish_with_failure();
+      } else {
+        recorder->finish(_total_bytes.load(std::memory_order_relaxed));
+      }
+    }
     if (_first_exception) {
       _promise.set_exception(_first_exception);
     } else {
@@ -120,6 +131,7 @@ void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr eptr)
   // Last thread to decrement to zero fulfills the promise.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
+    if (recorder) { recorder->finish_with_failure(); }
     _promise.set_exception(_first_exception);
   }
 }
@@ -136,7 +148,38 @@ MultiPollReactor::MultiPollReactor(MultiReactorPool* pool,
   std::ignore = LibCurl::instance();
   _curl_multi = curl_multi_init();
   KVIKIO_EXPECT(_curl_multi != nullptr, "curl_multi_init() failed", std::runtime_error);
+  set_connection_cache_size(max_concurrent_requests);
   _io_thread = std::thread(&MultiPollReactor::io_thread_main, this);
+}
+
+std::optional<long> connection_cache_size(
+  std::optional<std::size_t> max_concurrent_requests) noexcept
+{
+  if (!max_concurrent_requests.has_value()) { return std::nullopt; }
+
+  // libcurl documents this option as taking a `long`, and the value is internally stored as an
+  // `unsigned int`. So we cap at whichever of UINT_MAX and LONG_MAX is smaller.
+  constexpr auto uint_max = static_cast<std::size_t>(std::numeric_limits<unsigned>::max());
+  constexpr auto long_max = static_cast<std::size_t>(std::numeric_limits<long>::max());
+  constexpr std::size_t max_settable = std::min(uint_max, long_max);
+
+  // min(max_concurrent_requests * headroom_scale, max_settable), with int overflow avoidance
+  constexpr std::size_t headroom_scale = 4;
+  auto const max_req_adjusted          = std::max<std::size_t>(max_concurrent_requests.value(), 1);
+  auto const tmp = std::min<std::size_t>(max_req_adjusted, max_settable / headroom_scale);
+  return static_cast<long>(tmp * headroom_scale);
+}
+
+void MultiPollReactor::set_connection_cache_size(
+  std::optional<std::size_t> max_concurrent_requests) const
+{
+  auto const cache_size = connection_cache_size(max_concurrent_requests);
+  if (!cache_size.has_value()) { return; }
+
+  auto const mc = curl_multi_setopt(_curl_multi, CURLMOPT_MAXCONNECTS, cache_size.value());
+  KVIKIO_EXPECT(mc == CURLM_OK,
+                std::string("curl_multi_setopt(CURLMOPT_MAXCONNECTS): ") + curl_multi_strerror(mc),
+                std::runtime_error);
 }
 
 MultiPollReactor::~MultiPollReactor() noexcept
@@ -311,6 +354,7 @@ void MultiPollReactor::io_thread_main()
                       std::runtime_error);
         auto transfer = std::move(it->second);
         _in_flight.erase(it);
+        count_http_connection_of(easy);
 
         std::exception_ptr transfer_err;
         try {
@@ -355,6 +399,7 @@ void MultiPollReactor::io_thread_main()
 
             if (outcome.decision == RetryDecision::RETRY) {
               KVIKIO_LOG_WARN(outcome.message);
+              count_http_retry(outcome.delay_ms);
               auto const ready_at = std::chrono::steady_clock::now() + outcome.delay_ms;
               // If a shorter backoff appears
               if (earliest_ready_at.has_value()) {

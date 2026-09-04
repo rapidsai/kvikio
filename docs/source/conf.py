@@ -52,6 +52,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.autosummary",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
     "sphinx.ext.extlinks",
     "numpydoc",
@@ -92,6 +93,9 @@ def clean_doxygen_xml(path: str) -> None:
 
 for project_path in breathe_projects.values():
     clean_doxygen_xml(project_path)
+
+# Disambiguate section anchors across documents
+autosectionlabel_prefix_document = True
 
 numpydoc_show_class_members = False
 
@@ -137,6 +141,7 @@ autodoc_default_options = {
 #
 html_theme = "nvidia_sphinx_theme"
 html_theme_options = {
+    "public_docs_features": os.environ.get("CI") == "true",
     "icon_links": [
         {
             "name": "GitHub",
@@ -145,6 +150,11 @@ html_theme_options = {
             "type": "fontawesome",
         },
     ],
+    "navbar_center": "navbar-nav, version-switcher, navbar-external-links",
+    "switcher": {
+        "json_url": "https://docs.nvidia.com/kvikio/versions.json",
+        "version_match": version,
+    },
 }
 
 # Theme options are theme-specific and customize the look and feel of a theme

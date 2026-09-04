@@ -52,6 +52,7 @@ option(KvikIO_BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
+option(KvikIO_BUILD_NSYS_PLUGIN "Configure CMake to build the Nsight Systems NIC plugin" ON)
 
 # ##################################################################################################
 # * conda environment ------------------------------------------------------------------------------
@@ -168,14 +169,19 @@ set(SOURCES
     "src/file_utils.cpp"
     "src/logger.cpp"
     "src/mmap.cpp"
+    "src/observation.cpp"
+    "src/statistics/counters.cpp"
+    "src/statistics/summary.cpp"
     "src/detail/bounce_buffer_cache.cpp"
     "src/detail/concurrent_request_limiter.cpp"
     "src/detail/env.cpp"
     "src/detail/event.cpp"
     "src/detail/io_event_barrier.cpp"
     "src/detail/nvtx.cpp"
+    "src/detail/observation_recorder.cpp"
     "src/detail/posix_io.cpp"
     "src/detail/stream.cpp"
+    "src/detail/string_utils.cpp"
     "src/detail/utils.cpp"
     "src/shim/cuda.cpp"
     "src/shim/cufile.cpp"
@@ -264,6 +270,13 @@ endif()
 # optionally build examples
 if(KvikIO_BUILD_EXAMPLES)
   add_subdirectory(examples)
+endif()
+
+# ##################################################################################################
+# * add Nsight Systems plugin ----------------------------------------------------------------------
+
+if(KvikIO_BUILD_NSYS_PLUGIN)
+  add_subdirectory(nsys_plugins/nic)
 endif()
 
 if(KvikIO_BUILD_TESTS AND CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
