@@ -51,8 +51,8 @@ class CurlShareHandle {
    *
    * @param handle The easy handle libcurl is serving. Unused. The mutex is chosen by @p data alone.
    * @param data Which shared cache is about to be accessed.
-   * @param access Whether libcurl wants shared or exclusive access. Unused, since the DNS cache is
-   * locked exclusively.
+   * @param access Whether libcurl wants shared or exclusive access. Unused. Libcurl always asks for
+   * exclusive access on the DNS cache.
    * @param userptr The `CurlShareHandle*` registered via `CURLSHOPT_USERDATA`.
    */
   static void lock_callback(CURL* handle,
