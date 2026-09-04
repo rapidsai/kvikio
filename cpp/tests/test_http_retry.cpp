@@ -59,10 +59,27 @@ TEST(HttpRetryTest, non_retryable_failures)
     EXPECT_EQ(outcome.decision, RetryDecision::FATAL);
   }
 
-  // Transport errors that are not timeouts.
-  for (auto const curl_code : {CURLE_COULDNT_RESOLVE_HOST, CURLE_WRITE_ERROR, CURLE_RECV_ERROR}) {
+  // Transport errors outside the retryable set. A malformed URL and a failed certificate check
+  // cannot succeed on a second attempt, and a write error is local to the caller.
+  for (auto const curl_code :
+       {CURLE_URL_MALFORMAT, CURLE_PEER_FAILED_VERIFICATION, CURLE_WRITE_ERROR}) {
     auto const outcome = policy.evaluate(curl_code, 0, 1, "", error_prefix);
     EXPECT_EQ(outcome.decision, RetryDecision::FATAL);
+  }
+}
+
+TEST(HttpRetryTest, retryable_transport_failures)
+{
+  auto const policy = unlimited_policy();
+  for (auto const curl_code : {CURLE_OPERATION_TIMEDOUT,
+                               CURLE_COULDNT_RESOLVE_HOST,
+                               CURLE_COULDNT_CONNECT,
+                               CURLE_RECV_ERROR,
+                               CURLE_SEND_ERROR,
+                               CURLE_PARTIAL_FILE,
+                               CURLE_GOT_NOTHING}) {
+    auto const outcome = policy.evaluate(curl_code, 0, 1, "", error_prefix);
+    EXPECT_EQ(outcome.decision, RetryDecision::RETRY) << "curl code " << curl_code;
   }
 }
 
@@ -129,7 +146,10 @@ TEST(HttpRetryTest, retry_notice_text)
   HttpRetryPolicy const policy{3, default_status_codes()};
 
   auto const timed_out = policy.evaluate(CURLE_OPERATION_TIMEDOUT, 0, 1, "", error_prefix);
-  EXPECT_EQ(timed_out.message, "KvikIO: Timeout error. Retrying after 500ms (attempt 1 of 3).");
+  EXPECT_EQ(timed_out.message,
+            std::string{"KvikIO: Transport error: "} +
+              curl_easy_strerror(CURLE_OPERATION_TIMEDOUT) +
+              ". Retrying after 500ms (attempt 1 of 3).");
 
   auto const throttled = policy.evaluate(CURLE_HTTP_RETURNED_ERROR, 503, 2, "", error_prefix);
   EXPECT_EQ(throttled.message,
@@ -142,8 +162,9 @@ TEST(HttpRetryTest, exhausted_text)
 
   auto const timed_out = policy.evaluate(CURLE_OPERATION_TIMEDOUT, 0, 2, "", error_prefix);
   EXPECT_EQ(timed_out.message,
-            "KvikIO: HTTP request reached maximum number of attempts (2). Reason: Operation timed "
-            "out.");
+            std::string{"KvikIO: HTTP request reached maximum number of attempts (2). Reason: "
+                        "Transport error: "} +
+              curl_easy_strerror(CURLE_OPERATION_TIMEDOUT) + ".");
 
   auto const throttled = policy.evaluate(CURLE_HTTP_RETURNED_ERROR, 503, 2, "", error_prefix);
   EXPECT_EQ(throttled.message,
@@ -161,10 +182,11 @@ TEST(HttpRetryTest, fatal_text)
             "curl_easy_perform() error (The requested URL returned error: 404)");
 
   // Fall back to the generic description when libcurl recorded no message.
-  auto const without_errbuf = policy.evaluate(CURLE_COULDNT_RESOLVE_HOST, 0, 1, "", error_prefix);
+  auto const without_errbuf =
+    policy.evaluate(CURLE_PEER_FAILED_VERIFICATION, 0, 1, "", error_prefix);
   EXPECT_EQ(without_errbuf.message,
             std::string{"curl_easy_perform() error ("} +
-              curl_easy_strerror(CURLE_COULDNT_RESOLVE_HOST) + ")");
+              curl_easy_strerror(CURLE_PEER_FAILED_VERIFICATION) + ")");
 }
 
 TEST(HttpRetryTest, invalid_arguments_are_rejected)

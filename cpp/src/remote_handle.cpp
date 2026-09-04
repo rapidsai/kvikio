@@ -153,6 +153,18 @@ void BounceBufferH2D::reset_for_retry() noexcept
 namespace {
 
 /**
+ * @brief Whether `s3://` URLs are translated to `http://` instead of `https://`, controlled by the
+ * environment variable `KVIKIO_REMOTE_S3_USE_HTTP`. Benchmark only.
+ *
+ * @return True when plain HTTP is used.
+ */
+bool s3_use_http()
+{
+  static bool const value = getenv_or("KVIKIO_REMOTE_S3_USE_HTTP", false);
+  return value;
+}
+
+/**
  * @brief Get the file size, if using `HEAD` request to obtain the content-length header is
  * permitted.
  *
@@ -405,7 +417,8 @@ std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
     // "s3" is a non-standard URI scheme used by AWS CLI and AWS SDK, and cannot be identified by
     // libcurl. A valid HTTP/HTTPS URL needs to be constructed for use in libcurl. Here the AWS
     // virtual host style is used.
-    ss << "https://" << bucket_name << ".s3." << region.value() << ".amazonaws.com/" << object_name;
+    ss << (s3_use_http() ? "http://" : "https://") << bucket_name << ".s3." << region.value()
+       << ".amazonaws.com/" << object_name;
   } else {
     ss << endpoint_url.value() << "/" << bucket_name << "/" << object_name;
   }
@@ -973,9 +986,11 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   for (std::size_t i = 0; i < num_subranges; ++i) {
     std::size_t const subrange_size = std::min(task_size, remaining);
     auto transfer                   = std::make_unique<detail::RemoteMultiTransfer>();
-    transfer->curl                  = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
+    // MULTI_POLL uses multi handle's DNS cache sharing, and does not need the share handle.
+    transfer->curl = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
                                                   detail::fix_conda_file_path_hack(__FILE__),
-                                                  KVIKIO_STRINGIFY(__LINE__));
+                                                  KVIKIO_STRINGIFY(__LINE__),
+                                                  /* use_shared_dns_cache = */ false);
     _endpoint->setopt(*transfer->curl);
     _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);
     transfer->ctx.size     = subrange_size;
