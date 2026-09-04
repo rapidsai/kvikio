@@ -21,11 +21,6 @@
 namespace kvikio::detail {
 
 namespace {
-// Caches are added as threads arrive rather than allocated up front, because the number of
-// threads that will ask is not known here. Most are EASY_THREADPOOL workers, whose count can
-// change through `defaults::set_num_threads()`, and the rest are application threads opening a
-// remote file, which go through `get_file_size()`. MULTI_POLL never gets here, because it shares
-// DNS through its multi handle instead.
 struct Registry {
   struct Cache {
     CurlShareHandle* handle;
@@ -35,10 +30,6 @@ struct Registry {
   std::vector<Cache> caches;
 };
 
-// A thread holds its assignment for its lifetime and drops it on exit. Releasing is what bounds
-// the cache count: `defaults::set_num_threads()` resets the pool, destroying every worker and
-// starting new ones, and without it each generation would add caches that nothing goes on to
-// use.
 struct Assignment {
   Registry* registry;
   std::size_t cache_idx;
