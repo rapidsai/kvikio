@@ -103,14 +103,16 @@ The global budget is divided into an equal private share per reactor (``KVIKIO_R
 
 The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
 
-Shared DNS Caches ``KVIKIO_REMOTE_SHARE_DNS_CACHE``, ``KVIKIO_REMOTE_NUM_DNS_CACHES``
---------------------------------------------------------------------------------------
+Shared DNS Caches ``KVIKIO_REMOTE_SHARE_DNS_CACHE``, ``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE``
+-------------------------------------------------------------------------------------------------
 
 Let the easy handles in ``EASY_THREADPOOL`` share DNS caches to reduce lookups.
 
 Sharing is enabled by default. Set ``KVIKIO_REMOTE_SHARE_DNS_CACHE`` to ``false``, ``off``, ``no``, or ``0`` (case-insensitive) to disable sharing.
 
-``KVIKIO_REMOTE_NUM_DNS_CACHES`` sets how many DNS caches the process creates. The default value is ``16``, and a value below ``1`` is clamped to ``1``. Each worker thread is assigned one cache round-robin on first use, which means roughly ``KVIKIO_NTHREADS`` divided by this count threads share a cache.
+``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE`` sets how many threads may share one DNS cache. The default value is ``16``. A thread is assigned a cache on first use and keeps it for its lifetime, and a new cache is created once the current one is full. The total number of caches is roughly the number of threads divided by this value.
+
+Each cache holds one DNS result per host, which for S3 is a set of addresses drawn afresh on every resolution. Smaller ``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE`` value leads to more caches, spreading connections over more addresses, at the cost of more lookups and less reuse. A thread returns its cache assignment when it exits, and resizing the thread pool with :py:func:`kvikio.defaults.set` reuses the existing caches rather than adding more.
 
 Both variables are read only from the environment, and only when the caches are first used. Neither has any effect under ``MULTI_POLL``.
 

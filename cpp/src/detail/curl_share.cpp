@@ -4,8 +4,8 @@
  */
 
 #include <algorithm>
-#include <atomic>
 #include <cstddef>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -19,6 +19,38 @@
 #include <kvikio/shim/libcurl.hpp>
 
 namespace kvikio::detail {
+
+namespace {
+// Caches are added as threads arrive rather than allocated up front, because the number of
+// threads that will ask is not known here. Most are EASY_THREADPOOL workers, whose count can
+// change through `defaults::set_num_threads()`, and the rest are application threads opening a
+// remote file, which go through `get_file_size()`. MULTI_POLL never gets here, because it shares
+// DNS through its multi handle instead.
+struct Registry {
+  struct Cache {
+    CurlShareHandle* handle;
+    std::size_t num_threads;  // How many live threads have been assigned to this cache.
+  };
+  std::mutex mutex;
+  std::vector<Cache> caches;
+};
+
+// A thread holds its assignment for its lifetime and drops it on exit. Releasing is what bounds
+// the cache count: `defaults::set_num_threads()` resets the pool, destroying every worker and
+// starting new ones, and without it each generation would add caches that nothing goes on to
+// use.
+struct Assignment {
+  Registry* registry;
+  std::size_t cache_idx;
+  CurlShareHandle* handle;  // Held directly, because reading `caches` needs the lock.
+
+  ~Assignment()
+  {
+    std::lock_guard const lock(registry->mutex);
+    --registry->caches[cache_idx].num_threads;
+  }
+};
+}  // namespace
 
 CurlShareHandle::CurlShareHandle()
 {
@@ -49,25 +81,29 @@ CurlShareHandle::CurlShareHandle()
 
 CurlShareHandle& CurlShareHandle::share_handle_for_current_thread()
 {
-  static std::size_t const num_dns_caches = []() {
-    auto const result = getenv_or<std::size_t>("KVIKIO_REMOTE_NUM_DNS_CACHES", 16);
-    return std::max<std::size_t>(result, 1);
+  static std::size_t const max_threads_per_cache = []() {
+    ssize_t const env = getenv_or("KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE", ssize_t{16});
+    KVIKIO_EXPECT(env >= 0,
+                  "KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE has to be a non-negative integer",
+                  std::invalid_argument);
+    return std::max<std::size_t>(static_cast<std::size_t>(env), 1);
   }();
 
   // Leaked on purpose.
-  static std::vector<CurlShareHandle*> const share_handles = [&]() {
-    std::vector<CurlShareHandle*> result;
-    result.reserve(num_dns_caches);
-    for (std::size_t i = 0; i < num_dns_caches; ++i) {
-      result.push_back(new CurlShareHandle());
-    }
-    return result;
-  }();
+  static auto* const registry = new Registry{};
 
-  // Threads take the caches round-robin.
-  static std::atomic<std::size_t> counter{0};
-  thread_local std::size_t const assigned_index = counter.fetch_add(1) % num_dns_caches;
-  return *share_handles[assigned_index];
+  thread_local Assignment const assignment = [&]() {
+    std::lock_guard const lock(registry->mutex);
+    for (std::size_t i = 0; i < registry->caches.size(); ++i) {
+      if (registry->caches[i].num_threads < max_threads_per_cache) {
+        ++registry->caches[i].num_threads;
+        return Assignment{registry, i, registry->caches[i].handle};
+      }
+    }
+    registry->caches.push_back({new CurlShareHandle(), 1});
+    return Assignment{registry, registry->caches.size() - 1, registry->caches.back().handle};
+  }();
+  return *assignment.handle;
 }
 
 void CurlShareHandle::lock_callback(CURL* /*handle*/,
