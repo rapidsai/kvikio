@@ -33,7 +33,7 @@ struct Registry {
 struct Assignment {
   Registry* registry;
   std::size_t cache_idx;
-  CurlShareHandle* handle;  // Held directly, because reading `caches` needs the lock.
+  CurlShareHandle* handle;
 
   ~Assignment()
   {
