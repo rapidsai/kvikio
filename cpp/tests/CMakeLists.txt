@@ -157,6 +157,8 @@ kvikio_add_test(NAME COUNTERS_TEST SOURCES test_counters.cpp)
 
 kvikio_add_test(NAME MMAP_TEST SOURCES test_mmap.cpp)
 
+kvikio_add_test(NAME SHIM_CUDA_TEST SOURCES test_shim_cuda.cpp)
+
 kvikio_add_test(NAME CONCURRENT_REQUEST_LIMITER_TEST SOURCES test_concurrent_request_limiter.cpp)
 
 kvikio_add_nsys_plugin_test(
