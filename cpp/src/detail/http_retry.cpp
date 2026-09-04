@@ -30,9 +30,21 @@ std::size_t HttpRetryPolicy::max_attempts() const noexcept { return _max_attempt
 
 bool HttpRetryPolicy::is_retryable(CURLcode curl_code, long http_code) const
 {
-  // TODO: Currently the timeout is the only libcurl transport error treated as retryable. Need to
-  // revisit and add more candidates.
-  if (curl_code == CURLE_OPERATION_TIMEDOUT) { return true; }
+  // Transport-level failures that say nothing about the request itself, only that this particular
+  // connection or name lookup did not survive. Reading a multi-TB dataset from S3 at several hundred
+  // Gbit/s makes all of these routine: the peer recycles connections, and the VPC resolver drops
+  // queries once a host exceeds its per-ENI packet allowance. Treating them as fatal fails an entire
+  // table scan for one lost packet, so they are retried with the same backoff as a timeout.
+  switch (curl_code) {
+    case CURLE_OPERATION_TIMEDOUT:
+    case CURLE_COULDNT_RESOLVE_HOST:
+    case CURLE_COULDNT_CONNECT:
+    case CURLE_RECV_ERROR:
+    case CURLE_SEND_ERROR:
+    case CURLE_PARTIAL_FILE:
+    case CURLE_GOT_NOTHING: return true;
+    default: break;
+  }
   return std::find(_retryable_status_codes.begin(),
                    _retryable_status_codes.end(),
                    static_cast<int>(http_code)) != _retryable_status_codes.end();
@@ -68,27 +80,28 @@ RetryOutcome HttpRetryPolicy::evaluate(CURLcode curl_code,
     return {RetryDecision::FATAL, std::chrono::milliseconds{0}, ss.str()};
   }
 
+  // A transport failure carries no HTTP status, so reporting one would be misleading.
+  auto const reason = [&] {
+    std::stringstream rs;
+    if (curl_code == CURLE_HTTP_RETURNED_ERROR) {
+      rs << "Got HTTP code " << http_code << ".";
+    } else {
+      rs << "Transport error: " << curl_easy_strerror(curl_code) << ".";
+    }
+    return rs.str();
+  }();
+
   if (attempt >= _max_attempts) {
     std::stringstream ss;
     ss << "KvikIO: HTTP request reached maximum number of attempts (" << _max_attempts
-       << "). Reason: ";
-    if (curl_code == CURLE_OPERATION_TIMEDOUT) {
-      ss << "Operation timed out.";
-    } else {
-      ss << "Got HTTP code " << http_code << ".";
-    }
+       << "). Reason: " << reason;
     return {RetryDecision::EXHAUSTED, std::chrono::milliseconds{0}, ss.str()};
   }
 
   auto const delay_ms = backoff_for(attempt);
   std::stringstream ss;
-  if (curl_code == CURLE_OPERATION_TIMEDOUT) {
-    ss << "KvikIO: Timeout error. Retrying after " << delay_ms.count() << "ms (attempt " << attempt
-       << " of " << _max_attempts << ").";
-  } else {
-    ss << "KvikIO: Got HTTP code " << http_code << ". Retrying after " << delay_ms.count()
-       << "ms (attempt " << attempt << " of " << _max_attempts << ").";
-  }
+  ss << "KvikIO: " << reason << " Retrying after " << delay_ms.count() << "ms (attempt " << attempt
+     << " of " << _max_attempts << ").";
   return {RetryDecision::RETRY, delay_ms, ss.str()};
 }
 
