@@ -12,11 +12,13 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_share.hpp>
 #include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
@@ -89,7 +91,8 @@ void LibCurl::retain_handle(UniqueHandlePtr handle)
 
 CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
                        std::string source_file,
-                       std::string source_line)
+                       std::string source_line,
+                       bool use_shared_dns_cache)
   : _handle{std::move(handle)}
 {
   // Need CURLOPT_NOSIGNAL to support threading, see
@@ -106,6 +109,14 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   // Make requests time out after `value` seconds.
   setopt(CURLOPT_TIMEOUT, kvikio::defaults::http_timeout());
 
+  // Resolve a hostname once per DNS cache.
+  static bool const share_dns_cache = getenv_or("KVIKIO_REMOTE_SHARE_DNS_CACHE", true);
+  if (use_shared_dns_cache && share_dns_cache) {
+    setopt(CURLOPT_SHARE, detail::CurlShareHandle::share_handle_for_current_thread().handle());
+  } else {
+    setopt(CURLOPT_SHARE, static_cast<CURLSH*>(nullptr));
+  }
+
   // Optionally enable verbose output if it's configured.
   auto const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
   if (verbose) { setopt(CURLOPT_VERBOSE, 1L); }
@@ -113,7 +124,11 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   detail::set_up_ca_paths(*this);
 }
 
-CurlHandle::~CurlHandle() noexcept { LibCurl::instance().retain_handle(std::move(_handle)); }
+CurlHandle::~CurlHandle() noexcept
+{
+  std::ignore = curl_easy_setopt(_handle.get(), CURLOPT_SHARE, static_cast<CURLSH*>(nullptr));
+  LibCurl::instance().retain_handle(std::move(_handle));
+}
 
 CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 
