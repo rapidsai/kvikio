@@ -979,17 +979,39 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                     : nullptr;
 
   if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
-    auto task = [this, is_host_mem](
-                  std::byte* dst, std::size_t size, std::size_t file_offset) -> std::size_t {
-      return read_impl(dst, size, file_offset, is_host_mem);
+    if (detail::nonblocking_task_join()) {
+      auto task = [this, is_host_mem](
+                    std::byte* dst, std::size_t size, std::size_t file_offset) -> std::size_t {
+        return read_impl(dst, size, file_offset, is_host_mem);
+      };
+      return submit_subrange_reads(std::move(task),
+                                   static_cast<std::byte*>(buf),
+                                   size,
+                                   file_offset,
+                                   task_size,
+                                   thread_pool,
+                                   std::move(recorder));
+    }
+
+    auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+
+    auto task = [this, is_host_mem](void* devPtr_base,
+                                    std::size_t size,
+                                    std::size_t file_offset,
+                                    std::size_t devPtr_offset) -> std::size_t {
+      return read_impl(
+        static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset, is_host_mem);
     };
-    return submit_subrange_reads(std::move(task),
-                                 static_cast<std::byte*>(buf),
-                                 size,
-                                 file_offset,
-                                 task_size,
-                                 thread_pool,
-                                 std::move(recorder));
+    return detail::parallel_io(task,
+                               buf,
+                               size,
+                               file_offset,
+                               task_size,
+                               0,
+                               {.thread_pool = thread_pool,
+                                .call_idx    = call_idx,
+                                .nvtx_color  = nvtx_color,
+                                .recorder    = std::move(recorder)});
   }
 
   // MULTI_POLL path. The lifecycle of one pread() call uses four cooperating pieces:
