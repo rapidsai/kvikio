@@ -21,25 +21,12 @@
 namespace kvikio::detail {
 
 namespace {
-struct Registry {
-  struct Cache {
-    CurlShareHandle* handle;
-    std::size_t num_threads;  // How many live threads have been assigned to this cache.
-  };
-  std::mutex mutex;
-  std::vector<Cache> caches;
-};
 
 struct Assignment {
-  Registry* registry;
-  std::size_t cache_idx;
+  CurlShareRegistry* registry;
   CurlShareHandle* handle;
 
-  ~Assignment()
-  {
-    std::lock_guard const lock(registry->mutex);
-    --registry->caches[cache_idx].num_threads;
-  }
+  ~Assignment() { registry->release(handle); }
 };
 }  // namespace
 
@@ -70,6 +57,44 @@ CurlShareHandle::CurlShareHandle()
   // from 2N to 2.
 }
 
+CurlShareRegistry::CurlShareRegistry(std::size_t max_threads_per_cache)
+  : _max_threads_per_cache{max_threads_per_cache}
+{
+  KVIKIO_EXPECT(
+    max_threads_per_cache > 0, "`max_threads_per_cache` must be positive", std::invalid_argument);
+}
+
+CurlShareHandle* CurlShareRegistry::acquire()
+{
+  std::lock_guard const lock(_mutex);
+  for (auto& cache : _caches) {
+    if (cache.num_threads < _max_threads_per_cache) {
+      ++cache.num_threads;
+      return cache.handle;
+    }
+  }
+  // Leaked on purpose.
+  _caches.push_back({new CurlShareHandle(), 1});
+  return _caches.back().handle;
+}
+
+void CurlShareRegistry::release(CurlShareHandle* handle)
+{
+  std::lock_guard const lock(_mutex);
+  for (auto& cache : _caches) {
+    if (cache.handle == handle) {
+      --cache.num_threads;
+      return;
+    }
+  }
+}
+
+std::size_t CurlShareRegistry::num_caches() const
+{
+  std::lock_guard const lock(_mutex);
+  return _caches.size();
+}
+
 CurlShareHandle& CurlShareHandle::share_handle_for_current_thread()
 {
   static std::size_t const max_threads_per_cache = []() {
@@ -81,19 +106,9 @@ CurlShareHandle& CurlShareHandle::share_handle_for_current_thread()
   }();
 
   // Leaked on purpose.
-  static auto* const registry = new Registry{};
+  static auto* const registry = new CurlShareRegistry(max_threads_per_cache);
 
-  thread_local Assignment const assignment = [&]() {
-    std::lock_guard const lock(registry->mutex);
-    for (std::size_t i = 0; i < registry->caches.size(); ++i) {
-      if (registry->caches[i].num_threads < max_threads_per_cache) {
-        ++registry->caches[i].num_threads;
-        return Assignment{registry, i, registry->caches[i].handle};
-      }
-    }
-    registry->caches.push_back({new CurlShareHandle(), 1});
-    return Assignment{registry, registry->caches.size() - 1, registry->caches.back().handle};
-  }();
+  thread_local Assignment const assignment{registry, registry->acquire()};
   return *assignment.handle;
 }
 
