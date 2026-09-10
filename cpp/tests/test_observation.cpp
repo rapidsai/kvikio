@@ -3,12 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
+#include <initializer_list>
+#include <iterator>
 #include <mutex>
 #include <numeric>
 #include <stdexcept>
@@ -26,6 +29,7 @@
 #include <kvikio/file_handle.hpp>
 #include <kvikio/mmap.hpp>
 #include <kvikio/observation.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 #ifdef KVIKIO_LIBCURL_FOUND
 #include <kvikio/remote_handle.hpp>
 #endif
@@ -62,7 +66,7 @@ class Recorder final : public kvikio::Monitor {
    */
   class Capture {
    public:
-    Capture()
+    explicit Capture(std::initializer_list<ObservationKind> kinds = {ObservationKind::LOGICAL})
     {
       auto& self = Recorder::instance();
       {
@@ -70,17 +74,24 @@ class Recorder final : public kvikio::Monitor {
         self._observations.clear();
         self._capturing = true;
       }
-      self._id = kvikio::register_monitor(&self);
+      for (auto const kind : kinds) {
+        _ids.push_back(kvikio::register_monitor(&self, kind));
+      }
     }
     ~Capture()
     {
       auto& self = Recorder::instance();
-      kvikio::unregister_monitor(self._id);
+      for (auto const id : _ids) {
+        kvikio::unregister_monitor(id);
+      }
       std::lock_guard const lock{self._mutex};
       self._capturing = false;
     }
     Capture(Capture const&)            = delete;
     Capture& operator=(Capture const&) = delete;
+
+   private:
+    std::vector<std::uint64_t> _ids;
   };
 
   [[nodiscard]] std::vector<Observation> observations() const
@@ -89,9 +100,20 @@ class Recorder final : public kvikio::Monitor {
     return _observations;
   }
 
+  /// The captured observations of one kind, in completion order.
+  [[nodiscard]] std::vector<Observation> observations(ObservationKind kind) const
+  {
+    std::lock_guard const lock{_mutex};
+    std::vector<Observation> selected;
+    std::copy_if(_observations.begin(),
+                 _observations.end(),
+                 std::back_inserter(selected),
+                 [kind](auto const& o) { return o.kind == kind; });
+    return selected;
+  }
+
  private:
   mutable std::mutex _mutex;
-  std::uint64_t _id{0};
   bool _capturing{false};
   std::vector<Observation> _observations;
 };
@@ -146,6 +168,7 @@ TEST(ObservationBasics, enum_names)
   EXPECT_EQ(to_string(TransferDirection::WRITE), "WRITE");
   EXPECT_EQ(to_string(MemoryKind::DEVICE), "DEVICE");
   EXPECT_EQ(to_string(ObservationKind::LOGICAL), "LOGICAL");
+  EXPECT_EQ(to_string(ObservationKind::PHYSICAL), "PHYSICAL");
 }
 
 TEST(ObservationBasics, derived_quantities)
@@ -188,7 +211,28 @@ TEST(ObservationBasics, a_null_monitor_is_rejected)
 
 TEST(ObservationBasics, nothing_is_emitted_without_a_monitor)
 {
-  EXPECT_FALSE(kvikio::detail::monitoring_enabled());
+  EXPECT_FALSE(kvikio::detail::monitoring_enabled(kvikio::ObservationKind::LOGICAL));
+}
+
+TEST(ObservationBasics, the_gate_is_per_kind)
+{
+  // A monitor of one kind must not switch on the paths that emit the other, which would have every
+  // task build a record nobody asked for.
+  Recorder& recorder = Recorder::instance();
+
+  auto const logical = kvikio::register_monitor(&recorder, ObservationKind::LOGICAL);
+  EXPECT_TRUE(kvikio::detail::monitoring_enabled(ObservationKind::LOGICAL));
+  EXPECT_FALSE(kvikio::detail::monitoring_enabled(ObservationKind::PHYSICAL));
+
+  auto const physical = kvikio::register_monitor(&recorder, ObservationKind::PHYSICAL);
+  EXPECT_TRUE(kvikio::detail::monitoring_enabled(ObservationKind::PHYSICAL));
+
+  kvikio::unregister_monitor(logical);
+  EXPECT_FALSE(kvikio::detail::monitoring_enabled(ObservationKind::LOGICAL));
+  EXPECT_TRUE(kvikio::detail::monitoring_enabled(ObservationKind::PHYSICAL));
+
+  kvikio::unregister_monitor(physical);
+  EXPECT_FALSE(kvikio::detail::monitoring_enabled(ObservationKind::PHYSICAL));
 }
 
 TEST_F(ObservationTest, one_call_is_one_observation)
@@ -216,6 +260,143 @@ TEST_F(ObservationTest, one_call_is_one_observation)
   EXPECT_TRUE(o.ok);
   EXPECT_NE(o.id, 0);
   EXPECT_GT(o.end, o.start);
+}
+
+TEST_F(ObservationTest, a_call_is_split_into_physical_transfers)
+{
+  std::vector<std::uint64_t> buffer(_data.size());
+  // `Observation::source` points into the handle, so the handle outlives the assertions below.
+  kvikio::FileHandle f{_filepath, "r"};
+  {
+    Recorder::Capture const capture{{ObservationKind::LOGICAL, ObservationKind::PHYSICAL}};
+    // A task size well below the 8 MiB read, so the call is certain to be split.
+    f.pread(buffer.data(), nbytes(), 0, 1024ull * 1024ull).get();
+  }
+  auto const logical  = Recorder::instance().observations(ObservationKind::LOGICAL);
+  auto const physical = Recorder::instance().observations(ObservationKind::PHYSICAL);
+
+  ASSERT_EQ(logical.size(), 1);
+  ASSERT_GT(physical.size(), 1);
+
+  auto const& call = logical.front();
+  for (auto const& o : physical) {
+    EXPECT_TRUE(o.ok);
+    EXPECT_EQ(o.parent_id, call.id);
+    EXPECT_EQ(o.backend, IoBackend::POSIX);
+    EXPECT_EQ(o.source, _filepath);
+    // A transfer is contained in the call it belongs to.
+    EXPECT_GE(o.start, call.start);
+    EXPECT_LE(o.end, call.end);
+  }
+
+  // The transfers tile the requested range, so every byte of the call is moved exactly once.
+  auto sorted = physical;
+  std::sort(
+    sorted.begin(), sorted.end(), [](auto const& a, auto const& b) { return a.offset < b.offset; });
+  std::size_t offset = 0;
+  std::size_t bytes  = 0;
+  for (auto const& o : sorted) {
+    EXPECT_EQ(o.offset, offset);
+    offset += o.size;
+    bytes += o.bytes_transferred;
+  }
+  EXPECT_EQ(offset, nbytes());
+  EXPECT_EQ(bytes, call.bytes_transferred);
+}
+
+TEST_F(ObservationTest, a_physical_observation_is_shorter_than_the_call_it_belongs_to)
+{
+  // Under a single worker the tasks queue behind one another, so a task's own span covers a
+  // fraction of the call's. That gap is the queue wait.
+  kvikio::ThreadPool one_worker{1};
+
+  std::vector<std::uint64_t> buffer(_data.size());
+  {
+    Recorder::Capture const capture{{ObservationKind::LOGICAL, ObservationKind::PHYSICAL}};
+    kvikio::FileHandle f{_filepath, "r"};
+    f.pread(buffer.data(),
+            nbytes(),
+            0,
+            256ull * 1024ull,
+            kvikio::defaults::gds_threshold(),
+            true,
+            &one_worker)
+      .get();
+  }
+
+  auto const logical  = Recorder::instance().observations(ObservationKind::LOGICAL);
+  auto const physical = Recorder::instance().observations(ObservationKind::PHYSICAL);
+  ASSERT_EQ(logical.size(), 1);
+  ASSERT_GT(physical.size(), 4);
+
+  kvikio::Duration transferring{};
+  for (auto const& o : physical) {
+    transferring += o.duration();
+  }
+  // One worker, so the transfers do not overlap and their total cannot exceed the call.
+  EXPECT_LE(transferring, logical.front().duration());
+}
+
+TEST_F(ObservationTest, a_blocking_call_still_reports_a_physical_transfer)
+{
+  // `read()` does the work inline, with no queue in front of it, so its physical record duplicates
+  // its logical one. It is emitted regardless, so that a physical-only consumer sees every byte.
+  kvikio::test::DevBuffer<std::uint64_t> const dev{_data.size()};
+  {
+    Recorder::Capture const capture{{ObservationKind::PHYSICAL}};
+    kvikio::FileHandle f{_filepath, "r"};
+    EXPECT_EQ(f.read(dev.ptr, nbytes(), 0, 0), nbytes());
+  }
+  auto const physical = Recorder::instance().observations(ObservationKind::PHYSICAL);
+  ASSERT_EQ(physical.size(), 1);
+  EXPECT_EQ(physical.front().bytes_transferred, nbytes());
+  // No monitor was registered for logical observations, so there is no record to point at.
+  EXPECT_FALSE(physical.front().parent_id.has_value());
+}
+
+TEST_F(ObservationTest, an_mmap_read_is_split_into_physical_transfers)
+{
+  std::vector<std::uint64_t> buffer(_data.size());
+  {
+    Recorder::Capture const capture{{ObservationKind::LOGICAL, ObservationKind::PHYSICAL}};
+    kvikio::MmapHandle f{_filepath, "r"};
+    f.pread(buffer.data(), nbytes(), 0, 1024ull * 1024ull).get();
+  }
+  auto const logical  = Recorder::instance().observations(ObservationKind::LOGICAL);
+  auto const physical = Recorder::instance().observations(ObservationKind::PHYSICAL);
+
+  ASSERT_EQ(logical.size(), 1);
+  ASSERT_GT(physical.size(), 1);
+
+  std::size_t bytes = 0;
+  for (auto const& o : physical) {
+    bytes += o.bytes_transferred;
+    EXPECT_EQ(o.backend, IoBackend::MMAP);
+    EXPECT_EQ(o.parent_id, logical.front().id);
+  }
+  EXPECT_EQ(bytes, nbytes());
+}
+
+TEST(ObservationBasics, an_unfinished_transfer_is_recorded_as_failed)
+{
+  // A task that throws, and a request the reactor abandons, both leave the recorder without a
+  // `finish()`. The destructor is the only thing that reports either.
+  Recorder::Capture const capture{{ObservationKind::PHYSICAL}};
+  kvikio::detail::PhysicalObservationContext const context{
+    .backend = IoBackend::REMOTE_HTTP, .direction = TransferDirection::READ, .parent_id = 42};
+  {
+    kvikio::detail::PhysicalObservationRecorder const recorder{context, 128, 4096};
+  }
+
+  auto const physical = Recorder::instance().observations(ObservationKind::PHYSICAL);
+  ASSERT_EQ(physical.size(), 1);
+  auto const& o = physical.front();
+  EXPECT_FALSE(o.ok);
+  EXPECT_EQ(o.bytes_transferred, 0);
+  EXPECT_EQ(o.offset, 128);
+  EXPECT_EQ(o.size, 4096);
+  EXPECT_EQ(o.backend, IoBackend::REMOTE_HTTP);
+  EXPECT_EQ(o.parent_id, 42);
 }
 
 TEST_F(ObservationTest, a_rejected_call_is_not_an_observation)

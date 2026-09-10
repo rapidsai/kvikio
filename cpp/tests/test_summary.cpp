@@ -691,6 +691,27 @@ TEST_F(SummaryTest, bytes_that_are_not_a_summary_are_refused)
   EXPECT_THROW(std::ignore = Summary::deserialize(other_endian), std::invalid_argument);
 }
 
+TEST_F(SummaryTest, a_summary_says_which_observations_it_is_over)
+{
+  // The kind labels the monitor, so it holds whether or not anything was counted.
+  SummaryMonitor const calls;
+  SummaryMonitor transfers{kvikio::ObservationKind::PHYSICAL};
+  auto const logical  = calls.get();
+  auto const physical = transfers.get();
+
+  EXPECT_EQ(logical.kind, kvikio::ObservationKind::LOGICAL);
+  EXPECT_EQ(physical.kind, kvikio::ObservationKind::PHYSICAL);
+  EXPECT_NE(logical.report().find("(LOGICAL)"), std::string::npos);
+  EXPECT_NE(physical.report().find("(PHYSICAL)"), std::string::npos);
+  EXPECT_NE(physical.to_json().find("\"kind\": \"PHYSICAL\""), std::string::npos);
+
+  // It survives everything that carries totals forward.
+  EXPECT_EQ(transfers.since(physical).kind, kvikio::ObservationKind::PHYSICAL);
+  EXPECT_EQ(Summary::deserialize(physical.serialize()).kind, kvikio::ObservationKind::PHYSICAL);
+  transfers.reset();
+  EXPECT_EQ(transfers.get().kind, kvikio::ObservationKind::PHYSICAL);
+}
+
 TEST_F(SummaryTest, the_internal_costs_are_those_of_the_span)
 {
   // Everything counted is remote, so a run against a local file owes nothing and says so by

@@ -80,6 +80,9 @@ Statistics
 .. autoclass:: Summary
     :members:
 
+.. autoclass:: ObservationKind
+    :members:
+
 Defaults
 --------
 .. currentmodule:: kvikio.defaults
