@@ -14,6 +14,7 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/bounce_buffer_cache.hpp>
+#include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/logger.hpp>
@@ -170,11 +171,7 @@ BounceBufferCachePerThreadAndContext<Allocator>::instance()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   static auto* _instance = []() {
-    auto const max_total = defaults::remote_io_max_concurrent_requests();
-    auto const n         = defaults::remote_io_num_reactors();
-    std::optional<std::size_t> const per_reactor_max =
-      (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
-    return new BounceBufferCachePerThreadAndContext(per_reactor_max);
+    return new BounceBufferCachePerThreadAndContext(bounce_buffer_cap());
   }();
   return *_instance;
 }

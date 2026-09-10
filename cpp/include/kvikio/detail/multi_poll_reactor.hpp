@@ -47,6 +47,20 @@ class MultiReactorPool;  // Forward declaration, because reactors needs to hold 
   std::optional<std::size_t> max_concurrent_requests) noexcept;
 
 /**
+ * @brief Cap on bounce buffers held per (reactor thread, CUDA context).
+ *
+ * Tracks whichever regime the concurrency budget uses. A sliced budget lets a reactor start at
+ * most its own share of device transfers, so a matching slice of buffers is enough. A pool-wide
+ * budget lets one reactor hold far more than that share, and a sliced buffer cap would then stop
+ * it from starting device work it has already reserved concurrency for, stranding that budget
+ * where no other reactor can use it. Total pinned memory stays bounded either way, because every
+ * in-flight device transfer needs a slot as well as a buffer.
+ *
+ * @return The cap. `std::nullopt` means unlimited.
+ */
+[[nodiscard]] std::optional<std::size_t> bounce_buffer_cap();
+
+/**
  * @brief Collects results from N sub-range transfers and resolves one top-level future once all of
  * them have either succeeded or one has failed.
  *
@@ -213,10 +227,14 @@ class MultiPollReactor {
    * propagate pool-wide death state. The pool must outlive the reactor, which is guaranteed because
    * the pool is a leaked singleton that owns this reactor by `unique_ptr`.
    * @param max_concurrent_requests This reactor's private share of the total concurrent-request
-   * budget (the global cap divided across reactors). `std::nullopt` means unlimited. Each reactor
-   * enforces its own share against its own inbox.
+   * budget (the global cap divided across reactors). `std::nullopt` means unlimited. Only consulted
+   * when `shared_limiter` is null.
+   * @param shared_limiter Pool-wide limiter holding the whole concurrency budget, or null to give
+   * this reactor a private limiter sized to `max_concurrent_requests`.
    */
-  MultiPollReactor(MultiReactorPool* pool, std::optional<std::size_t> max_concurrent_requests);
+  MultiPollReactor(MultiReactorPool* pool,
+                   std::optional<std::size_t> max_concurrent_requests,
+                   ConcurrentRequestLimiter* shared_limiter);
   ~MultiPollReactor() noexcept;
   MultiPollReactor(MultiPollReactor const&)            = delete;
   MultiPollReactor& operator=(MultiPollReactor const&) = delete;
@@ -261,6 +279,44 @@ class MultiPollReactor {
    */
   void set_connection_cache_size(std::optional<std::size_t> max_concurrent_requests) const;
 
+  /**
+   * @brief What one admission walk over `_pending` left behind.
+   */
+  struct AdmitOutcome {
+    // Earliest retry-backoff deadline among the deferred transfers (if any).
+    std::optional<std::chrono::steady_clock::time_point> earliest_ready_at;
+
+    // Whether anything is held back for a limiter slot or a bounce buffer rather than for an
+    // unelapsed retry backoff. The two take different poll timeouts.
+    bool deferred_for_resource{false};
+
+    /**
+     * @brief Merge a later walk's result into this one.
+     *
+     * @param other The later walk's outcome.
+     */
+    void merge(AdmitOutcome const& other) noexcept;
+  };
+
+  /**
+   * @brief Hand as many pending transfers to libcurl as the gates currently allow.
+   *
+   * Transfers that cannot be admitted stay in `_pending` for a later walk.
+   *
+   * @return What the walk left behind. Decides this pass's poll timeout.
+   */
+  AdmitOutcome admit_pending();
+
+  /**
+   * @brief Move as much of the pool-wide queue into `_pending` as this reactor has capacity for.
+   *
+   * `FIRST_AVAILABLE` only. Each transfer taken carries the concurrency reservation that allowed it
+   * to be taken, leaving `admit_pending()` free to hand it straight to libcurl.
+   *
+   * @param outcome Updated when the queue still holds work this reactor could not reserve for.
+   */
+  void take_from_pool_queue(AdmitOutcome& outcome);
+
   void io_thread_main();
 
   /**
@@ -282,7 +338,13 @@ class MultiPollReactor {
                          std::chrono::steady_clock::time_point ready_at) noexcept;
 
   MultiReactorPool* _pool;
-  ConcurrentRequestLimiter _request_limiter;
+  ConcurrentRequestLimiter _private_limiter;
+
+  // Points at either `_private_limiter` or the pool's shared one. Never null.
+  ConcurrentRequestLimiter* _request_limiter;
+
+  // `FIRST_AVAILABLE` only. Most sub-ranges this reactor can accept.
+  std::size_t _take_ceiling;
   CURLM* _curl_multi{nullptr};
   std::thread _io_thread;
   std::mutex _submit_mutex;
@@ -299,12 +361,15 @@ class MultiPollReactor {
  * lifetime: switching either requires restarting with different `KVIKIO_REMOTE_IO_NUM_REACTORS` /
  * `KVIKIO_REMOTE_IO_REACTOR_DISPATCH` env vars.
  *
- * Dispatch rules (with `N = _reactors.size()`):
+ * Dispatch rules (with `N = _reactor_count`):
  *  - `PER_CHUNK` (default): each sub-range is routed independently via a round-robin atomic
  *    counter. Maximizes load distribution. May cause sub-ranges of the same file to use distinct
  *    TCP/TLS connections.
  *  - `PER_PREAD`: all sub-ranges of one `submit_pread()` call land on the same reactor (round-robin
  *    per call). Preserves per-`CURLM` connection-pool reuse.
+ *  - `FIRST_AVAILABLE`: sub-ranges are parked in one pool-wide queue. A reactor takes one only
+ * after reserving concurrency for it, which binds work at execution time instead of submission
+ * time. Needs a non-zero concurrency budget to pace the queue.
  */
 class MultiReactorPool {
  public:
@@ -361,17 +426,82 @@ class MultiReactorPool {
    */
   void signal_death(std::exception_ptr eptr) noexcept;
 
+  /**
+   * @brief Take one sub-range off the pool-wide queue, or nothing if it is empty. Thread-safe.
+   *
+   * The caller must already hold a concurrency reservation for it.
+   *
+   * @return The sub-range, or null when the queue is empty.
+   */
+  [[nodiscard]] std::unique_ptr<RemoteMultiTransfer> try_pop_queued() noexcept;
+
+  /**
+   * @brief Whether the pool-wide queue currently holds anything. Thread-safe.
+   *
+   * A hint, not a guarantee. The queue may be drained between the check and the next pop.
+   */
+  [[nodiscard]] bool has_queued_work() const noexcept;
+
+  /**
+   * @brief Roughly how many sub-ranges the pool-wide queue holds. Thread-safe.
+   *
+   * Fit for sizing a batch, as `fair_take_count()` and the wake path do, and not for anything
+   * that needs the count to be right. Reads without the queue lock, so it can miss a push or a
+   * pop that is already under way, and is stale as soon as it returns.
+   */
+  [[nodiscard]] std::size_t queued_count_hint() const noexcept;
+
+  /**
+   * @brief How many sub-ranges one reactor may take from the pool-wide queue right now.
+   *
+   * An even split of what is queued. Without it, whichever reactor asks first sweeps up the tail
+   * of a burst and runs it alone, and a `pread()` waits on its slowest sub-range.
+   *
+   * @return At least 1 whenever the queue is non-empty, which keeps progress possible.
+   */
+  [[nodiscard]] std::size_t fair_take_count() const noexcept;
+
+  /**
+   * @brief Whether sub-ranges are parked in the pool-wide queue instead of pushed to a reactor.
+   */
+  [[nodiscard]] bool uses_first_available() const noexcept;
+
+  /**
+   * @brief Nudge `count` reactors, chosen round-robin, out of their poll. Thread-safe.
+   *
+   * Freeing a pool-wide slot lets some other reactor start queued work. Only a wakeup tells it.
+   *
+   * @param count How many reactors to wake. Clamped to the reactor count.
+   */
+  void wake_reactors(std::size_t count) noexcept;
+
  private:
   MultiReactorPool();
   ~MultiReactorPool() noexcept;
 
+  // Fixed at construction. Reactor threads start while `_reactors` is still being filled, which
+  // makes its `size()` unsafe for them to read.
+  std::size_t _reactor_count;
+  // Declared before `_reactors` to outlive the reactors that borrow it.
+  std::optional<ConcurrentRequestLimiter> _shared_limiter;
   std::vector<std::unique_ptr<MultiPollReactor>> _reactors;
   RemoteReactorDispatch _dispatch;
-  // Round-robin counter. Incremented per pread (PER_PREAD) or per chunk (PER_CHUNK).
+  // Round-robin counter. Incremented per pread (PER_PREAD) or per chunk (PER_CHUNK), and used to
+  // rotate which reactors `wake_reactors()` nudges.
   std::atomic<std::size_t> _next_reactor_counter{0};
   std::atomic<bool> _dead{false};
   std::mutex mutable _death_mutex;  // Protects writes to `_death_reason`.
   std::exception_ptr _death_reason;
+
+  // FIRST_AVAILABLE only. Sub-ranges wait here until some reactor has a slot for one.
+  std::mutex _queue_mutex;
+  std::deque<std::unique_ptr<RemoteMultiTransfer>> _queue;
+  // Mirrors `_queue.size()` so the reactors can ask whether taking is worth attempting without
+  // serializing on `_queue_mutex` every loop pass. Written under that mutex, read without it, so a
+  // reader can catch the gap between a push or pop and the store, and any value is stale the
+  // moment it is returned. Only ever a reason to try. `try_pop_queued()` returning null is what
+  // settles whether work was really there.
+  std::atomic<std::size_t> _queue_size_hint{0};
 };
 
 }  // namespace kvikio::detail

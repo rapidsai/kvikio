@@ -46,6 +46,19 @@ struct CallbackContext {
 };
 
 /**
+ * @brief Copy one libcurl chunk into a read destination.
+ *
+ * Uses non-temporal stores when `KVIKIO_REMOTE_NONTEMPORAL_COPY` is set and the CPU supports
+ * them, and `std::memcpy` otherwise. Shared by every remote read path, covering host destinations
+ * and pinned bounce buffers alike.
+ *
+ * @param dst Destination, either the caller's host buffer or a pinned bounce buffer.
+ * @param src The bytes libcurl delivered.
+ * @param nbytes Number of bytes to copy.
+ */
+void copy_chunk(char* dst, char const* src, std::size_t nbytes);
+
+/**
  * @brief Callback for `CURLOPT_WRITEFUNCTION` that copies received bytes directly into a host
  * buffer.
  *

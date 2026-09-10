@@ -89,19 +89,26 @@ Number of reactor threads used by the ``MULTI_POLL`` backend. The default value 
 Remote I/O Reactor Dispatch ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
 -----------------------------------------------------------------
 
-Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are distributed across reactor threads when ``MULTI_POLL`` is active. When only one reactor is used, both modes are equivalent. This setting has no effect under ``EASY_THREADPOOL``. The accepted values (case-insensitive) are:
+Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are distributed across reactor threads when ``MULTI_POLL`` is active. When only one reactor is used, all modes are equivalent. This setting has no effect under ``EASY_THREADPOOL``. The accepted values (case-insensitive) are:
 
   * ``PER_CHUNK`` (default): Sub-ranges are routed to reactors round-robin, independently of which :py:func:`kvikio.RemoteFile.pread` they belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of the same file may land on different reactors, each with its own libcurl connection cache, so they may not share an established TCP/TLS connection.
   * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
+  * ``FIRST_AVAILABLE``: A sub-range goes to whichever reactor has capacity for it first. The two modes above pick a reactor when the sub-range is submitted, using a round-robin guess at which one will be free. This mode picks at execution time instead, which keeps a stale guess from stranding work behind a busy reactor. Sub-ranges wait in a pool-wide queue until a reactor reserves concurrency for one, at the cost of a mutex per admission. Requires a non-zero ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` to pace the queue, and falls back to ``PER_CHUNK`` without one.
+
+The two dispatch families also differ in how the concurrency budget is enforced; see the next section.
 
 Remote I/O Concurrency Cap ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``
 -----------------------------------------------------------------------
 
 Upper bound on the number of HTTP range requests the ``MULTI_POLL`` backend keeps in flight at once, summed across all reactor threads. The default value is ``256``. It must be a non-negative integer, and ``0`` means unlimited. The value is ignored when the active backend is not ``MULTI_POLL`` (``EASY_THREADPOOL`` is already bounded by ``KVIKIO_NTHREADS``).
 
-The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap against its own inbox with no cross-reactor synchronization. Integer division rounds the per-reactor share down when the budget is not a multiple of the reactor count, and a floor of 1 rounds it up when the budget is smaller than the reactor count (a computed share of 0 would be a reactor that can never admit a request). The effective total is therefore only approximate.
+Under ``PER_CHUNK`` and ``PER_PREAD`` the global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap against its own inbox with no cross-reactor synchronization. Integer division rounds the per-reactor share down when the budget is not a multiple of the reactor count, and a floor of 1 rounds it up when the budget is smaller than the reactor count (a computed share of 0 would be a reactor that can never admit a request). The effective total is therefore only approximate.
 
 The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
+
+Under ``FIRST_AVAILABLE`` the budget is instead one pool-wide counter. A reactor may use any slot no other reactor holds, and a budget that does not divide by the reactor count is still fully usable. The scope follows the dispatch mode rather than being separately selectable, because a pool-wide budget is only sound when nothing is bound to a reactor before a slot exists for it. Under the pre-binding modes a sub-range bound to a reactor that then loses the race for slots would stall until one is freed, and the :py:func:`kvikio.RemoteFile.pread` would wait on it.
+
+The same applies to the pinned bounce buffers that device reads stage through, which are capped per reactor under the sliced budget and pool-wide under ``FIRST_AVAILABLE``. A sliced buffer cap combined with a pool-wide budget would let a reactor reserve concurrency for device work it then cannot start.
 
 Shared DNS Caches ``KVIKIO_REMOTE_SHARE_DNS_CACHE``, ``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE``
 -------------------------------------------------------------------------------------------------
@@ -116,6 +123,33 @@ Each cache holds one DNS result per host, which for S3 is a set of addresses dra
 
 Both variables are read only from the environment, and only when the caches are first used. Neither has any effect under ``MULTI_POLL``.
 
+DNS Address Shuffling ``KVIKIO_REMOTE_DNS_SHUFFLE``
+----------------------------------------------------
+
+Shuffle the resolved addresses to spread connections over S3 front-ends. Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default.
+
+Addresses are not reshuffled if name resolution is completed using the DNS cache. The shuffle therefore happens once per cache entry rather than once per connection, and the spread is only as wide as the number of caches (``KVIKIO_REMOTE_NUM_DNS_CACHES``). Enabling this with a single cache moves the whole process to one randomly chosen front-end instead of spreading it.
+
+DNS Cache Lifetime ``KVIKIO_REMOTE_DNS_CACHE_TIMEOUT``
+-------------------------------------------------------
+
+How long resolved addresses stay cached, in seconds, or ``-1`` to keep them forever. The default value is ``60``, which matches the libcurl default.
+
+An entry that goes stale is re-resolved on the next lookup, which also reshuffle the addresses if ``KVIKIO_REMOTE_DNS_SHUFFLE`` is enabled.
+
+Network Interface Binding ``KVIKIO_REMOTE_INTERFACE``
+------------------------------------------------------
+
+Bind every connection to one interface. Otherwise the kernel routes them all out the lowest-metric NIC when several sit on one subnet. Unset by default.
+
+The value is passed to libcurl verbatim, in any of the forms it accepts:
+
+  * ``<ip>``: binds the source address and leaves the egress NIC to policy routing.
+  * ``if!<name>``: binds the device itself with ``SO_BINDTODEVICE``.
+  * ``ifhost!<name>!<ip>``: binds both.
+
+A bad value fails at connection time with ``CURLE_INTERFACE_FAILED``, not when the option is set. The binding is process-wide.
+
 
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------
@@ -126,6 +160,13 @@ The Certificate Authority (CA) paths required for TLS/SSL verification in ``libc
   * ``SSL_CERT_DIR`` (also used in OpenSSL): Specifies the CA certificate directory.
 
 When neither is specified, KvikIO searches several standard system locations for the CA file and directory, and if the search fails falls back to the libcurl compile-time defaults.
+
+Kernel TLS ``KVIKIO_REMOTE_KTLS``
+----------------------------------
+
+Decrypt in the kernel so the payload is touched once instead of twice (copied out to OpenSSL, then decrypted). Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default.
+
+Enabling it turns on kernel TLS in both directions, though only receive matters for reads. It requires the ``tls`` kernel module and an OpenSSL built with ``enable-ktls``. It silently stays in userspace when either is missing, or when the negotiated cipher is unsupported, so confirm it engaged via ``/proc/net/tls_stat`` rather than by the fact that this setting is enabled.
 
 Opportunistic POSIX Direct I/O operations ``KVIKIO_AUTO_DIRECT_IO_READ``, ``KVIKIO_AUTO_DIRECT_IO_WRITE``
 ---------------------------------------------------------------------------------------------------------
@@ -182,6 +223,35 @@ When opportunistic Direct I/O is enabled for reads, unaligned prefix and suffix 
 .. code-block:: bash
 
    export KVIKIO_AUTO_DIRECT_IO_READ_OVERREAD=1
+
+No Host Copy ``KVIKIO_REMOTE_NO_HOST_COPY``
+-------------------------------------------
+
+Skip the copy of downloaded bytes into the caller's host buffer. Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default.
+
+Intended for benchmarking the network path in isolation. It applies to both remote I/O backends, and only to reads whose destination is host memory.
+
+.. warning::
+   Reads leave the destination buffer untouched and return garbage, with no error raised. Do not enable outside a benchmark.
+
+Non-temporal Host Copy ``KVIKIO_REMOTE_NONTEMPORAL_COPY``
+----------------------------------------------------------
+
+Use non-temporal (streaming) stores for the copy of downloaded bytes into the caller's host buffer. Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default. It applies only to reads whose destination is host memory.
+
+Each libcurl write callback delivers at most ``CURL_MAX_WRITE_SIZE`` (16 KiB), below the threshold at which glibc's ``memcpy`` switches to non-temporal stores on its own. Every callback copy therefore uses ordinary stores, which first fetch the destination cache line before writing it, costing two DRAM accesses per byte instead of one. Non-temporal stores skip that fetch.
+
+They only pay off when the destination is much larger than last-level cache and is not read again soon, since the write bypasses the cache entirely. On a destination that is promptly re-read, this setting is a pessimization. The non-temporal path additionally requires x86-64 with AVX2, which is detected at runtime. Elsewhere the setting is accepted and an ordinary ``memcpy`` is used.
+
+S3 Over HTTP ``KVIKIO_REMOTE_S3_USE_HTTP``
+-------------------------------------------
+
+Translate ``s3://`` URLs to ``http://`` instead of ``https://``. Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default.
+
+Intended for benchmarking, where TLS can be the bottleneck. It only affects URLs built from the ``s3://`` scheme. A URL passed explicitly as ``http://`` or ``https://`` is used as given, and ``AWS_ENDPOINT_URL`` takes precedence over both.
+
+.. warning::
+   The connection is unencrypted and unauthenticated. Object data is readable by anyone on the network path, and there is no way to detect a peer impersonating S3 or altering the response. The SigV4 headers are also in cleartext, though the secret key is never transmitted and the signature is bound to the method, path and signed headers, so a captured request can only be replayed verbatim. Do not enable outside a benchmark.
 
 Logging ``KVIKIO_LOG_LEVEL``, ``KVIKIO_LOG_FILE``
 -------------------------------------------------

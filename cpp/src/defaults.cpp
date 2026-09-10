@@ -83,6 +83,7 @@ RemoteReactorDispatch getenv_or(std::string_view env_var_name, RemoteReactorDisp
   auto const normalized = detail::normalize_env_value(env_val);
   if (normalized == "per_chunk") { return RemoteReactorDispatch::PER_CHUNK; }
   if (normalized == "per_pread") { return RemoteReactorDispatch::PER_PREAD; }
+  if (normalized == "first_available") { return RemoteReactorDispatch::FIRST_AVAILABLE; }
   KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
               std::invalid_argument);
 }

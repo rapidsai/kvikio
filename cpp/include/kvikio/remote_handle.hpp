@@ -83,6 +83,11 @@ enum class RemoteReactorDispatch : uint8_t {
         ///< itself chosen round-robin per `pread()` call). The sub-ranges then share that reactor's
         ///< libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best
         ///< for HTTPS, where the TLS handshake cost is non-trivial.
+  FIRST_AVAILABLE = 2,  ///< Sub-ranges are parked in one pool-wide queue, and a reactor takes one
+                        ///< only once it has capacity to start it. Binding at execution time rather
+                        ///< than submission time keeps a round-robin guess from stranding work
+                        ///< behind a busy reactor. Costs a lock per admission. Requires a non-zero
+                        ///< `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`, which paces the queue.
 };
 
 /**
