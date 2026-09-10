@@ -1,3 +1,46 @@
+# kvikio 26.08.00 (5 Aug 2026)
+
+### 🚨 Breaking Changes
+* Create a new remote I/O backend: libcurl multi poll-based (1/n: host support) by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/960
+* Implement per-(thread, CUDA context) bounce buffer cache singleton (libcurl multi poll-based backend 3/n) by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/965
+### 🐛 Bug Fixes
+* Close resources before move assignment by @fallintoplace in https://github.com/rapidsai/kvikio/pull/983
+* Fix unused variable handling in `infer_remote_endpoint_type` by @TomAugspurger in https://github.com/rapidsai/kvikio/pull/990
+* Pin CMake to < 4.4 by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/1005
+* fix(clang-format): preserve SPDX comments by @bdice in https://github.com/rapidsai/kvikio/pull/1006
+* Unpin CMake from < 4.4 by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/1008
+* Fix cuFile dependency and enable CI wheel tests by @bdice in https://github.com/rapidsai/kvikio/pull/1013
+### 📖 Documentation
+* Update docs to use NVIDIA Sphinx theme by @bdice in https://github.com/rapidsai/kvikio/pull/996
+### 🛠️ Improvements
+* Require CMake 4.0 by @KyleFromNVIDIA in https://github.com/rapidsai/kvikio/pull/961
+* Improve devcontainer startup times by @trxcllnt in https://github.com/rapidsai/kvikio/pull/964
+* Implement CUDA event pool to minimize runtime resource allocation overhead (libcurl multi poll-based backend 2/n) by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/919
+* merge release/26.06 into main by @jameslamb in https://github.com/rapidsai/kvikio/pull/972
+* Add SECURITY.md by @jameslamb in https://github.com/rapidsai/kvikio/pull/969
+* fix(ci): fix configuration for breaking change notification workflow by @jameslamb in https://github.com/rapidsai/kvikio/pull/975
+* PERF: Avoid duplicate HEAD requests for file size with S3 endpoint by @TomAugspurger in https://github.com/rapidsai/kvikio/pull/974
+* refactor: switch to `rapids-artifact-name` for consistent artifact naming by @gforsyth in https://github.com/rapidsai/kvikio/pull/968
+* Build and test with CUDA 13.3.0 by @bdice in https://github.com/rapidsai/kvikio/pull/977
+* Limit concurrency to counterintuitively improve overall performance for host buffer (libcurl multi poll-based backend 4/n) by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/978
+* Handle zero-size remote reads by @fallintoplace in https://github.com/rapidsai/kvikio/pull/980
+* Add APIs for inferring remote endpoint type from URL. by @TomAugspurger in https://github.com/rapidsai/kvikio/pull/982
+* Use main shared-workflows branch by @bdice in https://github.com/rapidsai/kvikio/pull/988
+* java: use GCS mirror for Maven, other small changes by @jameslamb in https://github.com/rapidsai/kvikio/pull/992
+* simplify handling of 'moto[server]' dependency by @jameslamb in https://github.com/rapidsai/kvikio/pull/994
+* Update CuPy and NumPy dependency specs by @bdice in https://github.com/rapidsai/kvikio/pull/989
+* switch from 'cuda-python' to specific components (e.g. 'cuda-core') by @jameslamb in https://github.com/rapidsai/kvikio/pull/995
+* fix(deps): add explicit `cufile` dependency and load cufile by @gforsyth in https://github.com/rapidsai/kvikio/pull/1000
+* fix(deps): install cufile for cuda12 tests, add cuda-pathfinder dep by @gforsyth in https://github.com/rapidsai/kvikio/pull/1003
+* wheels: ensure cuda-toolkit doesn't end up in [test] extra when use_cuda_wheels=false by @jameslamb in https://github.com/rapidsai/kvikio/pull/1004
+* Check Direct I/O read errors before bounce copy by @fallintoplace in https://github.com/rapidsai/kvikio/pull/979
+* Empty commit to trigger a build by @bdice in https://github.com/rapidsai/kvikio/pull/1011
+
+## New Contributors
+* @fallintoplace made their first contribution in https://github.com/rapidsai/kvikio/pull/980
+
+**Full Changelog**: https://github.com/rapidsai/kvikio/compare/v26.08.00a...release/26.08
+
 # kvikio 26.06.00 (3 Jun 2026)
 
 ### 🚨 Breaking Changes

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -36,8 +36,8 @@ class FileWrapper {
   ~FileWrapper() noexcept;
   FileWrapper(FileWrapper const&)            = delete;
   FileWrapper& operator=(FileWrapper const&) = delete;
-  FileWrapper(FileWrapper&& o) noexcept;
-  FileWrapper& operator=(FileWrapper&& o) noexcept;
+  FileWrapper(FileWrapper&& other) noexcept;
+  FileWrapper& operator=(FileWrapper&& other) noexcept;
 
   /**
    * @brief Open file using `open(2)`

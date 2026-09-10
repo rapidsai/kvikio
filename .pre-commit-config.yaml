@@ -1,10 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
+      - id: check-xml
       - id: trailing-whitespace
       - id: end-of-file-fixer
   - repo: https://github.com/PyCQA/isort
@@ -21,7 +22,7 @@ repos:
         args: ["--fix"]
       - id: ruff-format
   - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.15.0
+    rev: v0.21.1
     hooks:
       - id: cython-lint
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -29,11 +30,11 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-cachetools, zarr]
-        args: ["--config-file=python/kvikio/pyproject.toml",
-                "python/kvikio/kvikio",
-                "python/kvikio/tests",
-                "python/kvikio/examples"
-              ]
+        args:
+          - "--config-file=python/kvikio/pyproject.toml"
+          - "python/kvikio/kvikio"
+          - "python/kvikio/tests"
+          - "python/kvikio/examples"
         pass_filenames: false
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v20.1.8
@@ -74,7 +75,7 @@ repos:
             ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v1.4.3
+    rev: v1.6.0
     hooks:
       - id: verify-copyright
         args: [--fix, --spdx]
@@ -100,7 +101,7 @@ repos:
           (?x)
             ^pyproject[.]toml$
   - repo: https://github.com/rapidsai/dependency-file-generator
-    rev: v1.20.0
+    rev: v1.21.0
     hooks:
       - id: rapids-dependency-file-generator
         args: ["--clean", "--warn-all", "--strict"]
@@ -108,6 +109,17 @@ repos:
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        additional_dependencies: [pyyaml]
+        exclude: |
+          (?x)^(
+            conda/environments/.*|
+            [.]clang-format$|
+            [.]clang-tidy$
+          )
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: v1.24.1
     hooks:
@@ -115,4 +127,4 @@ repos:
 
 
 default_language_version:
-      python: python3
+  python: python3

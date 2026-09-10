@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # If libkvikio was installed as a wheel, we must request it to load the library symbols.
@@ -12,7 +12,7 @@ else:
     del libkvikio
 
 
-from kvikio._lib.defaults import CompatMode  # noqa: F401
+from kvikio._lib.defaults import CompatMode, RemoteIOBackend  # noqa: F401
 from kvikio._version import __git_commit__, __version__
 from kvikio.buffer import bounce_buffer_free, memory_deregister, memory_register
 from kvikio.cufile import (
@@ -23,7 +23,14 @@ from kvikio.cufile import (
     get_page_cache_info,
 )
 from kvikio.mmap import Mmap
-from kvikio.remote_file import RemoteEndpointType, RemoteFile, is_remote_file_available
+from kvikio.nsys import nsys_plugin_search_dir
+from kvikio.remote_file import (
+    RemoteEndpointType,
+    RemoteFile,
+    infer_remote_endpoint_type,
+    is_remote_file_available,
+)
+from kvikio.statistics import ObservationKind, Summary, SummaryMonitor
 from kvikio.stream import stream_deregister, stream_register
 from kvikio.utils import kvikio_deprecation_notice
 
@@ -36,10 +43,15 @@ __all__ = [
     "drop_system_page_cache",
     "Mmap",
     "get_page_cache_info",
+    "infer_remote_endpoint_type",
     "is_remote_file_available",
     "kvikio_deprecation_notice",
+    "nsys_plugin_search_dir",
     "RemoteEndpointType",
     "RemoteFile",
+    "Summary",
+    "ObservationKind",
+    "SummaryMonitor",
     "stream_register",
     "stream_deregister",
     "memory_register",

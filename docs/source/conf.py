@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Configuration file for the Sphinx documentation builder.
@@ -17,15 +17,19 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+import datetime
+import os
+import xml.etree.ElementTree as ET
+
 from packaging.version import Version
 
 import kvikio
 
 # -- Project information -----------------------------------------------------
 
-project = "kvikio"
-copyright = "2023, NVIDIA"
-author = "NVIDIA"
+project = "NVIDIA KvikIO"
+copyright = f"2023-{datetime.datetime.today().year}, NVIDIA Corporation"
+author = "NVIDIA Corporation"
 
 KVIKIO_VERSION = Version(kvikio.__version__)
 # The short X.Y version.
@@ -42,17 +46,56 @@ release = (
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "breathe",
     "sphinx.ext.autodoc",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.autosummary",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
     "sphinx.ext.extlinks",
     "numpydoc",
     "sphinx_click",
-    "sphinx_rtd_theme",
 ]
+
+breathe_projects = {
+    "kvikio": os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../cpp/doxygen/xml")
+    )
+}
+breathe_default_project = "kvikio"
+
+
+def clean_doxygen_xml(path: str) -> None:
+    # Doxygen 1.9.1 includes forward enum declarations in this template's return type.
+    filename = os.path.join(path, "namespacekvikio.xml")
+    tree = ET.parse(filename)
+    for member in tree.findall(".//memberdef"):
+        type_node = member.find("type")
+        if (
+            member.findtext("name") != "getenv_or"
+            or type_node is None
+            or "".join(type_node.itertext())
+            != "enum RemoteIOBackend uint8_t enum RemoteReactorDispatch uint8_t T"
+        ):
+            continue
+        definition = member.find("definition")
+        if definition is None:
+            continue
+        type_node.clear()
+        type_node.text = "T"
+        definition.clear()
+        definition.text = "T kvikio::getenv_or"
+        tree.write(filename, encoding="UTF-8", xml_declaration=True)
+        return
+
+
+for project_path in breathe_projects.values():
+    clean_doxygen_xml(project_path)
+
+# Disambiguate section anchors across documents
+autosectionlabel_prefix_document = True
 
 numpydoc_show_class_members = False
 
@@ -96,7 +139,23 @@ autodoc_default_options = {
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "nvidia_sphinx_theme"
+html_theme_options = {
+    "public_docs_features": os.environ.get("CI") == "true",
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/rapidsai/kvikio",
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+    ],
+    "navbar_center": "navbar-nav, version-switcher, navbar-external-links",
+    "switcher": {
+        "json_url": "https://docs.nvidia.com/kvikio/versions.json",
+        "version_match": version,
+    },
+}
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -147,7 +206,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "kvikio.tex", "kvikio Documentation", "NVIDIA", "manual")
+    (master_doc, "kvikio.tex", f"{project} Documentation", author, "manual")
 ]
 
 
@@ -155,7 +214,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "kvikio", "kvikio Documentation", [author], 1)]
+man_pages = [(master_doc, "kvikio", f"{project} Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -167,7 +226,7 @@ texinfo_documents = [
     (
         master_doc,
         "kvikio",
-        "kvikio Documentation",
+        f"{project} Documentation",
         author,
         "kvikio",
         "One line description of project.",
@@ -195,10 +254,3 @@ epub_exclude_files = ["search.html"]
 
 
 # -- Extension configuration -------------------------------------------------
-
-
-def setup(app):
-    app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
-    app.add_js_file(
-        "https://docs.rapids.ai/assets/js/custom.js", loading_method="defer"
-    )

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -58,6 +58,7 @@ class ConfigContextManager:
             "http_timeout",
             "auto_direct_io_read",
             "auto_direct_io_write",
+            "remote_io_backend",
         ]
 
         property_getters = {}
@@ -127,6 +128,7 @@ def set(*config) -> ConfigContextManager:
         - ``"http_timeout"``
         - ``"auto_direct_io_read"``
         - ``"auto_direct_io_write"``
+        - ``"remote_io_backend"``
 
     Returns
     -------
@@ -172,6 +174,7 @@ def get(config_name: str) -> Any:
         - ``"http_timeout"``
         - ``"auto_direct_io_read"``
         - ``"auto_direct_io_write"``
+        - ``"remote_io_backend"``
 
     Returns
     -------

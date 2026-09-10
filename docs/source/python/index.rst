@@ -1,5 +1,5 @@
-API
-===
+Python API
+==========
 
 CuFile
 ------
@@ -63,9 +63,24 @@ RemoteFile
 ----------
 .. currentmodule:: kvikio.remote_file
 
+.. autofunction:: infer_remote_endpoint_type
+
 .. autoclass:: RemoteEndpointType
 
 .. autoclass:: RemoteFile
+    :members:
+
+Statistics
+----------
+.. currentmodule:: kvikio.statistics
+
+.. autoclass:: SummaryMonitor
+    :members:
+
+.. autoclass:: Summary
+    :members:
+
+.. autoclass:: ObservationKind
     :members:
 
 Defaults
@@ -77,3 +92,9 @@ Defaults
 .. autofunction:: set
 
 .. autofunction:: get
+
+Nsight Systems plugin
+---------------------
+.. currentmodule:: kvikio.nsys
+
+.. autofunction:: nsys_plugin_search_dir

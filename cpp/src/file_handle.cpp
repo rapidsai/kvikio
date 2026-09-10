@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,15 +8,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <memory>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
 #include <kvikio/error.hpp>
@@ -80,7 +83,8 @@ ThreadPool* get_thread_pool_per_block_device(std::string const& file_path)
     }
 
     // First file on this block device: create a new dedicated thread pool
-    auto thread_pool = std::make_shared<ThreadPool>(defaults::num_threads());
+    auto thread_pool = std::make_shared<ThreadPool>(defaults::num_threads(),
+                                                    make_thread_pool_init_task("kvikio-blk"));
     dev_id_to_thread_pool_map.emplace(block_dev_info.id, thread_pool);
     file_path_to_thread_pool_map.emplace(file_path, thread_pool);
     return thread_pool.get();
@@ -96,32 +100,39 @@ FileHandle::FileHandle(std::string const& file_path,
                        std::string const& flags,
                        mode_t mode,
                        CompatMode compat_mode)
-  : _initialized{true}, _compat_mode_manager{file_path, flags, mode, compat_mode, this}
+  : _initialized{true},
+    _compat_mode_manager{file_path, flags, mode, compat_mode, this},
+    _file_path{file_path}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   _thread_pool = get_thread_pool_per_block_device(file_path);
 }
 
-FileHandle::FileHandle(FileHandle&& o) noexcept
-  : _file_direct_on{std::exchange(o._file_direct_on, {})},
-    _file_direct_off{std::exchange(o._file_direct_off, {})},
-    _initialized{std::exchange(o._initialized, false)},
-    _nbytes{std::exchange(o._nbytes, 0)},
-    _cufile_handle{std::exchange(o._cufile_handle, {})},
-    _compat_mode_manager{std::move(o._compat_mode_manager)},
-    _thread_pool{std::exchange(o._thread_pool, {})}
+FileHandle::FileHandle(FileHandle&& other) noexcept
+  : _file_direct_on{std::exchange(other._file_direct_on, {})},
+    _file_direct_off{std::exchange(other._file_direct_off, {})},
+    _initialized{std::exchange(other._initialized, false)},
+    _nbytes{other._nbytes.exchange(0, std::memory_order_relaxed)},
+    _cufile_handle{std::exchange(other._cufile_handle, {})},
+    _compat_mode_manager{std::move(other._compat_mode_manager)},
+    _file_path{std::exchange(other._file_path, {})},
+    _thread_pool{std::exchange(other._thread_pool, {})}
 {
 }
 
-FileHandle& FileHandle::operator=(FileHandle&& o) noexcept
+FileHandle& FileHandle::operator=(FileHandle&& other) noexcept
 {
-  _file_direct_on      = std::exchange(o._file_direct_on, {});
-  _file_direct_off     = std::exchange(o._file_direct_off, {});
-  _initialized         = std::exchange(o._initialized, false);
-  _nbytes              = std::exchange(o._nbytes, 0);
-  _cufile_handle       = std::exchange(o._cufile_handle, {});
-  _compat_mode_manager = std::move(o._compat_mode_manager);
-  _thread_pool         = std::exchange(o._thread_pool, {});
+  if (this != &other) {
+    close();
+    _file_direct_on  = std::exchange(other._file_direct_on, {});
+    _file_direct_off = std::exchange(other._file_direct_off, {});
+    _initialized     = std::exchange(other._initialized, false);
+    _nbytes.store(other._nbytes.exchange(0, std::memory_order_relaxed), std::memory_order_relaxed);
+    _cufile_handle       = std::exchange(other._cufile_handle, {});
+    _compat_mode_manager = std::move(other._compat_mode_manager);
+    _file_path           = std::exchange(other._file_path, {});
+    _thread_pool         = std::exchange(other._thread_pool, {});
+  }
   return *this;
 }
 
@@ -141,7 +152,7 @@ void FileHandle::close() noexcept
     _cufile_handle.unregister_handle();
     _file_direct_off.close();
     _file_direct_on.close();
-    _nbytes      = 0;
+    _nbytes.store(0, std::memory_order_relaxed);
     _initialized = false;
     _thread_pool = nullptr;
   } catch (...) {
@@ -166,8 +177,12 @@ int FileHandle::fd_open_flags(bool o_direct) const { return open_flags(fd(o_dire
 std::size_t FileHandle::nbytes() const
 {
   if (closed()) { return 0; }
-  if (_nbytes == 0) { _nbytes = get_file_size(_file_direct_off.fd()); }
-  return _nbytes;
+  auto cached = _nbytes.load(std::memory_order_relaxed);
+  if (cached == 0) {
+    cached = get_file_size(_file_direct_off.fd());
+    _nbytes.store(cached, std::memory_order_relaxed);
+  }
+  return cached;
 }
 
 std::size_t FileHandle::read(void* devPtr_base,
@@ -177,9 +192,41 @@ std::size_t FileHandle::read(void* devPtr_base,
                              bool sync_default_stream)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
-  if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    return detail::posix_device_read(
+  detail::expect_not_in_monitor();
+  auto const compat = get_compat_mode_manager().is_compat_mode_preferred();
+  detail::LogicalObservationRecorder recorder{compat ? IoBackend::POSIX : IoBackend::GDS,
+                                              TransferDirection::READ,
+                                              MemoryKind::DEVICE,
+                                              file_offset,
+                                              size,
+                                              _file_path};
+  // No queue in front of this one, so the physical record duplicates the logical one. Emitted
+  // anyway, so that a monitor watching only physical observations still sees every byte.
+  detail::PhysicalObservationContext const physical{
+    .backend     = compat ? IoBackend::POSIX : IoBackend::GDS,
+    .direction   = TransferDirection::READ,
+    .memory_kind = MemoryKind::DEVICE,
+    .parent_id   = recorder.id(),
+    .source      = _file_path};
+  detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+  auto const nbytes = read_impl(devPtr_base, size, file_offset, devPtr_offset, sync_default_stream);
+  physical_recorder.finish(nbytes);
+  recorder.finish(nbytes);
+  return nbytes;
+}
+
+std::size_t FileHandle::read_impl(void* devPtr_base,
+                                  std::size_t size,
+                                  std::size_t file_offset,
+                                  std::size_t devPtr_offset,
+                                  bool sync_default_stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE(size);
+  auto const compat = get_compat_mode_manager().is_compat_mode_preferred();
+  if (compat) {
+    auto const nbytes = detail::posix_device_read(
       _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
+    return nbytes;
   }
   if (sync_default_stream) {
     KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
@@ -201,11 +248,44 @@ std::size_t FileHandle::write(void const* devPtr_base,
                               bool sync_default_stream)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
-  _nbytes = 0;  // Invalidate the computed file size
+  detail::expect_not_in_monitor();
+  auto const compat = get_compat_mode_manager().is_compat_mode_preferred();
+  detail::LogicalObservationRecorder recorder{compat ? IoBackend::POSIX : IoBackend::GDS,
+                                              TransferDirection::WRITE,
+                                              MemoryKind::DEVICE,
+                                              file_offset,
+                                              size,
+                                              _file_path};
+  // No queue in front of this one, so the physical record duplicates the logical one. Emitted
+  // anyway, so that a monitor watching only physical observations still sees every byte.
+  detail::PhysicalObservationContext const physical{
+    .backend     = compat ? IoBackend::POSIX : IoBackend::GDS,
+    .direction   = TransferDirection::WRITE,
+    .memory_kind = MemoryKind::DEVICE,
+    .parent_id   = recorder.id(),
+    .source      = _file_path};
+  detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+  _nbytes.store(0, std::memory_order_relaxed);  // Invalidate the computed file size.
+  auto const nbytes =
+    write_impl(devPtr_base, size, file_offset, devPtr_offset, sync_default_stream);
+  physical_recorder.finish(nbytes);
+  recorder.finish(nbytes);
+  return nbytes;
+}
 
-  if (get_compat_mode_manager().is_compat_mode_preferred()) {
-    return detail::posix_device_write(
+std::size_t FileHandle::write_impl(void const* devPtr_base,
+                                   std::size_t size,
+                                   std::size_t file_offset,
+                                   std::size_t devPtr_offset,
+                                   bool sync_default_stream)
+{
+  KVIKIO_NVTX_FUNC_RANGE(size);
+  auto const compat = get_compat_mode_manager().is_compat_mode_preferred();
+
+  if (compat) {
+    auto const nbytes = detail::posix_device_write(
       _file_direct_off.fd(), devPtr_base, size, file_offset, devPtr_offset, _file_direct_on.fd());
+    return nbytes;
   }
   if (sync_default_stream) {
     KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().StreamSynchronize(nullptr));
@@ -239,6 +319,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
     gds_threshold,
     sync_default_stream);
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
 
   // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
   // custom pool
@@ -248,24 +329,55 @@ std::future<std::size_t> FileHandle::pread(void* buf,
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
-  if (is_host_memory(buf)) {
-    auto op = [this](void* hostPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t hostPtr_offset) -> std::size_t {
-      char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
-      return detail::posix_host_read<detail::PartialIO::NO>(
+  detail::expect_not_in_monitor();
+  bool const is_host = is_host_memory(buf);
+  bool const uses_posix =
+    is_host || size < gds_threshold || get_compat_mode_manager().is_compat_mode_preferred();
+
+  // One observation for the whole call, whichever branch serves it. `parallel_io` hands it to the
+  // task that completes the work, so the end time is when the I/O finished rather than when this
+  // function returned.
+  auto recorder = detail::monitoring_enabled(ObservationKind::LOGICAL)
+                    ? std::make_shared<detail::LogicalObservationRecorder>(
+                        uses_posix ? IoBackend::POSIX : IoBackend::GDS,
+                        TransferDirection::READ,
+                        is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
+                        file_offset,
+                        size,
+                        _file_path)
+                    : nullptr;
+
+  // One observation per task, so the transfers are seen apart from the queueing in front of them.
+  detail::PhysicalObservationContext const physical{
+    .backend     = uses_posix ? IoBackend::POSIX : IoBackend::GDS,
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder ? recorder->id() : std::nullopt,
+    .source      = _file_path};
+
+  if (is_host) {
+    auto op = [this, physical](void* hostPtr_base,
+                               std::size_t size,
+                               std::size_t file_offset,
+                               std::size_t hostPtr_offset) -> std::size_t {
+      detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+      char* buf             = static_cast<char*>(hostPtr_base) + hostPtr_offset;
+      auto const bytes_read = detail::posix_host_read<detail::PartialIO::NO>(
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
+      physical_recorder.finish(bytes_read);
+      return bytes_read;
     };
 
-    return detail::parallel_io(
-      op,
-      buf,
-      size,
-      file_offset,
-      task_size,
-      0,
-      {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+    return detail::parallel_io(op,
+                               buf,
+                               size,
+                               file_offset,
+                               task_size,
+                               0,
+                               {.thread_pool = actual_thread_pool,
+                                .call_idx    = call_idx,
+                                .nvtx_color  = nvtx_color,
+                                .recorder    = recorder});
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -273,8 +385,12 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
     auto bytes_read = detail::posix_device_read(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
+    physical_recorder.finish(bytes_read);
+    // This shortcut bypasses `parallel_io`, so it closes the observation itself.
+    if (recorder) { recorder->finish(bytes_read); }
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_read);
@@ -287,12 +403,16 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
-  auto task = [this, ctx](void* devPtr_base,
-                          std::size_t size,
-                          std::size_t file_offset,
-                          std::size_t devPtr_offset) -> std::size_t {
+  auto task = [this, ctx, physical](void* devPtr_base,
+                                    std::size_t size,
+                                    std::size_t file_offset,
+                                    std::size_t devPtr_offset) -> std::size_t {
     PushAndPopContext c(ctx);
-    return read(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+    auto const bytes_read =
+      read_impl(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    physical_recorder.finish(bytes_read);
+    return bytes_read;
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
 
@@ -317,7 +437,8 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                              {.thread_pool     = actual_thread_pool,
                               .call_idx        = call_idx,
                               .nvtx_color      = nvtx_color,
-                              .first_task_size = first_task_size});
+                              .first_task_size = first_task_size,
+                              .recorder        = recorder});
 }
 
 std::future<std::size_t> FileHandle::pwrite(void const* buf,
@@ -338,6 +459,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
     gds_threshold,
     sync_default_stream);
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
 
   // Use the block-device-specific pool only if it exists and the user didn't explicitly provide a
   // custom pool
@@ -347,24 +469,59 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
 
   auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
   KVIKIO_NVTX_FUNC_RANGE(size, nvtx_color);
-  if (is_host_memory(buf)) {
-    auto op = [this](void const* hostPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t hostPtr_offset) -> std::size_t {
-      char const* buf = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
-      return detail::posix_host_write<detail::PartialIO::NO>(
+  detail::expect_not_in_monitor();
+  bool const is_host = is_host_memory(buf);
+  bool const uses_posix =
+    is_host || size < gds_threshold || get_compat_mode_manager().is_compat_mode_preferred();
+
+  // One observation for the whole call, whichever branch serves it. `parallel_io` hands it to the
+  // task that completes the work, so the end time is when the I/O finished rather than when this
+  // function returned.
+  auto recorder = detail::monitoring_enabled(ObservationKind::LOGICAL)
+                    ? std::make_shared<detail::LogicalObservationRecorder>(
+                        uses_posix ? IoBackend::POSIX : IoBackend::GDS,
+                        TransferDirection::WRITE,
+                        is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
+                        file_offset,
+                        size,
+                        _file_path)
+                    : nullptr;
+
+  // One observation per task, so the transfers are seen apart from the queueing in front of them.
+  detail::PhysicalObservationContext const physical{
+    .backend     = uses_posix ? IoBackend::POSIX : IoBackend::GDS,
+    .direction   = TransferDirection::WRITE,
+    .memory_kind = is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder ? recorder->id() : std::nullopt,
+    .source      = _file_path};
+
+  // Invalidated before the write as well as after each part completes.
+  _nbytes.store(0, std::memory_order_relaxed);
+
+  if (is_host) {
+    auto op = [this, physical](void const* hostPtr_base,
+                               std::size_t size,
+                               std::size_t file_offset,
+                               std::size_t hostPtr_offset) -> std::size_t {
+      detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+      char const* buf          = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
+      auto const bytes_written = detail::posix_host_write<detail::PartialIO::NO>(
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
+      _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
+      physical_recorder.finish(bytes_written);
+      return bytes_written;
     };
 
-    return detail::parallel_io(
-      op,
-      buf,
-      size,
-      file_offset,
-      task_size,
-      0,
-      {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+    return detail::parallel_io(op,
+                               buf,
+                               size,
+                               file_offset,
+                               task_size,
+                               0,
+                               {.thread_pool = actual_thread_pool,
+                                .call_idx    = call_idx,
+                                .nvtx_color  = nvtx_color,
+                                .recorder    = recorder});
   }
 
   CUcontext ctx = get_context_from_pointer(buf);
@@ -372,8 +529,13 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
     auto bytes_write = detail::posix_device_write(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
+    _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
+    physical_recorder.finish(bytes_write);
+    // This shortcut bypasses `parallel_io`, so it closes the observation itself.
+    if (recorder) { recorder->finish(bytes_write); }
     // Maintain API consistency while making this trivial case synchronous.
     // The result in the future is immediately available after the call.
     return make_ready_future(bytes_write);
@@ -386,22 +548,29 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
-  auto op = [this, ctx](void const* devPtr_base,
-                        std::size_t size,
-                        std::size_t file_offset,
-                        std::size_t devPtr_offset) -> std::size_t {
+  auto op = [this, ctx, physical](void const* devPtr_base,
+                                  std::size_t size,
+                                  std::size_t file_offset,
+                                  std::size_t devPtr_offset) -> std::size_t {
     PushAndPopContext c(ctx);
-    return write(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+    auto const bytes_written =
+      write_impl(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
+    physical_recorder.finish(bytes_written);
+    return bytes_written;
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
-  return detail::parallel_io(
-    op,
-    devPtr_base,
-    size,
-    file_offset,
-    task_size,
-    devPtr_offset,
-    {.thread_pool = actual_thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+  return detail::parallel_io(op,
+                             devPtr_base,
+                             size,
+                             file_offset,
+                             task_size,
+                             devPtr_offset,
+                             {.thread_pool = actual_thread_pool,
+                              .call_idx    = call_idx,
+                              .nvtx_color  = nvtx_color,
+                              .recorder    = recorder});
 }
 
 void FileHandle::read_async(void* devPtr_base,

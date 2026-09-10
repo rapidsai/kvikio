@@ -1,28 +1,33 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <functional>
-#include <iostream>
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_share.hpp>
+#include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
 #include <kvikio/detail/tls.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -86,7 +91,8 @@ void LibCurl::retain_handle(UniqueHandlePtr handle)
 
 CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
                        std::string source_file,
-                       std::string source_line)
+                       std::string source_line,
+                       bool use_shared_dns_cache)
   : _handle{std::move(handle)}
 {
   // Need CURLOPT_NOSIGNAL to support threading, see
@@ -103,6 +109,18 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   // Make requests time out after `value` seconds.
   setopt(CURLOPT_TIMEOUT, kvikio::defaults::http_timeout());
 
+  // Resolve a hostname once per DNS cache.
+  bool share_dns_cache = false;
+  if (use_shared_dns_cache) {
+    static bool const env = getenv_or("KVIKIO_REMOTE_SHARE_DNS_CACHE", true);
+    share_dns_cache       = env;
+  }
+  if (share_dns_cache) {
+    setopt(CURLOPT_SHARE, detail::CurlShareHandle::share_handle_for_current_thread().handle());
+  } else {
+    setopt(CURLOPT_SHARE, static_cast<CURLSH*>(nullptr));
+  }
+
   // Optionally enable verbose output if it's configured.
   auto const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
   if (verbose) { setopt(CURLOPT_VERBOSE, 1L); }
@@ -110,77 +128,84 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   detail::set_up_ca_paths(*this);
 }
 
-CurlHandle::~CurlHandle() noexcept { LibCurl::instance().retain_handle(std::move(_handle)); }
+CurlHandle::~CurlHandle() noexcept
+{
+  std::ignore = curl_easy_setopt(_handle.get(), CURLOPT_SHARE, static_cast<CURLSH*>(nullptr));
+  LibCurl::instance().retain_handle(std::move(_handle));
+}
 
 CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 
-void CurlHandle::perform()
+std::string CurlHandle::error_message() const
 {
-  long http_code          = 0;
-  auto attempt_count      = 0;
-  auto base_delay         = 500;   // milliseconds
-  auto max_delay          = 4000;  // milliseconds
-  auto http_max_attempts  = kvikio::defaults::http_max_attempts();
-  auto& http_status_codes = kvikio::defaults::http_status_codes();
-  CURLcode err;
+  // Safe to construct from `_errbuf`: it is initialized empty in the constructor and libcurl always
+  // writes null-terminated strings into it.
+  return std::string{_errbuf};
+}
 
-  while (attempt_count++ < http_max_attempts) {
-    err = curl_easy_perform(handle());
+namespace detail {
+namespace {
+/// A libcurl timing in microseconds, or zero if it could not be read. libcurl fills the value in
+/// only when the call succeeds, so a failed one leaves the phase uncounted rather than garbage.
+[[nodiscard]] curl_off_t timing_of(CURL* easy, CURLINFO info) noexcept
+{
+  curl_off_t value{0};
+  if (curl_easy_getinfo(easy, info, &value) != CURLE_OK) { return 0; }
+  return value;
+}
+}  // namespace
 
-    if (err == CURLE_OK) {
-      // We set CURLE_HTTP_RETURNED_ERROR, so >= 400 status codes are considered
-      // errors, so anything less than this is considered a success and we're
-      // done.
-      return;
-    }
+void count_http_connection_of(CURL* easy) noexcept
+{
+  using std::chrono::microseconds;
+
+  long connections{0};
+  if (curl_easy_getinfo(easy, CURLINFO_NUM_CONNECTS, &connections) != CURLE_OK) { return; }
+  // Zero means the connection was reused, so nothing was paid here.
+  if (connections <= 0) { return; }
+
+  auto const namelookup = timing_of(easy, CURLINFO_NAMELOOKUP_TIME_T);
+  auto const connect    = timing_of(easy, CURLINFO_CONNECT_TIME_T);
+  auto const appconnect = timing_of(easy, CURLINFO_APPCONNECT_TIME_T);
+
+  auto const tcp = connect > namelookup ? microseconds{connect - namelookup} : Duration::zero();
+  auto const tls = appconnect > connect ? microseconds{appconnect - connect} : Duration::zero();
+  count_http_connection(
+    static_cast<std::uint64_t>(connections), microseconds{namelookup}, tcp, tls);
+}
+
+}  // namespace detail
+
+void CurlHandle::clear_error_message() noexcept { _errbuf[0] = 0; }
+
+void CurlHandle::perform() { perform({}); }
+
+void CurlHandle::perform(std::function<void()> const& on_retry)
+{
+  // Snapshot the retry settings, so every attempt of this transfer follows the same policy.
+  detail::HttpRetryPolicy const policy;
+
+  for (std::size_t attempt = 1;; ++attempt) {
+    clear_error_message();
+    auto const curl_code = curl_easy_perform(handle());
+    detail::count_http_connection_of(handle());
+
+    long http_code = 0;
     // We had an error. Is it retryable?
-    curl_easy_getinfo(handle(), CURLINFO_RESPONSE_CODE, &http_code);
-    auto const is_retryable_response =
-      (std::find(http_status_codes.begin(), http_status_codes.end(), http_code) !=
-       http_status_codes.end());
+    if (curl_code != CURLE_OK) { getinfo(CURLINFO_RESPONSE_CODE, &http_code); }
 
-    if ((err == CURLE_OPERATION_TIMEDOUT) || is_retryable_response) {
-      // backoff and retry again. With a base value of 500ms, we retry after
-      // 500ms, 1s, 2s, 4s, ...
-      auto const backoff_delay = base_delay * (1 << std::min(attempt_count - 1, 4));
-      // up to a maximum of `max_delay` seconds.
-      auto const delay = std::min(max_delay, backoff_delay);
-
-      // Only print this message out and sleep if we're actually going to retry again.
-      if (attempt_count < http_max_attempts) {
-        if (err == CURLE_OPERATION_TIMEDOUT) {
-          std::cout << "KvikIO: Timeout error. Retrying after " << delay << "ms (attempt "
-                    << attempt_count << " of " << http_max_attempts << ")." << std::endl;
-        } else {
-          std::cout << "KvikIO: Got HTTP code " << http_code << ". Retrying after " << delay
-                    << "ms (attempt " << attempt_count << " of " << http_max_attempts << ")."
-                    << std::endl;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-      }
-    } else {
-      // We had some kind of fatal error, or we got some status code we don't retry.
-      // We want to exit immediately.
-      std::string msg(_errbuf);  // We can do this because we always initialize `_errbuf` as empty.
-      std::stringstream ss;
-      ss << "curl_easy_perform() error ";
-      if (msg.empty()) {
-        ss << "(" << curl_easy_strerror(err) << ")";
-      } else {
-        ss << "(" << msg << ")";
-      }
-      KVIKIO_FAIL(ss.str(), std::runtime_error);
+    auto const outcome =
+      policy.evaluate(curl_code, http_code, attempt, error_message(), "curl_easy_perform() error");
+    switch (outcome.decision) {
+      case detail::RetryDecision::SUCCESS: return;
+      case detail::RetryDecision::RETRY:
+        KVIKIO_LOG_WARN(outcome.message);
+        detail::count_http_retry(outcome.delay_ms);
+        if (on_retry) { on_retry(); }
+        std::this_thread::sleep_for(outcome.delay_ms);
+        break;
+      default: KVIKIO_FAIL(outcome.message, std::runtime_error);
     }
   }
-
-  std::stringstream ss;
-  ss << "KvikIO: HTTP request reached maximum number of attempts (" << http_max_attempts
-     << "). Reason: ";
-  if (err == CURLE_OPERATION_TIMEDOUT) {
-    ss << "Operation timed out.";
-  } else {
-    ss << "Got HTTP code " << http_code << ".";
-  }
-  KVIKIO_FAIL(ss.str(), std::runtime_error);
 }
 }  // namespace kvikio

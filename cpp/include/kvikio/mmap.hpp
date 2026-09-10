@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -38,6 +38,7 @@ class MmapHandle {
   int _map_protection{};
   int _map_flags{};
   FileWrapper _file_wrapper{};
+  std::string _file_path;  // Reported to the monitors, see `Observation::source`.
 
   /**
    * @brief Validate and adjust the read arguments.

@@ -1,9 +1,8 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <chrono>
 #include <iostream>
 
 #include <cuda_runtime_api.h>
@@ -14,27 +13,9 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/file_handle.hpp>
+#include <kvikio/statistics/summary.hpp>
 
 using namespace std;
-
-class Timer {
- public:
-  Timer() : start(std::chrono::high_resolution_clock::now()) {}
-
-  ~Timer()
-  {
-    auto end = std::chrono::high_resolution_clock::now();
-    auto start_ms =
-      std::chrono::time_point_cast<std::chrono::microseconds>(start).time_since_epoch().count();
-    auto end_ms =
-      std::chrono::time_point_cast<std::chrono::microseconds>(end).time_since_epoch().count();
-
-    cout << "(" << end_ms - start_ms << " us)" << endl;
-  }
-
- private:
-  std::chrono::time_point<std::chrono::high_resolution_clock> start;
-};
 
 void check(bool condition)
 {
@@ -44,12 +25,16 @@ void check(bool condition)
   }
 }
 
-constexpr int NELEM      = 1024;                 // Number of elements used throughout the test
-constexpr int SIZE       = NELEM * sizeof(int);  // Size of the memory allocations (in bytes)
-constexpr int LARGE_SIZE = 8 * SIZE;             // LARGE SIZE to test partial submit (in bytes)
+constexpr int NELEM = 1024;                 // Number of elements used throughout the test
+constexpr int SIZE  = NELEM * sizeof(int);  // Size of the memory allocations (in bytes)
 
 int main()
 {
+  // Setup a monitor that gather KvikIO statistics and print a summary on destruction.
+  kvikio::statistics::SummaryMonitor const monitor{[](kvikio::statistics::Summary const& summary) {
+    cout << endl << summary.report();
+  }};
+
   std::size_t io_size = SIZE;
   check(cudaSetDevice(0) == cudaSuccess);
 
@@ -92,7 +77,6 @@ int main()
 
   {
     cout << endl;
-    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "w");
     check(cudaMemcpy(a_dev, a, SIZE, cudaMemcpyHostToDevice) == cudaSuccess);
     size_t written = f.pwrite(a_dev, SIZE, 0, 1).get();
@@ -102,7 +86,6 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, SIZE, 0, 1).get();
     check(read == SIZE);
@@ -116,7 +99,6 @@ int main()
   kvikio::defaults::set_thread_pool_nthreads(16);
   {
     std::cout << std::endl;
-    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a_dev, SIZE).get();
     check(written == SIZE);
@@ -126,7 +108,6 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b_dev, SIZE, 0).get();
     cout << "Parallel read (" << kvikio::defaults::thread_pool_nthreads() << " threads): " << read
@@ -138,7 +119,6 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "r+", kvikio::FileHandle::m644);
     kvikio::buffer_register(c_dev, SIZE);
     size_t read = f.pread(c_dev, SIZE).get();
@@ -149,7 +129,6 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "w");
     size_t written = f.pwrite(a, SIZE).get();
     check(written == SIZE);
@@ -159,7 +138,6 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer;
     kvikio::FileHandle f("/tmp/test-file", "r");
     size_t read = f.pread(b, SIZE).get();
     check(read == SIZE);
@@ -172,7 +150,6 @@ int main()
   }
   if (!kvikio::defaults::is_compat_mode_preferred()) {
     std::cout << std::endl;
-    Timer timer;
     // Here we use the batch API to read "/tmp/test-file" into `b_dev` by
     // submitting 4 batch operations.
     constexpr int num_ops_in_batch = 4;
@@ -224,7 +201,6 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer;
     cout << "Performing async I/O using by-reference arguments" << endl;
     off_t f_off{0};
     off_t d_off{0};
@@ -259,7 +235,6 @@ int main()
   }
   {
     std::cout << std::endl;
-    Timer timer;
     cout << "Performing async I/O using by-value arguments" << endl;
 
     // Let's create a new stream and submit an async write

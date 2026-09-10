@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,11 +20,11 @@ BatchHandle::BatchHandle(int max_num_events) : _initialized{true}, _max_num_even
   KVIKIO_CUFILE_TRY(cuFileAPI::instance().BatchIOSetUp(&_handle, max_num_events));
 }
 
-BatchHandle::BatchHandle(BatchHandle&& o) noexcept
-  : _initialized{std::exchange(o._initialized, false)},
-    _max_num_events{std::exchange(o._max_num_events, 0)}
+BatchHandle::BatchHandle(BatchHandle&& other) noexcept
+  : _initialized{std::exchange(other._initialized, false)},
+    _max_num_events{std::exchange(other._max_num_events, 0)}
 {
-  _handle = std::exchange(o._handle, CUfileBatchHandle_t{});
+  _handle = std::exchange(other._handle, CUfileBatchHandle_t{});
 }
 
 BatchHandle::~BatchHandle() noexcept { close(); }

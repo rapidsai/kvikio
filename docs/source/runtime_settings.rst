@@ -56,6 +56,8 @@ The maximum number of attempts to make before throwing an exception is controlle
 
 The maximum duration of each HTTP request is controlled by ``KVIKIO_HTTP_TIMEOUT``. The default value is 60, which is the duration in seconds to allow. This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``http_timeout``.
 
+Each retry emits a notice through the KvikIO logger at the ``WARN`` level, i.e. ``KVIKIO_LOG_LEVEL=WARN``. Sustained retries indicate that the server is throttling the requests, which degrades read throughput.
+
 HTTP Verbose ``KVIKIO_REMOTE_VERBOSE``
 --------------------------------------
 
@@ -70,12 +72,14 @@ Set the environment variable ``KVIKIO_REMOTE_VERBOSE`` to ``true``, ``on``, ``ye
 Remote I/O Backend ``KVIKIO_REMOTE_IO_BACKEND``
 -----------------------------------------------
 
-KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected at process startup via the environment variable ``KVIKIO_REMOTE_IO_BACKEND``. The accepted values (case-insensitive) are:
+KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected via the environment variable ``KVIKIO_REMOTE_IO_BACKEND``. The accepted values (case-insensitive) are:
 
   * ``EASY_THREADPOOL`` (default): Libcurl easy API running in the KvikIO thread pool. Each sub-range of a :py:func:`kvikio.RemoteFile.pread` is dispatched to a worker thread that blocks in ``curl_easy_perform()`` until its transfer completes. Concurrency is bounded by the thread pool size: one busy thread per in-flight transfer.
   * ``MULTI_POLL``: Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is bounded by ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` rather than by the reactor count.
 
-The ``MULTI_POLL`` backend honors three additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``, and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``.
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_backend``. :py:func:`kvikio.RemoteFile.pread` reads the setting on every call, so a change applies to subsequent reads while reads already in flight finish on the backend they started on.
+
+The ``MULTI_POLL`` backend honors three additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``, and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``. These settings are captured once when the reactor pool is first used, so switching to ``MULTI_POLL`` at runtime picks up the values they had at process startup.
 
 Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
 ----------------------------------------------------------
@@ -98,6 +102,20 @@ Upper bound on the number of HTTP range requests the ``MULTI_POLL`` backend keep
 The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap against its own inbox with no cross-reactor synchronization. Integer division rounds the per-reactor share down when the budget is not a multiple of the reactor count, and a floor of 1 rounds it up when the budget is smaller than the reactor count (a computed share of 0 would be a reactor that can never admit a request). The effective total is therefore only approximate.
 
 The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
+
+Shared DNS Caches ``KVIKIO_REMOTE_SHARE_DNS_CACHE``, ``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE``
+-------------------------------------------------------------------------------------------------
+
+Let the easy handles in ``EASY_THREADPOOL`` share DNS caches to reduce lookups.
+
+Sharing is enabled by default. Set ``KVIKIO_REMOTE_SHARE_DNS_CACHE`` to ``false``, ``off``, ``no``, or ``0`` (case-insensitive) to disable sharing.
+
+``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE`` sets how many threads may share one DNS cache. The default value is ``16``. A thread is assigned a cache on first use and keeps it for its lifetime, and a new cache is created once the current one is full. The total number of caches is roughly the number of threads divided by this value.
+
+Each cache holds one DNS result per host, which for S3 is a set of addresses drawn afresh on every resolution. Smaller ``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE`` value leads to more caches, spreading connections over more addresses, at the cost of more lookups and less reuse. A thread returns its cache assignment when it exits, and resizing the thread pool with :py:func:`kvikio.defaults.set` reuses the existing caches rather than adding more.
+
+Both variables are read only from the environment, and only when the caches are first used. Neither has any effect under ``MULTI_POLL``.
+
 
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
@@ -331,12 +332,27 @@ class S3EndpointWithPresignedUrl : public RemoteEndpoint {
 };
 
 /**
+ * @brief Infer remote endpoint type from URL.
+ *
+ * This function follows the same endpoint-selection order as `RemoteHandle::open()` in
+ * `RemoteEndpointType::AUTO` mode, but only infers the endpoint type and does not create a handle.
+ * Note that this function will not return `RemoteEndpointType::S3_PUBLIC`, because disambiguating
+ * between a URL that's accessible only with authorization or only anonymously is not possible
+ * without making an HTTP request.
+ *
+ * @param url The URL of the remote file.
+ * @return The inferred endpoint type.
+ */
+RemoteEndpointType infer_remote_endpoint_type(std::string const& url);
+
+/**
  * @brief Handle of remote file.
  */
 class RemoteHandle {
  private:
   std::unique_ptr<RemoteEndpoint> _endpoint;
   std::size_t _nbytes;
+  std::string _source;  // Reported to the monitors, see `Observation::source`.
 
  public:
   /**
@@ -416,7 +432,7 @@ class RemoteHandle {
    *   );
    *   @endcode
    */
-  static RemoteHandle open(std::string url,
+  static RemoteHandle open(std::string const& url,
                            RemoteEndpointType remote_endpoint_type = RemoteEndpointType::AUTO,
                            std::optional<std::vector<RemoteEndpointType>> allow_list = std::nullopt,
                            std::optional<std::size_t> nbytes = std::nullopt);
@@ -513,6 +529,20 @@ class RemoteHandle {
                                  std::size_t file_offset = 0,
                                  std::size_t task_size   = defaults::task_size(),
                                  ThreadPool* thread_pool = &defaults::thread_pool());
+
+ private:
+  /**
+   * @brief Throw if `[file_offset, file_offset + size)` reaches past the end of the remote object.
+   *
+   * @param size Number of bytes to read.
+   * @param file_offset File offset in bytes.
+   *
+   * @exception std::invalid_argument if the range is out of bounds.
+   */
+  void expect_read_in_bounds(std::size_t size, std::size_t file_offset) const;
+
+  /// The read itself, without what the public `read()` wraps around it.
+  std::size_t read_impl(void* buf, std::size_t size, std::size_t file_offset, bool is_host_mem);
 };
 
 }  // namespace kvikio

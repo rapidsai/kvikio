@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -55,10 +55,10 @@ class StreamFuture {
   /**
    * @brief StreamFuture support move semantic but isn't copyable
    */
-  StreamFuture(StreamFuture const&)        = delete;
-  StreamFuture& operator=(StreamFuture& o) = delete;
-  StreamFuture(StreamFuture&& o) noexcept;
-  StreamFuture& operator=(StreamFuture&& o) noexcept;
+  StreamFuture(StreamFuture const&)            = delete;
+  StreamFuture& operator=(StreamFuture& other) = delete;
+  StreamFuture(StreamFuture&& other) noexcept;
+  StreamFuture& operator=(StreamFuture&& other) noexcept;
 
   /**
    * @brief Return the arguments of the future call

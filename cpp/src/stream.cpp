@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -33,20 +33,20 @@ StreamFuture::StreamFuture(
     .size = size, .file_offset = file_offset, .devPtr_offset = devPtr_offset, .bytes_done = 0};
 }
 
-StreamFuture::StreamFuture(StreamFuture&& o) noexcept
-  : _devPtr_base{std::exchange(o._devPtr_base, nullptr)},
-    _stream{std::exchange(o._stream, nullptr)},
-    _val{std::exchange(o._val, nullptr)},
-    _stream_synchronized{o._stream_synchronized}
+StreamFuture::StreamFuture(StreamFuture&& other) noexcept
+  : _devPtr_base{std::exchange(other._devPtr_base, nullptr)},
+    _stream{std::exchange(other._stream, nullptr)},
+    _val{std::exchange(other._val, nullptr)},
+    _stream_synchronized{other._stream_synchronized}
 {
 }
 
-StreamFuture& StreamFuture::operator=(StreamFuture&& o) noexcept
+StreamFuture& StreamFuture::operator=(StreamFuture&& other) noexcept
 {
-  _devPtr_base         = std::exchange(o._devPtr_base, nullptr);
-  _stream              = std::exchange(o._stream, nullptr);
-  _val                 = std::exchange(o._val, nullptr);
-  _stream_synchronized = o._stream_synchronized;
+  _devPtr_base         = std::exchange(other._devPtr_base, nullptr);
+  _stream              = std::exchange(other._stream, nullptr);
+  _val                 = std::exchange(other._val, nullptr);
+  _stream_synchronized = other._stream_synchronized;
   return *this;
 }
 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <sys/mman.h>
@@ -15,6 +15,7 @@
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/utils.hpp>
@@ -254,6 +255,7 @@ MmapHandle::MmapHandle(std::string const& file_path,
     }
   }
 
+  _file_path    = file_path;
   _file_wrapper = FileWrapper(file_path, flags, false /* o_direct */, mode);
   _file_size    = get_file_size(_file_wrapper.fd());
   if (_file_size == 0) { return; }
@@ -292,35 +294,37 @@ MmapHandle::MmapHandle(std::string const& file_path,
   _buf = detail::pointer_add(_map_addr, offset_delta);
 }
 
-MmapHandle::MmapHandle(MmapHandle&& o) noexcept
-  : _buf{std::exchange(o._buf, {})},
-    _initial_map_size{std::exchange(o._initial_map_size, {})},
-    _initial_map_offset{std::exchange(o._initial_map_offset, {})},
-    _file_size{std::exchange(o._file_size, {})},
-    _map_offset{std::exchange(o._map_offset, {})},
-    _map_size{std::exchange(o._map_size, {})},
-    _map_addr{std::exchange(o._map_addr, {})},
-    _initialized{std::exchange(o._initialized, {})},
-    _map_protection{std::exchange(o._map_protection, {})},
-    _map_flags{std::exchange(o._map_flags, {})},
-    _file_wrapper{std::exchange(o._file_wrapper, {})}
+MmapHandle::MmapHandle(MmapHandle&& other) noexcept
+  : _buf{std::exchange(other._buf, {})},
+    _initial_map_size{std::exchange(other._initial_map_size, {})},
+    _initial_map_offset{std::exchange(other._initial_map_offset, {})},
+    _file_size{std::exchange(other._file_size, {})},
+    _map_offset{std::exchange(other._map_offset, {})},
+    _map_size{std::exchange(other._map_size, {})},
+    _map_addr{std::exchange(other._map_addr, {})},
+    _initialized{std::exchange(other._initialized, {})},
+    _map_protection{std::exchange(other._map_protection, {})},
+    _map_flags{std::exchange(other._map_flags, {})},
+    _file_wrapper{std::exchange(other._file_wrapper, {})},
+    _file_path{std::exchange(other._file_path, {})}
 {
 }
 
-MmapHandle& MmapHandle::operator=(MmapHandle&& o) noexcept
+MmapHandle& MmapHandle::operator=(MmapHandle&& other) noexcept
 {
   close();
-  _buf                = std::exchange(o._buf, {});
-  _initial_map_size   = std::exchange(o._initial_map_size, {});
-  _initial_map_offset = std::exchange(o._initial_map_offset, {});
-  _file_size          = std::exchange(o._file_size, {});
-  _map_offset         = std::exchange(o._map_offset, {});
-  _map_size           = std::exchange(o._map_size, {});
-  _map_addr           = std::exchange(o._map_addr, {});
-  _initialized        = std::exchange(o._initialized, {});
-  _map_protection     = std::exchange(o._map_protection, {});
-  _map_flags          = std::exchange(o._map_flags, {});
-  _file_wrapper       = std::exchange(o._file_wrapper, {});
+  _buf                = std::exchange(other._buf, {});
+  _initial_map_size   = std::exchange(other._initial_map_size, {});
+  _initial_map_offset = std::exchange(other._initial_map_offset, {});
+  _file_size          = std::exchange(other._file_size, {});
+  _map_offset         = std::exchange(other._map_offset, {});
+  _map_size           = std::exchange(other._map_size, {});
+  _map_addr           = std::exchange(other._map_addr, {});
+  _initialized        = std::exchange(other._initialized, {});
+  _map_protection     = std::exchange(other._map_protection, {});
+  _map_flags          = std::exchange(other._map_flags, {});
+  _file_wrapper       = std::exchange(other._file_wrapper, {});
+  _file_path          = std::exchange(other._file_path, {});
   return *this;
 }
 
@@ -370,16 +374,35 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
 {
   KVIKIO_NVTX_FUNC_RANGE();
 
+  detail::expect_not_in_monitor();
   auto actual_size = validate_and_adjust_read_args(size, offset);
   if (actual_size == 0) { return actual_size; }
 
   auto const is_dst_buf_host_mem = is_host_memory(buf);
+  detail::LogicalObservationRecorder recorder{
+    IoBackend::MMAP,
+    TransferDirection::READ,
+    is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    offset,
+    actual_size,
+    _file_path};
+  // No queue in front of this one, so the physical record duplicates the logical one. Emitted
+  // anyway, so that a monitor watching only physical observations still sees every byte.
+  detail::PhysicalObservationContext const physical{
+    .backend     = IoBackend::MMAP,
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder.id(),
+    .source      = _file_path};
+  detail::PhysicalObservationRecorder physical_recorder{physical, offset, actual_size};
   CUcontext ctx{};
   if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
   // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
   auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
   detail::read_impl(buf, src_mapped_buf, actual_size, 0, is_dst_buf_host_mem, ctx);
+  physical_recorder.finish(actual_size);
+  recorder.finish(actual_size);
   return actual_size;
 }
 
@@ -392,6 +415,8 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
                 "bounce buffer size cannot be less than task size.");
   KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
+  detail::expect_not_in_monitor();
   auto actual_size = validate_and_adjust_read_args(size, offset);
   if (actual_size == 0) { return make_ready_future(actual_size); }
 
@@ -402,27 +427,51 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   CUcontext ctx{};
   if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
+  auto recorder = detail::monitoring_enabled(ObservationKind::LOGICAL)
+                    ? std::make_shared<detail::LogicalObservationRecorder>(
+                        IoBackend::MMAP,
+                        TransferDirection::READ,
+                        is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+                        offset,
+                        actual_size,
+                        _file_path)
+                    : nullptr;
+
+  // One observation per task, so the copies are seen apart from the queueing in front of them.
+  detail::PhysicalObservationContext const physical{
+    .backend     = IoBackend::MMAP,
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder ? recorder->id() : std::nullopt,
+    .source      = _file_path};
+
   // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
   auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
-  auto op =
-    [this, src_mapped_buf = src_mapped_buf, is_dst_buf_host_mem = is_dst_buf_host_mem, ctx = ctx](
-      void* dst_buf,
-      std::size_t size,
-      std::size_t,  // offset will be taken into account by dst_buf, hence no longer used here
-      std::size_t buf_offset  // buf_offset will be incremented for each individual task
-      ) -> std::size_t {
+  auto op                   = [this,
+             src_mapped_buf      = src_mapped_buf,
+             is_dst_buf_host_mem = is_dst_buf_host_mem,
+             ctx                 = ctx,
+             physical](void* dst_buf,
+                       std::size_t size,
+                       std::size_t file_offset,  // taken into account by dst_buf for the copy
+                       std::size_t buf_offset  // buf_offset will be incremented for each individual
+                                               // task
+                       ) -> std::size_t {
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
     detail::read_impl(dst_buf, src_mapped_buf, size, buf_offset, is_dst_buf_host_mem, ctx);
+    physical_recorder.finish(size);
     return size;
   };
-
-  return detail::parallel_io(
-    op,
-    buf,
-    actual_size,
-    offset,
-    task_size,
-    0,  // dst buffer offset initial value
-    {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+  return detail::parallel_io(op,
+                             buf,
+                             actual_size,
+                             offset,
+                             task_size,
+                             0,  // dst buffer offset initial value
+                             {.thread_pool = thread_pool,
+                              .call_idx    = call_idx,
+                              .nvtx_color  = nvtx_color,
+                              .recorder    = recorder});
 }
 
 std::size_t MmapHandle::validate_and_adjust_read_args(std::optional<std::size_t> const& size,

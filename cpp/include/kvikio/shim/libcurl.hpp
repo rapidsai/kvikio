@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -91,8 +91,12 @@ class CurlHandle {
    * @param handle An unused curl easy handle pointer, which is retained on destruction.
    * @param source_file Path of source file of the caller (for error messages).
    * @param source_line Line of source file of the caller (for error messages).
+   * @param use_shared_dns_cache Whether to use shared DNS caches provided by the share handles.
    */
-  CurlHandle(LibCurl::UniqueHandlePtr handle, std::string source_file, std::string source_line);
+  CurlHandle(LibCurl::UniqueHandlePtr handle,
+             std::string source_file,
+             std::string source_line,
+             bool use_shared_dns_cache = true);
   ~CurlHandle() noexcept;
 
   /**
@@ -107,6 +111,22 @@ class CurlHandle {
    * @brief Get the underlying curl easy handle pointer.
    */
   CURL* handle() noexcept;
+
+  /**
+   * @brief Get the most recent error message libcurl recorded for this handle.
+   *
+   * The handle is created with `CURLOPT_ERRORBUFFER`, so after a failed transfer this holds a
+   * human-readable description that is usually more specific than `curl_easy_strerror`, for example
+   * "The requested URL returned error: 403". The buffer is empty when libcurl recorded no message.
+   *
+   * @return The recorded error message, or an empty string if none was recorded.
+   */
+  [[nodiscard]] std::string error_message() const;
+
+  /**
+   * @brief Discard the recorded error message.
+   */
+  void clear_error_message() noexcept;
 
   /**
    * @brief Set option for the curl handle.
@@ -131,9 +151,26 @@ class CurlHandle {
   /**
    * @brief Perform a blocking network transfer using previously set options.
    *
+   * Transient failures are retried with exponential backoff, as configured by
+   * `defaults::http_max_attempts()` and `defaults::http_status_codes()`.
+   *
    * See <https://curl.se/libcurl/c/curl_easy_perform.html>.
+   *
+   * @exception std::runtime_error if the transfer fails with a non-retryable error, or if it
+   * exhausts its attempt budget.
    */
   void perform();
+
+  /**
+   * @brief Perform a blocking network transfer, and if the transfer fails, execute an on_retry
+   * callback to roll back to pre-transfer state.
+   *
+   * @param on_retry Invoked before each retried attempt, to roll back to the pre-transfer state.
+   *
+   * @exception std::runtime_error if the transfer fails with a non-retryable error, or if it
+   * exhausts its attempt budget.
+   */
+  void perform(std::function<void()> const& on_retry);
 
   /**
    * @brief Extract information from a curl handle.
@@ -176,6 +213,23 @@ __attribute__((noinline)) inline std::string fix_conda_file_path_hack(std::strin
   if (filename.data() != nullptr) { return std::string{filename.data()}; }
   return std::string{};
 }
+}  // namespace detail
+
+namespace detail {
+
+/**
+ * @brief Record what opening a connection cost a finished transfer.
+ *
+ * What resolving, connecting and shaking hands took, which a transfer that reused a connection
+ * paid nothing for.
+ *
+ * libcurl measures this whether or not anybody asks, and reports the phases cumulatively from the
+ * start of the transfer, so they are differenced here.
+ *
+ * @param easy The handle the transfer ran on, after it completed.
+ */
+void count_http_connection_of(CURL* easy) noexcept;
+
 }  // namespace detail
 
 /**

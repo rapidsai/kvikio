@@ -1,12 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <future>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -18,8 +20,11 @@
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
+#include <kvikio/detail/http_retry.hpp>
+#include <kvikio/detail/io_event_barrier.hpp>
 #include <kvikio/detail/multi_poll_reactor.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/detail/stream.hpp>
@@ -28,6 +33,7 @@
 #include <kvikio/hdfs.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -130,7 +136,18 @@ class BounceBufferH2D {
       _host_offset += size;
     }
   }
+
+  /**
+   * @brief Reset the internal counters for retry.
+   */
+  void reset_for_retry() noexcept;
 };
+
+void BounceBufferH2D::reset_for_retry() noexcept
+{
+  _dev_offset  = 0;
+  _host_offset = 0;
+}
 
 }  // namespace detail
 
@@ -154,7 +171,10 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
   endpoint.setopt(curl);
   curl.setopt(CURLOPT_NOBODY, 1L);
   curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-  curl.perform();
+  {
+    detail::ScopedTimer const probe{detail::count_remote_size_probe};
+    curl.perform();
+  }
   curl_off_t cl;
   curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
   KVIKIO_EXPECT(
@@ -180,6 +200,11 @@ void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::si
   auto const end_offset        = file_offset + size - 1;
   std::string const byte_range = std::to_string(file_offset) + "-" + std::to_string(end_offset);
   curl.setopt(CURLOPT_RANGE, byte_range.c_str());
+}
+
+bool is_read_out_of_bounds(std::size_t file_offset, std::size_t size, std::size_t nbytes) noexcept
+{
+  return file_offset > nbytes || size > nbytes - file_offset;
 }
 
 /**
@@ -234,6 +259,84 @@ std::string encode_special_chars_in_path(std::string const& url)
   auto components = detail::UrlParser::parse(url);
   components.path = detail::UrlEncoder::encode_path(components.path.value());
   return detail::UrlBuilder::build_manually(components);
+}
+
+std::vector<RemoteEndpointType> const& get_default_allow_list()
+{
+  static std::vector const res{RemoteEndpointType::S3,
+                               RemoteEndpointType::S3_PUBLIC,
+                               RemoteEndpointType::S3_PRESIGNED_URL,
+                               RemoteEndpointType::WEBHDFS,
+                               RemoteEndpointType::HTTP};
+  return res;
+}
+
+std::unique_ptr<RemoteEndpoint> create_endpoint_from_type(std::string const& url,
+                                                          std::string const& scheme,
+                                                          RemoteEndpointType type)
+{
+  switch (type) {
+    case RemoteEndpointType::S3:
+      if (!S3Endpoint::is_url_valid(url)) { return nullptr; }
+      if (scheme == "s3") {
+        auto const [bucket, object] = S3Endpoint::parse_s3_url(url);
+        return std::make_unique<S3Endpoint>(std::pair{bucket, object});
+      }
+      return std::make_unique<S3Endpoint>(url);
+
+    case RemoteEndpointType::S3_PUBLIC:
+      if (!S3PublicEndpoint::is_url_valid(url)) { return nullptr; }
+      return std::make_unique<S3PublicEndpoint>(url);
+
+    case RemoteEndpointType::S3_PRESIGNED_URL:
+      if (!S3EndpointWithPresignedUrl::is_url_valid(url)) { return nullptr; }
+      return std::make_unique<S3EndpointWithPresignedUrl>(url);
+
+    case RemoteEndpointType::WEBHDFS:
+      if (!WebHdfsEndpoint::is_url_valid(url)) { return nullptr; }
+      return std::make_unique<WebHdfsEndpoint>(url);
+
+    case RemoteEndpointType::HTTP:
+      if (!HttpEndpoint::is_url_valid(url)) { return nullptr; }
+      return std::make_unique<HttpEndpoint>(url);
+
+    default: return nullptr;
+  }
+}
+
+std::pair<std::unique_ptr<RemoteEndpoint>, std::optional<std::size_t>> infer_endpoint_impl(
+  std::string const& url,
+  std::vector<RemoteEndpointType> const& allow_list,
+  bool probe_s3_connectivity)
+{
+  auto const scheme =
+    detail::UrlParser::extract_component(url, CURLUPART_SCHEME, CURLU_NON_SUPPORT_SCHEME);
+  KVIKIO_EXPECT(scheme.has_value(), "Missing scheme in URL.");
+
+  for (auto const& type : allow_list) {
+    try {
+      auto endpoint = create_endpoint_from_type(url, scheme.value(), type);
+      if (endpoint == nullptr) { continue; }
+
+      std::optional<std::size_t> probed_nbytes = std::nullopt;
+      if (probe_s3_connectivity && type == RemoteEndpointType::S3) {
+        // Check connectivity for the credential-based S3 endpoint and reuse this size in
+        // RemoteHandle::open to avoid a second HEAD request.
+        probed_nbytes = endpoint->get_file_size();
+      }
+      return {std::move(endpoint), probed_nbytes};
+    } catch (...) {
+      // If the credential-based S3 endpoint cannot be used to access the URL, try using
+      // S3 public endpoint instead when it is in the allowlist.
+      if (type == RemoteEndpointType::S3 &&
+          std::find(allow_list.begin(), allow_list.end(), RemoteEndpointType::S3_PUBLIC) !=
+            allow_list.end()) {
+        return {std::make_unique<S3PublicEndpoint>(url), std::nullopt};
+      }
+      throw;
+    }
+  }
+  KVIKIO_FAIL("Unsupported endpoint URL.", std::runtime_error);
 }
 }  // namespace
 
@@ -551,7 +654,10 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
   curl.setopt(CURLOPT_HEADERDATA, static_cast<void*>(&file_size));
   curl.setopt(CURLOPT_HEADERFUNCTION, callback_header);
 
-  curl.perform();
+  {
+    detail::ScopedTimer const probe{detail::count_remote_size_probe};
+    curl.perform();
+  }
   return file_size;
 }
 
@@ -579,87 +685,28 @@ bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
   }
 }
 
-RemoteHandle RemoteHandle::open(std::string url,
+RemoteEndpointType infer_remote_endpoint_type(std::string const& url)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto [endpoint, _] = infer_endpoint_impl(url, get_default_allow_list(), false);
+  return endpoint->remote_endpoint_type();
+}
+
+RemoteHandle RemoteHandle::open(std::string const& url,
                                 RemoteEndpointType remote_endpoint_type,
                                 std::optional<std::vector<RemoteEndpointType>> allow_list,
                                 std::optional<std::size_t> nbytes)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  if (!allow_list.has_value()) {
-    allow_list = {RemoteEndpointType::S3,
-                  RemoteEndpointType::S3_PUBLIC,
-                  RemoteEndpointType::S3_PRESIGNED_URL,
-                  RemoteEndpointType::WEBHDFS,
-                  RemoteEndpointType::HTTP};
-  }
-
-  auto const scheme =
-    detail::UrlParser::extract_component(url, CURLUPART_SCHEME, CURLU_NON_SUPPORT_SCHEME);
-  KVIKIO_EXPECT(scheme.has_value(), "Missing scheme in URL.");
-
-  // Helper to create endpoint based on type
-  auto create_endpoint =
-    [&url = url, &scheme = scheme](RemoteEndpointType type) -> std::unique_ptr<RemoteEndpoint> {
-    switch (type) {
-      case RemoteEndpointType::S3:
-        if (!S3Endpoint::is_url_valid(url)) { return nullptr; }
-        if (scheme.value() == "s3") {
-          auto const [bucket, object] = S3Endpoint::parse_s3_url(url);
-          return std::make_unique<S3Endpoint>(std::pair{bucket, object});
-        }
-        return std::make_unique<S3Endpoint>(url);
-
-      case RemoteEndpointType::S3_PUBLIC:
-        if (!S3PublicEndpoint::is_url_valid(url)) { return nullptr; }
-        return std::make_unique<S3PublicEndpoint>(url);
-
-      case RemoteEndpointType::S3_PRESIGNED_URL:
-        if (!S3EndpointWithPresignedUrl::is_url_valid(url)) { return nullptr; }
-        return std::make_unique<S3EndpointWithPresignedUrl>(url);
-
-      case RemoteEndpointType::WEBHDFS:
-        if (!WebHdfsEndpoint::is_url_valid(url)) { return nullptr; }
-        return std::make_unique<WebHdfsEndpoint>(url);
-
-      case RemoteEndpointType::HTTP:
-        if (!HttpEndpoint::is_url_valid(url)) { return nullptr; }
-        return std::make_unique<HttpEndpoint>(url);
-
-      default: return nullptr;
-    }
-  };
+  if (!allow_list.has_value()) { allow_list = get_default_allow_list(); }
 
   std::unique_ptr<RemoteEndpoint> endpoint;
   std::optional<std::size_t> probed_nbytes;
 
   if (remote_endpoint_type == RemoteEndpointType::AUTO) {
-    // Try each allowed type in the order of allowlist
-    for (auto const& type : allow_list.value()) {
-      try {
-        endpoint = create_endpoint(type);
-        if (endpoint == nullptr) { continue; }
-        if (type == RemoteEndpointType::S3) {
-          // Check connectivity for the credential-based S3 endpoint, and throw an exception if
-          // failed. Reuse this size when constructing the handle to avoid a second HEAD request.
-          probed_nbytes = endpoint->get_file_size();
-        }
-      } catch (...) {
-        // If the credential-based S3 endpoint cannot be used to access the URL, try using S3 public
-        // endpoint instead if it is in the allowlist
-        if (type == RemoteEndpointType::S3 &&
-            std::find(allow_list->begin(), allow_list->end(), RemoteEndpointType::S3_PUBLIC) !=
-              allow_list->end()) {
-          endpoint      = std::make_unique<S3PublicEndpoint>(url);
-          probed_nbytes = std::nullopt;
-        } else {
-          throw;
-        }
-      }
-
-      // At this point, a matching endpoint has been found
-      break;
-    }
-    KVIKIO_EXPECT(endpoint.get() != nullptr, "Unsupported endpoint URL.", std::runtime_error);
+    auto inferred = infer_endpoint_impl(url, allow_list.value(), true);
+    endpoint      = std::move(inferred.first);
+    probed_nbytes = inferred.second;
   } else {
     // Validate it is in the allow list
     KVIKIO_EXPECT(
@@ -669,7 +716,10 @@ RemoteHandle RemoteHandle::open(std::string url,
       std::runtime_error);
 
     // Create the specific type
-    endpoint = create_endpoint(remote_endpoint_type);
+    auto const scheme =
+      detail::UrlParser::extract_component(url, CURLUPART_SCHEME, CURLU_NON_SUPPORT_SCHEME);
+    KVIKIO_EXPECT(scheme.has_value(), "Missing scheme in URL.");
+    endpoint = create_endpoint_from_type(url, scheme.value(), remote_endpoint_type);
     KVIKIO_EXPECT(endpoint.get() != nullptr,
                   std::string{"Invalid URL for "} +
                     get_remote_endpoint_type_name(remote_endpoint_type) + " endpoint",
@@ -684,7 +734,7 @@ RemoteHandle RemoteHandle::open(std::string url,
 }
 
 RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint, std::size_t nbytes)
-  : _endpoint{std::move(endpoint)}, _nbytes{nbytes}
+  : _endpoint{std::move(endpoint)}, _nbytes{nbytes}, _source{_endpoint->str()}
 {
   KVIKIO_NVTX_FUNC_RANGE();
 }
@@ -694,6 +744,7 @@ RemoteHandle::RemoteHandle(std::unique_ptr<RemoteEndpoint> endpoint)
   KVIKIO_NVTX_FUNC_RANGE();
   _nbytes   = endpoint->get_file_size();
   _endpoint = std::move(endpoint);
+  _source   = _endpoint->str();
 }
 
 RemoteEndpointType RemoteHandle::remote_endpoint_type() const noexcept
@@ -716,7 +767,7 @@ namespace detail {
  * See <https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html>.
  *
  * @param data Data downloaded by libcurl that is ready for consumption.
- * @param size Size of each element in `nmemb`; size is always 1.
+ * @param size Size of each element in `nmemb`. Size is always 1.
  * @param nmemb Size of the data in `nmemb`.
  * @param context A pointer to an instance of `CallbackContext`.
  */
@@ -737,20 +788,69 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
 }
 }  // namespace detail
 
+namespace {
+
+/// WebHDFS is its own backend; everything else this handle speaks is HTTP(S), S3 included.
+[[nodiscard]] IoBackend remote_io_backend_of(RemoteEndpoint const& endpoint) noexcept
+{
+  return endpoint.remote_endpoint_type() == RemoteEndpointType::WEBHDFS ? IoBackend::REMOTE_HDFS
+                                                                        : IoBackend::REMOTE_HTTP;
+}
+
+}  // namespace
+
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
 {
   KVIKIO_NVTX_FUNC_RANGE(size);
+  if (size == 0) { return 0; }
+  // Before the buffer is classified and before any monitor is told: a call rejected on its
+  // arguments never became an I/O operation.
+  expect_read_in_bounds(size, file_offset);
 
+  detail::expect_not_in_monitor();
+  bool const is_host_mem = is_host_memory(buf);
+  detail::LogicalObservationRecorder recorder{remote_io_backend_of(*_endpoint),
+                                              TransferDirection::READ,
+                                              is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+                                              file_offset,
+                                              size,
+                                              _source,
+                                              "GET"};
+  // One request for the whole range, with no chunking and no queue in front of it, so the physical
+  // record duplicates the logical one. Emitted anyway, so that a monitor watching only physical
+  // observations still sees every byte.
+  detail::PhysicalObservationContext const physical{
+    .backend     = remote_io_backend_of(*_endpoint),
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder.id(),
+    .source      = _source,
+    .http_method = "GET"};
+  detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+  auto const nbytes = read_impl(buf, size, file_offset, is_host_mem);
+  physical_recorder.finish(nbytes);
+  recorder.finish(nbytes);
+  return nbytes;
+}
+
+void RemoteHandle::expect_read_in_bounds(std::size_t size, std::size_t file_offset) const
+{
+  if (!is_read_out_of_bounds(file_offset, size, _nbytes)) { return; }
+  std::stringstream ss;
+  ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
+     << " bytes file (" << _endpoint->str() << ")";
+  KVIKIO_FAIL(ss.str(), std::invalid_argument);
+}
+
+std::size_t RemoteHandle::read_impl(void* buf,
+                                    std::size_t size,
+                                    std::size_t file_offset,
+                                    bool is_host_mem)
+{
   if (size == 0) { return 0; }
 
-  if (file_offset + size > _nbytes) {
-    std::stringstream ss;
-    ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
-       << " bytes file (" << _endpoint->str() << ")";
-    KVIKIO_FAIL(ss.str(), std::invalid_argument);
-  }
-  bool const is_host_mem = is_host_memory(buf);
-  auto curl              = create_curl_handle();
+  expect_read_in_bounds(size, file_offset);
+  auto curl = create_curl_handle();
   _endpoint->setopt(curl);
   _endpoint->setup_range_request(curl, file_offset, size);
 
@@ -764,14 +864,17 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
 
   try {
     if (is_host_mem) {
-      curl.perform();
+      curl.perform([&ctx] { ctx.reset_for_retry(); });
     } else {
       PushAndPopContext c(get_context_from_pointer(buf));
       // We use a bounce buffer to avoid many small memory copies to device. Libcurl has a
       // maximum chunk size of 16kb (`CURL_MAX_WRITE_SIZE`) but chunks are often much smaller.
       detail::BounceBufferH2D bounce_buffer(detail::StreamCachePerThreadAndContext::get(), buf);
       ctx.bounce_buffer = &bounce_buffer;
-      curl.perform();
+      curl.perform([&ctx, &bounce_buffer] {
+        ctx.reset_for_retry();
+        bounce_buffer.reset_for_retry();
+      });
     }
   } catch (std::runtime_error const& e) {
     if (ctx.overflow_error) {
@@ -793,31 +896,75 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   KVIKIO_NVTX_FUNC_RANGE(size);
 
   if (size == 0) { return make_ready_future(static_cast<std::size_t>(0)); }
+  expect_read_in_bounds(size, file_offset);
 
-  auto const io_backend = defaults::remote_io_backend();
+  detail::expect_not_in_monitor();
+  bool const is_host_mem = is_host_memory(buf);
+  auto const io_backend  = defaults::remote_io_backend();
 
+  // Everything that can reject the call is checked before the recorder exists, so a call that never
+  // reaches the I/O is not observed. The bounds check above does the same.
+  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
   if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
     KVIKIO_EXPECT(thread_pool != nullptr, "The thread pool must not be nullptr");
-    auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
-
-    auto task = [this](void* devPtr_base,
-                       std::size_t size,
-                       std::size_t file_offset,
-                       std::size_t devPtr_offset) -> std::size_t {
-      return read(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset);
-    };
-    return detail::parallel_io(
-      task,
-      buf,
-      size,
-      file_offset,
-      task_size,
-      0,
-      {.thread_pool = thread_pool, .call_idx = call_idx, .nvtx_color = nvtx_color});
+  } else {
+    KVIKIO_EXPECT(io_backend == RemoteIOBackend::MULTI_POLL,
+                  "Unknown RemoteIOBackend value",
+                  std::runtime_error);
+    if (!is_host_mem) {
+      KVIKIO_EXPECT(task_size <= defaults::bounce_buffer_size(),
+                    "MULTI_POLL backend with a device buffer requires task_size <= "
+                    "KVIKIO_BOUNCE_BUFFER_SIZE. Lower KVIKIO_TASK_SIZE or raise "
+                    "KVIKIO_BOUNCE_BUFFER_SIZE.",
+                    std::invalid_argument);
+    }
   }
 
-  KVIKIO_EXPECT(
-    io_backend == RemoteIOBackend::MULTI_POLL, "Unknown RemoteIOBackend value", std::runtime_error);
+  auto recorder = detail::monitoring_enabled(ObservationKind::LOGICAL)
+                    ? std::make_shared<detail::LogicalObservationRecorder>(
+                        remote_io_backend_of(*_endpoint),
+                        TransferDirection::READ,
+                        is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+                        file_offset,
+                        size,
+                        _source,
+                        "GET")
+                    : nullptr;
+
+  // One observation per request, so the transfers are seen apart from the queueing in front of
+  // them.
+  detail::PhysicalObservationContext const physical{
+    .backend     = remote_io_backend_of(*_endpoint),
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder ? recorder->id() : std::nullopt,
+    .source      = _source,
+    .http_method = "GET"};
+
+  if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
+    auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+
+    auto task = [this, is_host_mem, physical](void* devPtr_base,
+                                              std::size_t size,
+                                              std::size_t file_offset,
+                                              std::size_t devPtr_offset) -> std::size_t {
+      detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+      auto const bytes_read =
+        read_impl(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset, is_host_mem);
+      physical_recorder.finish(bytes_read);
+      return bytes_read;
+    };
+    return detail::parallel_io(task,
+                               buf,
+                               size,
+                               file_offset,
+                               task_size,
+                               0,
+                               {.thread_pool = thread_pool,
+                                .call_idx    = call_idx,
+                                .nvtx_color  = nvtx_color,
+                                .recorder    = recorder});
+  }
 
   // MULTI_POLL path. The lifecycle of one pread() call uses four cooperating pieces:
   // - One `RemoteMultiAggregateContext` per pread(). It owns the std::promise that the
@@ -833,22 +980,18 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   //   of them fails).
   //
   // Build all N transfers here, then hand them off in a single pool call.
-  KVIKIO_EXPECT(is_host_memory(buf),
-                "MULTI_POLL backend currently supports host memory only. "
-                "Use EASY_THREADPOOL (KVIKIO_REMOTE_IO_BACKEND=easy_threadpool) for "
-                "device-memory buffers.",
-                std::invalid_argument);
-  KVIKIO_EXPECT(task_size > 0, "`task_size` must be positive", std::invalid_argument);
-  if (file_offset + size > _nbytes) {
-    std::stringstream ss;
-    ss << "cannot read " << file_offset << "+" << size << " bytes into a " << _nbytes
-       << " bytes file (" << _endpoint->str() << ")";
-    KVIKIO_FAIL(ss.str(), std::invalid_argument);
+  std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
+  auto aggregate      = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
+  aggregate->recorder = recorder;
+  auto fut            = aggregate->get_future();
+
+  std::shared_ptr<detail::IoEventBarrier> io_event_barrier;
+  if (!is_host_mem) {
+    io_event_barrier = std::make_shared<detail::IoEventBarrier>(get_context_from_pointer(buf));
+    aggregate->io_event_barrier = io_event_barrier;
   }
 
-  std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
-  auto aggregate = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
-  auto fut       = aggregate->get_future();
+  auto const retry_policy = std::make_shared<detail::HttpRetryPolicy const>();
 
   std::vector<std::unique_ptr<detail::RemoteMultiTransfer>> transfers;
   transfers.reserve(num_subranges);
@@ -859,16 +1002,28 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   for (std::size_t i = 0; i < num_subranges; ++i) {
     std::size_t const subrange_size = std::min(task_size, remaining);
     auto transfer                   = std::make_unique<detail::RemoteMultiTransfer>();
-    transfer->curl                  = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
+    // MULTI_POLL uses multi handle's DNS cache sharing, and does not need the share handle.
+    transfer->curl = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
                                                   detail::fix_conda_file_path_hack(__FILE__),
-                                                  KVIKIO_STRINGIFY(__LINE__));
+                                                  KVIKIO_STRINGIFY(__LINE__),
+                                                  /* use_shared_dns_cache = */ false);
     _endpoint->setopt(*transfer->curl);
     _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);
-    transfer->ctx.buf  = cur_buf;
-    transfer->ctx.size = subrange_size;
-    transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
+    transfer->ctx.size     = subrange_size;
+    transfer->aggregate    = aggregate;
+    transfer->retry_policy = retry_policy;
+    transfer->file_offset  = cur_off;
+    transfer->physical     = physical;
+    if (is_host_mem) {
+      transfer->ctx.buf = cur_buf;
+      transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
+    } else {
+      transfer->is_device  = true;
+      transfer->device_ctx = io_event_barrier->cuda_context();
+      transfer->device_dst = cur_buf;
+      transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_pinned_buffer);
+    }
     transfer->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&transfer->ctx));
-    transfer->aggregate = aggregate;
     transfers.push_back(std::move(transfer));
     cur_buf += subrange_size;
     cur_off += subrange_size;
@@ -877,7 +1032,15 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
 
   // One pool call per pread(). The pool consults the captured dispatch policy internally.
   detail::MultiReactorPool::instance().submit_pread(std::move(transfers));
-  return fut;
+
+  if (is_host_mem) { return fut; }
+
+  return std::async(std::launch::deferred,
+                    [fut = std::move(fut), io_event_barrier]() mutable -> std::size_t {
+                      auto const n = fut.get();
+                      io_event_barrier->sync_all_events();
+                      return n;
+                    });
 }
 
 }  // namespace kvikio

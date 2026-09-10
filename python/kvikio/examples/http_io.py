@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
@@ -12,6 +12,8 @@ from kvikio.utils import LocalHttpServer
 
 
 def main(tmpdir: pathlib.Path):
+    monitor = kvikio.SummaryMonitor()
+
     a = cupy.arange(100)
     a.tofile(tmpdir / "myfile")
     b = cupy.empty_like(a)
@@ -30,6 +32,13 @@ def main(tmpdir: pathlib.Path):
             c = numpy.empty_like(a)
             f.read(c)
             assert all(a == c)
+
+    summary = monitor.get()
+    print(summary)
+    print(
+        f"{summary.busy_bytes_per_sec / 1e6:.2f} MB/s while fetching, "
+        f"busy {summary.busy_fraction * 100:.1f} % of the time"
+    )
 
 
 if __name__ == "__main__":
