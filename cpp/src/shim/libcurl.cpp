@@ -110,8 +110,12 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   setopt(CURLOPT_TIMEOUT, kvikio::defaults::http_timeout());
 
   // Resolve a hostname once per DNS cache.
-  static bool const share_dns_cache = getenv_or("KVIKIO_REMOTE_SHARE_DNS_CACHE", true);
-  if (use_shared_dns_cache && share_dns_cache) {
+  bool share_dns_cache = false;
+  if (use_shared_dns_cache) {
+    static bool const env = getenv_or("KVIKIO_REMOTE_SHARE_DNS_CACHE", true);
+    share_dns_cache       = env;
+  }
+  if (share_dns_cache) {
     setopt(CURLOPT_SHARE, detail::CurlShareHandle::share_handle_for_current_thread().handle());
   } else {
     setopt(CURLOPT_SHARE, static_cast<CURLSH*>(nullptr));
