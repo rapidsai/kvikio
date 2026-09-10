@@ -518,6 +518,15 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
   _in_flight.clear();
 }
 
+namespace {
+std::atomic<bool> _pool_instantiated{false};
+}  // namespace
+
+bool MultiReactorPool::is_instantiated() noexcept
+{
+  return _pool_instantiated.load(std::memory_order_acquire);
+}
+
 MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dispatch()}
 {
   // Force LibCurl global init before any reactor opens a multi handle.
@@ -534,6 +543,8 @@ MultiReactorPool::MultiReactorPool() : _dispatch{defaults::remote_io_reactor_dis
   for (unsigned int i = 0; i < n; ++i) {
     _reactors.emplace_back(std::make_unique<MultiPollReactor>(this, per_reactor_max));
   }
+
+  _pool_instantiated.store(true, std::memory_order_release);
 }
 
 MultiReactorPool::~MultiReactorPool() noexcept
