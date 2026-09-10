@@ -5,11 +5,15 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <mutex>
+#include <vector>
 
 #include <curl/curl.h>
 
 namespace kvikio::detail {
+
+class CurlShareRegistry;
 
 /**
  * @brief A libcurl share handle holding a DNS cache for a group of curl easy handles.
@@ -40,6 +44,8 @@ class CurlShareHandle {
   [[nodiscard]] CURLSH* handle() const noexcept { return _share_handle; }
 
  private:
+  friend class CurlShareRegistry;
+
   CurlShareHandle();
   ~CurlShareHandle() = default;
 
@@ -72,6 +78,46 @@ class CurlShareHandle {
   CURLSH* _share_handle{nullptr};
   // One mutex per shareable data kind in libcurl
   std::array<std::mutex, CURL_LOCK_DATA_LAST> _mutexes;
+};
+
+/**
+ * @brief Assigns threads to share handles, at most `max_threads_per_cache` threads per handle.
+ *
+ * A share handle is created only when every existing one is full. A slot returned by an exiting
+ * thread is taken by the next thread instead of adding a cache.
+ */
+class CurlShareRegistry {
+ public:
+  explicit CurlShareRegistry(std::size_t max_threads_per_cache);
+
+  /**
+   * @brief Take a slot in the first cache with room, or create a cache when all are full.
+   *
+   * @return The cache the caller is assigned to.
+   */
+  [[nodiscard]] CurlShareHandle* acquire();
+
+  /**
+   * @brief Return the slot taken by `acquire()`.
+   *
+   * @param handle The cache returned by `acquire()`.
+   */
+  void release(CurlShareHandle* handle);
+
+  /**
+   * @brief The number of caches created so far.
+   */
+  [[nodiscard]] std::size_t num_caches() const;
+
+ private:
+  struct Cache {
+    CurlShareHandle* handle;
+    std::size_t num_threads;  // How many live threads have been assigned to this cache.
+  };
+
+  std::size_t const _max_threads_per_cache;
+  mutable std::mutex _mutex;
+  std::vector<Cache> _caches;
 };
 
 }  // namespace kvikio::detail
