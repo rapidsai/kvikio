@@ -162,7 +162,7 @@ dependencies:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==26.10.*,>=0.0.0a0
+          - libkvikio==26.12.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -170,12 +170,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==26.10.*,>=0.0.0a0
+              - libkvikio-cu12==26.12.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu13==26.10.*,>=0.0.0a0
+              - libkvikio-cu13==26.12.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
@@ -360,7 +360,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &libkvikio_unsuffixed libkvikio==26.10.*,>=0.0.0a0
+          - &libkvikio_unsuffixed libkvikio==26.12.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -372,12 +372,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==26.10.*,>=0.0.0a0
+              - libkvikio-cu12==26.12.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu13==26.10.*,>=0.0.0a0
+              - libkvikio-cu13==26.12.*,>=0.0.0a0
           - {matrix: null, packages: [*libkvikio_unsuffixed]}
   depends_on_rapids_logger:
     common:
@@ -392,6 +392,7 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
+          - breathe
           - numpydoc
           - zarr>=3.0.0,<3.2.0,<4.0.0
           - sphinx
@@ -453,14 +454,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libkvikio==26.10.*,>=0.0.0a0
-          - libkvikio-tests==26.10.*,>=0.0.0a0
+          - libkvikio==26.12.*,>=0.0.0a0
+          - libkvikio-tests==26.12.*,>=0.0.0a0
   test_kvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==26.10.*,>=0.0.0a0
-          - kvikio==26.10.*,>=0.0.0a0
+          - libkvikio==26.12.*,>=0.0.0a0
+          - kvikio==26.12.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -471,7 +472,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cuda-core>=0.5.1,<2
-          - rapids-dask-dependency==26.10.*,>=0.0.0a0
+          - rapids-dask-dependency==26.12.*,>=0.0.0a0
           - pytest
           - pytest-asyncio
           - pytest-cov

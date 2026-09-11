@@ -18,6 +18,8 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 import datetime
+import os
+import xml.etree.ElementTree as ET
 
 from packaging.version import Version
 
@@ -44,16 +46,56 @@ release = (
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "breathe",
     "sphinx.ext.autodoc",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.autosummary",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
     "sphinx.ext.extlinks",
     "numpydoc",
     "sphinx_click",
 ]
+
+breathe_projects = {
+    "kvikio": os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../cpp/doxygen/xml")
+    )
+}
+breathe_default_project = "kvikio"
+
+
+def clean_doxygen_xml(path: str) -> None:
+    # Doxygen 1.9.1 includes forward enum declarations in this template's return type.
+    filename = os.path.join(path, "namespacekvikio.xml")
+    tree = ET.parse(filename)
+    for member in tree.findall(".//memberdef"):
+        type_node = member.find("type")
+        if (
+            member.findtext("name") != "getenv_or"
+            or type_node is None
+            or "".join(type_node.itertext())
+            != "enum RemoteIOBackend uint8_t enum RemoteReactorDispatch uint8_t T"
+        ):
+            continue
+        definition = member.find("definition")
+        if definition is None:
+            continue
+        type_node.clear()
+        type_node.text = "T"
+        definition.clear()
+        definition.text = "T kvikio::getenv_or"
+        tree.write(filename, encoding="UTF-8", xml_declaration=True)
+        return
+
+
+for project_path in breathe_projects.values():
+    clean_doxygen_xml(project_path)
+
+# Disambiguate section anchors across documents
+autosectionlabel_prefix_document = True
 
 numpydoc_show_class_members = False
 
@@ -99,6 +141,7 @@ autodoc_default_options = {
 #
 html_theme = "nvidia_sphinx_theme"
 html_theme_options = {
+    "public_docs_features": os.environ.get("CI") == "true",
     "icon_links": [
         {
             "name": "GitHub",

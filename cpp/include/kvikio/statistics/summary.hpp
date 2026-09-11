@@ -15,6 +15,7 @@
 
 #include <kvikio/observation.hpp>
 #include <kvikio/shim/utils.hpp>
+#include <kvikio/statistics/counters.hpp>
 
 /**
  * @brief KvikIO namespace.
@@ -77,6 +78,14 @@ struct Summary {
   /// whether a read reaches cuFile or falls back to POSIX, so this is where that shows.
   std::array<BackendTotals, num_io_backends> by_backend{};
 
+  /**
+   * @brief The work in the span that belongs to no single operation.
+   *
+   * The counters run for the life of the process, and this is the part of them that falls inside
+   * the span.
+   */
+  Counters counters{};
+
   /// The operations' durations added up, every operation counted.
   Duration total_duration{};
 
@@ -94,6 +103,13 @@ struct Summary {
    * `busy <= wall()` is guaranteed.
    */
   Duration busy{};
+
+  /// Which observations these totals are over. `LOGICAL` counts one operation per user-facing
+  /// call, `PHYSICAL` one per transfer.
+  ObservationKind kind{ObservationKind::LOGICAL};
+
+  /// Named rather than implicit padding, so that `serialize()` never copies an indeterminate byte.
+  std::array<std::byte, 7> _reserved{};
 
   /**
    * @brief Wall-clock span this summary covers.
@@ -188,9 +204,11 @@ struct Summary {
    *   ...
    * @endcode
    *
+   * @param rows Which rows to print. Under `ReportRows::USED` a backend the run never reached and a
+   * counter group it never touched are left out.
    * @return The report, one field per line, newline-terminated.
    */
-  [[nodiscard]] std::string report() const;
+  [[nodiscard]] std::string report(ReportRows rows = ReportRows::USED) const;
 };
 
 /**
@@ -222,6 +240,18 @@ struct Summary {
  * }};
  * @endcode
  *
+ * By default a monitor counts one row per user-facing call. Pass `ObservationKind::PHYSICAL` to
+ * count one row per transfer instead, so a call split across the thread pool contributes one row
+ * per task and `total_duration` covers the transfers rather than the calls waiting for a thread.
+ * The bytes are the same either way. Registering one of each gives both views of the same run:
+ *
+ * @code
+ * kvikio::statistics::SummaryMonitor const calls;
+ * kvikio::statistics::SummaryMonitor const transfers{kvikio::ObservationKind::PHYSICAL};
+ * ...
+ * auto const queue_wait = calls.get().total_duration - transfers.get().total_duration;
+ * @endcode
+ *
  * Monitors are independent. Any number can exist at once, nested or overlapping, and resetting
  * one has no effect on the others. An operation already in flight when the monitor is created is
  * ignored entirely, neither counted nor timed.
@@ -241,9 +271,11 @@ struct Summary {
  *
  * ### Overhead
  *
- * Monitoring adds roughly 80 ns per logical operation, regardless of its size, so the relative
- * cost falls as the call grows: about 2 % of a 4 KiB `pread()` and 0.25 % of a 1 MiB one. With no
- * monitor registered it is about 5 ns per call.
+ * Monitoring adds roughly 80 ns per observation, regardless of its size, so the relative cost
+ * falls as the call grows: about 2 % of a 4 KiB `pread()` and 0.25 % of a 1 MiB one. A physical
+ * monitor pays that per task rather than per call, so a call split into sixteen tasks costs
+ * sixteen times as much to watch. With no monitor registered it is about 5 ns per call, plus
+ * 3.4 ns per task.
  */
 class SummaryMonitor final : private kvikio::Monitor {
  public:
@@ -252,16 +284,21 @@ class SummaryMonitor final : private kvikio::Monitor {
 
   /**
    * @brief Create a monitor and begin counting.
+   *
+   * @param kind Which observations to count. `LOGICAL` totals one row per user-facing call.
+   * `PHYSICAL` totals one row per transfer, so `busy` covers the transfers themselves rather than
+   * the calls that were waiting for a thread.
    */
-  SummaryMonitor();
+  explicit SummaryMonitor(ObservationKind kind = ObservationKind::LOGICAL);
 
   /**
    * @brief Create a monitor that reports itself when it goes out of scope.
    *
    * @param on_destruction Invoked with the totals from the destructor. Exceptions it throws are
    * caught and logged, since a destructor cannot propagate them.
+   * @param kind Which observations to count.
    */
-  explicit SummaryMonitor(Callback on_destruction);
+  explicit SummaryMonitor(Callback on_destruction, ObservationKind kind = ObservationKind::LOGICAL);
 
   /**
    * @brief Stop counting, invoke the callback if there is one, and release the registration.
@@ -354,6 +391,11 @@ class SummaryMonitor final : private kvikio::Monitor {
   /// Serializes `stop()`, which cannot use `_mutex`, since `unregister_monitor()` waits for
   /// notifications that take it.
   std::mutex _stopping;
+
+  /// The internal counters as they stood when the span began, so the reading is a difference,
+  /// and as they stood when it ended, so a stopped summary does not keep growing.
+  Counters _counters_at_start{};
+  Counters _counters_at_stop{};
 
   /**
    * @brief What every reading is a copy of.

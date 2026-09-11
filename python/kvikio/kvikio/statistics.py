@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar, TypedDict
 
 from kvikio._lib import statistics as _statistics  # type: ignore
+from kvikio._lib.statistics import ObservationKind  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,13 @@ class Summary:
         total_duration_ns: int
         num_errors: int
 
+    kind: ObservationKind
+    """Which observations these totals are over
+
+    ``LOGICAL`` counts one operation per user-facing call, ``PHYSICAL`` one per
+    transfer. See :class:`SummaryMonitor`.
+    """
+
     start_unix_ns: int
     """When counting started, or was last reset"""
 
@@ -40,7 +48,7 @@ class Summary:
     """When the summary was read"""
 
     num_ops: int
-    """Number of user-facing operations"""
+    """Number of operations, of whichever :attr:`kind` this summary is over"""
 
     num_reads: int
     """Number of operations that were reads"""
@@ -91,9 +99,18 @@ class Summary:
     backend. There is no per-backend busy time, that being a union over wall time which
     two backends running at once would both claim.
 
-    Excluded from :func:`hash` as the only unhashable field, and only from that. It
-    still takes part in ``==``, so two summaries that differ here are unequal, they
-    merely share a hash bucket.
+    Excluded from :func:`hash`, as an unhashable field, and only from that. It still
+    takes part in ``==``, so two summaries that differ here are unequal, they merely
+    share a hash bucket.
+    """
+
+    counters: dict[str, int] = field(hash=False)
+    """The work in the span that belongs to no single operation
+
+    The counters run for the life of the process, and this is the part of them that falls
+    inside the span.
+
+    Excluded from :func:`hash` for the same reason as :attr:`by_backend`.
     """
 
     wall_ns: int
@@ -215,17 +232,23 @@ class Summary:
         # The C++ handle cannot be pickled, so a summary travels as its bytes.
         return (Summary.deserialize, (self.serialize(),))
 
-    def report(self) -> str:
+    def report(self, all_rows: bool = False) -> str:
         """Format a human-readable report of every field
 
         Byte counts, durations and rates are scaled to readable units. Use
         :meth:`to_json` instead when the output is going to be parsed.
 
+        Parameters
+        ----------
+        all_rows
+            Print every row, including the backends the run never reached and the
+            subsystems it never touched.
+
         Returns
         -------
         The report, one field per line, newline-terminated.
         """
-        return self._handle.report()
+        return self._handle.report(all_rows)
 
     def __str__(self) -> str:
         return self.report()
@@ -264,9 +287,17 @@ class SummaryMonitor:
 
     __slots__ = ("_handle",)
 
-    def __init__(self):
-        """Create a monitor and begin counting"""
-        self._handle = _statistics.SummaryMonitor()
+    def __init__(self, kind: ObservationKind = ObservationKind.LOGICAL):
+        """Create a monitor and begin counting
+
+        Parameters
+        ----------
+        kind : ObservationKind
+            Which observations to count. ``LOGICAL`` totals one row per user-facing
+            call. ``PHYSICAL`` totals one row per transfer, so ``busy`` covers the
+            transfers themselves rather than the calls that were waiting for a thread.
+        """
+        self._handle = _statistics.SummaryMonitor(kind)
 
     def get(self) -> Summary:
         """Read the totals accumulated since construction, or since the last reset
@@ -289,7 +320,7 @@ class SummaryMonitor:
 
         Parameters
         ----------
-        previous : Summary
+        previous
             An earlier reading from this monitor.
 
         Returns

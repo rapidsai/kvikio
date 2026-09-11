@@ -56,6 +56,7 @@ class SummaryTest : public testing::Test {
   std::vector<std::uint64_t> _data;
 };
 
+using kvikio::statistics::ReportRows;
 using kvikio::statistics::Summary;
 using kvikio::statistics::SummaryMonitor;
 
@@ -95,6 +96,26 @@ TEST_F(SummaryTest, a_monitor_counts_the_calls_it_spans)
   EXPECT_GT(s.mean_duration(), kvikio::Duration::zero());
 }
 
+TEST_F(SummaryTest, a_span_that_did_remote_io_reports_the_http_rows_even_when_they_are_zero)
+{
+  SummaryMonitor const monitor;
+  {
+    kvikio::detail::LogicalObservationRecorder remote{
+      IoBackend::REMOTE_HTTP, TransferDirection::READ, MemoryKind::HOST, 0, 1024};
+    remote.finish(1024);
+  }
+
+  auto const s = monitor.get();
+  // Nothing was probed, connected or retried inside the span, which is what perfect reuse of a
+  // connection opened before it looks like, and is worth a row rather than a silence.
+  EXPECT_TRUE(s.counters.empty());
+  auto const text = s.report();
+  EXPECT_NE(text.find("http handshake       0 connections"), std::string::npos);
+  EXPECT_NE(text.find("http retries         0 retries"), std::string::npos);
+  // A span that never left the machine still gets none of them.
+  EXPECT_EQ(Summary{}.report().find("http"), std::string::npos);
+}
+
 TEST_F(SummaryTest, the_backends_that_carried_the_work_are_counted_apart)
 {
   SummaryMonitor const monitor;
@@ -127,8 +148,9 @@ TEST_F(SummaryTest, the_backends_that_carried_the_work_are_counted_apart)
   auto const text = s.report();
   EXPECT_NE(text.find("backend GDS          1 KiB in 1 ops"), std::string::npos);
   EXPECT_NE(text.find("backend POSIX        768 B in 2 ops"), std::string::npos);
-  // A backend that carried nothing says so, since that is the answer as often as the bytes are.
-  EXPECT_NE(text.find("backend MMAP         unused"), std::string::npos);
+  // A backend the run never reached is left out, and says so when every row is asked for.
+  EXPECT_EQ(text.find("backend MMAP"), std::string::npos);
+  EXPECT_NE(s.report(ReportRows::ALL).find("backend MMAP         unused"), std::string::npos);
   EXPECT_NE(s.to_json().find("\"by_backend\""), std::string::npos);
 }
 
@@ -667,6 +689,48 @@ TEST_F(SummaryTest, bytes_that_are_not_a_summary_are_refused)
   std::swap(other_endian[12], other_endian[15]);
   std::swap(other_endian[13], other_endian[14]);
   EXPECT_THROW(std::ignore = Summary::deserialize(other_endian), std::invalid_argument);
+}
+
+TEST_F(SummaryTest, a_summary_says_which_observations_it_is_over)
+{
+  // The kind labels the monitor, so it holds whether or not anything was counted.
+  SummaryMonitor const calls;
+  SummaryMonitor transfers{kvikio::ObservationKind::PHYSICAL};
+  auto const logical  = calls.get();
+  auto const physical = transfers.get();
+
+  EXPECT_EQ(logical.kind, kvikio::ObservationKind::LOGICAL);
+  EXPECT_EQ(physical.kind, kvikio::ObservationKind::PHYSICAL);
+  EXPECT_NE(logical.report().find("(LOGICAL)"), std::string::npos);
+  EXPECT_NE(physical.report().find("(PHYSICAL)"), std::string::npos);
+  EXPECT_NE(physical.to_json().find("\"kind\": \"PHYSICAL\""), std::string::npos);
+
+  // It survives everything that carries totals forward.
+  EXPECT_EQ(transfers.since(physical).kind, kvikio::ObservationKind::PHYSICAL);
+  EXPECT_EQ(Summary::deserialize(physical.serialize()).kind, kvikio::ObservationKind::PHYSICAL);
+  transfers.reset();
+  EXPECT_EQ(transfers.get().kind, kvikio::ObservationKind::PHYSICAL);
+}
+
+TEST_F(SummaryTest, the_internal_costs_are_those_of_the_span)
+{
+  // Everything counted is remote, so a run against a local file owes nothing and says so by
+  // leaving the rows out.
+  std::vector<std::uint64_t> buffer(_data.size());
+  SummaryMonitor monitor;
+  {
+    kvikio::FileHandle f{_filepath, "r"};
+    f.pread(buffer.data(), nbytes(), 0).get();
+  }
+
+  auto const s = monitor.get();
+  EXPECT_TRUE(s.counters.empty()) << "a local read owes none of what is counted";
+  EXPECT_EQ(s.report().find("size probes"), std::string::npos);
+  // The JSON schema does not vary, unlike the report.
+  EXPECT_NE(s.to_json().find("\"counters\""), std::string::npos);
+
+  monitor.reset();
+  EXPECT_TRUE(monitor.get().counters.empty());
 }
 
 TEST_F(SummaryTest, the_report_is_human_readable)
