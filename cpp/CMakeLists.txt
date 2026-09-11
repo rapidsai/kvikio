@@ -170,6 +170,7 @@ set(SOURCES
     "src/logger.cpp"
     "src/mmap.cpp"
     "src/observation.cpp"
+    "src/statistics/counters.cpp"
     "src/statistics/summary.cpp"
     "src/detail/bounce_buffer_cache.cpp"
     "src/detail/concurrent_request_limiter.cpp"
@@ -195,6 +196,7 @@ if(KvikIO_REMOTE_SUPPORT)
     SOURCES
     "src/hdfs.cpp"
     "src/remote_handle.cpp"
+    "src/detail/curl_share.cpp"
     "src/detail/http_retry.cpp"
     "src/detail/multi_poll_reactor.cpp"
     "src/detail/remote_callback.cpp"

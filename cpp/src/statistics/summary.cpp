@@ -55,7 +55,7 @@ constexpr std::array<std::byte, 4> serial_magic{
 
 /// Bumped whenever a field is added, removed or reordered. The size below catches most of that on
 /// its own, but not two fields of the same width swapping places.
-constexpr std::uint32_t serial_version = 1;
+constexpr std::uint32_t serial_version = 3;
 
 /// Written in the writer's byte order rather than in the header's, so that a reader whose order
 /// differs sees it scrambled and refuses the payload instead of reinterpreting it.
@@ -151,16 +151,17 @@ std::string Summary::to_json() const
              anchor.to_wall_clock(time).time_since_epoch())
       .count();
   };
-  os << "{\"start_unix_ns\": " << wall_ns(start) << ", \"end_unix_ns\": " << wall_ns(end)
-     << ", \"wall_ns\": " << wall().count() << ", \"num_ops\": " << num_ops
-     << ", \"num_reads\": " << num_reads << ", \"num_writes\": " << num_writes
-     << ", \"bytes_requested\": " << bytes_requested
+  os << "{\"kind\": \"" << to_string(kind) << "\", \"start_unix_ns\": " << wall_ns(start)
+     << ", \"end_unix_ns\": " << wall_ns(end) << ", \"wall_ns\": " << wall().count()
+     << ", \"num_ops\": " << num_ops << ", \"num_reads\": " << num_reads
+     << ", \"num_writes\": " << num_writes << ", \"bytes_requested\": " << bytes_requested
      << ", \"bytes_transferred\": " << bytes_transferred << ", \"bytes_read\": " << bytes_read
      << ", \"bytes_written\": " << bytes_written << ", \"num_errors\": " << num_errors
      << ", \"busy_ns\": " << busy.count() << ", \"total_duration_ns\": " << total_duration.count()
      << ", \"busy_bytes_per_sec\": " << busy_bytes_per_sec()
      << ", \"busy_fraction\": " << busy_fraction()
-     << ", \"mean_duration_ns\": " << mean_duration().count() << ", \"by_backend\": {";
+     << ", \"mean_duration_ns\": " << mean_duration().count()
+     << ", \"counters\": " << counters.to_json() << ", \"by_backend\": {";
   for (std::size_t i = 0; i < num_io_backends; ++i) {
     auto const& totals = by_backend[i];
     if (i != 0) { os << ", "; }
@@ -174,7 +175,7 @@ std::string Summary::to_json() const
   return os.str();
 }
 
-std::string Summary::report() const
+std::string Summary::report(ReportRows rows) const
 {
   std::ostringstream os;
   // The width is that of the widest label below, so the values line up.
@@ -184,7 +185,7 @@ std::string Summary::report() const
     os << "  " << std::left << std::setw(21) << label << value.str() << "\n";
   };
 
-  os << "KvikIO I/O summary\n";
+  os << "KvikIO I/O summary (" << to_string(kind) << ")\n";
   row("wall time", detail::format_duration(wall()));
   // The share of the wall time is what makes the duration meaningful.
   row("busy time",
@@ -210,14 +211,12 @@ std::string Summary::report() const
       detail::format_nbytes(bytes_written),
       " written)");
   row("errors", num_errors);
-  // Every backend gets a row, including the ones that carried nothing, since "no GDS here" is an
-  // answer as often as the bytes are, and a report of a fixed shape can be compared with another.
   for (std::size_t i = 0; i < num_io_backends; ++i) {
     auto const& totals = by_backend[i];
     auto const label =
       std::string{"backend "} + std::string{kvikio::to_string(static_cast<IoBackend>(i))};
     if (totals.num_ops == 0) {
-      row(label, "unused");
+      if (rows == ReportRows::ALL) { row(label, "unused"); }
       continue;
     }
     std::ostringstream value;
@@ -232,22 +231,31 @@ std::string Summary::report() const
     if (totals.num_errors != 0) { value << ", " << totals.num_errors << " failed"; }
     row(label, value.str());
   }
+  // Last, since these belong to no single operation rather than to what the run asked for. A span
+  // that did remote I/O gets the rows even when every counter is zero, which is what a reused
+  // connection looks like.
+  auto const remote = by_backend[static_cast<std::size_t>(IoBackend::REMOTE_HTTP)].num_ops != 0 ||
+                      by_backend[static_cast<std::size_t>(IoBackend::REMOTE_HDFS)].num_ops != 0;
+  os << counters.report(remote ? ReportRows::ALL : rows);
   return os.str();
 }
 
-SummaryMonitor::SummaryMonitor() : SummaryMonitor{Callback{}} {}
+SummaryMonitor::SummaryMonitor(ObservationKind kind) : SummaryMonitor{Callback{}, kind} {}
 
-SummaryMonitor::SummaryMonitor(Callback on_destruction) : _on_destruction{std::move(on_destruction)}
+SummaryMonitor::SummaryMonitor(Callback on_destruction, ObservationKind kind)
+  : _on_destruction{std::move(on_destruction)}
 {
   // Registration comes first, and the span is stamped after it, under the lock. `_registered`
   // starts at its maximum, so an operation that starts in between is refused by both callbacks
   // rather than by only one of them, which would leave the tracker's in-flight count unbalanced.
-  _registration = register_monitor(this);
+  _registration = register_monitor(this, kind);
   std::lock_guard const lock{_mutex};
-  auto const t   = detail::now();
-  _totals.start  = t;
-  _totals.anchor = ClockAnchor::now();
-  _registered    = t;
+  auto const t       = detail::now();
+  _totals.start      = t;
+  _totals.anchor     = ClockAnchor::now();
+  _totals.kind       = kind;
+  _registered        = t;
+  _counters_at_start = statistics::counters();
   _busy.reset(t);
 }
 
@@ -352,8 +360,16 @@ void SummaryMonitor::on_finish(Observation const& observation) noexcept
 
 Summary SummaryMonitor::get() const
 {
+  // Read before the lock, since the counters take no lock of their own and this one guards the
+  // rest.
+  auto const current_counters = statistics::counters();
+
   std::lock_guard const lock{_mutex};
   Summary ret = _totals;
+  // The counters are the whole process's and go on rising, so a stopped monitor reports the ones
+  // it stopped at rather than whatever has happened since.
+  ret.counters =
+    (_stopped_end != TimePoint{} ? _counters_at_stop : current_counters).since(_counters_at_start);
   // Measured to the same instant the reading is stamped with, inside the lock, so that busy time
   // can never run past the end of the span it is divided by and `busy_fraction()` stays <= 1.
   ret.end  = _stopped_end != TimePoint{} ? _stopped_end : detail::now();
@@ -398,8 +414,10 @@ Summary Summary::since(Summary const& previous) const
                  .bytes_written     = subtract(bytes_written, previous.bytes_written),
                  .num_errors        = subtract(num_errors, previous.num_errors),
                  .by_backend        = backends,
+                 .counters          = counters.since(previous.counters),
                  .total_duration    = subtract(total_duration, previous.total_duration),
-                 .busy              = subtract(busy, previous.busy)};
+                 .busy              = subtract(busy, previous.busy),
+                 .kind              = kind};
 }
 
 Summary SummaryMonitor::since(Summary const& previous) const { return get().since(previous); }
@@ -407,11 +425,14 @@ Summary SummaryMonitor::since(Summary const& previous) const { return get().sinc
 void SummaryMonitor::reset()
 {
   std::lock_guard const lock{_mutex};
-  auto const t      = detail::now();
-  auto const anchor = _totals.anchor;
-  _totals           = Summary{};
-  _totals.start     = t;
-  _totals.anchor    = anchor;
+  auto const t       = detail::now();
+  auto const anchor  = _totals.anchor;
+  auto const kind    = _totals.kind;
+  _totals            = Summary{};
+  _totals.start      = t;
+  _totals.anchor     = anchor;
+  _totals.kind       = kind;
+  _counters_at_start = statistics::counters();
   // Keeps `busy <= wall()` across the reset: an operation already in flight contributes only the
   // part of its span that follows it.
   _busy.reset(t);
@@ -426,8 +447,12 @@ void SummaryMonitor::stop()
   _registration = 0;
   // Stamped after the drain, so every operation that was going to be counted ends at or before it.
   // From here on this is the end of the measured span, however long the monitor lives on.
+  // Stamped after the drain, like the span's end, so it holds everything that was going to be
+  // counted.
+  auto const final_counters = statistics::counters();
   std::lock_guard const lock{_mutex};
-  _stopped_end = detail::now();
+  _counters_at_stop = final_counters;
+  _stopped_end      = detail::now();
 }
 
 }  // namespace statistics
