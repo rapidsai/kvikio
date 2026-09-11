@@ -73,6 +73,8 @@ constexpr nvtxSemanticsCounter_t rate_semantics{
   .unitScaleNumerator   = 1,
   .unitScaleDenominator = 1,
   .limitType            = NVTX_COUNTER_LIMIT_UNDEFINED,
+  .min                  = {},
+  .max                  = {},
 };
 }  // namespace constants
 
@@ -256,14 +258,22 @@ std::uint64_t register_rate_schema(nvtxDomainHandle_t domain)
 {
   static_assert(std::is_standard_layout_v<NicRates>);
   std::array const entries = {
-    nvtxPayloadSchemaEntry_t{.type        = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE,
-                             .name        = "rx",
-                             .description = "Receive rate",
-                             .offset      = offsetof(NicRates, rx)},
-    nvtxPayloadSchemaEntry_t{.type        = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE,
-                             .name        = "tx",
-                             .description = "Transmit rate",
-                             .offset      = offsetof(NicRates, tx)},
+    nvtxPayloadSchemaEntry_t{.flags              = NVTX_PAYLOAD_ENTRY_FLAG_UNUSED,
+                             .type               = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE,
+                             .name               = "rx",
+                             .description        = "Receive rate",
+                             .arrayOrUnionDetail = 0,
+                             .offset             = offsetof(NicRates, rx),
+                             .semantics          = nullptr,
+                             .reserved           = nullptr},
+    nvtxPayloadSchemaEntry_t{.flags              = NVTX_PAYLOAD_ENTRY_FLAG_UNUSED,
+                             .type               = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE,
+                             .name               = "tx",
+                             .description        = "Transmit rate",
+                             .arrayOrUnionDetail = 0,
+                             .offset             = offsetof(NicRates, tx),
+                             .semantics          = nullptr,
+                             .reserved           = nullptr},
   };
   nvtxPayloadSchemaAttr_t attr{};
   attr.fieldMask = NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_NAME | NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_TYPE |
