@@ -1,8 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cstddef>
+#include <span>
 #include <stdexcept>
 
 #include <kvikio/error.hpp>
@@ -91,15 +93,28 @@ CUresult cudaAPI::cuda_memcpy_async(CUdeviceptr dst,
                                     std::size_t size,
                                     CUstream stream)
 {
+  return cuda_memcpy_batch_async({&dst, 1}, {&src, 1}, {&size, 1}, stream);
+}
+
+CUresult cudaAPI::cuda_memcpy_batch_async(std::span<CUdeviceptr const> dsts,
+                                          std::span<CUdeviceptr const> srcs,
+                                          std::span<std::size_t const> sizes,
+                                          CUstream stream)
+{
+  KVIKIO_EXPECT(dsts.size() == srcs.size() && dsts.size() == sizes.size(),
+                "dsts, srcs and sizes must have the same length",
+                std::invalid_argument);
+  if (dsts.empty()) { return CUDA_SUCCESS; }
+
 #if CUDA_VERSION >= 12080
   if (cudaAPI::instance().MemcpyBatchAsync && stream != nullptr) {
     CUmemcpyAttributes attrs{.srcAccessOrder =
                                CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM};
     std::size_t attrs_idxs[] = {0};
-    return cudaAPI::instance().MemcpyBatchAsync(&dst,
-                                                &src,
-                                                &size,
-                                                static_cast<std::size_t>(1) /* count */,
+    return cudaAPI::instance().MemcpyBatchAsync(const_cast<CUdeviceptr*>(dsts.data()),
+                                                const_cast<CUdeviceptr*>(srcs.data()),
+                                                const_cast<std::size_t*>(sizes.data()),
+                                                dsts.size(),
                                                 &attrs,
                                                 attrs_idxs,
                                                 static_cast<std::size_t>(1) /* num_attrs */,
@@ -107,13 +122,16 @@ CUresult cudaAPI::cuda_memcpy_async(CUdeviceptr dst,
                                                 static_cast<std::size_t*>(nullptr),
 #endif
                                                 stream);
-  } else {
-    // Fall back to the conventional memory copy if the batch copy API is not available.
-    return cudaAPI::instance().MemcpyAsync(dst, src, size, stream);
   }
-#else
-  return cudaAPI::instance().MemcpyAsync(dst, src, size, stream);
 #endif
+
+  // Fall back to one conventional copy per entry when the batch API is unavailable, or on the
+  // default (NULL) stream, which cuMemcpyBatchAsync rejects.
+  for (std::size_t i = 0; i < dsts.size(); ++i) {
+    auto const result = cudaAPI::instance().MemcpyAsync(dsts[i], srcs[i], sizes[i], stream);
+    if (result != CUDA_SUCCESS) { return result; }
+  }
+  return CUDA_SUCCESS;
 }
 
 }  // namespace kvikio
