@@ -78,8 +78,8 @@ namespace {
 void fail_transfer(RemoteMultiTransfer& transfer, std::exception_ptr const& eptr) noexcept
 {
   transfer.physical_recorder.reset();
-  for (auto const& contribution : transfer.contributions) {
-    contribution.aggregate->on_subrange_failed(eptr);
+  for (auto const& aggregate : transfer.aggregates) {
+    aggregate->on_subrange_failed(eptr);
   }
 }
 }  // namespace
@@ -100,21 +100,21 @@ RemoteMultiTransfer::~RemoteMultiTransfer()
   }
 }
 
-RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subranges)
-  : _subranges_left{num_subranges}
+RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subranges,
+                                                         std::size_t total_bytes)
+  : _subranges_left{num_subranges}, _total_bytes{total_bytes}
 {
   KVIKIO_EXPECT(num_subranges > 0,
                 "RemoteMultiAggregateContext requires at least one sub-range",
                 std::invalid_argument);
 }
 
-void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
+void RemoteMultiAggregateContext::on_subrange_complete()
 {
-  _total_bytes.fetch_add(bytes, std::memory_order_relaxed);
-  // The last thread to decrement _subranges_left to zero fulfills the promise. Its acq_rel
-  // decrement acquires every other thread's relaxed _total_bytes writes (each released by that
-  // thread's own decrement), so the sum is complete. _first_exception needs no ordering here, since
-  // it is written and read under _exception_mutex.
+  // The last thread to decrement _subranges_left to zero fulfills the promise. The acq_rel
+  // decrement orders every other thread's writes into the caller's buffer before the promise is
+  // fulfilled, so the caller sees them after `future.get()`. _first_exception needs no ordering
+  // here, since it is written and read under _exception_mutex.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
     // Finish the observation before fulfilling the promise below. The other order would let the
@@ -123,13 +123,13 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
       if (_first_exception) {
         recorder->finish_with_failure();
       } else {
-        recorder->finish(_total_bytes.load(std::memory_order_relaxed));
+        recorder->finish(_total_bytes);
       }
     }
     if (_first_exception) {
       _promise.set_exception(_first_exception);
     } else {
-      _promise.set_value(_total_bytes.load(std::memory_order_relaxed));
+      _promise.set_value(_total_bytes);
     }
   }
 }
@@ -406,8 +406,8 @@ void MultiPollReactor::io_thread_main()
                 }
                 KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_batch_async(dsts, srcs, sizes, stream));
               }
-              for (auto const& contribution : transfer->contributions) {
-                contribution.aggregate->io_event_barrier->record_event(stream);
+              for (auto const& aggregate : transfer->aggregates) {
+                aggregate->io_event_barrier->record_event(stream);
               }
               BounceBufferCache::instance().recycle_after(transfer->device_ctx,
                                                           std::move(transfer->buffer),
@@ -419,8 +419,8 @@ void MultiPollReactor::io_thread_main()
             }
             // Before the aggregates, which may make the callers' futures ready.
             transfer->physical_recorder->finish(transfer->ctx.size);
-            for (auto const& contribution : transfer->contributions) {
-              contribution.aggregate->on_subrange_complete(contribution.bytes);
+            for (auto const& aggregate : transfer->aggregates) {
+              aggregate->on_subrange_complete();
             }
           } else if (transfer->ctx.overflow_error) {
             // Prefer the handle's recorded error buffer. Fall back to the generic strerror text
@@ -515,8 +515,8 @@ void MultiPollReactor::requeue_for_retry(std::unique_ptr<RemoteMultiTransfer> tr
 {
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
 
-  // Copy the contributions to keep the aggregates (shared pointers) alive after the move below.
-  auto contributions = transfer->contributions;
+  // Copy the aggregates (shared pointers) to keep them alive after the move below.
+  auto aggregates = transfer->aggregates;
 
   try {
     transfer->attachment.reset();
@@ -534,8 +534,8 @@ void MultiPollReactor::requeue_for_retry(std::unique_ptr<RemoteMultiTransfer> tr
     _pending.push_back(std::move(transfer));
   } catch (...) {
     auto const eptr = std::current_exception();
-    for (auto const& contribution : contributions) {
-      contribution.aggregate->on_subrange_failed(eptr);
+    for (auto const& aggregate : aggregates) {
+      aggregate->on_subrange_failed(eptr);
     }
   }
 }
