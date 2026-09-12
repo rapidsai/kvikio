@@ -17,7 +17,8 @@ class RemoteHandle;
 namespace detail {
 
 // The transfer planner turns N caller requests into M planned transfers. With task_size 60 and
-// coalesce_max_gap 10, these four requests become four transfers and five segments:
+// coalesce_max_gap 10, these 4 requests become 4 transfers and 5 segments. One character is 5
+// bytes:
 //
 //   requests   ####.####.....###...####################
 //              R0   R1       R2    R3
@@ -38,7 +39,7 @@ namespace detail {
 struct TransferPlanRequest {
   RemoteHandle* handle{nullptr};    ///< Non-owning remote file handle.
   CUcontext cuda_context{nullptr};  ///< Null for host buffer.
-  void* dst{nullptr};               ///< Start of the destination buffer.
+  void* buf{nullptr};               ///< Start of the caller's buffer.
   std::size_t file_offset{0};       ///< Offset of the first requested byte in the remote file.
   std::size_t size{0};              ///< Zero-size requests are excluded from the plan.
 };
@@ -63,17 +64,18 @@ struct TransferPlanOptions {
 };
 
 /**
- * @brief One contiguous piece of a transfer's span that must be copied into a caller buffer.
+ * @brief The segment represents one contiguous piece of a transfer's span that will be copied into
+ * a caller buffer.
  */
 struct TransferSegment {
   std::size_t span_offset;    ///< Position in the span.
   std::size_t length;         ///< Number of bytes to copy.
-  void* dst;                  ///< Destination buffer.
+  void* buf;                  ///< Where this piece lands in the caller's buffer.
   std::size_t request_index;  ///< Index into the caller's request span.
 };
 
 /**
- * @brief One byte-range request to issue, plus the segments it fills.
+ * @brief The transfer represents one byte-range request to issue, and the segments it covers.
  */
 struct PlannedTransfer {
   RemoteHandle* handle;       ///< Non-owning remote file handle.
@@ -85,32 +87,33 @@ struct PlannedTransfer {
 };
 
 /**
- * @brief The transfers to issue for one batch of requests.
+ * @brief The transfers to issue and the associated segments, for one batch of requests.
  */
 struct TransferPlan {
   /**
-   * @brief What to fetch. Each entry becomes one HTTP range request.
+   * @brief What to fetch. One entry per HTTP range request.
    *
-   * Coalescing merges requests into one entry, whereas splitting spreads one over several.
+   * Merging puts several requests in one entry, and splitting spreads one request over several.
+   * Each entry in a `(handle, cuda_context)` group is a contiguous byte range, and entries are
+   * sorted by `file_offset`.
    */
   std::vector<PlannedTransfer> transfers;
 
   /**
-   * @brief A flat vector indicating where every fetched piece goes, sliced by
-   * `PlannedTransfer::segment_begin` and `segment_end`.
+   * @brief Where the fetched bytes go. One entry per contiguous piece bound for a caller buffer.
    *
-   *   transfers  [-------]     [-]   [----------][------]
-   *              T0            T1    T2          T3
-   *
-   *   segments   [==] [==]     [=]   [==========][======]
-   *              S0   S1       S2    S3          S4
-   *
-   * With the example above, T0 owns [0,2), T1 [2,3), T2 [3,4) and T3 [4,5).
+   * Merging gives a transfer several entries, and splitting gives a request one entry per transfer.
+   * Each transfer owns the slice `[segment_begin, segment_end)`.
+   * transfers  [-------]     [-]   [----------][------]
+   *            T0            T1    T2          T3
+   * segments   [==] [==]     [=]   [==========][======]
+   *            S0   S1       S2    S3          S4
+   * In the example above, T0 owns S0 and S1, and T1, T2 and T3 own one segment each.
    */
   std::vector<TransferSegment> segments;
 
   /**
-   * @brief Number of transfers for each request.
+   * @brief Number of transfers for each request. Zero for zero-size requests.
    */
   std::vector<std::size_t> transfers_per_request;
 

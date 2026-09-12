@@ -23,19 +23,14 @@ using kvikio::detail::TransferPlanRequest;
 
 namespace {
 
-// Fabricated pointers. The planner compares them and never dereferences them, so these tests
-// need neither a server nor a CUDA context.
+// Fabricated pointers. The planner only compares them. No server or CUDA context is needed.
 RemoteHandle* const handle_a = reinterpret_cast<RemoteHandle*>(0x1000);
 RemoteHandle* const handle_b = reinterpret_cast<RemoteHandle*>(0x2000);
 CUcontext const context_a    = reinterpret_cast<CUcontext>(0x10);
 CUcontext const context_b    = reinterpret_cast<CUcontext>(0x20);
 
 /**
- * @brief Check the invariants that must hold for every plan, whatever the input.
- *
- * Coverage is the strongest one. A request's segments must tile its byte range exactly once, in
- * order, at the matching destination address, which catches any slip in the gap arithmetic, the
- * splitting or the per-transfer rebasing.
+ * @brief Check the invariants that must hold for every plan.
  */
 void expect_plan_invariants(TransferPlan const& plan,
                             std::span<TransferPlanRequest const> requests,
@@ -66,6 +61,7 @@ void expect_plan_invariants(TransferPlan const& plan,
       ASSERT_LT(segment.request_index, requests.size());
       auto const& request = requests[segment.request_index];
 
+      EXPECT_GT(segment.length, 0UL) << "a segment must carry bytes";
       EXPECT_GE(segment.span_offset, cursor) << "segments must be sorted and must not overlap";
       EXPECT_LE(segment.span_offset + segment.length, transfer.size)
         << "segment runs past the end of its span";
@@ -74,7 +70,7 @@ void expect_plan_invariants(TransferPlan const& plan,
       auto const done = covered[segment.request_index];
       EXPECT_EQ(transfer.file_offset + segment.span_offset, request.file_offset + done)
         << "request " << segment.request_index << " is covered out of order or with a hole";
-      EXPECT_EQ(segment.dst, static_cast<std::byte*>(request.dst) + done);
+      EXPECT_EQ(segment.buf, static_cast<std::byte*>(request.buf) + done);
       EXPECT_EQ(transfer.handle, request.handle);
       EXPECT_EQ(transfer.cuda_context, request.cuda_context);
 
@@ -91,8 +87,7 @@ void expect_plan_invariants(TransferPlan const& plan,
   EXPECT_EQ(total_segments, plan.segments.size())
     << "every segment belongs to exactly one transfer";
 
-  // Transfers of one group are contiguous and never go backwards, so a caller can route one
-  // reactor per group with a single scan.
+  // Transfers of one group are contiguous and ascend. One scan can route one reactor per group.
   std::vector<std::pair<RemoteHandle*, CUcontext>> group_order;
   for (std::size_t i = 0; i < plan.transfers.size(); ++i) {
     auto const& transfer = plan.transfers[i];
@@ -116,7 +111,7 @@ void expect_plan_invariants(TransferPlan const& plan,
 
 class TransferPlanTest : public ::testing::Test {
  protected:
-  // Real memory, so the expected `dst` arithmetic is real. The stride keeps buffers disjoint.
+  // Real memory keeps the `buf` arithmetic real. The stride keeps buffers disjoint.
   static constexpr std::size_t dst_stride = 1UL << 14;
 
   std::vector<std::byte> _destinations = std::vector<std::byte>(64 * dst_stride);
@@ -130,7 +125,7 @@ class TransferPlanTest : public ::testing::Test {
     auto const index = _requests.size();
     _requests.push_back({.handle       = handle,
                          .cuda_context = cuda_context,
-                         .dst          = _destinations.data() + index * dst_stride,
+                         .buf          = _destinations.data() + index * dst_stride,
                          .file_offset  = file_offset,
                          .size         = size});
     return index;
@@ -143,9 +138,9 @@ class TransferPlanTest : public ::testing::Test {
     return plan;
   }
 
-  [[nodiscard]] void* dst_of(std::size_t request_index) const
+  [[nodiscard]] void* buf_of(std::size_t request_index) const
   {
-    return _requests[request_index].dst;
+    return _requests[request_index].buf;
   }
 };
 
@@ -178,7 +173,7 @@ TEST_F(TransferPlanTest, single_request)
   ASSERT_EQ(plan.segments.size(), 1UL);
   EXPECT_EQ(plan.segments[0].span_offset, 0UL);
   EXPECT_EQ(plan.segments[0].length, 100UL);
-  EXPECT_EQ(plan.segments[0].dst, dst_of(0));
+  EXPECT_EQ(plan.segments[0].buf, buf_of(0));
   EXPECT_THAT(plan.transfers_per_request, testing::ElementsAre(1UL));
   EXPECT_EQ(plan.overread_bytes, 0UL);
 }
@@ -196,13 +191,37 @@ TEST_F(TransferPlanTest, request_larger_than_task_size_is_split)
   EXPECT_EQ(plan.transfers[2].file_offset, 2000UL);
   EXPECT_EQ(plan.transfers[2].size, 500UL);
 
-  // Each piece restarts at span offset 0 and continues into the same destination buffer.
+  // Each piece restarts at span offset 0 and advances within the same buffer.
   ASSERT_EQ(plan.segments.size(), 3UL);
   EXPECT_EQ(plan.segments[1].span_offset, 0UL);
-  EXPECT_EQ(plan.segments[1].dst, static_cast<std::byte*>(dst_of(0)) + 1000);
-  EXPECT_EQ(plan.segments[2].dst, static_cast<std::byte*>(dst_of(0)) + 2000);
+  EXPECT_EQ(plan.segments[1].buf, static_cast<std::byte*>(buf_of(0)) + 1000);
+  EXPECT_EQ(plan.segments[2].buf, static_cast<std::byte*>(buf_of(0)) + 2000);
   EXPECT_THAT(plan.transfers_per_request, testing::ElementsAre(3UL));
   EXPECT_EQ(plan.overread_bytes, 0UL);
+}
+
+TEST_F(TransferPlanTest, header_example)
+{
+  // The example at the top of transfer_plan.hpp, at five bytes per character. Merging, keeping
+  // apart and splitting all happen within one group.
+  add_request(0, 20);     // R0
+  add_request(25, 20);    // R1, gap of 5 merges
+  add_request(70, 15);    // R2, gap of 25 stays apart
+  add_request(100, 100);  // R3, gap of 15 stays apart, and 100 > task_size splits
+  auto const plan = build_plan({.task_size = 60, .coalesce_max_gap = 10});
+
+  ASSERT_EQ(plan.transfers.size(), 4UL);
+  EXPECT_EQ(plan.transfers[0].file_offset, 0UL);
+  EXPECT_EQ(plan.transfers[0].size, 45UL);
+  EXPECT_EQ(plan.transfers[1].file_offset, 70UL);
+  EXPECT_EQ(plan.transfers[1].size, 15UL);
+  EXPECT_EQ(plan.transfers[2].file_offset, 100UL);
+  EXPECT_EQ(plan.transfers[2].size, 60UL);
+  EXPECT_EQ(plan.transfers[3].file_offset, 160UL);
+  EXPECT_EQ(plan.transfers[3].size, 40UL);
+  EXPECT_EQ(plan.segments.size(), 5UL);
+  EXPECT_THAT(plan.transfers_per_request, testing::ElementsAre(1UL, 1UL, 1UL, 2UL));
+  EXPECT_EQ(plan.overread_bytes, 5UL);
 }
 
 TEST_F(TransferPlanTest, huge_task_size_does_not_split)
@@ -226,7 +245,7 @@ TEST_F(TransferPlanTest, adjacent_ranges_merge)
   EXPECT_EQ(plan.transfers[0].size, 150UL);
   ASSERT_EQ(plan.segments.size(), 2UL);
   EXPECT_EQ(plan.segments[1].span_offset, 100UL);
-  EXPECT_EQ(plan.segments[1].dst, dst_of(1));
+  EXPECT_EQ(plan.segments[1].buf, buf_of(1));
   EXPECT_THAT(plan.transfers_per_request, testing::ElementsAre(1UL, 1UL));
   EXPECT_EQ(plan.overread_bytes, 0UL);
 }
@@ -284,7 +303,7 @@ TEST_F(TransferPlanTest, merging_stops_at_task_size)
   add_request(800, 400);
   auto const plan = build_plan({.task_size = 1000, .coalesce_max_gap = 0});
 
-  // The first two fill 800 of the 1000-byte cap, and the third would overshoot it.
+  // The first two fill 800 of the 1000-byte cap. The third would overshoot it.
   ASSERT_EQ(plan.transfers.size(), 2UL);
   EXPECT_EQ(plan.transfers[0].size, 800UL);
   EXPECT_EQ(plan.transfers[1].file_offset, 800UL);
@@ -309,8 +328,8 @@ TEST_F(TransferPlanTest, overlapping_ranges_do_not_merge)
 
   EXPECT_EQ(build_plan({.task_size = 1024, .coalesce_max_gap = 1024}).transfers.size(), 2UL);
 
-  // Only a limit this large exercises the overlap check. Below it the gap comparison happens to
-  // reject overlaps by unsigned wraparound.
+  // Only a limit this large exercises the overlap check. With a smaller limit, unsigned
+  // wraparound in the gap comparison rejects overlaps by accident.
   auto const no_limit = std::numeric_limits<std::size_t>::max();
   EXPECT_EQ(build_plan({.task_size = 1024, .coalesce_max_gap = no_limit}).transfers.size(), 2UL);
 }
@@ -324,8 +343,8 @@ TEST_F(TransferPlanTest, duplicate_ranges_do_not_merge)
   ASSERT_EQ(plan.transfers.size(), 2UL);
   EXPECT_EQ(plan.transfers[0].file_offset, 64UL);
   EXPECT_EQ(plan.transfers[1].file_offset, 64UL);
-  EXPECT_EQ(plan.segments[0].dst, dst_of(0));
-  EXPECT_EQ(plan.segments[1].dst, dst_of(1));
+  EXPECT_EQ(plan.segments[0].buf, buf_of(0));
+  EXPECT_EQ(plan.segments[1].buf, buf_of(1));
 }
 
 TEST_F(TransferPlanTest, unsorted_input_plans_like_sorted_input)
@@ -341,14 +360,14 @@ TEST_F(TransferPlanTest, unsorted_input_plans_like_sorted_input)
   EXPECT_EQ(plan.transfers[0].file_offset, 0UL);
   EXPECT_EQ(plan.transfers[0].size, 400UL);
 
-  // Segments follow file order, while `request_index` still points back at the caller's ordering.
+  // Segments follow file order. `request_index` keeps the caller's ordering.
   ASSERT_EQ(plan.segments.size(), 4UL);
   EXPECT_EQ(plan.segments[0].request_index, 1UL);
   EXPECT_EQ(plan.segments[1].request_index, 3UL);
   EXPECT_EQ(plan.segments[2].request_index, 2UL);
   EXPECT_EQ(plan.segments[3].request_index, 0UL);
 
-  // The input is untouched, which is what keeps the caller's indices meaningful.
+  // The input is untouched. The caller's indices stay valid.
   EXPECT_EQ(_requests[0].file_offset, 300UL);
   EXPECT_EQ(_requests[1].file_offset, 0UL);
 }
@@ -428,7 +447,7 @@ TEST_F(TransferPlanTest, overread_counts_every_gap)
   add_request(0, 10);
   add_request(30, 10);   // 20 gap bytes.
   add_request(45, 10);   // 5 gap bytes.
-  add_request(500, 10);  // Beyond the limit, so it starts a second transfer.
+  add_request(500, 10);  // Beyond the limit. Starts a second transfer.
   auto const plan = build_plan({.task_size = 1024, .coalesce_max_gap = 20});
 
   ASSERT_EQ(plan.transfers.size(), 2UL);
@@ -440,9 +459,9 @@ TEST_F(TransferPlanTest, overread_counts_every_gap)
 
 TEST_F(TransferPlanTest, many_small_ranges_over_two_handles)
 {
-  // 64-byte ranges with 8-byte holes, alternating between two handles, added back to front so
-  // the sort has real work to do. Per handle the stride is 144, so four ranges span 496 and a
-  // fifth would pass 512.
+  // 64-byte ranges with 8-byte holes, alternating between two handles, added back to front to
+  // give the sort real work. Per handle the stride is 144. Four ranges span 496 and a fifth would
+  // pass 512.
   constexpr std::size_t num_ranges = 32;
   for (std::size_t i = num_ranges; i-- > 0;) {
     add_request(i * 72, 64, (i % 2 == 0) ? handle_a : handle_b);

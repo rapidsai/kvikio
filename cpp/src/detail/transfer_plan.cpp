@@ -27,31 +27,32 @@ struct GroupKey {
 };
 
 struct GroupKeyHash {
-  // Boost-style combine. The constant is the golden ratio, which scatters the low bits that two
-  // heap pointers tend to share.
   std::size_t operator()(GroupKey const& key) const noexcept
   {
     auto const h1 = std::hash<void const*>{}(key.handle);
     auto const h2 = std::hash<void const*>{}(key.cuda_context);
+    // Boost's hash_combine.
+    // The constant is 2^64 divided by the golden ratio.
+    // The shifts and the constant keep equal or swapped inputs from cancelling in the xor.
     return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
   }
 };
 
 /**
- * @brief Emit one transfer serving a run of two or more merged requests.
+ * @brief Merge a run of two or more requests into one transfer.
  *
+ * A run is a maximal set of requests, consecutive after sorting, that merge into one span.
  * `task_size` caps such a run, so it always fits one span and every request sits whole inside it.
  * No request needs trimming here.
  *
  * @param requests The caller's requests.
- * @param run_indices The run's requests, ascending by file offset and non-overlapping.
+ * @param run_indices The run's requests, sorted by file offset and non-overlapping.
  * @param plan The plan to append to.
  */
-void emit_merged_run(std::span<TransferPlanRequest const> requests,
-                     std::span<std::size_t const> run_indices,
-                     TransferPlan& plan)
+void merge_requests(std::span<TransferPlanRequest const> requests,
+                    std::span<std::size_t const> run_indices,
+                    TransferPlan& plan)
 {
-  // The run is sorted and its requests do not overlap.
   auto const& first     = requests[run_indices.front()];
   auto const& last      = requests[run_indices.back()];
   auto const span_begin = first.file_offset;
@@ -64,7 +65,7 @@ void emit_merged_run(std::span<TransferPlanRequest const> requests,
     auto const& request = requests[request_index];
     plan.segments.push_back({.span_offset   = request.file_offset - span_begin,
                              .length        = request.size,
-                             .dst           = request.dst,
+                             .buf           = request.buf,
                              .request_index = request_index});
     wanted_bytes += request.size;
     ++plan.transfers_per_request[request_index];
@@ -82,29 +83,29 @@ void emit_merged_run(std::span<TransferPlanRequest const> requests,
 }
 
 /**
- * @brief Emit one transfer per `task_size` chunk of a single request. No overread in this case.
+ * @brief Split one request into a transfer per `task_size` chunk.
  *
  * @param requests The caller's requests.
  * @param request_index Index of the single request.
  * @param task_size Maximum transfer span.
  * @param plan The plan to append to.
  */
-void emit_split_request(std::span<TransferPlanRequest const> requests,
-                        std::size_t request_index,
-                        std::size_t task_size,
-                        TransferPlan& plan)
+void split_request(std::span<TransferPlanRequest const> requests,
+                   std::size_t request_index,
+                   std::size_t task_size,
+                   TransferPlan& plan)
 {
   auto const& request = requests[request_index];
   auto const file_end = request.file_offset + request.size;
 
   for (auto chunk_begin = request.file_offset; chunk_begin < file_end;) {
-    auto const chunk_size    = std::min(file_end - chunk_begin, task_size);
-    auto const segment_begin = plan.segments.size();
-    auto const into_request  = chunk_begin - request.file_offset;
+    auto const chunk_size        = std::min(file_end - chunk_begin, task_size);
+    auto const segment_begin     = plan.segments.size();
+    auto const offset_in_request = chunk_begin - request.file_offset;
 
-    plan.segments.push_back({.span_offset   = 0,
-                             .length        = chunk_size,
-                             .dst           = static_cast<std::byte*>(request.dst) + into_request,
+    plan.segments.push_back({.span_offset = 0,
+                             .length      = chunk_size,
+                             .buf = static_cast<std::byte*>(request.buf) + offset_in_request,
                              .request_index = request_index});
     plan.transfers.push_back({.handle        = request.handle,
                               .cuda_context  = request.cuda_context,
@@ -150,16 +151,16 @@ void plan_group(std::span<TransferPlanRequest const> requests,
       // No merge if inclusion of candidate causes the size to exceed `task_size`.
       if (candidate.file_offset + candidate.size - span_begin > opts.task_size) { break; }
 
-      // Now we can merge
+      // Now we can merge.
       span_end = candidate.file_offset + candidate.size;
       ++i;
     }
 
     auto const run_indices = group_indices.subspan(run_begin, i - run_begin);
     if (run_indices.size() > 1) {
-      emit_merged_run(requests, run_indices, plan);
+      merge_requests(requests, run_indices, plan);
     } else {
-      emit_split_request(requests, run_indices.front(), opts.task_size, plan);
+      split_request(requests, run_indices.front(), opts.task_size, plan);
     }
   }
 }
@@ -179,7 +180,7 @@ TransferPlan build_transfer_plan(std::span<TransferPlanRequest const> requests,
   // requests    R0(A,host)  R1(B,host)  R2(A,host)  R3(A,ctx1)  R4(B,host)  R5(A,host)
   //
   // group_slot        groups
-  // (A, host) -> 0    groups[0] = { 0, 2, 5 }
+  // (A, host) -> 0    groups[0] = { 0, 2, 5 } Elements are request indices
   // (B, host) -> 1    groups[1] = { 1, 4 }
   // (A, ctx1) -> 2    groups[2] = { 3 }
 
