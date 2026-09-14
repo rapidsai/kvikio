@@ -386,10 +386,11 @@ void MultiPollReactor::io_thread_main()
               auto* pinned         = static_cast<std::byte*>(transfer->buffer.get());
               if (segments.size() == 1) {
                 // What every `pread()` sub-range looks like. One copy, as before.
+                auto const& segment = segments.front();
                 KVIKIO_CUDA_DRIVER_TRY(
-                  cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(segments[0].buf),
-                                                      pinned + segments[0].span_offset,
-                                                      segments[0].length,
+                  cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(segment.buf),
+                                                      pinned + segment.span_offset,
+                                                      segment.length,
                                                       stream));
               } else {
                 // A coalesced span. Copy the wanted pieces and leave the gaps behind.
