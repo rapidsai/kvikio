@@ -33,39 +33,58 @@ std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb
   }
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
 
-  // Easy-backend path: the whole span goes to one buffer and there are no gaps.
+  // Easy thread pool backend
   if (ctx->segments.empty()) {
     std::memcpy(ctx->buf + ctx->offset, data, nbytes);
     ctx->offset += nbytes;
     return nbytes;
   }
 
-  // `ctx->offset` is the position in the span, so it compares directly against `span_offset`.
+  // Multi-poll backend
+  // `ctx->offset` is the transfer offset for the sub-range updated per write callback invocation.
+  // `span_offset` is the transfer offset for the segment determined prior to the transfer.
+  // One character is 5 bytes. `#` is a wanted byte and `.` is a gap byte.
+  // 1 transfer     ############..........######..........##########
+  //                S0          gap       S1    gap       S2
+  //                0           60        110   140       190       240
+  //
+  // Earlier chunks delivered [0, 50), so `ctx->offset` is 50. This chunk delivers [50, 130).
+  //
+  // this chunk               ##..........####
+  //                          50              130
+  //
+  // - step 1  S0 is current. `filled` = 50 (S0 bytes already written), `copied` = 10 (the rest of
+  //           S0). S0 is complete, so `segment_index` moves to S1.
+  // - step 2  S1 is current, but `ctx->offset` (60) is before its start (110). `skipped` = 50.
+  // - step 3  S1 is current. `filled` = 0, `copied` = 20. S1 is not complete, so `segment_index`
+  //           stays.
+  // - `remaining` is 0, so the loop ends with `ctx->offset` at 130, where the next chunk starts (at
+  //   the next write callback invocation).
   auto remaining = nbytes;
   auto* src      = data;
   while (remaining > 0 && ctx->segment_index < ctx->segments.size()) {
-    auto const& segment = ctx->segments[ctx->segment_index];
-    auto const position = static_cast<std::size_t>(ctx->offset);
+    auto const& segment   = ctx->segments[ctx->segment_index];
+    auto const ctx_offset = static_cast<std::size_t>(ctx->offset);
 
-    if (position < segment.span_offset) {  // In a gap. Advance without copying.
-      auto const skipped = std::min(remaining, segment.span_offset - position);
+    // In a gap. Advance without copying.
+    if (ctx_offset < segment.span_offset) {
+      auto const skipped = std::min(remaining, segment.span_offset - ctx_offset);
       src += skipped;
       ctx->offset += static_cast<std::ptrdiff_t>(skipped);
       remaining -= skipped;
       continue;
     }
 
-    auto const filled = position - segment.span_offset;
-    auto const n      = std::min(remaining, segment.length - filled);
-    std::memcpy(static_cast<std::byte*>(segment.buf) + filled, src, n);
-    src += n;
-    ctx->offset += static_cast<std::ptrdiff_t>(n);
-    remaining -= n;
-    if (filled + n == segment.length) { ++ctx->segment_index; }
+    auto const filled = ctx_offset - segment.span_offset;
+    auto const copied = std::min(remaining, segment.length - filled);
+    std::memcpy(static_cast<std::byte*>(segment.buf) + filled, src, copied);
+    src += copied;
+    ctx->offset += static_cast<std::ptrdiff_t>(copied);
+    remaining -= copied;
+    if (filled + copied == segment.length) { ++ctx->segment_index; }
   }
 
-  // A span ends on wanted bytes, so nothing should be left. Count anything that is, to keep
-  // `offset` equal to the bytes received.
+  // The tail is unwanted bytes.
   ctx->offset += static_cast<std::ptrdiff_t>(remaining);
   return nbytes;
 }

@@ -73,8 +73,7 @@ CurlMultiAttachment& CurlMultiAttachment::operator=(CurlMultiAttachment&& other)
 }
 
 namespace {
-// Fail every request this transfer serves with the same exception. Ends the attempt on the wire
-// first, if there is one, so its failure is recorded before any caller's future becomes ready.
+// Fail every request this transfer serves with the same exception.
 void fail_transfer(RemoteMultiTransfer& transfer, std::exception_ptr const& eptr) noexcept
 {
   transfer.physical_recorder.reset();
@@ -112,9 +111,9 @@ RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subrang
 void RemoteMultiAggregateContext::on_subrange_complete()
 {
   // The last thread to decrement _subranges_left to zero fulfills the promise. The acq_rel
-  // decrement orders every other thread's writes into the caller's buffer before the promise is
-  // fulfilled, so the caller sees them after `future.get()`. _first_exception needs no ordering
-  // here, since it is written and read under _exception_mutex.
+  // decrement makes the other threads' writes into the caller's buffer visible to this thread
+  // before the promise is fulfilled, so the buffer is complete once `future.get()` returns.
+  // _first_exception needs no ordering here, since it is written and read under _exception_mutex.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard<std::mutex> const lock(_exception_mutex);
     // Finish the observation before fulfilling the promise below. The other order would let the
@@ -385,7 +384,6 @@ void MultiPollReactor::io_thread_main()
               auto const& segments = transfer->ctx.segments;
               auto* pinned         = static_cast<std::byte*>(transfer->buffer.get());
               if (segments.size() == 1) {
-                // What every `pread()` sub-range looks like. One copy, as before.
                 auto const& segment = segments.front();
                 KVIKIO_CUDA_DRIVER_TRY(
                   cudaAPI::instance().MemcpyHtoDAsync(convert_void2deviceptr(segment.buf),
@@ -393,7 +391,7 @@ void MultiPollReactor::io_thread_main()
                                                       segment.length,
                                                       stream));
               } else {
-                // A coalesced span. Copy the wanted pieces and leave the gaps behind.
+                // Used for a coalesced transfer. Copy the wanted bytes and drop the gap bytes.
                 std::vector<CUdeviceptr> dsts;
                 std::vector<CUdeviceptr> srcs;
                 std::vector<std::size_t> sizes;

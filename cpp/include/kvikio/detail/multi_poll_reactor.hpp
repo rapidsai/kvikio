@@ -63,7 +63,7 @@ class RemoteMultiAggregateContext {
    * @brief Construct an aggregate that expects exactly `num_subranges` completion events.
    *
    * @param num_subranges Number of sub-range transfers the caller has split the read into.
-   * @param total_bytes Number of bytes the whole read covers. The future carries it on success.
+   * @param total_bytes Number of bytes the read covers.
    */
   RemoteMultiAggregateContext(std::size_t num_subranges, std::size_t total_bytes);
 
@@ -162,8 +162,9 @@ struct RemoteMultiTransfer {
 
   CallbackContext ctx;
 
-  // One entry per request this transfer serves. `pread()` always has exactly one. On success each
-  // is told one sub-range completed, and on failure all of them get the same exception.
+  // One transfer may map to more than one requests due to coalesce. Each element maps to one
+  // request. `pread()` always has 1 element. On success each element has their sub-range marked
+  // completed. On failure all of them get the same exception.
   std::vector<std::shared_ptr<RemoteMultiAggregateContext>> aggregates;
 
   // Concurrency slot held from stage (1) admission until this transfer is destroyed after

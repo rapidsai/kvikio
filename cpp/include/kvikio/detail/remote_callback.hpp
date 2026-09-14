@@ -36,18 +36,18 @@ struct CallbackContext {
   void* pinned_buffer{nullptr};  ///< Used by `callback_pinned_buffer` (multi-poll device-path).
 
   /**
-   * @brief Where the received span goes, when it does not all go to one buffer.
+   * @brief Where the received data goes. One HTTP transfer maps to one or more segments.
    *
-   * Empty means the whole span goes to `buf`, which is the easy-backend path. Otherwise the
-   * received bytes are scattered to the segments and the gaps between them are dropped.
+   * Empty means the whole span goes to `buf`, which is the easy thread pool backend path. Otherwise
+   * the received bytes are scattered to the segments and the gaps between them are dropped.
    */
   std::vector<TransferSegment> segments;
 
   /**
    * @brief Which segment the next received byte belongs to.
    *
-   * Must survive across callback invocations, because libcurl hands over arbitrary chunk sizes. One
-   * chunk can cross several segments and one segment can take many chunks.
+   * libcurl write callback hands over arbitrary chunk sizes. One chunk (from one write callback
+   * invocation) can cross several segments, and one segment can include many chunks.
    */
   std::size_t segment_index{0};
 

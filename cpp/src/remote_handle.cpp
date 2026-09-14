@@ -1009,7 +1009,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     transfer->retry_policy = retry_policy;
     transfer->file_offset  = cur_off;
     transfer->physical     = physical;
-    // One request and one destination covering the whole span. Only the batch API produces several.
     transfer->aggregates.push_back(aggregate);
     transfer->ctx.segments.push_back(
       {.span_offset = 0, .length = subrange_size, .buf = cur_buf, .request_index = 0});
