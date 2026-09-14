@@ -399,7 +399,7 @@ dependencies:
           - sphinx-click
       - output_types: conda
         packages:
-          - doxygen=1.9.1 # pre-commit hook needs a specific version.
+          - doxygen=1.18.0 # pre-commit hook needs a specific version.
           - pip:
               - nvidia-sphinx-theme
       - output_types: requirements
