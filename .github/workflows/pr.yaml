@@ -328,7 +328,6 @@ jobs:
     with:
       docs-projects: kvikio
       dry-run: true
-      version-map: ${{ vars.VERSION_MAP }}
   devcontainer:
     needs: telemetry-setup
     secrets: inherit # zizmor: ignore[secrets-inherit]

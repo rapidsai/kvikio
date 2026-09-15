@@ -139,7 +139,6 @@ jobs:
     with:
       docs-projects: kvikio
       dry-run: false
-      version-map: ${{ vars.VERSION_MAP }}
   wheel-build-cpp:
     needs: [build-details]
     secrets: inherit # zizmor: ignore[secrets-inherit]
