@@ -173,6 +173,8 @@ if(KvikIO_REMOTE_SUPPORT)
   kvikio_add_test(NAME URL_TEST SOURCES test_url.cpp)
   kvikio_add_test(NAME CURL_SHARE_TEST SOURCES test_curl_share.cpp)
   kvikio_add_test(NAME MULTI_POLL_REACTOR_TEST SOURCES test_multi_poll_reactor.cpp utils/env.cpp)
+  kvikio_add_test(NAME TRANSFER_PLAN_TEST SOURCES test_transfer_plan.cpp)
+  kvikio_add_test(NAME REMOTE_CALLBACK_TEST SOURCES test_remote_callback.cpp)
 endif()
 
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/tests/libkvikio)

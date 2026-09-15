@@ -977,7 +977,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   //
   // Build all N transfers here, then hand them off in a single pool call.
   std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
-  auto aggregate      = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
+  auto aggregate      = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges, size);
   aggregate->recorder = recorder;
   auto fut            = aggregate->get_future();
 
@@ -1006,17 +1006,17 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     _endpoint->setopt(*transfer->curl);
     _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);
     transfer->ctx.size     = subrange_size;
-    transfer->aggregate    = aggregate;
     transfer->retry_policy = retry_policy;
     transfer->file_offset  = cur_off;
     transfer->physical     = physical;
+    transfer->aggregates.push_back(aggregate);
+    transfer->ctx.segments.push_back(
+      {.span_offset = 0, .length = subrange_size, .buf = cur_buf, .request_index = 0});
     if (is_host_mem) {
-      transfer->ctx.buf = cur_buf;
       transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
     } else {
       transfer->is_device  = true;
       transfer->device_ctx = io_event_barrier->cuda_context();
-      transfer->device_dst = cur_buf;
       transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_pinned_buffer);
     }
     transfer->curl->setopt(CURLOPT_WRITEDATA, static_cast<void*>(&transfer->ctx));

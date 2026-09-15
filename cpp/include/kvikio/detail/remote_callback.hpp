@@ -5,6 +5,9 @@
 #pragma once
 
 #include <cstddef>
+#include <vector>
+
+#include <kvikio/detail/transfer_plan.hpp>
 
 namespace kvikio::detail {
 
@@ -32,6 +35,22 @@ struct CallbackContext {
   BounceBufferH2D* bounce_buffer{nullptr};  ///< Used by `callback_device_memory` (easy-path).
   void* pinned_buffer{nullptr};  ///< Used by `callback_pinned_buffer` (multi-poll device-path).
 
+  /**
+   * @brief Where the received data goes. One HTTP transfer maps to one or more segments.
+   *
+   * Empty means the whole span goes to `buf`, which is the easy thread pool backend path. Otherwise
+   * the received bytes are scattered to the segments and the gaps between them are dropped.
+   */
+  std::vector<TransferSegment> segments;
+
+  /**
+   * @brief Which segment the next received byte belongs to.
+   *
+   * libcurl write callback hands over arbitrary chunk sizes. One chunk (from one write callback
+   * invocation) can cross several segments, and one segment can include many chunks.
+   */
+  std::size_t segment_index{0};
+
   // Default-constructible so the multi-handle backend can build a `RemoteMultiTransfer`
   // and fill `buf`/`size` once the surrounding sub-range has been computed.
   CallbackContext() = default;
@@ -40,7 +59,7 @@ struct CallbackContext {
   CallbackContext(void* buf, std::size_t size) : buf{static_cast<char*>(buf)}, size{size} {}
 
   /**
-   * @brief Reset the internal counters for retry.
+   * @brief Reset the internal counters and the segment cursor for retry.
    */
   void reset_for_retry() noexcept;
 };

@@ -54,7 +54,7 @@ class MultiReactorPool;  // Forward declaration, because reactors needs to hold 
  * `std::shared_ptr<RemoteMultiAggregateContext>`. As completions arrive on the reactor threads
  * (potentially in parallel when `KVIKIO_REMOTE_IO_NUM_REACTORS > 1`), each one calls
  * `on_subrange_complete()` or `on_subrange_failed()`. The thread that decrements `_subranges_left`
- * to zero fulfills `_promise`, with the accumulated byte total on success, or with the first
+ * to zero fulfills `_promise`, with the request's byte count on success, or with the first
  * captured exception on failure.
  */
 class RemoteMultiAggregateContext {
@@ -63,8 +63,9 @@ class RemoteMultiAggregateContext {
    * @brief Construct an aggregate that expects exactly `num_subranges` completion events.
    *
    * @param num_subranges Number of sub-range transfers the caller has split the read into.
+   * @param total_bytes Number of bytes the read covers.
    */
-  explicit RemoteMultiAggregateContext(std::size_t num_subranges);
+  RemoteMultiAggregateContext(std::size_t num_subranges, std::size_t total_bytes);
 
   /**
    * @brief Per-pread event barrier for the device-buffer path.
@@ -78,10 +79,8 @@ class RemoteMultiAggregateContext {
 
   /**
    * @brief Report that one sub-range transfer succeeded.
-   *
-   * @param bytes Number of bytes the sub-range delivered.
    */
-  void on_subrange_complete(std::size_t bytes);
+  void on_subrange_complete();
 
   /**
    * @brief Report that one sub-range transfer failed. The first exception captured wins.
@@ -98,7 +97,7 @@ class RemoteMultiAggregateContext {
 
  private:
   std::atomic<std::size_t> _subranges_left;
-  std::atomic<std::size_t> _total_bytes{0};
+  std::size_t const _total_bytes;
   std::mutex _exception_mutex;
   std::exception_ptr _first_exception;
   std::promise<std::size_t> _promise;
@@ -152,7 +151,7 @@ class CurlMultiAttachment {
  * @brief Per-transfer state owned by a `MultiPollReactor` between submission and completion.
  *
  * One `RemoteMultiTransfer` corresponds to one libcurl easy handle, which corresponds to one HTTP
- * range request. Sub-ranges of the same `pread()` share the same `aggregate`. The `curl` member is
+ * range request. Sub-ranges of the same `pread()` share the same aggregate. The `curl` member is
  * held by `std::unique_ptr` because `CurlHandle` is intentionally non-movable.
  */
 struct RemoteMultiTransfer {
@@ -162,7 +161,11 @@ struct RemoteMultiTransfer {
   CurlMultiAttachment attachment;
 
   CallbackContext ctx;
-  std::shared_ptr<RemoteMultiAggregateContext> aggregate;
+
+  // One transfer may map to more than one requests due to coalesce. Each element maps to one
+  // request. `pread()` always has 1 element. On success each element has their sub-range marked
+  // completed. On failure all of them get the same exception.
+  std::vector<std::shared_ptr<RemoteMultiAggregateContext>> aggregates;
 
   // Concurrency slot held from stage (1) admission until this transfer is destroyed after
   // completion or failure. Empty while the transfer waits in the inbox. Destroying the transfer
@@ -172,7 +175,6 @@ struct RemoteMultiTransfer {
   // Device-path fields. All zeroed/null for host transfers.
   bool is_device{false};
   CUcontext device_ctx{nullptr};
-  void* device_dst{nullptr};
   CudaPinnedBounceBufferPool::Buffer buffer{nullptr, nullptr, 0};
 
   // Retry bookkeeping. Number of attempts that have finished.
