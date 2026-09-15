@@ -200,7 +200,17 @@ std::size_t FileHandle::read(void* devPtr_base,
                                               file_offset,
                                               size,
                                               _file_path};
+  // No queue in front of this one, so the physical record duplicates the logical one. Emitted
+  // anyway, so that a monitor watching only physical observations still sees every byte.
+  detail::PhysicalObservationContext const physical{
+    .backend     = compat ? IoBackend::POSIX : IoBackend::GDS,
+    .direction   = TransferDirection::READ,
+    .memory_kind = MemoryKind::DEVICE,
+    .parent_id   = recorder.id(),
+    .source      = _file_path};
+  detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
   auto const nbytes = read_impl(devPtr_base, size, file_offset, devPtr_offset, sync_default_stream);
+  physical_recorder.finish(nbytes);
   recorder.finish(nbytes);
   return nbytes;
 }
@@ -246,9 +256,19 @@ std::size_t FileHandle::write(void const* devPtr_base,
                                               file_offset,
                                               size,
                                               _file_path};
+  // No queue in front of this one, so the physical record duplicates the logical one. Emitted
+  // anyway, so that a monitor watching only physical observations still sees every byte.
+  detail::PhysicalObservationContext const physical{
+    .backend     = compat ? IoBackend::POSIX : IoBackend::GDS,
+    .direction   = TransferDirection::WRITE,
+    .memory_kind = MemoryKind::DEVICE,
+    .parent_id   = recorder.id(),
+    .source      = _file_path};
+  detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
   _nbytes.store(0, std::memory_order_relaxed);  // Invalidate the computed file size.
   auto const nbytes =
     write_impl(devPtr_base, size, file_offset, devPtr_offset, sync_default_stream);
+  physical_recorder.finish(nbytes);
   recorder.finish(nbytes);
   return nbytes;
 }
@@ -317,7 +337,7 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   // One observation for the whole call, whichever branch serves it. `parallel_io` hands it to the
   // task that completes the work, so the end time is when the I/O finished rather than when this
   // function returned.
-  auto recorder = detail::monitoring_enabled()
+  auto recorder = detail::monitoring_enabled(ObservationKind::LOGICAL)
                     ? std::make_shared<detail::LogicalObservationRecorder>(
                         uses_posix ? IoBackend::POSIX : IoBackend::GDS,
                         TransferDirection::READ,
@@ -326,14 +346,26 @@ std::future<std::size_t> FileHandle::pread(void* buf,
                         size,
                         _file_path)
                     : nullptr;
+
+  // One observation per task, so the transfers are seen apart from the queueing in front of them.
+  detail::PhysicalObservationContext const physical{
+    .backend     = uses_posix ? IoBackend::POSIX : IoBackend::GDS,
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder ? recorder->id() : std::nullopt,
+    .source      = _file_path};
+
   if (is_host) {
-    auto op = [this](void* hostPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t hostPtr_offset) -> std::size_t {
-      char* buf = static_cast<char*>(hostPtr_base) + hostPtr_offset;
-      return detail::posix_host_read<detail::PartialIO::NO>(
+    auto op = [this, physical](void* hostPtr_base,
+                               std::size_t size,
+                               std::size_t file_offset,
+                               std::size_t hostPtr_offset) -> std::size_t {
+      detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+      char* buf             = static_cast<char*>(hostPtr_base) + hostPtr_offset;
+      auto const bytes_read = detail::posix_host_read<detail::PartialIO::NO>(
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
+      physical_recorder.finish(bytes_read);
+      return bytes_read;
     };
 
     return detail::parallel_io(op,
@@ -353,8 +385,10 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
     auto bytes_read = detail::posix_device_read(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
+    physical_recorder.finish(bytes_read);
     // This shortcut bypasses `parallel_io`, so it closes the observation itself.
     if (recorder) { recorder->finish(bytes_read); }
     // Maintain API consistency while making this trivial case synchronous.
@@ -369,13 +403,16 @@ std::future<std::size_t> FileHandle::pread(void* buf,
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
-  auto task = [this, ctx](void* devPtr_base,
-                          std::size_t size,
-                          std::size_t file_offset,
-                          std::size_t devPtr_offset) -> std::size_t {
+  auto task = [this, ctx, physical](void* devPtr_base,
+                                    std::size_t size,
+                                    std::size_t file_offset,
+                                    std::size_t devPtr_offset) -> std::size_t {
     PushAndPopContext c(ctx);
-    return read_impl(
-      devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+    auto const bytes_read =
+      read_impl(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
+    physical_recorder.finish(bytes_read);
+    return bytes_read;
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);
 
@@ -440,7 +477,7 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   // One observation for the whole call, whichever branch serves it. `parallel_io` hands it to the
   // task that completes the work, so the end time is when the I/O finished rather than when this
   // function returned.
-  auto recorder = detail::monitoring_enabled()
+  auto recorder = detail::monitoring_enabled(ObservationKind::LOGICAL)
                     ? std::make_shared<detail::LogicalObservationRecorder>(
                         uses_posix ? IoBackend::POSIX : IoBackend::GDS,
                         TransferDirection::WRITE,
@@ -449,18 +486,29 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
                         size,
                         _file_path)
                     : nullptr;
+
+  // One observation per task, so the transfers are seen apart from the queueing in front of them.
+  detail::PhysicalObservationContext const physical{
+    .backend     = uses_posix ? IoBackend::POSIX : IoBackend::GDS,
+    .direction   = TransferDirection::WRITE,
+    .memory_kind = is_host ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder ? recorder->id() : std::nullopt,
+    .source      = _file_path};
+
   // Invalidated before the write as well as after each part completes.
   _nbytes.store(0, std::memory_order_relaxed);
 
   if (is_host) {
-    auto op = [this](void const* hostPtr_base,
-                     std::size_t size,
-                     std::size_t file_offset,
-                     std::size_t hostPtr_offset) -> std::size_t {
+    auto op = [this, physical](void const* hostPtr_base,
+                               std::size_t size,
+                               std::size_t file_offset,
+                               std::size_t hostPtr_offset) -> std::size_t {
+      detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
       char const* buf          = static_cast<char const*>(hostPtr_base) + hostPtr_offset;
       auto const bytes_written = detail::posix_host_write<detail::PartialIO::NO>(
         _file_direct_off.fd(), buf, size, file_offset, _file_direct_on.fd());
       _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
+      physical_recorder.finish(bytes_written);
       return bytes_written;
     };
 
@@ -481,9 +529,11 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   // Shortcut that circumvent the threadpool and use the POSIX backend directly.
   if (size < gds_threshold) {
     PushAndPopContext c(ctx);
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
     auto bytes_write = detail::posix_device_write(
       _file_direct_off.fd(), buf, size, file_offset, 0, _file_direct_on.fd());
     _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
+    physical_recorder.finish(bytes_write);
     // This shortcut bypasses `parallel_io`, so it closes the observation itself.
     if (recorder) { recorder->finish(bytes_write); }
     // Maintain API consistency while making this trivial case synchronous.
@@ -498,14 +548,16 @@ std::future<std::size_t> FileHandle::pwrite(void const* buf,
   }
 
   // Regular case that use the threadpool and run the tasks in parallel
-  auto op = [this, ctx](void const* devPtr_base,
-                        std::size_t size,
-                        std::size_t file_offset,
-                        std::size_t devPtr_offset) -> std::size_t {
+  auto op = [this, ctx, physical](void const* devPtr_base,
+                                  std::size_t size,
+                                  std::size_t file_offset,
+                                  std::size_t devPtr_offset) -> std::size_t {
     PushAndPopContext c(ctx);
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
     auto const bytes_written =
       write_impl(devPtr_base, size, file_offset, devPtr_offset, /* sync_default_stream = */ false);
     _nbytes.store(0, std::memory_order_relaxed);  // The write may have extended the file.
+    physical_recorder.finish(bytes_written);
     return bytes_written;
   };
   auto [devPtr_base, base_size, devPtr_offset] = get_alloc_info(buf, &ctx);

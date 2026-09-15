@@ -226,6 +226,35 @@ def test_report_formats(a_file):
     assert "num_ops=1" in repr(summary)
 
 
+def test_a_summary_says_which_observations_it_is_over(a_file):
+    path, nbytes = a_file
+    buffer = np.empty(nbytes // 8, dtype="u8")
+
+    with (
+        kvikio.SummaryMonitor(kvikio.ObservationKind.LOGICAL) as calls,
+        kvikio.SummaryMonitor(kvikio.ObservationKind.PHYSICAL) as transfers,
+        kvikio.defaults.set("task_size", nbytes // 4),
+    ):
+        with kvikio.CuFile(path, "r") as f:
+            f.read(buffer)
+        logical = calls.get()
+        physical = transfers.get()
+
+    assert logical.kind is kvikio.ObservationKind.LOGICAL
+    assert physical.kind is kvikio.ObservationKind.PHYSICAL
+    assert "(LOGICAL)" in str(logical)
+    assert "(PHYSICAL)" in str(physical)
+    assert json.loads(physical.to_json())["kind"] == "PHYSICAL"
+    assert kvikio.Summary.deserialize(physical.serialize()).kind is (
+        kvikio.ObservationKind.PHYSICAL
+    )
+
+    # Same bytes, one row per call against one row per transfer.
+    assert logical.num_ops == 1
+    assert physical.num_ops == 4
+    assert physical.bytes_transferred == logical.bytes_transferred
+
+
 def test_derived_values(a_file):
     path, nbytes = a_file
     buffer = np.empty(nbytes // 8, dtype="u8")

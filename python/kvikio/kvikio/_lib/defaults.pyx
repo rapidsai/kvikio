@@ -50,12 +50,27 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
         "kvikio::defaults::remote_io_backend"() except +
     void cpp_set_remote_io_backend \
         "kvikio::defaults::set_remote_io_backend"(RemoteIOBackend backend) except +
+    unsigned int cpp_remote_io_num_reactors \
+        "kvikio::defaults::remote_io_num_reactors"() except +
+    void cpp_set_remote_io_num_reactors \
+        "kvikio::defaults::set_remote_io_num_reactors"(unsigned int num_reactors) except +
+    RemoteReactorDispatch cpp_remote_io_reactor_dispatch \
+        "kvikio::defaults::remote_io_reactor_dispatch"() except +
+    void cpp_set_remote_io_reactor_dispatch \
+        "kvikio::defaults::set_remote_io_reactor_dispatch"(RemoteReactorDispatch dispatch) except +
+    size_t cpp_remote_io_max_concurrent_requests \
+        "kvikio::defaults::remote_io_max_concurrent_requests"() except +
+    void cpp_set_remote_io_max_concurrent_requests \
+        "kvikio::defaults::set_remote_io_max_concurrent_requests"(size_t max_requests) except +
 
 
 cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cpdef enum class RemoteIOBackend(uint8_t):
         EASY_THREADPOOL
         MULTI_POLL
+    cpdef enum class RemoteReactorDispatch(uint8_t):
+        PER_CHUNK
+        PER_PREAD
 
 
 def is_compat_mode_preferred() -> bool:
@@ -201,3 +216,41 @@ def remote_io_backend() -> RemoteIOBackend:
 def set_remote_io_backend(backend: RemoteIOBackend) -> None:
     with nogil:
         cpp_set_remote_io_backend(backend)
+
+
+def remote_io_num_reactors() -> int:
+    cdef unsigned int result
+    with nogil:
+        result = cpp_remote_io_num_reactors()
+    return result
+
+
+def set_remote_io_num_reactors(num_reactors: int) -> None:
+    cdef unsigned int cpp_num_reactors = num_reactors
+    with nogil:
+        cpp_set_remote_io_num_reactors(cpp_num_reactors)
+
+
+def remote_io_reactor_dispatch() -> RemoteReactorDispatch:
+    cdef RemoteReactorDispatch result
+    with nogil:
+        result = cpp_remote_io_reactor_dispatch()
+    return result
+
+
+def set_remote_io_reactor_dispatch(dispatch: RemoteReactorDispatch) -> None:
+    with nogil:
+        cpp_set_remote_io_reactor_dispatch(dispatch)
+
+
+def remote_io_max_concurrent_requests() -> int:
+    cdef size_t result
+    with nogil:
+        result = cpp_remote_io_max_concurrent_requests()
+    return result
+
+
+def set_remote_io_max_concurrent_requests(max_requests: int) -> None:
+    cdef size_t cpp_max_requests = max_requests
+    with nogil:
+        cpp_set_remote_io_max_concurrent_requests(cpp_max_requests)

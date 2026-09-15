@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from kvikio._lib import buffer  # type: ignore
@@ -16,8 +16,8 @@ def memory_register(buf) -> None:
 
     In compatibility mode (when GDS is unavailable), this function is a no-op.
 
-    Warning
-    -------
+    Warnings
+    --------
     This API is intended for streaming buffers reused across multiple cuFile I/O
     operations. For one-time transfers, the overhead of registration may outweigh the
     benefits.

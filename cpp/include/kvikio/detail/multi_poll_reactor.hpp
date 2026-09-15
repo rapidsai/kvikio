@@ -178,6 +178,17 @@ struct RemoteMultiTransfer {
   // Retry bookkeeping. Number of attempts that have finished.
   std::size_t attempt{0};
 
+  // Byte offset of this sub-range in the remote object.
+  std::size_t file_offset{0};
+
+  // What every attempt of this sub-range shares.
+  PhysicalObservationContext physical{};
+
+  // The attempt currently on the wire. Started when the easy handle joins the multi handle,
+  // finished at completion, and destroyed on failure or before a retry, so one attempt is one
+  // observation and a backoff is a gap between two of them.
+  std::optional<PhysicalObservationRecorder> physical_recorder;
+
   // Earliest time this transfer may be admitted. Used to space out retries.
   // The default is the clock epoch, which is always in the past, so a freshly submitted transfer is
   // admitted immediately.
@@ -317,6 +328,15 @@ class MultiReactorPool {
    * pool, `LibCurl`, the reactor threads, and (future) CUDA teardown.
    */
   static MultiReactorPool& instance();
+
+  /**
+   * @brief Whether the pool singleton has already been constructed.
+   *
+   * `num_reactors`, the dispatch mode, and the concurrency cap are all captured once in the
+   * pool's constructor, so changing them after this returns `true` would silently have no effect.
+   * Used by `kvikio::defaults` to reject such changes with an exception instead.
+   */
+  [[nodiscard]] static bool is_instantiated() noexcept;
 
   MultiReactorPool(MultiReactorPool const&)            = delete;
   MultiReactorPool& operator=(MultiReactorPool const&) = delete;

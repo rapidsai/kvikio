@@ -63,17 +63,19 @@ constexpr int exit_success       = 0;
 constexpr int exit_no_interfaces = 1;
 constexpr int exit_usage_error   = 2;
 
-constexpr nvtxSemanticsCounter_t rate_semantics{
-  .header               = {.structSize = sizeof(nvtxSemanticsCounter_t),
-                           .semanticId = NVTX_SEMANTIC_ID_COUNTERS_V1,
-                           .version    = NVTX_COUNTER_SEMANTIC_VERSION,
-                           .next       = nullptr},
-  .flags                = NVTX_COUNTER_FLAGS_NONE,
-  .unit                 = "MiB/s",
-  .unitScaleNumerator   = 1,
-  .unitScaleDenominator = 1,
-  .limitType            = NVTX_COUNTER_LIMIT_UNDEFINED,
-};
+constexpr nvtxSemanticsCounter_t rate_semantics = [] {
+  nvtxSemanticsCounter_t semantics{};
+  semantics.header.structSize    = sizeof(nvtxSemanticsCounter_t);
+  semantics.header.semanticId    = NVTX_SEMANTIC_ID_COUNTERS_V1;
+  semantics.header.version       = NVTX_COUNTER_SEMANTIC_VERSION;
+  semantics.header.next          = nullptr;
+  semantics.flags                = NVTX_COUNTER_FLAGS_NONE;
+  semantics.unit                 = "MiB/s";
+  semantics.unitScaleNumerator   = 1;
+  semantics.unitScaleDenominator = 1;
+  semantics.limitType            = NVTX_COUNTER_LIMIT_UNDEFINED;
+  return semantics;
+}();
 }  // namespace constants
 
 /**
@@ -255,15 +257,17 @@ std::vector<std::string> select_interfaces(Config const& config)
 std::uint64_t register_rate_schema(nvtxDomainHandle_t domain)
 {
   static_assert(std::is_standard_layout_v<NicRates>);
+  auto make_entry = [](char const* name, char const* description, std::size_t offset) {
+    nvtxPayloadSchemaEntry_t entry{};
+    entry.type        = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE;
+    entry.name        = name;
+    entry.description = description;
+    entry.offset      = offset;
+    return entry;
+  };
   std::array const entries = {
-    nvtxPayloadSchemaEntry_t{.type        = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE,
-                             .name        = "rx",
-                             .description = "Receive rate",
-                             .offset      = offsetof(NicRates, rx)},
-    nvtxPayloadSchemaEntry_t{.type        = NVTX_PAYLOAD_ENTRY_TYPE_DOUBLE,
-                             .name        = "tx",
-                             .description = "Transmit rate",
-                             .offset      = offsetof(NicRates, tx)},
+    make_entry("rx", "Receive rate", offsetof(NicRates, rx)),
+    make_entry("tx", "Transmit rate", offsetof(NicRates, tx)),
   };
   nvtxPayloadSchemaAttr_t attr{};
   attr.fieldMask = NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_NAME | NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_TYPE |

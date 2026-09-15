@@ -1,5 +1,5 @@
-API
-===
+Python API
+==========
 
 CuFile
 ------
@@ -78,6 +78,9 @@ Statistics
     :members:
 
 .. autoclass:: Summary
+    :members:
+
+.. autoclass:: ObservationKind
     :members:
 
 Defaults

@@ -12,6 +12,7 @@ python/kvikio/_lib/*.cpp
 cufile.log
 docs/build/
 cpp/doxygen/html/
+cpp/doxygen/xml/
 .mypy_cache
 .hypothesis
 .ipynb_checkpoints

@@ -12,7 +12,11 @@ else:
     del libkvikio
 
 
-from kvikio._lib.defaults import CompatMode, RemoteIOBackend  # noqa: F401
+from kvikio._lib.defaults import (  # noqa: F401
+    CompatMode,
+    RemoteIOBackend,
+    RemoteReactorDispatch,
+)
 from kvikio._version import __git_commit__, __version__
 from kvikio.buffer import bounce_buffer_free, memory_deregister, memory_register
 from kvikio.cufile import (
@@ -30,7 +34,7 @@ from kvikio.remote_file import (
     infer_remote_endpoint_type,
     is_remote_file_available,
 )
-from kvikio.statistics import Summary, SummaryMonitor
+from kvikio.statistics import ObservationKind, Summary, SummaryMonitor
 from kvikio.stream import stream_deregister, stream_register
 from kvikio.utils import kvikio_deprecation_notice
 
@@ -50,6 +54,7 @@ __all__ = [
     "RemoteEndpointType",
     "RemoteFile",
     "Summary",
+    "ObservationKind",
     "SummaryMonitor",
     "stream_register",
     "stream_deregister",
