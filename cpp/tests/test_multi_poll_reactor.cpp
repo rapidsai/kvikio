@@ -84,6 +84,13 @@ TEST(RemoteReactorDispatchParse, recognized_names)
               kvikio::RemoteReactorDispatch::PER_PREAD)
       << "value: " << v;
   }
+
+  for (auto const& v : {"first_available", " First_Available "}) {
+    kvikio::test::EnvVarContext ctx{{dispatch_env, v}};
+    EXPECT_EQ(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_CHUNK),
+              kvikio::RemoteReactorDispatch::FIRST_AVAILABLE)
+      << "value: " << v;
+  }
 }
 
 TEST(RemoteReactorDispatchParse, unset_returns_default)
