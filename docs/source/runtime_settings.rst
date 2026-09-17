@@ -97,8 +97,6 @@ Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are d
   * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
   * ``FIRST_AVAILABLE``: A sub-range goes to whichever reactor has capacity for it first. The two modes above pick a reactor when the sub-range is submitted, using a round-robin guess at which one will be free. This mode picks at execution time instead, which keeps a stale guess from stranding work behind a busy reactor. Sub-ranges wait in a pool-wide queue until a reactor reserves concurrency for one, at the cost of a mutex per admission. Requires a non-zero ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` to pace the queue, and falls back to ``PER_CHUNK`` without one.
 
-The two dispatch families also differ in how the concurrency budget is enforced; see the next section.
-
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_reactor_dispatch``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
 Remote I/O Concurrency Cap ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``
@@ -106,13 +104,11 @@ Remote I/O Concurrency Cap ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``
 
 Upper bound on the number of HTTP range requests the ``MULTI_POLL`` backend keeps in flight at once, summed across all reactor threads. The default value is ``256``. It must be a non-negative integer, and ``0`` means unlimited. The value is ignored when the active backend is not ``MULTI_POLL`` (``EASY_THREADPOOL`` is already bounded by ``KVIKIO_NTHREADS``).
 
-Under ``PER_CHUNK`` and ``PER_PREAD`` the global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap against its own inbox with no cross-reactor synchronization. Integer division rounds the per-reactor share down when the budget is not a multiple of the reactor count, and a floor of 1 rounds it up when the budget is smaller than the reactor count (a computed share of 0 would be a reactor that can never admit a request). The effective total is therefore only approximate.
+The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap with no cross-reactor synchronization. When the budget is not a multiple of the reactor count, the remainder is spread one extra slot each over the first reactors, so the total is exact. When the budget is smaller than the reactor count, every reactor still gets one slot, so the effective total is the reactor count.
 
 The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
 
-Under ``FIRST_AVAILABLE`` the budget is instead one pool-wide counter. A reactor may use any slot no other reactor holds, and a budget that does not divide by the reactor count is still fully usable. The scope follows the dispatch mode rather than being separately selectable, because a pool-wide budget is only sound when nothing is bound to a reactor before a slot exists for it. Under the pre-binding modes a sub-range bound to a reactor that then loses the race for slots would stall until one is freed, and the :py:func:`kvikio.RemoteFile.pread` would wait on it.
-
-The same applies to the pinned bounce buffers that device reads stage through, which are capped per reactor under the sliced budget and pool-wide under ``FIRST_AVAILABLE``. A sliced buffer cap combined with a pool-wide budget would let a reactor reserve concurrency for device work it then cannot start.
+Under ``FIRST_AVAILABLE`` the same per-reactor share applies. A reactor takes a sub-range from the pool-wide queue only when its share has room, so sub-ranges flow to the reactors that free up rather than being assigned at submission.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_max_concurrent_requests``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
