@@ -164,8 +164,9 @@ struct RemoteMultiTransfer {
   CallbackContext ctx;
   std::shared_ptr<RemoteMultiAggregateContext> aggregate;
 
-  // Concurrency slot held from admission, or from leaving the pool-wide queue under
-  // FIRST_AVAILABLE, until this transfer is destroyed. Destroying the transfer returns it.
+  // Concurrency slot, held from admission until this transfer is destroyed, which returns it. Also
+  // held briefly between leaving the pool-wide queue and admission under FIRST_AVAILABLE. A
+  // transfer waiting in a reactor's `_pending` never holds one.
   ConcurrentRequestLimiter::Slot slot;
 
   // Device-path fields. All zeroed/null for host transfers.
@@ -272,10 +273,10 @@ class MultiPollReactor {
   void set_connection_cache_size(std::optional<std::size_t> max_concurrent_requests) const;
 
   /**
-   * @brief What one admission walk over `_pending` left behind.
+   * @brief What one admission pass left behind. Decides the poll timeout.
    */
   struct AdmitOutcome {
-    // Earliest retry-backoff deadline among the deferred transfers (if any).
+    // Earliest retry-backoff deadline among the transfers held back for one (if any).
     std::optional<std::chrono::steady_clock::time_point> earliest_ready_at;
 
     // Whether anything is held back for a limiter slot or a bounce buffer rather than for an
@@ -283,32 +284,125 @@ class MultiPollReactor {
     bool deferred_for_resource{false};
 
     /**
-     * @brief Merge a later walk's result into this one.
+     * @brief Record a backoff deadline, keeping the earliest.
      *
-     * @param other The later walk's outcome.
+     * @param ready_at The deadline.
      */
-    void merge(AdmitOutcome const& other) noexcept;
+    void note_ready_at(std::chrono::steady_clock::time_point ready_at) noexcept;
   };
 
   /**
-   * @brief Hand as many pending transfers to libcurl as the gates currently allow.
+   * @brief Scratch state of one admission pass, shared by every `try_admit()` call in it.
+   */
+  struct AdmitWalk {
+    AdmitOutcome outcome;
+
+    // Taken once at the start of the pass. Backoffs are compared against it.
+    std::chrono::steady_clock::time_point started_at{std::chrono::steady_clock::now()};
+
+    // Once the limiter has refused a slot, stop asking for the rest of the pass. Transfers that
+    // arrive already holding one are still admitted.
+    bool limiter_full{false};
+
+    // Contexts whose bounce-buffer shard already missed this pass. Distinct contexts are assumed
+    // few, so a flat vector with linear find suffices.
+    std::vector<CUcontext> exhausted_ctxs;
+
+    [[nodiscard]] bool is_exhausted(CUcontext ctx) const noexcept;
+  };
+
+  /**
+   * @brief Splice newly submitted transfers out of the inbox into `_pending`.
+   */
+  void ingest_inbox();
+
+  /**
+   * @brief One admission pass: hand as many transfers to libcurl as the gates allow.
    *
-   * Transfers that cannot be admitted stay in `_pending` for a later walk.
+   * Walks `_pending` first, so retries and transfers carried over from earlier passes get slots
+   * before new work. Under `FIRST_AVAILABLE` it then pulls from the pool-wide queue. A transfer
+   * that cannot be admitted stays in `_pending` if it is local, or goes back to the pool queue if
+   * it came from there.
    *
-   * @return What the walk left behind. Decides this pass's poll timeout.
+   * @return What the pass left behind.
    */
   AdmitOutcome admit_pending();
 
   /**
-   * @brief Move as much of the pool-wide queue into `_pending` as this reactor has capacity for.
+   * @brief Run one transfer through the gates and, if it passes, attach it to the multi handle.
    *
-   * `FIRST_AVAILABLE` only. Each transfer taken carries the concurrency reservation that allowed it
-   * to be taken, leaving `admit_pending()` free to hand it straight to libcurl.
-   *
-   * @param admit_outcome Updated when the queue still holds work this reactor could not reserve
-   * for.
+   * @param transfer The transfer. Moved into `_in_flight` on success, left in place otherwise. A
+   * refused transfer holds no limiter slot afterwards, even if it arrived with one.
+   * @param walk The current pass's scratch state. Updated with why the transfer was refused.
+   * @return Whether the transfer is now in flight.
+   * @exception std::runtime_error if `curl_multi_add_handle` fails. The transfer is left in place
+   * for `fail_all_pending()` to resolve.
    */
-  void take_from_pool_queue(AdmitOutcome& admit_outcome);
+  bool try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer, AdmitWalk& walk);
+
+  /**
+   * @brief `FIRST_AVAILABLE` only. Pull sub-ranges off the pool-wide queue and admit them, up to
+   * this reactor's share and while it has capacity.
+   *
+   * A sub-range leaves the queue only after a slot has been reserved for it, and goes straight back
+   * if it is then refused a bounce buffer, so pool work never waits in `_pending`, where no other
+   * reactor could reach it.
+   *
+   * @param walk The current pass's scratch state.
+   */
+  void admit_from_pool(AdmitWalk& walk);
+
+  /**
+   * @brief One non-blocking `curl_multi_perform()`.
+   *
+   * @exception std::runtime_error on a libcurl multi-API error.
+   */
+  void perform();
+
+  /**
+   * @brief Drain libcurl's completion messages and settle each finished transfer.
+   *
+   * @param outcome Updated with the backoff deadline of any transfer requeued for retry.
+   * @return How many transfers completed, successfully or not. Each has freed a limiter slot.
+   */
+  std::size_t reap_completions(AdmitOutcome& outcome);
+
+  /**
+   * @brief Settle one finished transfer: complete it, requeue it for retry, or fail it.
+   *
+   * @param transfer The transfer, already detached from `_in_flight`.
+   * @param result libcurl's result code for the attempt.
+   * @param outcome Updated with the backoff deadline if the transfer is requeued for retry.
+   */
+  void complete_transfer(std::unique_ptr<RemoteMultiTransfer> transfer,
+                         CURLcode result,
+                         AdmitOutcome& outcome);
+
+  /**
+   * @brief Queue the pinned-to-device copy of a finished device transfer and arrange for its
+   * bounce buffer to return to the cache once that copy drains.
+   *
+   * @param transfer The finished device transfer. Its buffer is moved out.
+   */
+  void stage_device_copy(RemoteMultiTransfer& transfer);
+
+  /**
+   * @brief How long the next `curl_multi_poll()` may block, given what this pass left behind.
+   *
+   * @param outcome What admission left behind, plus any retry backoffs from completions.
+   * @param completed How many transfers completed this pass.
+   * @return The poll timeout in milliseconds. Zero when freed slots should be spent at once.
+   */
+  [[nodiscard]] int poll_timeout_ms(AdmitOutcome const& outcome,
+                                    std::size_t completed) const noexcept;
+
+  /**
+   * @brief Block in `curl_multi_poll()` until socket activity, a wakeup, or the timeout.
+   *
+   * @param timeout_ms Longest time to block.
+   * @exception std::runtime_error on a libcurl multi-API error.
+   */
+  void poll(int timeout_ms);
 
   void io_thread_main();
 
@@ -355,8 +449,9 @@ class MultiPollReactor {
  *  - `PER_PREAD`: all sub-ranges of one `submit_pread()` call land on the same reactor (round-robin
  *    per call). Preserves per-`CURLM` connection-pool reuse.
  *  - `FIRST_AVAILABLE`: sub-ranges wait in one pool-wide queue. A reactor takes one only after
- *    reserving concurrency for it, so work binds at execution time rather than submission time.
- *    Needs a non-zero concurrency budget to pace the queue.
+ *    reserving concurrency for it, and hands it back if it cannot start it at once, so work binds
+ *    at execution time rather than submission time. Needs a non-zero concurrency budget to pace
+ *    the queue.
  */
 class MultiReactorPool {
  public:
@@ -430,6 +525,17 @@ class MultiReactorPool {
    * @return The sub-range, or null when the queue is empty.
    */
   [[nodiscard]] std::unique_ptr<RemoteMultiTransfer> try_pop_queued() noexcept;
+
+  /**
+   * @brief Put a sub-range back at the head of the pool-wide queue. Thread-safe.
+   *
+   * For a reactor that took the sub-range but cannot start it after all. If the pool has died in
+   * the meantime the sub-range is failed with the death reason instead, since nothing would ever
+   * drain the queue again.
+   *
+   * @param transfer The sub-range, without a concurrency reservation.
+   */
+  void return_to_queue(std::unique_ptr<RemoteMultiTransfer> transfer) noexcept;
 
   /**
    * @brief Roughly how many sub-ranges the pool-wide queue holds. A hint, see `_queue_size_hint`.
