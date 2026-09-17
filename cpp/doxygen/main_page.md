@@ -5,10 +5,10 @@ bindings to [cuFile](https://docs.nvidia.com/gpudirect-storage/api-reference-gui
 which enables [GPUDirect Storage (GDS)](https://developer.nvidia.com/blog/gpudirect-storage/).
 KvikIO also works efficiently when GDS isn't available and can read/write both host and device data seamlessly.
 
-KvikIO C++ is part of the [RAPIDS](https://rapids.ai/) suite of open-source software libraries for GPU-accelerated data science.
+KvikIO C++ is part of the [NVIDIA CUDA-X libraries for data science](https://developer.nvidia.com/topics/ai/data-science/cuda-x-for-data-science), an open-source suite of GPU-accelerated libraries.
 
 ---
-**Notice** this is the documentation for the C++ library. For the Python documentation, see under [kvikio](https://docs.rapids.ai/api/kvikio/nightly/).
+**Notice** this is the documentation for the C++ library. For the Python documentation, see under [kvikio](https://docs.nvidia.com/kvikio/latest/).
 
 
 ---
