@@ -231,6 +231,16 @@ def test_remote_io_reactor_dispatch():
         kvikio.defaults.set("remote_io_reactor_dispatch", before)
     assert kvikio.defaults.get("remote_io_reactor_dispatch") == before
 
+
+@pytest.mark.parametrize("dispatch", list(kvikio.RemoteReactorDispatch))
+def test_remote_io_reactor_dispatch_accepts_every_value(dispatch):
+    before = kvikio.defaults.get("remote_io_reactor_dispatch")
+    try:
+        kvikio.defaults.set("remote_io_reactor_dispatch", dispatch)
+        assert kvikio.defaults.get("remote_io_reactor_dispatch") == dispatch
+    finally:
+        kvikio.defaults.set("remote_io_reactor_dispatch", before)
+
     with pytest.raises(TypeError, match="context manager protocol"):
         with kvikio.defaults.set("remote_io_reactor_dispatch", after):
             pass

@@ -69,7 +69,7 @@ enum class RemoteIOBackend : uint8_t {
  * @brief How sub-ranges of a single `pread()` are distributed across reactor threads when the
  * `MULTI_POLL` backend is active.
  *
- * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`. When only one reactor is used, both modes are
+ * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`. When only one reactor is used, all modes are
  * equivalent.
  */
 enum class RemoteReactorDispatch : uint8_t {

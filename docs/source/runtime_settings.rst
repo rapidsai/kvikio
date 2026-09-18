@@ -41,7 +41,7 @@ This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:f
 
 Size of the Bounce Buffer ``KVIKIO_BOUNCE_BUFFER_SIZE``
 -------------------------------------------------------
-KvikIO might have to use intermediate host buffers (one per thread) when copying between files and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to the size (in bytes) of these "bounce" buffers. If not set, the default value is 16777216 (16 MiB).
+KvikIO might have to use intermediate host buffers (one per thread) when copying between files and device memory. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_SIZE`` to the size (in bytes) of these "bounce" buffers. If not set, the default value is 16777216 (16 MiB). Under the ``MULTI_POLL`` remote I/O backend, device-destination reads instead hold up to twice each reactor's share of ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` in bounce buffers at once, since a buffer stays in use until its copy to the device has drained; see that setting for the resulting bound on pinned memory.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``bounce_buffer_size``.
 
@@ -84,7 +84,7 @@ The ``MULTI_POLL`` backend honors three additional settings, described in the se
 Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
 ----------------------------------------------------------
 
-Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``1``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. Increase beyond ``1`` to spread the in-callback ``memcpy`` cost across cores when one reactor's CPU is the bottleneck. This setting has no effect under ``EASY_THREADPOOL``.
+Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``1``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. A reactor thread receives bytes and copies them into pinned memory inside libcurl's write callback, which limits one reactor to on the order of 1 GiB/s on current x86 cores, so size the count from the target bandwidth rather than the core count: about 12 reactors saturate a 100 Gbps link, and a 2x margin over that costs nothing. Under ``SHARED_QUEUE`` the request budget stays fully in flight with any reactor count, so more reactors than that buy nothing. This setting has no effect under ``EASY_THREADPOOL``.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_num_reactors``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
@@ -95,7 +95,7 @@ Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are d
 
   * ``PER_CHUNK`` (default): Sub-ranges are routed to reactors round-robin, independently of which :py:func:`kvikio.RemoteFile.pread` they belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of the same file may land on different reactors, each with its own libcurl connection cache, so they may not share an established TCP/TLS connection.
   * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
-  * ``FIRST_AVAILABLE``: A sub-range goes to whichever reactor has capacity for it first. The two modes above pick a reactor when the sub-range is submitted, using a round-robin guess at which one will be free. This mode picks at execution time instead, which keeps a stale guess from stranding work behind a busy reactor. Sub-ranges wait in a pool-wide queue until a reactor reserves concurrency for one, at the cost of a mutex per admission. Requires a non-zero ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` to pace the queue, and falls back to ``PER_CHUNK`` without one.
+  * ``SHARED_QUEUE``: Sub-ranges wait in one queue shared by all reactors, and a reactor pulls one only when it has capacity to start it. The two modes above pick a reactor when the sub-range is submitted, using a round-robin guess at which one will be free. This mode binds at execution time instead, which keeps a stale guess from stranding work behind a busy reactor, at the cost of a mutex per admission. Requires a non-zero ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` to pace the queue, and falls back to ``PER_CHUNK`` without one. ``FIRST_AVAILABLE`` is accepted as a deprecated alias for this value.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_reactor_dispatch``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
@@ -108,7 +108,9 @@ The global budget is divided into an equal private share per reactor (``KVIKIO_R
 
 The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
 
-Under ``FIRST_AVAILABLE`` the same per-reactor share applies. A reactor takes a sub-range from the pool-wide queue only when its share has room, so sub-ranges flow to the reactors that free up rather than being assigned at submission.
+Under ``SHARED_QUEUE`` the same per-reactor share applies. A reactor pulls a sub-range from the shared queue only when its share has room, so sub-ranges flow to the reactors that free up rather than being assigned at submission, and the full budget stays in flight regardless of how the work was submitted or how many reactors there are.
+
+For device-destination reads the budget also sizes pinned staging memory. A bounce buffer is held from admission until its copy to the device has drained, which outlasts the request slot, so each reactor may hold up to twice its share of bounce buffers. Pinned memory used for staging is therefore bounded by ``2 x KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS x KVIKIO_BOUNCE_BUFFER_SIZE`` (8 GiB at the defaults of 256 and 16 MiB).
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_max_concurrent_requests``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
