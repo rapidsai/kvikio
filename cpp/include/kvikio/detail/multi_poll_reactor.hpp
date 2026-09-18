@@ -273,9 +273,10 @@ class MultiPollReactor {
   void set_connection_cache_size(std::optional<std::size_t> max_concurrent_requests) const;
 
   /**
-   * @brief What one admission pass left behind. Decides the poll timeout.
+   * @brief What one pass left behind: admission deferrals and retry backoffs. Decides the poll
+   * timeout.
    */
-  struct AdmitOutcome {
+  struct PassOutcome {
     // Earliest retry-backoff deadline among the transfers held back for one (if any).
     std::optional<std::chrono::steady_clock::time_point> earliest_ready_at;
 
@@ -288,7 +289,7 @@ class MultiPollReactor {
      *
      * @param ready_at The deadline.
      */
-    void set_ready_at(std::chrono::steady_clock::time_point ready_at) noexcept;
+    void record_ready_at(std::chrono::steady_clock::time_point ready_at) noexcept;
   };
 
   // Scratch state of one admission pass, shared by every `try_admit()` call in it. Defined in the
@@ -310,7 +311,7 @@ class MultiPollReactor {
    *
    * @return What the pass left behind.
    */
-  AdmitOutcome admit_pending();
+  PassOutcome admit_pending();
 
   /**
    * @brief Run one transfer through the gates and, if it passes, attach it to the multi handle.
@@ -349,7 +350,7 @@ class MultiPollReactor {
    * @param outcome Updated with the backoff deadline of any transfer requeued for retry.
    * @return How many transfers completed, successfully or not. Each has freed a limiter slot.
    */
-  std::size_t reap_completions(AdmitOutcome& outcome);
+  std::size_t reap_completions(PassOutcome& outcome);
 
   /**
    * @brief Settle one finished transfer: complete it, requeue it for retry, or fail it.
@@ -358,9 +359,9 @@ class MultiPollReactor {
    * @param result libcurl's result code for the attempt.
    * @param outcome Updated with the backoff deadline if the transfer is requeued for retry.
    */
-  void complete_transfer(std::unique_ptr<RemoteMultiTransfer> transfer,
-                         CURLcode result,
-                         AdmitOutcome& outcome);
+  void settle_transfer(std::unique_ptr<RemoteMultiTransfer> transfer,
+                       CURLcode result,
+                       PassOutcome& outcome);
 
   /**
    * @brief Queue the pinned-to-device copy of a finished device transfer and arrange for its
@@ -377,7 +378,7 @@ class MultiPollReactor {
    * @param completed How many transfers completed this pass.
    * @return The poll timeout in milliseconds. Zero when freed slots should be spent at once.
    */
-  [[nodiscard]] int poll_timeout_ms(AdmitOutcome const& outcome,
+  [[nodiscard]] int poll_timeout_ms(PassOutcome const& outcome,
                                     std::size_t completed) const noexcept;
 
   /**
@@ -542,13 +543,14 @@ class MultiReactorPool {
   [[nodiscard]] bool uses_shared_queue() const noexcept;
 
   /**
-   * @brief Nudge `count` reactors, chosen round-robin, out of their poll. Thread-safe.
+   * @brief Nudge every reactor out of its poll. Thread-safe.
    *
-   * Freeing a pool-wide slot lets some other reactor start queued work. Only a wakeup tells it.
-   *
-   * @param count How many reactors to wake. Clamped to the reactor count.
+   * Called on every shared-queue submit and on pool death. Waking only as many reactors as there
+   * are sub-ranges would leave idle reactors asleep whenever the woken ones happen to be full, so a
+   * small submit would wait for one of their completions or for the idle tick. N socketpair writes
+   * per submit is cheap next to that.
    */
-  void wake_reactors(std::size_t count) noexcept;
+  void wake_all_reactors() noexcept;
 
  private:
   MultiReactorPool();
@@ -559,8 +561,7 @@ class MultiReactorPool {
   std::size_t _reactor_count;
   std::vector<std::unique_ptr<MultiPollReactor>> _reactors;
   RemoteReactorDispatch _dispatch;
-  // Round-robin counter. Incremented per pread (PER_PREAD) or per chunk (PER_CHUNK), and used to
-  // rotate which reactors `wake_reactors()` nudges.
+  // Round-robin counter. Incremented per pread (PER_PREAD) or per chunk (PER_CHUNK).
   std::atomic<std::size_t> _next_reactor_counter{0};
   std::atomic<bool> _dead{false};
   std::mutex mutable _death_mutex;  // Protects writes to `_death_reason`.

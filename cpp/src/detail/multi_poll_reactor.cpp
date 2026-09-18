@@ -217,7 +217,7 @@ void MultiPollReactor::submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> 
   wakeup();
 }
 
-void MultiPollReactor::AdmitOutcome::set_ready_at(
+void MultiPollReactor::PassOutcome::record_ready_at(
   std::chrono::steady_clock::time_point ready_at) noexcept
 {
   earliest_ready_at =
@@ -241,7 +241,7 @@ void MultiPollReactor::ingest_inbox()
 // Scratch state of one admission pass. `outcome` is what the pass hands back; the rest is only
 // meaningful while the pass runs, which is why the type lives here rather than in the header.
 struct MultiPollReactor::AdmitPass {
-  AdmitOutcome outcome;
+  PassOutcome outcome;
 
   // Taken once at the start of the pass. Backoffs are compared against it.
   std::chrono::steady_clock::time_point started_at{std::chrono::steady_clock::now()};
@@ -255,9 +255,13 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
 {
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
 
+  // Take the slot the transfer arrived with (popped off the pool-wide queue), if any. Every refusal
+  // below returns with `slot` going out of scope, so a refused transfer never keeps one.
+  auto slot = std::move(transfer->slot);
+
   // Still serving its retry backoff.
   if (transfer->ready_at > pass.started_at) {
-    pass.outcome.set_ready_at(transfer->ready_at);
+    pass.outcome.record_ready_at(transfer->ready_at);
     return false;
   }
 
@@ -271,9 +275,8 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
   }
 
   // Gate 1 caps network concurrency: the HTTP range requests attached to this reactor's multi
-  // handle at once, host and device combined. Use the slot the transfer arrived with (popped off
-  // the pool-wide queue), else ask the limiter for one.
-  auto slot = transfer->slot ? std::move(transfer->slot) : _request_limiter.try_acquire();
+  // handle at once, host and device combined. Ask the limiter unless the transfer brought a slot.
+  if (!slot) { slot = _request_limiter.try_acquire(); }
   if (!slot) {
     pass.outcome.deferred_for_resource = true;
     return false;
@@ -341,17 +344,16 @@ void MultiPollReactor::admit_from_pool(AdmitPass& pass)
       throw;
     }
     if (!admitted) {
-      // Refused a bounce buffer. Pool work never waits in `_pending`, where no other reactor could
-      // reach it. It goes back to the head of the queue, without a reservation, for whichever
-      // reactor can start it.
-      transfer->slot.reset();
+      // Refused a bounce buffer, and `try_admit` has dropped its slot. Pool work never waits in
+      // `_pending`, where no other reactor could reach it. It goes back to the head of the queue
+      // for whichever reactor can start it.
       _pool->return_to_queue(std::move(transfer));
       return;
     }
   }
 }
 
-MultiPollReactor::AdmitOutcome MultiPollReactor::admit_pending()
+MultiPollReactor::PassOutcome MultiPollReactor::admit_pending()
 {
   AdmitPass pass;
   // Local work first: retries and transfers carried over from earlier passes. An admitted transfer
@@ -394,9 +396,9 @@ void MultiPollReactor::stage_device_copy(RemoteMultiTransfer& transfer)
     });
 }
 
-void MultiPollReactor::complete_transfer(std::unique_ptr<RemoteMultiTransfer> transfer,
-                                         CURLcode result,
-                                         AdmitOutcome& outcome)
+void MultiPollReactor::settle_transfer(std::unique_ptr<RemoteMultiTransfer> transfer,
+                                       CURLcode result,
+                                       PassOutcome& outcome)
 {
   std::exception_ptr error;
   try {
@@ -427,7 +429,7 @@ void MultiPollReactor::complete_transfer(std::unique_ptr<RemoteMultiTransfer> tr
         KVIKIO_LOG_WARN(verdict.message);
         count_http_retry(verdict.delay_ms);
         auto const ready_at = std::chrono::steady_clock::now() + verdict.delay_ms;
-        outcome.set_ready_at(ready_at);
+        outcome.record_ready_at(ready_at);
         // Ends the failed attempt. The next admission starts a new observation, so the backoff
         // shows as a gap rather than as one long transfer.
         transfer->physical_recorder.reset();
@@ -443,7 +445,7 @@ void MultiPollReactor::complete_transfer(std::unique_ptr<RemoteMultiTransfer> tr
   transfer->aggregate->on_subrange_failed(error);
 }
 
-std::size_t MultiPollReactor::reap_completions(AdmitOutcome& outcome)
+std::size_t MultiPollReactor::reap_completions(PassOutcome& outcome)
 {
   std::size_t completed = 0;
   int msgs_left         = 0;
@@ -458,12 +460,12 @@ std::size_t MultiPollReactor::reap_completions(AdmitOutcome& outcome)
     auto transfer = std::move(it->second);
     _in_flight.erase(it);
     count_http_connection_of(easy);
-    complete_transfer(std::move(transfer), msg->data.result, outcome);
+    settle_transfer(std::move(transfer), msg->data.result, outcome);
   }
   return completed;
 }
 
-int MultiPollReactor::poll_timeout_ms(AdmitOutcome const& outcome,
+int MultiPollReactor::poll_timeout_ms(PassOutcome const& outcome,
                                       std::size_t completed) const noexcept
 {
   // Nothing to admit. A submit, a completion, or a recycle callback wakes the poll early.
@@ -472,17 +474,22 @@ int MultiPollReactor::poll_timeout_ms(AdmitOutcome const& outcome,
   // by a completion or by the recycle callback.
   constexpr int busy_timeout_ms = 10;
 
-  // Under SHARED_QUEUE an empty `_pending` is not idle while the pool-wide queue holds work this
-  // reactor could still take. One refused a resource this pass cannot; its own completions wake it.
-  bool const pool_work_waiting =
-    _pool->uses_shared_queue() && !outcome.deferred_for_resource && _pool->queued_count_hint() > 0;
+  // Under SHARED_QUEUE an empty `_pending` is not idle while the pool-wide queue holds work.
+  bool const pool_work_waiting = _pool->uses_shared_queue() && _pool->queued_count_hint() > 0;
   if (_pending.empty() && !pool_work_waiting) { return idle_timeout_ms; }
 
-  // Completions freed slots this pass. Come straight back and spend them on the waiting work.
+  // Completions freed slots this pass. Come straight back and spend them on the waiting work. This
+  // must precede every other idle return, or a full reactor that just drained would sleep on
+  // queued work.
   if (completed > 0) { return 0; }
 
+  // Only pool work is waiting, and this pass was refused a resource for it. Nothing to poll for:
+  // this reactor's own completions and recycles wake it, and any other reactor may take the work.
+  if (_pending.empty() && outcome.deferred_for_resource) { return idle_timeout_ms; }
+
+  // Work is waiting on a resource, or pool work remains beyond this pass's share. Backstop poll.
   int timeout_ms = idle_timeout_ms;
-  if (outcome.deferred_for_resource) { timeout_ms = busy_timeout_ms; }
+  if (outcome.deferred_for_resource || pool_work_waiting) { timeout_ms = busy_timeout_ms; }
   if (outcome.earliest_ready_at.has_value()) {
     // Wake for the earliest elapsed backoff, if that comes sooner.
     auto const wait_ms = std::chrono::ceil<std::chrono::milliseconds>(
@@ -693,12 +700,10 @@ void MultiReactorPool::return_to_queue(std::unique_ptr<RemoteMultiTransfer> tran
   transfer->aggregate->on_subrange_failed(fail_reason);
 }
 
-void MultiReactorPool::wake_reactors(std::size_t count) noexcept
+void MultiReactorPool::wake_all_reactors() noexcept
 {
-  auto const n      = std::min(count, _reactor_count);
-  auto const origin = _next_reactor_counter.fetch_add(n, std::memory_order_relaxed);
-  for (std::size_t i = 0; i < n; ++i) {
-    _reactors[(origin + i) % _reactor_count]->wakeup();
+  for (auto const& r : _reactors) {
+    r->wakeup();
   }
 }
 
@@ -707,7 +712,6 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
   auto const reactor_count = _reactor_count;
 
   if (_dispatch == RemoteReactorDispatch::SHARED_QUEUE) {
-    std::size_t queued_after = 0;
     std::exception_ptr fail_reason;
     {
       std::lock_guard const lock(_queue_mutex);
@@ -717,8 +721,7 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
         for (auto& transfer : transfers) {
           _queue.push_back(std::move(transfer));
         }
-        queued_after = _queue.size();
-        _queue_size_hint.store(queued_after, std::memory_order_relaxed);
+        _queue_size_hint.store(_queue.size(), std::memory_order_relaxed);
       }
     }
     if (fail_reason) {
@@ -727,7 +730,7 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
       }
       return;
     }
-    wake_reactors(queued_after);
+    wake_all_reactors();
     return;
   }
 
@@ -789,9 +792,7 @@ void MultiReactorPool::signal_death(std::exception_ptr eptr) noexcept
 
   // Wake every reactor out of curl_multi_poll so they notice _dead promptly. Including the caller's
   // own reactor is harmless, since it has already left its loop.
-  for (auto const& r : _reactors) {
-    r->wakeup();
-  }
+  wake_all_reactors();
 }
 
 }  // namespace kvikio::detail
