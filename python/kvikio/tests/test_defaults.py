@@ -216,30 +216,16 @@ def test_remote_io_num_reactors():
 
 def test_remote_io_reactor_dispatch():
     before = kvikio.defaults.get("remote_io_reactor_dispatch")
-    after = (
-        kvikio.RemoteReactorDispatch.PER_CHUNK
-        if before == kvikio.RemoteReactorDispatch.PER_PREAD
-        else kvikio.RemoteReactorDispatch.PER_PREAD
-    )
-    assert after != before
 
+    # Every member round-trips through set/get, whatever the process default is.
     try:
-        result = kvikio.defaults.set("remote_io_reactor_dispatch", after)
-        assert result is None
-        assert kvikio.defaults.get("remote_io_reactor_dispatch") == after
+        for after in kvikio.RemoteReactorDispatch:
+            result = kvikio.defaults.set("remote_io_reactor_dispatch", after)
+            assert result is None
+            assert kvikio.defaults.get("remote_io_reactor_dispatch") == after
     finally:
         kvikio.defaults.set("remote_io_reactor_dispatch", before)
     assert kvikio.defaults.get("remote_io_reactor_dispatch") == before
-
-
-@pytest.mark.parametrize("dispatch", list(kvikio.RemoteReactorDispatch))
-def test_remote_io_reactor_dispatch_accepts_every_value(dispatch):
-    before = kvikio.defaults.get("remote_io_reactor_dispatch")
-    try:
-        kvikio.defaults.set("remote_io_reactor_dispatch", dispatch)
-        assert kvikio.defaults.get("remote_io_reactor_dispatch") == dispatch
-    finally:
-        kvikio.defaults.set("remote_io_reactor_dispatch", before)
 
     with pytest.raises(TypeError, match="context manager protocol"):
         with kvikio.defaults.set("remote_io_reactor_dispatch", after):
