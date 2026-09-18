@@ -105,7 +105,7 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
   // thread's own decrement), so the sum is complete. _first_exception needs no ordering here, since
   // it is written and read under _exception_mutex.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-    std::lock_guard<std::mutex> const lock(_exception_mutex);
+    std::lock_guard const lock(_exception_mutex);
     // Finish the observation before fulfilling the promise below. The other order would let the
     // caller return from `future.get()` before the observation had been delivered.
     if (recorder) {
@@ -126,12 +126,12 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
 void RemoteMultiAggregateContext::on_subrange_failed(std::exception_ptr eptr)
 {
   {
-    std::lock_guard<std::mutex> const lock(_exception_mutex);
+    std::lock_guard const lock(_exception_mutex);
     if (!_first_exception) { _first_exception = eptr; }
   }
   // Last thread to decrement to zero fulfills the promise.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-    std::lock_guard<std::mutex> const lock(_exception_mutex);
+    std::lock_guard const lock(_exception_mutex);
     if (recorder) { recorder->finish_with_failure(); }
     _promise.set_exception(_first_exception);
   }
@@ -197,7 +197,7 @@ void MultiPollReactor::submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> 
   if (transfers.empty()) { return; }
   std::exception_ptr fail_reason;
   {
-    std::lock_guard<std::mutex> const lock(_submit_mutex);
+    std::lock_guard const lock(_submit_mutex);
     if (_pool->is_dead()) {
       // The pool is dead. Fail the batch immediately instead of pushing into an inbox that will
       // never be drained.
@@ -227,7 +227,7 @@ void MultiPollReactor::AdmitOutcome::note_ready_at(
 void MultiPollReactor::ingest_inbox()
 {
   // The inbox is shared with submitting threads. Splice it out and drop the lock quickly.
-  std::lock_guard<std::mutex> const lock(_submit_mutex);
+  std::lock_guard const lock(_submit_mutex);
   if (_pending.empty()) {
     std::swap(_pending, _inbox);
     return;
@@ -573,7 +573,7 @@ void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 {
   // Drain the inbox under the submit mutex.
   {
-    std::lock_guard<std::mutex> const lock(_submit_mutex);
+    std::lock_guard const lock(_submit_mutex);
     while (!_inbox.empty()) {
       auto transfer = std::move(_inbox.front());
       _inbox.pop_front();
@@ -672,7 +672,7 @@ bool MultiReactorPool::uses_shared_queue() const noexcept
 
 std::unique_ptr<RemoteMultiTransfer> MultiReactorPool::try_pop_queued() noexcept
 {
-  std::lock_guard<std::mutex> const lock(_queue_mutex);
+  std::lock_guard const lock(_queue_mutex);
   if (_queue.empty()) { return nullptr; }
   auto transfer = std::move(_queue.front());
   _queue.pop_front();
@@ -684,7 +684,7 @@ void MultiReactorPool::return_to_queue(std::unique_ptr<RemoteMultiTransfer> tran
 {
   std::exception_ptr fail_reason;
   {
-    std::lock_guard<std::mutex> const lock(_queue_mutex);
+    std::lock_guard const lock(_queue_mutex);
     if (is_dead()) {
       // `signal_death()` has already drained the queue. Nothing would ever pick this up again.
       fail_reason = death_reason();
@@ -720,7 +720,7 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
     std::size_t queued_after = 0;
     std::exception_ptr fail_reason;
     {
-      std::lock_guard<std::mutex> const lock(_queue_mutex);
+      std::lock_guard const lock(_queue_mutex);
       if (is_dead()) {
         fail_reason = death_reason();
       } else {
@@ -767,7 +767,7 @@ bool MultiReactorPool::is_dead() const noexcept
 
 std::exception_ptr MultiReactorPool::death_reason() const noexcept
 {
-  std::lock_guard<std::mutex> const lock(_death_mutex);
+  std::lock_guard const lock(_death_mutex);
   return _death_reason;
 }
 
@@ -777,7 +777,7 @@ void MultiReactorPool::signal_death(std::exception_ptr eptr) noexcept
   // writer wins, not the last. The store is `release`, pairing with the `acquire` in `is_dead()`.
   // The guard load below can be relaxed.
   {
-    std::lock_guard<std::mutex> const lock(_death_mutex);
+    std::lock_guard const lock(_death_mutex);
     // Only the first thread here updates _death_reason and wakes reactors. Later calls early-exit.
     if (_dead.load(std::memory_order_relaxed)) { return; }
     _death_reason = eptr;
@@ -788,7 +788,7 @@ void MultiReactorPool::signal_death(std::exception_ptr eptr) noexcept
   {
     std::deque<std::unique_ptr<RemoteMultiTransfer>> queued;
     {
-      std::lock_guard<std::mutex> const lock(_queue_mutex);
+      std::lock_guard const lock(_queue_mutex);
       std::swap(queued, _queue);
       _queue_size_hint.store(0, std::memory_order_relaxed);
     }
