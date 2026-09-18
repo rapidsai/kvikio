@@ -246,10 +246,6 @@ struct MultiPollReactor::AdmitPass {
   // Taken once at the start of the pass. Backoffs are compared against it.
   std::chrono::steady_clock::time_point started_at{std::chrono::steady_clock::now()};
 
-  // Once the limiter has refused a slot, stop asking for the rest of the pass. Transfers that
-  // arrive already holding one are still admitted.
-  bool limiter_full{false};
-
   // Contexts whose bounce-buffer shard already missed this pass. Distinct contexts are assumed
   // few, so a flat vector with linear find suffices.
   std::vector<CUcontext> exhausted_ctxs;
@@ -275,12 +271,10 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
   }
 
   // Gate 1 caps network concurrency: the HTTP range requests attached to this reactor's multi
-  // handle at once, host and device combined. A transfer popped off the pool-wide queue arrives
-  // already holding its slot. Once the limiter has refused a slot this pass, stop asking.
-  auto slot = std::move(transfer->slot);
-  if (!slot && !pass.limiter_full) { slot = _request_limiter.try_acquire(); }
+  // handle at once, host and device combined. Use the slot the transfer arrived with (popped off
+  // the pool-wide queue), else ask the limiter for one.
+  auto slot = transfer->slot ? std::move(transfer->slot) : _request_limiter.try_acquire();
   if (!slot) {
-    pass.limiter_full                  = true;
     pass.outcome.deferred_for_resource = true;
     return false;
   }
@@ -326,12 +320,11 @@ void MultiPollReactor::admit_from_pool(AdmitPass& pass)
   // Pool work comes after local work, so retries and carried-over transfers get slots first. The
   // share stops one reactor from running the tail of a burst alone.
   auto const share = _pool->queue_share_per_reactor();
-  for (std::size_t taken = 0; taken < share && !pass.limiter_full; ++taken) {
+  for (std::size_t taken = 0; taken < share; ++taken) {
     // Reserve before popping, so a sub-range leaves the queue only when a reactor can put it on
     // the wire. If the queue turns out empty, the slot returns to the limiter with `slot`.
     auto slot = _request_limiter.try_acquire();
     if (!slot) {
-      pass.limiter_full                  = true;
       pass.outcome.deferred_for_resource = true;
       return;
     }
