@@ -217,7 +217,7 @@ void MultiPollReactor::submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> 
   wakeup();
 }
 
-void MultiPollReactor::AdmitOutcome::note_ready_at(
+void MultiPollReactor::AdmitOutcome::set_ready_at(
   std::chrono::steady_clock::time_point ready_at) noexcept
 {
   earliest_ready_at =
@@ -266,7 +266,7 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
 
   // Still serving its retry backoff.
   if (transfer->ready_at > pass.started_at) {
-    pass.outcome.note_ready_at(transfer->ready_at);
+    pass.outcome.set_ready_at(transfer->ready_at);
     return false;
   }
 
@@ -437,7 +437,7 @@ void MultiPollReactor::complete_transfer(std::unique_ptr<RemoteMultiTransfer> tr
         KVIKIO_LOG_WARN(verdict.message);
         count_http_retry(verdict.delay_ms);
         auto const ready_at = std::chrono::steady_clock::now() + verdict.delay_ms;
-        outcome.note_ready_at(ready_at);
+        outcome.set_ready_at(ready_at);
         // Ends the failed attempt. The next admission starts a new observation, so the backoff
         // shows as a gap rather than as one long transfer.
         transfer->physical_recorder.reset();

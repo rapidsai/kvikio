@@ -288,7 +288,7 @@ class MultiPollReactor {
      *
      * @param ready_at The deadline.
      */
-    void note_ready_at(std::chrono::steady_clock::time_point ready_at) noexcept;
+    void set_ready_at(std::chrono::steady_clock::time_point ready_at) noexcept;
   };
 
   // Scratch state of one admission pass, shared by every `try_admit()` call in it. Defined in the
