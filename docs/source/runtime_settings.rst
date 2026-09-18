@@ -91,10 +91,11 @@ This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:f
 Remote I/O Reactor Dispatch ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
 -----------------------------------------------------------------
 
-Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are distributed across reactor threads when ``MULTI_POLL`` is active. When only one reactor is used, both modes are equivalent. This setting has no effect under ``EASY_THREADPOOL``. The accepted values (case-insensitive) are:
+Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are distributed across reactor threads when ``MULTI_POLL`` is active. When only one reactor is used, all modes are equivalent. This setting has no effect under ``EASY_THREADPOOL``. The accepted values (case-insensitive) are:
 
   * ``PER_CHUNK`` (default): Sub-ranges are routed to reactors round-robin, independently of which :py:func:`kvikio.RemoteFile.pread` they belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of the same file may land on different reactors, each with its own libcurl connection cache, so they may not share an established TCP/TLS connection.
   * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
+  * ``SHARED_QUEUE``: Sub-ranges wait in one queue shared by all reactors, and a reactor pulls one only when it has capacity to start it. The two modes above pick a reactor when the sub-range is submitted, using a round-robin guess at which one will be free. This mode binds at execution time instead, which keeps a stale guess from stranding work behind a busy reactor, at the cost of a mutex per admission. Requires a non-zero ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` to pace the queue, and falls back to ``PER_CHUNK`` without one.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_reactor_dispatch``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
@@ -103,9 +104,11 @@ Remote I/O Concurrency Cap ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``
 
 Upper bound on the number of HTTP range requests the ``MULTI_POLL`` backend keeps in flight at once, summed across all reactor threads. The default value is ``256``. It must be a non-negative integer, and ``0`` means unlimited. The value is ignored when the active backend is not ``MULTI_POLL`` (``EASY_THREADPOOL`` is already bounded by ``KVIKIO_NTHREADS``).
 
-The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap against its own inbox with no cross-reactor synchronization. Integer division rounds the per-reactor share down when the budget is not a multiple of the reactor count, and a floor of 1 rounds it up when the budget is smaller than the reactor count (a computed share of 0 would be a reactor that can never admit a request). The effective total is therefore only approximate.
+The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``). Each reactor enforces its own cap with no cross-reactor synchronization. When the budget is not a multiple of the reactor count, the remainder is spread one extra slot each over the first reactors to keep the total exact. When the budget is smaller than the reactor count, every reactor still gets one slot, and the effective total is then the reactor count.
 
 The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
+
+Under ``SHARED_QUEUE`` the same per-reactor share applies. A reactor pulls a sub-range from the shared queue only when its share has room. Sub-ranges therefore flow to the reactors that free up rather than being assigned at submission, and the full budget stays in flight regardless of how the work was submitted or how many reactors there are.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_max_concurrent_requests``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
