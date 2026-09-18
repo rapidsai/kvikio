@@ -269,7 +269,7 @@ struct Summary {
  * Thread-safe: `get()`, `reset()` and `stop()` may be called from any thread while I/O is in
  * flight.
  *
- * ### Overhead
+ * @par Overhead
  *
  * Monitoring adds roughly 80 ns per observation, regardless of its size, so the relative cost
  * falls as the call grows: about 2 % of a 4 KiB `pread()` and 0.25 % of a 1 MiB one. A physical

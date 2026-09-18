@@ -19,7 +19,7 @@ Contributions to KvikIO fall into the following three categories.
 
 As contributors and maintainers to this project,
 you are expected to abide by KvikIO's code of conduct.
-More information can be found at: [Contributor Code of Conduct](https://docs.rapids.ai/resources/conduct/).
+More information can be found at: [Contributor Code of Conduct](https://docs.nvidia.com/datascience/resources/conduct/).
 
 ## Code contributions
 
