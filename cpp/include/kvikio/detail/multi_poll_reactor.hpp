@@ -165,7 +165,7 @@ struct RemoteMultiTransfer {
   std::shared_ptr<RemoteMultiAggregateContext> aggregate;
 
   // Concurrency slot, held from admission until this transfer is destroyed, which returns it. Also
-  // held briefly between leaving the pool-wide queue and admission under FIRST_AVAILABLE. A
+  // held briefly between leaving the pool-wide queue and admission under SHARED_QUEUE. A
   // transfer waiting in a reactor's `_pending` never holds one.
   ConcurrentRequestLimiter::Slot slot;
 
@@ -320,7 +320,7 @@ class MultiPollReactor {
    * @brief One admission pass: hand as many transfers to libcurl as the gates allow.
    *
    * Walks `_pending` first, so retries and transfers carried over from earlier passes get slots
-   * before new work. Under `FIRST_AVAILABLE` it then pulls from the pool-wide queue. A transfer
+   * before new work. Under `SHARED_QUEUE` it then pulls from the pool-wide queue. A transfer
    * that cannot be admitted stays in `_pending` if it is local, or goes back to the pool queue if
    * it came from there.
    *
@@ -341,7 +341,7 @@ class MultiPollReactor {
   bool try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer, AdmitWalk& walk);
 
   /**
-   * @brief `FIRST_AVAILABLE` only. Pull sub-ranges off the pool-wide queue and admit them, up to
+   * @brief `SHARED_QUEUE` only. Pull sub-ranges off the pool-wide queue and admit them, up to
    * this reactor's share and while it has capacity.
    *
    * A sub-range leaves the queue only after a slot has been reserved for it, and goes straight back
@@ -448,7 +448,7 @@ class MultiPollReactor {
  *    TCP/TLS connections.
  *  - `PER_PREAD`: all sub-ranges of one `submit_pread()` call land on the same reactor (round-robin
  *    per call). Preserves per-`CURLM` connection-pool reuse.
- *  - `FIRST_AVAILABLE`: sub-ranges wait in one pool-wide queue. A reactor takes one only after
+ *  - `SHARED_QUEUE`: sub-ranges wait in one pool-wide queue. A reactor takes one only after
  *    reserving concurrency for it, and hands it back if it cannot start it at once, so work binds
  *    at execution time rather than submission time. Needs a non-zero concurrency budget to pace
  *    the queue.
@@ -555,7 +555,7 @@ class MultiReactorPool {
   /**
    * @brief Whether sub-ranges are parked in the pool-wide queue instead of pushed to a reactor.
    */
-  [[nodiscard]] bool uses_first_available() const noexcept;
+  [[nodiscard]] bool uses_shared_queue() const noexcept;
 
   /**
    * @brief Nudge `count` reactors, chosen round-robin, out of their poll. Thread-safe.
@@ -582,7 +582,7 @@ class MultiReactorPool {
   std::mutex mutable _death_mutex;  // Protects writes to `_death_reason`.
   std::exception_ptr _death_reason;
 
-  // FIRST_AVAILABLE only. Sub-ranges wait here until some reactor has a slot for one.
+  // SHARED_QUEUE only. Sub-ranges wait here until some reactor has a slot for one.
   std::mutex _queue_mutex;
   std::deque<std::unique_ptr<RemoteMultiTransfer>> _queue;
   // Mirrors `_queue.size()`. Written under `_queue_mutex`, read without it, so it is only a reason

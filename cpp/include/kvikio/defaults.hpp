@@ -506,9 +506,9 @@ class defaults {
    * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`, parsed case-insensitively.
    * - `PER_CHUNK`: `RemoteReactorDispatch::PER_CHUNK` (default).
    * - `PER_PREAD`: `RemoteReactorDispatch::PER_PREAD`.
-   * - `FIRST_AVAILABLE`: `RemoteReactorDispatch::FIRST_AVAILABLE`, which additionally requires a
+   * - `SHARED_QUEUE`: `RemoteReactorDispatch::SHARED_QUEUE`, which additionally requires a
    *   non-zero `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS` and falls back to `PER_CHUNK` without
-   *   one.
+   *   one. `FIRST_AVAILABLE` is accepted as a deprecated alias.
    * When a single reactor is used, all modes are equivalent.
    *
    * @return The reactor dispatch policy.

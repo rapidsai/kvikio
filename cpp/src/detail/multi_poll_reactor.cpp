@@ -355,7 +355,7 @@ MultiPollReactor::AdmitOutcome MultiPollReactor::admit_pending()
       ++it;
     }
   }
-  if (_pool->uses_first_available()) { admit_from_pool(walk); }
+  if (_pool->uses_shared_queue()) { admit_from_pool(walk); }
   return walk.outcome;
 }
 
@@ -464,10 +464,10 @@ int MultiPollReactor::poll_timeout_ms(AdmitOutcome const& outcome,
   // by a completion or by the recycle callback.
   constexpr int busy_timeout_ms = 10;
 
-  // Under FIRST_AVAILABLE an empty `_pending` is not idle while the pool-wide queue holds work this
+  // Under SHARED_QUEUE an empty `_pending` is not idle while the pool-wide queue holds work this
   // reactor could still take. One refused a resource this pass cannot; its own completions wake it.
-  bool const pool_work_waiting = _pool->uses_first_available() && !outcome.deferred_for_resource &&
-                                 _pool->queued_count_hint() > 0;
+  bool const pool_work_waiting =
+    _pool->uses_shared_queue() && !outcome.deferred_for_resource && _pool->queued_count_hint() > 0;
   if (_pending.empty() && !pool_work_waiting) { return idle_timeout_ms; }
 
   // Completions freed slots this pass. Come straight back and spend them on the waiting work.
@@ -600,9 +600,9 @@ MultiReactorPool::MultiReactorPool()
   auto const max_total = defaults::remote_io_max_concurrent_requests();
 
   // With no budget a reactor is never full, so nothing paces its takes from the queue.
-  if (_dispatch == RemoteReactorDispatch::FIRST_AVAILABLE && max_total == 0) {
+  if (_dispatch == RemoteReactorDispatch::SHARED_QUEUE && max_total == 0) {
     KVIKIO_LOG_WARN(
-      "KVIKIO_REMOTE_IO_REACTOR_DISPATCH=first_available needs a non-zero "
+      "KVIKIO_REMOTE_IO_REACTOR_DISPATCH=shared_queue needs a non-zero "
       "KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS to pace the queue. Falling back to per_chunk.");
     _dispatch = RemoteReactorDispatch::PER_CHUNK;
   }
@@ -647,9 +647,9 @@ std::size_t MultiReactorPool::queue_share_per_reactor() const noexcept
   return std::max<std::size_t>((queued + _reactor_count - 1) / _reactor_count, 1);
 }
 
-bool MultiReactorPool::uses_first_available() const noexcept
+bool MultiReactorPool::uses_shared_queue() const noexcept
 {
-  return _dispatch == RemoteReactorDispatch::FIRST_AVAILABLE;
+  return _dispatch == RemoteReactorDispatch::SHARED_QUEUE;
 }
 
 std::unique_ptr<RemoteMultiTransfer> MultiReactorPool::try_pop_queued() noexcept
@@ -698,7 +698,7 @@ void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTrans
 {
   auto const reactor_count = _reactor_count;
 
-  if (_dispatch == RemoteReactorDispatch::FIRST_AVAILABLE) {
+  if (_dispatch == RemoteReactorDispatch::SHARED_QUEUE) {
     std::size_t queued_after = 0;
     std::exception_ptr fail_reason;
     {

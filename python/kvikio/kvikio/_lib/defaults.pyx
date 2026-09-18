@@ -71,7 +71,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cpdef enum class RemoteReactorDispatch(uint8_t):
         PER_CHUNK
         PER_PREAD
-        FIRST_AVAILABLE
+        SHARED_QUEUE
 
 
 def is_compat_mode_preferred() -> bool:
