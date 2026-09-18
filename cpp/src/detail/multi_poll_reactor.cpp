@@ -253,11 +253,6 @@ struct MultiPollReactor::AdmitPass {
   // Contexts whose bounce-buffer shard already missed this pass. Distinct contexts are assumed
   // few, so a flat vector with linear find suffices.
   std::vector<CUcontext> exhausted_ctxs;
-
-  [[nodiscard]] bool is_exhausted(CUcontext ctx) const noexcept
-  {
-    return std::find(exhausted_ctxs.begin(), exhausted_ctxs.end(), ctx) != exhausted_ctxs.end();
-  }
 };
 
 bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer, AdmitPass& pass)
@@ -272,7 +267,9 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
 
   // Gate 2 already missed for this context during this pass. Skip it without touching the limiter.
   // At worst this is pessimistic by one pass if a recycle frees a buffer mid-pass.
-  if (transfer->is_device && pass.is_exhausted(transfer->device_ctx)) {
+  auto const& exhausted = pass.exhausted_ctxs;
+  if (transfer->is_device &&
+      std::find(exhausted.begin(), exhausted.end(), transfer->device_ctx) != exhausted.end()) {
     pass.outcome.deferred_for_resource = true;
     return false;
   }
