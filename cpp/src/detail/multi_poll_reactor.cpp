@@ -238,16 +238,15 @@ void MultiPollReactor::ingest_inbox()
   }
 }
 
-// Scratch state of one admission pass. `outcome` is what the pass hands back; the rest is only
-// meaningful while the pass runs, which is why the type lives here rather than in the header.
+// Scratch state of one admission pass. Only `outcome` outlives the pass.
 struct MultiPollReactor::AdmitPass {
   PassOutcome outcome;
 
   // Taken once at the start of the pass. Backoffs are compared against it.
   std::chrono::steady_clock::time_point started_at{std::chrono::steady_clock::now()};
 
-  // Contexts whose bounce-buffer shard already missed this pass. Distinct contexts are assumed
-  // few, so a flat vector with linear find suffices.
+  // Contexts whose bounce-buffer shard already missed this pass. Distinct contexts are assumed few.
+  // A flat vector with linear find suffices.
   std::vector<CUcontext> exhausted_ctxs;
 };
 
@@ -256,7 +255,7 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
 
   // Take the slot the transfer arrived with (popped off the pool-wide queue), if any. Every refusal
-  // below returns with `slot` going out of scope, so a refused transfer never keeps one.
+  // below returns with `slot` going out of scope. A refused transfer never keeps one.
   auto slot = std::move(transfer->slot);
 
   // Still serving its retry backoff.
@@ -282,10 +281,9 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
     return false;
   }
 
-  // Gate 2 caps bounce-buffer use per (reactor thread, CUDA context) across all pipeline phases.
-  // A limiter slot is freed at libcurl completion, but the buffer stays in flight until the H2D
-  // drains and the recycle callback fires. A refused transfer holds no slot while it waits: `slot`
-  // goes out of scope here and returns to the limiter.
+  // Gate 2 caps bounce-buffer use per (reactor thread, CUDA context) across all pipeline phases. A
+  // limiter slot is freed at libcurl completion, but the buffer stays in flight until the H2D copy
+  // completes and the recycle callback fires.
   if (transfer->is_device) {
     std::optional<CudaPinnedBounceBufferPool::Buffer> bounce_buffer;
     {
@@ -302,8 +300,8 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
   }
 
   // Hand the easy handle to libcurl. A failure here is fatal for the pool. The transfer stays where
-  // it is, so `fail_all_pending()` resolves it, along with everything else, with this exception.
-  CURL* easy    = transfer->curl->handle();
+  // it is. `fail_all_pending()` then resolves it, along with everything else, with this exception.
+  auto* easy    = transfer->curl->handle();
   auto const mc = curl_multi_add_handle(_curl_multi, easy);
   KVIKIO_EXPECT(mc == CURLM_OK,
                 std::string("curl_multi_add_handle: ") + curl_multi_strerror(mc),
@@ -320,11 +318,11 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
 
 void MultiPollReactor::admit_from_pool(AdmitPass& pass)
 {
-  // Pool work comes after local work, so retries and carried-over transfers get slots first. The
-  // share stops one reactor from running the tail of a burst alone.
+  // Pool work comes after local work. Retries and carried-over transfers get slots first. The share
+  // spreads a burst over reactors. Each reactor's write-callback copy is bound by one CPU.
   auto const share = _pool->queue_share_per_reactor();
   for (std::size_t taken = 0; taken < share; ++taken) {
-    // Reserve before popping, so a sub-range leaves the queue only when a reactor can put it on
+    // Reserve before popping. A sub-range then leaves the queue only when a reactor can put it on
     // the wire. If the queue turns out empty, the slot returns to the limiter with `slot`.
     auto slot = _request_limiter.try_acquire();
     if (!slot) {
@@ -339,14 +337,13 @@ void MultiPollReactor::admit_from_pool(AdmitPass& pass)
     try {
       admitted = try_admit(transfer, pass);
     } catch (...) {
-      // Keep the transfer reachable, so `fail_all_pending()` resolves its aggregate.
+      // Keep the transfer reachable for `fail_all_pending()` to resolve its aggregate.
       _pending.push_back(std::move(transfer));
       throw;
     }
     if (!admitted) {
-      // Refused a bounce buffer, and `try_admit` has dropped its slot. Pool work never waits in
-      // `_pending`, where no other reactor could reach it. It goes back to the head of the queue
-      // for whichever reactor can start it.
+      // Refused a bounce buffer, and `try_admit` has dropped its slot. Back to the head of the
+      // queue for whichever reactor can start it.
       _pool->return_to_queue(std::move(transfer));
       return;
     }
@@ -357,7 +354,7 @@ MultiPollReactor::PassOutcome MultiPollReactor::admit_pending()
 {
   AdmitPass pass;
   // Local work first: retries and transfers carried over from earlier passes. An admitted transfer
-  // has moved into `_in_flight`; a refused one stays in place, holding no slot.
+  // has moved into `_in_flight`. A refused one stays in place, holding no slot.
   for (auto it = _pending.begin(); it != _pending.end();) {
     if (try_admit(*it, pass)) {
       it = _pending.erase(it);
@@ -383,8 +380,9 @@ void MultiPollReactor::stage_device_copy(RemoteMultiTransfer& transfer)
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
 
   // Phase A (network -> pinned) is done. Queue Phase B (pinned -> device) on this (thread, ctx)
-  // stream and hand the buffer to a cuLaunchHostFunc recycle callback, so its cache slot returns
-  // when the H2D drains. The callback also wakes this reactor, which may be waiting on that slot.
+  // stream and hand the buffer to a cuLaunchHostFunc recycle callback. Its cache slot returns when
+  // the H2D copy completes. The callback also wakes this reactor, which may be waiting on that
+  // slot.
   PushAndPopContext c(transfer.device_ctx);
   CUstream stream = StreamCachePerThreadAndContext::get();
   KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
@@ -479,8 +477,8 @@ int MultiPollReactor::poll_timeout_ms(PassOutcome const& outcome,
   if (_pending.empty() && !pool_work_waiting) { return idle_timeout_ms; }
 
   // Completions freed slots this pass. Come straight back and spend them on the waiting work. This
-  // must precede every other idle return, or a full reactor that just drained would sleep on
-  // queued work.
+  // must precede every other idle return, or a full reactor that just drained would sleep on queued
+  // work.
   if (completed > 0) { return 0; }
 
   // Only pool work is waiting, and this pass was refused a resource for it. Nothing to poll for:
@@ -513,13 +511,6 @@ void MultiPollReactor::poll(int timeout_ms)
 
 void MultiPollReactor::io_thread_main()
 {
-  // One pass: ingest -> admit -> perform -> reap -> poll. Two invariants keep the pass simple:
-  //  - A transfer waiting in `_pending` holds no limiter slot. Slots are taken at admission and
-  //    returned at completion (or, for a pool pop that is then refused, right away).
-  //  - Pool-wide work never waits in `_pending`. A reactor takes it only when it can start it, and
-  //    hands it back otherwise, so it is always reachable by whichever reactor has capacity.
-  // Slots freed by this pass's completions are spent on the next pass, which `poll_timeout_ms()`
-  // makes immediate.
   try {
     while (!_pool->is_dead()) {
       ingest_inbox();
@@ -614,7 +605,7 @@ MultiReactorPool::MultiReactorPool()
 
   auto const max_total = defaults::remote_io_max_concurrent_requests();
 
-  // With no budget a reactor is never full, so nothing paces its takes from the queue.
+  // With no budget a reactor is never full. Nothing would pace what it pulls from the queue.
   if (_dispatch == RemoteReactorDispatch::SHARED_QUEUE && max_total == 0) {
     KVIKIO_LOG_WARN(
       "KVIKIO_REMOTE_IO_REACTOR_DISPATCH=shared_queue needs a non-zero "
@@ -622,8 +613,8 @@ MultiReactorPool::MultiReactorPool()
     _dispatch = RemoteReactorDispatch::PER_CHUNK;
   }
 
-  // Slice the budget evenly, spreading any remainder one slot each over the first reactors so
-  // the total is exact. A budget below the reactor count still gives every reactor one slot.
+  // Slice the budget evenly. Spread any remainder one slot each over the first reactors to keep the
+  // total exact. A budget below the reactor count still gives every reactor one slot.
   auto const base      = max_total / n;
   auto const remainder = max_total % n;
   _reactors.reserve(n);

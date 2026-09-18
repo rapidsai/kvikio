@@ -216,8 +216,6 @@ def test_remote_io_num_reactors():
 
 def test_remote_io_reactor_dispatch():
     before = kvikio.defaults.get("remote_io_reactor_dispatch")
-
-    # Every member round-trips through set/get, whatever the process default is.
     try:
         for after in kvikio.RemoteReactorDispatch:
             result = kvikio.defaults.set("remote_io_reactor_dispatch", after)

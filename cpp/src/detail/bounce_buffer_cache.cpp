@@ -170,18 +170,12 @@ BounceBufferCachePerThreadAndContext<Allocator>::instance()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   static auto* _instance = []() {
-    auto const max_total = defaults::remote_io_max_concurrent_requests();
-    auto const n         = defaults::remote_io_num_reactors();
-    // A bounce buffer outlives its request-limiter slot. The slot is released at libcurl completion;
-    // the buffer only when the async H2D drains and the recycle callback fires, and it counts
-    // against this cap the whole time. A cap equal to the per-reactor request slice therefore binds
-    // before the request limiter does, and strands on-wire concurrency behind buffers that are
-    // still draining. Sized to two slices, a reactor keeps its full slice on the wire while as many
-    // again drain. Pinned memory stays bounded at 2 x KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS.
-    constexpr std::size_t drain_headroom = 2;
+    auto const max_total                 = defaults::remote_io_max_concurrent_requests();
+    auto const n                         = defaults::remote_io_num_reactors();
+    constexpr std::size_t headroom_scale = 2;
     std::optional<std::size_t> const per_reactor_max =
       (max_total == 0) ? std::nullopt
-                       : std::optional{std::max<std::size_t>(max_total / n, 1) * drain_headroom};
+                       : std::optional{std::max<std::size_t>(max_total / n, 1) * headroom_scale};
     return new BounceBufferCachePerThreadAndContext(per_reactor_max);
   }();
   return *_instance;

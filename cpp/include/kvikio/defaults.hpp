@@ -506,9 +506,8 @@ class defaults {
    * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`, parsed case-insensitively.
    * - `PER_CHUNK`: `RemoteReactorDispatch::PER_CHUNK` (default).
    * - `PER_PREAD`: `RemoteReactorDispatch::PER_PREAD`.
-   * - `SHARED_QUEUE`: `RemoteReactorDispatch::SHARED_QUEUE`, which additionally requires a
-   *   non-zero `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS` and falls back to `PER_CHUNK` without
-   *   one. `FIRST_AVAILABLE` is accepted as a deprecated alias.
+   * - `SHARED_QUEUE`: `RemoteReactorDispatch::SHARED_QUEUE`, which additionally requires a non-zero
+   *   `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS` and falls back to `PER_CHUNK` without one.
    * When a single reactor is used, all modes are equivalent.
    *
    * @return The reactor dispatch policy.
@@ -539,11 +538,11 @@ class defaults {
    * approximate: it rounds down when the value is not a multiple of the reactor count, and up when
    * it is smaller than the reactor count (each reactor is floored to at least 1).
    *
-   * Under `SHARED_QUEUE` a reactor pulls from the shared queue only while its share has room, so
-   * the full budget stays on the wire regardless of how the work was submitted or how many
+   * Under `SHARED_QUEUE` a reactor pulls from the shared queue only while its share has room. The
+   * full budget then stays on the wire regardless of how the work was submitted or how many
    * reactors there are. Device-destination reads also stage through pinned bounce buffers that are
-   * held until the device copy drains, up to twice a reactor's share each, so pinned staging
-   * memory is bounded by 2 x this value x `bounce_buffer_size()`.
+   * held until the device copy completes, up to twice a reactor's share each. Pinned staging memory
+   * is therefore bounded by 2 x this value x `bounce_buffer_size()`.
    *
    * Controlled by `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`. Must be a non-negative integer. 0
    * means unlimited. Defaults to 256. Ignored when the active backend is not `MULTI_POLL`

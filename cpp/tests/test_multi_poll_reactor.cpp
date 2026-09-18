@@ -85,8 +85,7 @@ TEST(RemoteReactorDispatchParse, recognized_names)
       << "value: " << v;
   }
 
-  // "first_available" is the former name, kept as an alias.
-  for (auto const& v : {"shared_queue", " Shared_Queue ", "first_available", "FIRST_AVAILABLE"}) {
+  for (auto const& v : {"shared_queue", " Shared_Queue "}) {
     kvikio::test::EnvVarContext ctx{{dispatch_env, v}};
     EXPECT_EQ(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_CHUNK),
               kvikio::RemoteReactorDispatch::SHARED_QUEUE)

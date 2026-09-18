@@ -85,10 +85,9 @@ enum class RemoteReactorDispatch : uint8_t {
         ///< for HTTPS, where the TLS handshake cost is non-trivial.
   SHARED_QUEUE = 2,  ///< Sub-ranges wait in one queue shared by all reactors, and a reactor pulls
                      ///< one only once it has capacity to start it. Binding at execution time
-                     ///< rather than submission time keeps a round-robin guess from stranding work
-                     ///< behind a busy reactor. Costs a lock per admission. Requires a non-zero
+                     ///< rather than submission time avoids stranding work behind a busy reactor.
+                     ///< Costs a lock per admission. Requires a non-zero
                      ///< `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`, which paces the queue.
-                     ///< `FIRST_AVAILABLE` is accepted as a deprecated alias in the env var.
 };
 
 /**

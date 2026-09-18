@@ -78,11 +78,9 @@ class BounceBufferCachePerThreadAndContext {
   /**
    * @brief Get the process-wide singleton instance.
    *
-   * The instance is constructed lazily on first call. The per-reactor cap is twice the reactor's
-   * share of `defaults::remote_io_max_concurrent_requests()`, the share being that value divided by
-   * `defaults::remote_io_num_reactors()`. A bounce buffer outlives its request slot, staying in
-   * flight until the device copy drains, so a cap equal to the share would throttle the network
-   * before the request limiter does. The singleton is intentionally heap-allocated and never
+   * The instance is constructed lazily on first call. The per-reactor cap is 2x the reactor's share
+   * of `defaults::remote_io_max_concurrent_requests()`, the share being that value divided by
+   * `defaults::remote_io_num_reactors()`. The singleton is intentionally heap-allocated and never
    * deleted. Each template instantiation (different `Allocator`) has its own singleton.
    *
    * @return Reference to the singleton instance.
