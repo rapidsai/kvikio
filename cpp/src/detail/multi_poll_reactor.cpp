@@ -14,6 +14,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include <curl/curl.h>
 
@@ -223,11 +224,6 @@ void MultiPollReactor::AdmitOutcome::note_ready_at(
     earliest_ready_at.has_value() ? std::min(earliest_ready_at.value(), ready_at) : ready_at;
 }
 
-bool MultiPollReactor::AdmitWalk::is_exhausted(CUcontext ctx) const noexcept
-{
-  return std::find(exhausted_ctxs.begin(), exhausted_ctxs.end(), ctx) != exhausted_ctxs.end();
-}
-
 void MultiPollReactor::ingest_inbox()
 {
   // The inbox is shared with submitting threads. Splice it out and drop the lock quickly.
@@ -242,20 +238,42 @@ void MultiPollReactor::ingest_inbox()
   }
 }
 
-bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer, AdmitWalk& walk)
+// Scratch state of one admission pass. `outcome` is what the pass hands back; the rest is only
+// meaningful while the pass runs, which is why the type lives here rather than in the header.
+struct MultiPollReactor::AdmitPass {
+  AdmitOutcome outcome;
+
+  // Taken once at the start of the pass. Backoffs are compared against it.
+  std::chrono::steady_clock::time_point started_at{std::chrono::steady_clock::now()};
+
+  // Once the limiter has refused a slot, stop asking for the rest of the pass. Transfers that
+  // arrive already holding one are still admitted.
+  bool limiter_full{false};
+
+  // Contexts whose bounce-buffer shard already missed this pass. Distinct contexts are assumed
+  // few, so a flat vector with linear find suffices.
+  std::vector<CUcontext> exhausted_ctxs;
+
+  [[nodiscard]] bool is_exhausted(CUcontext ctx) const noexcept
+  {
+    return std::find(exhausted_ctxs.begin(), exhausted_ctxs.end(), ctx) != exhausted_ctxs.end();
+  }
+};
+
+bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer, AdmitPass& pass)
 {
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
 
   // Still serving its retry backoff.
-  if (transfer->ready_at > walk.started_at) {
-    walk.outcome.note_ready_at(transfer->ready_at);
+  if (transfer->ready_at > pass.started_at) {
+    pass.outcome.note_ready_at(transfer->ready_at);
     return false;
   }
 
   // Gate 2 already missed for this context during this pass. Skip it without touching the limiter.
-  // At worst this is pessimistic by one pass if a recycle frees a buffer mid-walk.
-  if (transfer->is_device && walk.is_exhausted(transfer->device_ctx)) {
-    walk.outcome.deferred_for_resource = true;
+  // At worst this is pessimistic by one pass if a recycle frees a buffer mid-pass.
+  if (transfer->is_device && pass.is_exhausted(transfer->device_ctx)) {
+    pass.outcome.deferred_for_resource = true;
     return false;
   }
 
@@ -263,10 +281,10 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
   // handle at once, host and device combined. A transfer popped off the pool-wide queue arrives
   // already holding its slot. Once the limiter has refused a slot this pass, stop asking.
   auto slot = std::move(transfer->slot);
-  if (!slot && !walk.limiter_full) { slot = _request_limiter.try_acquire(); }
+  if (!slot && !pass.limiter_full) { slot = _request_limiter.try_acquire(); }
   if (!slot) {
-    walk.limiter_full                  = true;
-    walk.outcome.deferred_for_resource = true;
+    pass.limiter_full                  = true;
+    pass.outcome.deferred_for_resource = true;
     return false;
   }
 
@@ -281,8 +299,8 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
       bounce_buffer = BounceBufferCache::instance().try_get(transfer->device_ctx);
     }
     if (!bounce_buffer.has_value()) {
-      walk.outcome.deferred_for_resource = true;
-      walk.exhausted_ctxs.push_back(transfer->device_ctx);
+      pass.outcome.deferred_for_resource = true;
+      pass.exhausted_ctxs.push_back(transfer->device_ctx);
       return false;
     }
     transfer->buffer            = std::move(bounce_buffer.value());
@@ -306,18 +324,18 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
   return true;
 }
 
-void MultiPollReactor::admit_from_pool(AdmitWalk& walk)
+void MultiPollReactor::admit_from_pool(AdmitPass& pass)
 {
   // Pool work comes after local work, so retries and carried-over transfers get slots first. The
   // share stops one reactor from running the tail of a burst alone.
   auto const share = _pool->queue_share_per_reactor();
-  for (std::size_t taken = 0; taken < share && !walk.limiter_full; ++taken) {
+  for (std::size_t taken = 0; taken < share && !pass.limiter_full; ++taken) {
     // Reserve before popping, so a sub-range leaves the queue only when a reactor can put it on
     // the wire. If the queue turns out empty, the slot returns to the limiter with `slot`.
     auto slot = _request_limiter.try_acquire();
     if (!slot) {
-      walk.limiter_full                  = true;
-      walk.outcome.deferred_for_resource = true;
+      pass.limiter_full                  = true;
+      pass.outcome.deferred_for_resource = true;
       return;
     }
     auto transfer = _pool->try_pop_queued();
@@ -326,7 +344,7 @@ void MultiPollReactor::admit_from_pool(AdmitWalk& walk)
 
     bool admitted = false;
     try {
-      admitted = try_admit(transfer, walk);
+      admitted = try_admit(transfer, pass);
     } catch (...) {
       // Keep the transfer reachable, so `fail_all_pending()` resolves its aggregate.
       _pending.push_back(std::move(transfer));
@@ -345,18 +363,18 @@ void MultiPollReactor::admit_from_pool(AdmitWalk& walk)
 
 MultiPollReactor::AdmitOutcome MultiPollReactor::admit_pending()
 {
-  AdmitWalk walk;
+  AdmitPass pass;
   // Local work first: retries and transfers carried over from earlier passes. An admitted transfer
   // has moved into `_in_flight`; a refused one stays in place, holding no slot.
   for (auto it = _pending.begin(); it != _pending.end();) {
-    if (try_admit(*it, walk)) {
+    if (try_admit(*it, pass)) {
       it = _pending.erase(it);
     } else {
       ++it;
     }
   }
-  if (_pool->uses_shared_queue()) { admit_from_pool(walk); }
-  return walk.outcome;
+  if (_pool->uses_shared_queue()) { admit_from_pool(pass); }
+  return pass.outcome;
 }
 
 void MultiPollReactor::perform()

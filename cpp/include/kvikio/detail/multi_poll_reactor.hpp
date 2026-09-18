@@ -291,25 +291,9 @@ class MultiPollReactor {
     void note_ready_at(std::chrono::steady_clock::time_point ready_at) noexcept;
   };
 
-  /**
-   * @brief Scratch state of one admission pass, shared by every `try_admit()` call in it.
-   */
-  struct AdmitWalk {
-    AdmitOutcome outcome;
-
-    // Taken once at the start of the pass. Backoffs are compared against it.
-    std::chrono::steady_clock::time_point started_at{std::chrono::steady_clock::now()};
-
-    // Once the limiter has refused a slot, stop asking for the rest of the pass. Transfers that
-    // arrive already holding one are still admitted.
-    bool limiter_full{false};
-
-    // Contexts whose bounce-buffer shard already missed this pass. Distinct contexts are assumed
-    // few, so a flat vector with linear find suffices.
-    std::vector<CUcontext> exhausted_ctxs;
-
-    [[nodiscard]] bool is_exhausted(CUcontext ctx) const noexcept;
-  };
+  // Scratch state of one admission pass, shared by every `try_admit()` call in it. Defined in the
+  // .cpp next to its only users.
+  struct AdmitPass;
 
   /**
    * @brief Splice newly submitted transfers out of the inbox into `_pending`.
@@ -333,12 +317,12 @@ class MultiPollReactor {
    *
    * @param transfer The transfer. Moved into `_in_flight` on success, left in place otherwise. A
    * refused transfer holds no limiter slot afterwards, even if it arrived with one.
-   * @param walk The current pass's scratch state. Updated with why the transfer was refused.
+   * @param pass The current pass's scratch state. Updated with why the transfer was refused.
    * @return Whether the transfer is now in flight.
    * @exception std::runtime_error if `curl_multi_add_handle` fails. The transfer is left in place
    * for `fail_all_pending()` to resolve.
    */
-  bool try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer, AdmitWalk& walk);
+  bool try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer, AdmitPass& pass);
 
   /**
    * @brief `SHARED_QUEUE` only. Pull sub-ranges off the pool-wide queue and admit them, up to
@@ -348,9 +332,9 @@ class MultiPollReactor {
    * if it is then refused a bounce buffer, so pool work never waits in `_pending`, where no other
    * reactor could reach it.
    *
-   * @param walk The current pass's scratch state.
+   * @param pass The current pass's scratch state.
    */
-  void admit_from_pool(AdmitWalk& walk);
+  void admit_from_pool(AdmitPass& pass);
 
   /**
    * @brief One non-blocking `curl_multi_perform()`.
