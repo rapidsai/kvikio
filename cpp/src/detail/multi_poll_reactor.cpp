@@ -343,7 +343,14 @@ void MultiPollReactor::admit_from_pool(AdmitPass& pass)
     }
     if (!admitted) {
       // Refused a bounce buffer, and `try_admit` has dropped its slot. Back to the head of the
-      // queue for whichever reactor can start it.
+      // queue for whichever reactor can start it. This reactor pulls no more work for this pass,
+      // even though it could start host transfer sitting behind the head. That work waits until
+      // some reactor can start the head. Since the buffer cap is twice the request slot cap, this
+      // stall happens only when more device copies are pending than the reactor may have requests
+      // in flight. The stall ends at the next buffer recycle on any reactor, which wakes that
+      // reactor.
+      // TODO: Explore the design of a queue per context (nullptr for host destination) to prevent
+      // the potential stall.
       _pool->return_to_queue(std::move(transfer));
       return;
     }
