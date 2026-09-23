@@ -534,9 +534,9 @@ class defaults {
    * each). This bounds how many of them are attached to the reactors' multi handles at once, summed
    * across all reactor threads.
    *
-   * The budget is divided into an equal private share per reactor, so the effective total is
-   * approximate: it rounds down when the value is not a multiple of the reactor count, and up when
-   * it is smaller than the reactor count (each reactor is floored to at least 1).
+   * The budget is split into a private share per reactor. The remainder goes to the first reactors,
+   * making the total exact. A budget below the reactor count still gives every reactor one slot,
+   * and the effective total is then the reactor count.
    *
    * Under `SHARED_QUEUE` a reactor pulls from the shared queue only while its share has room. The
    * full budget then stays on the wire regardless of how the work was submitted or how many
