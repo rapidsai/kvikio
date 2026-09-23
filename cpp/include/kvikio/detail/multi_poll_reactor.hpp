@@ -418,7 +418,8 @@ class MultiPollReactor {
 };
 
 /**
- * @brief Process-wide pool that owns N reactors and dispatches sub-range transfers to them.
+ * @brief Process-wide pool that owns N reactors and dispatches sub-range transfers to them. Every
+ * public member function is thread-safe.
  *
  * Accessed via the leaked-pointer singleton `instance()`. Both `num_reactors` and the dispatch
  * mode are captured once at first use from `kvikio::defaults` and remain immutable for the process
@@ -486,14 +487,14 @@ class MultiReactorPool {
   /**
    * @brief Get the exception that caused pool death, or a null `exception_ptr` if alive.
    *
-   * Safe to call from any thread. Returns the same value once `is_dead()` returns `true`.
+   * Returns the same value once `is_dead()` returns `true`.
    */
   [[nodiscard]] std::exception_ptr death_reason() const noexcept;
 
   /**
    * @brief Mark the pool as dead with the given exception as the cause, then wake every reactor so
-   * each notices the death state promptly. Thread-safe. Only the first call wins. All subsequent
-   * calls are silently ignored.
+   * each notices the death state promptly. Only the first call wins. All subsequent calls are
+   * silently ignored.
    *
    * @param eptr The exception that causes pool death. Will be propagated to every in-flight and
    * subsequently submitted transfer via `RemoteMultiAggregateContext::on_subrange_failed`.
@@ -501,7 +502,7 @@ class MultiReactorPool {
   void signal_death(std::exception_ptr eptr) noexcept;
 
   /**
-   * @brief Take one sub-range off the pool-wide queue, or nothing if it is empty. Thread-safe.
+   * @brief Take one sub-range off the pool-wide queue, or nothing if it is empty.
    *
    * The caller must already hold a concurrency reservation for it.
    *
@@ -510,7 +511,7 @@ class MultiReactorPool {
   [[nodiscard]] std::unique_ptr<RemoteMultiTransfer> try_pop_queued() noexcept;
 
   /**
-   * @brief Put a sub-range back at the head of the pool-wide queue. Thread-safe.
+   * @brief Put a sub-range back at the head of the pool-wide queue.
    *
    * For a reactor that took the sub-range but cannot start it after all. If the pool has died in
    * the meantime the sub-range is failed with the death reason instead, since nothing would ever
@@ -521,7 +522,7 @@ class MultiReactorPool {
   void return_to_queue(std::unique_ptr<RemoteMultiTransfer> transfer) noexcept;
 
   /**
-   * @brief Roughly how many sub-ranges the pool-wide queue holds. Thread-safe.
+   * @brief Roughly how many sub-ranges the pool-wide queue holds.
    *
    * A hint only. See `_queue_size_hint`.
    */
@@ -542,7 +543,7 @@ class MultiReactorPool {
   [[nodiscard]] bool uses_shared_queue() const noexcept;
 
   /**
-   * @brief Nudge every reactor out of its poll. Thread-safe.
+   * @brief Nudge every reactor out of its poll.
    *
    * Called on every shared-queue submit and on pool death. Waking a subset would leave idle
    * reactors asleep whenever the woken ones are full.
