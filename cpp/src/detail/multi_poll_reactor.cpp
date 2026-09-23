@@ -419,10 +419,9 @@ void MultiPollReactor::settle_transfer(std::unique_ptr<RemoteMultiTransfer> tran
       // Prefer the handle's recorded error buffer. Fall back to the generic strerror text when
       // libcurl recorded no message.
       auto const errmsg = transfer->curl->error_message();
-      error             = std::make_exception_ptr(std::runtime_error(
-        std::string("curl_multi transfer failed (") +
-        (errmsg.empty() ? std::string{curl_easy_strerror(result)} : errmsg) +
-        ") [server returned more bytes than requested; maybe range support missing?]"));
+      error             = std::make_exception_ptr(std::overflow_error(
+        std::string("maybe the server doesn't support file ranges? [curl_multi transfer failed (") +
+        (errmsg.empty() ? std::string{curl_easy_strerror(result)} : errmsg) + ")]"));
     } else {
       long http_code = 0;
       transfer->curl->getinfo(CURLINFO_RESPONSE_CODE, &http_code);
