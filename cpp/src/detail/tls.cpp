@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,9 +9,13 @@
 #include <curl/curl.h>
 #include <kvikio/detail/tls.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
+#include <string>
 
 namespace kvikio::detail {
 
@@ -64,6 +68,31 @@ std::optional<std::string> get_ca_path_from_curl_defaults(char const* default_pa
 
   return std::nullopt;
 }
+/**
+ * @brief Warn if libcurl cannot cache the CA store for a CA bundle file set by KvikIO.
+ *
+ * Since curl 8.21.0, setting CURLOPT_CAPATH to NULL restores libcurl's built-in CA directory, if it
+ * was built with one, instead of disabling it. libcurl does not cache a CA store that includes a CA
+ * directory, so every new TLS connection parses the whole CA bundle again. Under load, for example
+ * when a server retires many keep-alive connections at once, connection setup then takes seconds.
+ * KvikIO cannot turn the built-in directory off at runtime. The libcurl that KvikIO builds itself
+ * is configured without one.
+ */
+void warn_if_ca_store_is_not_cacheable()
+{
+  auto const* version_info           = curl_version_info(::CURLVERSION_NOW);
+  constexpr unsigned int curl_8_21_0 = 0x081500;
+  if (version_info == nullptr || version_info->version_num < curl_8_21_0 ||
+      version_info->capath == nullptr) {
+    return;
+  }
+  KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
+                  " has a built-in CA directory (" + version_info->capath +
+                  "), which disables its CA store cache. Every new TLS connection parses the CA "
+                  "bundle again, which slows connection setup. Build libcurl without a built-in CA "
+                  "directory (CMake: -DCURL_CA_PATH=none, configure: --without-ca-path).");
+}
+
 }  // namespace
 
 std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths()
@@ -129,6 +158,8 @@ void set_up_ca_paths(CurlHandle& curl)
   static auto const [ca_bundle_file, ca_directory] = get_ca_paths();
 
   if (ca_bundle_file.has_value()) {
+    static std::once_flag warned;
+    std::call_once(warned, warn_if_ca_store_is_not_cacheable);
     curl.setopt(CURLOPT_CAINFO, ca_bundle_file->c_str());
     curl.setopt(CURLOPT_CAPATH, nullptr);
   } else if (ca_directory.has_value()) {

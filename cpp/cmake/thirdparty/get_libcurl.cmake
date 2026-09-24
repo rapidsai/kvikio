@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -13,6 +13,17 @@ function(find_and_configure_libcurl)
   if(DEFINED CACHE{BUILD_TESTING})
     set(CACHE_HAS_BUILD_TESTING $CACHE{BUILD_TESTING})
   endif()
+
+  # KvikIO resolves the CA bundle at runtime (see detail/tls.cpp), so libcurl needs no built-in CA
+  # directory. Since curl 8.21.0, a built-in CA directory is used whenever CURLOPT_CAPATH is NULL,
+  # and any CA directory disables libcurl's CA store cache. Every new TLS connection then parses the
+  # whole CA bundle again, which makes connection setup and reconnects expensive under load. This
+  # must be a cache variable. curl removes the cache entry for "none", while an ordinary variable
+  # passed through OPTIONS would survive and define the directory "none".
+  set(CURL_CA_PATH
+      "none"
+      CACHE STRING "No built-in CA directory for the bundled libcurl" FORCE
+  )
 
   rapids_cpm_find(
     CURL 8.13.0
