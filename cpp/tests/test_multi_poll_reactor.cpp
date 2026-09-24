@@ -84,6 +84,13 @@ TEST(RemoteReactorDispatchParse, recognized_names)
               kvikio::RemoteReactorDispatch::PER_PREAD)
       << "value: " << v;
   }
+
+  for (auto const& v : {"shared_queue", " Shared_Queue "}) {
+    kvikio::test::EnvVarContext ctx{{dispatch_env, v}};
+    EXPECT_EQ(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_CHUNK),
+              kvikio::RemoteReactorDispatch::SHARED_QUEUE)
+      << "value: " << v;
+  }
 }
 
 TEST(RemoteReactorDispatchParse, unset_returns_default)
