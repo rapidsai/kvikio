@@ -33,6 +33,15 @@ When opportunistic Direct I/O read is enabled (``KVIKIO_AUTO_DIRECT_IO_READ=1``)
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``task_size``.
 
+Non-blocking Task Join ``KVIKIO_NONBLOCKING_TASK_JOIN``
+--------------------------------------------------------
+Controls how the tasks of one parallel operation are joined once they have been submitted to the thread pool. Set the environment variable ``KVIKIO_NONBLOCKING_TASK_JOIN`` to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable the non-blocking join. It is disabled by default.
+
+  * Disabled (default): the last task performs its own sub-range and then blocks on the futures of its siblings. One worker therefore block-waits for the duration of the join, and the operation completes on that worker.
+  * Enabled: every sub-range is submitted as an independent task, and whichever one finishes last completes the operation. No worker block-waits.
+
+The variable is read only from the environment, and only once on first use. It currently applies to remote (HTTP/S3/WebHDFS) reads under the ``EASY_THREADPOOL`` backend, and has no effect under ``MULTI_POLL``.
+
 GDS Threshold ``KVIKIO_GDS_THRESHOLD``
 --------------------------------------
 In order to improve performance of small IO, ``.pread()`` and ``.pwrite()`` implement a shortcut that circumvent the threadpool and use the POSIX backend directly. Set the environment variable ``KVIKIO_GDS_THRESHOLD`` to the minimum size (in bytes) to use GDS. If not set, the default value is 16384 (16 KiB).
