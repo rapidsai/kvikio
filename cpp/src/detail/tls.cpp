@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,9 +9,12 @@
 #include <curl/curl.h>
 #include <kvikio/detail/tls.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 #include <kvikio/shim/libcurl.hpp>
 #include <optional>
 #include <stdexcept>
+#include <string>
 
 namespace kvikio::detail {
 
@@ -64,6 +67,42 @@ std::optional<std::string> get_ca_path_from_curl_defaults(char const* default_pa
 
   return std::nullopt;
 }
+
+/**
+ * @brief Get the CA paths, and warn if libcurl's CA store cannot be cached.
+ *
+ * Since curl 8.21.0, a NULL CURLOPT_CAINFO or CURLOPT_CAPATH falls back to libcurl's compile-time
+ * default. KvikIO then ends up with both a CA bundle and a CA directory, and libcurl re-parses the
+ * CA bundle for every new TLS connection, degrading performance.
+ *
+ * @return Same as `get_ca_paths()`
+ */
+std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths_and_warn()
+{
+  auto ca_paths            = get_ca_paths();
+  auto const* version_info = curl_version_info(::CURLVERSION_NOW);
+  if (version_info == nullptr || version_info->version_num < CURL_VERSION_BITS(8, 21, 0)) {
+    return ca_paths;
+  }
+
+  auto const& [ca_bundle_file, ca_directory] = ca_paths;
+  if (ca_bundle_file.has_value() && version_info->capath != nullptr) {
+    KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
+                    " adds its compile-time default CA directory (" + version_info->capath +
+                    ") to the CA bundle, such that every TLS connection re-parses the CA bundle. "
+                    "Rebuild libcurl with -DCURL_CA_PATH=none (CMake) or --without-ca-path "
+                    "(configure).");
+  }
+  if (ca_directory.has_value() && version_info->cainfo != nullptr) {
+    KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
+                    " adds its compile-time default CA bundle (" + version_info->cainfo +
+                    ") to the CA directory, such that every TLS connection re-parses the CA "
+                    "bundle. Rebuild libcurl with -DCURL_CA_BUNDLE=none (CMake) or "
+                    "--without-ca-bundle (configure).");
+  }
+  return ca_paths;
+}
+
 }  // namespace
 
 std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths()
@@ -126,7 +165,7 @@ std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths()
 
 void set_up_ca_paths(CurlHandle& curl)
 {
-  static auto const [ca_bundle_file, ca_directory] = get_ca_paths();
+  static auto const [ca_bundle_file, ca_directory] = get_ca_paths_and_warn();
 
   if (ca_bundle_file.has_value()) {
     curl.setopt(CURLOPT_CAINFO, ca_bundle_file->c_str());
