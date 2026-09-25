@@ -46,6 +46,27 @@ struct CallbackContext {
 };
 
 /**
+ * @brief Copy with non-temporal stores, which skip fetching the destination cache lines.
+ *
+ * It requires x86-64 with AVX2, and falls back to `memcpy` elsewhere.
+ *
+ * @param dst Destination.
+ * @param src Source.
+ * @param nbytes Number of bytes to copy.
+ */
+void copy_nontemporal(std::byte* dst, std::byte const* src, std::size_t nbytes);
+
+/**
+ * @brief Copy received data into host memory, with non-temporal stores if
+ * `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY` is enabled.
+ *
+ * @param dst Destination in host memory.
+ * @param src Source in libcurl's buffer.
+ * @param nbytes Number of bytes to copy.
+ */
+void copy_received_data(std::byte* dst, std::byte const* src, std::size_t nbytes);
+
+/**
  * @brief Callback for `CURLOPT_WRITEFUNCTION` that copies received bytes directly into a host
  * buffer.
  *
