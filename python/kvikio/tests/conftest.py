@@ -22,7 +22,12 @@ def command_server(conn: Connection) -> None:
     """Server to run commands given through `conn`"""
     while True:
         # Get the next command to run
-        cmd, cwd, verbose = conn.recv()
+        cmd, cwd, verbose, extra_env = conn.recv()
+        # Copy this process's environment and add the caller's variables to the copy.
+        env = None
+        if extra_env is not None:
+            env = dict(os.environ)
+            env.update(extra_env)
         # Run command
         res: subprocess.CompletedProcess = subprocess.run(
             cmd,
@@ -30,6 +35,7 @@ def command_server(conn: Connection) -> None:
             stderr=subprocess.PIPE,
             cwd=cwd,
             text=True,
+            env=env,
         )  # type: ignore
         # Send process result back to client.
         conn.send((res.args, cwd, res.returncode, res.stdout, res.stderr))
@@ -39,7 +45,8 @@ def command_server(conn: Connection) -> None:
 def run_cmd():
     """Provide a `run_cmd` function to run commands in a separate process
 
-    Use `run_cmd(cmd, cwd, verbose)` to run a command.
+    Use `run_cmd(cmd, cwd, verbose, env)` to run a command. `env` holds extra
+    environment variables for the command, added on top of the inherited ones.
 
     Notice, the server that runs the commands are spawned before CUDA initialization.
     """
@@ -52,8 +59,8 @@ def run_cmd():
     )
     p.start()
 
-    def run_cmd(cmd: Iterable[str], cwd, verbose=True):
-        client_conn.send((cmd, cwd, verbose))
+    def run_cmd(cmd: Iterable[str], cwd, verbose=True, env=None):
+        client_conn.send((cmd, cwd, verbose, env))
         args, cwd, returncode, stdout, stderr = client_conn.recv()
 
         if verbose or returncode != 0:
