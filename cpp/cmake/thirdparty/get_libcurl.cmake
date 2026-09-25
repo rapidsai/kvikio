@@ -23,11 +23,11 @@ function(find_and_configure_libcurl)
   # uses "none" as the path on a reconfigure.
   set(CURL_CA_BUNDLE
       "none"
-      CACHE STRING "No built-in CA bundle for the bundled libcurl" FORCE
+      CACHE STRING "No compile-time default CA bundle for the bundled libcurl" FORCE
   )
   set(CURL_CA_PATH
       "none"
-      CACHE STRING "No built-in CA directory for the bundled libcurl" FORCE
+      CACHE STRING "No compile-time default CA directory for the bundled libcurl" FORCE
   )
 
   rapids_cpm_find(

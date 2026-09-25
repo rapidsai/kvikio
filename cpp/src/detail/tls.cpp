@@ -71,9 +71,9 @@ std::optional<std::string> get_ca_path_from_curl_defaults(char const* default_pa
 /**
  * @brief Get the CA paths, and warn if libcurl's CA store cannot be cached.
  *
- * Since curl 8.21.0, a NULL CURLOPT_CAINFO or CURLOPT_CAPATH falls back to libcurl's built-in
- * compile-time default. KvikIO then ends up with both a CA bundle and a CA directory, and libcurl
- * re-parses the CA bundle for every new TLS connection, degrading performance.
+ * Since curl 8.21.0, a NULL CURLOPT_CAINFO or CURLOPT_CAPATH falls back to libcurl's compile-time
+ * default. KvikIO then ends up with both a CA bundle and a CA directory, and libcurl re-parses the
+ * CA bundle for every new TLS connection, degrading performance.
  *
  * @return Same as `get_ca_paths()`
  */
@@ -88,14 +88,14 @@ std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths_a
   auto const& [ca_bundle_file, ca_directory] = ca_paths;
   if (ca_bundle_file.has_value() && version_info->capath != nullptr) {
     KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
-                    " adds its built-in CA directory (" + version_info->capath +
+                    " adds its compile-time default CA directory (" + version_info->capath +
                     ") to the CA bundle, such that every TLS connection re-parses the CA bundle. "
                     "Rebuild libcurl with -DCURL_CA_PATH=none (CMake) or --without-ca-path "
                     "(configure).");
   }
   if (ca_directory.has_value() && version_info->cainfo != nullptr) {
     KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
-                    " adds its built-in CA bundle (" + version_info->cainfo +
+                    " adds its compile-time default CA bundle (" + version_info->cainfo +
                     ") to the CA directory, such that every TLS connection re-parses the CA "
                     "bundle. Rebuild libcurl with -DCURL_CA_BUNDLE=none (CMake) or "
                     "--without-ca-bundle (configure).");
