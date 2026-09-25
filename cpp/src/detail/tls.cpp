@@ -167,9 +167,6 @@ void set_up_ca_paths(CurlHandle& curl)
 {
   static auto const [ca_bundle_file, ca_directory] = get_ca_paths_and_warn();
 
-  // Never combine a CA bundle with a CA directory. A CA directory disables libcurl's CA store
-  // cache, and when combined with a CA bundle, every new TLS connection re-parses the whole bundle.
-  // Either one alone is cheap. libcurl caches a bundle alone, and OpenSSL reads a directory lazily.
   if (ca_bundle_file.has_value()) {
     curl.setopt(CURLOPT_CAINFO, ca_bundle_file->c_str());
     curl.setopt(CURLOPT_CAPATH, nullptr);
