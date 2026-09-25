@@ -14,12 +14,17 @@ function(find_and_configure_libcurl)
     set(CACHE_HAS_BUILD_TESTING $CACHE{BUILD_TESTING})
   endif()
 
-  # KvikIO resolves the CA bundle at runtime (see detail/tls.cpp), so libcurl needs no built-in CA
-  # directory. Since curl 8.21.0, a built-in CA directory is used whenever CURLOPT_CAPATH is NULL,
-  # and any CA directory disables libcurl's CA store cache. Every new TLS connection then parses the
-  # whole CA bundle again, which makes connection setup and reconnects expensive under load. This
-  # must be a cache variable. curl removes the cache entry for "none", while an ordinary variable
-  # passed through OPTIONS would survive and define the directory "none".
+  # Build libcurl without a default CA bundle or CA directory, relying instead on KvikIO's runtime
+  # CA setup defined in tls.cpp. This is a workaround for a performance bug in curl >=8.21.0. Since
+  # curl 8.21.0, the compile-time defaults are still used even when KvikIO sets CURLOPT_CAINFO or
+  # CURLOPT_CAPATH to NULL. A CA directory disables libcurl's CA store cache, and when combined with
+  # a CA bundle, every TLS connection re-parses the whole bundle. Set these as cache variables, not
+  # in OPTIONS below. curl's CMake ignores an OPTIONS value on a fresh configure, and undesirably
+  # uses "none" as the path on a reconfigure.
+  set(CURL_CA_BUNDLE
+      "none"
+      CACHE STRING "No built-in CA bundle for the bundled libcurl" FORCE
+  )
   set(CURL_CA_PATH
       "none"
       CACHE STRING "No built-in CA directory for the bundled libcurl" FORCE

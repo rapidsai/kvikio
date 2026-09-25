@@ -12,7 +12,6 @@
 #include <kvikio/logger.hpp>
 #include <kvikio/logger_macros.hpp>
 #include <kvikio/shim/libcurl.hpp>
-#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -68,29 +67,40 @@ std::optional<std::string> get_ca_path_from_curl_defaults(char const* default_pa
 
   return std::nullopt;
 }
+
 /**
- * @brief Warn if libcurl cannot cache the CA store for a CA bundle file set by KvikIO.
+ * @brief Get the CA paths, and warn if libcurl's CA store cannot be cached.
  *
- * Since curl 8.21.0, setting CURLOPT_CAPATH to NULL restores libcurl's built-in CA directory, if it
- * was built with one, instead of disabling it. libcurl does not cache a CA store that includes a CA
- * directory, so every new TLS connection parses the whole CA bundle again. Under load, for example
- * when a server retires many keep-alive connections at once, connection setup then takes seconds.
- * KvikIO cannot turn the built-in directory off at runtime. The libcurl that KvikIO builds itself
- * is configured without one.
+ * Since curl 8.21.0, a NULL CURLOPT_CAINFO or CURLOPT_CAPATH falls back to libcurl's built-in
+ * compile-time default. KvikIO then ends up with both a CA bundle and a CA directory, and libcurl
+ * re-parses the CA bundle for every new TLS connection, degrading performance.
+ *
+ * @return Same as `get_ca_paths()`
  */
-void warn_if_ca_store_is_not_cacheable()
+std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths_and_warn()
 {
-  auto const* version_info           = curl_version_info(::CURLVERSION_NOW);
-  constexpr unsigned int curl_8_21_0 = 0x081500;
-  if (version_info == nullptr || version_info->version_num < curl_8_21_0 ||
-      version_info->capath == nullptr) {
-    return;
+  auto ca_paths            = get_ca_paths();
+  auto const* version_info = curl_version_info(::CURLVERSION_NOW);
+  if (version_info == nullptr || version_info->version_num < CURL_VERSION_BITS(8, 21, 0)) {
+    return ca_paths;
   }
-  KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
-                  " has a built-in CA directory (" + version_info->capath +
-                  "), which disables its CA store cache. Every new TLS connection parses the CA "
-                  "bundle again, which slows connection setup. Build libcurl without a built-in CA "
-                  "directory (CMake: -DCURL_CA_PATH=none, configure: --without-ca-path).");
+
+  auto const& [ca_bundle_file, ca_directory] = ca_paths;
+  if (ca_bundle_file.has_value() && version_info->capath != nullptr) {
+    KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
+                    " adds its built-in CA directory (" + version_info->capath +
+                    ") to the CA bundle, such that every TLS connection re-parses the CA bundle. "
+                    "Rebuild libcurl with -DCURL_CA_PATH=none (CMake) or --without-ca-path "
+                    "(configure).");
+  }
+  if (ca_directory.has_value() && version_info->cainfo != nullptr) {
+    KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
+                    " adds its built-in CA bundle (" + version_info->cainfo +
+                    ") to the CA directory, such that every TLS connection re-parses the CA "
+                    "bundle. Rebuild libcurl with -DCURL_CA_BUNDLE=none (CMake) or "
+                    "--without-ca-bundle (configure).");
+  }
+  return ca_paths;
 }
 
 }  // namespace
@@ -155,11 +165,12 @@ std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths()
 
 void set_up_ca_paths(CurlHandle& curl)
 {
-  static auto const [ca_bundle_file, ca_directory] = get_ca_paths();
+  static auto const [ca_bundle_file, ca_directory] = get_ca_paths_and_warn();
 
+  // Never combine a CA bundle with a CA directory. A CA directory disables libcurl's CA store
+  // cache, and when combined with a CA bundle, every new TLS connection re-parses the whole bundle.
+  // Either one alone is cheap. libcurl caches a bundle alone, and OpenSSL reads a directory lazily.
   if (ca_bundle_file.has_value()) {
-    static std::once_flag warned;
-    std::call_once(warned, warn_if_ca_store_is_not_cacheable);
     curl.setopt(CURLOPT_CAINFO, ca_bundle_file->c_str());
     curl.setopt(CURLOPT_CAPATH, nullptr);
   } else if (ca_directory.has_value()) {
