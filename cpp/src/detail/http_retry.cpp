@@ -30,11 +30,7 @@ std::size_t HttpRetryPolicy::max_attempts() const noexcept { return _max_attempt
 
 bool HttpRetryPolicy::is_retryable(CURLcode curl_code, long http_code) const
 {
-  // Transport-level failures that say nothing about the request itself, only that this particular
-  // connection or name lookup did not survive. Reading a multi-TB dataset from S3 at several hundred
-  // Gbit/s makes all of these routine: the peer recycles connections, and the VPC resolver drops
-  // queries once a host exceeds its per-ENI packet allowance. Treating them as fatal fails an entire
-  // table scan for one lost packet, so they are retried with the same backoff as a timeout.
+  // Transport failures that may succeed on a new attempt.
   switch (curl_code) {
     case CURLE_OPERATION_TIMEDOUT:
     case CURLE_COULDNT_RESOLVE_HOST:
@@ -80,7 +76,6 @@ RetryOutcome HttpRetryPolicy::evaluate(CURLcode curl_code,
     return {RetryDecision::FATAL, std::chrono::milliseconds{0}, ss.str()};
   }
 
-  // A transport failure carries no HTTP status, so reporting one would be misleading.
   auto const reason = [&] {
     std::stringstream rs;
     if (curl_code == CURLE_HTTP_RETURNED_ERROR) {

@@ -125,6 +125,39 @@ Each cache holds one DNS result per host, which for S3 is a set of addresses dra
 
 Both variables are read only from the environment, and only when the caches are first used. Neither has any effect under ``MULTI_POLL``.
 
+Receive Buffer Size ``KVIKIO_REMOTE_IO_BUFFER_SIZE``
+----------------------------------------------------
+
+Size in bytes of libcurl's receive buffer, one per transfer. When unset, libcurl's own default of 16 KiB is used. The value must be positive, and is clamped to between 1 KiB and 10 MiB.
+
+This variable is read only from the environment, once per process.
+
+Network Interface Binding ``KVIKIO_REMOTE_IO_INTERFACE``
+--------------------------------------------------------
+
+Bind every connection to one network interface, for hosts with several NICs on one subnet. The value is passed to libcurl verbatim: ``<ip>`` binds the source address, ``if!<name>`` binds the device, and ``ifhost!<name>!<ip>`` binds both.
+
+Unset by default. This variable is read only from the environment, once per process.
+
+Non-temporal Copy ``KVIKIO_REMOTE_IO_NONTEMPORAL_COPY``
+-------------------------------------------------------
+
+Copy received data into host memory with non-temporal stores, which skip fetching the destination cache lines. This includes the pinned bounce buffers of device reads.
+
+It helps only when the destination is much larger than the last-level cache and is not read again soon. It requires x86-64 with AVX2, and falls back to ``memcpy`` elsewhere.
+
+Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default. This variable is read only from the environment, once per process.
+
+Discard Received Data ``KVIKIO_REMOTE_IO_DISCARD_DATA``
+-------------------------------------------------------
+
+For benchmark purpose only. Drop received data instead of copying it into host memory, to benchmark the network path alone. Reads into device memory are not affected.
+
+Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default. This variable is read only from the environment, once per process.
+
+.. warning::
+   The destination buffer is left untouched, with no error raised. Do not enable outside a benchmark.
+
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------
 
