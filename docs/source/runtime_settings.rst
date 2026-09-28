@@ -130,7 +130,7 @@ Both variables are read only from the environment, and only when the caches are 
 Receive Buffer Size ``KVIKIO_REMOTE_IO_BUFFER_SIZE``
 ----------------------------------------------------
 
-Size in bytes of libcurl's receive buffer, one per transfer. When unset, libcurl's own default of 16 KiB is used. The value must be positive, and is clamped to between 1 KiB and 10 MiB.
+Size in bytes of libcurl's receive buffer, one per transfer. When unset, libcurl's own default of 16 KiB is used. The value must be positive, and is clamped to between 1 KiB and ``CURL_MAX_READ_SIZE`` (10 MiB, defined in curl).
 
 This variable is read only from the environment, once per process.
 
