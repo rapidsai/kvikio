@@ -117,8 +117,9 @@ class BounceBufferH2D {
    *
    * @param data The host memory source.
    * @param size Number of bytes to write.
+   * @param range_size Size of the range request the data belongs to.
    */
-  void write(char const* data, std::size_t size)
+  void write(char const* data, std::size_t size, std::size_t range_size)
   {
     KVIKIO_NVTX_FUNC_RANGE();
     if (_host_buffer.size() - _host_offset < size) {  // Not enough space left in the bounce buffer
@@ -133,7 +134,8 @@ class BounceBufferH2D {
     } else if (size > 0) {
       copy_received_data(static_cast<std::byte*>(_host_buffer.get(_host_offset)),
                          reinterpret_cast<std::byte const*>(data),
-                         size);
+                         size,
+                         range_size);
       _host_offset += size;
     }
   }
@@ -780,7 +782,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
   }
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
 
-  ctx->bounce_buffer->write(data, nbytes);
+  ctx->bounce_buffer->write(data, nbytes, ctx->size);
   ctx->offset += nbytes;
   return nbytes;
 }

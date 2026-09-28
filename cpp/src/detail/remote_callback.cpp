@@ -46,7 +46,21 @@ bool discard_data_enabled()
  */
 bool nontemporal_copy_enabled()
 {
-  static bool const value = getenv_or("KVIKIO_REMOTE_IO_NONTEMPORAL_COPY", false);
+  static bool const value = getenv_or("KVIKIO_REMOTE_IO_NONTEMPORAL_COPY", true);
+  return value;
+}
+
+/**
+ * @brief The value of `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD`.
+ *
+ * Size in bytes from which a range request uses non-temporal copy, when
+ * `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY` is enabled. A range request covers at most
+ * `KVIKIO_TASK_SIZE` bytes of a read.
+ */
+std::size_t nontemporal_copy_threshold()
+{
+  static auto const value =
+    getenv_or("KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD", std::size_t{1024 * 1024});
   return value;
 }
 
@@ -116,9 +130,12 @@ void copy_nontemporal(std::byte* dst, std::byte const* src, std::size_t nbytes)
   }
 }
 
-void copy_received_data(std::byte* dst, std::byte const* src, std::size_t nbytes)
+void copy_received_data(std::byte* dst,
+                        std::byte const* src,
+                        std::size_t nbytes,
+                        std::size_t range_size)
 {
-  if (nontemporal_copy_enabled()) {
+  if (nontemporal_copy_enabled() && range_size >= nontemporal_copy_threshold()) {
     copy_nontemporal(dst, src, nbytes);
   } else {
     std::memcpy(dst, src, nbytes);
@@ -144,7 +161,8 @@ std::size_t callback_host_memory(char* data, std::size_t size, std::size_t nmemb
   if (!discard_data_enabled()) {
     copy_received_data(reinterpret_cast<std::byte*>(ctx->buf + ctx->offset),
                        reinterpret_cast<std::byte const*>(data),
-                       nbytes);
+                       nbytes,
+                       ctx->size);
   }
   ctx->offset += nbytes;
   return nbytes;
@@ -162,7 +180,8 @@ std::size_t callback_pinned_buffer(char* data, std::size_t size, std::size_t nme
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
   copy_received_data(static_cast<std::byte*>(ctx->pinned_buffer) + ctx->offset,
                      reinterpret_cast<std::byte const*>(data),
-                     nbytes);
+                     nbytes,
+                     ctx->size);
   ctx->offset += nbytes;
   return nbytes;
 }

@@ -58,13 +58,18 @@ void copy_nontemporal(std::byte* dst, std::byte const* src, std::size_t nbytes);
 
 /**
  * @brief Copy received data into host memory, with non-temporal stores if
- * `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY` is enabled.
+ * `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY` is enabled and the range request is at least
+ * `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD` bytes.
  *
  * @param dst Destination in host memory.
  * @param src Source in libcurl's buffer.
  * @param nbytes Number of bytes to copy.
+ * @param range_size Size of the range request the data belongs to.
  */
-void copy_received_data(std::byte* dst, std::byte const* src, std::size_t nbytes);
+void copy_received_data(std::byte* dst,
+                        std::byte const* src,
+                        std::size_t nbytes,
+                        std::size_t range_size);
 
 /**
  * @brief Callback for `CURLOPT_WRITEFUNCTION` that copies received bytes directly into a host

@@ -148,7 +148,14 @@ Copy received data into host memory with non-temporal stores, which skip fetchin
 
 It helps only when the destination is much larger than the last-level cache and is not read again soon. It requires x86-64 with AVX2, and falls back to ``memcpy`` elsewhere.
 
-Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default. This variable is read only from the environment, once per process.
+Enabled by default. Set to ``false``, ``off``, ``no``, or ``0`` (case-insensitive) to disable. This variable is read only from the environment, once per process.
+
+Non-temporal Copy Threshold ``KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD``
+---------------------------------------------------------------------------
+
+Size in bytes from which a range request uses non-temporal copy, when ``KVIKIO_REMOTE_IO_NONTEMPORAL_COPY`` is enabled. A range request covers at most ``KVIKIO_TASK_SIZE`` bytes of a read.
+
+The default value is 1048576 (1 MiB). This variable is read only from the environment, once per process.
 
 Discard Received Data ``KVIKIO_REMOTE_IO_DISCARD_DATA``
 -------------------------------------------------------
