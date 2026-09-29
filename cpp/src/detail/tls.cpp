@@ -88,17 +88,19 @@ std::pair<std::optional<std::string>, std::optional<std::string>> get_ca_paths_a
   auto const& [ca_bundle_file, ca_directory] = ca_paths;
   if (ca_bundle_file.has_value() && version_info->capath != nullptr) {
     KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
-                    " adds its compile-time default CA directory (" + version_info->capath +
-                    ") to the CA bundle, such that every TLS connection re-parses the CA bundle. "
-                    "Rebuild libcurl with -DCURL_CA_PATH=none (CMake) or --without-ca-path "
-                    "(configure).");
+                    " uses its compile-time default CA directory (" + version_info->capath +
+                    ") in addition to the CA bundle (" + *ca_bundle_file +
+                    ") selected by KvikIO. This disables the CA store cache, so every new TLS "
+                    "connection re-parses the CA bundle. Rebuild libcurl with "
+                    "-DCURL_CA_PATH=none (CMake) or --without-ca-path (configure).");
   }
   if (ca_directory.has_value() && version_info->cainfo != nullptr) {
     KVIKIO_LOG_WARN(std::string{"libcurl "} + version_info->version +
-                    " adds its compile-time default CA bundle (" + version_info->cainfo +
-                    ") to the CA directory, such that every TLS connection re-parses the CA "
-                    "bundle. Rebuild libcurl with -DCURL_CA_BUNDLE=none (CMake) or "
-                    "--without-ca-bundle (configure).");
+                    " uses its compile-time default CA bundle (" + version_info->cainfo +
+                    ") in addition to the CA directory (" + *ca_directory +
+                    ") selected by KvikIO. This disables the CA store cache, so every new TLS "
+                    "connection re-parses the CA bundle. Rebuild libcurl with "
+                    "-DCURL_CA_BUNDLE=none (CMake) or --without-ca-bundle (configure).");
   }
   return ca_paths;
 }
