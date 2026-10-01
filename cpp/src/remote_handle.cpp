@@ -793,6 +793,69 @@ namespace {
                                                                         : IoBackend::REMOTE_HTTP;
 }
 
+/**
+ * @brief Submit each `task_size` sub-range of a read to `thread_pool` as an independent task.
+ *
+ * The task that finishes last resolves the returned future, and no worker is block-waiting on its
+ * siblings.
+ *
+ * @tparam Task Callable that performs one sub-range read. Must be copy-constructible.
+ * @param task Performs one sub-range read.
+ * @param buf Destination buffer.
+ * @param size Number of bytes to read. Must be positive.
+ * @param file_offset File offset in bytes.
+ * @param task_size Size of each sub-range in bytes. Must be positive.
+ * @param thread_pool Thread pool to run the tasks on. Must not be null.
+ * @param recorder Records the logical operation. Null when nobody is observing.
+ * @return Future that on completion returns the number of bytes read, which is always `size`.
+ */
+template <typename Task>
+std::future<std::size_t> submit_subrange_reads(
+  Task task,
+  std::byte* buf,
+  std::size_t size,
+  std::size_t file_offset,
+  std::size_t task_size,
+  ThreadPool* thread_pool,
+  std::shared_ptr<detail::LogicalObservationRecorder> recorder)
+{
+  KVIKIO_NVTX_FUNC_RANGE(size);
+
+  std::size_t const num_subranges = (task_size >= size) ? 1 : (size + task_size - 1) / task_size;
+  auto aggregate      = std::make_shared<detail::RemoteMultiAggregateContext>(num_subranges);
+  aggregate->recorder = std::move(recorder);
+  auto fut            = aggregate->get_future();
+
+  auto const& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
+
+  std::size_t remaining = size;
+  std::size_t cur_off   = file_offset;
+  auto cur_buf          = buf;
+  for (std::size_t i = 0; i < num_subranges; ++i) {
+    std::size_t const subrange_size = std::min(task_size, remaining);
+    thread_pool->detach_task([task,
+                              aggregate,
+                              cur_buf,
+                              subrange_size,
+                              cur_off,
+                              call_idx   = call_idx,
+                              nvtx_color = nvtx_color] {
+      KVIKIO_NVTX_SCOPED_RANGE("task", call_idx, nvtx_color);
+      try {
+        auto const nbytes = task(cur_buf, subrange_size, cur_off);
+        aggregate->on_subrange_complete(nbytes);
+      } catch (...) {
+        aggregate->on_subrange_failed(std::current_exception());
+      }
+    });
+    cur_buf += subrange_size;
+    cur_off += subrange_size;
+    remaining -= subrange_size;
+  }
+
+  return fut;
+}
+
 }  // namespace
 
 std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_offset)
@@ -938,6 +1001,20 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     .http_method = "GET"};
 
   if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
+    if (detail::nonblocking_task_join()) {
+      auto task = [this, is_host_mem](
+                    std::byte* dst, std::size_t size, std::size_t file_offset) -> std::size_t {
+        return read_impl(dst, size, file_offset, is_host_mem);
+      };
+      return submit_subrange_reads(std::move(task),
+                                   static_cast<std::byte*>(buf),
+                                   size,
+                                   file_offset,
+                                   task_size,
+                                   thread_pool,
+                                   std::move(recorder));
+    }
+
     auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
 
     auto task = [this, is_host_mem, physical](void* devPtr_base,
@@ -959,7 +1036,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                                {.thread_pool = thread_pool,
                                 .call_idx    = call_idx,
                                 .nvtx_color  = nvtx_color,
-                                .recorder    = recorder});
+                                .recorder    = std::move(recorder)});
   }
 
   // MULTI_POLL path. The lifecycle of one pread() call uses four cooperating pieces:

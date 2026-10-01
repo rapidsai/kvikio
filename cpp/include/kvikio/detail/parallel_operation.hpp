@@ -65,6 +65,24 @@ inline const std::pair<const nvtx_color_type&, std::uint64_t> get_next_color_and
 }
 
 /**
+ * @brief Whether the sub-range tasks of one parallel operation join without blocking a worker. Set
+ * by the environment variable `KVIKIO_NONBLOCKING_TASK_JOIN`.
+ *
+ * - Disabled (default): the last task performs its own sub-range and then blocks on the futures of
+ * its siblings. One worker therefore block-waits for the duration of the join, and the operation
+ * completes on that worker.
+ * - Enabled: every sub-range is submitted as an independent task, and whichever one finishes last
+ * completes the operation. No worker block-waits.
+ *
+ * @return True if the non-blocking join is enabled.
+ */
+inline bool nonblocking_task_join()
+{
+  static bool const enabled = getenv_or("KVIKIO_NONBLOCKING_TASK_JOIN", false);
+  return enabled;
+}
+
+/**
  * @brief Options for a single I/O task submission.
  */
 struct TaskOptions {
