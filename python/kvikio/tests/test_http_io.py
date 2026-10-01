@@ -469,11 +469,12 @@ def test_timeout_raises(tmpdir, capfd):
                     assert f.nbytes() == a.nbytes
                     f.read(b)
             assert m.match("KvikIO: HTTP request reached maximum number of attempts")
-            assert m.match("Operation timed out.")
+            assert m.match("Transport error: Timeout was reached.")
 
     captured = capfd.readouterr()
     notices = re.findall(
-        r"KvikIO: Timeout error\. Retrying after 500ms \(attempt 1 of 2\)\.",
+        r"KvikIO: Transport error: Timeout was reached\. Retrying after 500ms "
+        r"\(attempt 1 of 2\)\.",
         captured.err,
     )
     assert len(notices) == 1, captured.err

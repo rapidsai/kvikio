@@ -167,6 +167,7 @@ kvikio_add_nsys_plugin_test(
 
 if(KvikIO_REMOTE_SUPPORT)
   kvikio_add_test(NAME HTTP_RETRY_TEST SOURCES test_http_retry.cpp utils/env.cpp)
+  kvikio_add_test(NAME REMOTE_CALLBACK_TEST SOURCES test_remote_callback.cpp)
   kvikio_add_test(NAME REMOTE_HANDLE_TEST SOURCES test_remote_handle.cpp utils/env.cpp)
   kvikio_add_test(NAME HDFS_TEST SOURCES test_hdfs.cpp utils/hdfs_helper.cpp)
   kvikio_add_test(NAME TLS_TEST SOURCES test_tls.cpp utils/env.cpp)
