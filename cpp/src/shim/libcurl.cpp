@@ -130,7 +130,7 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
 
   // Size in bytes of libcurl's receive buffer, one per transfer. When unset, libcurl's own default
   // of 16 KiB is used. The value must be positive, and is clamped to between 1 KiB and
-  // CURL_MAX_READ_SIZE (10 MiB, defined in curl).
+  // CURL_MAX_READ_SIZE (10 MiB in recent versions of curl).
   static std::optional<long> const buffer_size = []() -> std::optional<long> {
     if (std::getenv("KVIKIO_REMOTE_IO_BUFFER_SIZE") == nullptr) { return std::nullopt; }
     auto const requested = getenv_or("KVIKIO_REMOTE_IO_BUFFER_SIZE", ssize_t{0});
