@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -265,10 +265,12 @@ TEST_F(BounceBufferCacheTest, singleton_instance_has_default_cap)
 {
   auto& s =
     kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator>::instance();
-  auto const max_total = kvikio::defaults::remote_io_max_concurrent_requests();
-  auto const n         = kvikio::defaults::remote_io_num_reactors();
+  auto const max_total                 = kvikio::defaults::remote_io_max_concurrent_requests();
+  auto const n                         = kvikio::defaults::remote_io_num_reactors();
+  constexpr std::size_t headroom_scale = 2;
   std::optional<std::size_t> const expected_cap =
-    (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
+    (max_total == 0) ? std::nullopt
+                     : std::optional{std::max<std::size_t>(max_total / n, 1) * headroom_scale};
   EXPECT_EQ(s.cap(), expected_cap);
 
   // try_get on the singleton works.

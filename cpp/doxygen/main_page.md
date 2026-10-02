@@ -5,10 +5,10 @@ bindings to [cuFile](https://docs.nvidia.com/gpudirect-storage/api-reference-gui
 which enables [GPUDirect Storage (GDS)](https://developer.nvidia.com/blog/gpudirect-storage/).
 KvikIO also works efficiently when GDS isn't available and can read/write both host and device data seamlessly.
 
-KvikIO C++ is part of the [RAPIDS](https://rapids.ai/) suite of open-source software libraries for GPU-accelerated data science.
+KvikIO C++ is part of the [NVIDIA CUDA-X libraries for data science](https://developer.nvidia.com/topics/ai/data-science/cuda-x-for-data-science), an open-source suite of GPU-accelerated libraries.
 
 ---
-**Notice** this is the documentation for the C++ library. For the Python documentation, see under [kvikio](https://docs.rapids.ai/api/kvikio/nightly/).
+**Notice** this is the documentation for the C++ library. For the Python documentation, see under [kvikio](https://docs.nvidia.com/kvikio/latest/).
 
 
 ---
@@ -80,7 +80,7 @@ Then run the example:
 
 ## Runtime Settings
 
-#### Compatibility Mode (KVIKIO_COMPAT_MODE)
+### Compatibility Mode (KVIKIO_COMPAT_MODE)
 When KvikIO is running in compatibility mode, it doesn't load `libcufile.so`. Instead, reads and writes are done using POSIX. Notice, this is not the same as the compatibility mode in cuFile. It is possible that KvikIO performs I/O in the non-compatibility mode by using the cuFile library, but the cuFile library itself is configured to operate in its own compatibility mode. For more details, refer to [cuFile compatibility mode](https://docs.nvidia.com/gpudirect-storage/api-reference-guide/index.html#cufile-compatibility-mode) and [cuFile environment variables](https://docs.nvidia.com/gpudirect-storage/troubleshooting-guide/index.html#environment-variables)
 
 The environment variable `KVIKIO_COMPAT_MODE` has three options (case-insensitive):
@@ -96,27 +96,27 @@ Under `AUTO`, KvikIO falls back to the compatibility mode:
 This setting can also be programmatically controlled by `defaults::set_compat_mode()` and `defaults::compat_mode_reset()`.
 
 
-#### Thread Pool (KVIKIO_NTHREADS)
+### Thread Pool (KVIKIO_NTHREADS)
 KvikIO can use multiple threads for IO automatically. Set the environment variable `KVIKIO_NTHREADS` to the number of threads in the thread pool. If not set, the default value is 1.
 
 This setting can also be controlled by `defaults::thread_pool_nthreads()` and `defaults::thread_pool_nthreads_reset()`.
 
-#### Task Size (KVIKIO_TASK_SIZE)
+### Task Size (KVIKIO_TASK_SIZE)
 KvikIO splits parallel IO operations into multiple tasks. Set the environment variable `KVIKIO_TASK_SIZE` to the maximum task size (in bytes). If not set, the default value is 4194304 (4 MiB).
 
 This setting can also be controlled by `defaults::task_size()` and `defaults::task_size_reset()`.
 
-#### GDS Threshold (KVIKIO_GDS_THRESHOLD)
+### GDS Threshold (KVIKIO_GDS_THRESHOLD)
 To improve performance of small IO requests, `.pread()` and `.pwrite()` implement a shortcut that circumvents the threadpool and uses the POSIX backend directly. Set the environment variable `KVIKIO_GDS_THRESHOLD` to the minimum size (in bytes) to use GDS. If not set, the default value is 1048576 (1 MiB).
 
 This setting can also be controlled by `defaults::gds_threshold()` and `defaults::gds_threshold_reset()`.
 
-#### Size of the Bounce Buffer (KVIKIO_GDS_THRESHOLD)
+### Size of the Bounce Buffer (KVIKIO_GDS_THRESHOLD)
 KvikIO might have to use intermediate host buffers (one per thread) when copying between files and device memory. Set the environment variable `KVIKIO_BOUNCE_BUFFER_SIZE` to the size (in bytes) of these "bounce" buffers. If not set, the default value is 16777216 (16 MiB).
 
 This setting can also be controlled by `defaults::bounce_buffer_size()` and `defaults::bounce_buffer_size_reset()`.
 
-#### HTTP Retries
+### HTTP Retries
 
 The behavior when a remote IO read returns a error can be controlled through the `KVIKIO_HTTP_STATUS_CODES` and `KVIKIO_HTTP_MAX_ATTEMPTS` environment variables.
 `KVIKIO_HTTP_STATUS_CODES` controls the status codes to retry, and `KVIKIO_HTTP_MAX_ATTEMPTS` controls the maximum number of attempts to make before throwing an exception.
@@ -137,7 +137,7 @@ Note that if you're reading a large file that has been split into multiple reads
 
 These settings can also be controlled by `defaults::http_max_attempts()`, `defaults::http_max_attempts_reset()`, `defaults::http_status_codes()`, and `defaults::http_status_codes_reset()`.
 
-#### Remote Verbose (KVIKIO_REMOTE_VERBOSE)
+### Remote Verbose (KVIKIO_REMOTE_VERBOSE)
 For debugging HTTP requests, you can enable verbose output that shows detailed information about HTTP communication including headers, request/response bodies, connection details, and SSL handshake information.
 
 Set the environment variable `KVIKIO_REMOTE_VERBOSE` to `true`, `on`, `yes`, or `1` (case-insensitive) to enable verbose output. Otherwise, verbose output is disabled by default.

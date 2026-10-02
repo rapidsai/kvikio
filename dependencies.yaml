@@ -65,6 +65,9 @@ files:
   py_run_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
+    matrix:
+      cuda_suffixed: ["false"]
+      use_cuda_wheels: ["true"]
     extras:
       table: project
     includes:
@@ -74,6 +77,9 @@ files:
   py_run_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
+    matrix:
+      cuda_suffixed: ["false"]
+      use_cuda_wheels: ["true"]
     extras:
       table: project
     includes:
@@ -91,6 +97,9 @@ files:
   py_rapids_build_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
+    matrix:
+      cuda_suffixed: ["false"]
+      use_cuda_wheels: ["true"]
     extras:
       table: tool.rapids-build-backend
       key: requires
@@ -110,6 +119,9 @@ files:
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
+    matrix:
+      cuda_suffixed: ["false"]
+      use_cuda_wheels: ["true"]
     extras:
       table: project.optional-dependencies
       key: test
@@ -350,10 +362,12 @@ dependencies:
               - *cupy_cu13
           - matrix:
               cuda: "12.*"
+              use_cuda_wheels: "true"
             packages:
               - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
+              use_cuda_wheels: "true"
             packages:
               - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
   depends_on_libkvikio:
@@ -378,7 +392,10 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - libkvikio-cu13==26.12.*,>=0.0.0a0
-          - {matrix: null, packages: [*libkvikio_unsuffixed]}
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *libkvikio_unsuffixed
   depends_on_rapids_logger:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -399,7 +416,7 @@ dependencies:
           - sphinx-click
       - output_types: conda
         packages:
-          - doxygen=1.9.1 # pre-commit hook needs a specific version.
+          - doxygen=1.18.0 # pre-commit hook needs a specific version.
           - pip:
               - nvidia-sphinx-theme
       - output_types: requirements
@@ -505,6 +522,7 @@ dependencies:
               use_cuda_wheels: "false"
             packages:
           - matrix:
+              use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]
       # The `cufile` extra was added to the `cuda-toolkit` metapackage in 12.6.3
