@@ -55,7 +55,7 @@ jobs:
         id: get-pr-info
         uses: nv-gha-runners/get-pr-info@090577647b8ddc4e06e809e264f7881650ecdccf # main
       - name: Check if nightly CI is passing
-        uses: rapidsai/shared-actions/check_nightly_success/dispatch@new-ci-wheel-images
+        uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
         with:
           repo: ${{ github.repository }}
           target-branch: ${{ fromJSON(steps.get-pr-info.outputs.pr-info).base.ref }}
@@ -195,7 +195,7 @@ jobs:
         # This gate is here and not at the job level because we need the job to not be skipped,
         # since other jobs depend on it.
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
-        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@new-ci-wheel-images
+        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   checks:
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -417,4 +417,4 @@ jobs:
     continue-on-error: true
     steps:
       - name: Telemetry summarize
-        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@new-ci-wheel-images
+        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main
