@@ -175,10 +175,6 @@ defaults::defaults()
     _remote_io_num_reactors = static_cast<unsigned int>(env);
   }
   {
-    _remote_io_reactor_dispatch =
-      getenv_or("KVIKIO_REMOTE_IO_REACTOR_DISPATCH", RemoteReactorDispatch::PER_CHUNK);
-  }
-  {
     ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS", ssize_t{256});
     KVIKIO_EXPECT(
       env >= 0,
@@ -323,19 +319,10 @@ void defaults::set_remote_io_num_reactors(unsigned int num_reactors)
 
 RemoteReactorDispatch defaults::remote_io_reactor_dispatch()
 {
-  return instance()->_remote_io_reactor_dispatch;
+  return RemoteReactorDispatch::SHARED_QUEUE;
 }
 
-void defaults::set_remote_io_reactor_dispatch(RemoteReactorDispatch dispatch)
-{
-#ifdef KVIKIO_LIBCURL_FOUND
-  KVIKIO_EXPECT(!detail::MultiReactorPool::is_instantiated(),
-                "remote_io_reactor_dispatch cannot be changed after the MULTI_POLL reactor pool "
-                "has already started",
-                std::runtime_error);
-#endif
-  instance()->_remote_io_reactor_dispatch = dispatch;
-}
+void defaults::set_remote_io_reactor_dispatch(RemoteReactorDispatch) {}
 
 std::size_t defaults::remote_io_max_concurrent_requests()
 {
