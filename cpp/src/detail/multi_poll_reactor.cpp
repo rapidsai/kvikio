@@ -73,6 +73,17 @@ CurlMultiAttachment& CurlMultiAttachment::operator=(CurlMultiAttachment&& other)
   return *this;
 }
 
+namespace {
+// Fail every request this transfer serves with the same exception.
+void fail_transfer(RemoteMultiTransfer& transfer, std::exception_ptr const& eptr) noexcept
+{
+  transfer.physical_recorder.reset();
+  for (auto const& aggregate : transfer.aggregates) {
+    aggregate->on_subrange_failed(eptr);
+  }
+}
+}  // namespace
+
 RemoteMultiTransfer::~RemoteMultiTransfer()
 {
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
@@ -89,21 +100,21 @@ RemoteMultiTransfer::~RemoteMultiTransfer()
   }
 }
 
-RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subranges)
-  : _subranges_left{num_subranges}
+RemoteMultiAggregateContext::RemoteMultiAggregateContext(std::size_t num_subranges,
+                                                         std::size_t total_bytes)
+  : _subranges_left{num_subranges}, _total_bytes{total_bytes}
 {
   KVIKIO_EXPECT(num_subranges > 0,
                 "RemoteMultiAggregateContext requires at least one sub-range",
                 std::invalid_argument);
 }
 
-void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
+void RemoteMultiAggregateContext::on_subrange_complete()
 {
-  _total_bytes.fetch_add(bytes, std::memory_order_relaxed);
-  // The last thread to decrement _subranges_left to zero fulfills the promise. Its acq_rel
-  // decrement acquires every other thread's relaxed _total_bytes writes (each released by that
-  // thread's own decrement), so the sum is complete. _first_exception needs no ordering here, since
-  // it is written and read under _exception_mutex.
+  // The last thread to decrement _subranges_left to zero fulfills the promise. The acq_rel
+  // decrement makes the other threads' writes into the caller's buffer visible to this thread
+  // before the promise is fulfilled, so the buffer is complete once `future.get()` returns.
+  // _first_exception needs no ordering here, since it is written and read under _exception_mutex.
   if (_subranges_left.fetch_sub(1, std::memory_order_acq_rel) == 1) {
     std::lock_guard const lock(_exception_mutex);
     // Finish the observation before fulfilling the promise below. The other order would let the
@@ -112,13 +123,13 @@ void RemoteMultiAggregateContext::on_subrange_complete(std::size_t bytes)
       if (_first_exception) {
         recorder->finish_with_failure();
       } else {
-        recorder->finish(_total_bytes.load(std::memory_order_relaxed));
+        recorder->finish(_total_bytes);
       }
     }
     if (_first_exception) {
       _promise.set_exception(_first_exception);
     } else {
-      _promise.set_value(_total_bytes.load(std::memory_order_relaxed));
+      _promise.set_value(_total_bytes);
     }
   }
 }
@@ -192,50 +203,11 @@ MultiPollReactor::~MultiPollReactor() noexcept
 
 void MultiPollReactor::wakeup() noexcept { std::ignore = curl_multi_wakeup(_curl_multi); }
 
-void MultiPollReactor::submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers)
-{
-  if (transfers.empty()) { return; }
-  std::exception_ptr fail_reason;
-  {
-    std::lock_guard const lock(_submit_mutex);
-    if (_pool->is_dead()) {
-      // The pool is dead. Fail the batch immediately instead of pushing into an inbox that will
-      // never be drained.
-      fail_reason = _pool->death_reason();
-    } else {
-      for (auto& transfer : transfers) {
-        _inbox.push_back(std::move(transfer));
-      }
-    }
-  }
-  if (fail_reason) {
-    for (auto& transfer : transfers) {
-      transfer->aggregate->on_subrange_failed(fail_reason);
-    }
-    return;
-  }
-  wakeup();
-}
-
 void MultiPollReactor::PassOutcome::record_ready_at(
   std::chrono::steady_clock::time_point ready_at) noexcept
 {
   earliest_ready_at =
     earliest_ready_at.has_value() ? std::min(earliest_ready_at.value(), ready_at) : ready_at;
-}
-
-void MultiPollReactor::ingest_inbox()
-{
-  // The inbox is shared with submitting threads. Splice it out and drop the lock quickly.
-  std::lock_guard const lock(_submit_mutex);
-  if (_pending.empty()) {
-    std::swap(_pending, _inbox);
-    return;
-  }
-  while (!_inbox.empty()) {
-    _pending.push_back(std::move(_inbox.front()));
-    _inbox.pop_front();
-  }
 }
 
 // Scratch state of one admission pass. Only `outcome` outlives the pass.
@@ -309,7 +281,7 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
   transfer->attachment = CurlMultiAttachment{_curl_multi, easy};
   transfer->slot       = std::move(slot);
   // The request is on the wire from here, so this is where the transfer's own span starts.
-  // Everything before it was queueing, in the inbox or behind the gates.
+  // Everything before it was queueing, in the pool-wide queue or behind the gates.
   transfer->physical_recorder.emplace(
     transfer->physical, transfer->file_offset, transfer->ctx.size);
   _in_flight.emplace(easy, std::move(transfer));
@@ -318,8 +290,9 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
 
 void MultiPollReactor::admit_from_pool(AdmitPass& pass)
 {
-  // Pool work comes after local work. Retries and carried-over transfers get slots first. The share
-  // spreads a burst over reactors. Each reactor's write-callback copy is bound by one CPU.
+  // Pool work comes after retries, which get slots first. The share spreads a burst over reactors.
+  // Each reactor's write-callback copy is bound by one CPU. For an unlimited budget, the limiter
+  // never refuses, and the share alone bounds what one pass takes.
   auto const share = _pool->queue_share_per_reactor();
   for (std::size_t taken = 0; taken < share; ++taken) {
     // Reserve before popping. A sub-range then leaves the queue only when a reactor can put it on
@@ -337,7 +310,7 @@ void MultiPollReactor::admit_from_pool(AdmitPass& pass)
     try {
       admitted = try_admit(transfer, pass);
     } catch (...) {
-      // Keep the transfer reachable for `fail_all_pending()` to resolve its aggregate.
+      // Keep the transfer reachable for `fail_all_pending()` to resolve its aggregates.
       _pending.push_back(std::move(transfer));
       throw;
     }
@@ -360,8 +333,8 @@ void MultiPollReactor::admit_from_pool(AdmitPass& pass)
 MultiPollReactor::PassOutcome MultiPollReactor::admit_pending()
 {
   AdmitPass pass;
-  // Local work first: retries and transfers carried over from earlier passes. An admitted transfer
-  // has moved into `_in_flight`. A refused one stays in place, holding no slot.
+  // Retries first. An admitted transfer has moved into `_in_flight`. A refused one stays in place,
+  // holding no slot.
   for (auto it = _pending.begin(); it != _pending.end();) {
     if (try_admit(*it, pass)) {
       it = _pending.erase(it);
@@ -369,7 +342,7 @@ MultiPollReactor::PassOutcome MultiPollReactor::admit_pending()
       ++it;
     }
   }
-  if (_pool->uses_shared_queue()) { admit_from_pool(pass); }
+  admit_from_pool(pass);
   return pass.outcome;
 }
 
@@ -391,10 +364,31 @@ void MultiPollReactor::stage_device_copy(RemoteMultiTransfer& transfer)
   // the H2D copy completes. The callback also wakes this reactor, which may be waiting on that
   // slot.
   PushAndPopContext c(transfer.device_ctx);
-  CUstream stream = StreamCachePerThreadAndContext::get();
-  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
-    convert_void2deviceptr(transfer.device_dst), transfer.buffer.get(), transfer.ctx.size, stream));
-  transfer.aggregate->io_event_barrier->record_event(stream);
+  CUstream stream      = StreamCachePerThreadAndContext::get();
+  auto const& segments = transfer.ctx.segments;
+  auto* pinned         = static_cast<std::byte*>(transfer.buffer.get());
+  if (segments.size() == 1) {
+    auto const& segment = segments.front();
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemcpyHtoDAsync(
+      convert_void2deviceptr(segment.buf), pinned + segment.span_offset, segment.length, stream));
+  } else {
+    // Used for a coalesced transfer. Copy the wanted bytes and drop the gap bytes.
+    std::vector<CUdeviceptr> dsts;
+    std::vector<CUdeviceptr> srcs;
+    std::vector<std::size_t> sizes;
+    dsts.reserve(segments.size());
+    srcs.reserve(segments.size());
+    sizes.reserve(segments.size());
+    for (auto const& segment : segments) {
+      dsts.push_back(convert_void2deviceptr(segment.buf));
+      srcs.push_back(convert_void2deviceptr(pinned + segment.span_offset));
+      sizes.push_back(segment.length);
+    }
+    KVIKIO_CUDA_DRIVER_TRY(cudaAPI::cuda_memcpy_batch_async(dsts, srcs, sizes, stream));
+  }
+  for (auto const& aggregate : transfer.aggregates) {
+    aggregate->io_event_barrier->record_event(stream);
+  }
   BounceBufferCache::instance().recycle_after(
     transfer.device_ctx, std::move(transfer.buffer), stream, [curl_multi = _curl_multi]() noexcept {
       std::ignore = curl_multi_wakeup(curl_multi);
@@ -409,9 +403,11 @@ void MultiPollReactor::settle_transfer(std::unique_ptr<RemoteMultiTransfer> tran
   try {
     if (result == CURLE_OK && !transfer->ctx.overflow_error) {
       if (transfer->is_device) { stage_device_copy(*transfer); }
-      // Before the aggregate, which may make the caller's future ready.
+      // Before the aggregates, which may make the callers' futures ready.
       transfer->physical_recorder->finish(transfer->ctx.size);
-      transfer->aggregate->on_subrange_complete(transfer->ctx.size);
+      for (auto const& aggregate : transfer->aggregates) {
+        aggregate->on_subrange_complete();
+      }
       return;
     }
 
@@ -445,8 +441,7 @@ void MultiPollReactor::settle_transfer(std::unique_ptr<RemoteMultiTransfer> tran
   } catch (...) {
     error = std::current_exception();
   }
-  transfer->physical_recorder.reset();
-  transfer->aggregate->on_subrange_failed(error);
+  fail_transfer(*transfer, error);
 }
 
 std::size_t MultiPollReactor::reap_completions(PassOutcome& outcome)
@@ -478,8 +473,8 @@ int MultiPollReactor::poll_timeout_ms(PassOutcome const& outcome,
   // by a completion or by the recycle callback.
   constexpr int busy_timeout_ms = 10;
 
-  // Under SHARED_QUEUE an empty `_pending` is not idle while the pool-wide queue holds work.
-  bool const pool_work_waiting = _pool->uses_shared_queue() && _pool->queued_count_hint() > 0;
+  // An empty `_pending` is not idle while the pool-wide queue holds work.
+  bool const pool_work_waiting = _pool->queued_count_hint() > 0;
   if (_pending.empty() && !pool_work_waiting) { return idle_timeout_ms; }
 
   // Completions freed slots this pass. Come straight back and spend them on the waiting work. This
@@ -519,7 +514,6 @@ void MultiPollReactor::io_thread_main()
 {
   try {
     while (!_pool->is_dead()) {
-      ingest_inbox();
       auto outcome = admit_pending();
       perform();
       auto const completed = reap_completions(outcome);
@@ -541,8 +535,8 @@ void MultiPollReactor::requeue_for_retry(std::unique_ptr<RemoteMultiTransfer> tr
 {
   using BounceBufferCache = BounceBufferCachePerThreadAndContext<CudaPinnedAllocator>;
 
-  // Extend the lifetime of aggregate (a shared pointer).
-  auto aggregate = transfer->aggregate;
+  // Copy the aggregates (shared pointers) to keep them alive after the move below.
+  auto aggregates = transfer->aggregates;
 
   try {
     transfer->attachment.reset();
@@ -559,33 +553,25 @@ void MultiPollReactor::requeue_for_retry(std::unique_ptr<RemoteMultiTransfer> tr
     transfer->ready_at = ready_at;
     _pending.push_back(std::move(transfer));
   } catch (...) {
-    aggregate->on_subrange_failed(std::current_exception());
+    auto const eptr = std::current_exception();
+    for (auto const& aggregate : aggregates) {
+      aggregate->on_subrange_failed(eptr);
+    }
   }
 }
 
 void MultiPollReactor::fail_all_pending(std::exception_ptr eptr)
 {
-  // Drain the inbox under the submit mutex.
-  {
-    std::lock_guard const lock(_submit_mutex);
-    while (!_inbox.empty()) {
-      auto transfer = std::move(_inbox.front());
-      _inbox.pop_front();
-      transfer->aggregate->on_subrange_failed(eptr);
-    }
-  }
-
   // Drain the deferred queue.
   while (!_pending.empty()) {
     auto transfer = std::move(_pending.front());
     _pending.pop_front();
-    transfer->aggregate->on_subrange_failed(eptr);
+    fail_transfer(*transfer, eptr);
   }
 
   // In-flight is touched only by the I/O thread, which is us, so no lock needed.
   for (auto& in_flight_entry : _in_flight) {
-    in_flight_entry.second->physical_recorder.reset();
-    in_flight_entry.second->aggregate->on_subrange_failed(eptr);
+    fail_transfer(*in_flight_entry.second, eptr);
   }
   _in_flight.clear();
 }
@@ -599,9 +585,7 @@ bool MultiReactorPool::is_instantiated() noexcept
   return _pool_instantiated.load(std::memory_order_acquire);
 }
 
-MultiReactorPool::MultiReactorPool()
-  : _reactor_count{defaults::remote_io_num_reactors()},
-    _dispatch{defaults::remote_io_reactor_dispatch()}
+MultiReactorPool::MultiReactorPool() : _reactor_count{defaults::remote_io_num_reactors()}
 {
   // Force LibCurl global init before any reactor opens a multi handle.
   std::ignore = LibCurl::instance();
@@ -610,14 +594,6 @@ MultiReactorPool::MultiReactorPool()
   KVIKIO_EXPECT(n > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
 
   auto const max_total = defaults::remote_io_max_concurrent_requests();
-
-  // With no budget a reactor is never full. Nothing would pace what it pulls from the queue.
-  if (_dispatch == RemoteReactorDispatch::SHARED_QUEUE && max_total == 0) {
-    KVIKIO_LOG_WARN(
-      "KVIKIO_REMOTE_IO_REACTOR_DISPATCH=shared_queue needs a non-zero "
-      "KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS to pace the queue. Falling back to per_chunk.");
-    _dispatch = RemoteReactorDispatch::PER_CHUNK;
-  }
 
   // Slice the budget evenly. Spread any remainder one slot each over the first reactors to keep the
   // total exact. A budget below the reactor count still gives every reactor one slot.
@@ -659,11 +635,6 @@ std::size_t MultiReactorPool::queue_share_per_reactor() const noexcept
   return std::max<std::size_t>((queued + _reactor_count - 1) / _reactor_count, 1);
 }
 
-bool MultiReactorPool::uses_shared_queue() const noexcept
-{
-  return _dispatch == RemoteReactorDispatch::SHARED_QUEUE;
-}
-
 std::unique_ptr<RemoteMultiTransfer> MultiReactorPool::try_pop_queued() noexcept
 {
   std::lock_guard const lock(_queue_mutex);
@@ -694,7 +665,7 @@ void MultiReactorPool::return_to_queue(std::unique_ptr<RemoteMultiTransfer> tran
       }
     }
   }
-  transfer->aggregate->on_subrange_failed(fail_reason);
+  fail_transfer(*transfer, fail_reason);
 }
 
 void MultiReactorPool::wake_all_reactors() noexcept
@@ -706,47 +677,25 @@ void MultiReactorPool::wake_all_reactors() noexcept
 
 void MultiReactorPool::submit_pread(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers)
 {
-  auto const reactor_count = _reactor_count;
-
-  if (_dispatch == RemoteReactorDispatch::SHARED_QUEUE) {
-    std::exception_ptr fail_reason;
-    {
-      std::lock_guard const lock(_queue_mutex);
-      if (is_dead()) {
-        fail_reason = death_reason();
-      } else {
-        for (auto& transfer : transfers) {
-          _queue.push_back(std::move(transfer));
-        }
-        _queue_size_hint.store(_queue.size(), std::memory_order_relaxed);
-      }
-    }
-    if (fail_reason) {
+  std::exception_ptr fail_reason;
+  {
+    std::lock_guard const lock(_queue_mutex);
+    if (is_dead()) {
+      fail_reason = death_reason();
+    } else {
       for (auto& transfer : transfers) {
-        transfer->aggregate->on_subrange_failed(fail_reason);
+        _queue.push_back(std::move(transfer));
       }
-      return;
+      _queue_size_hint.store(_queue.size(), std::memory_order_relaxed);
     }
-    wake_all_reactors();
+  }
+  if (fail_reason) {
+    for (auto& transfer : transfers) {
+      fail_transfer(*transfer, fail_reason);
+    }
     return;
   }
-
-  // PER_PREAD: one reactor for the whole pread() call. Preserves per-CURLM connection-pool reuse.
-  if (_dispatch == RemoteReactorDispatch::PER_PREAD) {
-    auto const idx = _next_reactor_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
-    _reactors[idx]->submit(std::move(transfers));
-    return;
-  }
-
-  // PER_CHUNK: round-robin sub-ranges across reactors.
-  std::vector<std::vector<std::unique_ptr<RemoteMultiTransfer>>> buckets(reactor_count);
-  for (auto& transfer : transfers) {
-    auto const idx = _next_reactor_counter.fetch_add(1, std::memory_order_relaxed) % reactor_count;
-    buckets[idx].push_back(std::move(transfer));
-  }
-  for (std::size_t i = 0; i < reactor_count; ++i) {
-    if (!buckets[i].empty()) { _reactors[i]->submit(std::move(buckets[i])); }
-  }
+  wake_all_reactors();
 }
 
 bool MultiReactorPool::is_dead() const noexcept
@@ -783,7 +732,7 @@ void MultiReactorPool::signal_death(std::exception_ptr eptr) noexcept
       _queue_size_hint.store(0, std::memory_order_relaxed);
     }
     for (auto& transfer : queued) {
-      transfer->aggregate->on_subrange_failed(eptr);
+      fail_transfer(*transfer, eptr);
     }
   }
 
