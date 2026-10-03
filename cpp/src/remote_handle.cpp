@@ -968,8 +968,8 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   // - N `RemoteMultiTransfer` objects, one per sub-range. Each owns its own `CurlHandle`
   //   (a libcurl easy handle wrapper) plus a per-transfer `CallbackContext`, and holds a
   //   shared_ptr back to the aggregate.
-  // - The `MultiReactorPool` routes the N transfers to one or more `MultiPollReactor`
-  //   threads per the captured dispatch policy. Each reactor drives its easy handles via
+  // - The `MultiReactorPool` queues the N transfers, and `MultiPollReactor` threads take
+  //   them as they have room. Each reactor drives its easy handles via
   //   curl_multi_poll() and fires the aggregate's per-subrange callback on completion or
   //   failure.
   // - The aggregate fulfills the promise as soon as all sub-ranges have reported (or one
@@ -1026,7 +1026,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     remaining -= subrange_size;
   }
 
-  // One pool call per pread(). The pool consults the captured dispatch policy internally.
+  // One pool call per pread().
   detail::MultiReactorPool::instance().submit_pread(std::move(transfers));
 
   if (is_host_mem) { return fut; }
