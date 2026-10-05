@@ -160,12 +160,12 @@ The default value is 1048576 (1 MiB). This variable is read only from the enviro
 Discard Received Data ``KVIKIO_REMOTE_IO_DISCARD_DATA``
 -------------------------------------------------------
 
-For benchmark purpose only. Drop received data instead of copying it into host memory, to benchmark the network path alone. Reads into device memory are not affected.
+For benchmark purposes only. Drop received data instead of copying it into host memory, to benchmark the network path alone. Reads into device memory are not affected.
 
-Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default. This variable is read only from the environment, once per process.
+Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default. This variable is read only from the environment, once per process. It is experimental and may change without a deprecation period.
 
 .. warning::
-   The destination buffer is left untouched, with no error raised. Do not enable outside a benchmark.
+   The destination buffer is left untouched, with no error raised.
 
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------

@@ -25,9 +25,9 @@ namespace {
 /**
  * @brief Whether `KVIKIO_REMOTE_IO_DISCARD_DATA` is enabled.
  *
- * Drop received data instead of copying it into host memory, to benchmark the network path alone.
- * Reads into device memory are not affected. The destination buffer is left untouched, with no
- * error raised. Do not enable outside a benchmark.
+ * For benchmark purposes only. Drop received data instead of copying it into host memory, to
+ * benchmark the network path alone. Reads into device memory are not affected. The destination
+ * buffer is left untouched, with no error raised.
  */
 bool discard_data_enabled()
 {
