@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <stdexcept>
 #include <string>
 
 #include <curl/curl.h>
@@ -18,6 +19,7 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/remote_callback.hpp>
+#include <kvikio/error.hpp>
 
 namespace kvikio::detail {
 
@@ -49,8 +51,13 @@ bool nontemporal_copy_enabled()
  */
 std::size_t nontemporal_copy_threshold()
 {
-  static auto const value =
-    getenv_or("KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD", std::size_t{1024 * 1024});
+  static std::size_t const value = [] {
+    auto const env = getenv_or("KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD", ssize_t{1024 * 1024});
+    KVIKIO_EXPECT(env >= 0,
+                  "KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD has to be a non-negative integer",
+                  std::invalid_argument);
+    return static_cast<std::size_t>(env);
+  }();
   return value;
 }
 
