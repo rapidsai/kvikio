@@ -37,12 +37,6 @@ bool discard_data_enabled()
 
 /**
  * @brief Whether `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY` is enabled.
- *
- * Copy received data into host memory with non-temporal stores, which skip fetching the
- * destination cache lines. This includes the pinned bounce buffers of device reads.
- *
- * It helps only when the destination is much larger than the last-level cache and is not read
- * again soon. It requires x86-64 with AVX2, and falls back to `memcpy` elsewhere.
  */
 bool nontemporal_copy_enabled()
 {
@@ -52,10 +46,6 @@ bool nontemporal_copy_enabled()
 
 /**
  * @brief The value of `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD`.
- *
- * Size in bytes from which a range request uses non-temporal copy, when
- * `KVIKIO_REMOTE_IO_NONTEMPORAL_COPY` is enabled. A range request covers at most
- * `KVIKIO_TASK_SIZE` bytes of a read.
  */
 std::size_t nontemporal_copy_threshold()
 {
@@ -70,8 +60,8 @@ std::size_t nontemporal_copy_threshold()
 bool cpu_supports_avx2()
 {
 #if defined(__x86_64__)
-  // `__builtin_cpu_supports` is an x86 built-in function, used here to check at **runtime** if the
-  // machine supports AVX2
+  // `__builtin_cpu_supports` is an x86 built-in function, used here to check at runtime if the
+  // machine supports AVX2.
   static bool const value = __builtin_cpu_supports("avx2");
   return value;
 #else
@@ -85,7 +75,7 @@ bool cpu_supports_avx2()
  */
 #if defined(__x86_64__)
 // Compile with AVX2 for this function alone (regardless of whether the x86-64 machine at
-// **compile-time** supports AVX2 or not), as if by -mavx2. The rest of the library is compiled with
+// compile-time supports AVX2 or not), as if by -mavx2. The rest of the library is compiled with
 // baseline x86-64 options.
 [[gnu::target("avx2")]] void copy_nontemporal_impl(std::byte* dst,
                                                    std::byte const* src,
