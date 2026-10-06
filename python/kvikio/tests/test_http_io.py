@@ -97,10 +97,16 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
 
 class PartialBodyHandler(SimpleHTTPRequestHandler):
     """
-    An HTTP handler that delivers part of the body and then stalls.
+    An HTTP handler that delivers part of the body and then stalls or ends the
+    response.
 
-    The client times out with bytes already written into its destination buffer, and
-    then performs retries on the whole byte range. Only GET requests stall.
+    - With a stall of non-zero time, the client times out with bytes already written
+    into its destination buffer.
+    - With a stall of zero, the server closes the connection and the client receives a
+    truncated body.
+
+    In both cases, the client then performs retries on the whole byte range. Only GET
+    requests are affected.
 
     Parameters
     ----------
@@ -110,7 +116,7 @@ class PartialBodyHandler(SimpleHTTPRequestHandler):
         The number of GET requests to stall before responding normally.
     stall_duration : int
         The duration, in seconds, to sleep after sending half the body. Must exceed the
-        client's ``http_timeout``.
+        client's ``http_timeout``, or be 0 to truncate the body.
     """
 
     def __init__(
@@ -138,7 +144,8 @@ class PartialBodyHandler(SimpleHTTPRequestHandler):
 
         self.request_counter.stall_count += 1
         data = source.read()
-        # Send half of the data and then deliberately stall
+        # Send half of the data and then deliberately stall. If the stall duration is
+        # zero, the server closes the connection.
         outputfile.write(data[: len(data) // 2])
         outputfile.flush()
         time.sleep(self.stall_duration)
@@ -408,7 +415,12 @@ def test_retry_timeout_ok(tmpdir):
                 f.read(b)
 
 
-def test_retry_after_partial_body(tmpdir, xp):
+@pytest.mark.parametrize(
+    "stall_duration, reason",
+    [(5, "Timeout was reached"), (0, "Transferred a partial file")],
+    ids=["timeout", "truncated"],
+)
+def test_retry_after_partial_body(tmpdir, xp, capfd, stall_duration, reason):
     a = xp.arange(10000, dtype="int64")
     a.tofile(tmpdir / "a")
 
@@ -416,7 +428,10 @@ def test_retry_after_partial_body(tmpdir, xp):
         tmpdir,
         max_lifetime=60,
         handler=PartialBodyHandler,
-        handler_options={"request_counter": RequestCounter()},
+        handler_options={
+            "request_counter": RequestCounter(),
+            "stall_duration": stall_duration,
+        },
     ) as server:
         b = xp.empty_like(a)
         with kvikio.defaults.set({"http_timeout": 1}):
@@ -424,6 +439,13 @@ def test_retry_after_partial_body(tmpdir, xp):
                 assert f.nbytes() == a.nbytes
                 assert f.read(b) == a.nbytes
         xp.testing.assert_array_equal(a, b)
+
+    # The retry was caused by the expected transport error.
+    captured = capfd.readouterr()
+    notices = re.findall(
+        rf"KvikIO: Transport error: {reason}\. Retrying after", captured.err
+    )
+    assert len(notices) == 1, captured.err
 
 
 def test_set_http_status_code(tmpdir):
@@ -469,11 +491,12 @@ def test_timeout_raises(tmpdir, capfd):
                     assert f.nbytes() == a.nbytes
                     f.read(b)
             assert m.match("KvikIO: HTTP request reached maximum number of attempts")
-            assert m.match("Operation timed out.")
+            assert m.match("Transport error: Timeout was reached.")
 
     captured = capfd.readouterr()
     notices = re.findall(
-        r"KvikIO: Timeout error\. Retrying after 500ms \(attempt 1 of 2\)\.",
+        r"KvikIO: Transport error: Timeout was reached\. Retrying after 500ms "
+        r"\(attempt 1 of 2\)\.",
         captured.err,
     )
     assert len(notices) == 1, captured.err
