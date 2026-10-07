@@ -91,6 +91,10 @@ repos:
             Makefile$|
             pom[.]xml$
       - id: verify-alpha-spec
+        args:
+          - --fix
+          - --mode
+          - release
       - id: verify-codeowners
         args: [--fix, --project-prefix=kvikio]
       - id: verify-hardcoded-version
@@ -124,7 +128,5 @@ repos:
     rev: v1.24.1
     hooks:
       - id: zizmor
-
-
 default_language_version:
   python: python3
