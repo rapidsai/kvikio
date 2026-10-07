@@ -2,10 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import warnings
 from typing import Any, Literal, overload
 
 import kvikio._lib.defaults
 from kvikio.utils import call_once
+
+# Deprecated. Reading it always gives `SHARED_QUEUE` and setting it is a no-op.
+_REACTOR_DISPATCH = "remote_io_reactor_dispatch"
+_REACTOR_DISPATCH_DEPRECATION = (
+    '"remote_io_reactor_dispatch" is deprecated and has no effect. The MULTI_POLL '
+    "reactors always take sub-ranges from one shared queue."
+)
 
 # Once the MULTI_POLL reactor pool has started (i.e. the first remote I/O has been
 # issued), these properties are fixed for the remaining process lifetime: there is no
@@ -161,7 +169,7 @@ def set(*config) -> ConfigContextManager | None:
         with a `with` block:
 
         - ``"remote_io_num_reactors"``
-        - ``"remote_io_reactor_dispatch"``
+        - ``"remote_io_reactor_dispatch"`` (deprecated, no-op)
         - ``"remote_io_max_concurrent_requests"``
 
     Returns
@@ -195,6 +203,11 @@ def set(*config) -> ConfigContextManager | None:
         if not isinstance(config[0], str):
             raise ValueError(err_msg)
         key, value = config
+        if key == _REACTOR_DISPATCH:
+            warnings.warn(
+                _REACTOR_DISPATCH_DEPRECATION, category=FutureWarning, stacklevel=2
+            )
+            return None
         if key in _PROCESS_LIFETIME_PROPERTIES:
             getattr(kvikio._lib.defaults, "set_" + key)(value)
             return None
@@ -225,7 +238,7 @@ def get(config_name: str) -> Any:
         - ``"auto_direct_io_write"``
         - ``"remote_io_backend"``
         - ``"remote_io_num_reactors"``
-        - ``"remote_io_reactor_dispatch"``
+        - ``"remote_io_reactor_dispatch"`` (deprecated, always ``SHARED_QUEUE``)
         - ``"remote_io_max_concurrent_requests"``
 
     Returns
@@ -233,6 +246,11 @@ def get(config_name: str) -> Any:
     Any
         The value of the configuration.
     """
+    if config_name == _REACTOR_DISPATCH:
+        warnings.warn(
+            _REACTOR_DISPATCH_DEPRECATION, category=FutureWarning, stacklevel=2
+        )
+        return kvikio._lib.defaults.RemoteReactorDispatch.SHARED_QUEUE
     if config_name in _PROCESS_LIFETIME_PROPERTIES:
         return getattr(kvikio._lib.defaults, config_name)()
     context_manager = ConfigContextManager({})
