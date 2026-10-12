@@ -10,10 +10,12 @@ Credential values remain in process memory. The workflow uses no stored
 GitHub secret, human Vault token, shell credential file, artifact, or job
 output. The client refuses redirects and suppresses response bodies on errors.
 
-Both jobs target the NVIDIA-hosted ephemeral `linux-amd64-cpu4` runner used by
-release workflows. The workflow runs only on `testing/nvault-ssa` and
-`testing/nvault-ssa-denied`. The dedicated JWT role permits the positive branch
-at one reviewed commit SHA, and binds the immutable repository and owner IDs,
+The canary job targets the NVIDIA-hosted ephemeral `linux-amd64-cpu4` runner
+used by release workflows. It runs only on `testing/nvault-ssa` and
+`testing/nvault-ssa-denied`, dispatched through the existing `test.yaml`
+workflow. The normal C++, Python, wheel, and Java tests are skipped on those
+two branches. The dedicated JWT role permits the positive branch at one
+reviewed commit SHA, and binds the immutable repository and owner IDs,
 workflow, ref, audience, and event. Its policy grants read-only access to the
 Rapids Pulse SSA issue endpoint; administrative endpoints and other SSA
 engines are checked for denial. The negative branch presents a real signed JWT

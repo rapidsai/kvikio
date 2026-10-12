@@ -7,7 +7,7 @@
     "repository_id": "453147629",
     "repository_owner_id": "43887749",
     "sha": "REPLACE_WITH_REVIEWED_COMMIT_SHA",
-    "workflow_ref": "rapidsai/kvikio/.github/workflows/nvault-credentials.yml@refs/heads/testing/nvault-ssa",
+    "workflow_ref": "rapidsai/kvikio/.github/workflows/test.yaml@refs/heads/testing/nvault-ssa",
     "ref": "refs/heads/testing/nvault-ssa",
     "event_name": ["push", "workflow_dispatch"]
   },
