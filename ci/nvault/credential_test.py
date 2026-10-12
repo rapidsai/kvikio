@@ -90,7 +90,11 @@ def request_json(url, headers, data=None, *, phase):
     except OSError as exc:
         # Report the exception class only; URL, headers, and response bodies may
         # contain credentials or sensitive service details.
-        raise RuntimeError(f"{phase} failed (network: {type(exc).__name__})") from None
+        reason = getattr(exc, "reason", None)
+        reason_class = type(reason).__name__ if reason is not None else "unknown"
+        raise RuntimeError(
+            f"{phase} failed (network: {type(exc).__name__}, {reason_class})"
+        ) from None
     except ValueError:
         raise RuntimeError(f"{phase} failed (invalid JSON response)") from None
     if not isinstance(payload, dict):
