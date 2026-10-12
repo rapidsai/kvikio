@@ -151,8 +151,12 @@ def print_identity(jwt):
     names = (
         "iss",
         "aud",
+        "repository",
+        "repository_owner",
         "repository_id",
         "repository_owner_id",
+        "enterprise",
+        "enterprise_id",
         "workflow_ref",
         "sha",
         "ref",
