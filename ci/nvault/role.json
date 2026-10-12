@@ -1,0 +1,17 @@
+{
+  "role_type": "jwt",
+  "user_claim": "repository_id",
+  "bound_audiences": ["https://prod.vault.nvidia.com:443"],
+  "bound_claims_type": "string",
+  "bound_claims": {
+    "repository_id": "453147629",
+    "repository_owner_id": "43887749",
+    "sha": "REPLACE_WITH_REVIEWED_COMMIT_SHA",
+    "workflow_ref": "rapidsai/kvikio/.github/workflows/nvault-credentials.yml@refs/heads/testing/nvault-ssa",
+    "ref": "refs/heads/testing/nvault-ssa",
+    "event_name": ["push", "workflow_dispatch"]
+  },
+  "token_policies": ["default", "rapids-ssa-rapids-pulse-read"],
+  "token_ttl": 600,
+  "token_explicit_max_ttl": 1200
+}
