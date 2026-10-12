@@ -87,8 +87,12 @@ def request_json(url, headers, data=None, *, phase):
             ):
                 category = "vault-request-rejected"
         raise RequestFailure(phase, exc.code, category) from None
-    except (OSError, ValueError):
-        raise RuntimeError(f"{phase} failed (network or invalid JSON)") from None
+    except OSError as exc:
+        # Report the exception class only; URL, headers, and response bodies may
+        # contain credentials or sensitive service details.
+        raise RuntimeError(f"{phase} failed (network: {type(exc).__name__})") from None
+    except ValueError:
+        raise RuntimeError(f"{phase} failed (invalid JSON response)") from None
     if not isinstance(payload, dict):
         raise RuntimeError(f"{phase} returned an invalid response")
     return payload
