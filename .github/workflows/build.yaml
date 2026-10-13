@@ -24,7 +24,7 @@ on:
         required: true
         type: string
       build_type:
-        description: "build_type: one of [branch, nightly, pull-request]"
+        description: "build_type: one of [branch, nightly, pull-request, release-candidate]"
         type: string
         default: nightly
 
@@ -39,14 +39,13 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@main
   cpp-build:
     needs: [build-details]
-    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@8938cc275824a166e94db90d1fa25e8f8716b5b0
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -57,14 +56,13 @@ jobs:
       sha: ${{ inputs.sha }}
   python-build:
     needs: [build-details, cpp-build]
-    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@8938cc275824a166e94db90d1fa25e8f8716b5b0
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -75,6 +73,7 @@ jobs:
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   upload-conda:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: [cpp-build, python-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -90,7 +89,7 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
   docs-build:
-    if: github.ref_type == 'branch'
+    if: ${{ github.ref_type == 'branch' && inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: python-build
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -110,7 +109,7 @@ jobs:
       script: "ci/build_docs.sh"
       sha: ${{ inputs.sha }}
   publish-api-docs:
-    if: github.ref_type == 'branch'
+    if: ${{ github.ref_type == 'branch' && inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: [docs-build]
     permissions:
       contents: read
@@ -132,14 +131,13 @@ jobs:
       version-map: ${{ vars.VERSION_MAP }}
   wheel-build-cpp:
     needs: [build-details]
-    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@8938cc275824a166e94db90d1fa25e8f8716b5b0
     with:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: ${{ inputs.build_type || 'branch' }}
@@ -153,14 +151,13 @@ jobs:
       package-type: cpp
   wheel-build-python:
     needs: [build-details, wheel-build-cpp]
-    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
       contents: read
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@8938cc275824a166e94db90d1fa25e8f8716b5b0
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -174,6 +171,7 @@ jobs:
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-cpp:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: wheel-build-cpp
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -192,6 +190,7 @@ jobs:
       package-type: cpp
       publish-wheel-search-key: kvikio_wheel_cpp_libkvikio
   wheel-publish-python:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     needs: wheel-build-python
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -210,6 +209,7 @@ jobs:
       package-type: python
       publish-wheel-search-key: kvikio_wheel_python_kvikio
   devcontainers:
+    if: ${{ inputs.build_type != 'release-candidate' && github.event.inputs.build_type != 'release-candidate' && github.ref != 'refs/heads/agent/release-catalog-canary' && !startsWith(github.ref_name, 'release-test-') && inputs.branch != 'agent/release-catalog-canary' && inputs.branch != 'refs/heads/agent/release-catalog-canary' && !startsWith(inputs.branch, 'release-test-') && !startsWith(inputs.branch, 'refs/heads/release-test-') }}
     name: Build devcontainers
     secrets: inherit  # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/build-devcontainers.yaml@main
