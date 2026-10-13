@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import io
@@ -194,7 +194,7 @@ def test_raw_read_write_of_host_memory(tmp_path):
 @contextmanager
 def with_no_cuda_context():
     """Context that pop all CUDA contexts before the test and push them back on after"""
-    cuda = pytest.importorskip("cuda.cuda")
+    cuda = pytest.importorskip("cuda.bindings.driver")
     assert cuda.cuInit(0)[0] == cuda.CUresult.CUDA_SUCCESS
 
     ctx_stack = []
