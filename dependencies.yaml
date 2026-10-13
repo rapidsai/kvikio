@@ -476,7 +476,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cuda-core>=0.5.1,<2
+          - cuda-core>=1.0,<2
           - rapids-dask-dependency==26.12.*,>=0.0.0a0
           - pytest
           - pytest-asyncio
@@ -497,7 +497,8 @@ dependencies:
           - matrix:
               dependencies: "oldest"
             packages:
-              - cuda-core==0.5.1
+              # cuda-core 1.0.0 cannot import with CUDA 13.0.x bindings.
+              - cuda-core==1.0.1
           - matrix:
             packages:
   test_cufile:
