@@ -142,6 +142,7 @@ outputs:
         - libcurl ==${{ libcurl_version }}
         - libcufile-dev
       run:
+        - ${{ pin_subpackage("libkvikio", exact=True) }}
         - if: cuda_version >= "13.0"
           then:
             - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
