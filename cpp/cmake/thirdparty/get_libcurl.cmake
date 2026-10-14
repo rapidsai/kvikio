@@ -9,16 +9,16 @@
 function(find_and_configure_libcurl)
   include(${rapids-cmake-dir}/cpm/find.cmake)
 
-  # In CI builds, prefer the OpenSSL from the locked Conda build environment. The
-  # host system OpenSSL can be older than the version required by the pinned curl
-  # source, even when the build environment already contains a newer OpenSSL.
+  # In CI builds, prefer the OpenSSL from the locked Conda build environment when
+  # no explicit root was provided. The host system OpenSSL can be older than the
+  # version required by pinned curl, even when the build environment has a newer one.
   if(DEFINED ENV{CONDA_PREFIX})
     set(_conda_prefix "$ENV{CONDA_PREFIX}")
     if(EXISTS "${_conda_prefix}/include/openssl/ssl.h"
        AND (EXISTS "${_conda_prefix}/lib/libcrypto.so"
             OR EXISTS "${_conda_prefix}/lib/libcrypto.a"
             OR EXISTS "${_conda_prefix}/lib/libcrypto.dylib"))
-      set(OPENSSL_ROOT_DIR "${_conda_prefix}" CACHE PATH "Prefer locked Conda OpenSSL" FORCE)
+      set(OPENSSL_ROOT_DIR "${_conda_prefix}" CACHE PATH "Prefer locked Conda OpenSSL")
     endif()
   endif()
 
