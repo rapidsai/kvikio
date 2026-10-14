@@ -27,6 +27,7 @@ rapids-pip-retry install \
 # The ci-wheel Rocky Linux image provides OpenSSL 1.1.1, but the pinned curl
 # source requires OpenSSL 3. Keep the overlay private to this wheel job and
 # honor any caller-provided OpenSSL root.
+unset KVIKIO_OPENSSL_TEMP_DIR
 trap 'if [[ -n "${KVIKIO_OPENSSL_TEMP_DIR:-}" ]]; then rm -rf -- "${KVIKIO_OPENSSL_TEMP_DIR}"; fi' EXIT
 source ci/prepare-openssl-prefix.sh
 
