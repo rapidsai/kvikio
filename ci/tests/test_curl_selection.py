@@ -12,16 +12,18 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.parametrize(
-    "conda,override,installed,expected",
+    "conda,override,installed,static_openssl,expected",
     [
-        (True, None, True, "installed"),
-        (True, None, False, "failure"),
-        (False, None, False, "cpm"),
-        (True, "OFF", False, "cpm"),
-        (False, "ON", True, "installed"),
+        (True, None, True, False, "installed"),
+        (True, None, True, True, "installed"),
+        (True, None, False, False, "failure"),
+        (True, None, False, True, "failure"),
+        (False, None, False, False, "cpm"),
+        (True, "OFF", False, False, "cpm"),
+        (False, "ON", True, False, "installed"),
     ],
 )
-def test_curl_selection(tmp_path, conda, override, installed, expected):
+def test_curl_selection(tmp_path, conda, override, installed, static_openssl, expected):
     # Exercise the actual options after RAPIDS creates its conda environment target.
     source = (ROOT / "cpp/CMakeLists.txt").read_text()
     options = source.split(
@@ -60,6 +62,8 @@ endfunction()
     )
     build = tmp_path / "build"
     command = ["cmake", "-S", str(tmp_path), "-B", str(build)]
+    if static_openssl:
+        command.append("-DKvikIO_USE_STATIC_OPENSSL=ON")
     if override is not None:
         command.append(f"-DKvikIO_USE_SYSTEM_CURL={override}")
     result = subprocess.run(command, capture_output=True, text=True)

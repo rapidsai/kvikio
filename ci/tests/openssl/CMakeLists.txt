@@ -4,7 +4,10 @@
 # cmake-format: on
 
 cmake_minimum_required(VERSION 4.0)
-project(OpenSSLConfigProbe LANGUAGES CXX)
+project(OpenSSLConfigProbe LANGUAGES C CXX)
+include(../../../cmake/rapids_config.cmake)
+include(rapids-cpm)
+rapids_cpm_init()
 include(../../../cpp/cmake/thirdparty/get_openssl.cmake)
 add_executable(openssl_config_probe probe.cpp ../../../cpp/src/detail/openssl.cpp)
 target_compile_features(openssl_config_probe PRIVATE cxx_std_17)

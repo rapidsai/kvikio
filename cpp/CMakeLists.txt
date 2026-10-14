@@ -16,7 +16,7 @@ include(rapids-find)
 project(
   KvikIO
   VERSION "${RAPIDS_VERSION}"
-  LANGUAGES CXX
+  LANGUAGES C CXX
 )
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
