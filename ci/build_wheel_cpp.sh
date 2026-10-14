@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -23,6 +23,12 @@ rapids-pip-retry install \
     -v \
     --prefer-binary \
     -r /tmp/requirements-build.txt
+
+# The ci-wheel Rocky Linux image provides OpenSSL 1.1.1, but the pinned curl
+# source requires OpenSSL 3. Keep the overlay private to this wheel job and
+# honor any caller-provided OpenSSL root.
+trap 'if [[ -n "${KVIKIO_OPENSSL_TEMP_DIR:-}" ]]; then rm -rf -- "${KVIKIO_OPENSSL_TEMP_DIR}"; fi' EXIT
+source ci/prepare-openssl-prefix.sh
 
 # build with '--no-build-isolation', for better sccache hit rate
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
