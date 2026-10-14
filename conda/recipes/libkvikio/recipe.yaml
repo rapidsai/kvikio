@@ -29,7 +29,8 @@ cache:
         set +x
 
         # Keep the conda build floor independent of the curl version bundled in wheels.
-        ./build.sh -v -n libkvikio benchmarks --cmake-args="-DKvikIO_USE_SYSTEM_CURL=ON -DCURL_LIBRARY=$PREFIX/lib/libcurl.so -DCURL_INCLUDE_DIR=$PREFIX/include"
+        # build.sh requires literal quotes around the CMake argument list.
+        ./build.sh -v -n libkvikio benchmarks "--cmake-args=\"-DKvikIO_USE_SYSTEM_CURL=ON -DCURL_LIBRARY=$PREFIX/lib/libcurl.so -DCURL_INCLUDE_DIR=$PREFIX/include\""
       secrets:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
