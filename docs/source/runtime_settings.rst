@@ -177,6 +177,27 @@ The Certificate Authority (CA) paths required for TLS/SSL verification in ``libc
 
 When neither is specified, KvikIO searches several standard system locations for the CA file and directory, and if the search fails falls back to the libcurl compile-time defaults.
 
+Bundled OpenSSL configuration ``OPENSSL_CONF``
+------------------------------------------------
+
+Linux wheels that bundle OpenSSL load its configuration before initializing curl.
+``OPENSSL_CONF`` selects an explicit configuration file; an empty value disables
+configuration loading. When unset, KvikIO checks ``/etc/pki/tls/openssl.cnf`` and
+then ``/etc/ssl/openssl.cnf``. If neither exists, OpenSSL uses its built-in defaults.
+A selected file that cannot be read or contains configuration errors causes
+initialization to fail rather than silently ignoring the configuration.
+
+Set this environment variable before the first remote operation. KvikIO does not
+change the process environment or initialize the TLS backend of a system-provided
+curl, such as the one used by conda builds. CA certificate discovery remains as
+described above.
+
+Loading the host configuration does not make bundled OpenSSL equivalent to the
+distribution's OpenSSL. The bundled build has no FIPS provider; unsupported
+provider or policy configuration may fail. Curl also sets some TLS parameters
+after OpenSSL initializes, so loading a configuration is not a guarantee of
+complete distribution crypto-policy enforcement.
+
 Opportunistic POSIX Direct I/O operations ``KVIKIO_AUTO_DIRECT_IO_READ``, ``KVIKIO_AUTO_DIRECT_IO_WRITE``
 ---------------------------------------------------------------------------------------------------------
 
