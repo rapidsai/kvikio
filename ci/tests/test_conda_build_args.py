@@ -33,6 +33,7 @@ def test_conda_curl_arguments_reach_cmake(tmp_path, prefix_name):
         "PREFIX": str(prefix),
         "INSTALL_PREFIX": str(prefix),
         "LIBKVIKIO_BUILD_DIR": str(tmp_path / "build"),
+        "RAPIDS_CUDA_VERSION": "12.9",
         "CMAKE_ARGUMENT_LOG": str(argument_log),
     }
     result = subprocess.run(
