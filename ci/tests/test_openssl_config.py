@@ -112,10 +112,16 @@ def test_directory_is_not_silently_skipped(probe, tmp_path):
 
 def test_discovered_cipher_policy_rejects_handshake(probe, tmp_path):
     cert, key = tmp_path / "cert.pem", tmp_path / "key.pem"
+    # Build images may retain an OpenSSL default config path that does not exist.
+    # Generate this test certificate using a self-contained request configuration.
+    cert_config = tmp_path / "cert.cnf"
+    cert_config.write_text("[req]\ndistinguished_name = dn\n[dn]\n")
     subprocess.run(
         [
             "openssl",
             "req",
+            "-config",
+            str(cert_config),
             "-x509",
             "-newkey",
             "rsa:2048",
@@ -130,7 +136,6 @@ def test_discovered_cipher_policy_rejects_handshake(probe, tmp_path):
             str(key),
         ],
         check=True,
-        capture_output=True,
     )
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.minimum_version = context.maximum_version = ssl.TLSVersion.TLSv1_2
