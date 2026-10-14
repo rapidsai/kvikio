@@ -1,0 +1,6 @@
+# Assertions in tests, examples, and benchmarks validate results rather than access.
+assert_used:
+  skips:
+    - "*/tests/*"
+    - "*/examples/*"
+    - "*/benchmarks/*"

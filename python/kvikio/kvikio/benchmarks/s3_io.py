@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
@@ -50,7 +50,8 @@ def local_s3_server(lifetime: int):
     """Start a server and run it for `lifetime` minutes or kill it on context exit"""
     # Use fake aws credentials
     os.environ["AWS_ACCESS_KEY_ID"] = "foobar_key"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "foobar_secret"
+    # Mock S3 server.
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "foobar_secret"  # nosec B105
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
     p = multiprocessing.Process(target=start_s3_server, args=(lifetime,))
     p.start()
@@ -156,7 +157,7 @@ def main(args):
         for elapsed in API[api](args):
             res.append(elapsed)
 
-        def pprint_api_res(name, samples):
+        def pprint_api_res(name, samples, api=api):
             # Convert to throughput
             samples = [args.nbytes / s for s in samples]
             mean = statistics.harmonic_mean(samples) if len(samples) > 1 else samples[0]

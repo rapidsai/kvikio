@@ -33,6 +33,11 @@ class RequestCounter:
         self.stall_count = 0
 
 
+# Each handler type intentionally shares its default counter across requests.
+_DEFAULT_ERROR_COUNTER = RequestCounter()
+_DEFAULT_STALL_COUNTER = RequestCounter()
+
+
 class HTTP503Handler(SimpleHTTPRequestHandler):
     """
     An HTTP handler that initially responds with a 503 before responding normally.
@@ -55,7 +60,7 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
         self,
         *args,
         directory=None,
-        request_counter: RequestCounter = RequestCounter(),
+        request_counter: RequestCounter = _DEFAULT_ERROR_COUNTER,
         max_error_count: int = 1,
         delay_duration: int = 0,
         max_delay_count: int = 1,
@@ -115,7 +120,7 @@ class PartialBodyHandler(SimpleHTTPRequestHandler):
         self,
         *args,
         directory=None,
-        request_counter: RequestCounter = RequestCounter(),
+        request_counter: RequestCounter = _DEFAULT_STALL_COUNTER,
         max_stall_count: int = 1,
         stall_duration: int = 5,
         **kwargs,

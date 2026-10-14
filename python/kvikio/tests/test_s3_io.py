@@ -67,10 +67,11 @@ def s3_context(s3_base, bucket, files=None):
     for f, data in files.items():
         client.put_object(Bucket=bucket, Key=f, Body=data)
     yield s3_base
-    for f, data in files.items():
+    for f in files:
         try:
             client.delete_object(Bucket=bucket, Key=f)
-        except Exception:
+        # Best-effort test bucket cleanup.
+        except Exception:  # nosec B110
             pass
 
 

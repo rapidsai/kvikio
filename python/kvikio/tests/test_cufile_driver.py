@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import subprocess
+# Required for fixed benchmark/test commands.
+import subprocess  # nosec B404
 
 import pytest
 
@@ -10,7 +11,8 @@ import kvikio.cufile_driver
 
 def has_bar_memory() -> bool:
     try:
-        output = subprocess.check_output(["nvidia-smi"], text=True)
+        # Fixed command from the test environment, without shell expansion.
+        output = subprocess.check_output(["nvidia-smi"], text=True)  # nosec B603, B607
         return "Not Supported" not in output
     except Exception:
         return False
