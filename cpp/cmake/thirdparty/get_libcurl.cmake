@@ -14,6 +14,12 @@ function(find_and_configure_libcurl)
     return()
   endif()
 
+  if(KvikIO_USE_STATIC_OPENSSL)
+    # This function-local setting ensures curl uses the same private TLS backend.
+    set(CPM_DOWNLOAD_ALL ON)
+    include(${CMAKE_CURRENT_LIST_DIR}/get_openssl.cmake)
+  endif()
+
   include(${rapids-cmake-dir}/cpm/find.cmake)
 
   # Work around https://github.com/curl/curl/issues/15351

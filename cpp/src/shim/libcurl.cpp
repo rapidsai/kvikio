@@ -31,10 +31,17 @@
 #include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
+#ifdef KVIKIO_STATIC_OPENSSL
+#include "../detail/openssl.hpp"
+#endif
+
 namespace kvikio {
 
 LibCurl::LibCurl()
 {
+#ifdef KVIKIO_STATIC_OPENSSL
+  detail::initialize_openssl();
+#endif
   CURLcode err = curl_global_init(CURL_GLOBAL_DEFAULT);
   KVIKIO_EXPECT(err == CURLE_OK,
                 "cannot initialize libcurl - errorcode: " + std::to_string(err),

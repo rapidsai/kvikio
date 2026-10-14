@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -22,7 +22,11 @@ rapids-logger "Installing build requirements"
 rapids-pip-retry install \
     -v \
     --prefer-binary \
-    -r /tmp/requirements-build.txt
+    -r /tmp/requirements-build.txt \
+    pytest
+
+# Validate dependency selection and bundled TLS configuration without requiring a GPU.
+python -m pytest ci/tests/test_conda_build_args.py ci/tests/test_curl_selection.py ci/tests/test_openssl_config.py
 
 # build with '--no-build-isolation', for better sccache hit rate
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)

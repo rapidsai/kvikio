@@ -51,6 +51,7 @@ option(BUILD_SHARED_LIBS "Build KvikIO shared library" ON)
 option(KvikIO_BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
 option(KvikIO_BUILD_EXAMPLES "Configure CMake to build examples" ON)
 option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
+option(KvikIO_USE_STATIC_OPENSSL "Bundle pinned OpenSSL static libraries for wheels" OFF)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
 option(KvikIO_BUILD_NSYS_PLUGIN "Configure CMake to build the Nsight Systems NIC plugin" ON)
 
@@ -224,6 +225,16 @@ add_library(kvikio ${SOURCES})
 # expose any OpenSSL symbols that could conflict with downstream users like CPython that also links
 # to (another version of) OpenSSL.
 target_link_options(kvikio PRIVATE "LINKER:--exclude-libs,ALL")
+
+# Only initialize our private OpenSSL copy. Installed curl owns its TLS backend.
+if(KvikIO_REMOTE_SUPPORT
+   AND KvikIO_USE_STATIC_OPENSSL
+   AND NOT KvikIO_USE_SYSTEM_CURL
+)
+  target_sources(kvikio PRIVATE src/detail/openssl.cpp)
+  target_link_libraries(kvikio PRIVATE OpenSSL::SSL)
+  target_compile_definitions(kvikio PRIVATE KVIKIO_STATIC_OPENSSL)
+endif()
 
 add_library(kvikio::kvikio ALIAS kvikio)
 
