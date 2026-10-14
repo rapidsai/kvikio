@@ -3,7 +3,9 @@
 
 import copy
 import json
-import pickle
+
+# Tests serialization of locally constructed values.
+import pickle  # nosec B403
 import time
 
 import numpy as np
@@ -157,7 +159,8 @@ def test_a_summary_survives_a_round_trip_through_bytes(a_file):
     monitor.stop()
 
     # The C++ handle cannot be pickled, so both of these go through the bytes.
-    assert pickle.loads(pickle.dumps(summary)) == summary
+    # Local roundtrip.
+    assert pickle.loads(pickle.dumps(summary)) == summary  # nosec B301
     assert copy.deepcopy(summary) == summary
 
     with pytest.raises(ValueError):

@@ -19,7 +19,9 @@
 
 import datetime
 import os
-import xml.etree.ElementTree as ET
+
+# Locally generated Doxygen XML.
+import xml.etree.ElementTree as ET  # nosec B405
 
 from packaging.version import Version
 
@@ -70,7 +72,8 @@ breathe_default_project = "kvikio"
 def clean_doxygen_xml(path: str) -> None:
     # Doxygen 1.9.1 includes forward enum declarations in this template's return type.
     filename = os.path.join(path, "namespacekvikio.xml")
-    tree = ET.parse(filename)
+    # Locally generated Doxygen XML.
+    tree = ET.parse(filename)  # nosec B314
     for member in tree.findall(".//memberdef"):
         type_node = member.find("type")
         if (

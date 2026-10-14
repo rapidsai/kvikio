@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import functools
@@ -164,7 +164,7 @@ def kvikio_deprecation_notice(
             return func(*args, **kwargs)
 
         # Allow the docstring to be correctly generated for the decorated func in Sphinx
-        func_doc = getattr(func, "__doc__")
+        func_doc = func.__doc__
         valid_docstring = "" if func_doc is None else func_doc
         wrapper.__doc__ = "{:} {:} {:}\n\n{:}".format(
             ".. deprecated::", since, msg, valid_docstring
