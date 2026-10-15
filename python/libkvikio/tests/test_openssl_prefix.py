@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 import os
 import shutil
-import subprocess
+
+# These tests invoke repository-owned shell fixtures with fixed arguments.
+import subprocess  # nosec B404
 from pathlib import Path
 
 import pytest
@@ -38,9 +40,9 @@ def source_prepare_script(
     if conda_prefix is not None:
         env["CONDA_PREFIX"] = str(conda_prefix)
 
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603
         [
-            "bash",
+            "/bin/bash",
             "-c",
             f'source "{PREPARE_SCRIPT}" || exit $?; printf "%s\\n" "${{OPENSSL_ROOT_DIR:-}}" "${{CMAKE_ARGS:-}}" "${{LD_LIBRARY_PATH:-}}"',
         ],
@@ -304,8 +306,8 @@ def test_wheel_script_does_not_delete_inherited_temp_directory(tmp_path):
         "RAPIDS_WHEEL_BLD_OUTPUT_DIR": str(fixture / "wheel-output"),
     }
 
-    result = subprocess.run(
-        ["bash", str(ci_dir / "build_wheel_cpp.sh")],
+    result = subprocess.run(  # nosec B603
+        ["/bin/bash", str(ci_dir / "build_wheel_cpp.sh")],
         check=False,
         capture_output=True,
         cwd=fixture,

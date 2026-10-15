@@ -21,6 +21,24 @@ repos:
       - id: ruff-check
         args: ["--fix"]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: bandit
+        name: bandit application code
+        entry: >-
+          bandit -r python/kvikio/kvikio python/kvikio/examples
+          python/libkvikio/libkvikio docs/source/conf.py
+        language: python
+        additional_dependencies: [bandit==1.9.4]
+        pass_filenames: false
+      # Pytest's `assert` statements intentionally express test expectations;
+      # keep every other Bandit check enabled in these test trees.
+      - id: bandit-tests
+        name: bandit tests (asserts allowed)
+        entry: bandit -r python/kvikio/tests python/libkvikio/tests -s B101
+        language: python
+        additional_dependencies: [bandit==1.9.4]
+        pass_filenames: false
   - repo: https://github.com/MarcoGorelli/cython-lint
     rev: v0.15.0
     hooks:

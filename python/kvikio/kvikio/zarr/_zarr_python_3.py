@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
@@ -125,7 +125,8 @@ class GDSStore(zarr.storage.LocalStore):
             prototype = default_buffer_prototype()
         if not self._is_open:
             await self._open()
-        assert isinstance(key, str)
+        if not isinstance(key, str):
+            raise TypeError("key must be a string")
         path = self.root / key
 
         try:
@@ -140,7 +141,8 @@ class GDSStore(zarr.storage.LocalStore):
         if not self._is_open:
             await self._open()
         self._check_writable()
-        assert isinstance(key, str)
+        if not isinstance(key, str):
+            raise TypeError("key must be a string")
         if not isinstance(value, Buffer):
             raise TypeError(
                 f"LocalStore.set(): `value` must be a Buffer instance. Got an "

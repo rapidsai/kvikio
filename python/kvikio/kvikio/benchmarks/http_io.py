@@ -15,6 +15,7 @@ from dask.utils import format_bytes
 
 import kvikio
 import kvikio.defaults
+from kvikio.benchmarks.utils import check_transfer_size
 from kvikio.utils import LocalHttpServer
 
 
@@ -29,7 +30,7 @@ def run_numpy_like(args, xp):
         with kvikio.RemoteFile.open_http(url, nbytes=src.nbytes) as f:
             res = f.read(dst)
         t1 = time.perf_counter()
-        assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
+        check_transfer_size(res, args.nbytes)
         xp.testing.assert_array_equal(src, dst)
         return t1 - t0
 

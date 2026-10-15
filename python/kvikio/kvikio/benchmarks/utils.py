@@ -8,7 +8,9 @@ import contextlib
 import os
 import os.path
 import pathlib
-import subprocess
+
+# This utility intentionally invokes the fixed system command documented below.
+from subprocess import check_output  # nosec B404
 
 from dask.utils import format_bytes
 
@@ -28,7 +30,16 @@ def drop_vm_cache() -> None:
 
     See <https://linux-mm.org/Drop_Caches>
     """
-    subprocess.check_output(["/usr/bin/sudo", "/sbin/sysctl", "vm.drop_caches=3"])
+    # The fixed, fully qualified command deliberately requests an OS cache drop.
+    check_output(  # nosec B603
+        ["/usr/bin/sudo", "/sbin/sysctl", "vm.drop_caches=3"]
+    )
+
+
+def check_transfer_size(actual: int, expected: int) -> None:
+    """Raise when an I/O operation transfers fewer or more bytes than expected."""
+    if actual != expected:
+        raise RuntimeError(f"I/O mismatch: expected {expected} bytes, got {actual}")
 
 
 def pprint_sys_info() -> None:

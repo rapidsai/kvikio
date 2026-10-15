@@ -1,5 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+import tempfile
+from pathlib import Path
 
 import cupy
 
@@ -17,13 +20,15 @@ def main(path):
     f = kvikio.CuFile(path, "r")
     # Read whole array from file
     f.read(b)
-    assert all(a == b)
+    if not all(a == b):
+        raise RuntimeError("Read data does not match written data")
 
     # Use contexmanager
     c = cupy.empty_like(a)
     with kvikio.CuFile(path, "r") as f:
         f.read(c)
-    assert all(a == c)
+    if not all(a == c):
+        raise RuntimeError("Context-manager read does not match written data")
 
     # Non-blocking read
     d = cupy.empty_like(a)
@@ -32,8 +37,10 @@ def main(path):
         future2 = f.pread(d[50:], file_offset=d[:50].nbytes)
         future1.get()  # Wait for first read
         future2.get()  # Wait for second read
-    assert all(a == d)
+    if not all(a == d):
+        raise RuntimeError("Non-blocking read does not match written data")
 
 
 if __name__ == "__main__":
-    main("/tmp/kvikio-hello-world-file")
+    with tempfile.TemporaryDirectory(prefix="kvikio-hello-world-") as tmp_dir:
+        main(str(Path(tmp_dir) / "hello-world-file"))

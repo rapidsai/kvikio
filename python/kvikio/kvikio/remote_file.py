@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -104,7 +104,8 @@ class RemoteFile:
         handle : kvikio._lib.remote_handle.RemoteFile
             The Cython handle
         """
-        assert isinstance(handle, _get_remote_module().RemoteFile)
+        if not isinstance(handle, _get_remote_module().RemoteFile):
+            raise TypeError("handle must be a RemoteFile instance")
         self._handle = handle
 
     @classmethod

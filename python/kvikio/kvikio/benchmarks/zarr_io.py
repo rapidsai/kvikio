@@ -21,7 +21,12 @@ from dask.utils import format_bytes, parse_bytes
 import kvikio
 import kvikio.defaults
 import kvikio.zarr
-from kvikio.benchmarks.utils import drop_vm_cache, parse_directory, pprint_sys_info
+from kvikio.benchmarks.utils import (
+    check_transfer_size,
+    drop_vm_cache,
+    parse_directory,
+    pprint_sys_info,
+)
 
 
 def create_src_data(args):
@@ -55,7 +60,7 @@ def run_kvikio(args):
         t0 = clock()
         res = z[:]
         read_time = clock() - t0
-        assert res.nbytes == args.nbytes
+        check_transfer_size(res.nbytes, args.nbytes)
 
         return read_time, write_time
 
@@ -86,7 +91,7 @@ def run_posix(args):
     t0 = clock()
     res = cupy.asarray(z[:])
     read_time = clock() - t0
-    assert res.nbytes == args.nbytes
+    check_transfer_size(res.nbytes, args.nbytes)
 
     return read_time, write_time
 
@@ -223,8 +228,10 @@ if __name__ == "__main__":
         args.api = tuple(API.keys())
 
     # Check if size is divisible by size of datatype
-    assert args.nbytes % args.dtype.itemsize == 0
-    assert args.chunksize % args.dtype.itemsize == 0
+    if args.nbytes % args.dtype.itemsize != 0:
+        raise ValueError("--nbytes must be divisible by the dtype item size")
+    if args.chunksize % args.dtype.itemsize != 0:
+        raise ValueError("--chunksize must be divisible by the dtype item size")
 
     # Compute/convert to number of elements
     args.nelem = args.nbytes // args.dtype.itemsize

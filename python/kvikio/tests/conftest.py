@@ -4,7 +4,9 @@
 import contextlib
 import multiprocessing as mp
 import os
-import subprocess
+
+# Subprocess isolation is required here because commands must run before CUDA init.
+import subprocess  # nosec B404
 from multiprocessing.connection import Connection
 from typing import Iterable
 
@@ -24,7 +26,8 @@ def command_server(conn: Connection) -> None:
         # Get the next command to run
         cmd, cwd, verbose = conn.recv()
         # Run command
-        res: subprocess.CompletedProcess = subprocess.run(
+        # Commands are supplied only by this test suite over its local pipe.
+        res: subprocess.CompletedProcess = subprocess.run(  # nosec B603
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

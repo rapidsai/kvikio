@@ -1,7 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import subprocess
+import shutil
+
+# This probes local GPU capabilities and never executes caller-provided commands.
+import subprocess  # nosec B404
 
 import pytest
 
@@ -10,7 +13,12 @@ import kvikio.cufile_driver
 
 def has_bar_memory() -> bool:
     try:
-        output = subprocess.check_output(["nvidia-smi"], text=True)
+        nvidia_smi = shutil.which("nvidia-smi")
+        if nvidia_smi is None:
+            return False
+        output = subprocess.check_output(  # nosec B603
+            [nvidia_smi], text=True
+        )
         return "Not Supported" not in output
     except Exception:
         return False

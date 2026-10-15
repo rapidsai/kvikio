@@ -16,7 +16,11 @@ from dask.utils import format_bytes, parse_bytes
 import kvikio
 import kvikio.buffer
 import kvikio.defaults
-from kvikio.benchmarks.utils import parse_directory, pprint_sys_info
+from kvikio.benchmarks.utils import (
+    check_transfer_size,
+    parse_directory,
+    pprint_sys_info,
+)
 
 
 def create_data(nbytes):
@@ -38,7 +42,7 @@ def run_cufile(args):
     res = f.write(data)
     f.close()
     write_time = clock() - t0
-    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
+    check_transfer_size(res, args.nbytes)
 
     # Read
     f = kvikio.CuFile(file_path, flags="r")
@@ -46,7 +50,7 @@ def run_cufile(args):
     res = f.read(data)
     f.close()
     read_time = clock() - t0
-    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
+    check_transfer_size(res, args.nbytes)
 
     if args.pre_register_buffer:
         kvikio.buffer.memory_deregister(data)
@@ -58,7 +62,8 @@ def run_cufile_multiple_files_multiple_arrays(args):
     """One file and array per thread"""
 
     chunksize = args.nbytes // args.nthreads
-    assert args.nbytes % args.nthreads == 0, "--nbytes must be divisible by --nthreads"
+    if args.nbytes % args.nthreads != 0:
+        raise ValueError("--nbytes must be divisible by --nthreads")
 
     # Create a file path and CuPy array per thread
     file_path = str(args.dir / "cufile-p-%03d")
@@ -76,7 +81,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     res = sum(f.get() for f in futures)
     del files
     write_time = clock() - t0
-    assert res == args.nbytes
+    check_transfer_size(res, args.nbytes)
 
     # Read
     files = [kvikio.CuFile(file_path % i, flags="r") for i in range(args.nthreads)]
@@ -87,7 +92,7 @@ def run_cufile_multiple_files_multiple_arrays(args):
     res = sum(f.get() for f in futures)
     del files
     read_time = clock() - t0
-    assert res == args.nbytes
+    check_transfer_size(res, args.nbytes)
 
     if args.pre_register_buffer:
         for array in arrays:
@@ -100,7 +105,8 @@ def run_cufile_multiple_files(args):
     """Single array but one file per thread"""
 
     chunksize = args.nbytes // args.nthreads
-    assert args.nbytes % args.nthreads == 0, "--nbytes must be divisible by --nthreads"
+    if args.nbytes % args.nthreads != 0:
+        raise ValueError("--nbytes must be divisible by --nthreads")
     file_path = str(args.dir / "cufile-p-%03d")
     data = create_data(args.nbytes)
     if args.pre_register_buffer:
@@ -115,7 +121,7 @@ def run_cufile_multiple_files(args):
     res = sum(f.get() for f in futures)
     del files
     write_time = clock() - t0
-    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
+    check_transfer_size(res, args.nbytes)
 
     # Read
     files = [kvikio.CuFile(file_path % i, flags="r") for i in range(args.nthreads)]
@@ -126,7 +132,7 @@ def run_cufile_multiple_files(args):
     res = sum(f.get() for f in futures)
     del files
     read_time = clock() - t0
-    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
+    check_transfer_size(res, args.nbytes)
 
     if args.pre_register_buffer:
         kvikio.buffer.memory_deregister(data)
@@ -138,7 +144,8 @@ def run_cufile_multiple_arrays(args):
     """A single file but one array per thread"""
 
     chunksize = args.nbytes // args.nthreads
-    assert args.nbytes % args.nthreads == 0, "--nbytes must be divisible by --nthreads"
+    if args.nbytes % args.nthreads != 0:
+        raise ValueError("--nbytes must be divisible by --nthreads")
     file_path = args.dir / "kvikio-multiple-arrays"
 
     # Create a CuPy array per thread
@@ -157,7 +164,7 @@ def run_cufile_multiple_arrays(args):
     res = sum(f.get() for f in futures)
     f.close()
     write_time = clock() - t0
-    assert res == args.nbytes
+    check_transfer_size(res, args.nbytes)
 
     # Read
     f = kvikio.CuFile(file_path, flags="r")
@@ -166,7 +173,7 @@ def run_cufile_multiple_arrays(args):
     res = sum(f.get() for f in futures)
     f.close()
     read_time = clock() - t0
-    assert res == args.nbytes
+    check_transfer_size(res, args.nbytes)
 
     if args.pre_register_buffer:
         for array in arrays:
@@ -187,7 +194,7 @@ def run_posix(args):
     res = f.write(data.tobytes())
     f.close()
     write_time = clock() - t0
-    assert res == args.nbytes
+    check_transfer_size(res, args.nbytes)
 
     # Read
     f = open(file_path, "rb")
@@ -195,8 +202,7 @@ def run_posix(args):
     a = cupy.fromfile(f, dtype="uint8", count=len(data))
     f.close()
     read_time = clock() - t0
-    assert a.nbytes == args.nbytes
-    assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {a.nbytes}"
+    check_transfer_size(a.nbytes, args.nbytes)
 
     return read_time, write_time
 
@@ -230,7 +236,7 @@ def run_zarr(args):
     t0 = clock()
     res = z[:]
     read_time = clock() - t0
-    assert res.nbytes == args.nbytes
+    check_transfer_size(res.nbytes, args.nbytes)
 
     return read_time, write_time
 

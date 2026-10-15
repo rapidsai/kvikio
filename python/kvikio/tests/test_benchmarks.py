@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -15,6 +15,15 @@ benchmarks_path = (
 )
 pytest.importorskip("cupy")
 pytest.importorskip("dask")
+
+
+def test_check_transfer_size_rejects_incomplete_transfers():
+    from kvikio.benchmarks.utils import check_transfer_size
+
+    check_transfer_size(16, 16)
+
+    with pytest.raises(RuntimeError, match="expected 16 bytes, got 15"):
+        check_transfer_size(15, 16)
 
 
 @pytest.mark.parametrize(

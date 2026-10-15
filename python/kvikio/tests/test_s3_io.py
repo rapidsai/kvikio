@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import multiprocessing as mp
 import time
 from contextlib import contextmanager
@@ -23,6 +24,7 @@ pytestmark = pytest.mark.skipif(
 import boto3  # noqa: E402
 import moto  # noqa: E402
 import moto.server  # noqa: E402
+from botocore.exceptions import BotoCoreError  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -70,8 +72,10 @@ def s3_context(s3_base, bucket, files=None):
     for f in files:
         try:
             client.delete_object(Bucket=bucket, Key=f)
-        except Exception:
-            pass
+        except BotoCoreError as error:
+            logging.getLogger(__name__).warning(
+                "Unable to delete test object %r: %s", f, error
+            )
 
 
 def test_read_access(s3_base):

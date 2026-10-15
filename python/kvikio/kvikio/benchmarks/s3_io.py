@@ -5,6 +5,7 @@ import argparse
 import contextlib
 import multiprocessing
 import os
+import secrets
 import socket
 import statistics
 import sys
@@ -20,6 +21,7 @@ from dask.utils import format_bytes
 
 import kvikio
 import kvikio.defaults
+from kvikio.benchmarks.utils import check_transfer_size
 
 
 def get_local_port() -> int:
@@ -50,7 +52,7 @@ def local_s3_server(lifetime: int):
     """Start a server and run it for `lifetime` minutes or kill it on context exit"""
     # Use fake aws credentials
     os.environ["AWS_ACCESS_KEY_ID"] = "foobar_key"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "foobar_secret"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = secrets.token_urlsafe(32)
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
     p = multiprocessing.Process(target=start_s3_server, args=(lifetime,))
     p.start()
@@ -91,7 +93,7 @@ def run_numpy_like(args, xp):
         with kvikio.RemoteFile.open_s3_url(url) as f:
             res = f.read(recv)
         t1 = time.perf_counter()
-        assert res == args.nbytes, f"IO mismatch, expected {args.nbytes} got {res}"
+        check_transfer_size(res, args.nbytes)
         xp.testing.assert_array_equal(data, recv)
         return t1 - t0
 

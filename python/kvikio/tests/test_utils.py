@@ -7,6 +7,22 @@ import pytest
 import kvikio.utils
 
 
+def test_remote_file_rejects_invalid_internal_handle(monkeypatch):
+    import kvikio.remote_file
+
+    class RemoteHandle:
+        pass
+
+    monkeypatch.setattr(
+        kvikio.remote_file,
+        "_get_remote_module",
+        lambda: type("RemoteModule", (), {"RemoteFile": RemoteHandle}),
+    )
+
+    with pytest.raises(TypeError, match="handle must be a RemoteFile instance"):
+        kvikio.remote_file.RemoteFile(object())
+
+
 def test_function_deprecation():
     """Test the decorator used to deprecate functions"""
 
