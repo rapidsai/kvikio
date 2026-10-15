@@ -34,24 +34,24 @@ elif [[ -z "${OPENSSL_ROOT_DIR:-}" && -n "${CONDA_PREFIX:-}" ]]; then
 fi
 
 if [[ -z "${OPENSSL_ROOT_DIR:-}" ]]; then
-  # OpenSSL's Configure loads IPC::Cmd even when tests are disabled. The
-  # minimal Rocky wheel image has Perl but may omit this separately packaged
-  # module; install only that missing runtime dependency in the ephemeral
-  # wheel container before building the private OpenSSL prefix.
-  if ! perl -MIPC::Cmd -e 1 >/dev/null 2>&1; then
+  # OpenSSL 3.5.9 Configure loads IPC::Cmd and Time::Piece even when tests are
+  # disabled. The minimal Rocky wheel image may omit these separately packaged
+  # modules; install only those prerequisites in the ephemeral wheel container
+  # before building the private OpenSSL prefix.
+  if ! perl -MIPC::Cmd -MTime::Piece -e 1 >/dev/null 2>&1; then
     if [[ "$(id -u)" != "0" ]]; then
-      echo "OpenSSL source build requires Perl IPC::Cmd, which is unavailable" >&2
+      echo "OpenSSL source build requires Perl IPC::Cmd and Time::Piece, which are unavailable" >&2
       return 1
     fi
 
     if ! command -v dnf >/dev/null 2>&1; then
-      echo "OpenSSL source build requires Perl IPC::Cmd; install the distro module before building" >&2
+      echo "OpenSSL source build requires Perl IPC::Cmd and Time::Piece; install the distro modules before building" >&2
       return 1
     fi
-    dnf install --nodocs --assumeyes perl-IPC-Cmd || return $?
+    dnf install --nodocs --assumeyes perl-IPC-Cmd perl-Time-Piece || return $?
 
-    if ! perl -MIPC::Cmd -e 1 >/dev/null 2>&1; then
-      echo "Perl IPC::Cmd remains unavailable after package installation" >&2
+    if ! perl -MIPC::Cmd -MTime::Piece -e 1 >/dev/null 2>&1; then
+      echo "Perl IPC::Cmd or Time::Piece remains unavailable after package installation" >&2
       return 1
     fi
   fi

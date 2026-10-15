@@ -120,15 +120,23 @@ def test_prepare_script_does_not_reuse_conda_openssl_1(tmp_path):
     assert "OPENSSL_ROOT_DIR" not in result.stdout
 
 
-def test_prepare_script_installs_missing_perl_ipc_cmd_with_dnf(tmp_path):
-    installed = tmp_path / "ipc-cmd-installed"
+def test_prepare_script_installs_missing_openssl_perl_modules_with_dnf(tmp_path):
+    ipc_cmd_installed = tmp_path / "ipc-cmd-installed"
+    time_piece_installed = tmp_path / "time-piece-installed"
     dnf_args = tmp_path / "dnf-args"
+    perl_args = tmp_path / "perl-args"
     curl_called = tmp_path / "curl-called"
     commands = {
-        "perl": (f"#!/bin/bash\n[[ -f '{installed}' ]]\n"),
+        "perl": (
+            "#!/bin/bash\n"
+            f"printf '%s\\n' \"$*\" >> '{perl_args}'\n"
+            f"[[ \"$*\" != *-MIPC::Cmd* || -f '{ipc_cmd_installed}' ]] || exit 1\n"
+            f"[[ \"$*\" != *-MTime::Piece* || -f '{time_piece_installed}' ]]\n"
+        ),
         "id": "#!/bin/bash\nprintf '0\\n'\n",
         "dnf": (
-            f"#!/bin/bash\nprintf '%s\\n' \"$*\" >> '{dnf_args}'\ntouch '{installed}'\n"
+            f"#!/bin/bash\nprintf '%s\\n' \"$*\" >> '{dnf_args}'\n"
+            f"touch '{ipc_cmd_installed}' '{time_piece_installed}'\n"
         ),
         "curl": (f"#!/bin/bash\ntouch '{curl_called}'\nexit 99\n"),
     }
@@ -136,8 +144,47 @@ def test_prepare_script_installs_missing_perl_ipc_cmd_with_dnf(tmp_path):
     result = source_prepare_script(tmp_path, commands=commands)
 
     assert result.returncode == 99
-    assert dnf_args.read_text().strip() == "install --nodocs --assumeyes perl-IPC-Cmd"
+    assert dnf_args.read_text().strip() == (
+        "install --nodocs --assumeyes perl-IPC-Cmd perl-Time-Piece"
+    )
+    assert perl_args.read_text().splitlines() == [
+        "-MIPC::Cmd -MTime::Piece -e 1",
+        "-MIPC::Cmd -MTime::Piece -e 1",
+    ]
     assert curl_called.is_file()
+
+
+def test_prepare_script_installs_time_piece_when_ipc_cmd_is_already_present(tmp_path):
+    ipc_cmd_installed = tmp_path / "ipc-cmd-installed"
+    ipc_cmd_installed.touch()
+    time_piece_installed = tmp_path / "time-piece-installed"
+    dnf_args = tmp_path / "dnf-args"
+    perl_args = tmp_path / "perl-args"
+    commands = {
+        "perl": (
+            "#!/bin/bash\n"
+            f"printf '%s\\n' \"$*\" >> '{perl_args}'\n"
+            f"[[ \"$*\" != *-MIPC::Cmd* || -f '{ipc_cmd_installed}' ]] || exit 1\n"
+            f"[[ \"$*\" != *-MTime::Piece* || -f '{time_piece_installed}' ]]\n"
+        ),
+        "id": "#!/bin/bash\nprintf '0\\n'\n",
+        "dnf": (
+            f"#!/bin/bash\nprintf '%s\\n' \"$*\" >> '{dnf_args}'\n"
+            f"touch '{time_piece_installed}'\n"
+        ),
+        "curl": "#!/bin/bash\nexit 99\n",
+    }
+
+    result = source_prepare_script(tmp_path, commands=commands)
+
+    assert result.returncode == 99
+    assert dnf_args.read_text().strip() == (
+        "install --nodocs --assumeyes perl-IPC-Cmd perl-Time-Piece"
+    )
+    assert perl_args.read_text().splitlines() == [
+        "-MIPC::Cmd -MTime::Piece -e 1",
+        "-MIPC::Cmd -MTime::Piece -e 1",
+    ]
 
 
 def test_prepare_script_fails_before_download_when_perl_module_install_fails(tmp_path):
@@ -153,7 +200,38 @@ def test_prepare_script_fails_before_download_when_perl_module_install_fails(tmp
     result = source_prepare_script(tmp_path, commands=commands)
 
     assert result.returncode == 42
-    assert dnf_args.read_text().strip() == "install --nodocs --assumeyes perl-IPC-Cmd"
+    assert dnf_args.read_text().strip() == (
+        "install --nodocs --assumeyes perl-IPC-Cmd perl-Time-Piece"
+    )
+    assert not curl_called.exists()
+
+
+def test_prepare_script_fails_closed_when_installed_modules_remain_unavailable(
+    tmp_path,
+):
+    ipc_cmd_installed = tmp_path / "ipc-cmd-installed"
+    time_piece_installed = tmp_path / "time-piece-installed"
+    ipc_cmd_installed.touch()
+    dnf_args = tmp_path / "dnf-args"
+    curl_called = tmp_path / "curl-called"
+    commands = {
+        "perl": (
+            "#!/bin/bash\n"
+            f"[[ \"$*\" != *-MIPC::Cmd* || -f '{ipc_cmd_installed}' ]] || exit 1\n"
+            f"[[ \"$*\" != *-MTime::Piece* || -f '{time_piece_installed}' ]]\n"
+        ),
+        "id": "#!/bin/bash\nprintf '0\\n'\n",
+        "dnf": f"#!/bin/bash\nprintf '%s\\n' \"$*\" >> '{dnf_args}'\nexit 0\n",
+        "curl": f"#!/bin/bash\ntouch '{curl_called}'\nexit 99\n",
+    }
+
+    result = source_prepare_script(tmp_path, commands=commands)
+
+    assert result.returncode == 1
+    assert "remains unavailable after package installation" in result.stderr
+    assert dnf_args.read_text().strip() == (
+        "install --nodocs --assumeyes perl-IPC-Cmd perl-Time-Piece"
+    )
     assert not curl_called.exists()
 
 
@@ -168,7 +246,7 @@ def test_prepare_script_fails_closed_without_root_or_package_manager(tmp_path):
     result = source_prepare_script(tmp_path, commands=commands)
 
     assert result.returncode == 1
-    assert "requires Perl IPC::Cmd" in result.stderr
+    assert "requires Perl IPC::Cmd and Time::Piece" in result.stderr
     assert not curl_called.exists()
 
 
