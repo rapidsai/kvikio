@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 import boto3  # noqa: E402
 import moto  # noqa: E402
 import moto.server  # noqa: E402
-from botocore.exceptions import BotoCoreError  # noqa: E402
+from botocore.exceptions import ClientError  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -70,12 +70,31 @@ def s3_context(s3_base, bucket, files=None):
         client.put_object(Bucket=bucket, Key=f, Body=data)
     yield s3_base
     for f in files:
-        try:
-            client.delete_object(Bucket=bucket, Key=f)
-        except BotoCoreError as error:
-            logging.getLogger(__name__).warning(
-                "Unable to delete test object %r: %s", f, error
+        _delete_test_object(client, bucket, f)
+
+
+def _delete_test_object(client, bucket, key):
+    try:
+        client.delete_object(Bucket=bucket, Key=key)
+    except Exception as error:
+        # Preserve best-effort cleanup so it does not mask the primary test failure.
+        logging.getLogger(__name__).warning(
+            "Unable to delete test object %r: %s", key, error
+        )
+
+
+def test_s3_cleanup_logs_service_errors(caplog):
+    class FailingClient:
+        def delete_object(self, **kwargs):
+            raise ClientError(
+                {"Error": {"Code": "InternalError", "Message": "cleanup failed"}},
+                "DeleteObject",
             )
+
+    with caplog.at_level(logging.WARNING):
+        _delete_test_object(FailingClient(), "bucket", "object")
+
+    assert "Unable to delete test object 'object'" in caplog.text
 
 
 def test_read_access(s3_base):
