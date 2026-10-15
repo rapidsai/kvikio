@@ -55,14 +55,16 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
         self,
         *args,
         directory=None,
-        request_counter: RequestCounter = RequestCounter(),
+        request_counter: RequestCounter | None = None,
         max_error_count: int = 1,
         delay_duration: int = 0,
         max_delay_count: int = 1,
         **kwargs,
     ):
         self.max_error_count = max_error_count
-        self.request_counter = request_counter
+        self.request_counter = (
+            request_counter if request_counter is not None else RequestCounter()
+        )
         self.delay_duration = delay_duration
         self.max_delay_count = max_delay_count
         super().__init__(*args, directory=directory, **kwargs)
@@ -115,12 +117,14 @@ class PartialBodyHandler(SimpleHTTPRequestHandler):
         self,
         *args,
         directory=None,
-        request_counter: RequestCounter = RequestCounter(),
+        request_counter: RequestCounter | None = None,
         max_stall_count: int = 1,
         stall_duration: int = 5,
         **kwargs,
     ):
-        self.request_counter = request_counter
+        self.request_counter = (
+            request_counter if request_counter is not None else RequestCounter()
+        )
         self.max_stall_count = max_stall_count
         self.stall_duration = stall_duration
         super().__init__(*args, directory=directory, **kwargs)
@@ -140,6 +144,21 @@ class PartialBodyHandler(SimpleHTTPRequestHandler):
         outputfile.write(data[: len(data) // 2])
         outputfile.flush()
         time.sleep(self.stall_duration)
+
+
+def test_handler_request_counters_are_instance_local_by_default(monkeypatch):
+    monkeypatch.setattr(
+        SimpleHTTPRequestHandler, "__init__", lambda *args, **kwargs: None
+    )
+
+    first = HTTP503Handler(None, ("", 0), None)
+    second = HTTP503Handler(None, ("", 0), None)
+    shared_counter = RequestCounter()
+    shared_first = HTTP503Handler(None, ("", 0), None, request_counter=shared_counter)
+    shared_second = HTTP503Handler(None, ("", 0), None, request_counter=shared_counter)
+
+    assert first.request_counter is not second.request_counter
+    assert shared_first.request_counter is shared_second.request_counter
 
 
 @pytest.fixture

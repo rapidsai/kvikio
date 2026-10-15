@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
@@ -67,7 +67,7 @@ def main(args):
         for elapsed in API[api](args):
             res.append(elapsed)
 
-        def pprint_api_res(name, samples):
+        def pprint_api_res(api, name, samples):
             # Convert to throughput
             samples = [args.nbytes / s for s in samples]
             mean = statistics.harmonic_mean(samples) if len(samples) > 1 else samples[0]
@@ -82,7 +82,7 @@ def main(args):
                 ret = ret[:-2] + ")"  # Replace trailing comma
             return ret
 
-        print(pprint_api_res("read", res))
+        print(pprint_api_res(api, "read", res))
 
 
 if __name__ == "__main__":

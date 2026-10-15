@@ -28,7 +28,7 @@ def drop_vm_cache() -> None:
 
     See <https://linux-mm.org/Drop_Caches>
     """
-    subprocess.check_output(["sudo /sbin/sysctl vm.drop_caches=3"], shell=True)
+    subprocess.check_output(["/usr/bin/sudo", "/sbin/sysctl", "vm.drop_caches=3"])
 
 
 def pprint_sys_info() -> None:

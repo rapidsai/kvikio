@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
@@ -70,7 +70,9 @@ def run_cufile_multiple_files_multiple_arrays(args):
     # Write
     files = [kvikio.CuFile(file_path % i, flags="w") for i in range(args.nthreads)]
     t0 = clock()
-    futures = [f.pwrite(a, task_size=a.nbytes) for f, a in zip(files, arrays)]
+    futures = [
+        f.pwrite(a, task_size=a.nbytes) for f, a in zip(files, arrays, strict=True)
+    ]
     res = sum(f.get() for f in futures)
     del files
     write_time = clock() - t0
@@ -79,7 +81,9 @@ def run_cufile_multiple_files_multiple_arrays(args):
     # Read
     files = [kvikio.CuFile(file_path % i, flags="r") for i in range(args.nthreads)]
     t0 = clock()
-    futures = [f.pread(a, task_size=a.nbytes) for f, a in zip(files, arrays)]
+    futures = [
+        f.pread(a, task_size=a.nbytes) for f, a in zip(files, arrays, strict=True)
+    ]
     res = sum(f.get() for f in futures)
     del files
     read_time = clock() - t0
@@ -268,7 +272,7 @@ def main(args):
             rs.append(args.nbytes / read)
             ws.append(args.nbytes / write)
 
-        def pprint_api_res(name, samples):
+        def pprint_api_res(api, name, samples):
             mean = statistics.mean(samples) if len(samples) > 1 else samples[0]
             ret = f"{api} {name}".ljust(18)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)
@@ -281,8 +285,8 @@ def main(args):
                 ret = ret[:-2] + ")"  # Replace trailing comma
             return ret
 
-        print(pprint_api_res("read", rs))
-        print(pprint_api_res("write", ws))
+        print(pprint_api_res(api, "read", rs))
+        print(pprint_api_res(api, "write", ws))
 
 
 if __name__ == "__main__":
