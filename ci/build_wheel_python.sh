@@ -1,10 +1,14 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
 
 source rapids-init-pip
+
+# Candidate wheels must match the libkvikio version selected from the frozen
+# release train; ordinary builds leave generated dependencies unchanged.
+python ci/prepare_candidate_wheel_dependencies.py
 
 package_name="kvikio"
 package_dir="python/kvikio"
