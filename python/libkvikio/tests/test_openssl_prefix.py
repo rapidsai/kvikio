@@ -14,13 +14,20 @@ BUILD_WHEEL_SCRIPT = ROOT / "ci/build_wheel_cpp.sh"
 
 
 def source_prepare_script(
-    tmp_path, *, openssl_root=None, cmake_args=None, conda_prefix=None
+    tmp_path, *, openssl_root=None, cmake_args=None, conda_prefix=None, commands=None
 ):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     curl = fake_bin / "curl"
     curl.write_text("#!/bin/bash\nexit 99\n")
     curl.chmod(0o755)
+    perl = fake_bin / "perl"
+    perl.write_text("#!/bin/bash\nexit 0\n")
+    perl.chmod(0o755)
+    for name, contents in (commands or {}).items():
+        executable = fake_bin / name
+        executable.write_text(contents)
+        executable.chmod(0o755)
 
     env = {**os.environ, "PATH": f"{fake_bin}:{os.environ['PATH']}"}
     env.pop("OPENSSL_ROOT_DIR", None)
@@ -111,6 +118,58 @@ def test_prepare_script_does_not_reuse_conda_openssl_1(tmp_path):
 
     assert result.returncode == 99
     assert "OPENSSL_ROOT_DIR" not in result.stdout
+
+
+def test_prepare_script_installs_missing_perl_ipc_cmd_with_dnf(tmp_path):
+    installed = tmp_path / "ipc-cmd-installed"
+    dnf_args = tmp_path / "dnf-args"
+    curl_called = tmp_path / "curl-called"
+    commands = {
+        "perl": (f"#!/bin/bash\n[[ -f '{installed}' ]]\n"),
+        "id": "#!/bin/bash\nprintf '0\\n'\n",
+        "dnf": (
+            f"#!/bin/bash\nprintf '%s\\n' \"$*\" >> '{dnf_args}'\ntouch '{installed}'\n"
+        ),
+        "curl": (f"#!/bin/bash\ntouch '{curl_called}'\nexit 99\n"),
+    }
+
+    result = source_prepare_script(tmp_path, commands=commands)
+
+    assert result.returncode == 99
+    assert dnf_args.read_text().strip() == "install --nodocs --assumeyes perl-IPC-Cmd"
+    assert curl_called.is_file()
+
+
+def test_prepare_script_fails_before_download_when_perl_module_install_fails(tmp_path):
+    dnf_args = tmp_path / "dnf-args"
+    curl_called = tmp_path / "curl-called"
+    commands = {
+        "perl": "#!/bin/bash\nexit 1\n",
+        "id": "#!/bin/bash\nprintf '0\\n'\n",
+        "dnf": (f"#!/bin/bash\nprintf '%s\\n' \"$*\" >> '{dnf_args}'\nexit 42\n"),
+        "curl": f"#!/bin/bash\ntouch '{curl_called}'\nexit 99\n",
+    }
+
+    result = source_prepare_script(tmp_path, commands=commands)
+
+    assert result.returncode == 42
+    assert dnf_args.read_text().strip() == "install --nodocs --assumeyes perl-IPC-Cmd"
+    assert not curl_called.exists()
+
+
+def test_prepare_script_fails_closed_without_root_or_package_manager(tmp_path):
+    curl_called = tmp_path / "curl-called"
+    commands = {
+        "perl": "#!/bin/bash\nexit 1\n",
+        "id": "#!/bin/bash\nprintf '1000\\n'\n",
+        "curl": f"#!/bin/bash\ntouch '{curl_called}'\nexit 99\n",
+    }
+
+    result = source_prepare_script(tmp_path, commands=commands)
+
+    assert result.returncode == 1
+    assert "requires Perl IPC::Cmd" in result.stderr
+    assert not curl_called.exists()
 
 
 def test_prepare_script_pins_official_openssl_source_archive():
