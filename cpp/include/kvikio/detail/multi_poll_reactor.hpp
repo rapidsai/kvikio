@@ -165,8 +165,8 @@ struct RemoteMultiTransfer {
   std::shared_ptr<RemoteMultiAggregateContext> aggregate;
 
   // Concurrency slot. Taken at admission and returned when this transfer is destroyed or requeued
-  // for retry. Under SHARED_QUEUE it is also held briefly between leaving the pool-wide queue and
-  // admission. A transfer waiting in a reactor's `_pending` never holds one.
+  // for retry. It is also held briefly between leaving the pool-wide queue and admission. A
+  // transfer waiting in a reactor's `_pending` never holds one.
   ConcurrentRequestLimiter::Slot slot;
 
   // Device-path fields. All zeroed/null for host transfers.
@@ -204,11 +204,12 @@ struct RemoteMultiTransfer {
 };
 
 /**
- * @brief One reactor has one `CURLM*`, one I/O thread, one submit queue, one in-flight map.
+ * @brief One reactor has one `CURLM*`, one I/O thread, one retry queue, one in-flight map. It takes
+ * new work from its pool's shared queue.
  *
  * `CURLM*` is not thread-safe. All multi-side calls (`curl_multi_add_handle`, `curl_multi_perform`,
  * `curl_multi_info_read`, `curl_multi_remove_handle`, `curl_multi_poll`) happen on `_io_thread`.
- * The only cross-thread libcurl call is `curl_multi_wakeup()`, used by `submit()` to nudge the
+ * The only cross-thread libcurl call is `curl_multi_wakeup()`, used by `wakeup()` to nudge the
  * reactor out of its poll.
  *
  * @note Instances are intentionally never destroyed. They are owned by the leaked
@@ -235,24 +236,11 @@ class MultiPollReactor {
   MultiPollReactor& operator=(MultiPollReactor&&)      = delete;
 
   /**
-   * @brief Hand off a batch of prepared transfers to this reactor. Thread-safe.
-   *
-   * The reactor picks the transfers up on its next loop iteration. The caller must have already
-   * obtained the aggregate future via `aggregate->get_future()` before calling this, because once
-   * the transfers are in the queue the reactor may complete them (and the promise) at any time. If
-   * the pool has already declared death, every transfer in the batch is failed immediately with
-   * the recorded death reason and never enters the inbox.
-   *
-   * @param transfers Per-transfer state, ownership transferred to the reactor.
-   */
-  void submit(std::vector<std::unique_ptr<RemoteMultiTransfer>> transfers);
-
-  /**
    * @brief Wake up the reactor out of its `curl_multi_poll()` wait. Thread-safe.
    *
    * This method calls `curl_multi_wakeup()`. If it fails (which is rare) the reactor still wakes on
-   * its bounded poll timeout. Used by `MultiReactorPool::signal_death` to make every reactor notice
-   * pool death promptly rather than waiting for the timeout.
+   * its bounded poll timeout. Used by `MultiReactorPool` to make every reactor notice new work in
+   * the shared queue, or pool death, promptly rather than waiting for the timeout.
    */
   void wakeup() noexcept;
 
@@ -296,17 +284,11 @@ class MultiPollReactor {
   struct AdmitPass;
 
   /**
-   * @brief Splice newly submitted transfers out of the inbox into `_pending`.
-   */
-  void ingest_inbox();
-
-  /**
    * @brief One admission pass: hand as many transfers to libcurl as the gates allow.
    *
-   * Iterates `_pending` first. That gives retries and transfers carried over from earlier passes
-   * slots before new work. Under `SHARED_QUEUE` it then pulls from the pool-wide queue. A transfer
-   * that cannot be admitted stays in `_pending` if it is local, or goes back to the pool queue if
-   * it came from there.
+   * Iterates `_pending` first. That gives retries slots before new work. It then pulls from the
+   * pool-wide queue. A transfer that cannot be admitted stays in `_pending` if it is a retry, or
+   * goes back to the pool queue if it came from there.
    *
    * @return What the pass left behind.
    */
@@ -325,8 +307,8 @@ class MultiPollReactor {
   bool try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer, AdmitPass& pass);
 
   /**
-   * @brief `SHARED_QUEUE` only. Pull sub-ranges off the pool-wide queue and admit them, up to this
-   * reactor's share and while it has capacity.
+   * @brief Pull sub-ranges off the pool-wide queue and admit them, up to this reactor's share and
+   * while it has capacity.
    *
    * A slot is reserved before a sub-range leaves the queue. A sub-range that then fails to get a
    * bounce buffer returns to the queue instead of waiting in `_pending`.
@@ -393,7 +375,7 @@ class MultiPollReactor {
    * @brief Fail every transfer this reactor is responsible for and exit the loop.
    *
    * Called from the I/O thread on its way out, either because this reactor caught an exception or
-   * because another reactor signaled pool death. Drains the inbox, removes each in-flight easy
+   * because another reactor signaled pool death. Drains `_pending`, removes each in-flight easy
    * handle from the multi handle, and resolves each transfer's aggregate with the given exception.
    */
   void fail_all_pending(std::exception_ptr eptr);
@@ -411,31 +393,22 @@ class MultiPollReactor {
   ConcurrentRequestLimiter _request_limiter;
   CURLM* _curl_multi{nullptr};
   std::thread _io_thread;
-  std::mutex _submit_mutex;
-  std::deque<std::unique_ptr<RemoteMultiTransfer>> _inbox;
   std::deque<std::unique_ptr<RemoteMultiTransfer>> _pending;
   std::unordered_map<CURL*, std::unique_ptr<RemoteMultiTransfer>> _in_flight;
 };
 
 /**
- * @brief Process-wide pool that owns N reactors and dispatches sub-range transfers to them. Every
- * public member function is thread-safe.
+ * @brief Process-wide pool that owns N reactors and dispatches sub-range transfers through one
+ * shared queue. Every public member function is thread-safe.
  *
- * Accessed via the leaked-pointer singleton `instance()`. Both `num_reactors` and the dispatch
- * mode are captured once at first use from `kvikio::defaults` and remain immutable for the process
- * lifetime: switching either requires restarting with different `KVIKIO_REMOTE_IO_NUM_REACTORS` /
- * `KVIKIO_REMOTE_IO_REACTOR_DISPATCH` env vars.
+ * Accessed via the leaked-pointer singleton `instance()`. Both `num_reactors` and the concurrency
+ * budget are captured once at first use from `kvikio::defaults` and remain immutable for the
+ * process lifetime: switching either requires restarting with different
+ * `KVIKIO_REMOTE_IO_NUM_REACTORS` / `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS` env vars.
  *
- * Dispatch rules (with `N = _reactor_count`):
- *  - `PER_CHUNK` (default): each sub-range is routed independently via a round-robin atomic
- *    counter. Maximizes load distribution. May cause sub-ranges of the same file to use distinct
- *    TCP/TLS connections.
- *  - `PER_PREAD`: all sub-ranges of one `submit_pread()` call land on the same reactor (round-robin
- *    per call). Preserves per-`CURLM` connection-pool reuse.
- *  - `SHARED_QUEUE`: sub-ranges wait in one pool-wide queue. A reactor takes one only after
- *    reserving concurrency for it, and hands it back if it cannot start it at once. Work binds at
- *    execution time rather than submission time. Needs a non-zero concurrency budget to pace the
- *    queue.
+ * Sub-ranges wait in one pool-wide queue. A reactor takes one only after reserving concurrency for
+ * it, and hands it back if it cannot start it at once. Sub-ranges therefore go to whichever reactor
+ * frees up first.
  */
 class MultiReactorPool {
  public:
@@ -452,8 +425,8 @@ class MultiReactorPool {
   /**
    * @brief Whether the pool singleton has already been constructed.
    *
-   * `num_reactors`, the dispatch mode, and the concurrency cap are all captured once in the
-   * pool's constructor, so changing them after this returns `true` would silently have no effect.
+   * `num_reactors` and the concurrency cap are captured once in the pool's constructor, so changing
+   * them after this returns `true` would silently have no effect.
    * Used by `kvikio::defaults` to reject such changes with an exception instead.
    */
   [[nodiscard]] static bool is_instantiated() noexcept;
@@ -466,10 +439,11 @@ class MultiReactorPool {
   /**
    * @brief Submit all sub-range transfers belonging to one `RemoteHandle::pread()` call.
    *
-   * Routes each transfer to a reactor according to the captured dispatch policy. The caller must
-   * have already obtained the aggregate future from the shared `RemoteMultiAggregateContext`
-   * before invoking this, because as soon as the pool returns the reactors may have already
-   * started completing the transfers.
+   * Appends the transfers to the pool-wide queue and wakes every reactor. The caller must have
+   * already obtained the aggregate future from the shared `RemoteMultiAggregateContext` before
+   * invoking this, because as soon as the pool returns the reactors may have already started
+   * completing the transfers. If the pool has already died, every transfer is failed at once with
+   * the recorded death reason.
    *
    * @param transfers The sub-range transfers, ownership transferred to the pool.
    */
@@ -538,14 +512,9 @@ class MultiReactorPool {
   [[nodiscard]] std::size_t queue_share_per_reactor() const noexcept;
 
   /**
-   * @brief Whether sub-ranges wait in the pool-wide queue instead of being pushed to a reactor.
-   */
-  [[nodiscard]] bool uses_shared_queue() const noexcept;
-
-  /**
    * @brief Nudge every reactor out of its poll.
    *
-   * Called on every shared-queue submit and on pool death. Waking a subset would leave idle
+   * Called on every submit and on pool death. Waking a subset would leave idle
    * reactors asleep whenever the woken ones are full.
    */
   void wake_all_reactors() noexcept;
@@ -556,14 +525,11 @@ class MultiReactorPool {
 
   std::size_t _reactor_count;
   std::vector<std::unique_ptr<MultiPollReactor>> _reactors;
-  RemoteReactorDispatch _dispatch;
-  // Round-robin counter. Incremented per pread (PER_PREAD) or per chunk (PER_CHUNK).
-  std::atomic<std::size_t> _next_reactor_counter{0};
   std::atomic<bool> _dead{false};
   std::mutex mutable _death_mutex;  // Protects writes to `_death_reason`.
   std::exception_ptr _death_reason;
 
-  // SHARED_QUEUE only. Sub-ranges wait here until some reactor has a slot for one.
+  // Sub-ranges wait here until some reactor has a slot for one.
   std::mutex _queue_mutex;
   std::deque<std::unique_ptr<RemoteMultiTransfer>> _queue;
   // Written under `_queue_mutex` and read without it. A non-zero value is a reason to try

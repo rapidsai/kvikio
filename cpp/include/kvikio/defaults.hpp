@@ -135,7 +135,6 @@ class defaults {
   bool _thread_pool_per_block_device;
   RemoteIOBackend _remote_io_backend;
   unsigned int _remote_io_num_reactors;
-  RemoteReactorDispatch _remote_io_reactor_dispatch;
   std::size_t _remote_io_max_concurrent_requests;
 
   static unsigned int get_num_threads_from_env();
@@ -500,31 +499,26 @@ class defaults {
   static void set_remote_io_num_reactors(unsigned int num_reactors);
 
   /**
-   * @brief How sub-ranges of one `pread()` are distributed across reactor threads under the
-   * `MULTI_POLL` remote I/O backend.
+   * @brief How sub-ranges are distributed across reactor threads under the `MULTI_POLL` remote I/O
+   * backend.
    *
-   * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`, parsed case-insensitively.
-   * - `PER_CHUNK`: `RemoteReactorDispatch::PER_CHUNK` (default).
-   * - `PER_PREAD`: `RemoteReactorDispatch::PER_PREAD`.
-   * - `SHARED_QUEUE`: `RemoteReactorDispatch::SHARED_QUEUE`, which additionally requires a non-zero
-   *   `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS` and falls back to `PER_CHUNK` without one.
-   * When a single reactor is used, all modes are equivalent.
+   * @deprecated Reactor dispatch is no longer configurable. The reactors always take sub-ranges
+   * from one shared queue, which is what `SHARED_QUEUE` used to select.
    *
-   * @return The reactor dispatch policy.
+   * @return Always `RemoteReactorDispatch::SHARED_QUEUE`.
    */
-  [[nodiscard]] static RemoteReactorDispatch remote_io_reactor_dispatch();
+  [[deprecated]] [[nodiscard]] static RemoteReactorDispatch remote_io_reactor_dispatch();
 
   /**
-   * @brief Set the reactor dispatch policy used by the `MULTI_POLL` remote I/O backend at
-   * runtime, overriding `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
+   * @brief No-op. Formerly set how sub-ranges are distributed across reactor threads under the
+   * `MULTI_POLL` remote I/O backend.
    *
-   * The pool is created lazily on first use and is never rebuilt or resized.
+   * @deprecated Reactor dispatch is no longer configurable. The reactors always take sub-ranges
+   * from one shared queue, which is what `SHARED_QUEUE` used to select.
    *
-   * @param dispatch The reactor dispatch policy.
-   *
-   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
+   * @param dispatch Ignored.
    */
-  static void set_remote_io_reactor_dispatch(RemoteReactorDispatch dispatch);
+  [[deprecated]] static void set_remote_io_reactor_dispatch(RemoteReactorDispatch dispatch);
 
   /**
    * @brief Maximum number of concurrent in-flight requests across all reactor threads under the
@@ -538,11 +532,11 @@ class defaults {
    * making the total exact. A budget below the reactor count still gives every reactor one slot,
    * and the effective total is then the reactor count.
    *
-   * Under `SHARED_QUEUE` a reactor pulls from the shared queue only while its share has room. The
-   * full budget then stays on the wire regardless of how the work was submitted or how many
-   * reactors there are. Device-destination reads also stage through pinned bounce buffers that are
-   * held until the device copy completes, up to twice a reactor's share each. Pinned staging memory
-   * is therefore bounded by 2 x this value x `bounce_buffer_size()`.
+   * A reactor pulls a sub-range from the shared queue only when its share has room. Sub-ranges
+   * therefore go to whichever reactor frees up first, and the full budget stays in flight as long
+   * as enough work is queued. Device-destination reads also stage through pinned bounce buffers
+   * that are held until the device copy completes, up to twice a reactor's share each. Pinned
+   * staging memory is therefore bounded by 2 x this value x `bounce_buffer_size()`.
    *
    * Controlled by `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`. Must be a non-negative integer. 0
    * means unlimited. Defaults to 256. Ignored when the active backend is not `MULTI_POLL`

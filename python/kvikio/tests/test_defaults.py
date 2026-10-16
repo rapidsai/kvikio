@@ -215,20 +215,13 @@ def test_remote_io_num_reactors():
 
 
 def test_remote_io_reactor_dispatch():
-    before = kvikio.defaults.get("remote_io_reactor_dispatch")
-    try:
-        for after in kvikio.RemoteReactorDispatch:
-            result = kvikio.defaults.set("remote_io_reactor_dispatch", after)
-            assert result is None
-            assert kvikio.defaults.get("remote_io_reactor_dispatch") == after
-    finally:
-        kvikio.defaults.set("remote_io_reactor_dispatch", before)
-    assert kvikio.defaults.get("remote_io_reactor_dispatch") == before
-
-    with pytest.raises(TypeError, match="context manager protocol"):
-        with kvikio.defaults.set("remote_io_reactor_dispatch", after):
-            pass
-    kvikio.defaults.set("remote_io_reactor_dispatch", before)
+    # Deprecated. Setting any value is a no-op, and reading always gives SHARED_QUEUE.
+    for value in kvikio.RemoteReactorDispatch:
+        with pytest.warns(FutureWarning, match="deprecated and has no effect"):
+            assert kvikio.defaults.set("remote_io_reactor_dispatch", value) is None
+        with pytest.warns(FutureWarning, match="deprecated and has no effect"):
+            dispatch = kvikio.defaults.get("remote_io_reactor_dispatch")
+        assert dispatch == kvikio.RemoteReactorDispatch.SHARED_QUEUE
 
 
 def test_remote_io_max_concurrent_requests():
