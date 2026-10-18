@@ -426,8 +426,8 @@ class MultiReactorPool {
    * @brief Whether the pool singleton has already been constructed.
    *
    * `num_reactors` and the concurrency cap are captured once in the pool's constructor, so changing
-   * them after this returns `true` would silently have no effect.
-   * Used by `kvikio::defaults` to reject such changes with an exception instead.
+   * them after this returns `true` would silently have no effect. Used by `kvikio::defaults` to
+   * reject such changes with an exception instead.
    */
   [[nodiscard]] static bool is_instantiated() noexcept;
 
@@ -514,8 +514,8 @@ class MultiReactorPool {
   /**
    * @brief Nudge every reactor out of its poll.
    *
-   * Called on every submit and on pool death. Waking a subset would leave idle
-   * reactors asleep whenever the woken ones are full.
+   * Called on every submit and on pool death. Waking a subset would leave idle reactors asleep
+   * whenever the woken ones are full.
    */
   void wake_all_reactors() noexcept;
 

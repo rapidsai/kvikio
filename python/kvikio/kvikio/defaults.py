@@ -23,7 +23,6 @@ _REACTOR_DISPATCH_DEPRECATION = (
 _PROCESS_LIFETIME_PROPERTIES = frozenset(
     {
         "remote_io_num_reactors",
-        "remote_io_reactor_dispatch",
         "remote_io_max_concurrent_requests",
     }
 )
@@ -190,6 +189,12 @@ def set(*config) -> ConfigContextManager | None:
         if not isinstance(config[0], dict):
             raise ValueError(err_msg)
         config_dict = config[0]
+        if _REACTOR_DISPATCH in config_dict:
+            warnings.warn(
+                _REACTOR_DISPATCH_DEPRECATION, category=FutureWarning, stacklevel=2
+            )
+            config_dict = dict(config_dict)
+            del config_dict[_REACTOR_DISPATCH]
         process_lifetime_keys = _PROCESS_LIFETIME_PROPERTIES.intersection(config_dict)
         if process_lifetime_keys:
             raise ValueError(

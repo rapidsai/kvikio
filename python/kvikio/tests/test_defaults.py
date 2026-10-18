@@ -220,6 +220,9 @@ def test_remote_io_reactor_dispatch():
         with pytest.warns(FutureWarning, match="deprecated and has no effect"):
             assert kvikio.defaults.set("remote_io_reactor_dispatch", value) is None
         with pytest.warns(FutureWarning, match="deprecated and has no effect"):
+            with kvikio.defaults.set({"remote_io_reactor_dispatch": value}):
+                pass
+        with pytest.warns(FutureWarning, match="deprecated and has no effect"):
             dispatch = kvikio.defaults.get("remote_io_reactor_dispatch")
         assert dispatch == kvikio.RemoteReactorDispatch.SHARED_QUEUE
 
