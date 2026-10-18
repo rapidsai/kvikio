@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -124,6 +125,29 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   // Optionally enable verbose output if it's configured.
   auto const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
   if (verbose) { setopt(CURLOPT_VERBOSE, 1L); }
+
+  // Size in bytes of libcurl's receive buffer, one per transfer. When unset, libcurl's own default
+  // of 16 KiB (CURL_MAX_WRITE_SIZE) is used. The value must be between 1 KiB and
+  // CURL_MAX_READ_SIZE (10 MiB in recent versions of curl).
+  static long const buffer_size = [] {
+    auto const env =
+      getenv_or("KVIKIO_REMOTE_IO_BUFFER_SIZE", static_cast<long>(CURL_MAX_WRITE_SIZE));
+    KVIKIO_EXPECT(env >= 1024 && env <= CURL_MAX_READ_SIZE,
+                  "KVIKIO_REMOTE_IO_BUFFER_SIZE has to be an integer between 1024 and " +
+                    std::to_string(CURL_MAX_READ_SIZE),
+                  std::invalid_argument);
+    return env;
+  }();
+  setopt(CURLOPT_BUFFERSIZE, buffer_size);
+
+  // Bind every connection to one network interface, for hosts with several NICs on one subnet.
+  // The value is passed to libcurl verbatim: `<ip>` binds the source address, `if!<name>` binds
+  // the device, and `ifhost!<name>!<ip>` binds both.
+  static std::string const interface_opt = [] {
+    auto const* env = std::getenv("KVIKIO_REMOTE_IO_INTERFACE");
+    return std::string{env == nullptr ? "" : env};
+  }();
+  if (!interface_opt.empty()) { setopt(CURLOPT_INTERFACE, interface_opt.c_str()); }
 
   detail::set_up_ca_paths(*this);
 }

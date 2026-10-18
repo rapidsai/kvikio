@@ -1,3 +1,49 @@
+# kvikio 26.10.00 (7 Oct 2026)
+
+### 🐛 Bug Fixes
+* Multi-poll retry support (1/n): Fix a bug in request retry by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/1021
+* Fix multi poll backend deadlock by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/1027
+* Fix devcontainer cache version updates by @bdice in https://github.com/rapidsai/kvikio/pull/1035
+* Fix missing-field-initializers build failure in kvikio_nic nsys plugin by @Matt711 in https://github.com/rapidsai/kvikio/pull/1068
+### 📖 Documentation
+* Enable public docs features in CI by @bdice in https://github.com/rapidsai/kvikio/pull/1053
+* Turn on autosectionlabel in sphinx docs by @wence- in https://github.com/rapidsai/kvikio/pull/1058
+* Add C++ API reference to Sphinx docs by @bdice in https://github.com/rapidsai/kvikio/pull/1057
+* RAPIDS -> NVIDIA CUDA-X docs migration by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/1076
+### 🚀 New Features
+* Support device buffer for the new libcurl multi poll-based backend (5/n) by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/966
+* Add runtime setters for MULTI_POLL reactor count, dispatch, and request ceiling by @Matt711 in https://github.com/rapidsai/kvikio/pull/1049
+### 🛠️ Improvements
+* Update RAPIDS.cmake to log source of rapids-cmake by @arhag23 in https://github.com/rapidsai/kvikio/pull/1001
+* enforce 'yamllint' checks by @jameslamb in https://github.com/rapidsai/kvikio/pull/1019
+* ensure nightly builds always produce new packages, expand 'changed-files' lists by @jameslamb in https://github.com/rapidsai/kvikio/pull/1018
+* Update to rapids-logger 0.3 by @bdice in https://github.com/rapidsai/kvikio/pull/1017
+* Avoid overflow in remote read bounds checks by @fallintoplace in https://github.com/rapidsai/kvikio/pull/985
+* Name KvikIO thread-pool workers for profiling by @vyasr in https://github.com/rapidsai/kvikio/pull/1014
+* Remove rapids-logger prerelease fallback by @bdice in https://github.com/rapidsai/kvikio/pull/1028
+* Multi-poll retry support (2/n): Refactor and extract the retry logic by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/1022
+* Multi-poll retry support (3/n): Use KvikIO logger to display retry notices instead of the standard output by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/1023
+* Multi-poll retry support (4/n): Support runtime change of remote I/O backend by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/1025
+* Do not reset kvikio thread pool when nthreads is unchanged by @Matt711 in https://github.com/rapidsai/kvikio/pull/1032
+* Multi-poll retry support (5/n): Main implementation by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/1026
+* wheels: enforce 'abi3audit' checks by @jameslamb in https://github.com/rapidsai/kvikio/pull/1031
+* Add an I/O observation facility by @madsbk in https://github.com/rapidsai/kvikio/pull/1033
+* ci: avoid triggered-by-schedule and triggered-by-merge builds cancelling each other by @jameslamb in https://github.com/rapidsai/kvikio/pull/1037
+* X-ORG-1038: Publish API docs to docs.nvidia.com by @josephine-wolf-oberholtzer in https://github.com/rapidsai/kvikio/pull/1039
+* X-ORG-1038: Fixup Sphinx build by @josephine-wolf-oberholtzer in https://github.com/rapidsai/kvikio/pull/1040
+* Multi-poll backend optimization: configure CURLMOPT_MAXCONNECTS to avoid unnecessary TCP/TLS handshakes by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/1034
+* Add I/O statistics: totals of what a run read and wrote by @madsbk in https://github.com/rapidsai/kvikio/pull/1036
+* Develop an Nsight System plugin to profile network bandwidth by @kingcrimsontianyu in https://github.com/rapidsai/kvikio/pull/999
+* pre-commit: update 'cython-lint' to 0.21.1 by @jameslamb in https://github.com/rapidsai/kvikio/pull/1046
+* Add performance and diagnostic counters for remote I/O by @madsbk in https://github.com/rapidsai/kvikio/pull/1047
+* X-ORG-410: Integrate archived docs into version switcher by @josephine-wolf-oberholtzer in https://github.com/rapidsai/kvikio/pull/1084
+
+## New Contributors
+* @arhag23 made their first contribution in https://github.com/rapidsai/kvikio/pull/1001
+* @Matt711 made their first contribution in https://github.com/rapidsai/kvikio/pull/1032
+
+**Full Changelog**: https://github.com/rapidsai/kvikio/compare/v26.10.00a...release/26.10
+
 # kvikio 26.08.00 (5 Aug 2026)
 
 ### 🚨 Breaking Changes
