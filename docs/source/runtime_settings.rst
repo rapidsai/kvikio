@@ -99,7 +99,7 @@ Remote I/O Reactor Dispatch ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
 
 Reactor dispatch is no longer configurable. The reactors always take sub-ranges from one shared queue, which is what ``SHARED_QUEUE`` used to select.
 
-Setting ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH`` is a no-op. The property name ``remote_io_reactor_dispatch`` remains accepted by :py:func:`kvikio.defaults.get` and :py:func:`kvikio.defaults.set` with a ``FutureWarning``. Reading it always returns ``SHARED_QUEUE``, and setting it is a no-op.
+Setting ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH`` only logs a deprecation warning. The property name ``remote_io_reactor_dispatch`` remains accepted by :py:func:`kvikio.defaults.get` and :py:func:`kvikio.defaults.set` with a ``FutureWarning``. Reading it always returns ``SHARED_QUEUE``, and setting it is a no-op.
 
 Remote I/O Concurrency Cap ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``
 -----------------------------------------------------------------------

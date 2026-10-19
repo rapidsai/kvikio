@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 #include <BS_thread_pool.hpp>
 
@@ -19,10 +20,11 @@
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
-#include <string_view>
 
 namespace kvikio {
 template <>
@@ -73,20 +75,6 @@ RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default
   auto const normalized = detail::normalize_env_value(env_val);
   if (normalized == "easy_threadpool") { return RemoteIOBackend::EASY_THREADPOOL; }
   if (normalized == "multi_poll") { return RemoteIOBackend::MULTI_POLL; }
-  KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
-              std::invalid_argument);
-}
-
-template <>
-RemoteReactorDispatch getenv_or(std::string_view env_var_name, RemoteReactorDispatch default_val)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto const* env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return default_val; }
-  auto const normalized = detail::normalize_env_value(env_val);
-  if (normalized == "per_chunk") { return RemoteReactorDispatch::PER_CHUNK; }
-  if (normalized == "per_pread") { return RemoteReactorDispatch::PER_PREAD; }
-  if (normalized == "shared_queue") { return RemoteReactorDispatch::SHARED_QUEUE; }
   KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
               std::invalid_argument);
 }
@@ -173,6 +161,15 @@ defaults::defaults()
     KVIKIO_EXPECT(
       env > 0, "KVIKIO_REMOTE_IO_NUM_REACTORS has to be a positive integer", std::invalid_argument);
     _remote_io_num_reactors = static_cast<unsigned int>(env);
+  }
+  {
+    auto const* env = std::getenv("KVIKIO_REMOTE_IO_REACTOR_DISPATCH");
+
+    if (env != nullptr) {
+      KVIKIO_LOG_WARN(
+        "The environment variable KVIKIO_REMOTE_IO_REACTOR_DISPATCH is deprecated and has no "
+        "effect. The MULTI_POLL reactors always take sub-ranges from one shared queue.");
+    }
   }
   {
     ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS", ssize_t{256});

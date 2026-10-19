@@ -59,9 +59,6 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
 template <>
 RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default_val);
 
-template <>
-RemoteReactorDispatch getenv_or(std::string_view env_var_name, RemoteReactorDispatch default_val);
-
 /**
  * @brief Get the environment variable value from a candidate list
  *

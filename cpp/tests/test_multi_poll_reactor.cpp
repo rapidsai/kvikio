@@ -23,8 +23,7 @@
 
 namespace {
 
-constexpr std::string_view backend_env  = "KVIKIO_REMOTE_IO_BACKEND";
-constexpr std::string_view dispatch_env = "KVIKIO_REMOTE_IO_REACTOR_DISPATCH";
+constexpr std::string_view backend_env = "KVIKIO_REMOTE_IO_BACKEND";
 
 }  // namespace
 
@@ -64,49 +63,6 @@ TEST(RemoteIOBackendParse, bad_value_throws)
   for (auto const& v : {"bogus", "easy", "multi", "easythreadpool", "multipoll", ""}) {
     kvikio::test::EnvVarContext ctx{{backend_env, v}};
     EXPECT_THROW(kvikio::getenv_or(backend_env, kvikio::RemoteIOBackend::EASY_THREADPOOL),
-                 std::invalid_argument)
-      << "value: " << v;
-  }
-}
-
-TEST(RemoteReactorDispatchParse, recognized_names)
-{
-  for (auto const& v : {"per_chunk", "  Per_Chunk  "}) {
-    kvikio::test::EnvVarContext ctx{{dispatch_env, v}};
-    EXPECT_EQ(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_PREAD),
-              kvikio::RemoteReactorDispatch::PER_CHUNK)
-      << "value: " << v;
-  }
-
-  for (auto const& v : {"per_pread", "PER_PREAD"}) {
-    kvikio::test::EnvVarContext ctx{{dispatch_env, v}};
-    EXPECT_EQ(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_CHUNK),
-              kvikio::RemoteReactorDispatch::PER_PREAD)
-      << "value: " << v;
-  }
-
-  for (auto const& v : {"shared_queue", " Shared_Queue "}) {
-    kvikio::test::EnvVarContext ctx{{dispatch_env, v}};
-    EXPECT_EQ(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_CHUNK),
-              kvikio::RemoteReactorDispatch::SHARED_QUEUE)
-      << "value: " << v;
-  }
-}
-
-TEST(RemoteReactorDispatchParse, unset_returns_default)
-{
-  unsetenv(std::string{dispatch_env}.c_str());
-  EXPECT_EQ(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_CHUNK),
-            kvikio::RemoteReactorDispatch::PER_CHUNK);
-  EXPECT_EQ(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_PREAD),
-            kvikio::RemoteReactorDispatch::PER_PREAD);
-}
-
-TEST(RemoteReactorDispatchParse, bad_value_throws)
-{
-  for (auto const& v : {"bogus", "per_byte", "round_robin", ""}) {
-    kvikio::test::EnvVarContext ctx{{dispatch_env, v}};
-    EXPECT_THROW(kvikio::getenv_or(dispatch_env, kvikio::RemoteReactorDispatch::PER_CHUNK),
                  std::invalid_argument)
       << "value: " << v;
   }
