@@ -26,7 +26,6 @@ jobs:
       - wheel-cpp-build
       - wheel-python-build
       - wheel-python-tests
-      - telemetry-setup
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -182,19 +181,6 @@ jobs:
           - '!docs/**'
           - '!java/**'
           - '!notebooks/**'
-  telemetry-setup:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    continue-on-error: true
-    env:
-      OTEL_SERVICE_NAME: "pr-kvikio"
-    steps:
-      - name: Telemetry setup
-        # This gate is here and not at the job level because we need the job to not be skipped,
-        # since other jobs depend on it.
-        if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
-        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   checks:
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -203,10 +189,8 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    needs: telemetry-setup
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@main
     with:
-      ignored_pr_jobs: telemetry-summarize
       # Main builds seed this cache. PR merge refs can restore it but should not create
       # duplicate archives that are inaccessible to other PRs.
       pre-commit-cache-read-only: true
@@ -333,7 +317,6 @@ jobs:
       docs-projects: kvikio
       dry-run: true
   devcontainer:
-    needs: telemetry-setup
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -352,9 +335,9 @@ jobs:
         SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE=false
       build_command: |
         sccache --zero-stats;
-        build-all --verbose 2>&1 | tee telemetry-artifacts/build.log;
+        build-all --verbose;
         python -c "import kvikio; print(kvikio.__version__)";
-        sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt;
+        sccache --show-adv-stats;
   wheel-cpp-build:
     needs: [build-details]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -406,14 +389,3 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-  telemetry-summarize:
-    # This job must use a self-hosted runner to record telemetry traces.
-    runs-on: linux-amd64-cpu4
-    needs: pr-builder
-    if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
-    permissions:
-      actions: write
-    continue-on-error: true
-    steps:
-      - name: Telemetry summarize
-        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main
