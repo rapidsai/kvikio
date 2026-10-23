@@ -503,19 +503,14 @@ def test_timeout_raises(tmpdir, capfd):
 
 
 @pytest.mark.skipif(
-    "KVIKIO_REMOTE_IO_REACTOR_DISPATCH" in os.environ,
-    reason="already running under an explicit reactor dispatch",
+    "KVIKIO_REMOTE_IO_BACKEND" in os.environ,
+    reason="already running under an explicit remote I/O backend",
 )
 @pytest.mark.timeout(300, method="thread")
-def test_http_io_under_shared_queue(run_cmd):
-    """Rerun this file with the MULTI_POLL backend in SHARED_QUEUE dispatch.
-
-    The reactor pool captures the dispatch mode on first use. The mode can therefore
-    only be chosen from the environment of a fresh process.
-    """
+def test_http_io_under_multiple_reactors(run_cmd):
+    """Rerun this file with the MULTI_POLL backend."""
     env = {
         "KVIKIO_REMOTE_IO_BACKEND": "MULTI_POLL",
-        "KVIKIO_REMOTE_IO_REACTOR_DISPATCH": "SHARED_QUEUE",
         "KVIKIO_REMOTE_IO_NUM_REACTORS": "4",
         "KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS": "8",
     }

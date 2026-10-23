@@ -58,36 +58,26 @@ enum class RemoteIOBackend : uint8_t {
         ///< dispatched to a worker thread that blocks in `curl_easy_perform()` until its transfer
         ///< completes. Concurrency is bounded by the thread pool size: one busy thread per
         ///< in-flight transfer.
-  MULTI_POLL =
-    1,  ///< Libcurl multi API driven by N reactor threads, each of which blocks in
-        ///< `curl_multi_poll()`. A single reactor multiplexes many in-flight easy handles
-        ///< concurrently, so the number of simultaneous transfers is not bounded by the reactor
-        ///< count. See `KVIKIO_REMOTE_IO_NUM_REACTORS` and `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`.
+  MULTI_POLL = 1,  ///< Libcurl multi API driven by N reactor threads, each of which blocks in
+                   ///< `curl_multi_poll()`. A single reactor multiplexes many in-flight easy
+                   ///< handles concurrently, so the number of simultaneous transfers is not bounded
+                   ///< by the reactor count. See `KVIKIO_REMOTE_IO_NUM_REACTORS` and
+                   ///< `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`.
 };
 
 /**
- * @brief How sub-ranges of a single `pread()` are distributed across reactor threads when the
- * `MULTI_POLL` backend is active.
+ * @brief How sub-ranges are distributed across reactor threads when the `MULTI_POLL` backend is
+ * active.
  *
- * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`. When only one reactor is used, all modes are
- * equivalent.
+ * @deprecated Reactor dispatch is no longer configurable. The reactors always take sub-ranges from
+ * one shared queue, which is what `SHARED_QUEUE` used to select. This enum remains only for the
+ * deprecated `defaults::remote_io_reactor_dispatch()` and
+ * `defaults::set_remote_io_reactor_dispatch()`.
  */
 enum class RemoteReactorDispatch : uint8_t {
-  PER_CHUNK =
-    0,  ///< Sub-ranges are routed to reactors round-robin, independently of which `pread()` they
-        ///< belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of
-        ///< the same file may land on different reactors, each with its own libcurl connection
-        ///< cache, so they may not share an established TCP/TLS connection.
-  PER_PREAD =
-    1,  ///< All sub-ranges of a single `pread()` are submitted to the same reactor (the reactor is
-        ///< itself chosen round-robin per `pread()` call). The sub-ranges then share that reactor's
-        ///< libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best
-        ///< for HTTPS, where the TLS handshake cost is non-trivial.
-  SHARED_QUEUE = 2,  ///< Sub-ranges wait in one queue shared by all reactors, and a reactor pulls
-                     ///< one only once it has capacity to start it. Binding at execution time
-                     ///< rather than submission time avoids stranding work behind a busy reactor.
-                     ///< Costs a lock per admission. Requires a non-zero
-                     ///< `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`, which paces the queue.
+  PER_CHUNK    = 0,  ///< Formerly submitted sub-ranges to reactors round-robin.
+  PER_PREAD    = 1,  ///< Formerly submitted all sub-ranges of one `pread()` to the same reactor.
+  SHARED_QUEUE = 2,  ///< Sub-ranges wait in one queue shared by all reactors. Now always the case.
 };
 
 /**
@@ -514,7 +504,7 @@ class RemoteHandle {
    *  - `MULTI_POLL`: each sub-range is handed to a process-wide reactor pool that drives many
    *    libcurl easy handles via `curl_multi_poll()`. The `thread_pool` argument is ignored. The
    *    first failure surfaces via the returned future. See `KVIKIO_REMOTE_IO_NUM_REACTORS` and
-   *    `KVIKIO_REMOTE_IO_REACTOR_DISPATCH` for tuning knobs.
+   *    `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS` for tuning knobs.
    *
    * @param buf Pointer to host or device memory.
    * @param size Number of bytes to read.
