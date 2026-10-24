@@ -4,6 +4,7 @@
  */
 
 #include <algorithm>
+#include <bit>
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -20,6 +21,38 @@
 #include <kvikio/shim/cuda.hpp>
 
 namespace kvikio::detail {
+namespace {
+
+/// The smallest buffer a sized request gets: one transparent huge page, so that every buffer can be
+/// backed by huge pages (see `CudaPinnedAllocator`).
+constexpr std::size_t min_sized_buffer = 2 * 1024 * 1024;
+
+/**
+ * @brief Size of the buffer that serves a request
+ *
+ * @param size The number of bytes requested
+ * @param full_size The bounce buffer size
+ * @return The next power of two of `size`, at least `min_sized_buffer` and at most `full_size`
+ */
+std::size_t sized_buffer(std::size_t size, std::size_t full_size)
+{
+  return std::min(full_size, std::bit_ceil(std::max(size, min_sized_buffer)));
+}
+
+/**
+ * @brief Whether a free buffer can still be handed out under the current bounce buffer size
+ *
+ * @param size Size of the free buffer
+ * @param full_size The bounce buffer size
+ * @return True if `size` is `full_size` or a smaller power of two `sized_buffer` can return
+ */
+bool is_current_size(std::size_t size, std::size_t full_size)
+{
+  return size == full_size ||
+         (size < full_size && size >= min_sized_buffer && std::has_single_bit(size));
+}
+
+}  // namespace
 
 template <typename Allocator>
 BounceBufferCachePerThreadAndContext<Allocator>::Shard::Shard(std::optional<std::size_t> cap)
@@ -55,45 +88,69 @@ template <typename Allocator>
 std::optional<typename BounceBufferCachePerThreadAndContext<Allocator>::Buffer>
 BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx)
 {
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto& shard = get_shard(ctx);
+  return try_get(ctx, defaults::bounce_buffer_size());
+}
 
-  std::vector<Buffer> stale_buffers;
+template <typename Allocator>
+std::optional<typename BounceBufferCachePerThreadAndContext<Allocator>::Buffer>
+BounceBufferCachePerThreadAndContext<Allocator>::try_get(CUcontext ctx, std::size_t size)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto& shard          = get_shard(ctx);
+  auto const full_size = defaults::bounce_buffer_size();
+  auto const wanted    = sized_buffer(size, full_size);
+
+  // Buffers taken off the free list here are destroyed after the lock is released. Their
+  // destructors route through BounceBufferPool::put, which deallocates buffers not of its size.
+  std::vector<Buffer> dropped;
   std::optional<Buffer> reused_buffer;
-  bool cap_reached{false};
+  bool may_allocate{false};
   {
     std::lock_guard const lock(shard.mutex);
 
-    // Discard free buffers whose size no longer matches the current bounce_buffer_size. Their
-    // destructors route through BounceBufferPool::put, which deallocates wrong-size buffers.
-    auto const current_size = defaults::bounce_buffer_size();
-    while (!shard.free.empty() && shard.free.back().size() != current_size) {
-      stale_buffers.push_back(std::move(shard.free.back()));
-      shard.free.pop_back();
+    // Drop free buffers whose size is no longer current, e.g. after the bounce buffer size changed.
+    for (auto it = shard.free.begin(); it != shard.free.end();) {
+      if (is_current_size(it->size(), full_size)) {
+        ++it;
+      } else {
+        dropped.push_back(std::move(*it));
+        it = shard.free.erase(it);
+      }
     }
 
-    if (!shard.free.empty()) {
+    // Reuse the smallest free buffer that is large enough, the most recently returned on a tie.
+    auto best = shard.free.rend();
+    for (auto it = shard.free.rbegin(); it != shard.free.rend(); ++it) {
+      if (it->size() >= wanted && (best == shard.free.rend() || it->size() < best->size())) {
+        best = it;
+      }
+    }
+
+    if (best != shard.free.rend()) {
+      std::iter_swap(best, shard.free.rbegin());
       reused_buffer = std::move(shard.free.back());
       shard.free.pop_back();
       ++shard.checked_out;
-    } else {
-      // No buffer available on the free list. Allocate if under cap (or if cap is unlimited).
-      auto const total = shard.free.size() + shard.checked_out + shard.in_flight;
-      if (_cap.has_value() && total >= _cap.value()) {
-        cap_reached = true;
-      } else {
-        // reused_buffer does not contain a value (std::nullopt)
-        ++shard.checked_out;
-      }
+    } else if (!_cap.has_value() ||
+               shard.free.size() + shard.checked_out + shard.in_flight < _cap.value()) {
+      ++shard.checked_out;
+      may_allocate = true;
+    } else if (!shard.free.empty()) {
+      // At the cap with only smaller buffers free: give one up to make room for a larger one.
+      dropped.push_back(std::move(shard.free.back()));
+      shard.free.pop_back();
+      ++shard.checked_out;
+      may_allocate = true;
     }
   }
 
-  stale_buffers.clear();
+  dropped.clear();
 
-  if (reused_buffer.has_value() || cap_reached) { return reused_buffer; }
+  if (reused_buffer.has_value() || !may_allocate) { return reused_buffer; }
 
   try {
-    return BounceBufferPool<Allocator>::instance().get();
+    if (wanted == full_size) { return BounceBufferPool<Allocator>::instance().get(); }
+    return Buffer(&BounceBufferPool<Allocator>::instance(), Allocator{}.allocate(wanted), wanted);
   } catch (...) {
     std::lock_guard const lock(shard.mutex);
     --shard.checked_out;

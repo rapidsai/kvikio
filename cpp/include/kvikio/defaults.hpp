@@ -304,6 +304,10 @@ class defaults {
   /**
    * @brief Get the size of the bounce buffer used to stage data in host memory.
    *
+   * The `MULTI_POLL` remote IO backend treats this as the largest bounce buffer size. It sizes each
+   * buffer to its request, rounded up to a power of two of at least 2 MiB, so a small read does not
+   * pin a full bounce buffer.
+   *
    * Set the value using `kvikio::default::set_bounce_buffer_size()` or by setting the
    * `KVIKIO_BOUNCE_BUFFER_SIZE` environment variable. If not set, the value is 16 MiB.
    *
