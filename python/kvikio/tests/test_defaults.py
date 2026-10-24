@@ -133,6 +133,20 @@ def test_bounce_buffer_size():
         kvikio.defaults.set("bounce_buffer_size", -1)
 
 
+def test_bounce_buffer_prefault_nthreads():
+    """Test changing `bounce_buffer_prefault_nthreads`"""
+
+    before = kvikio.defaults.get("bounce_buffer_prefault_nthreads")
+    with kvikio.defaults.set("bounce_buffer_prefault_nthreads", 0):
+        assert kvikio.defaults.get("bounce_buffer_prefault_nthreads") == 0
+        kvikio.defaults.set("bounce_buffer_prefault_nthreads", 2)
+        assert kvikio.defaults.get("bounce_buffer_prefault_nthreads") == 2
+    assert before == kvikio.defaults.get("bounce_buffer_prefault_nthreads")
+
+    with pytest.raises(OverflowError, match="negative value"):
+        kvikio.defaults.set("bounce_buffer_prefault_nthreads", -1)
+
+
 def test_http_max_attempts():
     before = kvikio.defaults.get("http_max_attempts")
 

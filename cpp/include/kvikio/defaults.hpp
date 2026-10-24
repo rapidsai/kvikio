@@ -123,6 +123,7 @@ class defaults {
   std::size_t _task_size;
   std::size_t _gds_threshold;
   std::size_t _bounce_buffer_size;
+  unsigned int _bounce_buffer_prefault_nthreads;
   std::size_t _http_max_attempts;
   long _http_timeout;
   std::vector<int> _http_status_codes;
@@ -316,6 +317,30 @@ class defaults {
    * @param nbytes The bounce buffer size in bytes.
    */
   static void set_bounce_buffer_size(std::size_t nbytes);
+
+  /**
+   * @brief Get the number of threads that help prefault new pinned bounce buffers.
+   *
+   * Before registering a new pinned bounce buffer with CUDA, KvikIO prefaults its pages, which is
+   * much faster when split across threads. These threads form a dedicated pool, created on first
+   * use, and the allocating thread takes a part as well. 0 means the allocating thread prefaults
+   * alone.
+   *
+   * Set the value using `kvikio::default::set_bounce_buffer_prefault_nthreads()` or by setting the
+   * `KVIKIO_BOUNCE_BUFFER_PREFAULT_NTHREADS` environment variable. If not set, the value is 8.
+   *
+   * @return The number of threads.
+   */
+  [[nodiscard]] static unsigned int bounce_buffer_prefault_nthreads();
+
+  /**
+   * @brief Set the number of threads that help prefault new pinned bounce buffers.
+   *
+   * Takes effect from the next allocation.
+   *
+   * @param nthreads The number of threads. 0 means the allocating thread prefaults alone.
+   */
+  static void set_bounce_buffer_prefault_nthreads(unsigned int nthreads);
 
   /**
    * @brief Get the maximum number of attempts per remote IO read.

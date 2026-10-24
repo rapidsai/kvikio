@@ -45,6 +45,12 @@ KvikIO might have to use intermediate host buffers (one per thread) when copying
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``bounce_buffer_size``.
 
+Bounce Buffer Prefault Threads ``KVIKIO_BOUNCE_BUFFER_PREFAULT_NTHREADS``
+-------------------------------------------------------------------------
+Before registering a new pinned bounce buffer with CUDA, KvikIO prefaults its pages, which is much faster when split across threads. These threads form a dedicated pool, created on first use, and the allocating thread takes a part as well. Set the environment variable ``KVIKIO_BOUNCE_BUFFER_PREFAULT_NTHREADS`` to the number of threads in this pool. 0 means the allocating thread prefaults alone. If not set, the default value is 8.
+
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``bounce_buffer_prefault_nthreads``.
+
 HTTP Retries ``KVIKIO_HTTP_STATUS_CODES``, ``KVIKIO_HTTP_MAX_ATTEMPTS``
 ------------------------------------------------------------------------
 

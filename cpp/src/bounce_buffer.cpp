@@ -3,12 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <sys/mman.h>
+
+#include <algorithm>
+#include <cstddef>
 #include <exception>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <stack>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
@@ -17,8 +23,140 @@
 #include <kvikio/error.hpp>
 #include <kvikio/logger.hpp>
 #include <kvikio/shim/cuda.hpp>
+#include <kvikio/threadpool_wrapper.hpp>
 
 namespace kvikio {
+namespace {
+
+/// Transparent huge page size on x86-64 and on the usual aarch64 configuration.
+constexpr std::size_t huge_page_size = 2 * 1024 * 1024;
+
+/**
+ * @brief Alignment, and length granularity, of the mapping that backs a pinned allocation
+ *
+ * @param size Requested size in bytes
+ * @return The huge page size for allocations of at least one huge page, the page size otherwise
+ */
+std::size_t pinned_alignment(std::size_t size)
+{
+  return size >= huge_page_size ? huge_page_size : get_page_size();
+}
+
+/**
+ * @brief The dedicated pool that helps prefault pinned allocations
+ *
+ * Created on first use. After `defaults::bounce_buffer_prefault_nthreads()` changes, the next call
+ * creates a pool of the new size, and callers still holding the old pool keep it alive until they
+ * are done.
+ *
+ * @return The pool, or nullptr when `defaults::bounce_buffer_prefault_nthreads()` is 0
+ */
+std::shared_ptr<ThreadPool> prefault_thread_pool()
+{
+  static std::mutex mutex;
+  static std::shared_ptr<ThreadPool> pool;
+  auto const nthreads = defaults::bounce_buffer_prefault_nthreads();
+  std::lock_guard const lock(mutex);
+  if (nthreads == 0) {
+    pool.reset();
+  } else if (pool == nullptr || pool->get_thread_count() != nthreads) {
+    pool = std::make_shared<ThreadPool>(nthreads, make_thread_pool_init_task("kvikio-pf"));
+  }
+  return pool;
+}
+
+/**
+ * @brief Prefault a range for writing, split between the calling thread and the prefault pool
+ *
+ * The calling thread takes the first part. If a part cannot be handed to the pool, the calling
+ * thread prefaults what is left.
+ *
+ * @param ptr Start of the range, page-aligned
+ * @param size Length of the range in bytes
+ */
+void prefault_in_parallel(void* ptr, std::size_t size)
+{
+  // Each part is at least `min_part_size`, so a small allocation is not split.
+  constexpr std::size_t min_part_size = 4 * 1024 * 1024;
+  auto const pool                     = prefault_thread_pool();
+  auto const max_parts = pool == nullptr ? std::size_t{1} : pool->get_thread_count() + 1;
+  auto const nparts    = std::clamp<std::size_t>(size / min_part_size, 1, max_parts);
+  auto const part      = detail::align_up((size + nparts - 1) / nparts, get_page_size());
+
+  std::vector<std::future<void>> futures;
+  futures.reserve(nparts - 1);
+  std::size_t offset = part;
+  try {
+    for (; offset < size; offset += part) {
+      futures.push_back(pool->submit_task([=] {
+        detail::perform_prefault(
+          detail::pointer_add(ptr, offset), std::min(part, size - offset), /*write=*/true);
+      }));
+    }
+  } catch (...) {
+    detail::perform_prefault(detail::pointer_add(ptr, offset), size - offset, /*write=*/true);
+  }
+  detail::perform_prefault(ptr, std::min(part, size), /*write=*/true);
+  for (auto& future : futures) {
+    future.get();
+  }
+}
+
+/**
+ * @brief Allocate portable pinned host memory
+ *
+ * Pinning costs about the same per byte however it is split into calls, and the driver serializes
+ * it across threads. Most of that cost is the kernel zeroing pages as they fault in, which does run
+ * in parallel. So the memory is mapped with transparent huge pages where available, faulted in from
+ * several threads, and only then registered with `cuMemHostRegister`. This is several times faster
+ * than `cuMemHostAlloc`.
+ *
+ * @param size Requested size in bytes
+ * @return Page-aligned pointer to the pinned memory
+ */
+void* allocate_pinned(std::size_t size)
+{
+  auto const alignment = pinned_alignment(size);
+  auto const length    = detail::align_up(size, alignment);
+
+  // Map one alignment unit more than needed, then unmap the head and the tail so that the mapping
+  // starts at an aligned address and is exactly `length` long.
+  void* const mapped =
+    mmap(nullptr, length + alignment, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  KVIKIO_EXPECT(mapped != MAP_FAILED, "Pinned allocation failed: mmap", std::runtime_error);
+  auto* const raw = static_cast<char*>(mapped);
+  auto* const ptr = static_cast<char*>(detail::align_up(mapped, alignment));
+  if (ptr > raw) { munmap(raw, static_cast<std::size_t>(ptr - raw)); }
+  auto const tail = static_cast<std::size_t>((raw + length + alignment) - (ptr + length));
+  if (tail > 0) { munmap(ptr + length, tail); }
+
+  // A hint. Where transparent huge pages are disabled, the range is backed by regular pages.
+  if (alignment == huge_page_size) { madvise(ptr, length, MADV_HUGEPAGE); }
+
+  try {
+    prefault_in_parallel(ptr, length);
+    KVIKIO_CUDA_DRIVER_TRY(
+      cudaAPI::instance().MemHostRegister(ptr, length, CU_MEMHOSTREGISTER_PORTABLE));
+  } catch (...) {
+    munmap(ptr, length);
+    throw;
+  }
+  return ptr;
+}
+
+/**
+ * @brief Deallocate memory from `allocate_pinned`
+ *
+ * @param buffer Pointer returned by `allocate_pinned`
+ * @param size The size passed to `allocate_pinned`
+ */
+void deallocate_pinned(void* buffer, std::size_t size)
+{
+  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemHostUnregister(buffer));
+  munmap(buffer, detail::align_up(size, pinned_alignment(size)));
+}
+
+}  // namespace
 
 void* PageAlignedAllocator::allocate(std::size_t size)
 {
@@ -32,39 +170,18 @@ void* PageAlignedAllocator::allocate(std::size_t size)
 
 void PageAlignedAllocator::deallocate(void* buffer, std::size_t /*size*/) { std::free(buffer); }
 
-void* CudaPinnedAllocator::allocate(std::size_t size)
-{
-  void* buffer{};
+void* CudaPinnedAllocator::allocate(std::size_t size) { return allocate_pinned(size); }
 
-  // If no available allocation, allocate and register a new one
-  // Allocate page-locked host memory
-  // Under unified addressing, host memory allocated this way is automatically portable and
-  // mapped.
-  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemHostAlloc(&buffer, size, CU_MEMHOSTALLOC_PORTABLE));
-
-  return buffer;
-}
-void CudaPinnedAllocator::deallocate(void* buffer, std::size_t /*size*/)
+void CudaPinnedAllocator::deallocate(void* buffer, std::size_t size)
 {
-  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemFreeHost(buffer));
+  deallocate_pinned(buffer, size);
 }
 
-void* CudaPageAlignedPinnedAllocator::allocate(std::size_t size)
-{
-  void* buffer{};
-  auto const page_size    = get_page_size();
-  auto const aligned_size = detail::align_up(size, page_size);
-  buffer                  = std::aligned_alloc(page_size, aligned_size);
-  KVIKIO_EXPECT(buffer != nullptr, "Aligned allocation failed");
-  KVIKIO_CUDA_DRIVER_TRY(
-    cudaAPI::instance().MemHostRegister(buffer, aligned_size, CU_MEMHOSTALLOC_PORTABLE));
-  return buffer;
-}
+void* CudaPageAlignedPinnedAllocator::allocate(std::size_t size) { return allocate_pinned(size); }
 
-void CudaPageAlignedPinnedAllocator::deallocate(void* buffer, std::size_t /*size*/)
+void CudaPageAlignedPinnedAllocator::deallocate(void* buffer, std::size_t size)
 {
-  KVIKIO_CUDA_DRIVER_TRY(cudaAPI::instance().MemHostUnregister(buffer));
-  std::free(buffer);
+  deallocate_pinned(buffer, size);
 }
 
 template <typename Allocator>
