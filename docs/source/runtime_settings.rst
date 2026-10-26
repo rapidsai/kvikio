@@ -76,8 +76,8 @@ Remote I/O Backend ``KVIKIO_REMOTE_IO_BACKEND``
 
 KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected via the environment variable ``KVIKIO_REMOTE_IO_BACKEND``. The accepted values (case-insensitive) are:
 
-  * ``EASY_THREADPOOL`` (default): Libcurl easy API running in the KvikIO thread pool. Each sub-range of a :py:func:`kvikio.RemoteFile.pread` is dispatched to a worker thread that blocks in ``curl_easy_perform()`` until its transfer completes. Concurrency is bounded by the thread pool size: one busy thread per in-flight transfer.
-  * ``MULTI_POLL``: Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is bounded by ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` rather than by the reactor count.
+  * ``EASY_THREADPOOL``: Libcurl easy API running in the KvikIO thread pool. Each sub-range of a :py:func:`kvikio.RemoteFile.pread` is dispatched to a worker thread that blocks in ``curl_easy_perform()`` until its transfer completes. Concurrency is bounded by the thread pool size: one busy thread per in-flight transfer.
+  * ``MULTI_POLL`` (default): Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is bounded by ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` rather than by the reactor count.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_backend``. :py:func:`kvikio.RemoteFile.pread` reads the setting on every call, so a change applies to subsequent reads while reads already in flight finish on the backend they started on.
 
@@ -86,7 +86,7 @@ The ``MULTI_POLL`` backend honors two additional settings, described in the sect
 Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
 ----------------------------------------------------------
 
-Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``1``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. Increase beyond ``1`` to spread the in-callback ``memcpy`` cost across cores when one reactor's CPU is the bottleneck. This setting has no effect under ``EASY_THREADPOOL``.
+Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``8``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. More reactors spread the in-callback ``memcpy`` cost across more cores. This setting has no effect under ``EASY_THREADPOOL``.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_num_reactors``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 

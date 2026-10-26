@@ -115,10 +115,8 @@ def test_read_access(s3_base):
 def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
     # The MULTI_POLL backend requires `task_size <= bounce_buffer_size` for device
     # buffers. Skip the combos that violate it under this configuration.
-    import os
-
     if (
-        os.environ.get("KVIKIO_REMOTE_IO_BACKEND", "").strip().lower() == "multi_poll"
+        kvikio.defaults.get("remote_io_backend") == kvikio.RemoteIOBackend.MULTI_POLL
         and xp.__name__ != "numpy"
         and tasksize > buffer_size
     ):

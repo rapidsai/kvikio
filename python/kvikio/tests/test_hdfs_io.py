@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import urllib.parse
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from multiprocessing import Process, Queue
 from typing import Any, Generator
 
@@ -17,6 +17,7 @@ import utils
 
 import kvikio.defaults
 from kvikio import remote_file
+from kvikio.utils import _ThreadingHTTPServer
 
 
 class RemoteFileData:
@@ -78,7 +79,7 @@ def run_mock_server(queue: Queue[int], file_size: int, buf: npt.NDArray[Any]) ->
             pass
 
     port = utils.find_free_port()
-    server = HTTPServer((utils.localhost(), port), WebHdfsHandler)
+    server = _ThreadingHTTPServer((utils.localhost(), port), WebHdfsHandler)
 
     # Send port back to parent process
     queue.put(port)
@@ -200,7 +201,7 @@ def run_bad_server(queue: Queue[int]) -> None:
             pass
 
     port = utils.find_free_port()
-    server = HTTPServer((utils.localhost(), port), BadHandler)
+    server = _ThreadingHTTPServer((utils.localhost(), port), BadHandler)
     queue.put(port)
     server.serve_forever()
 

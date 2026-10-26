@@ -460,7 +460,7 @@ class defaults {
    *
    * Controlled by the environment variable `KVIKIO_REMOTE_IO_BACKEND`, parsed case-insensitively.
    * The only accepted values are the canonical names `EASY_THREADPOOL` and `MULTI_POLL`. If unset,
-   * defaults to `EASY_THREADPOOL`.
+   * defaults to `MULTI_POLL`.
    *
    * @return The remote I/O backend.
    */
@@ -476,7 +476,7 @@ class defaults {
   /**
    * @brief Number of reactor threads used by the `MULTI_POLL` remote I/O backend.
    *
-   * Controlled by `KVIKIO_REMOTE_IO_NUM_REACTORS`. Must be a positive integer. Defaults to 1.
+   * Controlled by `KVIKIO_REMOTE_IO_NUM_REACTORS`. Must be a positive integer. Defaults to 8.
    * Ignored when the active backend is not `MULTI_POLL`.
    *
    * @return The configured reactor count.
