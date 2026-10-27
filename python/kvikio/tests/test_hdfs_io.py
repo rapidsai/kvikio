@@ -17,7 +17,7 @@ import utils
 
 import kvikio.defaults
 from kvikio import remote_file
-from kvikio.utils import _ThreadingHTTPServer
+from kvikio.utils import LargeBacklogHTTPServer
 
 
 class RemoteFileData:
@@ -79,7 +79,7 @@ def run_mock_server(queue: Queue[int], file_size: int, buf: npt.NDArray[Any]) ->
             pass
 
     port = utils.find_free_port()
-    server = _ThreadingHTTPServer((utils.localhost(), port), WebHdfsHandler)
+    server = LargeBacklogHTTPServer((utils.localhost(), port), WebHdfsHandler)
 
     # Send port back to parent process
     queue.put(port)
@@ -201,7 +201,7 @@ def run_bad_server(queue: Queue[int]) -> None:
             pass
 
     port = utils.find_free_port()
-    server = _ThreadingHTTPServer((utils.localhost(), port), BadHandler)
+    server = LargeBacklogHTTPServer((utils.localhost(), port), BadHandler)
     queue.put(port)
     server.serve_forever()
 
@@ -235,3 +235,8 @@ class TestWebHdfsErrors:
         ):
             handle = remote_file.RemoteFile.open_webhdfs(url)
             handle.nbytes()
+
+
+test_hdfs_io_under_easy_threadpool = utils.rerun_in_new_process(
+    __file__, {"KVIKIO_REMOTE_IO_BACKEND": "EASY_THREADPOOL"}
+)

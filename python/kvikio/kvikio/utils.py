@@ -16,7 +16,7 @@ from queue import Empty
 from typing import Any, Callable
 
 
-class _ThreadingHTTPServer(ThreadingHTTPServer):
+class LargeBacklogHTTPServer(ThreadingHTTPServer):
     # How many new connections may wait to be accepted. The default of 5 is too small
     # for MULTI_POLL, which can open up to `remote_io_max_concurrent_requests`
     # connections at once. Connections beyond the limit are retried after a second or
@@ -34,7 +34,7 @@ class LocalHttpServer:
         handler_options: dict[str, Any],
         max_lifetime: int,
     ):
-        httpd = _ThreadingHTTPServer(
+        httpd = LargeBacklogHTTPServer(
             ("127.0.0.1", 0), functools.partial(handler, **handler_options)
         )
         thread = threading.Thread(target=httpd.serve_forever)

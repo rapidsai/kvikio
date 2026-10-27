@@ -228,3 +228,8 @@ def test_open_invalid(s3_base):
             kvikio.RemoteFile.open(url)
         with pytest.raises(RuntimeError, match="Invalid URL"):
             kvikio.RemoteFile.open(url, kvikio.RemoteEndpointType.S3)
+
+
+test_s3_io_under_easy_threadpool = utils.rerun_in_new_process(
+    __file__, {"KVIKIO_REMOTE_IO_BACKEND": "EASY_THREADPOOL"}
+)

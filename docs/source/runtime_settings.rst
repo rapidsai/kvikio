@@ -81,6 +81,8 @@ KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected via th
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_backend``. :py:func:`kvikio.RemoteFile.pread` reads the setting on every call, so a change applies to subsequent reads while reads already in flight finish on the backend they started on.
 
+Under the default ``MULTI_POLL`` backend, ``KVIKIO_NTHREADS`` no longer affects remote reads, and a read into device memory requires ``KVIKIO_TASK_SIZE`` to be no larger than ``KVIKIO_BOUNCE_BUFFER_SIZE`` (a larger task size raises ``ValueError``). Set ``KVIKIO_REMOTE_IO_BACKEND=EASY_THREADPOOL`` to restore the previous behavior.
+
 The ``MULTI_POLL`` backend honors two additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS`` and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``. These settings are captured once when the reactor pool is first used (i.e. the first ``MULTI_POLL`` remote I/O), and become immutable for the rest of the process lifetime; attempting to change any of them afterwards raises an exception.
 
 Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
@@ -109,6 +111,10 @@ Upper bound on the number of HTTP range requests the ``MULTI_POLL`` backend keep
 The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``). Each reactor enforces its own cap with no cross-reactor synchronization. When the budget is not a multiple of the reactor count, the remainder is spread one extra slot each over the first reactors to keep the total exact. When the budget is smaller than the reactor count, every reactor still gets one slot, and the effective total is then the reactor count.
 
 A reactor pulls a sub-range from the shared queue only when its share has room. Sub-ranges therefore go to whichever reactor frees up first, and the full budget stays in flight as long as enough work is queued.
+
+Each in-flight read into device memory stages through a pinned bounce buffer of ``KVIKIO_BOUNCE_BUFFER_SIZE`` bytes, whatever the task size. Each reactor keeps up to twice its share of these buffers per CUDA context for reuse. Pinned memory per CUDA context is therefore bounded by 2 x ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` x ``KVIKIO_BOUNCE_BUFFER_SIZE``, which is 8 GiB with the defaults (4 GiB of it in flight at once). Lower either setting to reduce it. With ``0`` (unlimited) there is no bound.
+
+A transfer fills only ``KVIKIO_TASK_SIZE`` bytes of its bounce buffer, so any larger buffer is pinned but never used. For remote reads into device memory, set ``KVIKIO_BOUNCE_BUFFER_SIZE`` equal to ``KVIKIO_TASK_SIZE``.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_max_concurrent_requests``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 

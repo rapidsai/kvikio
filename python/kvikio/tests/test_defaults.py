@@ -1,10 +1,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 
 import pytest
+import utils
 
 import kvikio.defaults
+
+# Reactor settings cannot change after the first remote read, which may be performed by
+# other tests. Use this decorator to run certain tests only when in a new process where
+# `_NEW_PROCESS_ENV` is explicitly set via utils.rerun_in_new_process.
+_NEW_PROCESS_ENV = "KVIKIO_TEST_NEW_PROCESS"
+new_process_only = pytest.mark.skipif(
+    _NEW_PROCESS_ENV not in os.environ,
+    reason="runs in a new process, see test_reactor_settings_in_new_process",
+)
 
 
 def test_property_accessor():
@@ -186,6 +197,7 @@ def test_remote_io_backend():
     assert kvikio.defaults.get("remote_io_backend") == before
 
 
+@new_process_only
 def test_remote_io_num_reactors():
     before = kvikio.defaults.get("remote_io_num_reactors")
     after = before + 1
@@ -227,6 +239,7 @@ def test_remote_io_reactor_dispatch():
         assert dispatch == kvikio.RemoteReactorDispatch.SHARED_QUEUE
 
 
+@new_process_only
 def test_remote_io_max_concurrent_requests():
     before = kvikio.defaults.get("remote_io_max_concurrent_requests")
     after = before + 1
@@ -243,3 +256,11 @@ def test_remote_io_max_concurrent_requests():
         with kvikio.defaults.set("remote_io_max_concurrent_requests", after):
             pass
     kvikio.defaults.set("remote_io_max_concurrent_requests", before)
+
+
+test_reactor_settings_in_new_process = utils.rerun_in_new_process(
+    __file__,
+    {_NEW_PROCESS_ENV: "1"},
+    # pytest argument -k is used to run tests matching the given substring expression
+    ["-k", "test_remote_io_num_reactors or test_remote_io_max_concurrent_requests"],
+)

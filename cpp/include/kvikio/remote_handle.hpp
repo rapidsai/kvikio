@@ -504,7 +504,7 @@ class RemoteHandle {
    *  - `MULTI_POLL` (default): each sub-range is handed to a process-wide reactor pool that drives
    *     many libcurl easy handles via `curl_multi_poll()`. The `thread_pool` argument is ignored.
    *     The first failure surfaces via the returned future. See `KVIKIO_REMOTE_IO_NUM_REACTORS` and
-   *    `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS` for tuning knobs.
+   *     `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS` for tuning knobs.
    *
    * @param buf Pointer to host or device memory.
    * @param size Number of bytes to read.
