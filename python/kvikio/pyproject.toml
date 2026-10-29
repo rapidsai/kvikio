@@ -138,3 +138,4 @@ markers = [
     "gpu: zarr-python tests requiring a GPU to run."
 ]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
