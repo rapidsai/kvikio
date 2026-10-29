@@ -90,6 +90,8 @@ Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
 
 Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``8``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. More reactors spread the in-callback ``memcpy`` cost across more cores. This setting has no effect under ``EASY_THREADPOOL``.
 
+The default of ``8`` is a moderate starting point. For a single process doing heavy remote reads using HTTPS, try one reactor per core first. Keep ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` a multiple (such as ``8x``, ``16x``, ``32x``) of the reactor count. A higher cap is not always faster, and it uses more pinned memory for device reads. ``KVIKIO_REMOTE_IO_NUM_REACTORS`` and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` need to be tuned together.
+
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_num_reactors``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
 Remote I/O Reactor Dispatch ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
@@ -114,7 +116,7 @@ A reactor pulls a sub-range from the shared queue only when its share has room. 
 
 Each in-flight read into device memory stages through a pinned bounce buffer of ``KVIKIO_BOUNCE_BUFFER_SIZE`` bytes, whatever the task size. Each reactor keeps up to twice its share of these buffers per CUDA context for reuse. Pinned memory per CUDA context is therefore bounded by 2 x ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` x ``KVIKIO_BOUNCE_BUFFER_SIZE``, which is 8 GiB with the defaults (4 GiB of it in flight at once). Lower either setting to reduce it. With ``0`` (unlimited) there is no bound.
 
-A transfer fills only ``KVIKIO_TASK_SIZE`` bytes of its bounce buffer, so any larger buffer is pinned but never used. For remote reads into device memory, set ``KVIKIO_BOUNCE_BUFFER_SIZE`` equal to ``KVIKIO_TASK_SIZE``.
+For remote reads into device memory under ``MULTI_POLL``, set ``KVIKIO_BOUNCE_BUFFER_SIZE`` equal to ``KVIKIO_TASK_SIZE``, since any extra space is pinned but never used.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_max_concurrent_requests``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
