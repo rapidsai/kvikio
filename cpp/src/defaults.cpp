@@ -154,10 +154,10 @@ defaults::defaults()
 
   // Determine and configure the remote-IO backend.
   {
-    _remote_io_backend = getenv_or("KVIKIO_REMOTE_IO_BACKEND", RemoteIOBackend::EASY_THREADPOOL);
+    _remote_io_backend = getenv_or("KVIKIO_REMOTE_IO_BACKEND", RemoteIOBackend::MULTI_POLL);
   }
   {
-    ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_NUM_REACTORS", 1);
+    ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_NUM_REACTORS", 8);
     KVIKIO_EXPECT(
       env > 0, "KVIKIO_REMOTE_IO_NUM_REACTORS has to be a positive integer", std::invalid_argument);
     _remote_io_num_reactors = static_cast<unsigned int>(env);

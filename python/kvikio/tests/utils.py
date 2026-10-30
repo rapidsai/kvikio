@@ -1,12 +1,16 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+import os
 import socket
+import sys
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import cupy
 import numpy.typing as npt
+import pytest
 
 
 def localhost() -> str:
@@ -78,3 +82,44 @@ def arange_page_aligned(
     arr_unaligned = cupy.arange(stop, dtype=dtype)
     cupy.copyto(arr_aligned, arr_unaligned)
     return arr_aligned
+
+
+def rerun_in_new_process(
+    test_file: str, env: dict[str, str], pytest_args: Sequence[str] = ()
+) -> Callable[..., None]:
+    """Make a test that reruns a test file in a new process with extra env vars.
+
+    Assign the result to a module-level name starting with ``test_`` so that pytest
+    collects it, for example
+    ``test_foo_under_bar = utils.rerun_in_new_process(__file__, {"BAR": "1"})``.
+
+    The rerun is skipped in a process that already has any of the ``env`` variables
+    set. This serves to keep the new process from starting reruns of its own.
+
+    Parameters
+    ----------
+    test_file
+        Path of the test file to rerun, usually ``__file__``.
+    env
+        Environment variables to add for the new process.
+    pytest_args
+        Extra arguments for the new pytest run, such as ``["-k", "name"]``.
+    """
+
+    @pytest.mark.skipif(
+        any(name in os.environ for name in env),
+        reason=f"{', '.join(env)} already set, so this is the rerun",
+    )
+    @pytest.mark.timeout(300, method="thread")
+    def test(run_cmd):
+        cmd = [
+            sys.executable,
+            "-m",
+            "pytest",
+            os.path.basename(test_file),
+            *pytest_args,
+        ]
+        cwd = os.path.dirname(os.path.abspath(test_file))
+        assert run_cmd(cmd=cmd, cwd=cwd, env=env) == 0
+
+    return test

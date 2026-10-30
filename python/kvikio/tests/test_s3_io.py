@@ -115,10 +115,8 @@ def test_read_access(s3_base):
 def test_read(s3_base, xp, size, nthreads, tasksize, buffer_size):
     # The MULTI_POLL backend requires `task_size <= bounce_buffer_size` for device
     # buffers. Skip the combos that violate it under this configuration.
-    import os
-
     if (
-        os.environ.get("KVIKIO_REMOTE_IO_BACKEND", "").strip().lower() == "multi_poll"
+        kvikio.defaults.get("remote_io_backend") == kvikio.RemoteIOBackend.MULTI_POLL
         and xp.__name__ != "numpy"
         and tasksize > buffer_size
     ):
@@ -230,3 +228,8 @@ def test_open_invalid(s3_base):
             kvikio.RemoteFile.open(url)
         with pytest.raises(RuntimeError, match="Invalid URL"):
             kvikio.RemoteFile.open(url, kvikio.RemoteEndpointType.S3)
+
+
+test_s3_io_under_easy_threadpool = utils.rerun_in_new_process(
+    __file__, {"KVIKIO_REMOTE_IO_BACKEND": "EASY_THREADPOOL"}
+)

@@ -3,15 +3,14 @@
 
 
 import http
-import os
 import re
-import sys
 import time
 from http.server import SimpleHTTPRequestHandler
 from typing import Literal
 
 import numpy as np
 import pytest
+import utils
 
 import kvikio
 import kvikio.defaults
@@ -502,18 +501,16 @@ def test_timeout_raises(tmpdir, capfd):
     assert len(notices) == 1, captured.err
 
 
-@pytest.mark.skipif(
-    "KVIKIO_REMOTE_IO_BACKEND" in os.environ,
-    reason="already running under an explicit remote I/O backend",
-)
-@pytest.mark.timeout(300, method="thread")
-def test_http_io_under_multiple_reactors(run_cmd):
-    """Rerun this file with the MULTI_POLL backend."""
-    env = {
+# Rerun with a tight concurrent request cap.
+test_http_io_under_multiple_reactors = utils.rerun_in_new_process(
+    __file__,
+    {
         "KVIKIO_REMOTE_IO_BACKEND": "MULTI_POLL",
         "KVIKIO_REMOTE_IO_NUM_REACTORS": "4",
         "KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS": "8",
-    }
-    cmd = [sys.executable, "-m", "pytest", os.path.basename(__file__)]
-    cwd = os.path.dirname(os.path.abspath(__file__))
-    assert run_cmd(cmd=cmd, cwd=cwd, env=env) == 0
+    },
+)
+
+test_http_io_under_easy_threadpool = utils.rerun_in_new_process(
+    __file__, {"KVIKIO_REMOTE_IO_BACKEND": "EASY_THREADPOOL"}
+)
