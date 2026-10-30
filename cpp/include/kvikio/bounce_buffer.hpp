@@ -40,9 +40,11 @@ class PageAlignedAllocator {
 /**
  * @brief Allocator for CUDA pinned host memory
  *
- * Uses cudaMemHostAlloc to allocate pinned (page-locked) host memory that can be efficiently
- * transferred to/from GPU device memory. The allocation is only guaranteed to be aligned to "at
- * least 256 bytes". It is NOT guaranteed to be page aligned.
+ * Allocates portable pinned (page-locked) host memory that can be efficiently transferred to/from
+ * GPU device memory. The memory is mapped with transparent huge pages where available, prefaulted
+ * from several threads (see `defaults::bounce_buffer_prefault_nthreads()`), and registered with
+ * cuMemHostRegister, which is several times faster than cuMemHostAlloc. The allocation is only
+ * guaranteed to be aligned to "at least 256 bytes".
  *
  * @note Do NOT use with Direct I/O - lacks page alignment guarantee
  */
@@ -60,7 +62,7 @@ class CudaPinnedAllocator {
    * @brief Deallocate memory previously allocated by this allocator
    *
    * @param buffer Pointer to memory to deallocate
-   * @param size Size of the allocation (unused, for interface consistency)
+   * @param size Size passed to `allocate`
    */
   void deallocate(void* buffer, std::size_t size);
 };
@@ -69,8 +71,8 @@ class CudaPinnedAllocator {
  * @brief Allocator for page-aligned AND CUDA-registered pinned host memory
  *
  * Combines the benefits of both page alignment (for Direct I/O) and CUDA registration
- * (for efficient host-device transfers). Uses std::aligned_alloc followed by
- * cudaMemHostRegister to achieve both properties.
+ * (for efficient host-device transfers). Allocates the same way as CudaPinnedAllocator, whose
+ * mappings are page-aligned.
  *
  * @note This is the required allocator for Direct I/O with device memory. Requires a valid CUDA
  * context when allocating.
@@ -89,7 +91,7 @@ class CudaPageAlignedPinnedAllocator {
    * @brief Deallocate memory previously allocated by this allocator
    *
    * @param buffer Pointer to memory to deallocate
-   * @param size Size of the allocation (unused, for interface consistency)
+   * @param size Size passed to `allocate`
    */
   void deallocate(void* buffer, std::size_t size);
 };

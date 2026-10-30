@@ -4,10 +4,12 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstring>
 #include <exception>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include <kvikio/error.hpp>
@@ -79,6 +81,63 @@ bool is_aligned(std::size_t value, std::size_t alignment);
  * @return Boolean answer
  */
 bool is_aligned(void* addr, std::size_t alignment);
+
+/**
+ * @brief Prevent the compiler from optimizing away the read of a byte from a given address
+ *
+ * @param addr The address to read from
+ */
+void disable_read_optimization(void* addr);
+
+/**
+ * @brief Change an address `p` by a signed difference of `v`
+ *
+ * @tparam Integer Signed integer type
+ * @param p An address
+ * @param v Change of `p` in bytes
+ * @return A new address as a result of applying `v` on `p`
+ *
+ * @note Technically, if the initial pointer is non-null, or does not point to an element of an
+ * array object, (p + v) is undefined behavior (https://eel.is/c++draft/expr.add#4). However,
+ * (p + v) on dynamic allocation is generally acceptable in practice, as long as users guarantee
+ * that the resulting pointer points to a valid region.
+ */
+template <typename Integer>
+void* pointer_add(void* p, Integer v)
+{
+  static_assert(std::is_integral_v<Integer>);
+  return static_cast<std::byte*>(p) + v;
+}
+
+/**
+ * @brief The distance in bytes between pointer `p1` and `p2`
+ *
+ * @param p1 The first pointer
+ * @param p2 The second pointer
+ * @return Signed result of (`p1` - `p2`). Both pointers are cast to std::byte* before subtraction.
+ *
+ * @note Technically, if two pointers do not point to elements from the same array, (p1 - p2) is
+ * undefined behavior (https://eel.is/c++draft/expr.add#5). However, (p1 - p2) on dynamic allocation
+ * is generally acceptable in practice, as long as users guarantee that both pointers are within the
+ * valid region.
+ */
+std::ptrdiff_t pointer_diff(void* p1, void* p2);
+
+/**
+ * @brief For the specified memory range, touch the first byte of each page to cause page fault.
+ *
+ * For the first page, if the starting address is not aligned to the page boundary, the byte at
+ * that address is touched.
+ *
+ * Reading is enough to fault in the pages of a file mapping. Anonymous memory that was never
+ * written needs a write, because reading it only maps the shared zero page.
+ *
+ * @param buf The starting memory address
+ * @param size The size in bytes of the memory range
+ * @param write Whether to write zero to the touched byte of each page instead of reading it
+ * @return The number of bytes touched
+ */
+std::size_t perform_prefault(void* buf, std::size_t size, bool write = false);
 
 /**
  * @brief A simple scope guard that invokes a cleanup callable upon destruction.
