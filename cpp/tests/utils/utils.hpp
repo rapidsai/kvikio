@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -110,10 +110,12 @@ class DevBuffer {
   {
     KVIKIO_CHECK_CUDA(cudaMalloc(&ptr, nbytes));
     KVIKIO_CHECK_CUDA(cudaMemset(ptr, 0, nbytes));
+    synchronize();
   }
   DevBuffer(std::vector<T> const& host_buffer) : DevBuffer{host_buffer.size()}
   {
     KVIKIO_CHECK_CUDA(cudaMemcpy(ptr, host_buffer.data(), nbytes, cudaMemcpyHostToDevice));
+    synchronize();
   }
 
   DevBuffer(DevBuffer&& dev_buffer) noexcept
@@ -144,8 +146,18 @@ class DevBuffer {
   {
     DevBuffer ret{prototype.nelem};
     KVIKIO_CHECK_CUDA(cudaMemset(ret.ptr, 0, ret.nbytes));
+    synchronize();
     return ret;
   }
+
+  /**
+   * @brief Wait for the legacy default stream, on which `cudaMemset` and `cudaMemcpy` run.
+   *
+   * These calls can return before the work completes, and the legacy default stream does not order
+   * against `CU_STREAM_NON_BLOCKING` streams. Without this, a caller that uses the buffer on such a
+   * stream right after construction can race with the initialization.
+   */
+  static void synchronize() { KVIKIO_CHECK_CUDA(cudaStreamSynchronize(nullptr)); }
 
   [[nodiscard]] std::vector<T> to_vector() const
   {

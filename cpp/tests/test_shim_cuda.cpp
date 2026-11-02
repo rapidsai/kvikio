@@ -4,6 +4,8 @@
  */
 
 #include <cstddef>
+#include <cstdlib>
+#include <cstring>
 #include <stdexcept>
 #include <tuple>
 #include <vector>
@@ -23,6 +25,32 @@ using ::testing::ThrowsMessage;
 
 namespace {
 constexpr std::size_t buffer_size = 4096;
+
+// A page-aligned host buffer pinned with `cuMemHostRegister`. Unlike `cudaMallocHost` memory, its
+// host and device addresses differ when CU_DEVICE_ATTRIBUTE_CAN_USE_HOST_POINTER_FOR_REGISTERED_MEM
+// is 0 (e.g. on WSL2).
+class RegisteredHostBuffer {
+ public:
+  RegisteredHostBuffer() : _ptr{static_cast<std::byte*>(std::aligned_alloc(4096, buffer_size))}
+  {
+    KVIKIO_EXPECT(_ptr != nullptr, "aligned_alloc failed", std::runtime_error);
+    KVIKIO_CUDA_DRIVER_TRY(kvikio::cudaAPI::instance().MemHostRegister(_ptr, buffer_size, 0));
+  }
+
+  ~RegisteredHostBuffer()
+  {
+    kvikio::cudaAPI::instance().MemHostUnregister(_ptr);
+    std::free(_ptr);
+  }
+
+  RegisteredHostBuffer(RegisteredHostBuffer const&)            = delete;
+  RegisteredHostBuffer& operator=(RegisteredHostBuffer const&) = delete;
+
+  [[nodiscard]] std::byte* data() const { return _ptr; }
+
+ private:
+  std::byte* _ptr;
+};
 }  // namespace
 
 class CudaMemcpyBatchAsyncTest : public testing::Test {
@@ -153,4 +181,35 @@ TEST_F(CudaMemcpyBatchAsyncTest, single_copy_wrapper)
   sync();
 
   EXPECT_EQ(device_slice(512, 320), host_slice(128, 320));
+}
+
+TEST_F(CudaMemcpyBatchAsyncTest, device_to_registered_host)
+{
+  KVIKIO_CHECK_CUDA(cudaMemcpy(_device.ptr, _host, buffer_size, cudaMemcpyDefault));
+  KVIKIO_CHECK_CUDA(cudaDeviceSynchronize());
+  RegisteredHostBuffer registered;
+
+  ASSERT_EQ(
+    kvikio::cudaAPI::cuda_memcpy_async(
+      kvikio::convert_void2deviceptr(registered.data()), device_at(0), buffer_size, _stream),
+    CUDA_SUCCESS);
+  sync();
+
+  EXPECT_EQ(std::memcmp(registered.data(), _host, buffer_size), 0);
+}
+
+TEST_F(CudaMemcpyBatchAsyncTest, registered_host_to_device)
+{
+  RegisteredHostBuffer registered;
+  std::memcpy(registered.data(), _host, buffer_size);
+  KVIKIO_CHECK_CUDA(cudaMemset(_device.ptr, 0, buffer_size));
+  KVIKIO_CHECK_CUDA(cudaDeviceSynchronize());
+
+  ASSERT_EQ(
+    kvikio::cudaAPI::cuda_memcpy_async(
+      device_at(0), kvikio::convert_void2deviceptr(registered.data()), buffer_size, _stream),
+    CUDA_SUCCESS);
+  sync();
+
+  EXPECT_EQ(device_slice(0, buffer_size), host_slice(0, buffer_size));
 }
