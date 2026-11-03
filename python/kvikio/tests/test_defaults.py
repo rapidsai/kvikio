@@ -1,10 +1,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 
 import pytest
+import utils
 
 import kvikio.defaults
+
+# Reactor settings cannot change after the first remote read, which may be performed by
+# other tests. Use this decorator to run certain tests only when in a new process where
+# `_NEW_PROCESS_ENV` is explicitly set via utils.rerun_in_new_process.
+_NEW_PROCESS_ENV = "KVIKIO_TEST_NEW_PROCESS"
+new_process_only = pytest.mark.skipif(
+    _NEW_PROCESS_ENV not in os.environ,
+    reason="runs in a new process, see test_reactor_settings_in_new_process",
+)
 
 
 def test_property_accessor():
@@ -184,3 +195,72 @@ def test_remote_io_backend():
             kvikio.RemoteIOBackend.EASY_THREADPOOL
         )
     assert kvikio.defaults.get("remote_io_backend") == before
+
+
+@new_process_only
+def test_remote_io_num_reactors():
+    before = kvikio.defaults.get("remote_io_num_reactors")
+    after = before + 1
+
+    try:
+        result = kvikio.defaults.set("remote_io_num_reactors", after)
+        assert result is None
+        assert kvikio.defaults.get("remote_io_num_reactors") == after
+    finally:
+        kvikio.defaults.set("remote_io_num_reactors", before)
+    assert kvikio.defaults.get("remote_io_num_reactors") == before
+
+    with pytest.raises(TypeError, match="context manager protocol"):
+        with kvikio.defaults.set("remote_io_num_reactors", after):
+            pass
+    kvikio.defaults.set("remote_io_num_reactors", before)
+
+    with pytest.raises(ValueError, match="must be set individually"):
+        kvikio.defaults.set(
+            {
+                "remote_io_num_reactors": after,
+                "task_size": kvikio.defaults.get("task_size"),
+            }
+        )
+    with pytest.raises(ValueError, match="must be set individually"):
+        kvikio.defaults.set({"remote_io_num_reactors": after})
+
+
+def test_remote_io_reactor_dispatch():
+    # Deprecated. Setting any value is a no-op, and reading always gives SHARED_QUEUE.
+    for value in kvikio.RemoteReactorDispatch:
+        with pytest.warns(FutureWarning, match="deprecated and has no effect"):
+            assert kvikio.defaults.set("remote_io_reactor_dispatch", value) is None
+        with pytest.warns(FutureWarning, match="deprecated and has no effect"):
+            with kvikio.defaults.set({"remote_io_reactor_dispatch": value}):
+                pass
+        with pytest.warns(FutureWarning, match="deprecated and has no effect"):
+            dispatch = kvikio.defaults.get("remote_io_reactor_dispatch")
+        assert dispatch == kvikio.RemoteReactorDispatch.SHARED_QUEUE
+
+
+@new_process_only
+def test_remote_io_max_concurrent_requests():
+    before = kvikio.defaults.get("remote_io_max_concurrent_requests")
+    after = before + 1
+
+    try:
+        result = kvikio.defaults.set("remote_io_max_concurrent_requests", after)
+        assert result is None
+        assert kvikio.defaults.get("remote_io_max_concurrent_requests") == after
+    finally:
+        kvikio.defaults.set("remote_io_max_concurrent_requests", before)
+    assert kvikio.defaults.get("remote_io_max_concurrent_requests") == before
+
+    with pytest.raises(TypeError, match="context manager protocol"):
+        with kvikio.defaults.set("remote_io_max_concurrent_requests", after):
+            pass
+    kvikio.defaults.set("remote_io_max_concurrent_requests", before)
+
+
+test_reactor_settings_in_new_process = utils.rerun_in_new_process(
+    __file__,
+    {_NEW_PROCESS_ENV: "1"},
+    # pytest argument -k is used to run tests matching the given substring expression
+    ["-k", "test_remote_io_num_reactors or test_remote_io_max_concurrent_requests"],
+)

@@ -52,6 +52,8 @@ The behavior when a remote I/O read returns an error can be controlled through t
 
 KvikIO will retry a request should any of the HTTP status code in ``KVIKIO_HTTP_STATUS_CODES`` is received. The default values are ``429, 500, 502, 503, 504``. This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``http_status_codes``.
 
+Transport failures that may succeed on a new attempt are also retried: a timeout, a failed DNS lookup or connection, a connection error while sending or receiving, and a response that ends early or is empty.
+
 The maximum number of attempts to make before throwing an exception is controlled by ``KVIKIO_HTTP_MAX_ATTEMPTS``. The default value is 3. This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``http_max_attempts``.
 
 The maximum duration of each HTTP request is controlled by ``KVIKIO_HTTP_TIMEOUT``. The default value is 60, which is the duration in seconds to allow. This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``http_timeout``.
@@ -74,34 +76,102 @@ Remote I/O Backend ``KVIKIO_REMOTE_IO_BACKEND``
 
 KvikIO supports two backends for remote (HTTP/S3/WebHDFS) reads, selected via the environment variable ``KVIKIO_REMOTE_IO_BACKEND``. The accepted values (case-insensitive) are:
 
-  * ``EASY_THREADPOOL`` (default): Libcurl easy API running in the KvikIO thread pool. Each sub-range of a :py:func:`kvikio.RemoteFile.pread` is dispatched to a worker thread that blocks in ``curl_easy_perform()`` until its transfer completes. Concurrency is bounded by the thread pool size: one busy thread per in-flight transfer.
-  * ``MULTI_POLL``: Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is bounded by ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` rather than by the reactor count.
+  * ``EASY_THREADPOOL``: Libcurl easy API running in the KvikIO thread pool. Each sub-range of a :py:func:`kvikio.RemoteFile.pread` is dispatched to a worker thread that blocks in ``curl_easy_perform()`` until its transfer completes. Concurrency is bounded by the thread pool size: one busy thread per in-flight transfer.
+  * ``MULTI_POLL`` (default): Libcurl multi API driven by N reactor threads, each of which blocks in ``curl_multi_poll()``. A single reactor multiplexes many in-flight easy handles concurrently, so the number of simultaneous transfers is bounded by ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` rather than by the reactor count.
 
 This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_backend``. :py:func:`kvikio.RemoteFile.pread` reads the setting on every call, so a change applies to subsequent reads while reads already in flight finish on the backend they started on.
 
-The ``MULTI_POLL`` backend honors three additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS``, ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``, and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``. These settings are captured once when the reactor pool is first used, so switching to ``MULTI_POLL`` at runtime picks up the values they had at process startup.
+Under the default ``MULTI_POLL`` backend, ``KVIKIO_NTHREADS`` no longer affects remote reads, and a read into device memory requires ``KVIKIO_TASK_SIZE`` to be no larger than ``KVIKIO_BOUNCE_BUFFER_SIZE`` (a larger task size raises ``ValueError``). Set ``KVIKIO_REMOTE_IO_BACKEND=EASY_THREADPOOL`` to restore the previous behavior.
+
+The ``MULTI_POLL`` backend honors two additional settings, described in the sections below: ``KVIKIO_REMOTE_IO_NUM_REACTORS`` and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``. They have no effect under ``EASY_THREADPOOL``. These settings are captured once when the reactor pool is first used (i.e. the first ``MULTI_POLL`` remote I/O), and become immutable for the rest of the process lifetime; attempting to change any of them afterwards raises an exception.
 
 Remote I/O Reactor Count ``KVIKIO_REMOTE_IO_NUM_REACTORS``
 ----------------------------------------------------------
 
-Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``1``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. Increase beyond ``1`` to spread the in-callback ``memcpy`` cost across cores when one reactor's CPU is the bottleneck. This setting has no effect under ``EASY_THREADPOOL``.
+Number of reactor threads used by the ``MULTI_POLL`` backend. The default value is ``8``. Each reactor owns one ``CURLM*`` handle and serializes its libcurl-multi calls. More reactors spread the in-callback ``memcpy`` cost across more cores. This setting has no effect under ``EASY_THREADPOOL``.
+
+The default of ``8`` is a moderate starting point. For a single process doing heavy remote reads using HTTPS, try one reactor per core first. Keep ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` a multiple (such as ``8x``, ``16x``, ``32x``) of the reactor count. A higher cap is not always faster, and it uses more pinned memory for device reads. ``KVIKIO_REMOTE_IO_NUM_REACTORS`` and ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` need to be tuned together.
+
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_num_reactors``, as long as the ``MULTI_POLL`` reactor pool has not already started.
 
 Remote I/O Reactor Dispatch ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH``
 -----------------------------------------------------------------
 
-Controls how the sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are distributed across reactor threads when ``MULTI_POLL`` is active. When only one reactor is used, both modes are equivalent. This setting has no effect under ``EASY_THREADPOOL``. The accepted values (case-insensitive) are:
+.. warning::
 
-  * ``PER_CHUNK`` (default): Sub-ranges are routed to reactors round-robin, independently of which :py:func:`kvikio.RemoteFile.pread` they belong to. This maximizes load balance across reactors. Trade-off: two sub-ranges of the same file may land on different reactors, each with its own libcurl connection cache, so they may not share an established TCP/TLS connection.
-  * ``PER_PREAD``: All sub-ranges of a single :py:func:`kvikio.RemoteFile.pread` are submitted to the same reactor (the reactor is itself chosen round-robin per :py:func:`kvikio.RemoteFile.pread` call). The sub-ranges then share that reactor's libcurl connection cache, allowing an established TCP/TLS connection to be reused. Best for HTTPS, where the TLS handshake cost is non-trivial.
+   Deprecated. This setting has no effect.
+
+Reactor dispatch is no longer configurable. The reactors always take sub-ranges from one shared queue, which is what ``SHARED_QUEUE`` used to select.
+
+Setting ``KVIKIO_REMOTE_IO_REACTOR_DISPATCH`` only logs a deprecation warning. The property name ``remote_io_reactor_dispatch`` remains accepted by :py:func:`kvikio.defaults.get` and :py:func:`kvikio.defaults.set` with a ``FutureWarning``. Reading it always returns ``SHARED_QUEUE``, and setting it is a no-op.
 
 Remote I/O Concurrency Cap ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS``
 -----------------------------------------------------------------------
 
 Upper bound on the number of HTTP range requests the ``MULTI_POLL`` backend keeps in flight at once, summed across all reactor threads. The default value is ``256``. It must be a non-negative integer, and ``0`` means unlimited. The value is ignored when the active backend is not ``MULTI_POLL`` (``EASY_THREADPOOL`` is already bounded by ``KVIKIO_NTHREADS``).
 
-The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``), so each reactor enforces its own cap against its own inbox with no cross-reactor synchronization. Integer division rounds the per-reactor share down when the budget is not a multiple of the reactor count, and a floor of 1 rounds it up when the budget is smaller than the reactor count (a computed share of 0 would be a reactor that can never admit a request). The effective total is therefore only approximate.
+The global budget is divided into an equal private share per reactor (``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` divided by ``KVIKIO_REMOTE_IO_NUM_REACTORS``). Each reactor enforces its own cap with no cross-reactor synchronization. When the budget is not a multiple of the reactor count, the remainder is spread one extra slot each over the first reactors to keep the total exact. When the budget is smaller than the reactor count, every reactor still gets one slot, and the effective total is then the reactor count.
 
-The even split assumes sub-ranges are spread across reactors, which holds under ``PER_CHUNK``. Under ``PER_PREAD`` all sub-ranges of one large :py:func:`kvikio.RemoteFile.pread` land on a single reactor, so that read is effectively limited to one reactor's share while the others stay idle.
+A reactor pulls a sub-range from the shared queue only when its share has room. Sub-ranges therefore go to whichever reactor frees up first, and the full budget stays in flight as long as enough work is queued.
+
+Each in-flight read into device memory stages through a pinned bounce buffer of ``KVIKIO_BOUNCE_BUFFER_SIZE`` bytes, whatever the task size. Each reactor keeps up to twice its share of these buffers per CUDA context for reuse. Pinned memory per CUDA context is therefore bounded by 2 x ``KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`` x ``KVIKIO_BOUNCE_BUFFER_SIZE``, which is 8 GiB with the defaults (4 GiB of it in flight at once). Lower either setting to reduce it. With ``0`` (unlimited) there is no bound.
+
+For remote reads into device memory under ``MULTI_POLL``, set ``KVIKIO_BOUNCE_BUFFER_SIZE`` equal to ``KVIKIO_TASK_SIZE``, since any extra space is pinned but never used.
+
+This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``remote_io_max_concurrent_requests``, as long as the ``MULTI_POLL`` reactor pool has not already started.
+
+Shared DNS Caches ``KVIKIO_REMOTE_SHARE_DNS_CACHE``, ``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE``
+-------------------------------------------------------------------------------------------------
+
+Let the easy handles in ``EASY_THREADPOOL`` share DNS caches to reduce lookups.
+
+Sharing is enabled by default. Set ``KVIKIO_REMOTE_SHARE_DNS_CACHE`` to ``false``, ``off``, ``no``, or ``0`` (case-insensitive) to disable sharing.
+
+``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE`` sets how many threads may share one DNS cache. The default value is ``16``. A thread is assigned a cache on first use and keeps it for its lifetime, and a new cache is created once the current one is full. The total number of caches is roughly the number of threads divided by this value.
+
+Each cache holds one DNS result per host, which for S3 is a set of addresses drawn afresh on every resolution. Smaller ``KVIKIO_REMOTE_MAX_THREADS_PER_DNS_CACHE`` value leads to more caches, spreading connections over more addresses, at the cost of more lookups and less reuse. A thread returns its cache assignment when it exits, and resizing the thread pool with :py:func:`kvikio.defaults.set` reuses the existing caches rather than adding more.
+
+Both variables are read only from the environment, and only when the caches are first used. Neither has any effect under ``MULTI_POLL``.
+
+Receive Buffer Size ``KVIKIO_REMOTE_IO_BUFFER_SIZE``
+----------------------------------------------------
+
+Size in bytes of libcurl's receive buffer, one per transfer. When unset, libcurl's own default of 16 KiB (``CURL_MAX_WRITE_SIZE``) is used. The value must be between 1 KiB and ``CURL_MAX_READ_SIZE`` (10 MiB in recent versions of curl).
+
+This variable is read only from the environment, once per process.
+
+Network Interface Binding ``KVIKIO_REMOTE_IO_INTERFACE``
+--------------------------------------------------------
+
+Bind every connection to one network interface, for hosts with several NICs on one subnet. The value is passed to libcurl verbatim: ``<ip>`` binds the source address, ``if!<name>`` binds the device, and ``ifhost!<name>!<ip>`` binds both.
+
+Unset by default. This variable is read only from the environment, once per process.
+
+Non-temporal Copy ``KVIKIO_REMOTE_IO_NONTEMPORAL_COPY``
+-------------------------------------------------------
+
+Copy received data into host memory with non-temporal stores, which skip fetching the destination cache lines. This includes the pinned bounce buffers of device reads.
+
+It helps only when the destination is much larger than the last-level cache and is not read again soon. It requires x86-64 with AVX2, and falls back to ``memcpy`` elsewhere.
+
+Enabled by default. Set to ``false``, ``off``, ``no``, or ``0`` (case-insensitive) to disable. This variable is read only from the environment, once per process.
+
+Non-temporal Copy Threshold ``KVIKIO_REMOTE_IO_NONTEMPORAL_COPY_THRESHOLD``
+---------------------------------------------------------------------------
+
+Size in bytes from which a range request uses non-temporal copy, when ``KVIKIO_REMOTE_IO_NONTEMPORAL_COPY`` is enabled. A range request covers at most ``KVIKIO_TASK_SIZE`` bytes of a read.
+
+The default value is 1048576 (1 MiB). This variable is read only from the environment, once per process.
+
+Discard Received Data ``KVIKIO_REMOTE_IO_DISCARD_DATA``
+-------------------------------------------------------
+
+For benchmark purposes only. Drop received data instead of copying it into host memory, to benchmark the network path alone. Reads into device memory are not affected.
+
+Set to ``true``, ``on``, ``yes``, or ``1`` (case-insensitive) to enable. Disabled by default. This variable is read only from the environment, once per process. It is experimental and may change without a deprecation period.
+
+.. warning::
+   The destination buffer is left untouched, with no error raised.
 
 CA bundle file and CA directory ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``
 ---------------------------------------------------------------------------------------

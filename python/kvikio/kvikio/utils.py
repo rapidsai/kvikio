@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import functools
@@ -12,7 +12,16 @@ from http.server import (
     SimpleHTTPRequestHandler,
     ThreadingHTTPServer,
 )
+from queue import Empty
 from typing import Any, Callable
+
+
+class LargeBacklogHTTPServer(ThreadingHTTPServer):
+    # How many new connections may wait to be accepted. The default of 5 is too small
+    # for MULTI_POLL, which can open up to `remote_io_max_concurrent_requests`
+    # connections at once. Connections beyond the limit are retried after a second or
+    # more, which makes the tests very slow.
+    request_queue_size = 1024
 
 
 class LocalHttpServer:
@@ -25,7 +34,7 @@ class LocalHttpServer:
         handler_options: dict[str, Any],
         max_lifetime: int,
     ):
-        httpd = ThreadingHTTPServer(
+        httpd = LargeBacklogHTTPServer(
             ("127.0.0.1", 0), functools.partial(handler, **handler_options)
         )
         thread = threading.Thread(target=httpd.serve_forever)
@@ -69,7 +78,10 @@ class LocalHttpServer:
         self.handler_options = handler_options or {}
 
     def __enter__(self):
-        queue = multiprocessing.Queue()
+        # Use "forkserver" (the default since Python 3.14) that creates a clean
+        # process instead of "fork" that duplicates the calling process.
+        ctx = multiprocessing.get_context("forkserver")
+        queue = ctx.Queue()
 
         if self.handler is not None:
             handler = self.handler
@@ -82,12 +94,19 @@ class LocalHttpServer:
 
         handler_options = {**self.handler_options, **{"directory": self.root_path}}
 
-        self.process = multiprocessing.Process(
+        self.process = ctx.Process(
             target=LocalHttpServer._server,
             args=(queue, handler, handler_options, self.max_lifetime),
         )
         self.process.start()
-        ip, port = queue.get()
+        try:
+            # Without a deadline, this call would wait forever if the server process
+            # dies before sending its address.
+            ip, port = queue.get(timeout=60)
+        except Empty:
+            exitcode = self.process.exitcode
+            self.process.kill()
+            raise RuntimeError(f"LocalHttpServer failed to start, exit code {exitcode}")
         self.ip = ip
         self.port = port
         self.url = f"http://{ip}:{port}"

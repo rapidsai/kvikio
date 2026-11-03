@@ -5,17 +5,21 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_share.hpp>
 #include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/posix_io.hpp>
@@ -24,6 +28,7 @@
 #include <kvikio/logger.hpp>
 #include <kvikio/logger_macros.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -87,7 +92,8 @@ void LibCurl::retain_handle(UniqueHandlePtr handle)
 
 CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
                        std::string source_file,
-                       std::string source_line)
+                       std::string source_line,
+                       bool use_shared_dns_cache)
   : _handle{std::move(handle)}
 {
   // Need CURLOPT_NOSIGNAL to support threading, see
@@ -104,14 +110,53 @@ CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
   // Make requests time out after `value` seconds.
   setopt(CURLOPT_TIMEOUT, kvikio::defaults::http_timeout());
 
+  // Resolve a hostname once per DNS cache.
+  bool share_dns_cache = false;
+  if (use_shared_dns_cache) {
+    static bool const env = getenv_or("KVIKIO_REMOTE_SHARE_DNS_CACHE", true);
+    share_dns_cache       = env;
+  }
+  if (share_dns_cache) {
+    setopt(CURLOPT_SHARE, detail::CurlShareHandle::share_handle_for_current_thread().handle());
+  } else {
+    setopt(CURLOPT_SHARE, static_cast<CURLSH*>(nullptr));
+  }
+
   // Optionally enable verbose output if it's configured.
   auto const verbose = getenv_or("KVIKIO_REMOTE_VERBOSE", false);
   if (verbose) { setopt(CURLOPT_VERBOSE, 1L); }
 
+  // Size in bytes of libcurl's receive buffer, one per transfer. When unset, libcurl's own default
+  // of 16 KiB (CURL_MAX_WRITE_SIZE) is used. The value must be between 1 KiB and
+  // CURL_MAX_READ_SIZE (10 MiB in recent versions of curl).
+  static long const buffer_size = [] {
+    auto const env =
+      getenv_or("KVIKIO_REMOTE_IO_BUFFER_SIZE", static_cast<long>(CURL_MAX_WRITE_SIZE));
+    KVIKIO_EXPECT(env >= 1024 && env <= CURL_MAX_READ_SIZE,
+                  "KVIKIO_REMOTE_IO_BUFFER_SIZE has to be an integer between 1024 and " +
+                    std::to_string(CURL_MAX_READ_SIZE),
+                  std::invalid_argument);
+    return env;
+  }();
+  setopt(CURLOPT_BUFFERSIZE, buffer_size);
+
+  // Bind every connection to one network interface, for hosts with several NICs on one subnet.
+  // The value is passed to libcurl verbatim: `<ip>` binds the source address, `if!<name>` binds
+  // the device, and `ifhost!<name>!<ip>` binds both.
+  static std::string const interface_opt = [] {
+    auto const* env = std::getenv("KVIKIO_REMOTE_IO_INTERFACE");
+    return std::string{env == nullptr ? "" : env};
+  }();
+  if (!interface_opt.empty()) { setopt(CURLOPT_INTERFACE, interface_opt.c_str()); }
+
   detail::set_up_ca_paths(*this);
 }
 
-CurlHandle::~CurlHandle() noexcept { LibCurl::instance().retain_handle(std::move(_handle)); }
+CurlHandle::~CurlHandle() noexcept
+{
+  std::ignore = curl_easy_setopt(_handle.get(), CURLOPT_SHARE, static_cast<CURLSH*>(nullptr));
+  LibCurl::instance().retain_handle(std::move(_handle));
+}
 
 CURL* CurlHandle::handle() noexcept { return _handle.get(); }
 
@@ -121,6 +166,39 @@ std::string CurlHandle::error_message() const
   // writes null-terminated strings into it.
   return std::string{_errbuf};
 }
+
+namespace detail {
+namespace {
+/// A libcurl timing in microseconds, or zero if it could not be read. libcurl fills the value in
+/// only when the call succeeds, so a failed one leaves the phase uncounted rather than garbage.
+[[nodiscard]] curl_off_t timing_of(CURL* easy, CURLINFO info) noexcept
+{
+  curl_off_t value{0};
+  if (curl_easy_getinfo(easy, info, &value) != CURLE_OK) { return 0; }
+  return value;
+}
+}  // namespace
+
+void count_http_connection_of(CURL* easy) noexcept
+{
+  using std::chrono::microseconds;
+
+  long connections{0};
+  if (curl_easy_getinfo(easy, CURLINFO_NUM_CONNECTS, &connections) != CURLE_OK) { return; }
+  // Zero means the connection was reused, so nothing was paid here.
+  if (connections <= 0) { return; }
+
+  auto const namelookup = timing_of(easy, CURLINFO_NAMELOOKUP_TIME_T);
+  auto const connect    = timing_of(easy, CURLINFO_CONNECT_TIME_T);
+  auto const appconnect = timing_of(easy, CURLINFO_APPCONNECT_TIME_T);
+
+  auto const tcp = connect > namelookup ? microseconds{connect - namelookup} : Duration::zero();
+  auto const tls = appconnect > connect ? microseconds{appconnect - connect} : Duration::zero();
+  count_http_connection(
+    static_cast<std::uint64_t>(connections), microseconds{namelookup}, tcp, tls);
+}
+
+}  // namespace detail
 
 void CurlHandle::clear_error_message() noexcept { _errbuf[0] = 0; }
 
@@ -134,6 +212,7 @@ void CurlHandle::perform(std::function<void()> const& on_retry)
   for (std::size_t attempt = 1;; ++attempt) {
     clear_error_message();
     auto const curl_code = curl_easy_perform(handle());
+    detail::count_http_connection_of(handle());
 
     long http_code = 0;
     // We had an error. Is it retryable?
@@ -145,6 +224,7 @@ void CurlHandle::perform(std::function<void()> const& on_retry)
       case detail::RetryDecision::SUCCESS: return;
       case detail::RetryDecision::RETRY:
         KVIKIO_LOG_WARN(outcome.message);
+        detail::count_http_retry(outcome.delay_ms);
         if (on_retry) { on_retry(); }
         std::this_thread::sleep_for(outcome.delay_ms);
         break;

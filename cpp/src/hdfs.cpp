@@ -7,11 +7,13 @@
 
 #include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/remote_callback.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/hdfs.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 
 namespace kvikio {
 
@@ -94,8 +96,10 @@ std::size_t WebHdfsEndpoint::get_file_size()
   std::string response;
   curl.setopt(CURLOPT_WRITEDATA, static_cast<void*>(&response));
   curl.setopt(CURLOPT_WRITEFUNCTION, detail::callback_get_string_response);
-
-  curl.perform([&response] { response.clear(); });
+  {
+    detail::ScopedTimer const probe{detail::count_remote_size_probe};
+    curl.perform([&response] { response.clear(); });
+  }
 
   long http_status_code{};
   curl.getinfo(CURLINFO_RESPONSE_CODE, &http_status_code);

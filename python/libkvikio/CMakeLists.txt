@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -32,5 +32,6 @@ unset(kvikio_FOUND)
 set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
+set(KvikIO_BUILD_NSYS_PLUGIN ON)
 
 add_subdirectory(../../cpp kvikio-cpp)

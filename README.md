@@ -18,8 +18,8 @@ KvikIO also works efficiently when GDS isn't available and can read/write both h
 
 
 ### Documentation
- * Python: <https://docs.rapids.ai/api/kvikio/nightly/>
- * C++: <https://docs.rapids.ai/api/libkvikio/nightly/>
+ * Python: <https://docs.nvidia.com/kvikio/latest/>
+ * C++: <https://docs.nvidia.com/kvikio/latest/cpp/>
 
 
 ### Examples

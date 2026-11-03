@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -110,8 +111,15 @@ enum class MemoryKind : std::uint8_t {
  * @brief What layer an observation describes.
  */
 enum class ObservationKind : std::uint8_t {
-  LOGICAL = 0  ///< One user-facing call, such as one `FileHandle::pread()`.
+  LOGICAL = 0,  ///< One user-facing call, such as one `FileHandle::pread()`.
+  PHYSICAL      ///< One transfer occupying a thread or a connection, such as one thread-pool task.
 };
+
+/**
+ * @brief Number of `ObservationKind` values.
+ */
+constexpr std::size_t num_observation_kinds =
+  static_cast<std::size_t>(ObservationKind::PHYSICAL) + 1;
 
 /**
  * @brief Human-readable name of an I/O backend.
@@ -164,6 +172,10 @@ struct Observation {
   std::size_t bytes_transferred{};
   /// Identifies this operation, uniquely within the process.
   std::uint64_t id{};
+  /// For a physical observation, the `id` of the logical operation it belongs to. Empty on a
+  /// logical observation, and on a physical one whose call started with no monitor registered
+  /// for logical observations. Nothing else leaves it empty.
+  std::optional<std::uint64_t> parent_id{};
 
   /// HTTP method, e.g. `"GET"`. Null for local I/O.
   char const* http_method{nullptr};
@@ -172,7 +184,7 @@ struct Observation {
   /// duration of the callback. Copy what is needed later.
   std::string_view source{};
 
-  /// What layer this describes. Always `ObservationKind::LOGICAL` today.
+  /// What layer this describes.
   ObservationKind kind{ObservationKind::LOGICAL};
   /// The backend that carried out the operation.
   IoBackend backend{IoBackend::POSIX};
@@ -215,8 +227,10 @@ struct Observation {
  * operation: `on_start()` when it begins, carrying the record as it stands at submission, and
  * `on_finish()` when it ends, carrying the finished record.
  *
- * A monitor is told about user-facing calls: one `FileHandle::pread()` is one operation however
- * many reads KvikIO issued underneath.
+ * Which operations it is told about is chosen at registration. A `LOGICAL` monitor is told about
+ * user-facing calls: one `FileHandle::pread()` is one operation however many reads KvikIO issued
+ * underneath. A `PHYSICAL` monitor is told about the individual transfers instead, each linked to
+ * its call by `Observation::parent_id`.
  *
  * @note Not everything is reported:
  * - The cuFile asynchronous API (`FileHandle::read_async()`, `FileHandle::write_async()`) on a

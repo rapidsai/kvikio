@@ -386,12 +386,22 @@ std::size_t MmapHandle::read(void* buf, std::optional<std::size_t> size, std::si
     offset,
     actual_size,
     _file_path};
+  // No queue in front of this one, so the physical record duplicates the logical one. Emitted
+  // anyway, so that a monitor watching only physical observations still sees every byte.
+  detail::PhysicalObservationContext const physical{
+    .backend     = IoBackend::MMAP,
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder.id(),
+    .source      = _file_path};
+  detail::PhysicalObservationRecorder physical_recorder{physical, offset, actual_size};
   CUcontext ctx{};
   if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
   // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
   auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
   detail::read_impl(buf, src_mapped_buf, actual_size, 0, is_dst_buf_host_mem, ctx);
+  physical_recorder.finish(actual_size);
   recorder.finish(actual_size);
   return actual_size;
 }
@@ -417,28 +427,41 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
   CUcontext ctx{};
   if (!is_dst_buf_host_mem) { ctx = get_context_from_pointer(buf); }
 
-  // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
-  auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
-  auto op =
-    [this, src_mapped_buf = src_mapped_buf, is_dst_buf_host_mem = is_dst_buf_host_mem, ctx = ctx](
-      void* dst_buf,
-      std::size_t size,
-      std::size_t,  // offset will be taken into account by dst_buf, hence no longer used here
-      std::size_t buf_offset  // buf_offset will be incremented for each individual task
-      ) -> std::size_t {
-    detail::read_impl(dst_buf, src_mapped_buf, size, buf_offset, is_dst_buf_host_mem, ctx);
-    return size;
-  };
-
-  auto recorder = detail::monitoring_enabled()
+  auto recorder = detail::monitoring_enabled(ObservationKind::LOGICAL)
                     ? std::make_shared<detail::LogicalObservationRecorder>(
                         IoBackend::MMAP,
                         TransferDirection::READ,
-                        is_host_memory(buf) ? MemoryKind::HOST : MemoryKind::DEVICE,
+                        is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
                         offset,
                         actual_size,
                         _file_path)
                     : nullptr;
+
+  // One observation per task, so the copies are seen apart from the queueing in front of them.
+  detail::PhysicalObservationContext const physical{
+    .backend     = IoBackend::MMAP,
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_dst_buf_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder ? recorder->id() : std::nullopt,
+    .source      = _file_path};
+
+  // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
+  auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
+  auto op                   = [this,
+             src_mapped_buf      = src_mapped_buf,
+             is_dst_buf_host_mem = is_dst_buf_host_mem,
+             ctx                 = ctx,
+             physical](void* dst_buf,
+                       std::size_t size,
+                       std::size_t file_offset,  // taken into account by dst_buf for the copy
+                       std::size_t buf_offset  // buf_offset will be incremented for each individual
+                                               // task
+                       ) -> std::size_t {
+    detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+    detail::read_impl(dst_buf, src_mapped_buf, size, buf_offset, is_dst_buf_host_mem, ctx);
+    physical_recorder.finish(size);
+    return size;
+  };
   return detail::parallel_io(op,
                              buf,
                              actual_size,

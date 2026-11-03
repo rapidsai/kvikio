@@ -59,9 +59,6 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
 template <>
 RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default_val);
 
-template <>
-RemoteReactorDispatch getenv_or(std::string_view env_var_name, RemoteReactorDispatch default_val);
-
 /**
  * @brief Get the environment variable value from a candidate list
  *
@@ -135,7 +132,6 @@ class defaults {
   bool _thread_pool_per_block_device;
   RemoteIOBackend _remote_io_backend;
   unsigned int _remote_io_num_reactors;
-  RemoteReactorDispatch _remote_io_reactor_dispatch;
   std::size_t _remote_io_max_concurrent_requests;
 
   static unsigned int get_num_threads_from_env();
@@ -464,7 +460,7 @@ class defaults {
    *
    * Controlled by the environment variable `KVIKIO_REMOTE_IO_BACKEND`, parsed case-insensitively.
    * The only accepted values are the canonical names `EASY_THREADPOOL` and `MULTI_POLL`. If unset,
-   * defaults to `EASY_THREADPOOL`.
+   * defaults to `MULTI_POLL`.
    *
    * @return The remote I/O backend.
    */
@@ -480,7 +476,7 @@ class defaults {
   /**
    * @brief Number of reactor threads used by the `MULTI_POLL` remote I/O backend.
    *
-   * Controlled by `KVIKIO_REMOTE_IO_NUM_REACTORS`. Must be a positive integer. Defaults to 1.
+   * Controlled by `KVIKIO_REMOTE_IO_NUM_REACTORS`. Must be a positive integer. Defaults to 8.
    * Ignored when the active backend is not `MULTI_POLL`.
    *
    * @return The configured reactor count.
@@ -488,17 +484,38 @@ class defaults {
   [[nodiscard]] static unsigned int remote_io_num_reactors();
 
   /**
-   * @brief How sub-ranges of one `pread()` are distributed across reactor threads under the
+   * @brief Set the number of reactor threads used by the `MULTI_POLL` remote I/O backend at
+   * runtime, overriding `KVIKIO_REMOTE_IO_NUM_REACTORS`.
+   *
+   * The pool is created lazily on first use and is never rebuilt or resized.
+   *
+   * @param num_reactors The number of reactor threads. Must be a positive integer.
+   *
+   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
+   */
+  static void set_remote_io_num_reactors(unsigned int num_reactors);
+
+  /**
+   * @brief How sub-ranges are distributed across reactor threads under the `MULTI_POLL` remote I/O
+   * backend.
+   *
+   * @deprecated Reactor dispatch is no longer configurable. The reactors always take sub-ranges
+   * from one shared queue, which is what `SHARED_QUEUE` used to select.
+   *
+   * @return Always `RemoteReactorDispatch::SHARED_QUEUE`.
+   */
+  [[deprecated]] [[nodiscard]] static RemoteReactorDispatch remote_io_reactor_dispatch();
+
+  /**
+   * @brief No-op. Formerly set how sub-ranges are distributed across reactor threads under the
    * `MULTI_POLL` remote I/O backend.
    *
-   * Controlled by `KVIKIO_REMOTE_IO_REACTOR_DISPATCH`, parsed case-insensitively.
-   * - `PER_CHUNK`: `RemoteReactorDispatch::PER_CHUNK` (default).
-   * - `PER_PREAD`: `RemoteReactorDispatch::PER_PREAD`.
-   * When a single reactor is used, both modes are equivalent.
+   * @deprecated Reactor dispatch is no longer configurable. The reactors always take sub-ranges
+   * from one shared queue, which is what `SHARED_QUEUE` used to select.
    *
-   * @return The reactor dispatch policy.
+   * @param dispatch Ignored.
    */
-  [[nodiscard]] static RemoteReactorDispatch remote_io_reactor_dispatch();
+  [[deprecated]] static void set_remote_io_reactor_dispatch(RemoteReactorDispatch dispatch);
 
   /**
    * @brief Maximum number of concurrent in-flight requests across all reactor threads under the
@@ -508,9 +525,15 @@ class defaults {
    * each). This bounds how many of them are attached to the reactors' multi handles at once, summed
    * across all reactor threads.
    *
-   * The budget is divided into an equal private share per reactor, so the effective total is
-   * approximate: it rounds down when the value is not a multiple of the reactor count, and up when
-   * it is smaller than the reactor count (each reactor is floored to at least 1).
+   * The budget is split into a private share per reactor. The remainder goes to the first reactors,
+   * making the total exact. A budget below the reactor count still gives every reactor one slot,
+   * and the effective total is then the reactor count.
+   *
+   * A reactor pulls a sub-range from the shared queue only when its share has room. Sub-ranges
+   * therefore go to whichever reactor frees up first, and the full budget stays in flight as long
+   * as enough work is queued. Device-destination reads also stage through pinned bounce buffers
+   * that are held until the device copy completes, up to twice a reactor's share each. Pinned
+   * staging memory is therefore bounded by 2 x this value x `bounce_buffer_size()`.
    *
    * Controlled by `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`. Must be a non-negative integer. 0
    * means unlimited. Defaults to 256. Ignored when the active backend is not `MULTI_POLL`
@@ -519,6 +542,19 @@ class defaults {
    * @return The configured concurrent-request ceiling, or 0 for unlimited.
    */
   [[nodiscard]] static std::size_t remote_io_max_concurrent_requests();
+
+  /**
+   * @brief Set the maximum number of concurrent in-flight requests across all reactor threads
+   * under the `MULTI_POLL` remote I/O backend at runtime, overriding
+   * `KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS`.
+   *
+   * The pool is created lazily on first use and is never rebuilt or resized.
+   *
+   * @param max_requests The concurrent-request ceiling. 0 means unlimited.
+   *
+   * @exception std::runtime_error if the `MULTI_POLL` reactor pool has already been created.
+   */
+  static void set_remote_io_max_concurrent_requests(std::size_t max_requests);
 };
 
 }  // namespace kvikio

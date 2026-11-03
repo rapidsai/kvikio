@@ -10,6 +10,7 @@ from typing import Literal
 
 import numpy as np
 import pytest
+import utils
 
 import kvikio
 import kvikio.defaults
@@ -95,10 +96,16 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
 
 class PartialBodyHandler(SimpleHTTPRequestHandler):
     """
-    An HTTP handler that delivers part of the body and then stalls.
+    An HTTP handler that delivers part of the body and then stalls or ends the
+    response.
 
-    The client times out with bytes already written into its destination buffer, and
-    then performs retries on the whole byte range. Only GET requests stall.
+    - With a stall of non-zero time, the client times out with bytes already written
+    into its destination buffer.
+    - With a stall of zero, the server closes the connection and the client receives a
+    truncated body.
+
+    In both cases, the client then performs retries on the whole byte range. Only GET
+    requests are affected.
 
     Parameters
     ----------
@@ -108,7 +115,7 @@ class PartialBodyHandler(SimpleHTTPRequestHandler):
         The number of GET requests to stall before responding normally.
     stall_duration : int
         The duration, in seconds, to sleep after sending half the body. Must exceed the
-        client's ``http_timeout``.
+        client's ``http_timeout``, or be 0 to truncate the body.
     """
 
     def __init__(
@@ -136,7 +143,8 @@ class PartialBodyHandler(SimpleHTTPRequestHandler):
 
         self.request_counter.stall_count += 1
         data = source.read()
-        # Send half of the data and then deliberately stall
+        # Send half of the data and then deliberately stall. If the stall duration is
+        # zero, the server closes the connection.
         outputfile.write(data[: len(data) // 2])
         outputfile.flush()
         time.sleep(self.stall_duration)
@@ -153,11 +161,80 @@ def http_server(request, tmpdir):
         yield server.url
 
 
+@pytest.mark.parametrize(
+    "backend",
+    [kvikio.RemoteIOBackend.MULTI_POLL, kvikio.RemoteIOBackend.EASY_THREADPOOL],
+)
+def test_physical_observations_account_for_every_byte(http_server, tmpdir, backend):
+    """A remote read is one call and several requests, on either backend."""
+    a = np.arange(1_000_000)
+    a.tofile(tmpdir / "a")
+
+    logical = kvikio.SummaryMonitor(kvikio.ObservationKind.LOGICAL)
+    physical = kvikio.SummaryMonitor(kvikio.ObservationKind.PHYSICAL)
+    with kvikio.defaults.set(
+        {"remote_io_backend": backend, "task_size": a.nbytes // 4, "num_threads": 4}
+    ):
+        with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+            b = np.empty_like(a)
+            assert f.read(b) == a.nbytes
+    logical_summary = logical.get()
+    physical_summary = physical.get()
+    logical.stop()
+    physical.stop()
+
+    assert logical_summary.num_ops == 1
+    assert physical_summary.num_ops == 4, "one observation per range request"
+    assert physical_summary.bytes_transferred == logical_summary.bytes_transferred
+    assert physical_summary.num_errors == 0
+
+    assert physical_summary.by_backend["REMOTE_HTTP"]["bytes_transferred"] == a.nbytes
+
+
 def test_file_size(http_server, tmpdir):
     a = np.arange(100)
     a.tofile(tmpdir / "a")
     with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
         assert f.nbytes() == a.nbytes
+
+
+def test_a_failed_size_probe_is_still_counted(http_server):
+    """A probe that threw cost the same round trip as one that returned."""
+    monitor = kvikio.SummaryMonitor()
+    with pytest.raises(RuntimeError):
+        kvikio.RemoteFile.open_http(f"{http_server}/not-there")
+
+    spent = monitor.get().counters
+    assert spent["remote_size_probes"] == 1, "a failed probe was not counted"
+    assert spent["remote_size_probing_ns"] > 0
+
+
+def test_counters_count_what_the_endpoint_cost(http_server, tmpdir):
+    """The http counters are the only ones a local read cannot exercise."""
+    a = np.arange(1000)
+    a.tofile(tmpdir / "a")
+
+    monitor = kvikio.SummaryMonitor()
+    with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+        b = np.empty_like(a)
+        assert f.read(b) == a.nbytes
+    spent = monitor.get().counters
+
+    # Opening the file asks how big it is, which is a round trip of its own.
+    assert spent["remote_size_probes"] >= 1
+    assert spent["remote_size_probing_ns"] > 0
+    # Something had to be connected to, and nothing was turned away.
+    assert spent["http_connections"] >= 1
+    assert spent["http_tcp_ns"] > 0
+    assert spent["http_retries"] == 0
+    assert spent["http_retry_backoff_ns"] == 0
+
+    # Stopping freezes them, so a stopped summary does not keep growing with the process.
+    monitor.stop()
+    stopped = monitor.get().counters
+    with kvikio.RemoteFile.open_http(f"{http_server}/a") as f:
+        f.read(np.empty_like(a))
+    assert monitor.get().counters == stopped, "a stopped monitor kept counting"
 
 
 @pytest.mark.parametrize("size", [10, 100, 1000])
@@ -243,6 +320,33 @@ def test_retry_http_503_ok(tmpdir, xp):
             f.read(b)
 
 
+def test_a_retried_request_is_one_observation_per_attempt(tmpdir):
+    """A backoff is a gap between two observations, not one long transfer."""
+    a = np.arange(100, dtype="uint8")
+    a.tofile(tmpdir / "a")
+
+    with LocalHttpServer(
+        tmpdir,
+        max_lifetime=60,
+        handler=HTTP503Handler,
+        handler_options={"request_counter": RequestCounter()},
+    ) as server:
+        physical = kvikio.SummaryMonitor(kvikio.ObservationKind.PHYSICAL)
+        with kvikio.defaults.set(
+            {"remote_io_backend": kvikio.RemoteIOBackend.MULTI_POLL}
+        ):
+            # The size is given, so the first request the server sees is the GET.
+            with kvikio.RemoteFile.open_http(f"{server.url}/a", a.nbytes) as f:
+                assert f.read(np.empty_like(a)) == a.nbytes
+        summary = physical.get()
+        physical.stop()
+
+    # The 503 is one attempt that moved nothing, the retry is another that moved everything.
+    assert summary.num_ops == 2
+    assert summary.num_errors == 1
+    assert summary.bytes_transferred == a.nbytes
+
+
 def test_retry_http_503_fails(tmpdir, xp, capfd):
     with LocalHttpServer(
         tmpdir,
@@ -310,7 +414,12 @@ def test_retry_timeout_ok(tmpdir):
                 f.read(b)
 
 
-def test_retry_after_partial_body(tmpdir, xp):
+@pytest.mark.parametrize(
+    "stall_duration, reason",
+    [(5, "Timeout was reached"), (0, "Transferred a partial file")],
+    ids=["timeout", "truncated"],
+)
+def test_retry_after_partial_body(tmpdir, xp, capfd, stall_duration, reason):
     a = xp.arange(10000, dtype="int64")
     a.tofile(tmpdir / "a")
 
@@ -318,7 +427,10 @@ def test_retry_after_partial_body(tmpdir, xp):
         tmpdir,
         max_lifetime=60,
         handler=PartialBodyHandler,
-        handler_options={"request_counter": RequestCounter()},
+        handler_options={
+            "request_counter": RequestCounter(),
+            "stall_duration": stall_duration,
+        },
     ) as server:
         b = xp.empty_like(a)
         with kvikio.defaults.set({"http_timeout": 1}):
@@ -326,6 +438,13 @@ def test_retry_after_partial_body(tmpdir, xp):
                 assert f.nbytes() == a.nbytes
                 assert f.read(b) == a.nbytes
         xp.testing.assert_array_equal(a, b)
+
+    # The retry was caused by the expected transport error.
+    captured = capfd.readouterr()
+    notices = re.findall(
+        rf"KvikIO: Transport error: {reason}\. Retrying after", captured.err
+    )
+    assert len(notices) == 1, captured.err
 
 
 def test_set_http_status_code(tmpdir):
@@ -371,11 +490,27 @@ def test_timeout_raises(tmpdir, capfd):
                     assert f.nbytes() == a.nbytes
                     f.read(b)
             assert m.match("KvikIO: HTTP request reached maximum number of attempts")
-            assert m.match("Operation timed out.")
+            assert m.match("Transport error: Timeout was reached.")
 
     captured = capfd.readouterr()
     notices = re.findall(
-        r"KvikIO: Timeout error\. Retrying after 500ms \(attempt 1 of 2\)\.",
+        r"KvikIO: Transport error: Timeout was reached\. Retrying after 500ms "
+        r"\(attempt 1 of 2\)\.",
         captured.err,
     )
     assert len(notices) == 1, captured.err
+
+
+# Rerun with a tight concurrent request cap.
+test_http_io_under_multiple_reactors = utils.rerun_in_new_process(
+    __file__,
+    {
+        "KVIKIO_REMOTE_IO_BACKEND": "MULTI_POLL",
+        "KVIKIO_REMOTE_IO_NUM_REACTORS": "4",
+        "KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS": "8",
+    },
+)
+
+test_http_io_under_easy_threadpool = utils.rerun_in_new_process(
+    __file__, {"KVIKIO_REMOTE_IO_BACKEND": "EASY_THREADPOOL"}
+)

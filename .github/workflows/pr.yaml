@@ -20,12 +20,12 @@ jobs:
       - conda-python-build
       - conda-python-tests
       - docs-build
+      - docs-build-matrix
       - publish-api-docs
       - devcontainer
       - wheel-cpp-build
       - wheel-python-build
       - wheel-python-tests
-      - telemetry-setup
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -33,12 +33,12 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
   build-details:
-    uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
   check-nightly-ci:
     runs-on: ubuntu-latest
     permissions:
@@ -65,7 +65,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     with:
       files_yaml: |
         build_docs:
@@ -181,19 +181,6 @@ jobs:
           - '!docs/**'
           - '!java/**'
           - '!notebooks/**'
-  telemetry-setup:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    continue-on-error: true
-    env:
-      OTEL_SERVICE_NAME: "pr-kvikio"
-    steps:
-      - name: Telemetry setup
-        # This gate is here and not at the job level because we need the job to not be skipped,
-        # since other jobs depend on it.
-        if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
-        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   checks:
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -202,10 +189,11 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    needs: telemetry-setup
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     with:
-      ignored_pr_jobs: telemetry-summarize
+      # Main builds seed this cache. PR merge refs can restore it but should not create
+      # duplicate archives that are inaccessible to other PRs.
+      pre-commit-cache-read-only: true
   conda-cpp-build:
     needs: [build-details, checks]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -215,12 +203,13 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     with:
       build_type: pull-request
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_cpp.sh
+      matrix_type: pull-request
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -230,11 +219,12 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
+      matrix_type: pull-request
   conda-java-tests:
     needs: conda-cpp-build
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -244,12 +234,12 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     with:
       build_type: pull-request
-      node_type: "gpu-l4-latest-1"
+      node_type: "gpu-rtxpro6000-latest-1"
       arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.10-latest"
+      container_image: "rapidsai/ci-conda:26.12-latest"
       script: "ci/test_java.sh"
   conda-python-build:
     needs: [build-details, conda-cpp-build]
@@ -260,13 +250,14 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     with:
       build_type: pull-request
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       script: ci/build_python.sh
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+      matrix_type: pull-request
   conda-python-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -276,13 +267,22 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
       script: ci/test_python.sh
+      matrix_type: pull-request
+  docs-build-matrix:
+    permissions:
+      contents: read
+    uses: rapidsai/shared-workflows/.github/workflows/compute-matrix.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
+    with:
+      build_type: pull-request
+      matrix_name: docs-build
+      matrix_type: pull-request
   docs-build:
-    needs: [conda-python-build, changed-files]
+    needs: [docs-build-matrix, conda-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -290,36 +290,27 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.docs-build-matrix.outputs.matrix) }}
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs
     with:
       build_type: pull-request
-      node_type: "gpu-l4-latest-1"
-      arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.10-latest"
+      node_type: "gpu-${{ matrix.GPU }}-${{ matrix.DRIVER }}-1"
+      arch: "${{ matrix.arch }}"
+      container_image: "rapidsai/ci-conda:26.12-cuda${{ matrix.CUDA_VER }}-${{ matrix.LINUX_VER }}-py${{ matrix.PY_VER }}"
       script: "ci/build_docs.sh"
   publish-api-docs:
     needs: [docs-build]
     permissions:
       contents: read
       id-token: write
-    secrets:
-      akamai-access-token: ${{ secrets.NVIDIA_DOCS_AKAMAI_ACCESS_TOKEN }}
-      akamai-client-token: ${{ secrets.NVIDIA_DOCS_AKAMAI_CLIENT_TOKEN }}
-      akamai-client-secret: ${{ secrets.NVIDIA_DOCS_AKAMAI_CLIENT_SECRET }}
-      akamai-emails-to-notify: ${{ secrets.NVIDIA_DOCS_AKAMAI_EMAILS_TO_NOTIFY }}
-      akamai-host: ${{ secrets.NVIDIA_DOCS_AKAMAI_HOST }}
-      target-aws-access-key-id: ${{ secrets.NVIDIA_DOCS_AWS_ACCESS_KEY_ID }}
-      target-aws-region: ${{ secrets.NVIDIA_DOCS_AWS_REGION }}
-      target-aws-secret-access-key: ${{ secrets.NVIDIA_DOCS_AWS_SECRET_ACCESS_KEY }}
-      target-s3-bucket: ${{ secrets.NVIDIA_DOCS_S3_BUCKET }}
-    uses: rapidsai/shared-workflows/.github/workflows/publish-api-docs.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/publish-api-docs.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     with:
       docs-projects: kvikio
       dry-run: true
-      version-map: ${{ vars.VERSION_MAP }}
   devcontainer:
-    needs: telemetry-setup
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -330,7 +321,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
     with:
       arch: '["amd64", "arm64"]'
-      cuda: '["13.3"]'
+      cuda: '["13.4"]'
       node_type: "cpu8"
       env: |
         SCCACHE_DIST_MAX_RETRIES=inf
@@ -338,9 +329,9 @@ jobs:
         SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE=false
       build_command: |
         sccache --zero-stats;
-        build-all --verbose 2>&1 | tee telemetry-artifacts/build.log;
+        build-all --verbose;
         python -c "import kvikio; print(kvikio.__version__)";
-        sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt;
+        sccache --show-adv-stats;
   wheel-cpp-build:
     needs: [build-details]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -350,7 +341,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     with:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: pull-request
@@ -359,6 +350,7 @@ jobs:
       script: ci/build_wheel_cpp.sh
       package-name: libkvikio
       package-type: cpp
+      matrix_type: pull-request
   wheel-python-build:
     needs: [build-details, wheel-cpp-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -368,7 +360,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     with:
       build_type: pull-request
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -378,6 +370,7 @@ jobs:
       package-type: python
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+      matrix_type: pull-request
   wheel-python-tests:
     needs: [wheel-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -387,19 +380,9 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-  telemetry-summarize:
-    # This job must use a self-hosted runner to record telemetry traces.
-    runs-on: linux-amd64-cpu4
-    needs: pr-builder
-    if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
-    permissions:
-      actions: write
-    continue-on-error: true
-    steps:
-      - name: Telemetry summarize
-        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main
+      matrix_type: pull-request

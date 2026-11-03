@@ -32,6 +32,7 @@
 #include <kvikio/hdfs.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/libcurl.hpp>
+#include <kvikio/statistics/counters.hpp>
 #include <kvikio/utils.hpp>
 
 namespace kvikio {
@@ -116,8 +117,9 @@ class BounceBufferH2D {
    *
    * @param data The host memory source.
    * @param size Number of bytes to write.
+   * @param range_size Size of the range request the data belongs to.
    */
-  void write(char const* data, std::size_t size)
+  void write(char const* data, std::size_t size, std::size_t range_size)
   {
     KVIKIO_NVTX_FUNC_RANGE();
     if (_host_buffer.size() - _host_offset < size) {  // Not enough space left in the bounce buffer
@@ -130,7 +132,10 @@ class BounceBufferH2D {
       // optimize for this case.
       write_to_device(data, size);
     } else if (size > 0) {
-      std::memcpy(_host_buffer.get(_host_offset), data, size);
+      copy_received_data(static_cast<std::byte*>(_host_buffer.get(_host_offset)),
+                         reinterpret_cast<std::byte const*>(data),
+                         size,
+                         range_size);
       _host_offset += size;
     }
   }
@@ -169,7 +174,10 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
   endpoint.setopt(curl);
   curl.setopt(CURLOPT_NOBODY, 1L);
   curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-  curl.perform();
+  {
+    detail::ScopedTimer const probe{detail::count_remote_size_probe};
+    curl.perform();
+  }
   curl_off_t cl;
   curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
   KVIKIO_EXPECT(
@@ -646,7 +654,10 @@ std::size_t S3EndpointWithPresignedUrl::get_file_size()
   curl.setopt(CURLOPT_HEADERDATA, static_cast<void*>(&file_size));
   curl.setopt(CURLOPT_HEADERFUNCTION, callback_header);
 
-  curl.perform();
+  {
+    detail::ScopedTimer const probe{detail::count_remote_size_probe};
+    curl.perform();
+  }
   return file_size;
 }
 
@@ -771,7 +782,7 @@ std::size_t callback_device_memory(char* data, std::size_t size, std::size_t nme
   }
   KVIKIO_NVTX_FUNC_RANGE(nbytes);
 
-  ctx->bounce_buffer->write(data, nbytes);
+  ctx->bounce_buffer->write(data, nbytes, ctx->size);
   ctx->offset += nbytes;
   return nbytes;
 }
@@ -805,7 +816,19 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
                                               size,
                                               _source,
                                               "GET"};
+  // One request for the whole range, with no chunking and no queue in front of it, so the physical
+  // record duplicates the logical one. Emitted anyway, so that a monitor watching only physical
+  // observations still sees every byte.
+  detail::PhysicalObservationContext const physical{
+    .backend     = remote_io_backend_of(*_endpoint),
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder.id(),
+    .source      = _source,
+    .http_method = "GET"};
+  detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
   auto const nbytes = read_impl(buf, size, file_offset, is_host_mem);
+  physical_recorder.finish(nbytes);
   recorder.finish(nbytes);
   return nbytes;
 }
@@ -897,7 +920,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     }
   }
 
-  auto recorder = detail::monitoring_enabled()
+  auto recorder = detail::monitoring_enabled(ObservationKind::LOGICAL)
                     ? std::make_shared<detail::LogicalObservationRecorder>(
                         remote_io_backend_of(*_endpoint),
                         TransferDirection::READ,
@@ -908,15 +931,28 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
                         "GET")
                     : nullptr;
 
+  // One observation per request, so the transfers are seen apart from the queueing in front of
+  // them.
+  detail::PhysicalObservationContext const physical{
+    .backend     = remote_io_backend_of(*_endpoint),
+    .direction   = TransferDirection::READ,
+    .memory_kind = is_host_mem ? MemoryKind::HOST : MemoryKind::DEVICE,
+    .parent_id   = recorder ? recorder->id() : std::nullopt,
+    .source      = _source,
+    .http_method = "GET"};
+
   if (io_backend == RemoteIOBackend::EASY_THREADPOOL) {
     auto& [nvtx_color, call_idx] = detail::get_next_color_and_call_idx();
 
-    auto task = [this, is_host_mem](void* devPtr_base,
-                                    std::size_t size,
-                                    std::size_t file_offset,
-                                    std::size_t devPtr_offset) -> std::size_t {
-      return read_impl(
-        static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset, is_host_mem);
+    auto task = [this, is_host_mem, physical](void* devPtr_base,
+                                              std::size_t size,
+                                              std::size_t file_offset,
+                                              std::size_t devPtr_offset) -> std::size_t {
+      detail::PhysicalObservationRecorder physical_recorder{physical, file_offset, size};
+      auto const bytes_read =
+        read_impl(static_cast<char*>(devPtr_base) + devPtr_offset, size, file_offset, is_host_mem);
+      physical_recorder.finish(bytes_read);
+      return bytes_read;
     };
     return detail::parallel_io(task,
                                buf,
@@ -936,8 +972,8 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   // - N `RemoteMultiTransfer` objects, one per sub-range. Each owns its own `CurlHandle`
   //   (a libcurl easy handle wrapper) plus a per-transfer `CallbackContext`, and holds a
   //   shared_ptr back to the aggregate.
-  // - The `MultiReactorPool` routes the N transfers to one or more `MultiPollReactor`
-  //   threads per the captured dispatch policy. Each reactor drives its easy handles via
+  // - The `MultiReactorPool` queues the N transfers, and `MultiPollReactor` threads take
+  //   them as they have room. Each reactor drives its easy handles via
   //   curl_multi_poll() and fires the aggregate's per-subrange callback on completion or
   //   failure.
   // - The aggregate fulfills the promise as soon as all sub-ranges have reported (or one
@@ -966,14 +1002,18 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
   for (std::size_t i = 0; i < num_subranges; ++i) {
     std::size_t const subrange_size = std::min(task_size, remaining);
     auto transfer                   = std::make_unique<detail::RemoteMultiTransfer>();
-    transfer->curl                  = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
+    // MULTI_POLL uses multi handle's DNS cache sharing, and does not need the share handle.
+    transfer->curl = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
                                                   detail::fix_conda_file_path_hack(__FILE__),
-                                                  KVIKIO_STRINGIFY(__LINE__));
+                                                  KVIKIO_STRINGIFY(__LINE__),
+                                                  /* use_shared_dns_cache = */ false);
     _endpoint->setopt(*transfer->curl);
     _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);
     transfer->ctx.size     = subrange_size;
     transfer->aggregate    = aggregate;
     transfer->retry_policy = retry_policy;
+    transfer->file_offset  = cur_off;
+    transfer->physical     = physical;
     if (is_host_mem) {
       transfer->ctx.buf = cur_buf;
       transfer->curl->setopt(CURLOPT_WRITEFUNCTION, &detail::callback_host_memory);
@@ -990,7 +1030,7 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     remaining -= subrange_size;
   }
 
-  // One pool call per pread(). The pool consults the captured dispatch policy internally.
+  // One pool call per pread().
   detail::MultiReactorPool::instance().submit_pread(std::move(transfers));
 
   if (is_host_mem) { return fut; }

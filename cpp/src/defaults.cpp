@@ -7,19 +7,24 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 #include <BS_thread_pool.hpp>
 
 #include <kvikio/compat_mode.hpp>
 #include <kvikio/defaults.hpp>
+#ifdef KVIKIO_LIBCURL_FOUND
+#include <kvikio/detail/multi_poll_reactor.hpp>
+#endif
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/utils.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/http_status_codes.hpp>
+#include <kvikio/logger.hpp>
+#include <kvikio/logger_macros.hpp>
 #include <kvikio/remote_handle.hpp>
 #include <kvikio/shim/cufile.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
-#include <string_view>
 
 namespace kvikio {
 template <>
@@ -70,19 +75,6 @@ RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default
   auto const normalized = detail::normalize_env_value(env_val);
   if (normalized == "easy_threadpool") { return RemoteIOBackend::EASY_THREADPOOL; }
   if (normalized == "multi_poll") { return RemoteIOBackend::MULTI_POLL; }
-  KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
-              std::invalid_argument);
-}
-
-template <>
-RemoteReactorDispatch getenv_or(std::string_view env_var_name, RemoteReactorDispatch default_val)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto const* env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return default_val; }
-  auto const normalized = detail::normalize_env_value(env_val);
-  if (normalized == "per_chunk") { return RemoteReactorDispatch::PER_CHUNK; }
-  if (normalized == "per_pread") { return RemoteReactorDispatch::PER_PREAD; }
   KVIKIO_FAIL("unknown config value " + std::string{env_var_name} + "=" + std::string{env_val},
               std::invalid_argument);
 }
@@ -162,17 +154,22 @@ defaults::defaults()
 
   // Determine and configure the remote-IO backend.
   {
-    _remote_io_backend = getenv_or("KVIKIO_REMOTE_IO_BACKEND", RemoteIOBackend::EASY_THREADPOOL);
+    _remote_io_backend = getenv_or("KVIKIO_REMOTE_IO_BACKEND", RemoteIOBackend::MULTI_POLL);
   }
   {
-    ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_NUM_REACTORS", 1);
+    ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_NUM_REACTORS", 8);
     KVIKIO_EXPECT(
       env > 0, "KVIKIO_REMOTE_IO_NUM_REACTORS has to be a positive integer", std::invalid_argument);
     _remote_io_num_reactors = static_cast<unsigned int>(env);
   }
   {
-    _remote_io_reactor_dispatch =
-      getenv_or("KVIKIO_REMOTE_IO_REACTOR_DISPATCH", RemoteReactorDispatch::PER_CHUNK);
+    auto const* env = std::getenv("KVIKIO_REMOTE_IO_REACTOR_DISPATCH");
+
+    if (env != nullptr) {
+      KVIKIO_LOG_WARN(
+        "The environment variable KVIKIO_REMOTE_IO_REACTOR_DISPATCH is deprecated and has no "
+        "effect. The MULTI_POLL reactors always take sub-ranges from one shared queue.");
+    }
   }
   {
     ssize_t const env = getenv_or("KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS", ssize_t{256});
@@ -304,13 +301,39 @@ void defaults::set_remote_io_backend(RemoteIOBackend backend)
 
 unsigned int defaults::remote_io_num_reactors() { return instance()->_remote_io_num_reactors; }
 
+void defaults::set_remote_io_num_reactors(unsigned int num_reactors)
+{
+  KVIKIO_EXPECT(
+    num_reactors > 0, "remote_io_num_reactors must be a positive integer", std::invalid_argument);
+#ifdef KVIKIO_LIBCURL_FOUND
+  KVIKIO_EXPECT(!detail::MultiReactorPool::is_instantiated(),
+                "remote_io_num_reactors cannot be changed after the MULTI_POLL reactor pool has "
+                "already started",
+                std::runtime_error);
+#endif
+  instance()->_remote_io_num_reactors = num_reactors;
+}
+
 RemoteReactorDispatch defaults::remote_io_reactor_dispatch()
 {
-  return instance()->_remote_io_reactor_dispatch;
+  return RemoteReactorDispatch::SHARED_QUEUE;
 }
+
+void defaults::set_remote_io_reactor_dispatch(RemoteReactorDispatch) {}
 
 std::size_t defaults::remote_io_max_concurrent_requests()
 {
   return instance()->_remote_io_max_concurrent_requests;
+}
+
+void defaults::set_remote_io_max_concurrent_requests(std::size_t max_requests)
+{
+#ifdef KVIKIO_LIBCURL_FOUND
+  KVIKIO_EXPECT(!detail::MultiReactorPool::is_instantiated(),
+                "remote_io_max_concurrent_requests cannot be changed after the MULTI_POLL "
+                "reactor pool has already started",
+                std::runtime_error);
+#endif
+  instance()->_remote_io_max_concurrent_requests = max_requests;
 }
 }  // namespace kvikio

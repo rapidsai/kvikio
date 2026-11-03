@@ -6,7 +6,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.3"]
+      cuda: ["12.9", "13.4"]
       arch: [aarch64, x86_64]
     includes:
       - build-universal
@@ -65,6 +65,9 @@ files:
   py_run_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
+    matrix:
+      cuda_suffixed: ["false"]
+      use_cuda_wheels: ["true"]
     extras:
       table: project
     includes:
@@ -74,6 +77,9 @@ files:
   py_run_libkvikio:
     output: pyproject
     pyproject_dir: python/libkvikio
+    matrix:
+      cuda_suffixed: ["false"]
+      use_cuda_wheels: ["true"]
     extras:
       table: project
     includes:
@@ -91,6 +97,9 @@ files:
   py_rapids_build_kvikio:
     output: pyproject
     pyproject_dir: python/kvikio
+    matrix:
+      cuda_suffixed: ["false"]
+      use_cuda_wheels: ["true"]
     extras:
       table: tool.rapids-build-backend
       key: requires
@@ -110,6 +119,9 @@ files:
   py_optional_test:
     output: pyproject
     pyproject_dir: python/kvikio
+    matrix:
+      cuda_suffixed: ["false"]
+      use_cuda_wheels: ["true"]
     extras:
       table: project.optional-dependencies
       key: test
@@ -133,7 +145,7 @@ channels:
 dependencies:
   build-universal:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda, requirements, constraints, pyproject]
         packages:
           - &cmake_ver cmake>=4.0
           - ninja
@@ -162,29 +174,29 @@ dependencies:
     common:
       - output_types: conda
         packages: &libkvikio_packages
-          - libkvikio==26.10.*,>=0.0.0a0
+          - libkvikio==26.12.*,>=0.0.0a0
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: [requirements, constraints, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==26.10.*,>=0.0.0a0
+              - libkvikio-cu12==26.12.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu13==26.10.*,>=0.0.0a0
+              - libkvikio-cu13==26.12.*,>=0.0.0a0
           - {matrix: null, packages: *libkvikio_packages}
   build-py-wrapper:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda, requirements, constraints, pyproject]
         packages:
           - cython>=3.2.2
   checks:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, constraints]
         packages:
           - pre-commit
   # 'cuda_version' intentionally does not contain fallback entries... we want
@@ -225,7 +237,11 @@ dependencies:
               cuda: "13.3"
             packages:
               - cuda-version=13.3
-      - output_types: requirements
+          - matrix:
+              cuda: "13.4"
+            packages:
+              - cuda-version=13.4
+      - output_types: [requirements, constraints]
         matrices:
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
           # (e.g. for DLFW and pip devcontainers)
@@ -286,6 +302,11 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==13.3.*
+          - matrix:
+              cuda: "13.4"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit==13.4.*
   cuda:
     common:
       - output_types: conda
@@ -294,31 +315,44 @@ dependencies:
           - libnuma
   depends_on_cufile:
     common:
-      - output_types: [requirements, pyproject]
+      - output_types: [requirements, constraints, pyproject]
         packages:
           - cuda-pathfinder
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
-          # (e.g. for DLFW and pip devcontainers)
-          - matrix:
-              use_cuda_wheels: "false"
-            packages:
           - matrix:
               cuda: "12.*"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==12.*
-              # cuda-toolkit before 12.6.3 does not have the `cufile` extra.
-              - nvidia-cufile-cu12
-              - cuda-pathfinder
           - matrix:
               cuda: "13.*"
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]==13.*
-              - cuda-pathfinder
+          - {matrix: null, packages: []}
+      - output_types: constraints
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit==12.*
+          - matrix:
+              cuda: "13.*"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit==13.*
+          - {matrix: null, packages: []}
+      - output_types: [requirements, constraints, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "true"
+            packages:
+              # cuda-toolkit before 12.6.3 does not have the `cufile` extra.
+              - nvidia-cufile-cu12
           - {matrix: null, packages: []}
   depends_on_cupy:
     common:
@@ -326,7 +360,7 @@ dependencies:
         packages:
           - cupy>=14.0.1,!=14.1.0
     specific:
-      - output_types: requirements
+      - output_types: constraints
         matrices:
           - matrix:
               cuda: "12.*"
@@ -336,7 +370,7 @@ dependencies:
           - matrix:
             packages:
               - &cupy_cu13 cupy-cuda13x>=14.0.1,!=14.1.0
-      - output_types: pyproject
+      - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
@@ -350,68 +384,62 @@ dependencies:
               - *cupy_cu13
           - matrix:
               cuda: "12.*"
+              use_cuda_wheels: "true"
             packages:
               - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
+              use_cuda_wheels: "true"
             packages:
               - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
   depends_on_libkvikio:
     common:
       - output_types: conda
         packages:
-          - &libkvikio_unsuffixed libkvikio==26.10.*,>=0.0.0a0
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+          - &libkvikio_unsuffixed libkvikio==26.12.*,>=0.0.0a0
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: [requirements, constraints, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu12==26.10.*,>=0.0.0a0
+              - libkvikio-cu12==26.12.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libkvikio-cu13==26.10.*,>=0.0.0a0
-          - {matrix: null, packages: [*libkvikio_unsuffixed]}
+              - libkvikio-cu13==26.12.*,>=0.0.0a0
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *libkvikio_unsuffixed
   depends_on_rapids_logger:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda, requirements, constraints, pyproject]
         packages:
           - rapids-logger==0.3.*
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
   docs:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, constraints]
         packages:
+          - breathe
           - numpydoc
           - zarr>=3.0.0,<3.2.0,<4.0.0
           - sphinx
           - sphinx-click
       - output_types: conda
         packages:
-          - doxygen=1.9.1 # pre-commit hook needs a specific version.
+          - doxygen=1.18.0 # pre-commit hook needs a specific version.
           - pip:
               - nvidia-sphinx-theme
-      - output_types: requirements
+      - output_types: [requirements, constraints]
         packages:
           - nvidia-sphinx-theme
   py_version:
     specific:
       - output_types: conda
         matrices:
-          - matrix:
-              py: "3.11"
-            packages:
-              - python=3.11
           - matrix:
               py: "3.12"
             packages:
@@ -426,13 +454,13 @@ dependencies:
               - python=3.14
           - matrix:
             packages:
-              - python>=3.11
+              - python>=3.12
   rapids_build_skbuild:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda, requirements, constraints, pyproject]
         packages:
           - rapids-build-backend>=0.4.0,<0.5.0
-      - output_types: conda
+      - output_types: [conda, constraints]
         packages:
           - scikit-build-core>=0.11.0
       - output_types: [requirements, pyproject]
@@ -440,27 +468,27 @@ dependencies:
           - scikit-build-core[pyproject]>=0.11.0
   run:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda, requirements, constraints, pyproject]
         packages:
           - numpy>=2.0,<3.0
           - packaging
   zarr:
     common:
-      - output_types: [requirements, pyproject]
+      - output_types: [requirements, constraints, pyproject]
         packages:
-          - "zarr>=3.0.0,<3.2.0,<4.0.0; python_version >= '3.11'"
+          - zarr>=3.0.0,<3.2.0,<4.0.0
   test_libkvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==26.10.*,>=0.0.0a0
-          - libkvikio-tests==26.10.*,>=0.0.0a0
+          - libkvikio==26.12.*,>=0.0.0a0
+          - libkvikio-tests==26.12.*,>=0.0.0a0
   test_kvikio:
     common:
       - output_types: conda
         packages:
-          - libkvikio==26.10.*,>=0.0.0a0
-          - kvikio==26.10.*,>=0.0.0a0
+          - libkvikio==26.12.*,>=0.0.0a0
+          - kvikio==26.12.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -468,10 +496,10 @@ dependencies:
           - *cmake_ver
   test_python:
     common:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda, requirements, constraints, pyproject]
         packages:
-          - cuda-core>=0.5.1,<2
-          - rapids-dask-dependency==26.10.*,>=0.0.0a0
+          - cuda-core>=1.0,<2
+          - rapids-dask-dependency==26.12.*,>=0.0.0a0
           - pytest
           - pytest-asyncio
           - pytest-cov
@@ -486,12 +514,13 @@ dependencies:
           - moto>=4.0.8
           - zarr>=3.0.0,<3.2.0,<4.0.0
     specific:
-      - output_types: [conda, requirements, pyproject]
+      - output_types: [conda, requirements, constraints, pyproject]
         matrices:
           - matrix:
               dependencies: "oldest"
             packages:
-              - cuda-core==0.5.1
+              # cuda-core 1.0.0 cannot import with CUDA 13.0.x bindings.
+              - cuda-core==1.0.1
           - matrix:
             packages:
   test_cufile:
@@ -504,6 +533,7 @@ dependencies:
               use_cuda_wheels: "false"
             packages:
           - matrix:
+              use_cuda_wheels: "true"
             packages:
               - cuda-toolkit[cufile]
       # The `cufile` extra was added to the `cuda-toolkit` metapackage in 12.6.3
