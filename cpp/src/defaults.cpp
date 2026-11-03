@@ -118,6 +118,14 @@ defaults::defaults()
       env > 0, "KVIKIO_BOUNCE_BUFFER_SIZE has to be a positive integer", std::invalid_argument);
     _bounce_buffer_size = env;
   }
+  // Determine the default value of `bounce_buffer_prefault_nthreads`
+  {
+    ssize_t const env = getenv_or("KVIKIO_BOUNCE_BUFFER_PREFAULT_NTHREADS", 8);
+    KVIKIO_EXPECT(env >= 0,
+                  "KVIKIO_BOUNCE_BUFFER_PREFAULT_NTHREADS has to be a non-negative integer",
+                  std::invalid_argument);
+    _bounce_buffer_prefault_nthreads = static_cast<unsigned int>(env);
+  }
   // Determine the default value of `http_max_attempts`
   {
     ssize_t const env = getenv_or("KVIKIO_HTTP_MAX_ATTEMPTS", 3);
@@ -245,6 +253,16 @@ void defaults::set_bounce_buffer_size(std::size_t nbytes)
   KVIKIO_EXPECT(
     nbytes > 0, "size of the bounce buffer must be a positive integer", std::invalid_argument);
   instance()->_bounce_buffer_size = nbytes;
+}
+
+unsigned int defaults::bounce_buffer_prefault_nthreads()
+{
+  return instance()->_bounce_buffer_prefault_nthreads;
+}
+
+void defaults::set_bounce_buffer_prefault_nthreads(unsigned int nthreads)
+{
+  instance()->_bounce_buffer_prefault_nthreads = nthreads;
 }
 
 std::size_t defaults::http_max_attempts() { return instance()->_http_max_attempts; }

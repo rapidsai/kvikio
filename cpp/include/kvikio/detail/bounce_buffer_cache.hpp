@@ -111,6 +111,25 @@ class BounceBufferCachePerThreadAndContext {
   [[nodiscard]] std::optional<Buffer> try_get(CUcontext ctx);
 
   /**
+   * @brief Try to acquire a buffer of at least `size` bytes for the given CUDA context
+   * (non-blocking).
+   *
+   * Like `try_get(ctx)`, but the buffer is sized to the request rather than to
+   * `defaults::bounce_buffer_size()`: the next power of two of `size`, at least 2 MiB (one huge
+   * page) and at most the bounce buffer size. Pinning costs time per byte, so a small request no
+   * longer pins a full bounce buffer. The smallest free buffer that is large enough is reused. When
+   * the cap is reached and only smaller buffers are free, one of them is released to make room.
+   *
+   * @param ctx The CUDA context to associate the buffer with. The caller is expected to have `ctx`
+   * current on the calling thread before calling.
+   * @param size The number of bytes the buffer must hold, at most the bounce buffer size.
+   * @return A `Buffer` of at least `size` bytes on success, `std::nullopt` if the cap is reached.
+   *
+   * @exception kvikio::CUfileException if the underlying allocation fails.
+   */
+  [[nodiscard]] std::optional<Buffer> try_get(CUcontext ctx, std::size_t size);
+
+  /**
    * @brief Recycle the buffer immediately, without involving CUDA.
    *
    * Used on failure paths where no CUDA work was submitted with this buffer.
