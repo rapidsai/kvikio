@@ -56,7 +56,7 @@ jobs:
       date: ${{ inputs.date }}
       script: ci/test_python.sh
       sha: ${{ inputs.sha }}
-      matrix_type: nightly
+      matrix_type: python-3-15-nightly,nightly
   wheel-tests:
     permissions:
       actions: read
@@ -72,7 +72,7 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: ci/test_wheel.sh
-      matrix_type: nightly
+      matrix_type: python-3-15-nightly,nightly
   conda-java-tests:
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
