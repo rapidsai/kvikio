@@ -508,7 +508,10 @@ dependencies:
           - boto3>=1.21.21
       - output_types: pyproject
         packages:
-          - moto[server]>=4.0.8
+          - moto[s3]>=4.0.8
+          # flask deps needed for 'ThreadedMotoServer'
+          - flask!=2.2.0,!=2.2.1
+          - flask-cors
       - output_types: conda
         packages:
           - moto>=4.0.8
