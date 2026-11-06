@@ -33,7 +33,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@bc90841573889b6ff09657d3b1981e1b04af5645
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -49,7 +49,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@bc90841573889b6ff09657d3b1981e1b04af5645
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -65,7 +65,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@bc90841573889b6ff09657d3b1981e1b04af5645
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -81,7 +81,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@d68e1cc1dbe40fbff66c0ea25c3083cb9c44c691
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@bc90841573889b6ff09657d3b1981e1b04af5645
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
