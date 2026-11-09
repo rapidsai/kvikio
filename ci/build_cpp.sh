@@ -13,7 +13,9 @@ rapids-print-env
 
 rapids-logger "Begin cpp build"
 
-sccache --stop-server 2>/dev/null || true
+if [[ "${RAPIDS_RELEASE_CANDIDATE_SCCACHE:-true}" != "false" ]]; then
+  sccache --stop-server 2>/dev/null || true
+fi
 
 RAPIDS_PACKAGE_VERSION=$(rapids-generate-version)
 export RAPIDS_PACKAGE_VERSION
@@ -32,8 +34,10 @@ rattler-build build --recipe conda/recipes/libkvikio \
                     "${RATTLER_ARGS[@]}" \
                     "${RATTLER_CHANNELS[@]}"
 
-sccache --show-adv-stats
-sccache --stop-server >/dev/null 2>&1 || true
+if [[ "${RAPIDS_RELEASE_CANDIDATE_SCCACHE:-true}" != "false" ]]; then
+  sccache --show-adv-stats
+  sccache --stop-server >/dev/null 2>&1 || true
+fi
 
 # remove build_cache directory to avoid uploading the entire source tree
 # tracked in https://github.com/prefix-dev/rattler-build/issues/1424

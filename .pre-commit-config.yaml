@@ -22,6 +22,11 @@ repos:
         args: ["--fix"]
       - id: ruff-format
       - id: ruff-check
+        alias: ruff-candidate-cache-policy
+        name: Ruff security and bugbear checks for candidate cache policy tests
+        args: ["--select=E,F,I,B,S", "--ignore=S101"]
+        files: ^ci/tests/test_candidate_cache_policy[.]py$
+      - id: ruff-check
         alias: ruff-bugbear-candidate-wheel-dependencies
         name: Ruff bugbear checks for candidate wheel dependency preparation
         args: ["--select", "B"]
@@ -61,6 +66,13 @@ repos:
         args: ["-fallback-style=none", "-style=file", "-i"]
   - repo: local
     hooks:
+      - id: candidate-cache-policy
+        name: Candidate cache policy in an isolated Rattler shell
+        entry: python -m pytest -q ci/tests/test_candidate_cache_policy.py
+        language: python
+        additional_dependencies: [pytest==8.4.2, pyyaml==6.0.3]
+        files: ^(conda/recipes/libkvikio/recipe[.]yaml|ci/(build_cpp[.]sh|tests/test_candidate_cache_policy[.]py))$
+        pass_filenames: false
       - id: cmake-format
         name: cmake-format
         entry: ./cpp/scripts/run-cmake-format.sh cmake-format

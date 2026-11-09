@@ -21,6 +21,13 @@ outputs:
     build:
       script:
         content: |
+          # Rattler creates a fresh shell and restores recipe environment values.
+          # Enforce the frozen policy here as well as in the outer CI helper.
+          if [[ "${RAPIDS_RELEASE_CANDIDATE_SCCACHE:-true}" == "false" ]]; then
+            unset CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER
+            unset CMAKE_CUDA_COMPILER_LAUNCHER RUSTC_WRAPPER
+          fi
+
           # Remove `-fdebug-prefix-map` line from CFLAGS and CXXFLAGS so the
           # incrementing version number in the compile line doesn't break the
           # cache
@@ -36,6 +43,7 @@ outputs:
           - AWS_SESSION_TOKEN
           - SCCACHE_DIST_AUTH_TOKEN
         env:
+          RAPIDS_RELEASE_CANDIDATE_SCCACHE: ${{ env.get("RAPIDS_RELEASE_CANDIDATE_SCCACHE", default="true") }}
           CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
           CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
           CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
