@@ -70,7 +70,6 @@ def s3_context(s3_base, bucket, files=None):
     for f in files:
         try:
             client.delete_object(Bucket=bucket, Key=f)
-        # Best-effort test bucket cleanup.
         except Exception:  # nosec B110
             pass
 

@@ -8,8 +8,6 @@ import contextlib
 import os
 import os.path
 import pathlib
-
-# Required for fixed benchmark/test commands.
 import subprocess  # nosec B404
 
 from dask.utils import format_bytes
@@ -30,7 +28,6 @@ def drop_vm_cache() -> None:
 
     See <https://linux-mm.org/Drop_Caches>
     """
-    # Fixed command and arguments; no shell or user-provided command text.
     subprocess.check_output(  # nosec B603, B607
         ["sudo", "/sbin/sysctl", "vm.drop_caches=3"]
     )

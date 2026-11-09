@@ -4,8 +4,6 @@
 import contextlib
 import multiprocessing as mp
 import os
-
-# Required for fixed benchmark/test commands.
 import subprocess  # nosec B404
 from multiprocessing.connection import Connection
 from typing import Iterable
