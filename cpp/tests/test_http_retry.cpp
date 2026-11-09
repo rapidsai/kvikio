@@ -99,12 +99,12 @@ TEST(HttpRetryTest, success_needs_no_retry)
 TEST(HttpRetryTest, backoff_is_random_below_a_doubling_cap)
 {
   // Attempts 5 and beyond exercise the clamp.
-  std::vector<std::chrono::milliseconds> const caps{std::chrono::milliseconds{500},
-                                                    std::chrono::milliseconds{1000},
+  std::vector<std::chrono::milliseconds> const caps{std::chrono::milliseconds{1000},
                                                     std::chrono::milliseconds{2000},
                                                     std::chrono::milliseconds{4000},
-                                                    std::chrono::milliseconds{4000},
-                                                    std::chrono::milliseconds{4000}};
+                                                    std::chrono::milliseconds{8000},
+                                                    std::chrono::milliseconds{8000},
+                                                    std::chrono::milliseconds{8000}};
 
   auto const policy = unlimited_policy();
   for (std::size_t attempt = 1; attempt <= caps.size(); ++attempt) {

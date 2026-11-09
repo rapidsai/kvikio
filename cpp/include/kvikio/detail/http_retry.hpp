@@ -98,8 +98,8 @@ class HttpRetryPolicy {
   std::size_t _max_attempts;
   std::vector<int> _retryable_status_codes;
 
-  std::chrono::milliseconds _base_delay_ms{500};
-  std::chrono::milliseconds _max_delay_ms{4000};
+  std::chrono::milliseconds _base_delay_ms{1000};
+  std::chrono::milliseconds _max_delay_ms{8000};
 };
 
 }  // namespace kvikio::detail

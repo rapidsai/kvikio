@@ -49,7 +49,8 @@ bool HttpRetryPolicy::is_retryable(CURLcode curl_code, long http_code) const
 
 std::chrono::milliseconds HttpRetryPolicy::backoff_for(std::size_t attempt) const
 {
-  // The cap starts at 500ms and doubles up to 4s: 500ms, 1s, 2s, 4s, 4s, ...
+  // The cap starts at 1s and doubles up to 8s: 1s, 2s, 4s, 8s, 8s, ...
+  // A uniform draw waits half the cap on average: 500ms, 1s, 2s, 4s, 4s, ...
   auto const shift = std::min<std::size_t>(attempt - 1, 4);
   auto const cap   = std::min(_max_delay_ms, _base_delay_ms * (1 << shift));
 
