@@ -4,7 +4,7 @@
 # distutils: language = c++
 # cython: language_level=3
 
-from libc.stdint cimport int64_t, uint64_t
+from libc.stdint cimport int64_t, uint8_t, uint64_t
 from libcpp.memory cimport make_unique, unique_ptr
 from libcpp.string cimport string
 
@@ -40,6 +40,10 @@ cdef extern from "<chrono>" nogil:
 
 cdef extern from "<kvikio/observation.hpp>" namespace "kvikio" nogil:
     const size_t num_io_backends
+
+    cpdef enum class ObservationKind(uint8_t):
+        LOGICAL
+        PHYSICAL
 
 
 cdef extern from "<kvikio/statistics/counters.hpp>" nogil:
@@ -81,6 +85,7 @@ cdef extern from "<kvikio/statistics/summary.hpp>" nogil:
         uint64_t num_errors
         cpp_Duration busy
         cpp_Duration total_duration
+        ObservationKind kind
         cpp_BackendTotals[5] by_backend
         cpp_Counters counters
         cpp_Duration wall() except +
@@ -92,7 +97,7 @@ cdef extern from "<kvikio/statistics/summary.hpp>" nogil:
         string report(cpp_ReportRows rows) except +
 
     cdef cppclass cpp_SummaryMonitor "kvikio::statistics::SummaryMonitor":
-        cpp_SummaryMonitor() except +
+        cpp_SummaryMonitor(ObservationKind kind) except +
         cpp_Summary get() except +
         void reset() except +
         cpp_Summary since(const cpp_Summary& previous) except +
@@ -156,6 +161,7 @@ cdef class Summary:
     def as_dict(self) -> dict:
         """Every field of `kvikio.Summary`, read in one pass."""
         return {
+            "kind": ObservationKind(self._handle.kind),
             "start_unix_ns": system_to_ns(
                 self._handle.anchor.to_wall_clock(self._handle.start).time_since_epoch()
             ).count(),
@@ -220,8 +226,8 @@ cdef class SummaryMonitor:
 
     cdef unique_ptr[cpp_SummaryMonitor] _handle
 
-    def __cinit__(self):
-        self._handle = make_unique[cpp_SummaryMonitor]()
+    def __cinit__(self, ObservationKind kind = ObservationKind.LOGICAL):
+        self._handle = make_unique[cpp_SummaryMonitor](kind)
 
     def get(self) -> Summary:
         cdef cpp_Summary summary

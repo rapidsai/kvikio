@@ -18,7 +18,7 @@ by a person:
 
 .. code-block:: text
 
-    KvikIO I/O summary
+    KvikIO I/O summary (LOGICAL)
       wall time            238.22 ms
       busy time            5.66 ms (2.38 % of the wall time)
       busy bandwidth       565.50 kB/s
@@ -43,6 +43,59 @@ the gaps between calls count as idle.
 reads for 10 ms and then computes for 90 ms is doing I/O at its storage's speed for a
 tenth of its life, and dividing by the wall time would report it as ten times slower than
 it is. Multiply by :attr:`~Summary.busy_fraction` to recover the whole-span rate.
+
+Calls or transfers
+------------------
+
+A monitor counts one operation per user-facing call by default. A call that KvikIO splits
+across its thread pool is one row, however many reads it issued underneath, and its span
+runs from submission to completion. Under load most of that span is the wait for a worker
+rather than the transfer.
+
+Passing :attr:`ObservationKind.PHYSICAL` counts one operation per transfer instead: one
+thread-pool task locally, one HTTP range request remotely. Its span starts when a worker
+picks the task up, or when the request goes on the wire.
+
+.. code-block:: python
+
+    calls = kvikio.SummaryMonitor(kvikio.ObservationKind.LOGICAL)
+    transfers = kvikio.SummaryMonitor(kvikio.ObservationKind.PHYSICAL)
+
+:attr:`Summary.kind` says which a summary is over, and the report leads with it, so two
+summaries in a log are never confused for one another.
+
+Both see the same bytes and the same errors. What differs is the count and the durations,
+so eight concurrent reads over a two-thread pool look like this:
+
+.. code-block:: text
+
+                             calls      transfers
+    num_ops                      8             64
+    busy (ms)               14.657         14.581
+    total_duration (ms)     79.383         28.941
+
+``busy``, the union of the spans, is the same because the calls and the transfers are in
+flight over the same stretch of wall clock. ``total_duration``, the sum of the spans, is
+not. The 50 ms between the two is what the calls spent queueing.
+
+Which to pick follows from the question. Use the calls for how many I/Os a program issued
+and how long each took as it experienced them. Use the transfers for how well the device
+or the link was kept busy, and for bandwidth over time, since a call's bytes would
+otherwise be charged to the moment it returned rather than to the moments they moved.
+
+Running one of each, as above, gives two summaries over the same span, and the counters
+are the same in both. They belong to the process rather than to either kind of
+observation, so the bytes and the operations of the two summaries describe different
+things and the counters describe the same thing twice. Add the summaries and the
+connection costs are counted twice over.
+
+Two things to know. A physical monitor pays its per-observation cost once per task rather
+than once per call, so watching a run of large split reads costs proportionally more.
+And the two remote backends describe a retried request differently. ``MULTI_POLL``
+reports one transfer per attempt, so the backoff between them belongs to neither.
+``EASY_THREADPOOL`` retries inside the call that the transfer is measured around, so the
+attempts and the waits between them are one transfer, and that transfer's duration
+includes time when nothing was on the wire.
 
 Getting a summary out of the process
 ------------------------------------

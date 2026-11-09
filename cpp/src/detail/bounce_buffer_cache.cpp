@@ -170,10 +170,12 @@ BounceBufferCachePerThreadAndContext<Allocator>::instance()
 {
   KVIKIO_NVTX_FUNC_RANGE();
   static auto* _instance = []() {
-    auto const max_total = defaults::remote_io_max_concurrent_requests();
-    auto const n         = defaults::remote_io_num_reactors();
+    auto const max_total                 = defaults::remote_io_max_concurrent_requests();
+    auto const n                         = defaults::remote_io_num_reactors();
+    constexpr std::size_t headroom_scale = 2;
     std::optional<std::size_t> const per_reactor_max =
-      (max_total == 0) ? std::nullopt : std::optional{std::max<std::size_t>(max_total / n, 1)};
+      (max_total == 0) ? std::nullopt
+                       : std::optional{std::max<std::size_t>(max_total / n, 1) * headroom_scale};
     return new BounceBufferCachePerThreadAndContext(per_reactor_max);
   }();
   return *_instance;

@@ -1,11 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <any>
+#include <cstddef>
 #include <functional>
+#include <span>
 
 #include <cuda.h>
 #include <kvikio/shim/utils.hpp>
@@ -84,6 +86,7 @@ class cudaAPI {
   decltype(cuMemFreeHost)* MemFreeHost{nullptr};
   decltype(cuMemHostRegister)* MemHostRegister{nullptr};
   decltype(cuMemHostUnregister)* MemHostUnregister{nullptr};
+  decltype(cuMemHostGetDevicePointer)* MemHostGetDevicePointer{nullptr};
   decltype(cuMemcpyHtoDAsync)* MemcpyHtoDAsync{nullptr};
   decltype(cuMemcpyDtoHAsync)* MemcpyDtoHAsync{nullptr};
   decltype(cuMemcpyAsync)* MemcpyAsync{nullptr};
@@ -129,10 +132,7 @@ class cudaAPI {
   /**
    * @brief Asynchronous memcpy that prefers `cuMemcpyBatchAsync` when supported.
    *
-   * Dispatches to `cuMemcpyBatchAsync` with `CU_MEMCPY_SRC_ACCESS_ORDER_STREAM`
-   * on CUDA >= 12.8 when `stream` is non-default; otherwise falls back to
-   * `cuMemcpyAsync`. The fallback is mandatory on the default (NULL) stream,
-   * which `cuMemcpyBatchAsync` rejects.
+   * Equivalent to `cuda_memcpy_batch_async()` with a single entry.
    *
    * @param dst    Destination pointer (host or device under UVA).
    * @param src    Source pointer (host or device under UVA).
@@ -144,6 +144,27 @@ class cudaAPI {
                                     CUdeviceptr src,
                                     std::size_t size,
                                     CUstream stream);
+
+  /**
+   * @brief Asynchronous batched memcpy that prefers `cuMemcpyBatchAsync` when supported.
+   *
+   * Copies `sizes[i]` bytes from `srcs[i]` to `dsts[i]` for every entry. On CUDA 12.8 and newer,
+   * when the batch symbol was loaded and `stream` is not the default stream, all entries are
+   * submitted in a single `cuMemcpyBatchAsync` call using `CU_MEMCPY_SRC_ACCESS_ORDER_STREAM`.
+   * Otherwise each entry is issued with `cuMemcpyAsync` and the first failure is returned without
+   * attempting the remaining entries.
+   *
+   * @param dsts   Destination pointers (host or device under UVA).
+   * @param srcs   Source pointers (host or device under UVA).
+   * @param sizes  Number of bytes to copy for the corresponding entry.
+   * @param stream CUDA stream for ordering.
+   * @return CUresult from the underlying driver call, or `CUDA_SUCCESS` for an empty batch.
+   * @exception std::invalid_argument if the three spans do not have the same length.
+   */
+  static CUresult cuda_memcpy_batch_async(std::span<CUdeviceptr const> dsts,
+                                          std::span<CUdeviceptr const> srcs,
+                                          std::span<std::size_t const> sizes,
+                                          CUstream stream);
 };
 
 /**

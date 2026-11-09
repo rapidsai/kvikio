@@ -86,8 +86,9 @@ repos:
             ^CHANGELOG.md$
           )
   - repo: https://github.com/rapidsai/pre-commit-hooks
-    rev: v1.6.0
+    rev: v1.7.0
     hooks:
+      - id: verify-dependencies
       - id: verify-copyright
         args: [--fix, --spdx]
         files: |
@@ -112,7 +113,7 @@ repos:
           (?x)
             ^pyproject[.]toml$
   - repo: https://github.com/rapidsai/dependency-file-generator
-    rev: v1.21.0
+    rev: v1.22.0
     hooks:
       - id: rapids-dependency-file-generator
         args: ["--clean", "--warn-all", "--strict"]

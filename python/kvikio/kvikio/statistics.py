@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar, TypedDict
 
 from kvikio._lib import statistics as _statistics  # type: ignore
+from kvikio._lib.statistics import ObservationKind  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,13 @@ class Summary:
         total_duration_ns: int
         num_errors: int
 
+    kind: ObservationKind
+    """Which observations these totals are over
+
+    ``LOGICAL`` counts one operation per user-facing call, ``PHYSICAL`` one per
+    transfer. See :class:`SummaryMonitor`.
+    """
+
     start_unix_ns: int
     """When counting started, or was last reset"""
 
@@ -40,7 +48,7 @@ class Summary:
     """When the summary was read"""
 
     num_ops: int
-    """Number of user-facing operations"""
+    """Number of operations, of whichever :attr:`kind` this summary is over"""
 
     num_reads: int
     """Number of operations that were reads"""
@@ -279,9 +287,17 @@ class SummaryMonitor:
 
     __slots__ = ("_handle",)
 
-    def __init__(self):
-        """Create a monitor and begin counting"""
-        self._handle = _statistics.SummaryMonitor()
+    def __init__(self, kind: ObservationKind = ObservationKind.LOGICAL):
+        """Create a monitor and begin counting
+
+        Parameters
+        ----------
+        kind : ObservationKind
+            Which observations to count. ``LOGICAL`` totals one row per user-facing
+            call. ``PHYSICAL`` totals one row per transfer, so ``busy`` covers the
+            transfers themselves rather than the calls that were waiting for a thread.
+        """
+        self._handle = _statistics.SummaryMonitor(kind)
 
     def get(self) -> Summary:
         """Read the totals accumulated since construction, or since the last reset

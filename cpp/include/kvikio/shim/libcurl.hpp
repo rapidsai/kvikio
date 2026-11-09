@@ -91,8 +91,12 @@ class CurlHandle {
    * @param handle An unused curl easy handle pointer, which is retained on destruction.
    * @param source_file Path of source file of the caller (for error messages).
    * @param source_line Line of source file of the caller (for error messages).
+   * @param use_shared_dns_cache Whether to use shared DNS caches provided by the share handles.
    */
-  CurlHandle(LibCurl::UniqueHandlePtr handle, std::string source_file, std::string source_line);
+  CurlHandle(LibCurl::UniqueHandlePtr handle,
+             std::string source_file,
+             std::string source_line,
+             bool use_shared_dns_cache = true);
   ~CurlHandle() noexcept;
 
   /**

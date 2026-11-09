@@ -54,10 +54,6 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
         "kvikio::defaults::remote_io_num_reactors"() except +
     void cpp_set_remote_io_num_reactors \
         "kvikio::defaults::set_remote_io_num_reactors"(unsigned int num_reactors) except +
-    RemoteReactorDispatch cpp_remote_io_reactor_dispatch \
-        "kvikio::defaults::remote_io_reactor_dispatch"() except +
-    void cpp_set_remote_io_reactor_dispatch \
-        "kvikio::defaults::set_remote_io_reactor_dispatch"(RemoteReactorDispatch dispatch) except +
     size_t cpp_remote_io_max_concurrent_requests \
         "kvikio::defaults::remote_io_max_concurrent_requests"() except +
     void cpp_set_remote_io_max_concurrent_requests \
@@ -71,6 +67,7 @@ cdef extern from "<kvikio/remote_handle.hpp>" namespace "kvikio" nogil:
     cpdef enum class RemoteReactorDispatch(uint8_t):
         PER_CHUNK
         PER_PREAD
+        SHARED_QUEUE
 
 
 def is_compat_mode_preferred() -> bool:
@@ -229,18 +226,6 @@ def set_remote_io_num_reactors(num_reactors: int) -> None:
     cdef unsigned int cpp_num_reactors = num_reactors
     with nogil:
         cpp_set_remote_io_num_reactors(cpp_num_reactors)
-
-
-def remote_io_reactor_dispatch() -> RemoteReactorDispatch:
-    cdef RemoteReactorDispatch result
-    with nogil:
-        result = cpp_remote_io_reactor_dispatch()
-    return result
-
-
-def set_remote_io_reactor_dispatch(dispatch: RemoteReactorDispatch) -> None:
-    with nogil:
-        cpp_set_remote_io_reactor_dispatch(dispatch)
 
 
 def remote_io_max_concurrent_requests() -> int:
