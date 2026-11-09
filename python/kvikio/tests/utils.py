@@ -17,7 +17,7 @@ def localhost() -> str:
     return "127.0.0.1"
 
 
-def find_free_port(host: str = localhost()) -> int:
+def find_free_port(host: str = "127.0.0.1") -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, 0))
         _, port = s.getsockname()
