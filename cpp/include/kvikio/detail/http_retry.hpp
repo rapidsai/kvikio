@@ -85,7 +85,8 @@ class HttpRetryPolicy {
 
  private:
   /**
-   * @brief Exponential backoff for the given 1-based attempt index.
+   * @brief Random backoff for the given 1-based attempt index, drawn uniformly between zero and
+   * an exponentially growing cap.
    */
   [[nodiscard]] std::chrono::milliseconds backoff_for(std::size_t attempt) const;
 

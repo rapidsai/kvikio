@@ -4,6 +4,7 @@
  */
 
 #include <algorithm>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -48,9 +49,15 @@ bool HttpRetryPolicy::is_retryable(CURLcode curl_code, long http_code) const
 
 std::chrono::milliseconds HttpRetryPolicy::backoff_for(std::size_t attempt) const
 {
-  // With a base value of 500ms, we retry after 500ms, 1s, 2s, 4s, ... (stays at 4s).
+  // The cap starts at 500ms and doubles up to 4s: 500ms, 1s, 2s, 4s, 4s, ...
   auto const shift = std::min<std::size_t>(attempt - 1, 4);
-  return std::min(_max_delay_ms, _base_delay_ms * (1 << shift));
+  auto const cap   = std::min(_max_delay_ms, _base_delay_ms * (1 << shift));
+
+  // Wait a random time up to the cap, so that requests that fail together do not all retry
+  // together. One generator per thread to allow for concurrent retries
+  thread_local std::minstd_rand engine{std::random_device{}()};  // linear congruential generator
+  std::uniform_int_distribution<std::chrono::milliseconds::rep> dist{0, cap.count()};
+  return std::chrono::milliseconds{dist(engine)};
 }
 
 RetryOutcome HttpRetryPolicy::evaluate(CURLcode curl_code,

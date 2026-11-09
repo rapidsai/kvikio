@@ -56,6 +56,14 @@ Transport failures that may succeed on a new attempt are also retried: a timeout
 
 The maximum number of attempts to make before throwing an exception is controlled by ``KVIKIO_HTTP_MAX_ATTEMPTS``. The default value is 3. This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``http_max_attempts``.
 
+After the :math:`n`-th failed attempt (:math:`n = 1, 2, \ldots`), KvikIO waits a random time before retrying:
+
+.. math::
+
+   t_n = u \cdot \min\left(4\,\mathrm{s},\ 0.5\,\mathrm{s} \cdot 2^{\,n-1}\right), \quad u \sim \mathcal{U}(0, 1)
+
+The cap grows as 500 ms, 1 s, 2 s, 4 s, 4 s, ... The random factor :math:`u` keeps requests that fail together, such as those throttled by the server at once, from all retrying at the same moment.
+
 The maximum duration of each HTTP request is controlled by ``KVIKIO_HTTP_TIMEOUT``. The default value is 60, which is the duration in seconds to allow. This setting can be queried (:py:func:`kvikio.defaults.get`) and modified (:py:func:`kvikio.defaults.set`) at runtime using the property name ``http_timeout``.
 
 Each retry emits a notice through the KvikIO logger at the ``WARN`` level, i.e. ``KVIKIO_LOG_LEVEL=WARN``. Sustained retries indicate that the server is throttling the requests, which degrades read throughput.

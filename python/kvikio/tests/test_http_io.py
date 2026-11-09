@@ -369,7 +369,7 @@ def test_retry_http_503_fails(tmpdir, xp, capfd):
         assert m.match("Got HTTP code 503")
         captured = capfd.readouterr()
         notices = re.findall(
-            r"KvikIO: Got HTTP code 503\. Retrying after 500ms \(attempt 1 of 2\)\.",
+            r"KvikIO: Got HTTP code 503\. Retrying after \d+ms \(attempt 1 of 2\)\.",
             captured.err,
         )
         assert len(notices) == 1, captured.err
@@ -494,7 +494,7 @@ def test_timeout_raises(tmpdir, capfd):
 
     captured = capfd.readouterr()
     notices = re.findall(
-        r"KvikIO: Transport error: Timeout was reached\. Retrying after 500ms "
+        r"KvikIO: Transport error: Timeout was reached\. Retrying after \d+ms "
         r"\(attempt 1 of 2\)\.",
         captured.err,
     )

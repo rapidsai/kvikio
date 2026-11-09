@@ -151,7 +151,7 @@ class CurlHandle {
   /**
    * @brief Perform a blocking network transfer using previously set options.
    *
-   * Transient failures are retried with exponential backoff, as configured by
+   * Transient failures are retried with randomized exponential backoff, as configured by
    * `defaults::http_max_attempts()` and `defaults::http_status_codes()`.
    *
    * See <https://curl.se/libcurl/c/curl_easy_perform.html>.

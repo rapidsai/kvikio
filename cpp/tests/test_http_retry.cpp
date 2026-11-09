@@ -96,21 +96,25 @@ TEST(HttpRetryTest, success_needs_no_retry)
   }
 }
 
-TEST(HttpRetryTest, backoff_doubles_then_saturates)
+TEST(HttpRetryTest, backoff_is_random_below_a_doubling_cap)
 {
   // Attempts 5 and beyond exercise the clamp.
-  std::vector<std::chrono::milliseconds> const expected{std::chrono::milliseconds{500},
-                                                        std::chrono::milliseconds{1000},
-                                                        std::chrono::milliseconds{2000},
-                                                        std::chrono::milliseconds{4000},
-                                                        std::chrono::milliseconds{4000},
-                                                        std::chrono::milliseconds{4000}};
+  std::vector<std::chrono::milliseconds> const caps{std::chrono::milliseconds{500},
+                                                    std::chrono::milliseconds{1000},
+                                                    std::chrono::milliseconds{2000},
+                                                    std::chrono::milliseconds{4000},
+                                                    std::chrono::milliseconds{4000},
+                                                    std::chrono::milliseconds{4000}};
 
   auto const policy = unlimited_policy();
-  for (std::size_t attempt = 1; attempt <= expected.size(); ++attempt) {
-    auto const outcome = policy.evaluate(CURLE_OPERATION_TIMEDOUT, 0, attempt, "", error_prefix);
-    ASSERT_EQ(outcome.decision, RetryDecision::RETRY) << "attempt " << attempt;
-    EXPECT_EQ(outcome.delay_ms, expected[attempt - 1]) << "attempt " << attempt;
+  for (std::size_t attempt = 1; attempt <= caps.size(); ++attempt) {
+    auto const cap = caps[attempt - 1];
+    for (int i = 0; i < 100; ++i) {
+      auto const outcome = policy.evaluate(CURLE_OPERATION_TIMEDOUT, 0, attempt, "", error_prefix);
+      ASSERT_EQ(outcome.decision, RetryDecision::RETRY) << "attempt " << attempt;
+      EXPECT_GE(outcome.delay_ms.count(), 0) << "attempt " << attempt;
+      EXPECT_LE(outcome.delay_ms, cap) << "attempt " << attempt;
+    }
   }
 }
 
@@ -148,12 +152,13 @@ TEST(HttpRetryTest, retry_notice_text)
   auto const timed_out = policy.evaluate(CURLE_OPERATION_TIMEDOUT, 0, 1, "", error_prefix);
   EXPECT_EQ(timed_out.message,
             std::string{"KvikIO: Transport error: "} +
-              curl_easy_strerror(CURLE_OPERATION_TIMEDOUT) +
-              ". Retrying after 500ms (attempt 1 of 3).");
+              curl_easy_strerror(CURLE_OPERATION_TIMEDOUT) + ". Retrying after " +
+              std::to_string(timed_out.delay_ms.count()) + "ms (attempt 1 of 3).");
 
   auto const throttled = policy.evaluate(CURLE_HTTP_RETURNED_ERROR, 503, 2, "", error_prefix);
   EXPECT_EQ(throttled.message,
-            "KvikIO: Got HTTP code 503. Retrying after 1000ms (attempt 2 of 3).");
+            "KvikIO: Got HTTP code 503. Retrying after " +
+              std::to_string(throttled.delay_ms.count()) + "ms (attempt 2 of 3).");
 }
 
 TEST(HttpRetryTest, exhausted_text)
