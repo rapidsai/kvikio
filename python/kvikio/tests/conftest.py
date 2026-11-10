@@ -4,7 +4,7 @@
 import contextlib
 import multiprocessing as mp
 import os
-import subprocess
+import subprocess  # nosec B404
 from multiprocessing.connection import Connection
 from typing import Iterable
 
@@ -29,7 +29,8 @@ def command_server(conn: Connection) -> None:
             env = dict(os.environ)
             env.update(extra_env)
         # Run command
-        res: subprocess.CompletedProcess = subprocess.run(
+        # Commands come from this test suite through a private multiprocessing pipe.
+        res: subprocess.CompletedProcess = subprocess.run(  # nosec B603
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
