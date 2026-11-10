@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <span>
 #include <stdexcept>
+#include <vector>
 
 #include <kvikio/error.hpp>
 #include <kvikio/shim/cuda.hpp>
@@ -23,6 +24,7 @@ cudaAPI::cudaAPI()
   get_symbol(MemFreeHost, lib, KVIKIO_STRINGIFY(cuMemFreeHost));
   get_symbol(MemHostRegister, lib, KVIKIO_STRINGIFY(cuMemHostRegister));
   get_symbol(MemHostUnregister, lib, KVIKIO_STRINGIFY(cuMemHostUnregister));
+  get_symbol(MemHostGetDevicePointer, lib, KVIKIO_STRINGIFY(cuMemHostGetDevicePointer));
   get_symbol(MemcpyHtoDAsync, lib, KVIKIO_STRINGIFY(cuMemcpyHtoDAsync));
   get_symbol(MemcpyDtoHAsync, lib, KVIKIO_STRINGIFY(cuMemcpyDtoHAsync));
   get_symbol(MemcpyAsync, lib, KVIKIO_STRINGIFY(cuMemcpyAsync));
@@ -111,8 +113,29 @@ CUresult cudaAPI::cuda_memcpy_batch_async(std::span<CUdeviceptr const> dsts,
     CUmemcpyAttributes attrs{.srcAccessOrder =
                                CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM};
     std::size_t attrs_idxs[] = {0};
-    return cudaAPI::instance().MemcpyBatchAsync(const_cast<CUdeviceptr*>(dsts.data()),
-                                                const_cast<CUdeviceptr*>(srcs.data()),
+    // cuMemcpyBatchAsync does not translate the host address of `cuMemHostRegister`-ed memory to
+    // its device address, unlike cuMemcpyAsync. The two differ when
+    // CU_DEVICE_ATTRIBUTE_CAN_USE_HOST_POINTER_FOR_REGISTERED_MEM is 0 (e.g. on WSL2), so replace
+    // pinned host pointers with their device aliases.
+    auto const to_device_aliases = [](std::vector<CUdeviceptr>& ptrs) -> CUresult {
+      for (auto& ptr : ptrs) {
+        CUmemorytype type{};
+        auto const attr_result =
+          cudaAPI::instance().PointerGetAttribute(&type, CU_POINTER_ATTRIBUTE_MEMORY_TYPE, ptr);
+        // Fails for memory unknown to CUDA; only pinned host memory needs translation.
+        if (attr_result != CUDA_SUCCESS || type != CU_MEMORYTYPE_HOST) { continue; }
+        auto const result =
+          cudaAPI::instance().MemHostGetDevicePointer(&ptr, reinterpret_cast<void*>(ptr), 0);
+        if (result != CUDA_SUCCESS) { return result; }
+      }
+      return CUDA_SUCCESS;
+    };
+    std::vector<CUdeviceptr> dst_ptrs(dsts.begin(), dsts.end());
+    std::vector<CUdeviceptr> src_ptrs(srcs.begin(), srcs.end());
+    if (auto const result = to_device_aliases(dst_ptrs); result != CUDA_SUCCESS) { return result; }
+    if (auto const result = to_device_aliases(src_ptrs); result != CUDA_SUCCESS) { return result; }
+    return cudaAPI::instance().MemcpyBatchAsync(dst_ptrs.data(),
+                                                src_ptrs.data(),
                                                 const_cast<std::size_t*>(sizes.data()),
                                                 dsts.size(),
                                                 &attrs,

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -17,7 +17,7 @@ def test_function_deprecation():
     with pytest.warns(FutureWarning, match="my deprecation notice"):
         func()
 
-    assert ".. deprecated:: my_version" in getattr(func, "__doc__")
+    assert ".. deprecated:: my_version" in func.__doc__
 
 
 def test_module_deprecation():

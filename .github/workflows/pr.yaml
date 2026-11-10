@@ -26,7 +26,6 @@ jobs:
       - wheel-cpp-build
       - wheel-python-build
       - wheel-python-tests
-      - telemetry-setup
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -182,19 +181,6 @@ jobs:
           - '!docs/**'
           - '!java/**'
           - '!notebooks/**'
-  telemetry-setup:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    continue-on-error: true
-    env:
-      OTEL_SERVICE_NAME: "pr-kvikio"
-    steps:
-      - name: Telemetry setup
-        # This gate is here and not at the job level because we need the job to not be skipped,
-        # since other jobs depend on it.
-        if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
-        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   checks:
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
@@ -203,10 +189,8 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    needs: telemetry-setup
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@main
     with:
-      ignored_pr_jobs: telemetry-summarize
       # Main builds seed this cache. PR merge refs can restore it but should not create
       # duplicate archives that are inaccessible to other PRs.
       pre-commit-cache-read-only: true
@@ -225,6 +209,7 @@ jobs:
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_cpp.sh
+      matrix_type: pull-request
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -239,6 +224,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
+      matrix_type: pull-request
   conda-java-tests:
     needs: conda-cpp-build
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -271,6 +257,7 @@ jobs:
       script: ci/build_python.sh
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+      matrix_type: pull-request
   conda-python-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -285,6 +272,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_python.sh
+      matrix_type: pull-request
   docs-build-matrix:
     permissions:
       contents: read
@@ -292,6 +280,7 @@ jobs:
     with:
       build_type: pull-request
       matrix_name: docs-build
+      matrix_type: pull-request
   docs-build:
     needs: [docs-build-matrix, conda-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -333,7 +322,6 @@ jobs:
       docs-projects: kvikio
       dry-run: true
   devcontainer:
-    needs: telemetry-setup
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -344,7 +332,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
     with:
       arch: '["amd64", "arm64"]'
-      cuda: '["13.3"]'
+      cuda: '["13.4"]'
       node_type: "cpu8"
       env: |
         SCCACHE_DIST_MAX_RETRIES=inf
@@ -352,9 +340,9 @@ jobs:
         SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE=false
       build_command: |
         sccache --zero-stats;
-        build-all --verbose 2>&1 | tee telemetry-artifacts/build.log;
+        build-all --verbose;
         python -c "import kvikio; print(kvikio.__version__)";
-        sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt;
+        sccache --show-adv-stats;
   wheel-cpp-build:
     needs: [build-details]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -373,6 +361,7 @@ jobs:
       script: ci/build_wheel_cpp.sh
       package-name: libkvikio
       package-type: cpp
+      matrix_type: pull-request
   wheel-python-build:
     needs: [build-details, wheel-cpp-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -392,6 +381,7 @@ jobs:
       package-type: python
       # Build a wheel for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+      matrix_type: pull-request
   wheel-python-tests:
     needs: [wheel-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -406,14 +396,4 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-  telemetry-summarize:
-    # This job must use a self-hosted runner to record telemetry traces.
-    runs-on: linux-amd64-cpu4
-    needs: pr-builder
-    if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
-    permissions:
-      actions: write
-    continue-on-error: true
-    steps:
-      - name: Telemetry summarize
-        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main
+      matrix_type: pull-request

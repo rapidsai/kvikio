@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
@@ -131,7 +131,7 @@ def main(args):
             rs.append(args.nbytes / read)
             ws.append(args.nbytes / write)
 
-        def pprint_api_res(name, samples):
+        def pprint_api_res(name, samples, api=api):
             mean = statistics.mean(samples) if len(samples) > 1 else samples[0]
             ret = f"{api} {name}".ljust(18)
             ret += f"| {format_bytes(mean).rjust(10)}/s".ljust(14)

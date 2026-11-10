@@ -4,7 +4,7 @@
 """Exercise the conda recipe's build.sh invocation without a CUDA toolchain."""
 
 import os
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 
 import pytest
@@ -36,7 +36,8 @@ def test_conda_curl_arguments_reach_cmake(tmp_path, prefix_name):
         "RAPIDS_CUDA_VERSION": "12.9",
         "CMAKE_ARGUMENT_LOG": str(argument_log),
     }
-    result = subprocess.run(
+    # Execute only the checked-in recipe command using our test PATH.
+    result = subprocess.run(  # nosec B603, B607
         ["bash", "-c", command], cwd=ROOT, env=env, capture_output=True, text=True
     )
     assert result.returncode == 0, result.stdout + result.stderr

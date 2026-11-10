@@ -3,7 +3,7 @@
 
 """Check curl selection without downloading dependencies or requiring CUDA."""
 
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 
 import pytest
@@ -69,7 +69,8 @@ endfunction()
         command.append("-DKvikIO_USE_STATIC_OPENSSL=ON")
     if override is not None:
         command.append(f"-DKvikIO_USE_SYSTEM_CURL={override}")
-    result = subprocess.run(command, capture_output=True, text=True)
+    # CMake receives only repository and generated test inputs.
+    result = subprocess.run(command, capture_output=True, text=True)  # nosec B603
     if expected == "failure":
         assert result.returncode != 0
         assert "Could NOT find CURL" in result.stdout + result.stderr

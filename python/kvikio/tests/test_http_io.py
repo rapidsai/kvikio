@@ -3,15 +3,14 @@
 
 
 import http
-import os
 import re
-import sys
 import time
 from http.server import SimpleHTTPRequestHandler
 from typing import Literal
 
 import numpy as np
 import pytest
+import utils
 
 import kvikio
 import kvikio.defaults
@@ -33,6 +32,11 @@ class RequestCounter:
         self.error_count = 0
         self.delay_count = 0
         self.stall_count = 0
+
+
+# Each handler type intentionally shares its default counter across requests.
+_DEFAULT_ERROR_COUNTER = RequestCounter()
+_DEFAULT_STALL_COUNTER = RequestCounter()
 
 
 class HTTP503Handler(SimpleHTTPRequestHandler):
@@ -57,7 +61,7 @@ class HTTP503Handler(SimpleHTTPRequestHandler):
         self,
         *args,
         directory=None,
-        request_counter: RequestCounter = RequestCounter(),
+        request_counter: RequestCounter = _DEFAULT_ERROR_COUNTER,
         max_error_count: int = 1,
         delay_duration: int = 0,
         max_delay_count: int = 1,
@@ -123,7 +127,7 @@ class PartialBodyHandler(SimpleHTTPRequestHandler):
         self,
         *args,
         directory=None,
-        request_counter: RequestCounter = RequestCounter(),
+        request_counter: RequestCounter = _DEFAULT_STALL_COUNTER,
         max_stall_count: int = 1,
         stall_duration: int = 5,
         **kwargs,
@@ -502,23 +506,16 @@ def test_timeout_raises(tmpdir, capfd):
     assert len(notices) == 1, captured.err
 
 
-@pytest.mark.skipif(
-    "KVIKIO_REMOTE_IO_REACTOR_DISPATCH" in os.environ,
-    reason="already running under an explicit reactor dispatch",
-)
-@pytest.mark.timeout(300, method="thread")
-def test_http_io_under_shared_queue(run_cmd):
-    """Rerun this file with the MULTI_POLL backend in SHARED_QUEUE dispatch.
-
-    The reactor pool captures the dispatch mode on first use. The mode can therefore
-    only be chosen from the environment of a fresh process.
-    """
-    env = {
+# Rerun with a tight concurrent request cap.
+test_http_io_under_multiple_reactors = utils.rerun_in_new_process(
+    __file__,
+    {
         "KVIKIO_REMOTE_IO_BACKEND": "MULTI_POLL",
-        "KVIKIO_REMOTE_IO_REACTOR_DISPATCH": "SHARED_QUEUE",
         "KVIKIO_REMOTE_IO_NUM_REACTORS": "4",
         "KVIKIO_REMOTE_IO_MAX_CONCURRENT_REQUESTS": "8",
-    }
-    cmd = [sys.executable, "-m", "pytest", os.path.basename(__file__)]
-    cwd = os.path.dirname(os.path.abspath(__file__))
-    assert run_cmd(cmd=cmd, cwd=cwd, env=env) == 0
+    },
+)
+
+test_http_io_under_easy_threadpool = utils.rerun_in_new_process(
+    __file__, {"KVIKIO_REMOTE_IO_BACKEND": "EASY_THREADPOOL"}
+)

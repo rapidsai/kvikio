@@ -8,7 +8,7 @@ import contextlib
 import os
 import os.path
 import pathlib
-import subprocess
+import subprocess  # nosec B404
 
 from dask.utils import format_bytes
 
@@ -28,7 +28,9 @@ def drop_vm_cache() -> None:
 
     See <https://linux-mm.org/Drop_Caches>
     """
-    subprocess.check_output(["sudo /sbin/sysctl vm.drop_caches=3"], shell=True)
+    subprocess.check_output(  # nosec B603, B607
+        ["sudo", "/sbin/sysctl", "vm.drop_caches=3"]
+    )
 
 
 def pprint_sys_info() -> None:

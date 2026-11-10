@@ -175,6 +175,19 @@ if(KvikIO_REMOTE_SUPPORT)
   kvikio_add_test(NAME CURL_SHARE_TEST SOURCES test_curl_share.cpp)
   kvikio_add_test(NAME MULTI_POLL_REACTOR_TEST SOURCES test_multi_poll_reactor.cpp utils/env.cpp)
   kvikio_add_test(NAME TRANSFER_PLAN_TEST SOURCES test_transfer_plan.cpp)
+
+  # Rerun the tests that read remote files under the non-default backend.
+  foreach(_test IN ITEMS REMOTE_HANDLE_TEST HDFS_TEST)
+    rapids_test_add(
+      NAME ${_test}_EASY_THREADPOOL
+      COMMAND ${_test}
+      GPUS 1
+      INSTALL_COMPONENT_SET testing
+    )
+    set_tests_properties(
+      ${_test}_EASY_THREADPOOL PROPERTIES ENVIRONMENT "KVIKIO_REMOTE_IO_BACKEND=EASY_THREADPOOL"
+    )
+  endforeach()
 endif()
 
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/tests/libkvikio)
