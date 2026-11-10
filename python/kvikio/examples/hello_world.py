@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import tempfile
+from pathlib import Path
+
 import cupy
 
 import kvikio
@@ -46,4 +49,5 @@ def main(path):
 
 
 if __name__ == "__main__":
-    main("/tmp/kvikio-hello-world-file")
+    with tempfile.TemporaryDirectory() as directory:
+        main(str(Path(directory) / "kvikio-hello-world-file"))

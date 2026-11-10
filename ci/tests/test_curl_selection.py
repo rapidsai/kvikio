@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Check curl selection without downloading dependencies or requiring CUDA."""
+
+import subprocess  # nosec B404
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.parametrize(
+    "conda,override,installed,static_openssl,expected",
+    [
+        (True, None, "8.23.0", False, "installed"),
+        (True, None, "8.23.0", True, "installed"),
+        (True, None, False, False, "failure"),
+        (True, None, False, True, "failure"),
+        (True, None, "8.13.0", False, "failure"),
+        (True, None, "8.22.0", False, "failure"),
+        (True, None, "8.24.0", False, "installed"),
+        (False, "ON", "8.22.0", False, "failure"),
+        (False, None, False, False, "cpm"),
+        (True, "OFF", False, False, "cpm"),
+        (False, "ON", "8.23.0", False, "installed"),
+    ],
+)
+def test_curl_selection(tmp_path, conda, override, installed, static_openssl, expected):
+    # Exercise the actual options after RAPIDS creates its conda environment target.
+    source = (ROOT / "cpp/CMakeLists.txt").read_text()
+    options = source.split(
+        "rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)\n", 1
+    )[1].split("rapids_cpm_init()", 1)[0]
+    modules = tmp_path / "modules"
+    modules.mkdir()
+    (modules / "FindCURL.cmake").write_text(
+        f'set(CURL_VERSION "{installed or ""}")\n'
+        + ("set(CURL_LIBRARY mock)\n" if installed else "")
+        + """if(CURL_USE_STATIC_LIBS)
+  message(FATAL_ERROR "Conda curl must use shared libraries")
+endif()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(CURL REQUIRED_VARS CURL_LIBRARY VERSION_VAR CURL_VERSION)
+add_library(CURL::libcurl INTERFACE IMPORTED)
+file(WRITE "${CMAKE_BINARY_DIR}/selection" "installed")
+"""
+    )
+    cpm = tmp_path / "cpm"
+    cpm.mkdir()
+    (cpm / "find.cmake").write_text(
+        """function(rapids_cpm_find)
+  file(WRITE "${CMAKE_BINARY_DIR}/selection" "cpm")
+endfunction()
+"""
+    )
+    (tmp_path / "CMakeLists.txt").write_text(
+        "cmake_minimum_required(VERSION 4.0)\nproject(CurlSelection NONE)\n"
+        + ("add_library(conda_env INTERFACE)\n" if conda else "")
+        + options
+        + f'\nset(CMAKE_MODULE_PATH "{modules}")\n'
+        + f'set(rapids-cmake-dir "{tmp_path}")\n'
+        + f'include("{ROOT}/cpp/cmake/thirdparty/get_libcurl.cmake")\n'
+    )
+    build = tmp_path / "build"
+    command = ["cmake", "-S", str(tmp_path), "-B", str(build)]
+    if static_openssl:
+        command.append("-DKvikIO_USE_STATIC_OPENSSL=ON")
+    if override is not None:
+        command.append(f"-DKvikIO_USE_SYSTEM_CURL={override}")
+    # CMake receives only repository and generated test inputs.
+    result = subprocess.run(command, capture_output=True, text=True)  # nosec B603
+    if expected == "failure":
+        assert result.returncode != 0
+        assert "Could NOT find CURL" in result.stdout + result.stderr
+        assert not (build / "selection").exists()
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert (build / "selection").read_text() == expected

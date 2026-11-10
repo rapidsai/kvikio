@@ -22,14 +22,25 @@ rapids-logger "Installing build requirements"
 rapids-pip-retry install \
     -v \
     --prefer-binary \
-    -r /tmp/requirements-build.txt
+    -r /tmp/requirements-build.txt \
+    pytest
 
-# The ci-wheel Rocky Linux image provides OpenSSL 1.1.1, but the pinned curl
-# source requires OpenSSL 3. Keep the overlay private to this wheel job and
-# honor any caller-provided OpenSSL root.
-unset KVIKIO_OPENSSL_TEMP_DIR
-trap 'if [[ -n "${KVIKIO_OPENSSL_TEMP_DIR:-}" ]]; then rm -rf -- "${KVIKIO_OPENSSL_TEMP_DIR}"; fi' EXIT
-source ci/prepare-openssl-prefix.sh
+# OpenSSL 3 requires Perl core modules beyond those used by older image builds.
+if ! perl -MIPC::Cmd -MTime::Piece -e 1 >/dev/null 2>&1; then
+    rapids-logger "Installing OpenSSL source build prerequisites"
+    if command -v dnf >/dev/null 2>&1; then
+        dnf install -y perl-core
+    elif command -v apt-get >/dev/null 2>&1; then
+        apt-get update
+        apt-get install -y --no-install-recommends perl
+    else
+        echo "OpenSSL source builds require Perl core modules, including IPC::Cmd and Time::Piece" >&2
+        exit 1
+    fi
+fi
+
+# Validate dependency selection without requiring a GPU.
+python -m pytest ci/tests/test_conda_build_args.py ci/tests/test_curl_selection.py
 
 # build with '--no-build-isolation', for better sccache hit rate
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)

@@ -7,20 +7,20 @@
 
 # This function finds libcurl and sets any additional necessary environment variables.
 function(find_and_configure_libcurl)
-  include(${rapids-cmake-dir}/cpm/find.cmake)
-
-  # In CI builds, prefer the OpenSSL from the locked Conda build environment when
-  # no explicit root was provided. The host system OpenSSL can be older than the
-  # version required by pinned curl, even when the build environment has a newer one.
-  if(DEFINED ENV{CONDA_PREFIX})
-    set(_conda_prefix "$ENV{CONDA_PREFIX}")
-    if(EXISTS "${_conda_prefix}/include/openssl/ssl.h"
-       AND (EXISTS "${_conda_prefix}/lib/libcrypto.so"
-            OR EXISTS "${_conda_prefix}/lib/libcrypto.a"
-            OR EXISTS "${_conda_prefix}/lib/libcrypto.dylib"))
-      set(OPENSSL_ROOT_DIR "${_conda_prefix}" CACHE PATH "Prefer locked Conda OpenSSL")
-    endif()
+  # Conda builds must use their host dependency and never fall back to downloading curl.
+  if(KvikIO_USE_SYSTEM_CURL)
+    set(CURL_USE_STATIC_LIBS OFF)
+    find_package(CURL 8.23.0 REQUIRED)
+    return()
   endif()
+
+  if(KvikIO_USE_STATIC_OPENSSL)
+    # This function-local setting ensures curl uses the same private TLS backend.
+    set(CPM_DOWNLOAD_ALL ON)
+    include(${CMAKE_CURRENT_LIST_DIR}/get_openssl.cmake)
+  endif()
+
+  include(${rapids-cmake-dir}/cpm/find.cmake)
 
   # Work around https://github.com/curl/curl/issues/15351
   if(DEFINED CACHE{BUILD_TESTING})
@@ -28,11 +28,11 @@ function(find_and_configure_libcurl)
   endif()
 
   rapids_cpm_find(
-    CURL 8.22.0
+    CURL 8.23.0
     GLOBAL_TARGETS libcurl
     CPM_ARGS
     GIT_REPOSITORY https://github.com/curl/curl
-    GIT_TAG curl-8_22_0
+    GIT_TAG curl-8_23_0
     OPTIONS "BUILD_CURL_EXE OFF" "BUILD_SHARED_LIBS OFF" "BUILD_TESTING OFF" "CURL_USE_LIBPSL OFF"
             "CURL_DISABLE_LDAP ON" "CMAKE_POSITION_INDEPENDENT_CODE ON"
     EXCLUDE_FROM_ALL YES # Don't install libcurl.a (only needed when building libkvikio.so)

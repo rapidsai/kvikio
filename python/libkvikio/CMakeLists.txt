@@ -34,4 +34,8 @@ set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 set(KvikIO_BUILD_NSYS_PLUGIN ON)
 
+# Wheels need a recent OpenSSL even on the manylinux build image. The installed curl path in conda
+# environments takes precedence over this bundled dependency.
+option(KvikIO_USE_STATIC_OPENSSL "Bundle pinned OpenSSL static libraries for wheels" ON)
+
 add_subdirectory(../../cpp kvikio-cpp)

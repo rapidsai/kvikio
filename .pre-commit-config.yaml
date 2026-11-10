@@ -35,14 +35,19 @@ repos:
     rev: 1.9.4
     hooks:
       - id: bandit
-        name: Bandit candidate wheel dependency helper
-        args: ["-q"]
-        files: ^ci/prepare_candidate_wheel_dependencies[.]py$
+        args: ["-c", ".bandit.yaml"]
+        exclude: ^ci/tests/(test_candidate_cache_policy|test_prepare_candidate_wheel_dependencies)[.]py$
       - id: bandit
         alias: bandit-test-candidate-wheel-dependencies
         name: Bandit candidate wheel dependency tests
         args: ["-q", "-s", "B101,B404,B603"]
         files: ^ci/tests/test_prepare_candidate_wheel_dependencies[.]py$
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        additional_dependencies: [flake8-bugbear==25.10.21]
+        args: ["--select=B"]
   - repo: https://github.com/MarcoGorelli/cython-lint
     rev: v0.21.1
     hooks:
