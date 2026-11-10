@@ -28,7 +28,7 @@ cache:
         export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
         set +x
 
-        # Keep the conda build floor independent of the curl version bundled in wheels.
+        # Use conda's shared curl rather than bundling a separate copy.
         # build.sh requires literal quotes around the CMake argument list.
         ./build.sh -v -n libkvikio benchmarks "--cmake-args=\"-DKvikIO_USE_SYSTEM_CURL=ON -DCURL_LIBRARY=$PREFIX/lib/libcurl.so -DCURL_INCLUDE_DIR=$PREFIX/include\""
       secrets:

@@ -14,13 +14,17 @@ ROOT = Path(__file__).resolve().parents[2]
 @pytest.mark.parametrize(
     "conda,override,installed,static_openssl,expected",
     [
-        (True, None, True, False, "installed"),
-        (True, None, True, True, "installed"),
+        (True, None, "8.23.0", False, "installed"),
+        (True, None, "8.23.0", True, "installed"),
         (True, None, False, False, "failure"),
         (True, None, False, True, "failure"),
+        (True, None, "8.13.0", False, "failure"),
+        (True, None, "8.22.0", False, "failure"),
+        (True, None, "8.24.0", False, "installed"),
+        (False, "ON", "8.22.0", False, "failure"),
         (False, None, False, False, "cpm"),
         (True, "OFF", False, False, "cpm"),
-        (False, "ON", True, False, "installed"),
+        (False, "ON", "8.23.0", False, "installed"),
     ],
 )
 def test_curl_selection(tmp_path, conda, override, installed, static_openssl, expected):
@@ -32,17 +36,16 @@ def test_curl_selection(tmp_path, conda, override, installed, static_openssl, ex
     modules = tmp_path / "modules"
     modules.mkdir()
     (modules / "FindCURL.cmake").write_text(
-        """if(NOT CURL_FIND_REQUIRED OR NOT CURL_FIND_VERSION STREQUAL "8.13.0")
-  message(FATAL_ERROR "Expected required curl with the conda version floor")
-endif()
-if(CURL_USE_STATIC_LIBS)
+        f'set(CURL_VERSION "{installed or ""}")\n'
+        + ("set(CURL_LIBRARY mock)\n" if installed else "")
+        + """if(CURL_USE_STATIC_LIBS)
   message(FATAL_ERROR "Conda curl must use shared libraries")
 endif()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(CURL REQUIRED_VARS CURL_LIBRARY VERSION_VAR CURL_VERSION)
 add_library(CURL::libcurl INTERFACE IMPORTED)
 file(WRITE "${CMAKE_BINARY_DIR}/selection" "installed")
 """
-        if installed
-        else 'message(FATAL_ERROR "No installed curl")\n'
     )
     cpm = tmp_path / "cpm"
     cpm.mkdir()
@@ -69,7 +72,7 @@ endfunction()
     result = subprocess.run(command, capture_output=True, text=True)
     if expected == "failure":
         assert result.returncode != 0
-        assert "No installed curl" in result.stdout + result.stderr
+        assert "Could NOT find CURL" in result.stdout + result.stderr
         assert not (build / "selection").exists()
     else:
         assert result.returncode == 0, result.stdout + result.stderr

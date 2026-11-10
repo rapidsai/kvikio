@@ -10,7 +10,7 @@ function(find_and_configure_libcurl)
   # Conda builds must use their host dependency and never fall back to downloading curl.
   if(KvikIO_USE_SYSTEM_CURL)
     set(CURL_USE_STATIC_LIBS OFF)
-    find_package(CURL 8.13.0 REQUIRED)
+    find_package(CURL 8.23.0 REQUIRED)
     return()
   endif()
 
