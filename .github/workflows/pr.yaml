@@ -10,6 +10,7 @@ permissions: {}
 jobs:
   pr-builder:
     needs:
+      - burndown-pr
       - build-details
       - check-nightly-ci
       - changed-files
@@ -37,6 +38,13 @@ jobs:
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
+  burndown-pr:
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    uses: rapidsai/shared-workflows/.github/workflows/burndown-pr.yaml@main
+
   build-details:
     uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@main
   check-nightly-ci:
@@ -195,7 +203,9 @@ jobs:
       # duplicate archives that are inaccessible to other PRs.
       pre-commit-cache-read-only: true
   conda-cpp-build:
-    needs: [build-details, checks]
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true'
+    needs: [burndown-pr, build-details, checks]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -211,7 +221,7 @@ jobs:
       script: ci/build_cpp.sh
       matrix_type: pull-request
   conda-cpp-tests:
-    needs: [conda-cpp-build, changed-files]
+    needs: [burndown-pr, conda-cpp-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -220,13 +230,16 @@ jobs:
       packages: read
       pull-requests: read
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true' && (fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp)
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
       matrix_type: pull-request
   conda-java-tests:
-    needs: conda-cpp-build
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true'
+    needs: [burndown-pr, conda-cpp-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -242,7 +255,9 @@ jobs:
       container_image: "rapidsai/ci-conda:26.12-latest"
       script: "ci/test_java.sh"
   conda-python-build:
-    needs: [build-details, conda-cpp-build]
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true'
+    needs: [burndown-pr, build-details, conda-cpp-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -259,7 +274,7 @@ jobs:
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
       matrix_type: pull-request
   conda-python-tests:
-    needs: [conda-python-build, changed-files]
+    needs: [burndown-pr, conda-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -268,12 +283,16 @@ jobs:
       packages: read
       pull-requests: read
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true' && (fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda)
     with:
       build_type: pull-request
       script: ci/test_python.sh
       matrix_type: pull-request
   docs-build-matrix:
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true'
+    needs: [burndown-pr]
     permissions:
       contents: read
     uses: rapidsai/shared-workflows/.github/workflows/compute-matrix.yaml@main
@@ -282,7 +301,7 @@ jobs:
       matrix_name: docs-build
       matrix_type: pull-request
   docs-build:
-    needs: [docs-build-matrix, conda-python-build, changed-files]
+    needs: [burndown-pr, docs-build-matrix, conda-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -294,7 +313,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.docs-build-matrix.outputs.matrix) }}
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true' && (fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs)
     with:
       build_type: pull-request
       node_type: "gpu-${{ matrix.GPU }}-${{ matrix.DRIVER }}-1"
@@ -302,7 +322,9 @@ jobs:
       container_image: "rapidsai/ci-conda:26.12-cuda${{ matrix.CUDA_VER }}-${{ matrix.LINUX_VER }}-py${{ matrix.PY_VER }}"
       script: "ci/build_docs.sh"
   publish-api-docs:
-    needs: [docs-build]
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true'
+    needs: [burndown-pr, docs-build]
     permissions:
       contents: read
       id-token: write
@@ -322,6 +344,9 @@ jobs:
       docs-projects: kvikio
       dry-run: true
   devcontainer:
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true'
+    needs: [burndown-pr]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -344,7 +369,9 @@ jobs:
         python -c "import kvikio; print(kvikio.__version__)";
         sccache --show-adv-stats;
   wheel-cpp-build:
-    needs: [build-details]
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true'
+    needs: [burndown-pr, build-details]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -363,7 +390,9 @@ jobs:
       package-type: cpp
       matrix_type: pull-request
   wheel-python-build:
-    needs: [build-details, wheel-cpp-build]
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true'
+    needs: [burndown-pr, build-details, wheel-cpp-build]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -383,7 +412,7 @@ jobs:
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
       matrix_type: pull-request
   wheel-python-tests:
-    needs: [wheel-python-build, changed-files]
+    needs: [burndown-pr, wheel-python-build, changed-files]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       actions: read
@@ -392,7 +421,8 @@ jobs:
       packages: read
       pull-requests: read
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
+    if: >-
+      needs.burndown-pr.result == 'success' && needs.burndown-pr.outputs.skip-product-ci != 'true' && (fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels)
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
