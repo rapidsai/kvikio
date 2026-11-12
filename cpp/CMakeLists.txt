@@ -59,16 +59,6 @@ option(KvikIO_BUILD_NSYS_PLUGIN "Configure CMake to build the Nsight Systems NIC
 # * conda environment ------------------------------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
-# Developer builds in conda environments must use the installed dependency too.
-set(use_system_curl_default OFF)
-if(TARGET conda_env)
-  set(use_system_curl_default ON)
-endif()
-option(KvikIO_USE_SYSTEM_CURL "Require installed libcurl instead of fetching it with CPM"
-       ${use_system_curl_default}
-)
-unset(use_system_curl_default)
-
 # ##################################################################################################
 # * dependencies -----------------------------------------------------------------------------------
 

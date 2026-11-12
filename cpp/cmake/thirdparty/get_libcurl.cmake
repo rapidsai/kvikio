@@ -7,13 +7,6 @@
 
 # This function finds libcurl and sets any additional necessary environment variables.
 function(find_and_configure_libcurl)
-  # Conda builds must use their host dependency and never fall back to downloading curl.
-  if(KvikIO_USE_SYSTEM_CURL)
-    set(CURL_USE_STATIC_LIBS OFF)
-    find_package(CURL 8.23.0 REQUIRED)
-    return()
-  endif()
-
   if(KvikIO_USE_STATIC_OPENSSL)
     # This function-local setting ensures curl uses the same private TLS backend.
     set(CPM_DOWNLOAD_ALL ON)
