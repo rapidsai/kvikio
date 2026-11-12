@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -23,6 +23,20 @@ rapids-pip-retry install \
     -v \
     --prefer-binary \
     -r /tmp/requirements-build.txt
+
+# OpenSSL 3 requires Perl core modules beyond those used by older image builds.
+if ! perl -MIPC::Cmd -e 1 >/dev/null 2>&1; then
+    rapids-logger "Installing OpenSSL source build prerequisites"
+    if command -v dnf >/dev/null 2>&1; then
+        dnf install -y perl-core
+    elif command -v apt-get >/dev/null 2>&1; then
+        apt-get update
+        apt-get install -y --no-install-recommends perl
+    else
+        echo "OpenSSL source builds require Perl core modules, including IPC::Cmd" >&2
+        exit 1
+    fi
+fi
 
 # build with '--no-build-isolation', for better sccache hit rate
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
