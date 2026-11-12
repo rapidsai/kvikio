@@ -35,9 +35,10 @@ def endpoint_port():
     return utils.find_free_port()
 
 
-def start_s3_server(ip_address, port):
+def start_s3_server(ip_address, port, ready):
     server = moto.server.ThreadedMotoServer(ip_address=ip_address, port=port)
     server.start()
+    ready.set()
     time.sleep(600)
     print("ThreadedMotoServer shutting down because of timeout (10min)")
 
@@ -52,10 +53,23 @@ def s3_base(endpoint_ip, endpoint_port):
         monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
         monkeypatch.setenv("AWS_ENDPOINT_URL", f"http://{endpoint_ip}:{endpoint_port}")
 
-        p = mp.Process(target=start_s3_server, args=(endpoint_ip, endpoint_port))
+        ready = mp.Event()
+        p = mp.Process(target=start_s3_server, args=(endpoint_ip, endpoint_port, ready))
         p.start()
-        yield f"http://{endpoint_ip}:{endpoint_port}"
-        p.kill()
+        try:
+            # Python 3.14 uses forkserver on Linux, so startup can take longer
+            # than the first client's connection retries. ThreadedMotoServer.start()
+            # waits until the server is ready before the child signals us.
+            if not ready.wait(timeout=30):
+                pytest.fail(
+                    "Moto S3 server did not become ready within 30 seconds "
+                    f"(exit code: {p.exitcode})"
+                )
+            yield f"http://{endpoint_ip}:{endpoint_port}"
+        finally:
+            if p.is_alive():
+                p.kill()
+            p.join()
 
 
 @contextmanager
