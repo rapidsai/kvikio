@@ -31,6 +31,10 @@ cdef extern from "<kvikio/defaults.hpp>" namespace "kvikio" nogil:
     size_t cpp_bounce_buffer_size "kvikio::defaults::bounce_buffer_size"() except +
     void cpp_set_bounce_buffer_size \
         "kvikio::defaults::set_bounce_buffer_size"(size_t nbytes) except +
+    unsigned int cpp_bounce_buffer_prefault_nthreads \
+        "kvikio::defaults::bounce_buffer_prefault_nthreads"() except +
+    void cpp_set_bounce_buffer_prefault_nthreads \
+        "kvikio::defaults::set_bounce_buffer_prefault_nthreads"(unsigned int nthreads) except +
     size_t cpp_http_max_attempts "kvikio::defaults::http_max_attempts"() except +
     void cpp_set_http_max_attempts \
         "kvikio::defaults::set_http_max_attempts"(size_t attempts) except +
@@ -139,6 +143,19 @@ def set_bounce_buffer_size(nbytes: int) -> None:
     cdef size_t cpp_nbytes = nbytes
     with nogil:
         cpp_set_bounce_buffer_size(cpp_nbytes)
+
+
+def bounce_buffer_prefault_nthreads() -> int:
+    cdef unsigned int result
+    with nogil:
+        result = cpp_bounce_buffer_prefault_nthreads()
+    return result
+
+
+def set_bounce_buffer_prefault_nthreads(nthreads: int) -> None:
+    cdef unsigned int cpp_nthreads = nthreads
+    with nogil:
+        cpp_set_bounce_buffer_prefault_nthreads(cpp_nthreads)
 
 
 def http_max_attempts() -> int:
