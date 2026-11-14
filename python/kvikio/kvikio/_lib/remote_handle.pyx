@@ -420,7 +420,9 @@ cdef class RemoteFile:
         return result
 
     def read(self, buf, size: Optional[int], file_offset: int) -> int:
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(
+            buf, size, True, writable=True
+        )
         cdef size_t cpp_file_offset = file_offset
         cdef size_t result
 
@@ -434,7 +436,9 @@ cdef class RemoteFile:
         return result
 
     def pread(self, buf, size: Optional[int], file_offset: int) -> IOFuture:
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(
+            buf, size, True, writable=True
+        )
         cdef size_t cpp_file_offset = file_offset
         cdef future[size_t] fut
 

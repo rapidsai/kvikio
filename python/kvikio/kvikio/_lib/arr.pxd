@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -32,5 +32,5 @@ cpdef Array asarray(obj)
 
 
 cdef pair[uintptr_t, size_t] parse_buffer_argument(
-    buf, size, bint accept_host_buffer
+    buf, size, bint accept_host_buffer, bint writable=*
 ) except *
