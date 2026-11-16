@@ -316,8 +316,7 @@ cdef pair[uintptr_t, size_t] parse_buffer_argument(
 ) except *:
     """Parse `buf` and `size` argument and return a pointer and nbytes
 
-    Set `writable` when `buf` is the destination of a read, so that
-    read-only buffers are rejected instead of being written to.
+    If `writable`, raise `ValueError` when `buf` is read-only.
     """
     if not isinstance(buf, Array):
         buf = Array(buf)

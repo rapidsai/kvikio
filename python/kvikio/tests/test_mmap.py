@@ -177,9 +177,9 @@ def test_read_into_readonly_buffer(tmp_path):
     actual_data.flags.writeable = False
 
     mmap_handle = kvikio.Mmap(filename, "r")
-    with pytest.raises(ValueError, match=r".*read-only.*"):
+    with pytest.raises(ValueError, match="read-only"):
         mmap_handle.read(actual_data, actual_data.nbytes)
-    with pytest.raises(ValueError, match=r".*read-only.*"):
+    with pytest.raises(ValueError, match="read-only"):
         mmap_handle.pread(actual_data, actual_data.nbytes)
     assert not actual_data.any()
 
