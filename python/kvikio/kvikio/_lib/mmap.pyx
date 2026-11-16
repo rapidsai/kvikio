@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -103,7 +103,9 @@ cdef class InternalMmapHandle:
         return result
 
     def read(self, buf: Any, size: Optional[int] = None, offset: int = 0) -> int:
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(
+            buf, size, True, writable=True
+        )
         cdef optional[size_t] cpp_size
         if size is None:
             cpp_size = nullopt
@@ -126,7 +128,9 @@ cdef class InternalMmapHandle:
             cpp_size = nullopt
         else:
             cpp_size = <size_t>(size)
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(
+            buf, size, True, writable=True
+        )
 
         cdef size_t cpp_offset = offset
 

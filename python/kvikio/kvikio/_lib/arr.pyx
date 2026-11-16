@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # cython: language_level=3
@@ -312,9 +312,12 @@ cpdef Array asarray(obj):
 
 
 cdef pair[uintptr_t, size_t] parse_buffer_argument(
-    buf, size, bint accept_host_buffer
+    buf, size, bint accept_host_buffer, bint writable=False
 ) except *:
-    """Parse `buf` and `size` argument and return a pointer and nbytes"""
+    """Parse `buf` and `size` argument and return a pointer and nbytes
+
+    If `writable`, raise `ValueError` when `buf` is read-only.
+    """
     if not isinstance(buf, Array):
         buf = Array(buf)
     cdef Array arr = buf
@@ -322,6 +325,8 @@ cdef pair[uintptr_t, size_t] parse_buffer_argument(
         raise ValueError("Array must be contiguous")
     if not accept_host_buffer and not arr.cuda:
         raise ValueError("Non-CUDA buffers not supported")
+    if writable and arr.readonly:
+        raise ValueError("Cannot read into a read-only buffer")
     cdef size_t nbytes
     if size is None:
         nbytes = arr.nbytes

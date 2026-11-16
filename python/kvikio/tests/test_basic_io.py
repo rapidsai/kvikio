@@ -191,6 +191,35 @@ def test_raw_read_write_of_host_memory(tmp_path):
             assert f.raw_read(a) == a.nbytes
 
 
+def test_read_into_readonly_buffer(tmp_path):
+    """Test that reading into a read-only buffer raises instead of writing to it"""
+    filename = tmp_path / "test-file"
+    data = numpy.arange(1024, dtype=numpy.uint8)
+
+    # Writing from a read-only buffer is fine
+    src = data.copy()
+    src.flags.writeable = False
+    with kvikio.CuFile(filename, "w") as f:
+        assert f.write(src) == src.nbytes
+
+    dst = numpy.zeros_like(data)
+    dst.flags.writeable = False
+    with kvikio.CuFile(filename, "r") as f:
+        with pytest.raises(ValueError, match="read-only"):
+            f.read(dst)
+        with pytest.raises(ValueError, match="read-only"):
+            f.pread(dst)
+        with pytest.raises(ValueError, match="read-only"):
+            f.read(bytes(data.nbytes))
+    assert not dst.any()
+
+    # Reading into a writable buffer still works
+    out = numpy.zeros_like(data)
+    with kvikio.CuFile(filename, "r") as f:
+        assert f.read(out) == out.nbytes
+    numpy.testing.assert_array_equal(out, data)
+
+
 @contextmanager
 def with_no_cuda_context():
     """Context that pop all CUDA contexts before the test and push them back on after"""

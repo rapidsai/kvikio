@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
@@ -167,6 +167,21 @@ def test_read_with_default_arguments(tmp_path, xp):
         fut = mmap_handle.pread(actual_data)
         assert fut.get() == expected_data.nbytes
         xp.testing.assert_array_equal(actual_data, expected_data)
+
+
+def test_read_into_readonly_buffer(tmp_path):
+    filename = tmp_path / "read-only-test-file"
+    expected_data = numpy.arange(1024)
+    expected_data.tofile(filename)
+    actual_data = numpy.zeros_like(expected_data)
+    actual_data.flags.writeable = False
+
+    mmap_handle = kvikio.Mmap(filename, "r")
+    with pytest.raises(ValueError, match="read-only"):
+        mmap_handle.read(actual_data, actual_data.nbytes)
+    with pytest.raises(ValueError, match="read-only"):
+        mmap_handle.pread(actual_data, actual_data.nbytes)
+    assert not actual_data.any()
 
 
 def test_closed_handle(tmp_path, xp):

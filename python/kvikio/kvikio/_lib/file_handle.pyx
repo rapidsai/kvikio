@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # distutils: language = c++
@@ -128,7 +128,9 @@ cdef class CuFile:
         return result
 
     def pread(self, buf, size: Optional[int], file_offset: int, task_size) -> IOFuture:
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, True)
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(
+            buf, size, True, writable=True
+        )
         cdef size_t cpp_file_offset = file_offset
         cdef size_t cpp_task_size = task_size if task_size else defaults.task_size()
         cdef future[size_t] fut
@@ -156,7 +158,9 @@ cdef class CuFile:
         return _wrap_io_future(fut)
 
     def read(self, buf, size: Optional[int], file_offset: int, dev_offset: int) -> int:
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, False)
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(
+            buf, size, False, writable=True
+        )
         cdef size_t cpp_file_offset = file_offset
         cdef size_t cpp_dev_offset = dev_offset
         cdef size_t result
@@ -186,7 +190,9 @@ cdef class CuFile:
     def read_async(self, buf, size: Optional[int], file_offset: int, dev_offset: int,
                    st: uintptr_t) -> IOFutureStream:
         cdef CUstream stream = <CUstream>st
-        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(buf, size, False)
+        cdef pair[uintptr_t, size_t] info = parse_buffer_argument(
+            buf, size, False, writable=True
+        )
         cdef size_t cpp_file_offset = file_offset
         cdef size_t cpp_dev_offset = dev_offset
         cdef cpp_StreamFuture fut
