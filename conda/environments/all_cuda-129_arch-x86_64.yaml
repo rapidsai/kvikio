@@ -24,6 +24,7 @@ dependencies:
 - ninja
 - numpy>=2.0,<3.0
 - numpydoc
+- openssl
 - packaging
 - pre-commit
 - pytest

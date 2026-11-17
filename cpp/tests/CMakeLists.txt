@@ -175,6 +175,7 @@ if(KvikIO_REMOTE_SUPPORT)
   kvikio_add_test(NAME CURL_SHARE_TEST SOURCES test_curl_share.cpp)
   kvikio_add_test(NAME MULTI_POLL_REACTOR_TEST SOURCES test_multi_poll_reactor.cpp utils/env.cpp)
   kvikio_add_test(NAME TRANSFER_PLAN_TEST SOURCES test_transfer_plan.cpp)
+  kvikio_add_test(NAME AZURE_SHARED_KEY_TEST SOURCES test_azure_shared_key.cpp)
 
   # Rerun the tests that read remote files under the non-default backend.
   foreach(_test IN ITEMS REMOTE_HANDLE_TEST HDFS_TEST)
