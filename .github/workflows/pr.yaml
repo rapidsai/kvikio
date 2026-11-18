@@ -33,12 +33,12 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
   build-details:
-    uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
   check-nightly-ci:
     runs-on: ubuntu-latest
     permissions:
@@ -65,7 +65,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       files_yaml: |
         build_docs:
@@ -189,7 +189,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       # Main builds seed this cache. PR merge refs can restore it but should not create
       # duplicate archives that are inaccessible to other PRs.
@@ -203,7 +203,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       build_type: pull-request
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -219,7 +219,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
     with:
       build_type: pull-request
@@ -234,7 +234,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       build_type: pull-request
       node_type: "gpu-rtxpro6000-latest-1"
@@ -250,7 +250,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       build_type: pull-request
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -267,7 +267,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
@@ -276,7 +276,7 @@ jobs:
   docs-build-matrix:
     permissions:
       contents: read
-    uses: rapidsai/shared-workflows/.github/workflows/compute-matrix.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/compute-matrix.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       build_type: pull-request
       matrix_name: docs-build
@@ -290,7 +290,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.docs-build-matrix.outputs.matrix) }}
@@ -306,7 +306,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: rapidsai/shared-workflows/.github/workflows/publish-api-docs.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/publish-api-docs.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       docs-projects: kvikio
       dry-run: true
@@ -341,7 +341,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: pull-request
@@ -360,7 +360,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     with:
       build_type: pull-request
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -380,7 +380,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@1efe7df184d1e72c1038607252fb40a9fedc8ced
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@d85763174ca133b102bc48d5d4d8cb5847e8ca1e
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
     with:
       build_type: pull-request
