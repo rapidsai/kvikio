@@ -200,6 +200,7 @@ if(KvikIO_REMOTE_SUPPORT)
   list(
     APPEND
     SOURCES
+    "src/azure.cpp"
     "src/hdfs.cpp"
     "src/remote_handle.cpp"
     "src/detail/azure_shared_key.cpp"

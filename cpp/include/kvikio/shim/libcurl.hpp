@@ -82,6 +82,12 @@ class CurlHandle {
   char _errbuf[CURL_ERROR_SIZE];
   LibCurl::UniqueHandlePtr _handle;
 
+  // Builds the headers of each attempt.
+  std::function<std::vector<std::string>()> _header_builder;
+
+  using HeaderList = std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)>;
+  HeaderList _headers{nullptr, curl_slist_free_all};
+
  public:
   /**
    * @brief Construct a new curl handle.
@@ -147,6 +153,26 @@ class CurlHandle {
       KVIKIO_FAIL(ss.str(), std::runtime_error);
     }
   }
+
+  /**
+   * @brief Set a function that builds the request headers again before every attempt of a
+   * transfer.
+   *
+   * This is for headers that expire, such as a signature over the current time, because a queued
+   * or retried request can be sent long after it was set up.
+   *
+   * The headers replace any `CURLOPT_HTTPHEADER` set on this handle.
+   *
+   * @param header_builder Returns the header lines, each formatted as `"<name>: <value>"`.
+   */
+  void set_per_attempt_header_builder(std::function<std::vector<std::string>()> header_builder);
+
+  /**
+   * @brief Build the per-attempt headers now and pass them to libcurl as `CURLOPT_HTTPHEADER`.
+   *
+   * Does nothing if `set_per_attempt_header_builder()` was not called.
+   */
+  void refresh_per_attempt_headers();
 
   /**
    * @brief Perform a blocking network transfer using previously set options.
