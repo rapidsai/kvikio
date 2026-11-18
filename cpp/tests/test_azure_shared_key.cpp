@@ -4,6 +4,7 @@
  */
 
 #include <chrono>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -25,14 +26,20 @@ TEST(AzureSharedKeyTest, x_ms_date_is_english_gmt)
     << "the fraction of a second is dropped";
 }
 
-TEST(AzureSharedKeyTest, headers_match_reference_script)
+TEST(AzureSharedKeyTest, headers_are_correct)
 {
-  // A made-up key: the 64 bytes 0x00 to 0x3f. The expected signature comes from a shell script that
-  // signs with openssl and has read a real blob from Azure. Only its key and date were replaced.
-  std::string const key = base64_decode(
-    "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEy"
-    "MzQ1Njc4OTo7PD0+Pw==");
-  std::string const expected_signature = "D1Nwl4x88zi71ijVDoN7EonApOXAkOjRHMqhnQgutoY=";
+  // A made-up key that decodes to 64 bytes, like a real account key. These shell commands
+  // computed the expected signature:
+  //   KEY=<as below>
+  //   HEXKEY=$(printf '%s' "$KEY" | base64 -d | od -An -v -tx1 | tr -d ' \n')
+  //   STRING_TO_SIGN=$(printf '%s\n' GET "" "" "" "" "" "" "" "" "" "" "" \
+  //     "x-ms-date:Tue, 17 Nov 2026 03:04:05 GMT" "x-ms-range:bytes=0-15" \
+  //     "x-ms-version:2026-04-06" "/kvikiodevstandard/basic/32MiB.bin")
+  //   printf '%s' "$STRING_TO_SIGN" |
+  //     openssl dgst -sha256 -mac HMAC -macopt "hexkey:$HEXKEY" -binary | base64 -w0
+  std::vector<std::byte> const key = base64_decode(
+    "Wraiths+Nekkers+Drowners+Griffins+Leshens+Fiends+Botchlings+Bruxae+Ghouls+Hym+GraveHag==");
+  std::string const expected_signature = "B0Kd0gYizxIzDQCVcgsZB69Lk/voAPzvqIisX/ZNEGo=";
 
   auto const headers = azure_shared_key_headers("GET",
                                                 "kvikiodevstandard",
@@ -44,7 +51,7 @@ TEST(AzureSharedKeyTest, headers_match_reference_script)
   std::vector<std::string> const expected{
     "x-ms-date: Tue, 17 Nov 2026 03:04:05 GMT",
     "x-ms-range: bytes=0-15",
-    "x-ms-version: 2021-08-06",
+    "x-ms-version: 2026-04-06",
     "Authorization: SharedKey kvikiodevstandard:" + expected_signature};
   EXPECT_EQ(headers, expected);
 }

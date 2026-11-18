@@ -4,8 +4,10 @@
  */
 
 #include <chrono>
+#include <cstddef>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -33,7 +35,7 @@ std::string format_x_ms_date(std::chrono::system_clock::time_point time)
 
 std::vector<std::string> azure_shared_key_headers(std::string_view verb,
                                                   std::string_view account,
-                                                  std::string_view key,
+                                                  std::span<std::byte const> key,
                                                   std::string_view path,
                                                   std::optional<std::string_view> range,
                                                   std::string_view date)

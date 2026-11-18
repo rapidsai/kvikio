@@ -6,15 +6,18 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace kvikio::detail {
 
-/// The Azure Storage REST API version that KvikIO sends in the `x-ms-version` header.
-constexpr std::string_view azure_storage_api_version{"2021-08-06"};
+/// The Azure Storage REST API version that KvikIO sends in the `x-ms-version` header. As of
+/// 2026-10-29, 2026-04-06 is the latest version that Microsoft has deployed in every region.
+constexpr std::string_view azure_storage_api_version{"2026-04-06"};
 
 /**
  * @brief Format a time as the `x-ms-date` header expects, for example
@@ -49,7 +52,7 @@ constexpr std::string_view azure_storage_api_version{"2021-08-06"};
 [[nodiscard]] std::vector<std::string> azure_shared_key_headers(
   std::string_view verb,
   std::string_view account,
-  std::string_view key,
+  std::span<std::byte const> key,
   std::string_view path,
   std::optional<std::string_view> range,
   std::string_view date);
