@@ -116,7 +116,7 @@ CUresult cudaAPI::cuda_memcpy_batch_async(std::span<CUdeviceptr const> dsts,
     // cuMemcpyBatchAsync does not translate the host address of `cuMemHostRegister`-ed memory to
     // its device address, unlike cuMemcpyAsync. The two differ when
     // CU_DEVICE_ATTRIBUTE_CAN_USE_HOST_POINTER_FOR_REGISTERED_MEM is 0 (e.g. on WSL2), so replace
-    // pinned host pointers with their device aliases.
+    // pinned host pointers with their device aliases. See nvbug 7047727. Fixed in driver >=620.
     auto const to_device_aliases = [](std::vector<CUdeviceptr>& ptrs) -> CUresult {
       for (auto& ptr : ptrs) {
         CUmemorytype type{};
