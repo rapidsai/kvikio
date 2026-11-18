@@ -32,8 +32,7 @@ constexpr std::string_view azure_storage_api_version{"2021-08-06"};
  *
  * The returned headers are `x-ms-date`, `x-ms-range` (if `range` is given), `x-ms-version` and
  * `Authorization`. The `Authorization` header holds a signature over the other three and over
- * `path`. Therefore the request must send exactly these headers, to exactly this path, with no
- * query string.
+ * `path`.
  *
  * See <https://learn.microsoft.com/en-us/rest/api/storageservices/authorize-with-shared-key>.
  *
