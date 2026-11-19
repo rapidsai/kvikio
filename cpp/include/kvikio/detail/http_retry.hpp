@@ -85,7 +85,8 @@ class HttpRetryPolicy {
 
  private:
   /**
-   * @brief Exponential backoff for the given 1-based attempt index.
+   * @brief Random backoff for the given 1-based attempt index, drawn uniformly between zero and
+   * an exponentially growing cap.
    */
   [[nodiscard]] std::chrono::milliseconds backoff_for(std::size_t attempt) const;
 
@@ -97,8 +98,8 @@ class HttpRetryPolicy {
   std::size_t _max_attempts;
   std::vector<int> _retryable_status_codes;
 
-  std::chrono::milliseconds _base_delay_ms{500};
-  std::chrono::milliseconds _max_delay_ms{4000};
+  std::chrono::milliseconds _base_delay_ms{1000};
+  std::chrono::milliseconds _max_delay_ms{8000};
 };
 
 }  // namespace kvikio::detail
