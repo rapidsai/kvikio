@@ -97,6 +97,75 @@ TEST_F(BounceBufferCacheTest, recycle_now_returns_buffer_to_free_list)
   EXPECT_EQ(b2->get(), first_ptr);
 }
 
+namespace {
+constexpr std::size_t MiB = 1024 * 1024;
+}  // namespace
+
+TEST_F(BounceBufferCacheTest, sized_try_get_rounds_up_to_a_power_of_two)
+{
+  auto const original_size = kvikio::defaults::bounce_buffer_size();
+  kvikio::defaults::set_bounce_buffer_size(16 * MiB);
+  {
+    kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(4);
+    auto ctx = current_context();
+
+    auto small = cache.try_get(ctx, 1024);  // At least one huge page
+    auto mid   = cache.try_get(ctx, 3 * MiB);
+    auto large = cache.try_get(ctx, 64 * MiB);  // At most the bounce buffer size
+    ASSERT_TRUE(small.has_value() && mid.has_value() && large.has_value());
+    EXPECT_EQ(small->size(), 2 * MiB);
+    EXPECT_EQ(mid->size(), 4 * MiB);
+    EXPECT_EQ(large->size(), 16 * MiB);
+  }
+  kvikio::defaults::set_bounce_buffer_size(original_size);
+}
+
+TEST_F(BounceBufferCacheTest, sized_try_get_reuses_a_larger_free_buffer)
+{
+  auto const original_size = kvikio::defaults::bounce_buffer_size();
+  kvikio::defaults::set_bounce_buffer_size(16 * MiB);
+  {
+    kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
+    auto ctx = current_context();
+
+    void* first_ptr = nullptr;
+    {
+      auto b = cache.try_get(ctx, 8 * MiB);
+      ASSERT_TRUE(b.has_value());
+      first_ptr = b->get();
+      cache.recycle_now(ctx, std::move(*b));
+    }
+
+    auto b2 = cache.try_get(ctx, 3 * MiB);
+    ASSERT_TRUE(b2.has_value());
+    EXPECT_EQ(b2->get(), first_ptr);
+    EXPECT_EQ(b2->size(), 8 * MiB);
+  }
+  kvikio::defaults::set_bounce_buffer_size(original_size);
+}
+
+TEST_F(BounceBufferCacheTest, sized_try_get_replaces_a_smaller_free_buffer_at_cap)
+{
+  auto const original_size = kvikio::defaults::bounce_buffer_size();
+  kvikio::defaults::set_bounce_buffer_size(16 * MiB);
+  {
+    kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(1);
+    auto ctx = current_context();
+
+    {
+      auto b = cache.try_get(ctx, 2 * MiB);
+      ASSERT_TRUE(b.has_value());
+      cache.recycle_now(ctx, std::move(*b));
+    }
+
+    // The cap of 1 is taken by the free 2 MiB buffer, which is too small, so it is replaced.
+    auto b2 = cache.try_get(ctx, 8 * MiB);
+    ASSERT_TRUE(b2.has_value());
+    EXPECT_EQ(b2->size(), 8 * MiB);
+  }
+  kvikio::defaults::set_bounce_buffer_size(original_size);
+}
+
 TEST_F(BounceBufferCacheTest, recycle_after_round_trip)
 {
   kvikio::detail::BounceBufferCachePerThreadAndContext<kvikio::CudaPinnedAllocator> cache(2);
