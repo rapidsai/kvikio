@@ -34,7 +34,11 @@ set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 set(KvikIO_BUILD_NSYS_PLUGIN ON)
 
-# Wheels need a recent OpenSSL even on the manylinux build image.
+# Wheels bundle curl and need its security fixes plus a recent OpenSSL on the manylinux image.
+set(KvikIO_CURL_VERSION
+    8.23.0
+    CACHE STRING "Minimum curl version and CPM source version"
+)
 option(KvikIO_USE_STATIC_OPENSSL "Bundle pinned OpenSSL static libraries for wheels" ON)
 
 add_subdirectory(../../cpp kvikio-cpp)
