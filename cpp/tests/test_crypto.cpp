@@ -60,6 +60,7 @@ TEST(CryptoTest, base64_decode_rejects_invalid_text)
          " Zm9vYmF",   // Whitespace leads.
          "Zm9v\nYmF",  // Whitespace is embedded.
          "Zm9vYmF-",   // `-` is an invalid character.
+         "Zh==",       // This text decodes to "f", but an encoder writes "f" as `Zg==`.
        }) {
     EXPECT_THROW(std::ignore = base64_decode(text), std::invalid_argument) << text;
   }

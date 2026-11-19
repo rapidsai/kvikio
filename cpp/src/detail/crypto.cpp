@@ -87,25 +87,17 @@ std::vector<std::byte> base64_decode(std::string_view text)
     num_padding = 1;
   }
 
-  // RFC 4648 allows `=` only as padding at the end, and no whitespace. EVP_DecodeBlock() is looser.
-  // It trims whitespace at both ends and decodes `=` anywhere as zero bits. This check enforces the
-  // RFC.
-  constexpr std::string_view base64_alphabet{
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"};
-  auto const unpadded       = text.substr(0, text.size() - num_padding);
-  bool const is_in_alphabet = unpadded.find_first_not_of(base64_alphabet) == std::string_view::npos;
-  KVIKIO_EXPECT(text.size() % 4 == 0 && is_in_alphabet,
-                "Invalid base64 text. It must consist of A-Z, a-z, 0-9, '+' and '/', followed by "
-                "at most two '=', and its length must be a multiple of 4.",
-                std::invalid_argument);
-
   // EVP_DecodeBlock() writes 3 bytes for every 4 characters, including a zero byte for each `=`
   // (padding during encoding). The resize below cuts off those zero bytes.
   std::vector<std::byte> data(text.size() / 4 * 3);
   auto const decoded_size =
     EVP_DecodeBlock(uchar_data(data), const_uchar_data(text), check_int_size(text.size()));
-  KVIKIO_EXPECT(decoded_size >= 0, "EVP_DecodeBlock() failed.", std::runtime_error);
+  KVIKIO_EXPECT(decoded_size >= 0, "Invalid base64 text.", std::invalid_argument);
   data.resize(static_cast<std::size_t>(decoded_size) - num_padding);
+
+  // EVP_DecodeBlock() also accepts some invalid text, such as `Zh==`. Only valid text comes back
+  // unchanged when the decoded bytes are encoded again.
+  KVIKIO_EXPECT(base64_encode(data) == text, "Invalid base64 text.", std::invalid_argument);
   return data;
 }
 
