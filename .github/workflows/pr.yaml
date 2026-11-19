@@ -224,7 +224,7 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
-      matrix_type: pull-request
+      matrix_type: pull-request,wsl-pr
   conda-java-tests:
     needs: conda-cpp-build
     secrets: inherit # zizmor: ignore[secrets-inherit]
@@ -396,4 +396,4 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-      matrix_type: pull-request
+      matrix_type: pull-request,wsl-pr
