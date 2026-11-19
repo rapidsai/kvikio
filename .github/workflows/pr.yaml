@@ -354,7 +354,7 @@ jobs:
       pull-requests: read
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
-      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(min_by(.PY_VER|split(".")|map(tonumber)))
       build_type: pull-request
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
