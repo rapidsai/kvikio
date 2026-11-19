@@ -70,10 +70,11 @@ std::optional<BlobUrl> parse_blob_url(std::string const& url)
 
   // The signature must use the path exactly as it is sent. Therefore the path is encoded once
   // here, and both the URL and the signature use this encoded path.
-  components.path = detail::UrlEncoder::encode_path(components.path.value());
+  auto encoded_path = detail::UrlEncoder::encode_path(components.path.value());
+  components.path   = encoded_path;
   return BlobUrl{.encoded_url  = detail::UrlBuilder::build_manually(components),
                  .account      = host_match[1].str(),
-                 .encoded_path = components.path.value()};
+                 .encoded_path = std::move(encoded_path)};
 }
 
 }  // namespace
@@ -120,8 +121,6 @@ std::string AzureBlobSharedKeyEndpoint::str() const { return _url; }
 std::size_t AzureBlobSharedKeyEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  // The signature includes the HTTP method. This function sends its own HEAD request, because
-  // `get_file_size_using_head_impl()` never tells the endpoint which method the request uses.
   auto curl = create_curl_handle();
   setopt(curl);
   curl.setopt(CURLOPT_NOBODY, 1L);

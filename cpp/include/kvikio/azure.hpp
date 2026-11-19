@@ -16,9 +16,7 @@ namespace kvikio {
 
 /**
  * @brief A remote endpoint for Azure Blob Storage that signs every request with the storage account
- * key.
- *
- * Azure calls this way of signing "Shared Key".
+ * key. Azure calls this way of signing "Shared Key".
  */
 class AzureBlobSharedKeyEndpoint : public RemoteEndpoint {
  private:
