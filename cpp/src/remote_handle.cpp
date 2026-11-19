@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <kvikio/azure.hpp>
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
@@ -26,6 +27,7 @@
 #include <kvikio/detail/observation_recorder.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
 #include <kvikio/detail/remote_callback.hpp>
+#include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/detail/stream.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
@@ -152,21 +154,6 @@ void BounceBufferH2D::reset_for_retry() noexcept
   _host_offset = 0;
 }
 
-}  // namespace detail
-
-namespace {
-
-/**
- * @brief Get the file size, if using `HEAD` request to obtain the content-length header is
- * permitted.
- *
- * This function works for the `HttpEndpoint` and `S3Endpoint`, but not for
- * `S3EndpointWithPresignedUrl`, which does not allow `HEAD` request.
- *
- * @param endpoint The remote endpoint
- * @param url The URL of the remote file
- * @return The file size
- */
 std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string const& url)
 {
   auto curl = create_curl_handle();
@@ -187,13 +174,6 @@ std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string 
   return static_cast<std::size_t>(cl);
 }
 
-/**
- * @brief Set up the range request for libcurl. Use this method when HTTP range request is supposed.
- *
- * @param curl A curl handle
- * @param file_offset File offset
- * @param size read size
- */
 void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
   KVIKIO_EXPECT(size > 0, "cannot create a zero-size range request", std::invalid_argument);
@@ -201,6 +181,10 @@ void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::si
     std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
   curl.setopt(CURLOPT_RANGE, byte_range.c_str());
 }
+
+}  // namespace detail
+
+namespace {
 
 bool is_read_out_of_bounds(std::size_t file_offset, std::size_t size, std::size_t nbytes) noexcept
 {
@@ -247,6 +231,8 @@ char const* get_remote_endpoint_type_name(RemoteEndpointType remote_endpoint_typ
     case RemoteEndpointType::S3_PRESIGNED_URL: return "S3 with presigned URL";
     case RemoteEndpointType::WEBHDFS: return "WebHDFS";
     case RemoteEndpointType::HTTP: return "HTTP";
+    case RemoteEndpointType::AZURE_BLOB_SHARED_KEY: return "Azure Blob with Shared Key";
+    case RemoteEndpointType::AZURE_BLOB_OAUTH: return "Azure Blob with OAuth";
     case RemoteEndpointType::AUTO: return "AUTO";
     default:
       KVIKIO_FAIL("Unknown RemoteEndpointType: " +
@@ -267,7 +253,11 @@ std::vector<RemoteEndpointType> const& get_default_allow_list()
                                RemoteEndpointType::S3_PUBLIC,
                                RemoteEndpointType::S3_PRESIGNED_URL,
                                RemoteEndpointType::WEBHDFS,
-                               RemoteEndpointType::HTTP};
+                               RemoteEndpointType::HTTP,
+                               // TODO: Move these entries before HTTP once AUTO mode supports
+                               // Azure Blob URLs.
+                               RemoteEndpointType::AZURE_BLOB_SHARED_KEY,
+                               RemoteEndpointType::AZURE_BLOB_OAUTH};
   return res;
 }
 
@@ -299,6 +289,14 @@ std::unique_ptr<RemoteEndpoint> create_endpoint_from_type(std::string const& url
     case RemoteEndpointType::HTTP:
       if (!HttpEndpoint::is_url_valid(url)) { return nullptr; }
       return std::make_unique<HttpEndpoint>(url);
+
+    case RemoteEndpointType::AZURE_BLOB_SHARED_KEY:
+      if (!AzureBlobSharedKeyEndpoint::is_url_valid(url)) { return nullptr; }
+      return std::make_unique<AzureBlobSharedKeyEndpoint>(url);
+
+    case RemoteEndpointType::AZURE_BLOB_OAUTH:
+      if (!AzureBlobOAuthEndpoint::is_url_valid(url)) { return nullptr; }
+      return std::make_unique<AzureBlobOAuthEndpoint>(url);
 
     default: return nullptr;
   }
@@ -360,12 +358,12 @@ std::string HttpEndpoint::str() const { return _url; }
 std::size_t HttpEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return get_file_size_using_head_impl(*this, _url);
+  return detail::get_file_size_using_head_impl(*this, _url);
 }
 
 void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool HttpEndpoint::is_url_valid(std::string const& url) noexcept
@@ -514,13 +512,13 @@ std::string S3Endpoint::str() const { return _url; }
 std::size_t S3Endpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return get_file_size_using_head_impl(*this, _url);
+  return detail::get_file_size_using_head_impl(*this, _url);
 }
 
 void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3Endpoint::is_url_valid(std::string const& url) noexcept
@@ -559,7 +557,7 @@ std::string S3PublicEndpoint::str() const { return _url; }
 std::size_t S3PublicEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return get_file_size_using_head_impl(*this, _url);
+  return detail::get_file_size_using_head_impl(*this, _url);
 }
 
 void S3PublicEndpoint::setup_range_request(CurlHandle& curl,
@@ -567,7 +565,7 @@ void S3PublicEndpoint::setup_range_request(CurlHandle& curl,
                                            std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3PublicEndpoint::is_url_valid(std::string const& url) noexcept
@@ -666,7 +664,7 @@ void S3EndpointWithPresignedUrl::setup_range_request(CurlHandle& curl,
                                                      std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  setup_range_request_impl(curl, file_offset, size);
+  detail::setup_range_request_impl(curl, file_offset, size);
 }
 
 bool S3EndpointWithPresignedUrl::is_url_valid(std::string const& url) noexcept
