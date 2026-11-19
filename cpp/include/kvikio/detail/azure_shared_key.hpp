@@ -15,8 +15,8 @@
 
 namespace kvikio::detail {
 
-/// The Azure Storage REST API version that KvikIO sends in the `x-ms-version` header. As of
-/// 2026-10-29, 2026-04-06 is the latest version that Microsoft has deployed in every region.
+/// The Azure Storage REST API version that KvikIO sends in the `x-ms-version` header. See
+/// <https://learn.microsoft.com/en-us/rest/api/storageservices/versioning-for-the-azure-storage-services>.
 constexpr std::string_view azure_storage_api_version{"2026-04-06"};
 
 /**
