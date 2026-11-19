@@ -19,6 +19,9 @@ project(
   LANGUAGES CXX
 )
 
+# Find C++ libraries from RAPIDS wheels in site-packages.
+set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE)
+
 # Check if kvikio is already available. If so, it's the user's responsibility to ensure that the
 # CMake package is also available at build time of the Python kvikio package.
 find_package(kvikio "${RAPIDS_VERSION}")
