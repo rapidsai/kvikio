@@ -82,7 +82,7 @@ if(KvikIO_REMOTE_SUPPORT)
   # KvikIO calls libcrypto directly for HMAC-SHA256 and base64. Wheel builds must use the bundled
   # static OpenSSL, which get_libcurl.cmake has already found.
   if(NOT KvikIO_USE_STATIC_OPENSSL)
-    find_package(OpenSSL 3 REQUIRED COMPONENTS Crypto)
+    find_package(OpenSSL REQUIRED COMPONENTS Crypto)
   endif()
 endif()
 

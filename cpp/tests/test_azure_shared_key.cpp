@@ -32,8 +32,8 @@ TEST(AzureSharedKeyTest, headers_are_correct)
   // computed the expected signature:
   //   KEY=<as below>
   //   HEXKEY=$(printf '%s' "$KEY" | base64 -d | od -An -v -tx1 | tr -d ' \n')
-  //   STRING_TO_SIGN=$(printf '%s\n' GET "" "" "" "" "" "" "" "" "" "" "" \
-  //     "x-ms-date:Tue, 17 Nov 2026 03:04:05 GMT" "x-ms-range:bytes=0-15" \
+  //   STRING_TO_SIGN=$(printf '%s\n' GET "" "" "" "" "" "" "" "" "" "" ""
+  //     "x-ms-date:Tue, 17 Nov 2026 03:04:05 GMT" "x-ms-range:bytes=0-15"
   //     "x-ms-version:2026-04-06" "/kvikiodevstandard/basic/32MiB.bin")
   //   printf '%s' "$STRING_TO_SIGN" |
   //     openssl dgst -sha256 -mac HMAC -macopt "hexkey:$HEXKEY" -binary | base64 -w0
