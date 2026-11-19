@@ -48,6 +48,10 @@ enum class RemoteEndpointType : uint8_t {
                           ///< storage account key, which Azure calls Shared Key. The key comes
                           ///< from the AZURE_STORAGE_ACCOUNT_KEY environment variable, or is
                           ///< passed to `AzureBlobSharedKeyEndpoint` directly.
+  AZURE_BLOB_OAUTH,  ///< Azure Blob Storage endpoint that sends a Microsoft Entra ID access token,
+                     ///< which is an OAuth 2.0 bearer token, with every request. The token comes
+                     ///< from the AZURE_STORAGE_TOKEN environment variable, or is passed to
+                     ///< `AzureBlobOAuthEndpoint` directly.
 };
 
 /**
@@ -367,11 +371,12 @@ class RemoteHandle {
    *   - WebHDFS
    *   - HTTP/HTTPS
    *   - Azure Blob with Shared Key
+   *   - Azure Blob with OAuth
    * @param remote_endpoint_type The type of remote endpoint. Default is RemoteEndpointType::AUTO
    * which automatically detects the endpoint type from the URL. Can be explicitly set to
    * RemoteEndpointType::S3, RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS,
-   * RemoteEndpointType::HTTP, or RemoteEndpointType::AZURE_BLOB_SHARED_KEY to force a specific
-   * endpoint type.
+   * RemoteEndpointType::HTTP, RemoteEndpointType::AZURE_BLOB_SHARED_KEY, or
+   * RemoteEndpointType::AZURE_BLOB_OAUTH to force a specific endpoint type.
    * @param allow_list Optional list of allowed endpoint types. If provided:
    *   - If remote_endpoint_type is RemoteEndpointType::AUTO, Types are tried in the exact order
    *     specified until a match is found.
@@ -380,9 +385,10 @@ class RemoteHandle {
    *
    * If not provided, defaults to all supported types in this order: RemoteEndpointType::S3,
    * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, RemoteEndpointType::HTTP,
-   * and RemoteEndpointType::AZURE_BLOB_SHARED_KEY. AUTO mode never picks
-   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, because RemoteEndpointType::HTTP comes earlier in
-   * the list and also matches every Azure Blob URL.
+   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, and RemoteEndpointType::AZURE_BLOB_OAUTH. AUTO mode
+   * never picks RemoteEndpointType::AZURE_BLOB_SHARED_KEY or RemoteEndpointType::AZURE_BLOB_OAUTH,
+   * because RemoteEndpointType::HTTP comes earlier in the list and also matches every Azure Blob
+   * URL.
    * @param nbytes Optional file size in bytes. If not provided, the function sends additional
    * request to the server to query the file size.
    * @return A RemoteHandle object that can be used to read data from the remote file.

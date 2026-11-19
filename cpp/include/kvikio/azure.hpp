@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -68,6 +69,55 @@ class AzureBlobSharedKeyEndpoint : public RemoteEndpoint {
 
   /**
    * @brief Whether the given URL is valid for the Azure Blob endpoint with Shared Key.
+   *
+   * A valid URL has the form `https://<account>.blob.core.windows.net/<container>/<blob>` and has
+   * no query.
+   *
+   * @param url A URL.
+   * @return Boolean answer.
+   */
+  static bool is_url_valid(std::string const& url) noexcept;
+};
+
+/**
+ * @brief A remote endpoint for Azure Blob Storage that sends a Microsoft Entra ID access token with
+ * every request.
+ *
+ * The token is an OAuth 2.0 bearer token. KvikIO sends it as given and never renews it. Therefore
+ * the token must stay valid until the last read through this endpoint ends.
+ */
+class AzureBlobOAuthEndpoint : public RemoteEndpoint {
+ private:
+  // The URL as given by the caller.
+  std::string _url;
+  // The URL that is sent, with special characters in the path encoded.
+  std::string _encoded_url;
+  // The `Authorization` and `x-ms-version` headers, as the list that libcurl takes.
+  // `curl_slist_free_all()` frees the list.
+  std::unique_ptr<curl_slist, void (*)(curl_slist*)> _headers;
+
+ public:
+  /**
+   * @brief Create an Azure Blob endpoint that sends a Microsoft Entra ID access token with every
+   * request.
+   *
+   * @param url The URL of the blob, `https://<account>.blob.core.windows.net/<container>/<blob>`,
+   * without a query.
+   * @param token The access token, issued for Azure Storage (`https://storage.azure.com/`). If not
+   * given, the value of the `AZURE_STORAGE_TOKEN` environment variable is used.
+   * @exception std::invalid_argument if `url` is not valid for this endpoint, if no token is given
+   * or set in `AZURE_STORAGE_TOKEN`, or if the token is empty.
+   */
+  explicit AzureBlobOAuthEndpoint(std::string url, std::optional<std::string> token = std::nullopt);
+
+  ~AzureBlobOAuthEndpoint() override = default;
+  void setopt(CurlHandle& curl) override;
+  std::string str() const override;
+  std::size_t get_file_size() override;
+  void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
+
+  /**
+   * @brief Whether the given URL is valid for the Azure Blob endpoint with OAuth.
    *
    * A valid URL has the form `https://<account>.blob.core.windows.net/<container>/<blob>` and has
    * no query.

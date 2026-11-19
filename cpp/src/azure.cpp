@@ -19,6 +19,7 @@
 #include <kvikio/detail/crypto.hpp>
 #include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
+#include <kvikio/detail/remote_handle.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/remote_handle.hpp>
@@ -29,7 +30,7 @@ namespace kvikio {
 
 namespace {
 
-/// The parts of an Azure Blob URL that `AzureBlobSharedKeyEndpoint` needs.
+/// The parts of an Azure Blob URL that the Azure Blob endpoints need.
 struct BlobUrl {
   std::string encoded_url;
   std::string account;
@@ -52,8 +53,9 @@ std::optional<BlobUrl> parse_blob_url(std::string const& url)
     // libcurl cannot parse `url` at all.
     return std::nullopt;
   }
-  // A URL with a query is rejected, because `detail::azure_shared_key_headers()` cannot sign a
-  // query.
+  // A URL with a query is rejected. `detail::azure_shared_key_headers()` cannot sign a query, and
+  // `AzureBlobOAuthEndpoint` follows the same rule. Therefore a URL that works with one endpoint
+  // also works with the other.
   if (components.scheme != "https" || !components.host.has_value() ||
       !components.path.has_value() || components.query.has_value()) {
     return std::nullopt;
@@ -152,6 +154,67 @@ void AzureBlobSharedKeyEndpoint::setup_range_request(CurlHandle& curl,
 }
 
 bool AzureBlobSharedKeyEndpoint::is_url_valid(std::string const& url) noexcept
+{
+  try {
+    return parse_blob_url(url).has_value();
+  } catch (...) {
+    return false;
+  }
+}
+
+AzureBlobOAuthEndpoint::AzureBlobOAuthEndpoint(std::string url, std::optional<std::string> token)
+  : RemoteEndpoint{RemoteEndpointType::AZURE_BLOB_OAUTH},
+    _url{std::move(url)},
+    _headers{nullptr, curl_slist_free_all}
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  auto blob_url = parse_blob_url(_url);
+  KVIKIO_EXPECT(blob_url.has_value(),
+                "Invalid Azure Blob URL. It must have the form "
+                "https://<account>.blob.core.windows.net/<container>/<blob>, with no query.",
+                std::invalid_argument);
+  _encoded_url = std::move(blob_url->encoded_url);
+
+  auto const access_token = detail::unwrap_or_env(
+    std::move(token),
+    "AZURE_STORAGE_TOKEN",
+    "Azure Blob OAuth: must provide `token` if AZURE_STORAGE_TOKEN isn't set.");
+  KVIKIO_EXPECT(
+    !access_token->empty(), "Azure Blob OAuth: the token is empty.", std::invalid_argument);
+
+  // Azure rejects a request with a bearer token unless it also has an `x-ms-version` header.
+  for (auto const& header : {std::format("Authorization: Bearer {}", access_token.value()),
+                             std::format("x-ms-version: {}", detail::azure_storage_api_version)}) {
+    auto* const list_head = curl_slist_append(_headers.get(), header.c_str());
+    KVIKIO_EXPECT(list_head != nullptr, "curl_slist_append() failed", std::runtime_error);
+    if (_headers == nullptr) { _headers.reset(list_head); }
+  }
+}
+
+void AzureBlobOAuthEndpoint::setopt(CurlHandle& curl)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  curl.setopt(CURLOPT_URL, _encoded_url.c_str());
+  curl.setopt(CURLOPT_HTTPHEADER, _headers.get());
+}
+
+std::string AzureBlobOAuthEndpoint::str() const { return _url; }
+
+std::size_t AzureBlobOAuthEndpoint::get_file_size()
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  return detail::get_file_size_using_head_impl(*this, _url);
+}
+
+void AzureBlobOAuthEndpoint::setup_range_request(CurlHandle& curl,
+                                                 std::size_t file_offset,
+                                                 std::size_t size)
+{
+  KVIKIO_NVTX_FUNC_RANGE();
+  detail::setup_range_request_impl(curl, file_offset, size);
+}
+
+bool AzureBlobOAuthEndpoint::is_url_valid(std::string const& url) noexcept
 {
   try {
     return parse_blob_url(url).has_value();
