@@ -44,10 +44,10 @@ enum class RemoteEndpointType : uint8_t {
             ///< accessing files stored in HDFS over HTTP/HTTPS.
   HTTP,  ///< Generic HTTP or HTTPS endpoint for accessing files from web servers. This is used for
          ///< standard web resources that do not fit the other specific categories.
-  AZURE_BLOB_SHARED_KEY,  ///< Azure Blob Storage endpoint authorized with Shared Key, which signs
-                          ///< every request with the storage account key. Requires the
-                          ///< AZURE_STORAGE_ACCOUNT_KEY environment variable, or the key passed to
-                          ///< `AzureBlobSharedKeyEndpoint` directly.
+  AZURE_BLOB_SHARED_KEY,  ///< Azure Blob Storage endpoint that signs every request with the
+                          ///< storage account key, which Azure calls Shared Key. The key comes
+                          ///< from the AZURE_STORAGE_ACCOUNT_KEY environment variable, or is
+                          ///< passed to `AzureBlobSharedKeyEndpoint` directly.
 };
 
 /**
@@ -381,8 +381,8 @@ class RemoteHandle {
    * If not provided, defaults to all supported types in this order: RemoteEndpointType::S3,
    * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, RemoteEndpointType::HTTP,
    * and RemoteEndpointType::AZURE_BLOB_SHARED_KEY. AUTO mode never picks
-   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, because RemoteEndpointType::HTTP comes first and
-   * accepts every Azure Blob URL.
+   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, because RemoteEndpointType::HTTP comes earlier in
+   * the list and also matches every Azure Blob URL.
    * @param nbytes Optional file size in bytes. If not provided, the function sends additional
    * request to the server to query the file size.
    * @return A RemoteHandle object that can be used to read data from the remote file.

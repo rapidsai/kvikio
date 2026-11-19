@@ -82,7 +82,7 @@ class CurlHandle {
   char _errbuf[CURL_ERROR_SIZE];
   LibCurl::UniqueHandlePtr _handle;
 
-  // Builds the headers of each attempt.
+  // The function that builds the request headers right before each send, including each retry.
   std::function<std::vector<std::string>()> _header_builder;
 
   using HeaderList = std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)>;
@@ -155,22 +155,25 @@ class CurlHandle {
   }
 
   /**
-   * @brief Set a function that builds the request headers again before every attempt of a
-   * transfer.
+   * @brief Set a function that builds the request headers right before each send, including each
+   * retry.
    *
-   * This is for headers that expire, such as a signature over the current time, because a queued
-   * or retried request can be sent long after it was set up.
+   * For example, an Azure Shared Key signature is based on the current time, and Azure
+   * rejects it once it is more than 15 minutes old. A request can wait in a queue, or wait to
+   * retry, for longer than that.
    *
-   * The headers replace any `CURLOPT_HTTPHEADER` set on this handle.
+   * These headers replace any headers set earlier with `CURLOPT_HTTPHEADER`.
    *
-   * @param header_builder Returns the header lines, each formatted as `"<name>: <value>"`.
+   * @param header_builder A function that returns the headers, each as a `"<name>: <value>"`
+   * string.
    */
   void set_per_attempt_header_builder(std::function<std::vector<std::string>()> header_builder);
 
   /**
-   * @brief Build the per-attempt headers now and pass them to libcurl as `CURLOPT_HTTPHEADER`.
+   * @brief Call the function given to `set_per_attempt_header_builder()`, and give the headers it
+   * returns to libcurl.
    *
-   * Does nothing if `set_per_attempt_header_builder()` was not called.
+   * If no function was given, this does nothing.
    */
   void refresh_per_attempt_headers();
 
