@@ -51,7 +51,8 @@ std::vector<std::string> azure_shared_key_headers(std::string_view verb,
   //   headers.
   string_to_sign.append(11, '\n');
 
-  // The string to sign lists the x-ms-* headers sorted by name.
+  // The string to sign lists the x-ms-* headers sorted by name. Keep it sorted when adding headers.
+  // Otherwise Azure will reject the signature.
   std::vector<std::pair<std::string_view, std::string_view>> ms_headers;
   ms_headers.emplace_back("x-ms-date", date);
   if (range.has_value()) { ms_headers.emplace_back("x-ms-range", range.value()); }

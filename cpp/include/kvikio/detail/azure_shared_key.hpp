@@ -15,8 +15,8 @@
 
 namespace kvikio::detail {
 
-/// The Azure Storage REST API version that KvikIO sends in the `x-ms-version` header. As of
-/// 2026-10-29, 2026-04-06 is the latest version that Microsoft has deployed in every region.
+/// The Azure Storage REST API version that KvikIO sends in the `x-ms-version` header. See
+/// <https://learn.microsoft.com/en-us/rest/api/storageservices/versioning-for-the-azure-storage-services>.
 constexpr std::string_view azure_storage_api_version{"2026-04-06"};
 
 /**
@@ -43,7 +43,8 @@ constexpr std::string_view azure_storage_api_version{"2026-04-06"};
  * @param account The storage account name.
  * @param key The account key, already decoded from base64.
  * @param path The URL path of the blob, `"/<container>/<blob>"`, encoded exactly as in the request
- * URL.
+ * URL. The request must have no query, such as `?comp=list`. This function does not support signing
+ * a query. If the path contains query, Azure will reject the request.
  * @param range The value of the `x-ms-range` header, such as `"bytes=0-15"`, or `std::nullopt` to
  * send no range.
  * @param date The value of the `x-ms-date` header, as returned by `format_x_ms_date()`.
