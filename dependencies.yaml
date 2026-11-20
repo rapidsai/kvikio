@@ -157,6 +157,7 @@ dependencies:
           - cuda-nvcc
           - cxx-compiler
           - libcurl>=8.13.0,<9.0
+          - openssl
     specific:
       - output_types: conda
         matrices:

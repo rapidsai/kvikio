@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <kvikio/azure.hpp>
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/env.hpp>
@@ -247,6 +248,7 @@ char const* get_remote_endpoint_type_name(RemoteEndpointType remote_endpoint_typ
     case RemoteEndpointType::S3_PRESIGNED_URL: return "S3 with presigned URL";
     case RemoteEndpointType::WEBHDFS: return "WebHDFS";
     case RemoteEndpointType::HTTP: return "HTTP";
+    case RemoteEndpointType::AZURE_BLOB_SHARED_KEY: return "Azure Blob with Shared Key";
     case RemoteEndpointType::AUTO: return "AUTO";
     default:
       KVIKIO_FAIL("Unknown RemoteEndpointType: " +
@@ -267,7 +269,10 @@ std::vector<RemoteEndpointType> const& get_default_allow_list()
                                RemoteEndpointType::S3_PUBLIC,
                                RemoteEndpointType::S3_PRESIGNED_URL,
                                RemoteEndpointType::WEBHDFS,
-                               RemoteEndpointType::HTTP};
+                               RemoteEndpointType::HTTP,
+                               // TODO: Move this entry before HTTP once AUTO mode supports Azure
+                               // Blob URLs.
+                               RemoteEndpointType::AZURE_BLOB_SHARED_KEY};
   return res;
 }
 
@@ -299,6 +304,10 @@ std::unique_ptr<RemoteEndpoint> create_endpoint_from_type(std::string const& url
     case RemoteEndpointType::HTTP:
       if (!HttpEndpoint::is_url_valid(url)) { return nullptr; }
       return std::make_unique<HttpEndpoint>(url);
+
+    case RemoteEndpointType::AZURE_BLOB_SHARED_KEY:
+      if (!AzureBlobSharedKeyEndpoint::is_url_valid(url)) { return nullptr; }
+      return std::make_unique<AzureBlobSharedKeyEndpoint>(url);
 
     default: return nullptr;
   }

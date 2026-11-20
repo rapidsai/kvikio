@@ -82,6 +82,12 @@ class CurlHandle {
   char _errbuf[CURL_ERROR_SIZE];
   LibCurl::UniqueHandlePtr _handle;
 
+  // The function that builds the request headers right before each send, including each retry.
+  std::function<std::vector<std::string>()> _header_builder;
+
+  using HeaderList = std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)>;
+  HeaderList _headers{nullptr, curl_slist_free_all};
+
  public:
   /**
    * @brief Construct a new curl handle.
@@ -147,6 +153,29 @@ class CurlHandle {
       KVIKIO_FAIL(ss.str(), std::runtime_error);
     }
   }
+
+  /**
+   * @brief Set a function that builds the request headers right before each send, including each
+   * retry.
+   *
+   * For example, an Azure Shared Key signature is based on the current time, and Azure
+   * rejects it once it is more than 15 minutes old. A request can wait in a queue, or wait to
+   * retry, for longer than that.
+   *
+   * These headers replace any headers set earlier with `CURLOPT_HTTPHEADER`.
+   *
+   * @param header_builder A function that returns the headers, each as a `"<name>: <value>"`
+   * string.
+   */
+  void set_per_attempt_header_builder(std::function<std::vector<std::string>()> header_builder);
+
+  /**
+   * @brief Call the function given to `set_per_attempt_header_builder()`, and give the headers it
+   * returns to libcurl.
+   *
+   * If no function was given, this does nothing.
+   */
+  void refresh_per_attempt_headers();
 
   /**
    * @brief Perform a blocking network transfer using previously set options.

@@ -260,6 +260,8 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
     transfer->ctx.pinned_buffer = transfer->buffer.get();
   }
 
+  transfer->curl->refresh_per_attempt_headers();
+
   // Hand the easy handle to libcurl. A failure here is fatal for the pool. The transfer stays where
   // it is. `fail_all_pending()` then resolves it, along with everything else, with this exception.
   auto* easy    = transfer->curl->handle();
