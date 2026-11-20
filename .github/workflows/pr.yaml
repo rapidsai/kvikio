@@ -191,6 +191,7 @@ jobs:
       pull-requests: read
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@main
     with:
+      ignored_pr_jobs: "docs-preview"
       # Main builds seed this cache. PR merge refs can restore it but should not create
       # duplicate archives that are inaccessible to other PRs.
       pre-commit-cache-read-only: true
@@ -301,6 +302,16 @@ jobs:
       arch: "${{ matrix.arch }}"
       container_image: "rapidsai/ci-conda:27.02-cuda${{ matrix.CUDA_VER }}-${{ matrix.LINUX_VER }}-py${{ matrix.PY_VER }}"
       script: "ci/build_docs.sh"
+  docs-preview:
+    needs: [docs-build]
+    if: needs.docs-build.result == 'success'
+    permissions:
+      statuses: write
+    uses: rapidsai/shared-workflows/.github/workflows/docs-preview-status.yaml@main
+    with:
+      docs-project: kvikio
+      docs-preview-urls: ${{ needs.docs-build.outputs.docs-preview-urls }}
+      sha: ${{ github.sha }}
   publish-api-docs:
     needs: [docs-build]
     permissions:
@@ -354,7 +365,7 @@ jobs:
       pull-requests: read
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
-      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(min_by(.PY_VER|split(".")|map(tonumber)))
       build_type: pull-request
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
