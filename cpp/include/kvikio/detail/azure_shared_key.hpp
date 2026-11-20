@@ -44,7 +44,7 @@ constexpr std::string_view azure_storage_api_version{"2026-04-06"};
  * @param key The account key, already decoded from base64.
  * @param path The URL path of the blob, `"/<container>/<blob>"`, encoded exactly as in the request
  * URL. The request must have no query, such as `?comp=list`. This function does not support signing
- * a query. If the path contains query, Azure will reject the request.
+ * a query. If the path contains a query, Azure will reject the request.
  * @param range The value of the `x-ms-range` header, such as `"bytes=0-15"`, or `std::nullopt` to
  * send no range.
  * @param date The value of the `x-ms-date` header, as returned by `format_x_ms_date()`.
