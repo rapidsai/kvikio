@@ -75,6 +75,7 @@ outputs:
         - libcurl ==${{ libcurl_version }}
         - libcufile-dev
         - libnuma
+        - openssl
         - rapids-logger =0.3
 
   - package:
@@ -98,6 +99,7 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - libcurl ==${{ libcurl_version }}
+        - openssl
         - rapids-logger =0.3
       run:
         - if: cuda_version >= "13.0"

@@ -79,6 +79,11 @@ if(KvikIO_REMOTE_SUPPORT)
   if(TARGET libcurl_static)
     set_target_properties(libcurl_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
   endif()
+  # KvikIO calls libcrypto directly for HMAC-SHA256 and base64. Wheel builds must use the bundled
+  # static OpenSSL, which get_libcurl.cmake has already found.
+  if(NOT KvikIO_USE_STATIC_OPENSSL)
+    find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+  endif()
 endif()
 
 # CUDA is now required
@@ -197,6 +202,8 @@ if(KvikIO_REMOTE_SUPPORT)
     SOURCES
     "src/hdfs.cpp"
     "src/remote_handle.cpp"
+    "src/detail/azure_shared_key.cpp"
+    "src/detail/crypto.cpp"
     "src/detail/curl_share.cpp"
     "src/detail/http_retry.cpp"
     "src/detail/multi_poll_reactor.cpp"
@@ -237,6 +244,7 @@ target_link_libraries(
   PUBLIC Threads::Threads BS::thread_pool ${CMAKE_DL_LIBS} $<TARGET_NAME_IF_EXISTS:nvtx3::nvtx3-cpp>
          rapids_logger::rapids_logger
   PRIVATE $<TARGET_NAME_IF_EXISTS:CURL::libcurl>
+          $<$<BOOL:${KvikIO_REMOTE_SUPPORT}>:OpenSSL::Crypto>
 )
 
 target_compile_definitions(
