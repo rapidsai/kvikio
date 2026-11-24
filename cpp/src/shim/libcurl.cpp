@@ -19,6 +19,7 @@
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/detail/curl_share.hpp>
 #include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
@@ -212,12 +213,7 @@ void CurlHandle::refresh_per_attempt_headers()
 {
   if (!_header_builder) { return; }
 
-  HeaderList headers{nullptr, curl_slist_free_all};
-  for (auto const& header : _header_builder()) {
-    auto* const list_head = curl_slist_append(headers.get(), header.c_str());
-    KVIKIO_EXPECT(list_head != nullptr, "curl_slist_append() failed", std::runtime_error);
-    if (headers == nullptr) { headers.reset(list_head); }
-  }
+  auto headers = detail::make_curl_header_list(_header_builder());
   setopt(CURLOPT_HTTPHEADER, headers.get());
   // This assignment frees the old list, which libcurl no longer uses, and makes `_headers` own
   // the new list.

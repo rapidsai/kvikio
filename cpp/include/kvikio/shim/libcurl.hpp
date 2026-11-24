@@ -18,6 +18,7 @@
 
 #include <curl/curl.h>
 
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/error.hpp>
 
 namespace kvikio {
@@ -85,8 +86,7 @@ class CurlHandle {
   // The function that builds the request headers right before each send, including each retry.
   std::function<std::vector<std::string>()> _header_builder;
 
-  using HeaderList = std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)>;
-  HeaderList _headers{nullptr, curl_slist_free_all};
+  detail::CurlHeaderList _headers;
 
  public:
   /**

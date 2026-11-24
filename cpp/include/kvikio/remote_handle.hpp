@@ -13,11 +13,10 @@
 #include <vector>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
-
-struct curl_slist;
 
 namespace kvikio {
 
@@ -186,7 +185,7 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _url;
   std::string _aws_sigv4;
   std::string _aws_userpwd;
-  curl_slist* _curl_header_list{};
+  detail::CurlHeaderList _curl_header_list;
 
  public:
   /**
@@ -264,7 +263,7 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_endpoint_url      = std::nullopt,
              std::optional<std::string> aws_session_token     = std::nullopt);
 
-  ~S3Endpoint() override;
+  ~S3Endpoint() override = default;
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
   std::size_t get_file_size() override;
