@@ -15,9 +15,9 @@
 #include <vector>
 
 #include <kvikio/azure.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/detail/azure_shared_key.hpp>
 #include <kvikio/detail/crypto.hpp>
-#include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/url.hpp>
 #include <kvikio/error.hpp>
@@ -93,11 +93,19 @@ AzureBlobSharedKeyEndpoint::AzureBlobSharedKeyEndpoint(std::string url,
   _account      = std::move(blob_url->account);
   _encoded_path = std::move(blob_url->encoded_path);
 
-  auto const account_key_base64 = detail::unwrap_or_env(
-    std::move(account_key),
-    "AZURE_STORAGE_ACCOUNT_KEY",
-    "Azure Blob Shared Key: must provide `account_key` if AZURE_STORAGE_ACCOUNT_KEY isn't set.");
-  _account_key = detail::base64_decode(account_key_base64.value());
+  if (!account_key.has_value()) {
+    auto [env_var_name, env_account_key, is_set] =
+      getenv_or({"AZURE_STORAGE_ACCOUNT_KEY", "AZURE_STORAGE_ACCESS_KEY", "AZURE_STORAGE_KEY"},
+                std::string{},
+                true /* hide_values */);
+    KVIKIO_EXPECT(is_set,
+                  "Azure Blob Shared Key: must provide `account_key` if none of "
+                  "AZURE_STORAGE_ACCOUNT_KEY, AZURE_STORAGE_ACCESS_KEY and AZURE_STORAGE_KEY is "
+                  "set.",
+                  std::invalid_argument);
+    account_key = std::move(env_account_key);
+  }
+  _account_key = detail::base64_decode(account_key.value());
   KVIKIO_EXPECT(!_account_key.empty(),
                 "Azure Blob Shared Key: the account key is empty.",
                 std::invalid_argument);

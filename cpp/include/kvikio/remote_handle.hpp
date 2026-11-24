@@ -46,8 +46,9 @@ enum class RemoteEndpointType : uint8_t {
          ///< standard web resources that do not fit the other specific categories.
   AZURE_BLOB_SHARED_KEY,  ///< Azure Blob Storage endpoint that signs every request with the
                           ///< storage account key, which Azure calls Shared Key. The key comes
-                          ///< from the AZURE_STORAGE_ACCOUNT_KEY environment variable, or is
-                          ///< passed to `AzureBlobSharedKeyEndpoint` directly.
+                          ///< from the AZURE_STORAGE_ACCOUNT_KEY, AZURE_STORAGE_ACCESS_KEY or
+                          ///< AZURE_STORAGE_KEY environment variable, or is passed to
+                          ///< `AzureBlobSharedKeyEndpoint` directly.
 };
 
 /**

@@ -49,13 +49,21 @@ class AzureBlobSharedKeyEndpoint : public RemoteEndpoint {
   /**
    * @brief Create an Azure Blob endpoint that signs every request with the storage account key.
    *
+   * If `account_key` is not given, the key comes from an environment variable. Tools name this
+   * variable differently, and KvikIO accepts the names that these tools read:
+   * - Azure CLI: `AZURE_STORAGE_KEY`
+   * - Python package adlfs: `AZURE_STORAGE_ACCOUNT_KEY`
+   * - Rust crate object_store: `AZURE_STORAGE_ACCOUNT_KEY` or `AZURE_STORAGE_ACCESS_KEY`
+   *
+   * If more than one of these variables is set, all must have the same value.
+   *
    * @param url The URL of the blob, `https://<account>.blob.core.windows.net/<container>/<blob>`,
    * without a query.
-   * @param account_key The storage account key, in base64 as Azure shows it. If not given, the
-   * value of the `AZURE_STORAGE_ACCOUNT_KEY` environment variable is used.
+   * @param account_key The storage account key, in base64 as Azure shows it. If not given, the key
+   * comes from one of the environment variables listed above.
    * @exception std::invalid_argument if `url` is not valid for this endpoint, if no account key is
-   * given or set in `AZURE_STORAGE_ACCOUNT_KEY`, or if the account key is empty or not valid
-   * base64.
+   * given or set in these environment variables, if these environment variables have different
+   * values, or if the account key is empty or not valid base64.
    */
   explicit AzureBlobSharedKeyEndpoint(std::string url,
                                       std::optional<std::string> account_key = std::nullopt);
