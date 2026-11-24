@@ -76,6 +76,7 @@ TEST(HttpRetryTest, retryable_transport_failures)
                                CURLE_COULDNT_CONNECT,
                                CURLE_RECV_ERROR,
                                CURLE_SEND_ERROR,
+                               CURLE_SSL_CONNECT_ERROR,
                                CURLE_PARTIAL_FILE,
                                CURLE_GOT_NOTHING}) {
     auto const outcome = policy.evaluate(curl_code, 0, 1, "", error_prefix);
