@@ -66,6 +66,8 @@ RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default
  * @param env_var_names Candidate list containing the names of environment variable
  * @param default_val Default value of the environment variable, if none of the candidates has been
  * found
+ * @param hide_values Whether to leave the values out of the error message when two candidates are
+ * set to different values. Set it to true for a secret, such as an account key.
  * @return A tuple of (`env_var_name`, `result`, `has_found`), where:
  *   - If the environment variable is not set by any of the candidates, `has_found` will be false,
  * `result` will be `default_val`, and `env_var_name` will be empty.
@@ -82,7 +84,7 @@ RemoteIOBackend getenv_or(std::string_view env_var_name, RemoteIOBackend default
  */
 template <typename T>
 std::tuple<std::string_view, T, bool> getenv_or(
-  std::initializer_list<std::string_view> env_var_names, T default_val)
+  std::initializer_list<std::string_view> env_var_names, T default_val, bool hide_values = false)
 {
   KVIKIO_EXPECT(env_var_names.size() > 0,
                 "`env_var_names` must contain at least one environment variable name.",
@@ -96,9 +98,11 @@ std::tuple<std::string_view, T, bool> getenv_or(
 
     if (!env_name_target.empty() && env_val_target != env_val) {
       std::stringstream ss;
-      ss << "Environment variable " << env_var_name << " (" << env_val
-         << ") has already been set by its alias " << env_name_target << " (" << env_val_target
-         << ") with a different value.";
+      ss << "Environment variable " << env_var_name;
+      if (!hide_values) { ss << " (" << env_val << ")"; }
+      ss << " has already been set by its alias " << env_name_target;
+      if (!hide_values) { ss << " (" << env_val_target << ")"; }
+      ss << " with a different value.";
       KVIKIO_FAIL(ss.str(), std::invalid_argument);
     }
 

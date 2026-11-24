@@ -158,9 +158,8 @@ class CurlHandle {
    * @brief Set a function that builds the request headers right before each send, including each
    * retry.
    *
-   * For example, an Azure Shared Key signature is based on the current time, and Azure
-   * rejects it once it is more than 15 minutes old. A request can wait in a queue, or wait to
-   * retry, for longer than that.
+   * For example, Azure rejects a Shared Key signature that was made more than 15 minutes before the
+   * request arrives, necessitating a signature refresh right before each send.
    *
    * These headers replace any headers set earlier with `CURLOPT_HTTPHEADER`.
    *

@@ -46,8 +46,9 @@ enum class RemoteEndpointType : uint8_t {
          ///< standard web resources that do not fit the other specific categories.
   AZURE_BLOB_SHARED_KEY,  ///< Azure Blob Storage endpoint that signs every request with the
                           ///< storage account key, which Azure calls Shared Key. The key comes
-                          ///< from the AZURE_STORAGE_ACCOUNT_KEY environment variable, or is
-                          ///< passed to `AzureBlobSharedKeyEndpoint` directly.
+                          ///< from the AZURE_STORAGE_ACCOUNT_KEY, AZURE_STORAGE_ACCESS_KEY or
+                          ///< AZURE_STORAGE_KEY environment variable, or is passed to
+                          ///< `AzureBlobSharedKeyEndpoint` directly.
   AZURE_BLOB_OAUTH,  ///< Azure Blob Storage endpoint that sends a Microsoft Entra ID access token,
                      ///< which is an OAuth 2.0 bearer token, with every request. The token comes
                      ///< from the AZURE_STORAGE_TOKEN environment variable, or is passed to
@@ -385,10 +386,10 @@ class RemoteHandle {
    *
    * If not provided, defaults to all supported types in this order: RemoteEndpointType::S3,
    * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, RemoteEndpointType::HTTP,
-   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, and RemoteEndpointType::AZURE_BLOB_OAUTH. AUTO mode
-   * never picks RemoteEndpointType::AZURE_BLOB_SHARED_KEY or RemoteEndpointType::AZURE_BLOB_OAUTH,
-   * because RemoteEndpointType::HTTP comes earlier in the list and also matches every Azure Blob
-   * URL.
+   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, and RemoteEndpointType::AZURE_BLOB_OAUTH. With this
+   * default list, AUTO mode never picks RemoteEndpointType::AZURE_BLOB_SHARED_KEY or
+   * RemoteEndpointType::AZURE_BLOB_OAUTH, because RemoteEndpointType::HTTP comes earlier and also
+   * matches every Azure Blob URL.
    * @param nbytes Optional file size in bytes. If not provided, the function sends additional
    * request to the server to query the file size.
    * @return A RemoteHandle object that can be used to read data from the remote file.
