@@ -380,9 +380,9 @@ class RemoteHandle {
    *
    * If not provided, defaults to all supported types in this order: RemoteEndpointType::S3,
    * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, RemoteEndpointType::HTTP,
-   * and RemoteEndpointType::AZURE_BLOB_SHARED_KEY. AUTO mode never picks
-   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, because RemoteEndpointType::HTTP comes earlier in
-   * the list and also matches every Azure Blob URL.
+   * and RemoteEndpointType::AZURE_BLOB_SHARED_KEY. With this default list, AUTO mode never picks
+   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, because RemoteEndpointType::HTTP comes earlier and
+   * also matches every Azure Blob URL.
    * @param nbytes Optional file size in bytes. If not provided, the function sends additional
    * request to the server to query the file size.
    * @return A RemoteHandle object that can be used to read data from the remote file.
