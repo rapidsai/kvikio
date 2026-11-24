@@ -61,9 +61,39 @@ class AzureBlobSharedKeyEndpoint : public RemoteEndpoint {
                                       std::optional<std::string> account_key = std::nullopt);
 
   ~AzureBlobSharedKeyEndpoint() override = default;
+
+  /**
+   * @brief Set the URL of the blob on a curl handle.
+   *
+   * The signed headers are not set here. `get_file_size()` and `setup_range_request()` set them.
+   *
+   * @param curl The curl handle.
+   */
   void setopt(CurlHandle& curl) override;
+
+  /**
+   * @brief Get the URL of the blob as given to the constructor.
+   *
+   * @return The URL.
+   */
   std::string str() const override;
+
+  /**
+   * @brief Get the size of the blob from a signed HEAD request.
+   *
+   * @return The size of the blob in bytes.
+   */
   std::size_t get_file_size() override;
+
+  /**
+   * @brief Set up a curl handle to read part of the blob, with the range in a signed `x-ms-range`
+   * header.
+   *
+   * @param curl The curl handle.
+   * @param file_offset The offset in the blob of the first byte to read.
+   * @param size The number of bytes to read.
+   * @exception std::invalid_argument if `size` is 0.
+   */
   void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 
   /**
