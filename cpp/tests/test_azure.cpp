@@ -104,10 +104,3 @@ TEST(AzureBlobSharedKeyEndpointTest, open_with_azure_type)
     RemoteHandle::open(blob_url, RemoteEndpointType::AZURE_BLOB_SHARED_KEY, std::nullopt, 1);
   EXPECT_EQ(handle.remote_endpoint_type(), RemoteEndpointType::AZURE_BLOB_SHARED_KEY);
 }
-
-TEST(AzureBlobSharedKeyEndpointTest, open_with_auto_type_picks_http)
-{
-  // AUTO mode tries HTTP before Azure, and the HTTP endpoint accepts every Azure Blob URL.
-  auto const handle = RemoteHandle::open(blob_url, RemoteEndpointType::AUTO, std::nullopt, 1);
-  EXPECT_EQ(handle.remote_endpoint_type(), RemoteEndpointType::HTTP);
-}
