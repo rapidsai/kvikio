@@ -13,11 +13,10 @@
 #include <vector>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/error.hpp>
 #include <kvikio/threadpool_wrapper.hpp>
 #include <kvikio/utils.hpp>
-
-struct curl_slist;
 
 namespace kvikio {
 
@@ -44,6 +43,11 @@ enum class RemoteEndpointType : uint8_t {
             ///< accessing files stored in HDFS over HTTP/HTTPS.
   HTTP,  ///< Generic HTTP or HTTPS endpoint for accessing files from web servers. This is used for
          ///< standard web resources that do not fit the other specific categories.
+  AZURE_BLOB_SHARED_KEY,  ///< Azure Blob Storage endpoint that signs every request with the
+                          ///< storage account key, which Azure calls Shared Key. The key comes
+                          ///< from the AZURE_STORAGE_ACCOUNT_KEY, AZURE_STORAGE_ACCESS_KEY or
+                          ///< AZURE_STORAGE_KEY environment variable, or is passed to
+                          ///< `AzureBlobSharedKeyEndpoint` directly.
 };
 
 /**
@@ -177,7 +181,7 @@ class S3Endpoint : public RemoteEndpoint {
   std::string _url;
   std::string _aws_sigv4;
   std::string _aws_userpwd;
-  curl_slist* _curl_header_list{};
+  detail::CurlHeaderList _curl_header_list;
 
  public:
   /**
@@ -255,7 +259,7 @@ class S3Endpoint : public RemoteEndpoint {
              std::optional<std::string> aws_endpoint_url      = std::nullopt,
              std::optional<std::string> aws_session_token     = std::nullopt);
 
-  ~S3Endpoint() override;
+  ~S3Endpoint() override = default;
   void setopt(CurlHandle& curl) override;
   std::string str() const override;
   std::size_t get_file_size() override;
@@ -354,18 +358,20 @@ class RemoteHandle {
    * @brief Create a remote file handle from a URL.
    *
    * This function creates a RemoteHandle for reading data from various remote endpoints
-   * including HTTP/HTTPS servers, AWS S3 buckets, S3 presigned URLs, and WebHDFS.
-   * The endpoint type can be automatically detected from the URL or explicitly specified.
+   * including HTTP/HTTPS servers, AWS S3 buckets, S3 presigned URLs, WebHDFS, and Azure Blob
+   * Storage. The endpoint type can be automatically detected from the URL or explicitly specified.
    *
    * @param url The URL of the remote file. Supported formats include:
    *   - S3 with credentials
    *   - S3 presigned URL
    *   - WebHDFS
    *   - HTTP/HTTPS
+   *   - Azure Blob with Shared Key
    * @param remote_endpoint_type The type of remote endpoint. Default is RemoteEndpointType::AUTO
    * which automatically detects the endpoint type from the URL. Can be explicitly set to
-   * RemoteEndpointType::S3, RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, or
-   * RemoteEndpointType::HTTP to force a specific endpoint type.
+   * RemoteEndpointType::S3, RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS,
+   * RemoteEndpointType::HTTP, or RemoteEndpointType::AZURE_BLOB_SHARED_KEY to force a specific
+   * endpoint type.
    * @param allow_list Optional list of allowed endpoint types. If provided:
    *   - If remote_endpoint_type is RemoteEndpointType::AUTO, Types are tried in the exact order
    *     specified until a match is found.
@@ -373,8 +379,10 @@ class RemoteHandle {
    *     thrown.
    *
    * If not provided, defaults to all supported types in this order: RemoteEndpointType::S3,
-   * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, and
-   * RemoteEndpointType::HTTP.
+   * RemoteEndpointType::S3_PRESIGNED_URL, RemoteEndpointType::WEBHDFS, RemoteEndpointType::HTTP,
+   * and RemoteEndpointType::AZURE_BLOB_SHARED_KEY. With this default list, AUTO mode never picks
+   * RemoteEndpointType::AZURE_BLOB_SHARED_KEY, because RemoteEndpointType::HTTP comes earlier and
+   * also matches every Azure Blob URL.
    * @param nbytes Optional file size in bytes. If not provided, the function sends additional
    * request to the server to query the file size.
    * @return A RemoteHandle object that can be used to read data from the remote file.

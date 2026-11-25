@@ -18,6 +18,7 @@
 
 #include <curl/curl.h>
 
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/error.hpp>
 
 namespace kvikio {
@@ -81,6 +82,11 @@ class CurlHandle {
  private:
   char _errbuf[CURL_ERROR_SIZE];
   LibCurl::UniqueHandlePtr _handle;
+
+  // The function that builds the request headers right before each send, including each retry.
+  std::function<std::vector<std::string>()> _header_builder;
+
+  detail::CurlHeaderList _headers;
 
  public:
   /**
@@ -147,6 +153,35 @@ class CurlHandle {
       KVIKIO_FAIL(ss.str(), std::runtime_error);
     }
   }
+
+  /**
+   * @brief Set a function that builds the request headers right before each send, including each
+   * retry.
+   *
+   * For example, Azure rejects a Shared Key signature that was made more than 15 minutes before the
+   * request arrives, necessitating a signature refresh right before each send.
+   *
+   * These headers replace any headers set earlier with `CURLOPT_HTTPHEADER`.
+   *
+   * The function runs on the thread that sends the request.
+   * - `EASY_THREADPOOL`: that thread serves only this request.
+   * - `MULTI_POLL`: that thread serves many transfers at once, and a slow function would delay
+   * them.
+   *
+   * If the function throws, the request fails with that exception and is not retried.
+   *
+   * @param header_builder A function that returns the headers, each as a `"<name>: <value>"`
+   * string.
+   */
+  void set_per_attempt_header_builder(std::function<std::vector<std::string>()> header_builder);
+
+  /**
+   * @brief Call the function given to `set_per_attempt_header_builder()`, and give the headers it
+   * returns to libcurl.
+   *
+   * If no function was given, this does nothing.
+   */
+  void refresh_per_attempt_headers();
 
   /**
    * @brief Perform a blocking network transfer using previously set options.

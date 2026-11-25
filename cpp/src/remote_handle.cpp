@@ -16,8 +16,10 @@
 #include <stdexcept>
 #include <string>
 
+#include <kvikio/azure.hpp>
 #include <kvikio/bounce_buffer.hpp>
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/detail/env.hpp>
 #include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/io_event_barrier.hpp>
@@ -247,6 +249,7 @@ char const* get_remote_endpoint_type_name(RemoteEndpointType remote_endpoint_typ
     case RemoteEndpointType::S3_PRESIGNED_URL: return "S3 with presigned URL";
     case RemoteEndpointType::WEBHDFS: return "WebHDFS";
     case RemoteEndpointType::HTTP: return "HTTP";
+    case RemoteEndpointType::AZURE_BLOB_SHARED_KEY: return "Azure Blob with Shared Key";
     case RemoteEndpointType::AUTO: return "AUTO";
     default:
       KVIKIO_FAIL("Unknown RemoteEndpointType: " +
@@ -267,7 +270,10 @@ std::vector<RemoteEndpointType> const& get_default_allow_list()
                                RemoteEndpointType::S3_PUBLIC,
                                RemoteEndpointType::S3_PRESIGNED_URL,
                                RemoteEndpointType::WEBHDFS,
-                               RemoteEndpointType::HTTP};
+                               RemoteEndpointType::HTTP,
+                               // TODO: Move this entry before HTTP once AUTO mode supports Azure
+                               // Blob URLs.
+                               RemoteEndpointType::AZURE_BLOB_SHARED_KEY};
   return res;
 }
 
@@ -299,6 +305,10 @@ std::unique_ptr<RemoteEndpoint> create_endpoint_from_type(std::string const& url
     case RemoteEndpointType::HTTP:
       if (!HttpEndpoint::is_url_valid(url)) { return nullptr; }
       return std::make_unique<HttpEndpoint>(url);
+
+    case RemoteEndpointType::AZURE_BLOB_SHARED_KEY:
+      if (!AzureBlobSharedKeyEndpoint::is_url_valid(url)) { return nullptr; }
+      return std::make_unique<AzureBlobSharedKeyEndpoint>(url);
 
     default: return nullptr;
   }
@@ -390,7 +400,7 @@ void S3Endpoint::setopt(CurlHandle& curl)
 
   curl.setopt(CURLOPT_AWS_SIGV4, _aws_sigv4.c_str());
   curl.setopt(CURLOPT_USERPWD, _aws_userpwd.c_str());
-  if (_curl_header_list) { curl.setopt(CURLOPT_HTTPHEADER, _curl_header_list); }
+  if (_curl_header_list) { curl.setopt(CURLOPT_HTTPHEADER, _curl_header_list.get()); }
 }
 
 std::string S3Endpoint::url_from_bucket_and_object(std::string bucket_name,
@@ -474,18 +484,13 @@ S3Endpoint::S3Endpoint(std::string url,
   // operations. They need a session token to work.
   if (access_key->compare(0, 4, std::string("ASIA")) == 0) {
     // Create a Custom Curl header for the session token.
-    // The _curl_header_list created by curl_slist_append must be manually freed
-    // (see https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html)
     auto session_token =
       detail::unwrap_or_env(std::move(aws_session_token),
                             "AWS_SESSION_TOKEN",
                             "When using temporary credentials, AWS_SESSION_TOKEN must be set.");
     std::stringstream ss;
     ss << "x-amz-security-token: " << session_token.value();
-    _curl_header_list = curl_slist_append(NULL, ss.str().c_str());
-    KVIKIO_EXPECT(_curl_header_list != nullptr,
-                  "Failed to create curl header for AWS token",
-                  std::runtime_error);
+    _curl_header_list = detail::make_curl_header_list({ss.str()});
   }
 }
 
@@ -506,8 +511,6 @@ S3Endpoint::S3Endpoint(std::pair<std::string, std::string> bucket_and_object_nam
 {
   KVIKIO_NVTX_FUNC_RANGE();
 }
-
-S3Endpoint::~S3Endpoint() { curl_slist_free_all(_curl_header_list); }
 
 std::string S3Endpoint::str() const { return _url; }
 
