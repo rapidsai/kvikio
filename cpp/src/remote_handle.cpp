@@ -155,34 +155,6 @@ void BounceBufferH2D::reset_for_retry() noexcept
   _host_offset = 0;
 }
 
-std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string const& url)
-{
-  auto curl = create_curl_handle();
-
-  endpoint.setopt(curl);
-  curl.setopt(CURLOPT_NOBODY, 1L);
-  curl.setopt(CURLOPT_FOLLOWLOCATION, 1L);
-  {
-    detail::ScopedTimer const probe{detail::count_remote_size_probe};
-    curl.perform();
-  }
-  curl_off_t cl;
-  curl.getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
-  KVIKIO_EXPECT(
-    cl >= 0,
-    "cannot get size of " + endpoint.str() + ", content-length not provided by the server",
-    std::runtime_error);
-  return static_cast<std::size_t>(cl);
-}
-
-void setup_range_request_impl(CurlHandle& curl, std::size_t file_offset, std::size_t size)
-{
-  KVIKIO_EXPECT(size > 0, "cannot create a zero-size range request", std::invalid_argument);
-  std::string const byte_range =
-    std::to_string(file_offset) + "-" + std::to_string(file_offset + size - 1);
-  curl.setopt(CURLOPT_RANGE, byte_range.c_str());
-}
-
 }  // namespace detail
 
 namespace {
@@ -359,7 +331,7 @@ std::string HttpEndpoint::str() const { return _url; }
 std::size_t HttpEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return detail::get_file_size_using_head_impl(*this, _url);
+  return detail::get_file_size_using_head_impl(*this);
 }
 
 void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
@@ -506,7 +478,7 @@ std::string S3Endpoint::str() const { return _url; }
 std::size_t S3Endpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return detail::get_file_size_using_head_impl(*this, _url);
+  return detail::get_file_size_using_head_impl(*this);
 }
 
 void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
@@ -551,7 +523,7 @@ std::string S3PublicEndpoint::str() const { return _url; }
 std::size_t S3PublicEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return detail::get_file_size_using_head_impl(*this, _url);
+  return detail::get_file_size_using_head_impl(*this);
 }
 
 void S3PublicEndpoint::setup_range_request(CurlHandle& curl,

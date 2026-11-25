@@ -5,12 +5,12 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/remote_handle.hpp>
 
 namespace kvikio {
@@ -131,8 +131,7 @@ class AzureBlobOAuthEndpoint : public RemoteEndpoint {
   // The URL that is sent, with special characters in the path encoded.
   std::string _encoded_url;
   // The `Authorization` and `x-ms-version` headers, as the list that libcurl takes.
-  // `curl_slist_free_all()` frees the list.
-  std::unique_ptr<curl_slist, void (*)(curl_slist*)> _headers;
+  detail::CurlHeaderList _headers;
 
  public:
   /**
@@ -149,9 +148,37 @@ class AzureBlobOAuthEndpoint : public RemoteEndpoint {
   explicit AzureBlobOAuthEndpoint(std::string url, std::optional<std::string> token = std::nullopt);
 
   ~AzureBlobOAuthEndpoint() override = default;
+
+  /**
+   * @brief Set the URL of the blob and the `Authorization` and `x-ms-version` headers on a curl
+   * handle.
+   *
+   * @param curl The curl handle.
+   */
   void setopt(CurlHandle& curl) override;
+
+  /**
+   * @brief Get the URL of the blob as given to the constructor.
+   *
+   * @return The URL.
+   */
   std::string str() const override;
+
+  /**
+   * @brief Get the size of the blob from a HEAD request.
+   *
+   * @return The size of the blob in bytes.
+   */
   std::size_t get_file_size() override;
+
+  /**
+   * @brief Set up a curl handle to read part of the blob, with the range in a `Range` header.
+   *
+   * @param curl The curl handle.
+   * @param file_offset The offset in the blob of the first byte to read.
+   * @param size The number of bytes to read.
+   * @exception std::invalid_argument if `size` is 0.
+   */
   void setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size) override;
 
   /**

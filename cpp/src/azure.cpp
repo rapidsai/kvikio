@@ -18,6 +18,7 @@
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/azure_shared_key.hpp>
 #include <kvikio/detail/crypto.hpp>
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/detail/env.hpp>
 #include <kvikio/detail/nvtx.hpp>
 #include <kvikio/detail/remote_handle.hpp>
@@ -172,9 +173,7 @@ bool AzureBlobSharedKeyEndpoint::is_url_valid(std::string const& url) noexcept
 }
 
 AzureBlobOAuthEndpoint::AzureBlobOAuthEndpoint(std::string url, std::optional<std::string> token)
-  : RemoteEndpoint{RemoteEndpointType::AZURE_BLOB_OAUTH},
-    _url{std::move(url)},
-    _headers{nullptr, curl_slist_free_all}
+  : RemoteEndpoint{RemoteEndpointType::AZURE_BLOB_OAUTH}, _url{std::move(url)}
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto blob_url = parse_blob_url(_url);
@@ -192,12 +191,9 @@ AzureBlobOAuthEndpoint::AzureBlobOAuthEndpoint(std::string url, std::optional<st
     !access_token->empty(), "Azure Blob OAuth: the token is empty.", std::invalid_argument);
 
   // Azure rejects a request with a bearer token unless it also has an `x-ms-version` header.
-  for (auto const& header : {std::format("Authorization: Bearer {}", access_token.value()),
-                             std::format("x-ms-version: {}", detail::azure_storage_api_version)}) {
-    auto* const list_head = curl_slist_append(_headers.get(), header.c_str());
-    KVIKIO_EXPECT(list_head != nullptr, "curl_slist_append() failed", std::runtime_error);
-    if (_headers == nullptr) { _headers.reset(list_head); }
-  }
+  _headers = detail::make_curl_header_list(
+    {std::format("Authorization: Bearer {}", access_token.value()),
+     std::format("x-ms-version: {}", detail::azure_storage_api_version)});
 }
 
 void AzureBlobOAuthEndpoint::setopt(CurlHandle& curl)
@@ -212,7 +208,7 @@ std::string AzureBlobOAuthEndpoint::str() const { return _url; }
 std::size_t AzureBlobOAuthEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return detail::get_file_size_using_head_impl(*this, _url);
+  return detail::get_file_size_using_head_impl(*this);
 }
 
 void AzureBlobOAuthEndpoint::setup_range_request(CurlHandle& curl,
