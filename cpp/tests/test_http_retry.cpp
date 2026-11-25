@@ -17,6 +17,7 @@
 
 #include <kvikio/defaults.hpp>
 #include <kvikio/detail/http_retry.hpp>
+#include <kvikio/shim/libcurl.hpp>
 
 using kvikio::detail::HttpRetryPolicy;
 using kvikio::detail::RetryDecision;
@@ -196,4 +197,24 @@ TEST(HttpRetryTest, invalid_arguments_are_rejected)
   auto const policy = unlimited_policy();
   EXPECT_THROW(std::ignore = policy.evaluate(CURLE_OPERATION_TIMEDOUT, 0, 0, "", error_prefix),
                std::invalid_argument);
+}
+
+TEST(HttpRetryTest, header_builder_runs_once_per_attempt)
+{
+  auto const original_max_attempts = kvikio::defaults::http_max_attempts();
+  kvikio::defaults::set_http_max_attempts(3);
+
+  // Nothing listens on port 1. Each attempt fails with CURLE_COULDNT_CONNECT, which is retryable.
+  auto curl = create_curl_handle();
+  curl.setopt(CURLOPT_URL, "http://127.0.0.1:1/");
+  std::size_t num_calls = 0;
+  curl.set_per_attempt_header_builder([&num_calls] {
+    ++num_calls;
+    return std::vector<std::string>{};
+  });
+
+  EXPECT_THROW(curl.perform(), std::runtime_error);
+  EXPECT_EQ(num_calls, 3);
+
+  kvikio::defaults::set_http_max_attempts(original_max_attempts);
 }
