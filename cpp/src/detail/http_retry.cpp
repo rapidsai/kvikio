@@ -37,6 +37,10 @@ bool HttpRetryPolicy::is_retryable(CURLcode curl_code, long http_code) const
     case CURLE_COULDNT_CONNECT:
     case CURLE_RECV_ERROR:
     case CURLE_SEND_ERROR:
+    // A connection reset during the TLS handshake of a new connection ("Recv/Send failure:
+    // Connection reset by peer" while connecting) is as transient as one on an established
+    // connection. Certificate verification failures have their own code and stay fatal.
+    case CURLE_SSL_CONNECT_ERROR:
     case CURLE_PARTIAL_FILE:
     case CURLE_GOT_NOTHING: return true;
     default: break;
