@@ -58,7 +58,7 @@ class AzureBlobSharedKeyEndpoint : public RemoteEndpoint {
    * If more than one of these variables is set, all must have the same value.
    *
    * @param url The URL of the blob, `https://<account>.blob.core.windows.net/<container>/<blob>`,
-   * without a query.
+   * without a query. See `is_url_valid()` for the forms that are not accepted.
    * @param account_key The storage account key, in base64 as Azure shows it. If not given, the key
    * comes from one of the environment variables listed above.
    * @exception std::invalid_argument if `url` is not valid for this endpoint, if no account key is
@@ -108,7 +108,12 @@ class AzureBlobSharedKeyEndpoint : public RemoteEndpoint {
    * @brief Whether the given URL is valid for the Azure Blob endpoint with Shared Key.
    *
    * A valid URL has the form `https://<account>.blob.core.windows.net/<container>/<blob>` and has
-   * no query.
+   * no query. These forms are currently not accepted:
+   * - Other Azure clouds, such as `https://<account>.blob.core.chinacloudapi.cn/...`
+   * - Custom domains
+   * - Data Lake URLs, such as `https://<account>.dfs.core.windows.net/...`
+   * - The path-style URLs of the Azurite emulator, such as
+   *   `http://127.0.0.1:10000/devstoreaccount1/<container>/<blob>`.
    *
    * @param url A URL.
    * @return Boolean answer.
