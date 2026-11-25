@@ -300,7 +300,7 @@ class MultiPollReactor {
    * @param transfer The transfer. Moved into `_in_flight` on success, left in place otherwise. A
    * refused transfer holds no limiter slot afterwards, even if it arrived with one.
    * @param pass The current pass's scratch state. Updated with why the transfer was refused.
-   * @return Whether the transfer is now in flight.
+   * @return Whether the transfer is now in flight or has failed.
    * @exception std::runtime_error if `curl_multi_add_handle` fails. The transfer is left in place
    * for `fail_all_pending()` to resolve.
    */

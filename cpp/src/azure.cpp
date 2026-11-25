@@ -168,6 +168,8 @@ bool AzureBlobSharedKeyEndpoint::is_url_valid(std::string const& url) noexcept
   try {
     return parse_blob_url(url).has_value();
   } catch (...) {
+    // `parse_blob_url()` returns std::nullopt for a URL that libcurl cannot parse. In theory it may
+    // throw `std::regex_error` or `std::bad_alloc`.
     return false;
   }
 }
