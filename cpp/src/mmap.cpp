@@ -134,10 +134,10 @@ std::size_t perform_prefault(void* buf, std::size_t size)
   if (num_bytes > 0) {
     detail::disable_read_optimization(buf);
     touched_bytes += num_bytes;
-    if (size >= num_bytes) { size -= num_bytes; }
+    // The whole range lies before the first page boundary.
+    if (num_bytes >= size) { return touched_bytes; }
+    size -= num_bytes;
   }
-
-  if (num_bytes >= size) { return touched_bytes; }
 
   while (size > 0) {
     detail::disable_read_optimization(aligned_addr);
