@@ -62,8 +62,8 @@ class BasicIOTest : public testing::Test {
     TempDir tmp_dir{false};
     _filepath = tmp_dir.path() / "test";
 
-    _dev_a = std::move(DevBuffer<value_type>::arange(1024ull * 1024ull + 124ull));
-    _dev_b = std::move(DevBuffer<value_type>::zero_like(_dev_a));
+    _dev_a = DevBuffer<value_type>::arange(1024ull * 1024ull + 124ull);
+    _dev_b = DevBuffer<value_type>::zero_like(_dev_a);
   }
 
   void TearDown() override {}

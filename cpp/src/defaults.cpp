@@ -59,9 +59,9 @@ std::vector<int> getenv_or(std::string_view env_var_name, std::vector<int> defau
 {
   KVIKIO_NVTX_FUNC_RANGE();
   auto* const env_val = std::getenv(env_var_name.data());
-  if (env_val == nullptr) { return std::move(default_val); }
+  if (env_val == nullptr) { return default_val; }
   std::string const int_str(env_val);
-  if (int_str.empty()) { return std::move(default_val); }
+  if (int_str.empty()) { return default_val; }
 
   return detail::parse_http_status_codes(env_var_name, int_str);
 }

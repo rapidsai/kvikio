@@ -343,7 +343,7 @@ TEST_F(ObservationTest, a_blocking_call_still_reports_a_physical_transfer)
   // its logical one. It is emitted regardless, so that a physical-only consumer sees every byte.
   kvikio::test::DevBuffer<std::uint64_t> const dev{_data.size()};
   {
-    Recorder::Capture const capture{{ObservationKind::PHYSICAL}};
+    Recorder::Capture const capture{ObservationKind::PHYSICAL};
     kvikio::FileHandle f{_filepath, "r"};
     EXPECT_EQ(f.read(dev.ptr, nbytes(), 0, 0), nbytes());
   }
@@ -381,7 +381,7 @@ TEST(ObservationBasics, an_unfinished_transfer_is_recorded_as_failed)
 {
   // A task that throws, and a request the reactor abandons, both leave the recorder without a
   // `finish()`. The destructor is the only thing that reports either.
-  Recorder::Capture const capture{{ObservationKind::PHYSICAL}};
+  Recorder::Capture const capture{ObservationKind::PHYSICAL};
   kvikio::detail::PhysicalObservationContext const context{
     .backend = IoBackend::REMOTE_HTTP, .direction = TransferDirection::READ, .parent_id = 42};
   {

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -55,16 +55,17 @@ void NvtxManager::rename_current_thread(std::string_view new_name) noexcept
   std::stringstream ss;
   ss << new_name << " (" << tid << ")";
 
-  nvtxResourceAttributes_t attribs = {0};
-  attribs.version                  = NVTX_VERSION;
-  attribs.size                     = NVTX_RESOURCE_ATTRIB_STRUCT_SIZE;
-  attribs.identifierType           = NVTX_RESOURCE_TYPE_GENERIC_THREAD_NATIVE;
-  attribs.identifier.ullValue      = tid;
-  attribs.messageType              = NVTX_MESSAGE_TYPE_ASCII;
-  auto st                          = ss.str();
-  attribs.message.ascii            = st.c_str();
-  nvtxResourceHandle_t handle =
-    nvtxDomainResourceCreate(nvtx3::domain::get<libkvikio_domain>(), &attribs);
+  nvtxResourceAttributes_t attribs{};
+  attribs.version             = NVTX_VERSION;
+  attribs.size                = NVTX_RESOURCE_ATTRIB_STRUCT_SIZE;
+  attribs.identifierType      = NVTX_RESOURCE_TYPE_GENERIC_THREAD_NATIVE;
+  attribs.identifier.ullValue = tid;
+  attribs.messageType         = NVTX_MESSAGE_TYPE_ASCII;
+  auto st                     = ss.str();
+  attribs.message.ascii       = st.c_str();
+  // The resource handle is intentionally not kept: the name stays registered with NVTX for the
+  // lifetime of the thread.
+  nvtxDomainResourceCreate(nvtx3::domain::get<libkvikio_domain>(), &attribs);
 }
 
 }  // namespace kvikio

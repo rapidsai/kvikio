@@ -110,8 +110,8 @@ CUresult cudaAPI::cuda_memcpy_batch_async(std::span<CUdeviceptr const> dsts,
 
 #if CUDA_VERSION >= 12080
   if (cudaAPI::instance().MemcpyBatchAsync && stream != nullptr) {
-    CUmemcpyAttributes attrs{.srcAccessOrder =
-                               CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM};
+    CUmemcpyAttributes attrs{};
+    attrs.srcAccessOrder     = CUmemcpySrcAccessOrder_enum::CU_MEMCPY_SRC_ACCESS_ORDER_STREAM;
     std::size_t attrs_idxs[] = {0};
     // cuMemcpyBatchAsync does not translate the host address of `cuMemHostRegister`-ed memory to
     // its device address, unlike cuMemcpyAsync. The two differ when

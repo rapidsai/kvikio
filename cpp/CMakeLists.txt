@@ -63,6 +63,23 @@ option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 option(KvikIO_USE_STATIC_OPENSSL "Bundle pinned OpenSSL static libraries for wheels" OFF)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
 option(KvikIO_BUILD_NSYS_PLUGIN "Configure CMake to build the Nsight Systems NIC plugin" ON)
+# Default to warnings-as-errors only when KvikIO is the top-level project, so that downstream
+# projects building KvikIO from source (e.g. via CPM) with a newer compiler are not broken by new
+# warnings.
+option(KvikIO_WARNINGS_AS_ERRORS "Treat compiler warnings as errors for KvikIO's own targets"
+       ${PROJECT_IS_TOP_LEVEL}
+)
+
+# Warning flags for KvikIO's own targets (library, tests, benchmarks, examples, plugins). They are
+# applied as PRIVATE compile options, so they never propagate to consumers of kvikio::kvikio.
+set(KVIKIO_CXX_FLAGS "")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  list(APPEND KVIKIO_CXX_FLAGS -Wall -Wextra -Wno-unknown-pragmas)
+  if(KvikIO_WARNINGS_AS_ERRORS)
+    list(APPEND KVIKIO_CXX_FLAGS -Werror)
+  endif()
+endif()
+message(VERBOSE "KVIKIO: KVIKIO_CXX_FLAGS = '${KVIKIO_CXX_FLAGS}'.")
 
 # ##################################################################################################
 # * conda environment ------------------------------------------------------------------------------
@@ -246,6 +263,8 @@ target_include_directories(
 target_compile_definitions(
   kvikio PRIVATE "KVIKIO_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LOG_LEVEL_${KVIKIO_LOGGING_LEVEL}"
 )
+
+target_compile_options(kvikio PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
 
 # Notice, we do not link to cuda or cufile since KvikIO opens them manually using `dlopen()`.
 target_link_libraries(

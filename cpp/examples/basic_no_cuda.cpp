@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -24,9 +24,8 @@ void check(bool condition)
   }
 }
 
-constexpr int NELEM      = 1024;                 // Number of elements used throughout the test
-constexpr int SIZE       = NELEM * sizeof(int);  // Size of the memory allocations (in bytes)
-constexpr int LARGE_SIZE = 8 * SIZE;             // LARGE SIZE to test partial submit (in bytes)
+constexpr int NELEM = 1024;                 // Number of elements used throughout the test
+constexpr int SIZE  = NELEM * sizeof(int);  // Size of the memory allocations (in bytes)
 
 int main()
 {

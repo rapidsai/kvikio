@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -115,7 +115,6 @@ UrlParser::UrlComponents UrlParser::parse(std::string const& url,
     curl_url_set(handle.get(), CURLUPART_URL, url.c_str(), bitmask_url_flags.value()));
 
   UrlComponents components;
-  CURLUcode err_code{};
 
   components.scheme = extract_component(
     handle, CURLUPART_SCHEME, bitmask_component_flags.value(), CURLUcode::CURLUE_NO_SCHEME);
@@ -142,8 +141,9 @@ UrlBuilder::UrlBuilder(std::string const& url, std::optional<unsigned int> bitma
     curl_url_set(_handle.get(), CURLUPART_URL, url.c_str(), bitmask_url_flags.value()));
 }
 
+// TODO: `bitmask_url_flags` is currently ignored; each component is set with the default flags.
 UrlBuilder::UrlBuilder(UrlParser::UrlComponents const& components,
-                       std::optional<unsigned int> bitmask_url_flags)
+                       [[maybe_unused]] std::optional<unsigned int> bitmask_url_flags)
 {
   // Start with an empty builder
   // Set each component if present

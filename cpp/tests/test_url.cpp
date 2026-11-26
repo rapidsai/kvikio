@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -215,7 +215,7 @@ TEST(UrlTest, encoding_table)
     std::map<char, std::string> mapping{
       {'\x00', "%00"}, {'\x1A', "%1A"}, {'\x1F', "%1F"}, {'\x7F', "%7F"}};
 
-    for (auto const [question, answer] : mapping) {
+    for (auto const& [question, answer] : mapping) {
       // Construct a string view for the character, and specify the size explicitly to take account
       // of NUL
       std::string sv{&question, 1};

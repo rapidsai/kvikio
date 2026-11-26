@@ -19,12 +19,7 @@ if(CUDAToolkit_FOUND)
   )
   target_link_libraries(BASIC_IO_EXAMPLE PRIVATE kvikio::kvikio CUDA::cudart_static)
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
-    target_compile_options(
-      BASIC_IO_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
-    )
-  endif()
+  target_compile_options(BASIC_IO_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
 
   install(
     TARGETS BASIC_IO_EXAMPLE
@@ -47,12 +42,9 @@ set_target_properties(
 )
 target_link_libraries(BASIC_NO_CUDA_EXAMPLE PRIVATE kvikio::kvikio)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  set(KVIKIO_CXX_FLAGS "-Wall;-Werror;-Wno-unknown-pragmas")
-  target_compile_options(
-    BASIC_NO_CUDA_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
-  )
-endif()
+target_compile_options(
+  BASIC_NO_CUDA_EXAMPLE PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
+)
 
 install(
   TARGETS BASIC_NO_CUDA_EXAMPLE
