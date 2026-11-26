@@ -144,9 +144,10 @@ class AzureBlobOAuthEndpoint : public RemoteEndpoint {
    * request.
    *
    * @param url The URL of the blob, `https://<account>.blob.core.windows.net/<container>/<blob>`,
-   * without a query.
+   * without a query. See `is_url_valid()` for the forms that are not accepted.
    * @param token The access token, issued for Azure Storage (`https://storage.azure.com/`). If not
-   * given, the value of the `AZURE_STORAGE_TOKEN` environment variable is used.
+   * given, the value of the `AZURE_STORAGE_TOKEN` environment variable is used. The Rust crate
+   * object_store uses the same name.
    * @exception std::invalid_argument if `url` is not valid for this endpoint, if no token is given
    * or set in `AZURE_STORAGE_TOKEN`, or if the token is empty.
    */
@@ -190,7 +191,7 @@ class AzureBlobOAuthEndpoint : public RemoteEndpoint {
    * @brief Whether the given URL is valid for the Azure Blob endpoint with OAuth.
    *
    * A valid URL has the form `https://<account>.blob.core.windows.net/<container>/<blob>` and has
-   * no query.
+   * no query. The same forms are accepted as by `AzureBlobSharedKeyEndpoint::is_url_valid()`.
    *
    * @param url A URL.
    * @return Boolean answer.
