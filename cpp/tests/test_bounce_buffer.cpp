@@ -3,10 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+
 #include <gtest/gtest.h>
 
 #include <kvikio/bounce_buffer.hpp>
+#include <kvikio/defaults.hpp>
 #include <kvikio/error.hpp>
+#include <kvikio/utils.hpp>
 
 #include "utils/utils.hpp"
 
@@ -119,4 +125,37 @@ TEST_F(BounceBufferTest, old_size_buffer_deallocated_not_returned)
   EXPECT_EQ(pool.num_free_buffers(), 0);
 
   kvikio::defaults::set_bounce_buffer_size(original_size);
+}
+
+TEST_F(BounceBufferTest, pinned_allocation_with_any_prefault_thread_count)
+{
+  auto const original_nthreads = kvikio::defaults::bounce_buffer_prefault_nthreads();
+  std::size_t const max_size   = 37 * 1024 * 1024;
+  void* dev{};
+  KVIKIO_CHECK_CUDA(cudaMalloc(&dev, max_size));
+
+  for (unsigned int nthreads : {0U, 1U, 8U}) {
+    kvikio::defaults::set_bounce_buffer_prefault_nthreads(nthreads);
+    for (std::size_t size :
+         {std::size_t{1}, std::size_t{4097}, std::size_t{3 * 1024 * 1024 + 1}, max_size}) {
+      kvikio::CudaPageAlignedPinnedAllocator allocator;
+      auto* buffer = static_cast<char*>(allocator.allocate(size));
+      EXPECT_EQ(reinterpret_cast<std::uintptr_t>(buffer) % kvikio::get_page_size(), 0);
+
+      // Pinned, and usable for a round trip through the device
+      unsigned int flags{};
+      KVIKIO_CHECK_CUDA(cudaHostGetFlags(&flags, buffer));
+      std::memset(buffer, 0x5a, size);
+      KVIKIO_CHECK_CUDA(cudaMemcpy(dev, buffer, size, cudaMemcpyHostToDevice));
+      std::memset(buffer, 0, size);
+      KVIKIO_CHECK_CUDA(cudaMemcpy(buffer, dev, size, cudaMemcpyDeviceToHost));
+      EXPECT_EQ(buffer[0], 0x5a);
+      EXPECT_EQ(buffer[size - 1], 0x5a);
+
+      allocator.deallocate(buffer, size);
+    }
+  }
+
+  kvikio::defaults::set_bounce_buffer_prefault_nthreads(original_nthreads);
+  KVIKIO_CHECK_CUDA(cudaFree(dev));
 }

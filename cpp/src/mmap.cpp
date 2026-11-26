@@ -29,55 +29,6 @@ namespace kvikio {
 
 namespace detail {
 /**
- * @brief Prevent the compiler from optimizing away the read of a byte from a given address
- *
- * @param addr The address to read from
- */
-void disable_read_optimization(void* addr)
-{
-  auto addr_byte = static_cast<std::byte*>(addr);
-  std::byte tmp{};
-  asm volatile("" : "+r,m"(tmp = *addr_byte) : : "memory");
-}
-
-/**
- * @brief Change an address `p` by a signed difference of `v`
- *
- * @tparam Integer Signed integer type
- * @param p An address
- * @param v Change of `p` in bytes
- * @return A new address as a result of applying `v` on `p`
- *
- * @note Technically, if the initial pointer is non-null, or does not point to an element of an
- * array object, (p + v) is undefined behavior (https://eel.is/c++draft/expr.add#4). However,
- * (p + v) on dynamic allocation is generally acceptable in practice, as long as users guarantee
- * that the resulting pointer points to a valid region.
- */
-template <typename Integer>
-void* pointer_add(void* p, Integer v)
-{
-  static_assert(std::is_integral_v<Integer>);
-  return static_cast<std::byte*>(p) + v;
-}
-
-/**
- * @brief The distance in bytes between pointer `p1` and `p2`
- *
- * @param p1 The first pointer
- * @param p2 The second pointer
- * @return Signed result of (`p1` - `p2`). Both pointers are cast to std::byte* before subtraction.
- *
- * @note Technically, if two pointers do not point to elements from the same array, (p1 - p2) is
- * undefined behavior (https://eel.is/c++draft/expr.add#5). However, (p1 - p2) on dynamic allocation
- * is generally acceptable in practice, as long as users guarantee that both pointers are within the
- * valid region.
- */
-std::ptrdiff_t pointer_diff(void* p1, void* p2)
-{
-  return static_cast<std::byte*>(p1) - static_cast<std::byte*>(p2);
-}
-
-/**
  * @brief Whether the current device supports address translation service (ATS), whereby the CPU and
  * GPU share a single page table.
  *
@@ -109,48 +60,6 @@ bool is_ats_available()
 
   // Look up the record
   return ats_availability.at(device_handle);
-}
-
-/**
- * @brief For the specified memory range, touch the first byte of each page to cause page fault.
- *
- * For the first page, if the starting address is not aligned to the page boundary, the byte at
- * that address is touched.
- *
- * @param buf The starting memory address
- * @param size The size in bytes of the memory range
- * @return The number of bytes touched
- */
-std::size_t perform_prefault(void* buf, std::size_t size)
-{
-  KVIKIO_NVTX_FUNC_RANGE();
-  auto const page_size = get_page_size();
-  auto aligned_addr    = detail::align_up(buf, page_size);
-
-  std::size_t touched_bytes{0};
-
-  // If buf is not aligned, read the byte at buf.
-  auto num_bytes = detail::pointer_diff(aligned_addr, buf);
-  if (num_bytes > 0) {
-    detail::disable_read_optimization(buf);
-    touched_bytes += num_bytes;
-    if (size >= num_bytes) { size -= num_bytes; }
-  }
-
-  if (num_bytes >= size) { return touched_bytes; }
-
-  while (size > 0) {
-    detail::disable_read_optimization(aligned_addr);
-    if (size >= page_size) {
-      aligned_addr = detail::pointer_add(aligned_addr, page_size);
-      size -= page_size;
-      touched_bytes += page_size;
-    } else {
-      touched_bytes += size;
-      break;
-    }
-  }
-  return touched_bytes;
 }
 
 /**

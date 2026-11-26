@@ -249,7 +249,8 @@ bool MultiPollReactor::try_admit(std::unique_ptr<RemoteMultiTransfer>& transfer,
     std::optional<CudaPinnedBounceBufferPool::Buffer> bounce_buffer;
     {
       PushAndPopContext c(transfer->device_ctx);
-      bounce_buffer = BounceBufferCache::instance().try_get(transfer->device_ctx);
+      bounce_buffer =
+        BounceBufferCache::instance().try_get(transfer->device_ctx, transfer->ctx.size);
     }
     if (!bounce_buffer.has_value()) {
       pass.outcome.deferred_for_resource = true;

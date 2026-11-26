@@ -73,6 +73,7 @@ class ConfigContextManager:
             "task_size",
             "gds_threshold",
             "bounce_buffer_size",
+            "bounce_buffer_prefault_nthreads",
             "http_max_attempts",
             "http_status_codes",
             "http_timeout",
@@ -155,6 +156,7 @@ def set(*config) -> ConfigContextManager | None:
         - ``"task_size"``
         - ``"gds_threshold"``
         - ``"bounce_buffer_size"``
+        - ``"bounce_buffer_prefault_nthreads"``
         - ``"http_max_attempts"``
         - ``"http_status_codes"``
         - ``"http_timeout"``
@@ -236,6 +238,7 @@ def get(config_name: str) -> Any:
         - ``"task_size"``
         - ``"gds_threshold"``
         - ``"bounce_buffer_size"``
+        - ``"bounce_buffer_prefault_nthreads"``
         - ``"http_max_attempts"``
         - ``"http_status_codes"``
         - ``"http_timeout"``
