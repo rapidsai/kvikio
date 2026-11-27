@@ -130,7 +130,8 @@ std::size_t perform_prefault(void* buf, std::size_t size)
   std::size_t touched_bytes{0};
 
   // If buf is not aligned, read the byte at buf.
-  auto num_bytes = detail::pointer_diff(aligned_addr, buf);
+  // `aligned_addr` is never below `buf`, so the difference is non-negative.
+  auto const num_bytes = static_cast<std::size_t>(detail::pointer_diff(aligned_addr, buf));
   if (num_bytes > 0) {
     detail::disable_read_optimization(buf);
     touched_bytes += num_bytes;
@@ -447,8 +448,7 @@ std::future<std::size_t> MmapHandle::pread(void* buf,
 
   // Copy `actual_size` bytes from `src_mapped_buf` (src) to `buf` (dst)
   auto const src_mapped_buf = detail::pointer_add(_buf, offset - _initial_map_offset);
-  auto op                   = [this,
-             src_mapped_buf      = src_mapped_buf,
+  auto op                   = [src_mapped_buf      = src_mapped_buf,
              is_dst_buf_host_mem = is_dst_buf_host_mem,
              ctx                 = ctx,
              physical](void* dst_buf,

@@ -48,6 +48,7 @@ function(kvikio_add_test)
                CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
   )
+  target_compile_options(${_KVIKIO_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
   target_link_libraries(
     ${_KVIKIO_NAME}
     PRIVATE kvikio::kvikio GTest::gmock GTest::gmock_main GTest::gtest GTest::gtest_main
@@ -118,6 +119,7 @@ function(kvikio_add_nsys_plugin_test)
                CXX_STANDARD_REQUIRED ON
   )
   target_include_directories(${_KVIKIO_NAME} PRIVATE ${_plugin_include_dirs})
+  target_compile_options(${_KVIKIO_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>")
   target_link_libraries(
     ${_KVIKIO_NAME} PRIVATE GTest::gmock GTest::gmock_main GTest::gtest GTest::gtest_main
   )

@@ -164,10 +164,9 @@ namespace {
  * `S3EndpointWithPresignedUrl`, which does not allow `HEAD` request.
  *
  * @param endpoint The remote endpoint
- * @param url The URL of the remote file
  * @return The file size
  */
-std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint, std::string const& url)
+std::size_t get_file_size_using_head_impl(RemoteEndpoint& endpoint)
 {
   auto curl = create_curl_handle();
 
@@ -360,7 +359,7 @@ std::string HttpEndpoint::str() const { return _url; }
 std::size_t HttpEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return get_file_size_using_head_impl(*this, _url);
+  return get_file_size_using_head_impl(*this);
 }
 
 void HttpEndpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
@@ -514,7 +513,7 @@ std::string S3Endpoint::str() const { return _url; }
 std::size_t S3Endpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return get_file_size_using_head_impl(*this, _url);
+  return get_file_size_using_head_impl(*this);
 }
 
 void S3Endpoint::setup_range_request(CurlHandle& curl, std::size_t file_offset, std::size_t size)
@@ -559,7 +558,7 @@ std::string S3PublicEndpoint::str() const { return _url; }
 std::size_t S3PublicEndpoint::get_file_size()
 {
   KVIKIO_NVTX_FUNC_RANGE();
-  return get_file_size_using_head_impl(*this, _url);
+  return get_file_size_using_head_impl(*this);
 }
 
 void S3PublicEndpoint::setup_range_request(CurlHandle& curl,
@@ -1004,8 +1003,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     auto transfer                   = std::make_unique<detail::RemoteMultiTransfer>();
     // MULTI_POLL uses multi handle's DNS cache sharing, and does not need the share handle.
     transfer->curl = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
-                                                  detail::fix_conda_file_path_hack(__FILE__),
-                                                  KVIKIO_STRINGIFY(__LINE__),
                                                   /* use_shared_dns_cache = */ false);
     _endpoint->setopt(*transfer->curl);
     _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -154,10 +154,8 @@ TEST_F(CudaEventPoolTest, observability_counters_consistent)
 
   // One full lifecycle: net effect on per-context count is either 0 (a pooled event was reused
   // and returned) or +1 (the pool was empty, a new event was created and then returned).
-  CUevent handle{};
   {
     auto e = pool.get();
-    handle = e.get();
   }
 
   auto total_after       = pool.total_free_events();

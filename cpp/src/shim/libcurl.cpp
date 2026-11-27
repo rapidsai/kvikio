@@ -90,10 +90,7 @@ void LibCurl::retain_handle(UniqueHandlePtr handle)
   _free_curl_handles.push_back(std::move(handle));
 }
 
-CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
-                       std::string source_file,
-                       std::string source_line,
-                       bool use_shared_dns_cache)
+CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle, bool use_shared_dns_cache)
   : _handle{std::move(handle)}
 {
   // Need CURLOPT_NOSIGNAL to support threading, see

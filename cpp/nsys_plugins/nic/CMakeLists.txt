@@ -21,11 +21,9 @@ target_link_libraries(
   kvikio_nic_nsys_plugin PRIVATE nvtx3::nvtx3-cpp Threads::Threads ${CMAKE_DL_LIBS}
 )
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  target_compile_options(
-    kvikio_nic_nsys_plugin PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:-Wall;-Werror;-Wno-unknown-pragmas>"
-  )
-endif()
+target_compile_options(
+  kvikio_nic_nsys_plugin PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KVIKIO_CXX_FLAGS}>"
+)
 
 install(
   TARGETS kvikio_nic_nsys_plugin
