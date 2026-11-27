@@ -209,14 +209,17 @@ if(KvikIO_REMOTE_SUPPORT)
   list(
     APPEND
     SOURCES
+    "src/azure.cpp"
     "src/hdfs.cpp"
     "src/remote_handle.cpp"
     "src/detail/azure_shared_key.cpp"
     "src/detail/crypto.cpp"
+    "src/detail/curl_header_list.cpp"
     "src/detail/curl_share.cpp"
     "src/detail/http_retry.cpp"
     "src/detail/multi_poll_reactor.cpp"
     "src/detail/remote_callback.cpp"
+    "src/detail/remote_handle.cpp"
     "src/detail/tls.cpp"
     "src/detail/transfer_plan.cpp"
     "src/detail/url.cpp"

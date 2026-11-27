@@ -19,6 +19,7 @@
 #include <curl/curl.h>
 
 #include <kvikio/defaults.hpp>
+#include <kvikio/detail/curl_header_list.hpp>
 #include <kvikio/detail/curl_share.hpp>
 #include <kvikio/detail/http_retry.hpp>
 #include <kvikio/detail/parallel_operation.hpp>
@@ -202,6 +203,23 @@ void count_http_connection_of(CURL* easy) noexcept
 
 void CurlHandle::clear_error_message() noexcept { _errbuf[0] = 0; }
 
+void CurlHandle::set_per_attempt_header_builder(
+  std::function<std::vector<std::string>()> header_builder)
+{
+  _header_builder = std::move(header_builder);
+}
+
+void CurlHandle::refresh_per_attempt_headers()
+{
+  if (!_header_builder) { return; }
+
+  auto headers = detail::make_curl_header_list(_header_builder());
+  setopt(CURLOPT_HTTPHEADER, headers.get());
+  // This assignment frees the old list, which libcurl no longer uses, and makes `_headers` own
+  // the new list.
+  _headers = std::move(headers);
+}
+
 void CurlHandle::perform() { perform({}); }
 
 void CurlHandle::perform(std::function<void()> const& on_retry)
@@ -211,6 +229,7 @@ void CurlHandle::perform(std::function<void()> const& on_retry)
 
   for (std::size_t attempt = 1;; ++attempt) {
     clear_error_message();
+    refresh_per_attempt_headers();
     auto const curl_code = curl_easy_perform(handle());
     detail::count_http_connection_of(handle());
 
