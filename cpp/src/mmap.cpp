@@ -124,6 +124,8 @@ bool is_ats_available()
 std::size_t perform_prefault(void* buf, std::size_t size)
 {
   KVIKIO_NVTX_FUNC_RANGE();
+  // An empty range touches nothing, so don't read the byte at buf.
+  if (size == 0) { return 0; }
   auto const page_size = get_page_size();
   auto aligned_addr    = detail::align_up(buf, page_size);
 
@@ -133,9 +135,9 @@ std::size_t perform_prefault(void* buf, std::size_t size)
   auto num_bytes = detail::pointer_diff(aligned_addr, buf);
   if (num_bytes > 0) {
     detail::disable_read_optimization(buf);
-    touched_bytes += num_bytes;
     // The whole range lies before the first page boundary.
-    if (num_bytes >= size) { return touched_bytes; }
+    if (static_cast<std::size_t>(num_bytes) >= size) { return size; }
+    touched_bytes += num_bytes;
     size -= num_bytes;
   }
 
