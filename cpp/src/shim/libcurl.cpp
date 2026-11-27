@@ -90,12 +90,7 @@ void LibCurl::retain_handle(UniqueHandlePtr handle)
   _free_curl_handles.push_back(std::move(handle));
 }
 
-// `source_file` and `source_line` are no longer used in error messages, but are kept for API
-// compatibility.
-CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle,
-                       [[maybe_unused]] std::string source_file,
-                       [[maybe_unused]] std::string source_line,
-                       bool use_shared_dns_cache)
+CurlHandle::CurlHandle(LibCurl::UniqueHandlePtr handle, bool use_shared_dns_cache)
   : _handle{std::move(handle)}
 {
   // Need CURLOPT_NOSIGNAL to support threading, see

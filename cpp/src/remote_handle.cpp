@@ -1003,8 +1003,6 @@ std::future<std::size_t> RemoteHandle::pread(void* buf,
     auto transfer                   = std::make_unique<detail::RemoteMultiTransfer>();
     // MULTI_POLL uses multi handle's DNS cache sharing, and does not need the share handle.
     transfer->curl = std::make_unique<CurlHandle>(LibCurl::instance().get_handle(),
-                                                  detail::fix_conda_file_path_hack(__FILE__),
-                                                  KVIKIO_STRINGIFY(__LINE__),
                                                   /* use_shared_dns_cache = */ false);
     _endpoint->setopt(*transfer->curl);
     _endpoint->setup_range_request(*transfer->curl, cur_off, subrange_size);

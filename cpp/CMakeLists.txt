@@ -63,12 +63,9 @@ option(KvikIO_BUILD_TESTS "Configure CMake to build tests" ON)
 option(KvikIO_USE_STATIC_OPENSSL "Bundle pinned OpenSSL static libraries for wheels" OFF)
 option(KvikIO_REMOTE_SUPPORT "Configure CMake to build with remote IO support" ON)
 option(KvikIO_BUILD_NSYS_PLUGIN "Configure CMake to build the Nsight Systems NIC plugin" ON)
-# Default to warnings-as-errors only when KvikIO is the top-level project, so that downstream
-# projects building KvikIO from source (e.g. via CPM) with a newer compiler are not broken by new
-# warnings.
-option(KvikIO_WARNINGS_AS_ERRORS "Treat compiler warnings as errors for KvikIO's own targets"
-       ${PROJECT_IS_TOP_LEVEL}
-)
+# Off by default so that local and downstream source builds (CPM, vcpkg, ...) are not broken by new
+# warnings from a different compiler. KvikIO's own CI and package builds turn it on explicitly.
+option(KvikIO_WARNINGS_AS_ERRORS "Treat compiler warnings as errors for KvikIO's own targets" OFF)
 
 # Warning flags for KvikIO's own targets (library, tests, benchmarks, examples, plugins). They are
 # applied as PRIVATE compile options, so they never propagate to consumers of kvikio::kvikio.

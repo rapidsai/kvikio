@@ -36,7 +36,7 @@ set(KvikIO_BUILD_BENCHMARKS OFF)
 set(KvikIO_BUILD_EXAMPLES OFF)
 set(KvikIO_BUILD_TESTS OFF)
 set(KvikIO_BUILD_NSYS_PLUGIN ON)
-# KvikIO is not the top-level project here, so opt back in to warnings-as-errors for wheel builds.
+# Treat warnings as errors in wheel builds.
 set(KvikIO_WARNINGS_AS_ERRORS ON)
 
 # Wheels bundle curl and need its security fixes plus a recent OpenSSL on the manylinux image.

@@ -29,7 +29,7 @@ outputs:
           export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
           set +x
 
-          ./build.sh -v -n libkvikio benchmarks
+          ./build.sh -v -n libkvikio benchmarks --cmake-args=\"-DKvikIO_WARNINGS_AS_ERRORS=ON\"
         secrets:
           - AWS_ACCESS_KEY_ID
           - AWS_SECRET_ACCESS_KEY
